@@ -310,6 +310,23 @@ function processReconcileChunk(): void {
 // so the reconciled view only contains fields meaningful across a selection.
 //
 // ---------------------------------------------------------------------------
+// Anchor fallback helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Elect a fallback anchor from remaining selected IDs after the current anchor
+ * has been deselected. Returns the last element of the Set (most-recently
+ * individually selected) or null if empty.
+ */
+function electFallbackAnchor(remainingIds: Set<string>): string | null {
+  if (remainingIds.size === 0) return null;
+  // Set iterates in insertion order; last element = most recently added.
+  let last: string | null = null;
+  for (const id of remainingIds) last = id;
+  return last;
+}
+
+// ---------------------------------------------------------------------------
 // State types
 // ---------------------------------------------------------------------------
 
@@ -427,10 +444,17 @@ export const useSelectionStore = create<SelectionState>()(
             }
           }
 
+          // Re-elect anchor if we just deselected the current anchor.
+          const newAnchor =
+            get().anchorId === id
+              ? electFallbackAnchor(newIds)
+              : undefined; // undefined = no change
+
           set((s) => ({
             selectedIds: newIds,
             reconciledView: newView,
             generationCounter: s.generationCounter + 1,
+            ...(newAnchor !== undefined ? { anchorId: newAnchor } : {}),
           }));
         } else {
           // Add
@@ -537,10 +561,18 @@ export const useSelectionStore = create<SelectionState>()(
           enqueueReconcile(Array.from(nextIds), /* fullRecompute */ true);
         }
 
+        // Re-elect anchor if the current anchor was among the removed IDs.
+        const { anchorId } = get();
+        const newAnchor =
+          anchorId !== null && toRemove.includes(anchorId)
+            ? electFallbackAnchor(nextIds)
+            : undefined; // undefined = no change
+
         set((s) => ({
           selectedIds: nextIds,
           reconciledView: newView,
           generationCounter: s.generationCounter + 1,
+          ...(newAnchor !== undefined ? { anchorId: newAnchor } : {}),
         }));
       },
 

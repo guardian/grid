@@ -566,3 +566,130 @@ describe("removeGroup", () => {
     expect(useSelectionStore.getState().generationCounter).toBeGreaterThan(before);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Anchor fallback on deselect
+// ---------------------------------------------------------------------------
+
+describe("anchor fallback on deselect", () => {
+  describe("toggle() re-elects anchor", () => {
+    it("elects the most-recently-added remaining ID when anchor is deselected", () => {
+      // Select A, then C — anchor ends up as C.
+      useSelectionStore.getState().toggle("img-0"); // select A
+      useSelectionStore.getState().setAnchor("img-0");
+      useSelectionStore.getState().toggle("img-2"); // select C
+      useSelectionStore.getState().setAnchor("img-2");
+
+      // Deselect C (the anchor).
+      useSelectionStore.getState().toggle("img-2");
+
+      const { anchorId, selectedIds } = useSelectionStore.getState();
+      // C is gone from selection.
+      expect(selectedIds.has("img-2")).toBe(false);
+      // Anchor falls back to A (last remaining element = most recently added).
+      expect(anchorId).toBe("img-0");
+    });
+
+    it("sets anchor to null when last selected image is deselected", () => {
+      useSelectionStore.getState().toggle("img-0");
+      useSelectionStore.getState().setAnchor("img-0");
+
+      // Deselect the only selected image.
+      useSelectionStore.getState().toggle("img-0");
+
+      expect(useSelectionStore.getState().anchorId).toBeNull();
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    });
+
+    it("does not change anchor when deselecting a non-anchor image", () => {
+      useSelectionStore.getState().toggle("img-0");
+      useSelectionStore.getState().setAnchor("img-0");
+      useSelectionStore.getState().toggle("img-1");
+
+      // Deselect img-1 (not the anchor).
+      useSelectionStore.getState().toggle("img-1");
+
+      expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    });
+
+    it("picks the last Set element as fallback (insertion order)", () => {
+      // Insert order: img-0, img-1, img-2, img-3.
+      useSelectionStore.getState().toggle("img-0");
+      useSelectionStore.getState().toggle("img-1");
+      useSelectionStore.getState().toggle("img-2");
+      useSelectionStore.getState().toggle("img-3");
+      useSelectionStore.getState().setAnchor("img-2");
+
+      // Deselect img-2 (the anchor).
+      useSelectionStore.getState().toggle("img-2");
+
+      // Last remaining in insertion order: img-3.
+      expect(useSelectionStore.getState().anchorId).toBe("img-3");
+    });
+  });
+
+  describe("remove() re-elects anchor", () => {
+    it("elects fallback when anchor is among removed IDs", () => {
+      useSelectionStore.setState({
+        selectedIds: new Set(["img-0", "img-1", "img-2"]),
+        anchorId: "img-2",
+      });
+
+      useSelectionStore.getState().remove(["img-2"]);
+
+      // Anchor falls back to last remaining: img-1 (last in Set insertion order).
+      expect(useSelectionStore.getState().anchorId).toBe("img-1");
+      expect(useSelectionStore.getState().selectedIds.has("img-2")).toBe(false);
+    });
+
+    it("sets anchor to null when all selected IDs are removed", () => {
+      useSelectionStore.setState({
+        selectedIds: new Set(["img-0", "img-1"]),
+        anchorId: "img-1",
+      });
+
+      useSelectionStore.getState().remove(["img-0", "img-1"]);
+
+      expect(useSelectionStore.getState().anchorId).toBeNull();
+    });
+
+    it("does not change anchor when anchor is not among removed IDs", () => {
+      useSelectionStore.setState({
+        selectedIds: new Set(["img-0", "img-1", "img-2"]),
+        anchorId: "img-0",
+      });
+
+      useSelectionStore.getState().remove(["img-1", "img-2"]);
+
+      expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    });
+  });
+
+  describe("full scenario: select A, select C, deselect C, shift-click D", () => {
+    it("after deselecting the anchor, shift-click can extend from fallback", () => {
+      // This is the exact bug scenario from the report.
+      // dispatchClickEffects processes effects in order: set-anchor, then toggle.
+      const store = useSelectionStore.getState();
+
+      // Step 1: Select A (enters selection mode, anchor = A).
+      store.setAnchor("img-0");
+      store.toggle("img-0");
+
+      // Step 2: Select C (anchor = C).
+      store.setAnchor("img-2");
+      store.toggle("img-2");
+
+      // Step 3: Deselect C. interpretClick emits [set-anchor(C), toggle(C)].
+      store.setAnchor("img-2");
+      store.toggle("img-2");
+
+      // After toggle, anchor should have been re-elected away from img-2.
+      const stateAfter = useSelectionStore.getState();
+      expect(stateAfter.selectedIds.has("img-2")).toBe(false);
+      // Anchor should be img-0 (the only remaining selected image).
+      expect(stateAfter.anchorId).toBe("img-0");
+      // Polarity check: anchor IS in selectedIds → "add" polarity.
+      expect(stateAfter.selectedIds.has(stateAfter.anchorId!)).toBe(true);
+    });
+  });
+});

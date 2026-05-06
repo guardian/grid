@@ -14,6 +14,16 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 6 May 2026 — Selection anchor fallback on deselect
+
+**Bug:** Select A → select C → deselect C → shift-click D did nothing. Also, sort-around-focus would centre on a deselected image (the stale anchor).
+
+**Root cause:** `interpretClick` always emits `[set-anchor(target), toggle(target)]` on non-shift clicks in selection mode, regardless of whether the click adds or removes. After deselecting C, `anchorId` remained `C` even though C was no longer selected. Shift-click then computed polarity as "remove" (`selectedIds.has(anchorId)` → false), removing nothing — a no-op.
+
+**Fix:** Added `electFallbackAnchor(remainingIds)` helper in `selection-store.ts`. After `toggle()` removes an image, if that image IS the current anchor, the store re-elects the last element of the remaining `Set<string>` (most-recently-individually-selected = the previous anchor in the common case). Same logic added to `remove()` for batch paths. No changes to `interpretClick` — the store safeguard is sufficient since batch paths (`remove()`, `removeGroup()`, range-remove) bypass interpretClick entirely.
+
+This also fixes the secondary observation: `useUrlSearchSync` reads `anchorId` for sort-around-focus, which now always points to a selected image (or null).
+
 ### 5 May 2026 — End key: last row not fully revealed
 
 **Three bugs, two root causes, across all three scroll modes.**
