@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.common.Operator.And
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
@@ -19,6 +20,9 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -186,6 +190,69 @@ class ElasticSearch(
       .size(k)
 
     executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+    }
+  }
+
+  def hybridSearch(
+    query: String,
+    queryEmbedding: List[Float],
+    k: Int,
+    numCandidates: Int,
+    maxScore: Double,
+    vecWeight: Double,
+  )(
+    implicit ex: ExecutionContext,
+    logMarker: LogMarker
+  ): Future[SearchResults] = {
+    val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
+    val knn = Knn("embedding.cohereEmbedV4.image")
+      .queryVector(queryEmbeddingDouble)
+      .k(k)
+      .numCandidates(numCandidates)
+
+    val multiMatchQuery = MultiMatchQuery(
+      text = query,
+      fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),
+      `type` = Some(BEST_FIELDS),
+      fuzziness = Some("AUTO"),
+      maxExpansions = Some(50),
+      operator = Some(And),
+      prefixLength = Some(1)
+    )
+
+    val scriptParams: Map[String, Any] = Map(
+      "queryVector" -> queryEmbeddingDouble,
+      "maxScore" -> maxScore,
+      "vecWeight" -> vecWeight,
+      "lexicalWeight" -> (1.0 - vecWeight),
+    )
+
+    //language=groovy -- it's actually painless, but that's pretty similar to groovy and this provides syntax highlighting
+    val script: String =
+      """// _score reflects lexical relevance but is not pure BM25
+        |double scoreVal = _score;
+        |// Normalise lexical magnitude using approximate max to prevent BM25 signal dominance
+        |double scoreNorm = (scoreVal / params.maxScore) + 1.0;
+        |
+        |// Cosine similarity shifted to positive range.
+        |// Pre-shifting, negative similarities are rare in practice but allowed.
+        |double vectorScore = 0;
+        |if (doc['embedding.cohereEmbedV4.image'].size() > 0) {
+        |  vectorScore = cosineSimilarity(params.queryVector, 'embedding.cohereEmbedV4.image') + 1.0;
+        |}
+        |
+        |return (params.vecWeight * vectorScore) +
+        |       (params.lexicalWeight * scoreNorm);
+        |""".stripMargin
+
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+      .scriptfields(ScriptField("source", Script(script, params = scriptParams)))
+      .size(k)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search").map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
     }

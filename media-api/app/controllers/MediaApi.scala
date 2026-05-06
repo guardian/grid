@@ -636,7 +636,14 @@ class MediaApi(
 
       for {
         embedding <- embeddingFuture
-        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+        searchResults <- elasticSearch.hybridSearch(
+          query = query,
+          queryEmbedding = embedding,
+          k = k,
+          numCandidates = Math.max(k * 2, 100),
+          maxScore = 1, // TODO execute first query to get max score
+          vecWeight = 0.5, // TODO hardcode the actual constant here
+        )
       } yield searchResults
     }
 
