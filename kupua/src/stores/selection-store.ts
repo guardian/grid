@@ -263,6 +263,11 @@ function processReconcileChunk(): void {
     }
     nextView = recomputeAll(allCached, RECONCILE_FIELDS);
     _reconcileNeedsFullRecompute = false;
+    // Drain remaining queue — recomputeAll already processed every selectedId.
+    // Without this, leftover queue items would be processed incrementally,
+    // double-counting images via applyChipArrayAdd (total += 1 per item).
+    _reconcileQueueArr.length = 0;
+    _reconcileQueueSet.clear();
   } else {
     // Incremental: fold the chunk into the existing view.
     nextView = reconciledView;
@@ -281,6 +286,9 @@ function processReconcileChunk(): void {
         if (img2 !== undefined) allCached.push(img2);
       }
       nextView = recomputeAll(allCached, RECONCILE_FIELDS);
+      // Drain queue — same rationale as the fullRecompute branch above.
+      _reconcileQueueArr.length = 0;
+      _reconcileQueueSet.clear();
     }
   }
 
@@ -477,12 +485,11 @@ export const useSelectionStore = create<SelectionState>()(
           }));
 
           // Fetch metadata (cohesion rule: toggle MUST call ensureMetadata).
-          void get()
-            .ensureMetadata([id])
-            .then(() => {
-              // Full recompute once metadata is available.
-              enqueueReconcile(Array.from(get().selectedIds), /* fullRecompute */ true);
-            });
+          // Reconciliation is triggered by ensureMetadata itself once the
+          // fetch completes — do NOT chain .then(enqueueReconcile) here
+          // because setAnchor's concurrent ensureMetadata call dedup-skips
+          // toggle's call, causing .then() to fire before data arrives.
+          void get().ensureMetadata([id]);
         }
       },
 
@@ -529,12 +536,8 @@ export const useSelectionStore = create<SelectionState>()(
         }));
 
         if (uncachedIds.length > 0) {
-          void get()
-            .ensureMetadata(uncachedIds)
-            .then(() => {
-              // Full recompute: incremental path can't work on a pending view.
-              enqueueReconcile(Array.from(get().selectedIds), /* fullRecompute */ true);
-            });
+          // ensureMetadata auto-reconciles when fetched IDs are selected.
+          void get().ensureMetadata(uncachedIds);
         }
         // All-cached path: no async work needed — view already correct.
       },
@@ -632,6 +635,17 @@ export const useSelectionStore = create<SelectionState>()(
           // Touch generationCounter so selectors know cache changed.
           return { pendingFetchIds: newPending, generationCounter: s.generationCounter + 1 };
         });
+
+        // Auto-reconcile: if any fetched ID is currently selected, trigger
+        // a full recompute so chip counts reflect the newly-available metadata.
+        // This is the authoritative reconcile trigger — callers should NOT
+        // chain .then(() => enqueueReconcile) on ensureMetadata because the
+        // dedup short-circuit (needed=[]) causes .then() to fire before the
+        // actual fetch completes, producing stale counts.
+        const { selectedIds: currentSelected } = get();
+        if (needed.some((id) => currentSelected.has(id))) {
+          enqueueReconcile(Array.from(currentSelected), /* fullRecompute */ true);
+        }
       },
 
       async hydrate(): Promise<void> {
@@ -681,7 +695,7 @@ export const useSelectionStore = create<SelectionState>()(
         // Schedule reconciliation for all retained IDs.
         const retainedIds = ids.filter((id) => !missingIds.includes(id));
         if (retainedIds.length > 0) {
-          enqueueReconcile(retainedIds);
+          enqueueReconcile(retainedIds, /* fullRecompute */ true);
         }
       },
 

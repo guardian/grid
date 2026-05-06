@@ -44,31 +44,43 @@ function pluralNoun(field: FieldDefinition): string {
   return PLURAL_OVERRIDE[field.id] ?? autoPlural(field.label.toLowerCase());
 }
 
+/** Number of top values to show in the tooltip. */
+const TOOLTIP_TOP_N = 5;
+
 interface MultiValueProps {
   field: FieldDefinition;
-  /** Up to 3 sample values for the native browser tooltip. */
-  sampleValues: unknown[];
+  /** Top distinct values with frequency counts. */
+  topValues: Array<{ value: unknown; count: number }>;
+  /** Total number of selected images (for the denominator). */
+  total: number;
 }
 
 /**
  * Renders "Multiple {noun}" (or "(Multiple {noun})" for location segments)
- * in dim text. A native `title` tooltip shows a sample of the differing values.
+ * in dim text. A native `title` tooltip shows the top 5 values with counts.
  */
-export function MultiValue({ field, sampleValues }: MultiValueProps) {
+export function MultiValue({ field, topValues, total }: MultiValueProps) {
   const noun = pluralNoun(field);
   const isLocationSegment = field.group === "location" && field.detailHidden;
   const label = isLocationSegment ? `(Multiple ${noun})` : `Multiple ${noun}`;
 
-  const formatted = sampleValues
-    .map((v) => {
-      if (v === null || v === undefined) return "";
-      if (field.formatter) return field.formatter(v);
-      return String(v);
-    })
-    .filter(Boolean);
-
-  const titleText =
-    formatted.length > 0 ? formatted.join(", ") : undefined;
+  let titleText: string | undefined;
+  if (topValues.length > 0) {
+    const shown = topValues.slice(0, TOOLTIP_TOP_N);
+    const lines = shown.map((entry) => {
+      const display = entry.value === null || entry.value === undefined
+        ? ""
+        : field.formatter
+          ? field.formatter(entry.value)
+          : String(entry.value);
+      return `${display} (${entry.count.toLocaleString()}/${total.toLocaleString()})`;
+    }).filter(Boolean);
+    const remaining = topValues.length - shown.length;
+    if (remaining > 0) {
+      lines.push(`(+${remaining} others)`);
+    }
+    titleText = lines.length > 0 ? lines.join("\n") : undefined;
+  }
 
   return (
     <span

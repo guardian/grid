@@ -145,7 +145,7 @@ export function MultiSearchPill({
       data-partial={partial ? "true" : undefined}
       className={cls}
       onClick={(e) => onSearch(cqlKey, value, e)}
-      title={`${value} (on ${count} of ${total})\nShift+click to add, ${ALT_CLICK} to exclude`}
+      title={`${value} (${count.toLocaleString()}/${total.toLocaleString()})\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
       {value}
     </button>

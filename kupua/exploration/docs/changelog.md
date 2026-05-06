@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 6 May 2026 -- Three reconciliation fixes + frequency tooltips
+
+**Three bugs causing inflated counts in the multi-image metadata panel:**
+
+1. **Queue drain after recomputeAll.** `processReconcileChunk` ran `recomputeAll` (full O(N*F) recompute) but never cleared `_reconcileQueueArr` / `_reconcileQueueSet`. Stale queued IDs were re-reconciled via `reconcileAdd` on top of the already-correct view, inflating `valueCount` / chip counts. Fix: drain both queue structures after `recomputeAll` in both branches of `processReconcileChunk`.
+
+2. **Hydrate full recompute.** `hydrate()` called `enqueueReconcile` without `fullRecompute=true`. Post-reload, `reconcileAdd` ran incrementally on top of the view left over from the previous session (which `persist` middleware had rehydrated), doubling all counts. Fix: `hydrate()` now passes `fullRecompute: true`.
+
+3. **ensureMetadata race.** `toggle()` and `add()` had `.then(() => enqueueReconcile())` on the `ensureMetadata()` promise. But `ensureMetadata` is debounced and batched -- by the time `.then()` fired, reconciliation had often already run from a different trigger, using stale or missing cache entries. Fix: moved the reconciliation trigger into `ensureMetadata()` itself -- after the mget response lands, if any fetched IDs overlap with `selectedIds`, reconciliation is enqueued once. Removed `.then()` from both `toggle()` and `add()`.
+
+**Tooltip enhancement -- frequency counts on "Multiple X" and chip pills.**
+
+`mixed` reconciliation type changed from `sampleValues: unknown[]` (3 capped, no counts) to `topValues: Array<{ value: unknown; count: number }>` (all distinct values with frequency, sorted by count desc). `recomputeAll` builds a per-field frequency `Map` during its existing O(N*F) loop -- zero extra iteration. `applyAdd` increments existing entries or appends (replaces the old cap-at-3 `addSample` helper).
+
+`MultiValue.tsx` tooltip now shows top 5 values with counts: `Getty (31/47)` per line, with `(+N others)` when >5 distinct. `MultiSearchPill` tooltip changed from `value (on 12 of 47)` to `value (12/47)` for consistency. `MultiImageMetadata` reads `selectedIds.size` for the denominator.
+
+Files changed: `selection-store.ts` (3 fixes), `reconcile.ts` (type + recomputeAll + applyAdd), `MultiValue.tsx`, `MultiImageMetadata.tsx`, `SearchPill.tsx`, `reconcile.test.ts`.
+
 ### 6 May 2026 — Selection anchor fallback on deselect
 
 **Bug:** Select A → select C → deselect C → shift-click D did nothing. Also, sort-around-focus would centre on a deselected image (the stale anchor).

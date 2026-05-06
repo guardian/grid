@@ -72,6 +72,7 @@ const LOCATION_FIELDS = RECONCILE_FIELDS.filter((f) => LOCATION_IDS.has(f.id));
 function renderLocationGroup(
   reconciledView: ReconciledView | null,
   onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
+  total: number,
 ): React.ReactNode {
   if (!reconciledView) return null;
 
@@ -99,7 +100,7 @@ function renderLocationGroup(
     }
     if (kind === "mixed" && rec.kind === "mixed") {
       // MultiValue renders "(Multiple cities)" for detailHidden location fields.
-      parts.push(<MultiValue key={field.id} field={field} sampleValues={rec.sampleValues} />);
+      parts.push(<MultiValue key={field.id} field={field} topValues={rec.topValues} total={total} />);
       continue;
     }
   }
@@ -169,6 +170,7 @@ function renderField(
   field: FieldDefinition,
   rec: FieldReconciliation | undefined,
   onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
+  total: number,
 ): React.ReactNode {
   // visibleWhen guard (e.g. imageType requires gridConfig.imageTypes to be set).
   if (field.visibleWhen?.() === false) return null;
@@ -255,7 +257,7 @@ function renderField(
   if (kind === "mixed") {
     return (
       <Wrapper key={field.id} label={field.label}>
-        <MultiValue field={field} sampleValues={rec.sampleValues} />
+        <MultiValue field={field} topValues={rec.topValues} total={total} />
       </Wrapper>
     );
   }
@@ -279,6 +281,7 @@ function renderField(
 
 export function MultiImageMetadata() {
   const reconciledView = useSelectionStore((s) => s.reconciledView);
+  const total = useSelectionStore((s) => s.selectedIds.size);
   const onSearch = useMetadataSearch();
 
   return (
@@ -287,8 +290,8 @@ export function MultiImageMetadata() {
         <MetadataSection key={si}>
           {sectionFields.map((field) =>
             field.id === "__location__"
-              ? renderLocationGroup(reconciledView, onSearch)
-              : renderField(field, reconciledView?.get(field.id), onSearch),
+              ? renderLocationGroup(reconciledView, onSearch, total)
+              : renderField(field, reconciledView?.get(field.id), onSearch, total),
           )}
         </MetadataSection>
       ))}

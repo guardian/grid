@@ -106,8 +106,8 @@ describe("recomputeAll", () => {
     if (rec?.kind === "mixed") {
       expect(rec.valueCount).toBe(2);
       expect(rec.emptyCount).toBe(0);
-      expect(rec.sampleValues).toContain("Reuters");
-      expect(rec.sampleValues).toContain("AP");
+      expect(rec.topValues).toContainEqual({ value: "Reuters", count: 1 });
+      expect(rec.topValues).toContainEqual({ value: "AP", count: 1 });
     }
   });
 
@@ -132,16 +132,19 @@ describe("recomputeAll", () => {
     expect(view.get("metadata_credit")).toEqual({ kind: "all-empty", count: 2 });
   });
 
-  it("caps sampleValues at 3 when there are many distinct values", () => {
-    const images = ["Getty", "Reuters", "AP", "EPA", "PA"].map((c, i) =>
-      img(`img-${i}`, c),
-    );
+  it("topValues includes all distinct values sorted by count desc", () => {
+    const images = [
+      img("1", "Getty"), img("2", "Getty"), img("3", "Getty"),
+      img("4", "Reuters"), img("5", "Reuters"),
+      img("6", "AP"), img("7", "EPA"), img("8", "PA"),
+    ];
     const view = recomputeAll(images, TEST_FIELDS);
     const rec = view.get("metadata_credit");
     expect(rec?.kind).toBe("mixed");
     if (rec?.kind === "mixed") {
-      expect(rec.sampleValues.length).toBeLessThanOrEqual(3);
-      expect(rec.valueCount).toBe(5);
+      expect(rec.topValues[0]).toEqual({ value: "Getty", count: 3 });
+      expect(rec.topValues[1]).toEqual({ value: "Reuters", count: 2 });
+      expect(rec.valueCount).toBe(8);
     }
   });
 

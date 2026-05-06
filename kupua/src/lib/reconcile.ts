@@ -44,8 +44,8 @@ export type FieldReconciliation =
   /** Images disagree on the field value (different values or some empty). */
   | {
       kind: "mixed";
-      /** Distinct sample values, capped at 3. Used for tooltip display. */
-      sampleValues: unknown[];
+      /** Top distinct values with frequency counts, sorted by count desc. */
+      topValues: Array<{ value: unknown; count: number }>;
       /** Number of selected images with a non-empty value. */
       valueCount: number;
       /** Number of selected images with an empty / missing value. */
@@ -102,11 +102,18 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/** Add a value to a sample array (capped at 3, deduped). */
-function addSample(samples: unknown[], v: unknown): unknown[] {
-  if (samples.length >= 3) return samples;
-  if (samples.some((s) => valuesEqual(s, v))) return samples;
-  return [...samples, v];
+/** Increment count for an existing value or append a new entry. */
+function addToTopValues(
+  topValues: Array<{ value: unknown; count: number }>,
+  v: unknown,
+): Array<{ value: unknown; count: number }> {
+  const idx = topValues.findIndex((e) => valuesEqual(e.value, v));
+  if (idx >= 0) {
+    const next = [...topValues];
+    next[idx] = { value: next[idx].value, count: next[idx].count + 1 };
+    return next;
+  }
+  return [...topValues, { value: v, count: 1 }];
 }
 
 /**
@@ -198,7 +205,7 @@ function applyAdd(
       case "all-same":
         return {
           kind: "mixed",
-          sampleValues: [current.value],
+          topValues: [{ value: current.value, count: current.count }],
           valueCount: current.count,
           emptyCount: 1,
         };
@@ -217,7 +224,7 @@ function applyAdd(
       }
       return {
         kind: "mixed",
-        sampleValues: addSample([current.value], value),
+        topValues: [{ value: current.value, count: current.count }, { value, count: 1 }],
         valueCount: current.count + 1,
         emptyCount: 0,
       };
@@ -225,7 +232,7 @@ function applyAdd(
     case "mixed": {
       return {
         ...current,
-        sampleValues: addSample(current.sampleValues, value),
+        topValues: addToTopValues(current.topValues, value),
         valueCount: current.valueCount + 1,
       };
     }
@@ -312,7 +319,7 @@ export function recomputeAll(
     let emptyCount = 0;
     let firstValue: unknown | null = null;
     let allSame = true;
-    const samples: unknown[] = [];
+    const freqMap = new Map<string, { value: unknown; count: number }>();
 
     for (const img of images) {
       const v = extractValue(img, field);
@@ -322,12 +329,17 @@ export function recomputeAll(
         valueCount++;
         if (firstValue === null) {
           firstValue = v;
-          samples.push(v);
         } else if (allSame && !valuesEqual(firstValue, v)) {
           allSame = false;
-          if (samples.length < 3) samples.push(v);
-        } else if (!allSame && samples.length < 3 && !samples.some((s) => valuesEqual(s, v))) {
-          samples.push(v);
+        }
+        // Build frequency map for all values (cheap -- scalar fields
+        // have bounded distinct values: credit, source, category, etc.).
+        const key = typeof v === "string" ? v : JSON.stringify(v);
+        const existing = freqMap.get(key);
+        if (existing) {
+          existing.count++;
+        } else {
+          freqMap.set(key, { value: v, count: 1 });
         }
       }
     }
@@ -337,7 +349,9 @@ export function recomputeAll(
     } else if (allSame && emptyCount === 0) {
       view.set(field.id, { kind: "all-same", value: firstValue, count: valueCount });
     } else {
-      view.set(field.id, { kind: "mixed", sampleValues: samples, valueCount, emptyCount });
+      const topValues = Array.from(freqMap.values())
+        .sort((a, b) => b.count - a.count);
+      view.set(field.id, { kind: "mixed", topValues, valueCount, emptyCount });
     }
   }
 
