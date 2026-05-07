@@ -250,6 +250,8 @@ results.controller('SearchResultsCtrl', [
           const totalLength = images.data.length;
           ctrl.imagesAll = new Array(totalLength);
 
+          // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
+          // so we populate the full backing array up front to avoid placeholder rows.
           results.clear();
           results.resize(totalLength);
 
