@@ -229,67 +229,86 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        function initialiseResults(images) {
-            ctrl.totalResults = images.total;
-            // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-            ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
+        function initialiseSharedResults(images) {
+          ctrl.totalResults = images.total;
+          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+          ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
-            ctrl.hasQuery = !!$stateParams.query;
-            ctrl.initialSearchUri = images.uri;
-            ctrl.embeddableUrl = window.location.href;
+          ctrl.hasQuery = !!$stateParams.query;
+          ctrl.initialSearchUri = images.uri;
+          ctrl.embeddableUrl = window.location.href;
 
-            // images will be the array of loaded images, used for display
-            ctrl.images = [];
+          // images will be the array of loaded images, used for display
+          ctrl.images = [];
 
-            // imagesAll will be a sparse array of all the results
-            const totalLength = Math.min(images.total, ctrl.maxResults);
-            ctrl.imagesAll = [];
-            ctrl.imagesAll.length = totalLength;
+          imagesPositions = new Map();
 
-            // TODO: ultimately we want to manage the state in the
-            // results stream exclusively
-            results.clear();
-            results.resize(totalLength);
+          notificationMessages(ctrl.extendedSortProps, ctrl.totalResults);
+        }
 
-            notificationMessages(ctrl.extendedSortProps, images.total);
+        function initialiseAiResults(images) {
+          const totalLength = images.data.length;
+          ctrl.imagesAll = new Array(totalLength);
 
-            imagesPositions = new Map();
+          results.clear();
+          results.resize(totalLength);
 
-            if ($stateParams.useAISearch) {
-              images.data.forEach((image, index) => {
-                ctrl.imagesAll[index] = image;
-                imagesPositions.set(image.data.id, index);
-                results.set(index, image);
-              });
-              ctrl.images = images.data.slice(0, totalLength);
-            }
+          images.data.forEach((image, index) => {
+            ctrl.imagesAll[index] = image;
+            imagesPositions.set(image.data.id, index);
+            results.set(index, image);
+          });
 
-            checkForNewImages();
+          ctrl.images = images.data.slice();
+        }
 
-            // Keep track of time of the latest result for all
-            // subsequent searches (so we always query the same set of
-            // results), unless we're reloading a previous search in
-            // which case we reuse the previous time too
+        function initialisePagedResults(images) {
+          const totalLength = Math.min(images.total, ctrl.maxResults);
+          ctrl.imagesAll = [];
+          ctrl.imagesAll.length = totalLength;
 
-            const until = $stateParams.until || null;
-            const latestTime = until || moment().toISOString();
+          // TODO: ultimately we want to manage the state in the
+          // results stream exclusively
+          results.clear();
+          results.resize(totalLength);
+        }
 
-            if (latestTime && ! isReloadingPreviousSearch) {
-                lastSearchFirstResultTime = latestTime;
-            }
+        function updateLastSearchBoundary() {
+          const until = $stateParams.until || null;
+          const latestTime = until || moment().toISOString();
 
-            return images;
+          if (latestTime && ! isReloadingPreviousSearch) {
+            lastSearchFirstResultTime = latestTime;
           }
+        }
+
+        function initialiseResults(images, { isAiSearch }) {
+          initialiseSharedResults(images);
+
+          if (isAiSearch) {
+            initialiseAiResults(images);
+          } else {
+            initialisePagedResults(images);
+            checkForNewImages();
+          }
+
+          updateLastSearchBoundary();
+
+          return images;
+        }
 
           // Initial search to find upper `until` boundary of result set
           // (i.e. the uploadTime of the newest result in the set)
 
           // TODO: avoid this initial search (two API calls to init!)
-          ctrl.searched = search(
-            $stateParams.useAISearch
-              ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
-              : {length: 1, orderBy: 'newest'}
-          ).then(initialiseResults).catch(error => {
+          const isAiSearch = !!$stateParams.useAISearch;
+          const initialSearchParams = isAiSearch
+            ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
+            : {length: 1, orderBy: 'newest'};
+
+          ctrl.searched = search(initialSearchParams).then(images =>
+            initialiseResults(images, { isAiSearch })
+          ).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
