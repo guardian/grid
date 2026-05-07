@@ -289,9 +289,7 @@ results.controller('SearchResultsCtrl', [
             $stateParams.useAISearch
               ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
               : {length: 1, orderBy: 'newest'}
-          ).then(function(images) {
-            return initialiseResults(images);
-        }).catch(error => {
+          ).then(initialiseResults).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
