@@ -1221,6 +1221,21 @@ The HATEOAS root links to `${rootUri}/permissions`, but no matching route exists
 **Image structure verified:**
 `GET /images/{id}` returned 200 with all five `userMetadata.data` sub-fields present (`archived`, `labels`, `metadata`, `usageRights`, `photoshoot`). Full `actions` array including `delete`, `reindex`, `add-lease`, `add-leases`, `replace-leases`, `delete-leases`, `delete-usages`, `add-collection` — matching §3.3 exactly.
 
+#### Search endpoint mechanics (verified 7 May 2026)
+
+Backflowed from `enrichment-strategy.md` Appendix (TEST verification against `api.media.test.dev-gutools.co.uk`).
+
+| Finding | Detail |
+|---|---|
+| Search hits carry full enrichment | `GET /images?q=…` hits are enriched identically to `GET /images/{id}` — both call `imageResponse.create()` (`MediaApi.scala:540` + `:649`). Search hits include `cost`, `valid`, `invalidReasons`, `persisted`, `syndicationStatus`, `actions`, `links`, signed URLs. **No "lite" shape for hits.** |
+| `isPotentiallyGraphic` on hits only | Search hits include a painless-script-computed `isPotentiallyGraphic` boolean. **Not present on `GET /images/{id}` responses.** Kupua should treat its absence as "unknown", not "false". |
+| `?ids=` cap | Maximum 200 ids per request (`SearchParams.maxSize`, `ElasticSearchModel.scala:220`). Paginate above this. URL length is the practical limit (~150 ids before ~8k chars). |
+| `?ids=` ordering NOT preserved | Despite source using `pinned_query` (which documents order preservation), TEST/ES8 returns hits in default sort order, not request order. **Client must re-sort** by building an id→index map after the response. |
+| Missing ids silently dropped | Nonexistent or deleted ids in `?ids=…` are absent from the response. No 404, no error. `total` and `data.length` reflect only the hits actually found. |
+| Empty `q=` ≡ omitted `q` | Both produce `matchAllQuery()` (`ElasticSearchModel.scala:136`, `QueryBuilder.scala:97`). Functionally identical. |
+
+For the strategic implications (when kupua should mirror-search vs use `?ids=` vs go direct-ES), see `enrichment-strategy.md`.
+
 ### CORS workplan note
 
 ~~The Phase 0 CORS step remains a **hard blocker**.~~ **RESOLVED (3 May 2026).** Kupua uses a Vite dev-server proxy (`/api → https://api.media.local.dev-gutools.co.uk`), making all API requests same-origin from the browser's perspective. No CORS allowlist changes to either local or TEST configs are required. `Access-Control-Allow-Credentials` behaviour is irrelevant because the browser never issues cross-origin requests.

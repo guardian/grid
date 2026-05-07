@@ -19,14 +19,15 @@
 2. [The hybrid approach in one paragraph](#the-hybrid-approach-in-one-paragraph)
 3. [Pre-flight: performance validation gate](#pre-flight-performance-validation-gate)
 4. [Phase 0 — Dev-nginx, auth, service discovery](#phase-0--dev-nginx-auth-service-discovery)
-5. [Phase A — First read-only API call: image detail](#phase-a--first-read-only-api-call-image-detail)
-6. [Phase B — Read operations through HATEOAS](#phase-b--read-operations-through-hateoas)
-7. [Phase C — Write operations through HATEOAS actions](#phase-c--write-operations-through-hateoas-actions)
-8. [Architectural rule: where each call goes](#architectural-rule-where-each-call-goes)
-9. [Agent guardrails](#agent-guardrails)
-10. [Branching and commit hygiene](#branching-and-commit-hygiene)
-11. [Stop conditions](#stop-conditions)
-12. [Decision log to maintain](#decision-log-to-maintain)
+5. [Phase A — API adapter foundation (scaffolding)](#phase-a--api-adapter-foundation-scaffolding-no-user-visible-features)
+6. [After Phase A — cluster decomposition](#after-phase-a--cluster-decomposition)
+7. [Phase B — Read operations through HATEOAS (legacy framing; superseded by clusters)](#phase-b--read-operations-through-hateoas)
+8. [Phase C — Write operations through HATEOAS actions](#phase-c--write-operations-through-hateoas-actions)
+9. [Architectural rule: where each call goes](#architectural-rule-where-each-call-goes)
+10. [Agent guardrails](#agent-guardrails)
+11. [Branching and commit hygiene](#branching-and-commit-hygiene)
+12. [Stop conditions](#stop-conditions)
+13. [Decision log to maintain](#decision-log-to-maintain)
 
 ---
 
@@ -213,7 +214,7 @@ work. Pick one based on what you're doing.
 
 #### Setup A — Both local, sharing Grid's ES (recommended for first integration)
 
-**When to use:** Phase 0 and early Phase A. You're testing wiring, not
+**When to use:** Phase 0 and early Phase A scaffolding. You're testing wiring, not
 realistic data. You want everything self-contained so failures are easy
 to diagnose.
 
@@ -273,7 +274,7 @@ biggest unknown.
 
 #### Setup B — Both `--use-TEST`, sharing one SSH tunnel (recommended for real-data dev)
 
-**When to use:** Most of Phase A, B, and C. You want realistic data
+**When to use:** Most of Phase A scaffolding and all clusters thereafter. You want realistic data
 (1.3M images, real metadata, real thumbnails) so the bread-and-butter
 features look plausible.
 
@@ -409,9 +410,9 @@ them yet** — only if Phase 0 surfaces a concrete need:
 
 ---
 
-## Using the kahuna UI inventory (applies to Phases A, B, C)
+## Using the kahuna UI inventory (applies to clusters and Phase C)
 
-Phases A, B, and C all build features that have a kahuna counterpart.
+Every cluster (and Phase C) builds features that have a kahuna counterpart.
 The kahuna image-detail UI is catalogued in
 [kahuna-image-detail-inventory.md](../01%20Research/kahuna-image-detail-inventory.md)
 (57 elements with file:line citations, permission matrix, conditional
@@ -562,9 +563,26 @@ Create `kupua/src/dal/grid-api/service-discovery.ts`:
   adapter code
 - Handles the case where a link is absent (user lacks permission) — returns
   undefined, callers feature-flag accordingly
+- **Also captures `clientConfig`** from the same root response (or from the
+  `configuration` link if media-api emits it separately). `clientConfig` is
+  a server-deployed map of feature flags + UI copy strings (e.g.
+  `enableWarningFlags`, `imagePreviewFlagAlertCopy`, `costFilterLabel`,
+  `usePermissionsFilter`, `staffPhotographerOrganisation`,
+  `showSendToPhotoSales`). Cluster 1 and every later cluster need to read
+  it to gate features that are off in some deployments (e.g. BBC enables
+  several flags Guardian does not, and vice versa). Expose via
+  `getClientConfig(): ClientConfig` — a frozen object, fetched once,
+  cached for the session. Treat *every* field as optional in the type;
+  absence means "flag off" / "feature not configured".
 
 This is the foundation of the API-first surface. It's the *only* config
 kupua needs about Grid in production: one URL.
+
+**Reference (7 May 2026):** the actual Guardian PROD `clientConfig` shape
+is being captured via a logged-in `window._clientConfig` snapshot; Cluster 1
+workplan will cite it directly so we only build features whose gates are
+on in Guardian. BBC-only flags (e.g. `showSendToPhotoSales`) are noted as
+render-gated seams — code paths exist but evaluate to off-by-default.
 
 ### Phase 0 deliverables
 
@@ -588,122 +606,383 @@ kupua needs about Grid in production: one URL.
 
 ---
 
-## Phase A — First read-only API call: image detail
+## Phase A — API adapter foundation (scaffolding, no user-visible features)
 
-**Scope:** When user opens an image's detail view, fetch it via
-`GET /images/{id}` from media-api instead of using the buffered version
-from search results. Display all the enriched fields the API returns.
+**Scope:** Build the `GridApiDataSource` skeleton, Argo `EmbeddedEntity`
+unwrapping, error handling, the hybrid-adapter discipline, and a single
+`getImageDetail(id)` method to prove the wiring. **No user-visible features
+ship in Phase A.** The image detail view is not modified yet — the API call
+is exercised from a test harness or a hidden devtools-only render.
 
-**Time:** 3–5 days.
+**Time:** 2–3 days.
 
-**Risk:** Low. Read-only, well-scoped, single screen.
+**Risk:** Low. Read-only, well-scoped, no UI surface area.
 
 **Grid changes:** Zero. The endpoint exists today.
 
-**Why this first:**
-- Smallest possible end-to-end test of the API-first approach
-- One screen, easy to compare to current behaviour
-- If the Argo response format is painful to parse, we discover it here, not
-  spread across the whole app
-- Immediately delivers user value: proper cost/validity badges,
-  signed thumbnail URLs that work in production, server-side permission
-  gating
+**Read-only is enforced, not just disciplined.** The `gridApiWriteGuard()`
+Vite plugin (added in `5b7d8611e`) blocks every non-GET request on `/api`
+(and any future satellite proxy prefix) unless `VITE_GRID_API_WRITES_ENABLED=true`.
+The Vite proxy is the only path to media-api — direct cross-origin requests
+are blocked by CORS. So all of Phase A and every read-only cluster operate
+behind a hard guarantee that no write can leak. See
+[`infra-safeguards.md`](../infra-safeguards.md) §8 for the full enforcement
+model. **Future cluster handoffs that add a new proxy prefix
+(e.g. `/grid-leases`) MUST add it to `GRID_API_PROXY_PREFIXES` in
+`vite.config.ts` so the guard covers it too.**
+
+**Why this is now scaffolding-only (changed 7 May 2026):** The original
+Phase A wired `getImageDetail` into the live image detail view and rendered
+"all the enriched fields the API returns". That collapsed the RO/RW boundary:
+the image-detail view contains action-gated controls (delete, archive, edit
+metadata, add lease, create crop) that depend on the `actions` array. The
+audit (§3.3, §6.4) is explicit that `actions` absence means **hide** the
+control, not disable it — so rendering the API response into the existing
+detail view forces a choice between (a) hiding most of kahuna's affordances
+silently, (b) implementing Phase C action handlers immediately, or (c)
+rendering disabled stubs (anti-pattern). All three are bad.
+
+The fix is to separate scaffolding from features. Phase A builds the
+foundation that **every** subsequent cluster needs — service discovery,
+adapter shape, Argo unwrapping, error handling, hybrid pattern. The first
+user-visible feature ships as **Cluster 1** (cost + leases + validity, see
+below). Future clusters layer on top of the same scaffolding.
+
+**Why this is *Phase* A, not *Cluster 0*:** Clusters are user-visible
+feature bundles. Scaffolding is foundational and underpins every cluster
+equally. Naming it "Cluster 0" would imply it's a feature in the same
+taxonomy; it isn't. It's the floor everything else stands on.
 
 ### Concrete steps
 
-#### A.1 Look at what `GET /images/{id}` returns
+#### A.1 Define the API-side image type from the contract
 
-The full response shape is documented in contract **§3** (Phase A endpoints — image detail). Key reference points:
-- §3.2 always-present and conditionally-present field tables
-- §3.2.1 reconciliation rules (how `metadata`, `usageRights`, `cost` are derived)
-- §3.3 the `actions` array — full enumeration with conditions
-- §3.4 the `links` array — full enumeration
-- §10 annotated real response samples from TEST (three images)
+Create `kupua/src/dal/grid-api/types.ts` from contract **§9** (`ImageResponse`,
+`ImageData`, `EmbeddedEntity`, `UsageRights`, `Embedding`, `SyndicationRights`,
+`FileMetadata`, etc.). Don't try to reuse the ES-derived `Image` type — the
+shapes differ; translation happens at the adapter boundary.
 
-**Read §3 before writing any parsing code.**
+The full response shape is in contract **§3**. Read §3.2 (field tables),
+§3.2.1 (reconciliation rules for `metadata` / `usageRights` / `cost`), §3.3
+(`actions`), §3.4 (`links`), §10 (annotated TEST samples) before writing
+parsing code.
 
-#### A.2 Define the API-side image type
+**Search-hit vs single-image asymmetry (matters for Cluster 1).** Search
+hits and single-image responses are enriched identically (proven by
+construction — both call `imageResponse.create()`, see
+`enrichment-strategy.md` §A) **with one exception**: search hits include
+`isPotentiallyGraphic` (a painless-script-computed boolean), single-image
+responses do not. Phase A's types must reflect this:
 
-Create `kupua/src/dal/grid-api/types.ts`. The TypeScript types are already drafted in contract **§9** (`ImageResponse`, `ImageData`, `EmbeddedEntity`, `UsageRights`, `Embedding`, `SyndicationRights`, `FileMetadata`, etc.) — use §9 as the starting point rather than deriving from the wire format from scratch.
+- A shared base `ImageData` type with all enriched fields.
+- `SearchHitImageData = ImageData & { isPotentiallyGraphic?: boolean }` (or
+  equivalent — keep it optional, don't fake-default to `false`; absence
+  means "unknown" semantically).
 
-Don't try to reuse the ES-derived `Image` type — they're different shapes (the API wraps things in Argo's `EmbeddedEntity` envelope). Translation happens at the adapter boundary.
+Without this, Cluster 1 will need to retype the world when it adds the
+mirror-search method. Setting it up correctly in Phase A is ~5 lines of
+type work; getting it wrong wastes a Cluster 1 day.
 
-#### A.3 Build a minimal `GridApiDataSource.getImageDetail(id)` method
+**Search-response envelope is asymmetric to single-image envelope, too.**
+The search response carries a top-level `actions` MAP (currently containing
+`tickerCounts` — a server-defined list of ticker badges with name, value,
+backgroundColour, searchClause, optional subCounts). This is **not** the
+same shape as the per-image `actions[]` array (HATEOAS action descriptors).
+Different purpose, different shape, same field name — easy to confuse.
+Phase A types must define both:
 
-Create `kupua/src/dal/adapters/grid-api/grid-api-adapter.ts`:
+- `SearchResponse = { offset, length, total, hits: SearchHitImageData[],
+  actions?: SearchResponseActions }`
+- `SearchResponseActions = { tickerCounts?: TickerCount[] }` (extensible —
+  the map may carry more in future).
+- Per-image `actions[]` stays as it is (array of `Action` HATEOAS descriptors).
+
+This is documented here so Cluster 1 doesn't trip on it when introducing
+the mirror-search method. Same discipline as the `isPotentiallyGraphic`
+asymmetry: ~5 lines of types in Phase A, no retyping in Cluster 1.
+
+#### A.2 Build the Argo envelope helpers
+
+Create `kupua/src/dal/grid-api/argo.ts`:
+
+- `unwrapEntity<T>(response): T` — peels the `EmbeddedEntity` envelope per §6.1
+- `findLink(entity, rel): Link | undefined`
+- `findAction(entity, rel): Action | undefined`
+- `mergeReconciledFields(image)` — applies §3.2.1 rules
+
+These are pure functions. Test them against the §10 sample fixtures (copy
+the JSON into a test fixtures directory — **redact any signed-URL query
+strings before committing**).
+
+#### A.3 Build the `GridApiDataSource` skeleton
+
+Create `kupua/src/dal/grid-api/grid-api-adapter.ts`:
 
 ```ts
 export class GridApiDataSource {
   constructor(private serviceDiscovery: ServiceDiscovery) {}
 
-  async getImageDetail(id: string): Promise<ImageDetail> {
-    const url = this.serviceDiscovery.imageUrl(id); // from the {id} template
-    const response = await fetch(url, { credentials: 'include' });
-    // ...handle errors, parse Argo envelope, return typed result
+  async getImageDetail(id: string, signal?: AbortSignal): Promise<ImageDetail | null> {
+    const url = this.serviceDiscovery.imageUrl(id);
+    const response = await fetch(url, { credentials: "include", signal });
+    if (response.status === 404) return null;          // image gone
+    if (response.status === 401) throw new AuthError(); // re-auth needed
+    if (response.status === 419) throw new SessionExpiredError();
+    if (!response.ok) throw await parseArgoError(response); // §6.5
+    return mergeReconciledFields(unwrapEntity(await response.json()));
   }
 }
 ```
 
+**Single method only in Phase A.** No `getCost`, no `getLeases`, no
+`followLink` helper. Those land in Cluster 1 with a real consumer.
+
 This adapter is **separate** from the ES adapter. They don't share code,
-they don't implement the same interface. The image-detail consumer chooses
-which to call.
+they don't implement the same interface. Each consumer chooses which to call.
 
-#### A.4 Wire the image detail view to use it
+#### A.4 Wire error handling end-to-end
 
-Find where the detail view currently reads its data (likely from the
-buffer entry — kupua has an `Image` from search results). Add a fetch on
-mount:
+Cover the four error classes from contract §6.5: `401` (re-auth toast),
+`419` (session-expired toast distinct from 401), `403` (silent — caller
+treats as data-absence per kupua's "graceful API absence" directive), and
+Argo error bodies (`{ errorKey, errorMessage }`). Add a `parseArgoError`
+helper.
 
-```tsx
-useEffect(() => {
-  gridApi.getImageDetail(imageId).then(setDetail);
-}, [imageId]);
-```
+Per the kupua directive on graceful API absence: API failure → caller
+receives `null` → UI renders without that data section. **No error toasts
+in normal operation** for absent data. Toasts are reserved for re-auth /
+session-expired flows that genuinely require user action.
 
-Render cost/validity/persistence badges from `detail`. Image rendering
-is unchanged — thumbnail and full-size images continue to use the
-existing ES + S3-proxy + imgproxy paths (see A.5).
+**Distinguish guard 403 from server 403.** A 403 from the Vite proxy guard
+(`gridApiWriteGuard()`) has a plain-text body starting with
+`[grid-api-write-guard]`; a 403 from media-api is Argo JSON
+(`{ errorKey, errorMessage }`). The first is a developer-config issue
+(env var unset), the second is a real permission gap. `parseArgoError`
+should detect non-JSON bodies prefixed with `[grid-api-write-guard]` and
+throw a distinct `WriteGuardBlockedError` with a clear message pointing
+at `infra-safeguards.md` §8 — not silently fold it into the
+data-absence path. This will only fire in Phase C-style sessions, but the
+detection belongs in the foundation so every adapter call site benefits.
 
-**Permissions and actions:** Trust the `actions` array in the image response
-(§3.3) for what the user can do — show/hide UI controls based on action presence.
-Trust the `links` array (§3.4) for what's navigable (crops link absent = no
-`valid==true` or no write permission). Do NOT replicate permission logic in
-TypeScript.
+#### A.5 Document the hybrid-adapter rule in code
 
-**Two specific traps to avoid in detail-view rendering:**
+Drop a `kupua/src/dal/grid-api/README.md` (≤30 lines) that says:
 
-1. **`valid==true` with non-empty `invalidReasons` is normal, not a bug.** See contract §6.7.1: `valid` is recomputed after lease overrides; `invalidReasons` retains the underlying reason a lease was needed. If both are populated, treat `invalidReasons` as informational ("this is fine because of an active lease"), not as a warning. Don't render red "invalid" badges next to a green "valid" badge.
-2. **Don't show the `reindex` action.** It's emitted in the `actions` array for any user with write permission, but the endpoint doesn't exist (§8 item 9, §3.3). Filter it out of any "available actions" UI. The contract's §3.3 row is now strikethrough'd / ⚠️-flagged for the same reason.
+- This adapter is for media-api/HATEOAS calls only.
+- The ES adapter handles all search-shape data flows.
+- Decision matrix lives in `integration-workplan-bread-and-butter.md`
+  ("Architectural rule: where each call goes" §).
+- Enrichment mechanism is mirror-search per buffer-fill, decided in
+  `kupua/exploration/docs/00 Architecture and philosophy/enrichment-strategy.md`.
+  Cite that doc as the canonical reference for *why* per-id is not the
+  default.
+- **Merge direction: ES baseline → API overwrite, never the inverse.**
+  ES-sourced fields are the standalone-mode floor (kupua works without
+  Grid). API enrichment overwrites server-computed fields when reachable.
+  This is permanent, not scaffolding-to-rip-out. Same pattern applies
+  to vendored config under `src/lib/cost/` (added by Cluster 1) and to
+  any future small server-computed fields (`isPotentiallyGraphic`, etc.).
+- Never construct media-api URLs by string concatenation — always follow
+  links / templates from service discovery or HATEOAS responses.
+- Never replicate server-side logic that has no ES-derivable fallback
+  (permissions, validity reasons computed from leases) — fetch it. The
+  exception is fields with a clean ES-derivable subset where the API
+  value is strictly more accurate (cost: TS computes Free/Conditional/
+  Pay, API overwrites with overquota when present).
 
-The buffer-entry data remains the *initial* render (no loading flash) —
-the API-fetched detail enriches it once arrived.
+#### A.6 Test harness — prove the wiring without touching the UI
 
-#### A.5 Image rendering is unchanged
+Add a Vitest suite `grid-api-adapter.test.ts`:
+- Mocks `fetch`; asserts URL construction from service discovery.
+- Asserts envelope unwrapping against §10 fixtures — **both shapes**:
+  single-image (`EntityResponse<ImageData>`) AND a search hit
+  (`EmbeddedEntity<ImageData>` inside `EntityResponse<EmbeddedEntity<ImageData>[]>`).
+  The nesting differs; if Phase A only fixtures single-image, Cluster 1
+  discovers mid-implementation that the search-hit shape doesn't unwrap
+  cleanly. Catching this in Phase A is ~10 lines of fixture work.
+- Asserts error-class mapping for 401/403/404/419/Argo-error bodies AND
+  for the guard 403 (`[grid-api-write-guard]` plain-text body →
+  `WriteGuardBlockedError`).
+- Asserts `null` return for 403/404 server cases (data-absence path).
+- Asserts the type-level invariant that `isPotentiallyGraphic` is optional
+  on the search-hit type and absent from the single-image type (TS
+  type-test, no runtime assertion needed).
 
-The API fetch is for enrichment data only (cost, validity, actions,
-permissions). Image rendering in the detail view uses the same paths as
-search results: thumbnail from the buffer (originally via S3 proxy),
-full-size via kupua's own imgproxy (darthsim). Neither
-`thumbnail.secureUrl` (CloudFront) nor `source.secureUrl` (signed S3)
-nor Grid imgops URLs from the API response are used — our imgproxy is
-superior to Grid's nginx-based imgops.
-
-**Don't remove the S3 proxy.** It serves search-result thumbnails and
-full-size image keys to imgproxy. It will continue to do so until
-kupua's production URL story is resolved.
+Optionally add a hidden devtools-only fetcher (`window.__kupua_grid_api__ =
+{ getImageDetail }`) so manual TEST-cluster smoke tests are possible without
+a UI. Remove or gate behind `import.meta.env.DEV` before merging anywhere
+near production.
 
 ### Phase A deliverables
 
-- [ ] `GridApiDataSource` class scaffolded
-- [ ] `getImageDetail(id)` working against TEST
-- [ ] Image detail view shows API-sourced cost/validity badges
-- [ ] Image rendering unchanged (S3 proxy + imgproxy, not API URLs)
-- [ ] Documented the Argo envelope parsing (notes for future phases)
+- [ ] `GridApiDataSource` class with `getImageDetail(id)`
+- [ ] Argo envelope helpers (`unwrapEntity`, `findLink`, `findAction`,
+      `mergeReconciledFields`)
+- [ ] Error-class hierarchy (`AuthError`, `SessionExpiredError`, `ArgoError`)
+- [ ] Vitest suite green against §10 fixtures
+- [ ] `kupua/src/dal/grid-api/README.md` documenting the rule
 - [ ] `deviations.md` entry: "two parallel data adapters intentionally —
       see integration-workplan-bread-and-butter.md"
-- [ ] Vitest tests for the new adapter (mock the fetch, assert parsing)
+- [ ] AGENTS.md updated: Component Summary row for `dal/grid-api/`,
+      Context Routing row pointing at this workplan + the contract audit
+- [ ] **No** changes to the image detail view, search results, or any
+      user-visible component
+- [ ] **No** new HATEOAS link fetching, no cost rendering, no badges —
+      those are Cluster 1
+
+### Phase A explicit non-goals
+
+- No `getLeases` / `getUsages` / `getCrops` adapter methods. Cluster-specific.
+- No `followLink` helper. Cluster 1 introduces it when there's a real call site.
+- No image-detail-view changes. Cluster 1 wires the first one.
+- No bulk fetch helper yet. The enrichment mechanism is decided
+  (`enrichment-strategy.md`: mirror-search per buffer-fill); the helper
+  itself lands in Cluster 1 with a real call site.
+- **No mirror-search method, no enrichment merge layer, no `useEnrichment`
+  hook.** The seam where API data overwrites the ES baseline is Cluster 1's
+  job. Designing it without a consumer means guessing the caching strategy,
+  visibility-gating, and per-field merge semantics — history says agents
+  get at least one wrong. Phase A keeps the foundation enrichment-ready
+  (shared base type, both envelope nestings handled, overwrite-direction
+  rule documented) but does not build the layer itself. Same discipline
+  as deferring `followLink` and per-resource adapters.
+- No vendored cost config under `src/lib/cost/`. Cluster 1 adds it with
+  the cost computation that consumes it. Phase A's README acknowledges
+  the seam ("Cluster 1 will add a vendored config snapshot") but commits
+  no JSON.
+
+### Phase A stop conditions
+
+- If Argo envelope unwrapping reveals an edge case not covered by §6.1,
+  **stop** and update the contract audit before proceeding.
+- If `getImageDetail` against TEST returns shapes that contradict §3 / §10,
+  **stop** and reconcile (could indicate audit drift or env-specific config).
+- If error-class mapping turns out to be ambiguous (e.g. media-api returns
+  401 where 419 is expected, or vice versa), **stop** and document.
 
 ---
+
+## After Phase A — cluster decomposition
+
+Phase A ships zero user-visible features. The first one is **Cluster 1**
+below. Future clusters are deliberately *not* pre-committed in this
+workplan — order is decided after Cluster 1 ships, based on what we've
+learned about the hybrid pattern's costs and quirks.
+
+### Cluster 1 — Cost + leases (+ validity)
+
+**One-line pitch:** Show cost-state badges (free / pay / no-rights /
+overquota / conditional) on every visible image — in image detail and as
+badges on search-result cells. Pure read-only. Validates the hybrid
+pattern (ES search + per-cell API enrichment) end-to-end.
+
+**Why first:**
+- Cost is server-computed (`CostCalculator` in Scala). It cannot be
+  replicated client-side without lying about edge cases (lease overrides,
+  the `valid==true` + non-empty `invalidReasons` case from §6.7.1). This
+  is *exactly* what API-first is for.
+- Badges-on-search-cells is the unison case. Every future cluster also
+  needs to enrich already-rendered ES cells with API data. If this works,
+  the rest is variations on the theme. If it doesn't, we find out before
+  building five things on the same foundation.
+- Demonstrable to anyone in one sentence: "kupua now shows you which
+  images cost money."
+
+**Scope:**
+- Cost-state badges in image detail (replaces nothing today; pure addition).
+- Cost-state badges on grid cells and table rows (lazy; visibility-gated).
+- Lease summary in image detail (count line: "3 current leases + 2 inactive").
+- Validity badge in image detail + bearing on No-Rights colour/messaging
+  (small addition, related data, kept in scope to avoid an awkward
+  Cluster 1.5 for one badge).
+
+**Out of scope for Cluster 1:**
+- Lease *list* in image detail (defer to cluster covering full lease history).
+- Lease editing (Phase C).
+- Usage cost gradients on lease-overridden pills (defer; needs its own UX
+  pass — lease percentage gradient is a Kahuna idiom worth questioning).
+- **Per-cell usage icons (print / digital / photo-sales).** Inventory rows
+  13–15. These need a per-cell `GET /usages/media/{id}` against the usage
+  satellite — O(N) per visible cell, not in the mirror-search payload. Own
+  future cluster with its own enrichment-pattern conversation. Note: the
+  in-detail `gr-image-usage` panel reads `image.data.usages.data` which IS
+  populated client-side after a usages fetch; this is a single-image path,
+  not per-grid-cell.
+- **All UI gated by `enableWarningFlags` (inventory rows 7–10: alert /
+  warning / lease-attached selection overlays).** Verified off in both
+  Guardian PROD and TEST `clientConfig` snapshots (7 May 2026), with
+  `imagePreviewFlag*Copy` = `"Not configured"`. Dead code in the Guardian
+  deployment. Cluster 1 does not build the overlay UI. Phase A's
+  `getClientConfig()` exposes `enableWarningFlags` so a future cluster (or
+  a different deployment) can turn it on, but the render path is not built.
+- **Photo-sales icon (inventory row 15).** Gated by `showSendToPhotoSales`,
+  off in both Guardian PROD and TEST. Not built.
+- **Permissions-filter mode (`usePermissionsFilter`).** Off in both Guardian
+  PROD and TEST. Cluster 1 implements the standard cost filter only.
+
+**Guardian-config scope pruning (7 May 2026):** Captured Guardian PROD and
+TEST `clientConfig` via logged-in `window._clientConfig` (raw snapshots
+stored locally, not committed; key flag values inlined here). Several
+Kahuna features the inventory documents are **dead in the Guardian
+deployment** — their gate flags are `false` on both PROD and TEST. Cluster 1
+builds none of them; they're listed in "Out of scope" above. Phase A's
+clientConfig capture means a future deployment that flips a flag can
+light up the corresponding UI without code changes (when we eventually
+build it). BBC's flags are out of scope: noted, not built.
+
+**Bulk-fetch decision — RESOLVED (7 May 2026):** See
+`kupua/exploration/docs/00 Architecture and philosophy/enrichment-strategy.md`.
+Kupua stays direct-ES for scroll/pagination and uses **mirror-search per
+buffer-fill** (`GET /images?q=…&length=N&orderBy=…`) for enrichment —
+search hits carry the same `cost` / `valid` / `invalidReasons` /
+`persisted` / `actions` / `links` payload as `GET /images/{id}` (proven
+by construction + TEST-verified). `?ids=` is reserved for the one
+genuine consumer: non-contiguous persistent selection reconciliation.
+Wholesale-mirror is impractical (9 hard capability gaps in media-api vs
+kupua's pagination architecture). Cluster 1 implements this pattern.
+
+### Future cluster candidates (NOT pre-committed)
+
+Listed for awareness; ordering decided after Cluster 1:
+
+- Validity-only (if Cluster 1 absorbs it as planned, this disappears).
+- Usages display ("where has this image been used").
+- Crops history (read-only list).
+- Edits / labels / archived-state history (display only — editing is Phase C).
+- Collections membership display (per-image; tree browser is its own thing).
+- Syndication rights display (small if RCS link present).
+
+Persistence reasons, permissions reflection, and `actions`-driven
+hide/show are cross-cutting concerns handled in Phase A scaffolding, not
+their own clusters.
+
+### Handoff backlog (do these AFTER Phase A, in order)
+
+1. ~~**Bulk-fetch feasibility study**~~ — **DONE (7 May 2026).** See
+   `kupua/exploration/docs/00 Architecture and philosophy/enrichment-strategy.md`.
+   Strategic answer: stay direct-ES + enrich via mirror-search
+   side-channel. No new media-api endpoints required.
+2. **Cluster 1 detailed workplan** — Cost + leases + validity. All UI
+   affordances mapped to contract §§ and to Kahuna UI inventory rows.
+   Replicate-vs-improve UX decisions logged before implementation.
+   Test surface defined. Cost-split decided (7 May 2026): TS computation
+   for Free/Conditional/Pay using a vendored `GuardianUsageRightsConfig`
+   snapshot, kept permanently as the standalone-mode (no-Grid) baseline;
+   API enrichment overwrites when reachable, including overquota state.
+   Production-ready kupua will fetch quotas on boot (rare-changing JSON,
+   ~5 agencies). See `enrichment-strategy.md` §C "Cost computation".
+3. **Cluster 2 selection** — Decided after Cluster 1 ships. Don't
+   pre-write.
+
+---
+
+**Note (7 May 2026):** Phase B is preserved here as the original framing
+(read-only HATEOAS panels in image detail). It is **superseded in practice
+by the cluster decomposition** that begins after Phase A. Each Phase B
+feature listed below maps to a future cluster (usages, leases history,
+crops history, edits history, collections membership). Don't implement
+Phase B as a single phase — implement individual clusters with their own
+workplans. The table below is now a backlog index, not a sequenced plan.
 
 ## Phase B — Read operations through HATEOAS
 
@@ -786,6 +1065,13 @@ confirmation flows, error handling, optimistic UI.
 
 - **Writes only against TEST initially.** No PROD writes from kupua until a
   human review process exists.
+- **Unlocking writes is a single env var flip:** Phase C runs with
+  `VITE_GRID_API_WRITES_ENABLED=true` so the `gridApiWriteGuard()` plugin
+  (`vite.config.ts`, see [`infra-safeguards.md`](../infra-safeguards.md) §8)
+  stops blocking non-GET methods. Until that flag is set, writes are
+  physically impossible from browser code — the proxy returns 403 before
+  the request reaches media-api. Treat the env var as a deliberate per-session
+  opt-in, never a default.
 - **Permission gating from the API.** If `actions.edit` is absent in the
   image response, kupua hides the edit UI. Don't replicate permission logic
   in TypeScript — trust the API.
@@ -839,6 +1125,8 @@ so fresh agents follow it without re-deriving it:
 | **Auth, permissions** | Inferred from API responses | Don't replicate; trust the server |
 
 The full permissions catalogue is in contract §6.4. Error response shapes are in §6.5. Always handle `401` (re-auth), `419` (expired cookie, distinct from 401), `403` (authorised but not permitted), and Argo error responses (`{ errorKey, errorMessage }`). See §6.5 for the full `errorKey` list.
+
+**Note on the proxy guard:** non-GET responses with 403 may also originate from `gridApiWriteGuard()` itself (when `VITE_GRID_API_WRITES_ENABLED` is unset) rather than from media-api. The body is plain text starting with `[grid-api-write-guard]` — distinguishable from Argo `{ errorKey, errorMessage }` JSON. Adapter error handling should detect this and surface a clear developer-facing message rather than treating it as a permission denial. See [`infra-safeguards.md`](../infra-safeguards.md) §8.
 
 **For each API call in Phase B or C, read the corresponding contract §4 or §5 subsection before writing adapter code.**
 
@@ -905,11 +1193,11 @@ This workplan should stop or pause if any of the following occurs:
    foundation before more features.
 2. **Auth doesn't carry across origins.** Pan-domain cookie issue.
    Escalate; don't work around.
-3. **Argo response parsing turns out to be a nightmare.** ~~If Phase A reveals
+3. **~~Argo response parsing turns out to be a nightmare.~~** ~~If Phase A reveals
    the HATEOAS envelope is much more complex than expected (Argo's
    `EmbeddedEntity` wrapping is recursive), pause and decide whether to
    build a proper Argo client or revert to direct-ES for those reads.~~
-   **Softened:** The Argo `EmbeddedEntity` structure is now fully documented in contract §6.1, and the reconciliation rules for merged fields are in §3.2.1. The envelope is non-trivial but tractable — the nesting pattern is consistent and documented. If implementation reveals a genuinely unparseable edge case, stop and ask; but do not treat the complexity as a blocker without first consulting §6.1.
+   **Softened:** The Argo `EmbeddedEntity` structure is now fully documented in contract §6.1, and the reconciliation rules for merged fields are in §3.2.1. The envelope is non-trivial but tractable — the nesting pattern is consistent and documented. Phase A scaffolding now exercises the unwrap helpers against §10 fixtures specifically so this risk surfaces before any cluster ships. If implementation reveals a genuinely unparseable edge case, stop and ask; but do not treat the complexity as a blocker without first consulting §6.1.
 4. **Permission gating doesn't match expectations.** If actions appear/disappear
    in unexpected ways, the model is wrong. Investigate before building more
    on it.
