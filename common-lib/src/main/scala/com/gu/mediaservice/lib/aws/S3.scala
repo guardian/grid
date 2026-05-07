@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.AmazonServiceException
 import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -100,7 +99,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     try {
       Some(IOUtils.toString(content).trim)
     } catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
+      case _: NoSuchKeyException =>
         logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
     }

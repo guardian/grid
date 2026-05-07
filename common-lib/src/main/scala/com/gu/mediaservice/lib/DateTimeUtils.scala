@@ -1,10 +1,8 @@
 package com.gu.mediaservice.lib
 
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
-import org.joda.time.DateTime
-
 import java.time.temporal.ChronoUnit
+import java.time.{Instant, ZoneId, ZonedDateTime}
 import scala.concurrent.duration.{DurationLong, FiniteDuration}
 import scala.util.Try
 
@@ -18,7 +16,8 @@ object DateTimeUtils {
   def toString(instant: Instant): String = instant.atZone(EuropeLondonZone).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
   // TODO move this to a LocalDateTime
-  def fromValueOrNow(value: Option[String]): DateTime = Try{new DateTime(value.get)}.getOrElse(DateTime.now)
+  def fromValueOrNow(value: Option[String]): Instant =
+    value.flatMap(raw => Try { Instant.parse(raw) } .toOption).getOrElse(Instant.now)
 
   def timeUntilNextInterval(interval: FiniteDuration, now: ZonedDateTime = DateTimeUtils.now()): FiniteDuration = {
     val nowRoundedDownToTheHour = now.truncatedTo(ChronoUnit.HOURS)

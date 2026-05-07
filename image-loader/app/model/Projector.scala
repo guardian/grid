@@ -1,32 +1,27 @@
 package model
 
-import java.io.{File, FileOutputStream, InputStream}
-import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.{GridClient, ImageDataMerger}
-import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
-import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.lib._
 import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
 import org.apache.commons.io.IOUtils
-import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3.S3Client
+import _root_.play.api.libs.ws.WSRequest
 import software.amazon.awssdk.services.s3.model.GetObjectResponse
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 
-import java.nio.file.Path
-import scala.jdk.CollectionConverters._
+import java.io.{File, FileOutputStream, InputStream}
+import java.time.Instant
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 object Projector {
 
@@ -38,19 +33,19 @@ object Projector {
 
 case class S3FileExtractedMetadata(
   uploadedBy: String,
-  uploadTime: DateTime,
+  uploadTime: Instant,
   uploadFileName: Option[String],
   identifiers: Map[String, String]
 )
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: GetObjectResponse): S3FileExtractedMetadata = {
-    val lastModified = new DateTime(s3ObjectMetadata.lastModified())
+    val lastModified = s3ObjectMetadata.lastModified()
     val userMetadata = s3ObjectMetadata.metadata().asScala.toMap
     apply(lastModified, userMetadata)
   }
 
-  def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
+  def apply(lastModified: Instant, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
     val fileUserMetadata = userMetadata.map { case (key, value) =>
       // Fix up the contents of the metadata.
       (
@@ -63,7 +58,7 @@ object S3FileExtractedMetadata {
     }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(new DateTime(_).withZone(DateTimeZone.UTC))
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(Instant.parse)
     val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
     val identifiers = fileUserMetadata.filter{ case (key, _) =>
       key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
@@ -165,7 +160,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
-  import Uploader.{fromUploadRequestShared, toMetaMap}
+  import Uploader.fromUploadRequestShared
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)

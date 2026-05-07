@@ -1,8 +1,5 @@
 package controllers
 
-import org.apache.pekko.Done
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -13,25 +10,28 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, SimpleSqsMessageConsumer, SqsHelpers}
-import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.formatting.printInstant
 import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations, ImageStorageProps}
 import com.gu.mediaservice.model.{UnsupportedMimeTypeException, UploadInfo}
-import org.scanamo.{ConditionNotMet, ScanamoError}
 import lib.FailureResponse.Response
+import lib._
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
-import lib._
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
+import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
+import org.scanamo.{ConditionNotMet, ScanamoError}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
 import play.api.mvc._
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, NoSuchKeyException}
 
 import java.io.{File, FileOutputStream}
@@ -296,7 +296,7 @@ class ImageLoaderController(auth: Authentication,
 
       val uploadStatus = if(config.maybeQuarantineBucket.isDefined) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
-      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
+      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printInstant(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,

@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib
 import org.joda.time.DateTime
 import org.joda.time.format.{DateTimeFormatter, DateTimeFormatterBuilder, ISODateTimeFormat}
 
+import java.time.Instant
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -25,6 +26,9 @@ package object formatting {
 
   def printDateTime(date: DateTime): String = date.toString()
   def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
+
+  def printInstant(instant: Instant): String = instant.toString
+  def printOptInstant(instant: Option[Instant]): Option[String] = instant.map(printInstant)
 
   // Only use this on dates that have been confidently written using printDateTime
   def unsafeParseDateTime(string: String): DateTime =
