@@ -284,7 +284,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
-                // Update imagesAll with newly loaded images
+            // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     const position = index + start;
                     const imageId = image.data.id;
@@ -309,7 +309,6 @@ results.controller('SearchResultsCtrl', [
 
                     results.set(position, image);
                 });
-
                 // images should not contain any 'holes'
                 ctrl.images = compact(ctrl.imagesAll);
             });
@@ -383,6 +382,10 @@ results.controller('SearchResultsCtrl', [
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
+            // Polling for new images is meaningless for AI search — results are
+            // ranked by vector similarity, not upload time.
+            if ($stateParams.useAISearch) { return; }
+
             $timeout(() => {
                 // Use explicit `until`, or blank it to find new images
                 const until = $stateParams.until || null;

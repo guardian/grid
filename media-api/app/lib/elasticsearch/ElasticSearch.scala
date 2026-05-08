@@ -18,6 +18,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -171,6 +172,23 @@ class ElasticSearch(
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
         SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
       }
+  }
+
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+               (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val knn = Knn("embedding.cohereEmbedV4.image")
+        .queryVector(queryEmbedding.map(_.toDouble))
+        .k(k)
+        .numCandidates(numCandidates)
+
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .knn(knn)
+      .size(k)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+    }
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {

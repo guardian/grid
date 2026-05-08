@@ -29,6 +29,7 @@ object S3Vectors {
 
 class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   extends AwsClientV2BuilderUtils {
+
   import S3Vectors.DeletionStatus
 
   // TODO: figure out what the more usual pattern for turning off localstack behaviour is
@@ -71,94 +72,6 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       .build()
 
     client.deleteVectors(request)
-  }
-
-  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
-    VectorData
-      .builder()
-      .float32(embedding.map(float2Float).asJava)
-      .build()
-  }
-
-  private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
-    val vectorData: VectorData = convertEmbeddingToVectorData(vector)
-
-    val inputVector: PutInputVector = PutInputVector
-      .builder()
-      .data(vectorData)
-      .key(key)
-      .build()
-
-    val request: PutVectorsRequest = PutVectorsRequest
-      .builder()
-      .indexName(indexName)
-      .vectorBucketName(vectorBucketName)
-      .vectors(inputVector)
-      .build()
-
-    client.putVectors(request)
-  }
-
-  private def queryVectors(embedding: List[Float]): QueryVectorsResponse = {
-    val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
-
-    val request: QueryVectorsRequest = QueryVectorsRequest
-      .builder()
-      .indexName(indexName)
-      .vectorBucketName(vectorBucketName)
-      .topK(100)
-      .queryVector(queryVector)
-      .build()
-
-    client.queryVectors(request)
-  }
-
-  def searchByText(
-    queryEmbedding: List[Float], 
-    query: String
-  )(implicit logMarker: LogMarker): Try[QueryVectorsResponse] = Try {
-      val response = queryVectors(queryEmbedding)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-      logger.info(logMarker, s"${response}")
-      response
-  }
-
-  def getVectorByImageId(imageId: String)(implicit logMarker: LogMarker): GetOutputVector = {
-    val vectors = getVectors(Set(imageId), returnData = true, returnMetadata = false)
-    vectors.headOption match {
-      case Some(vector) if vectors.size == 1  =>
-        logger.info(logMarker, s"Successfully retrieved vector for imageId ${imageId}")
-        vector
-      case _ if vectors.size > 1 =>
-        logger.info(logMarker, s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
-        throw new NoSuchElementException(s"Expected exactly 1 vector for imageId ${imageId}, but found ${vectors.size}")
-      case _ =>
-        logger.info(logMarker, s"No vector found for imageId ${imageId}")
-        throw new NoSuchElementException(s"No vector found for imageId ${imageId}")
-    }
-  }
-
-  def searchByImage(queryVector: VectorData)(implicit logMarker: LogMarker
-  ): Try[QueryVectorsResponse] = Try {
-    logger.info(logMarker, s"Searching for image embedding")
-      val request: QueryVectorsRequest = QueryVectorsRequest
-        .builder()
-        .indexName("cohere-embed-english-v3")
-        .vectorBucketName(s"image-embeddings-${config.stage.toLowerCase}")
-        .topK(100)
-        .queryVector(queryVector)
-        .build()
-
-      val response = client.queryVectors(request)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-      logger.info(logMarker, s"${response}")
-      response
   }
 
   private def getExistingVectorKeys(keys: Set[String]): Set[String] =
