@@ -641,7 +641,7 @@ class MediaApi(
     }
 
     def performAiSearchAndRespond(query: String): Future[Result] = {
-      val k = 200
+      val k = config.aiSearchResultLimit
       val searchResultsFuture = parseAiSearchMode(query) match {
         case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
         case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
