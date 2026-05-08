@@ -1,26 +1,24 @@
 package model
 
-import java.io.File
-import java.net.URI
-import java.util.UUID
 import com.drew.imaging.ImageProcessingException
-import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{EmbedderMessage, S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
+import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
+import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.model._
 import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
-import org.joda.time.DateTime
 import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 import test.lib.ResourceHelpers
 
-import java.nio.file.Path
+import java.io.File
+import java.net.URI
+import java.time.Instant
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -77,7 +75,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       imageId = randomId,
       tempFile = tempFile,
       mimeType = MimeTypeDetection.guessMimeType(tempFile).toOption,
-      uploadTime = DateTime.now(),
+      uploadTime = Instant.now(),
       uploadedBy = "uploadedBy",
       identifiers = Map(),
       uploadInfo = ul

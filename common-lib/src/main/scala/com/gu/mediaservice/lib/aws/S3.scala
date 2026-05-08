@@ -73,7 +73,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type UserMetadata = Map[String, String]
 
   lazy val client: S3Client = S3Ops.buildS3Client(config)
-  lazy val presigner = S3Presigner.create()
+  lazy val presigner: S3Presigner = S3Presigner.builder().s3Client(client).build()
 
   def signUrl(bucket: Bucket, url: URI, image: Image, imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
