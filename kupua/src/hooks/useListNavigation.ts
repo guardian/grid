@@ -419,22 +419,27 @@ export function useListNavigation(config: ListNavigationConfig): void {
           break;
         // ArrowLeft/Right: in multi-column grid with focus, move focus.
         // In table (cols===1), scroll horizontally — works in and out of selection mode.
+        // Modified arrows (Alt=word-jump, Shift=select, Meta=line-start/end) are let
+        // through so native text-editing behaviour works in the CQL search box and
+        // future native input fields. Custom editing web components that propagate bare
+        // ArrowLeft/Right for cursor movement are not protected here — extend
+        // isNativeInputTarget to detect them if that becomes necessary.
         case "ArrowLeft":
           if (hasFocus && cols > 1) {
             e.preventDefault();
             moveFocus(-1);
-          } else if (cols === 1) {
+          } else if (cols === 1 && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
             e.preventDefault();
-            c.scrollRef.current?.scrollBy({ left: -150, behavior: "smooth" });
+            c.scrollRef.current?.scrollBy({ left: -150 });
           }
           break;
         case "ArrowRight":
           if (hasFocus && cols > 1) {
             e.preventDefault();
             moveFocus(1);
-          } else if (cols === 1) {
+          } else if (cols === 1 && !e.altKey && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
             e.preventDefault();
-            c.scrollRef.current?.scrollBy({ left: 150, behavior: "smooth" });
+            c.scrollRef.current?.scrollBy({ left: 150 });
           }
           break;
         case "PageUp":

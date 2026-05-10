@@ -14,6 +14,35 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Bug fixes: Alt+arrow word-jump broken in table view; table horizontal scroll pixel-by-pixel
+
+**Bug 2 — Alt+Left/Right (word jump) broken in search box when table is active**
+
+In table mode (`cols === 1`), `useListNavigation.ts` was intercepting all ArrowLeft/Right
+events unconditionally, calling `e.preventDefault()` regardless of modifier keys. The CQL
+search box deliberately lets Alt-modified keys bubble (so global shortcuts work), but
+`isNativeInputTarget` doesn't catch `<cql-input>` (custom element, not native input), so
+the table scroll handler fired instead of the browser's native word-jump.
+
+**Bug 3 — Table horizontal scroll pixel-by-pixel when holding arrow key**
+
+`scrollBy({ behavior: "smooth" })` starts a ~300–500ms animation. Key repeat fires at
+~30 events/second. Each repeat cancels the in-progress animation (only ~5px complete of
+150px target) and starts a new one. Net: ~5px per event instead of 150px.
+
+**Fix (single edit, `useListNavigation.ts`):**
+
+Both `cols === 1` branches now guard on `!e.altKey && !e.shiftKey && !e.metaKey &&
+!e.ctrlKey` — modified arrows fall through to browser default (word-jump, select-word,
+line-start/end). Dropped `behavior: "smooth"` from both `scrollBy` calls — each key
+repeat now jumps a full 150px instantly, matching how vertical `scrollByRows` works.
+
+Comment added noting the residual gap: custom editing web components that propagate bare
+ArrowLeft/Right for cursor movement are not protected by `isNativeInputTarget` — native
+inputs (likely for future metadata editing) are already fully protected by that guard.
+
+**Tests:** 794 unit tests green. No new tests (pure behaviour change, no testable unit boundary).
+
 ### 10 May 2026 — Bug fix: scrubber blank when entire result set is in null zone
 
 **Bug:** Searching with `-has:dateTaken` sorted by `-taken` produced a completely blank
