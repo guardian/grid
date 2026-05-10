@@ -24,6 +24,11 @@ export const test = base.extend<{ kupua: KupuaHelpers }>({
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
     }
+    // Block Grid API (media-api enrichment) requests at the browser level.
+    // Intercepts before the Vite proxy, so: no terminal noise, no media-api
+    // calls even if it happens to be running. useEnrichment handles 5xx
+    // gracefully (null fallback) — tests are unaffected.
+    await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
     const helpers = new KupuaHelpers(page);
     await use(helpers);
   },

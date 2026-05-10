@@ -41,6 +41,8 @@ import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useEnrichment } from "@/hooks/useEnrichment";
+import { initGridApi } from "@/lib/grid-api-instance";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -59,6 +61,17 @@ function SearchPage() {
 
   // Keep document.title in sync with the search query
   useDocumentTitle();
+
+  // Cluster 1 — Grid API enrichment: single-lane 300ms debounce, visible-first
+  // ordering, progressive per-chunk merging. See useEnrichment.ts for rationale.
+  useEnrichment();
+
+  // Initialise Grid API service discovery once on mount (idempotent).
+  // This fetches the HATEOAS root so useEnrichment can construct API URLs.
+  useEffect(() => {
+    void initGridApi();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // S6 — Hydrate selection metadata on mount.
   // persist middleware rehydrates selectedIds synchronously; this effect

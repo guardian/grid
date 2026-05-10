@@ -35,6 +35,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Touch gestures (swipe carousel, dismiss, pinch-zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `zz Archive/swipe-carousel-review.md`, `zz Archive/prefetch-cadence-workplan.md` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
+| **Grid API adapter / bread-and-butter integration** | `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md`, `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.ts` |
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts` |
@@ -60,12 +61,13 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 | Component | Key files | ~Lines | Purpose |
 |---|---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
+| DAL (ES) | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
+| Grid API adapter | `dal/grid-api/types.ts`, `dal/grid-api/argo.ts`, `dal/grid-api/service-discovery.ts`, `dal/grid-api/grid-api-adapter.ts`, `dal/grid-api/errors.ts` | ~450 | `GridApiDataSource`. Phase A: `getImageDetail(id)`. Argo envelope helpers. HATEOAS service discovery. Error hierarchy (AuthError, SessionExpiredError, ArgoError, WriteGuardBlockedError). Phase B+ adds satellite adapters; Phase C+ adds writes. |
 | Position Map | `dal/position-map.ts` | 80 | `PositionMap` struct-of-arrays (ids + sortValues), `cursorForPosition()` helper |
 | Store | `stores/search-store.ts` | 3,580 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil, position map, parallel seek |
 | Data Window | `hooks/useDataWindow.ts` | 460 | Buffer↔view bridge. Two-tier mode (`virtualizerCount=total`), scroll-triggered seek, extend triggers |
 | Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
-| Grid | `components/ImageGrid.tsx` | 510 | Responsive thumbnails, scroll anchoring on width change |
+| Grid | `components/ImageGrid.tsx` | ~570 | Responsive thumbnails, scroll anchoring on width change. Cluster 1: cost badge, graphic blur overlay, staff-photographer ring, print/digital usage icons per cell via `useEnrichmentForImage`. |
 | Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
 | Scroll | `hooks/useScrollEffects.ts` | 985 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
 | Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. Stacked layout on mobile (flex-col, image top, metadata below). |
@@ -74,8 +76,13 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Swipe Carousel | `hooks/useSwipeCarousel.ts` | ~290 | Visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, commitStripReset. |
 | Swipe Dismiss | `hooks/useSwipeDismiss.ts` | ~140 | Pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only. |
 | Pinch Zoom | `hooks/usePinchZoom.ts` | ~260 | Two-finger pinch 1x–5x, single-finger pan, double-tap 1x↔2x. Fullscreen-only. Exposes scaleRef. |
-| Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. |
-| Fields | `lib/field-registry.ts` | ~900 | 37 hardcoded + config aliases. Drives all surfaces. `multiSelectBehaviour`, `visibleWhen`, `summariser`, `showWhenEmpty` added for S4. `RECONCILE_FIELDS` exported. |
+| Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. Cluster 1: Rights section added (cost badge, validity disclosure, lease count). |
+| Fields | `lib/field-registry.tsx` | ~920 | 37+ hardcoded + config aliases. Drives all surfaces. Renamed `.ts`→`.tsx` (cost cellRenderer uses JSX). Cluster 1: `cost` field added. `RECONCILE_FIELDS` exported. |
+| Cost calculator | `lib/cost/calculate-cost.ts`, `lib/cost/validity-map.ts`, `lib/cost/types.ts`, `lib/cost/guardian-config.json` | ~200 | ES-baseline cost + validity. Port of CostCalculator.scala + ImageExtras.scala. Vendored GuardianUsageRightsConfig snapshot (2026-05-07). Never returns "overquota" (server-only). |
+| Grid API singleton | `lib/grid-api-instance.ts` | ~20 | Module-level `GridApiDataSource` + `ServiceDiscovery`. `initGridApi()` called once on search route mount. |
+| Enrichment store | `stores/enrichment-store.ts` | ~90 | Zustand. `EnrichmentFields` per image id. `setEnrichment(map)` replaces whole buffer window. No persistence (ephemeral). |
+| useEnrichment | `hooks/useEnrichment.ts` | ~125 | Mirror-search hook. Fires per buffer change. AbortController cancellation. Graceful null on API absence. `useEnrichmentForImage(id)` per-cell selector. |
+| CostBadge | `components/CostBadge.tsx` | ~60 | `CostBadge` + `CostBadgeFromCost`. 5 cost variants, 3 sizes. CSS custom property colours. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
 | URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
 | UI Prefs | `stores/ui-prefs-store.ts` | 75 | `focusMode` preference (explicit/phantom), `pointer: coarse` auto-detection, localStorage-persisted |
@@ -85,13 +92,13 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Selection UI (S2+S3a+S6) | `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts` | ~120 + ~160 + ~80 | Tickbox overlay (grid) + column (table). `useIsSelected(id)` per-id subscription. `dispatchClickEffects` executes `ClickEffect[]`. Count + Clear folded into `StatusBar`. Mode-flip is CSS-driven via `data-selection-mode`. `useRangeSelection` orchestrates in-buffer fast path + server-walk for shift-click. `useUrlSearchSync` clears selection on any new search (gated by flag). |
 | Toast primitive | `stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx` | ~150 | Queue-backed toast notifications. BBC PR #4253 vocabulary. `addToast()` imperative export for non-React callers (selection-store hydration drop). |
 | Touch gestures (S5) | `hooks/useLongPress.ts`, `components/SelectionFab.tsx` | ~140 | `useLongPress`: 500ms long-press threshold, move/scroll/contextmenu cancellation, Android pointercancel fix (committed state guard). Long-press enters selection mode; second long-press dispatches full `add-range` effect (buffer/server walk, same as desktop shift-click). Paint-drag cut -- `touch-action` timing prevents it on mobile (see deviations.md). `SelectionFab`: bottom-right floating button, shows count + X, coarse-pointer only. StatusBar count/clear hidden on coarse pointer. `addGroup`/`removeGroup` in selection-store (latent). Desktop: `IS_COARSE_POINTER` gates `draggable` on GridCell. |
-| Multi-image panel (S4) | `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SearchPill.tsx` (`MultiSearchPill`) | ~200 + ~260 + ~80 | `MultiImageMetadata` renders reconciled field view for 2+ images. `metadata-primitives` shared by single and multi panels. `MultiValue` renders "Multiple X" for mixed scalars. `MultiSearchPill` adds partial/full chip state. |
+| Multi-image panel (S4) | `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SearchPill.tsx` (`MultiSearchPill`) | ~200 + ~260 + ~80 | `MultiImageMetadata` renders reconciled field view for 2+ images. Cluster 1: cost summary section at top (bucket counts + leased-fraction gradient). `metadata-primitives` shared by single and multi panels. `MultiValue` renders "Multiple X" for mixed scalars. `MultiSearchPill` adds partial/full chip state. |
 
 > Detailed descriptions of each: `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
-- **617 Vitest** unit/integration tests (~40s) -- `npm test`
+- **726 Vitest** unit/integration tests (~40s) -- `npm test`
 - **223 Playwright E2E** tests (~7min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`

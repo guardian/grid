@@ -36,6 +36,16 @@
   --color-grid-warning: #ffbc01;
   --color-grid-success: #228b22;
 
+  /* Cost semantic colours — replicate Kahuna 1:1 (muscle memory for editors) */
+  --color-grid-cost-free: teal;
+  --color-grid-cost-pay: #e63a1e;
+  --color-grid-cost-conditional: orange;
+  --color-grid-cost-overquota: red;
+  /* Leased override — teal badge bg when active allow-use lease present */
+  --color-grid-cost-leased: teal;
+  /* no-rights shares the pay colour */
+  --color-grid-cost-no-rights: #e63a1e;
+
   /*
    * Override Tailwind's default --font-sans so every element inherits
    * Open Sans automatically.  Tailwind 4 applies --font-sans to html

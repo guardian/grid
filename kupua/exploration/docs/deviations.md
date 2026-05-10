@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-05-02
+Last updated: 2026-05-07
 
 ---
 
@@ -392,6 +392,64 @@ sentinels, so extends and seeks through the null zone work correctly.
 (null-zone docs) is typically fast — most images have the primary field populated.
 Total fetch time increases by one round-trip (~200ms) but the fetch is already
 background and non-blocking.
+
+### 21. Single-lane enrichment via `?ids=` at 300ms debounce, visible-first ordering
+
+**What:** `useEnrichment` fetches enrichment data for the entire buffer via
+`GET /api/images?ids=id1,id2,…&length=N&orderBy=…`, debounced at 300ms after
+the last scroll or buffer change. IDs are sorted visible-first before chunking so
+the first chunk covers the visible viewport; chunks are merged progressively via
+`onChunk` so cost badges appear as soon as the viewport chunk resolves.
+
+**Why single lane (not two):** The former two-lane architecture (Tier 1 at 300ms
+viewport-only, Tier 2 at 3000ms full-buffer) was motivated by HTTP/1.1
+connection-budget concerns: `/api` is HTTP/1.1 in TEST/CODE/PROD (6 connections
+per origin), and 5 parallel enrichment chunks could potentially starve
+detail-panel / satellite-proxy fetches. On evaluation that concern doesn't hold
+for kupua's traffic profile: ES baseline uses a separate SSH tunnel, thumbnails
+go to S3/CloudFront, and detail-panel fetches are sparse (user-click-triggered).
+Worst case under HTTP/1.1: a detail-panel fetch waits ~0.8s behind queued
+enrichment chunks — annoying but not broken. The structural cost of two lanes
+(extra hook, extra debounce constant, extra cache key, dual mental model) exceeded
+the runtime benefit. Under HTTP/2 (when it lands), no additional kupua change is
+needed. See `cluster1-tier-collapse-implementation-handoff.md`.
+
+**Visible-first ordering:** within a 300ms debounce fire, viewport IDs (+/- 6
+rows) are pushed to the front of the ID list before chunking. Under HTTP/1.1,
+chunk 0 goes out first and returns first (~0.8s), so the user sees cost badges
+at ~1.1s regardless of buffer size.
+
+**Infrastructure dependency:** Pekko HTTP's default `max-uri-length=2048` caps the
+URL at ~46 IDs per request. Kupua chunks at 46 IDs (parallel `Promise.all`) until
+`pekko.http.server.parsing.max-uri-length=16384` lands in `common-lib`, at which
+point the chunk size raises to ~370 and a single request covers the full buffer.
+See `exploration/docs/cluster1-ids-enrichment-research.md` for the full research.
+
+### 22. ES-baseline validity map omits `over_quota`
+
+**What:** `buildValidityMap()` does not include an `over_quota` check. The
+`deriveInvalidReasons()` output therefore never contains `over_quota` in
+standalone/ES-only mode.
+
+**Why:** `over_quota` requires a live quota call to `GET /api/usage/quota`
+(per supplier), which is not available in the ES-only baseline. The API
+enrichment layer (`useEnrichment`) overwrites `invalidReasons` with the
+server-authoritative map (which may include `over_quota`) when available.
+
+**Trade-off:** Images from quota-exceeded suppliers show valid (or pay) instead of
+"over quota" when API enrichment is unavailable. Acceptable for standalone/Playwright
+mode. When connected to real infrastructure, API enrichment covers this.
+
+### 23. `field-registry.ts` renamed to `field-registry.tsx`
+
+**What:** `src/lib/field-registry.ts` was renamed to `.tsx` in Cluster 1.
+
+**Why:** The `cost` field definition includes a `cellRenderer` that returns JSX
+(`<CostBadgeFromCost ... />`). Oxc (the Vite transformer) rejects JSX in `.ts` files.
+
+**Trade-off:** Minor — the file now requires React imports and the bundler treats it
+as a React module. All 14 importers use the `@/lib/field-registry` path alias, which
+resolves the extension transparently.
 
 ---
 
@@ -1250,3 +1308,19 @@ is a web app.
 **Trade-off:** Users on touch devices cannot drag individual cells to collection
 panels (there are no collection drop targets in Kupua's mobile layout yet anyway).
 Desktop drag-to-collection works as expected.
+
+---
+
+### Two parallel data adapters (ElasticsearchDataSource + GridApiDataSource)
+
+**What:** Kupua has two coexisting data adapters:
+- `dal/es-adapter.ts` — all search-shape flows (scroll, `search_after`, PIT, aggregations, position maps, scrubber, range selection)
+- `dal/grid-api/grid-api-adapter.ts` — media-api HATEOAS surface (image detail, Phase B+ satellite reads, Phase C+ writes)
+
+**Why:** media-api has 9 hard capability gaps against kupua's pagination architecture (`search_after`, PIT, composite aggs, percentile aggs, `_source` shaping, `countBefore`, `getIdRange`, reverse sort, two-phase null-zone seek). Migrating search to media-api would require Scala changes equivalent to reimplementing kupua's entire scroll system — months of work with no user benefit. The hybrid is permanent, not a transitional scaffold.
+
+**Merge direction (permanent rule):** ES baseline → API overwrite. ES-sourced fields are the standalone-mode floor (kupua works without Grid). API enrichment overwrites server-computed fields (`cost`, `valid`, `persisted`, `actions`, etc.) when reachable. Never the inverse.
+
+**Trade-off:** Two adapters to maintain. The decision matrix is documented in `dal/grid-api/README.md` and `integration-workplan-bread-and-butter.md §"Architectural rule"`.
+
+Reference: `integration-workplan-bread-and-butter.md`, `enrichment-strategy.md`.

@@ -321,3 +321,163 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 47 | 279 | 1149 | 1149 | 869 |
 | JB4 | scrubber-scroll | — | — | — | 27 | — |
 | JB5 | fullscreen-exit | — | — | — | 5 | — |
+
+---
+
+## [short] Mid-cost work (033ed41a2 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 265 | 265 | — |
+| PP2 | sort-no-focus | 59 | — | 264 | 264 | — |
+| PP3 | sort-around-focus | 58 | 263 | 611 | 611 | 348 |
+| PP4 | sort-around-focus | 60 | 274 | 672 | 672 | 391 |
+| PP5 | filter-toggle | 56 | 350 | — | 531 | 186 |
+| PP6 | density-swap | — | — | — | 213 | — |
+| PP7 | scrubber-seek | 1 | — | 825 | 825 | — |
+| PP7b | scrubber-seek | 1 | — | 808 | 808 | — |
+| PP7c | scrubber-scroll | — | — | — | 133 | — |
+| PP8 | search | 0 | 226 | 693 | 693 | 468 |
+| PP9 | search | 0 | — | 242 | 242 | — |
+| PP10 | position-map | — | — | — | 2758 | — |
+| PP6b | density-swap | — | — | — | 408 | — |
+| PP6c | density-swap | — | — | — | 367 | — |
+
+---
+
+## [long] Mid-cost work (033ed41a2 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 216 | 216 | — |
+| JA2 | open-detail | — | — | — | 119 | — |
+| JA3 | metadata-click | 56 | 523 | 922 | 922 | 379 |
+| JB1 | search | 0 | — | 253 | 253 | — |
+| JB2 | facet-click | 64 | — | 307 | 307 | — |
+| JB3 | facet-click | 53 | 332 | 306 | 306 | 926 |
+| JB4 | scrubber-scroll | — | — | — | 23 | — |
+| JB5 | fullscreen-exit | — | — | — | 9 | — |
+
+---
+
+## [short] Mid-cost work with API (033ed41a2 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 269 | 269 | — |
+| PP2 | sort-no-focus | 64 | — | 245 | 245 | — |
+| PP3 | sort-around-focus | 63 | 255 | 579 | 579 | 335 |
+| PP4 | sort-around-focus | 61 | 284 | 648 | 648 | 364 |
+| PP5 | filter-toggle | 58 | 357 | — | 556 | 198 |
+| PP6 | density-swap | — | — | — | 205 | — |
+| PP7 | scrubber-seek | 1 | — | 855 | 855 | — |
+| PP7b | scrubber-seek | 1 | — | 852 | 852 | — |
+| PP7c | scrubber-scroll | — | — | — | 133 | — |
+| PP8 | search | 0 | 233 | 824 | 824 | 590 |
+| PP9 | search | 0 | — | 252 | 252 | — |
+| PP10 | position-map | — | — | — | 2807 | — |
+| PP6b | density-swap | — | — | — | 417 | — |
+| PP6c | density-swap | — | — | — | 361 | — |
+
+---
+
+## [long] Mid-cost work with API (033ed41a2 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 232 | 232 | — |
+| JA2 | open-detail | — | — | — | 117 | — |
+| JA3 | metadata-click | 57 | 525 | 1014 | 1014 | 429 |
+| JB1 | search | 0 | — | 266 | 266 | — |
+| JB2 | facet-click | 64 | — | 763 | 763 | — |
+| JB3 | facet-click | 54 | 286 | 1179 | 1179 | 899 |
+| JB4 | scrubber-scroll | — | — | — | 26 | — |
+| JB5 | fullscreen-exit | — | — | — | 6 | — |
+
+---
+
+## [short] Mid-cost work, bit later (482f9d0e1 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 270 | 270 | — |
+| PP2 | sort-no-focus | 67 | — | 259 | 259 | — |
+| PP3 | sort-around-focus | 62 | 252 | 592 | 592 | 319 |
+| PP4 | sort-around-focus | 62 | 243 | 643 | 643 | 395 |
+| PP5 | filter-toggle | 61 | 308 | — | 524 | 203 |
+| PP6 | density-swap | — | — | — | 224 | — |
+| PP7 | scrubber-seek | 1 | — | 833 | 833 | — |
+| PP7b | scrubber-seek | 1 | — | 845 | 845 | — |
+| PP7c | scrubber-scroll | — | — | — | 141 | — |
+| PP8 | search | 0 | 254 | 810 | 810 | 553 |
+| PP9 | search | 0 | — | 309 | 309 | — |
+| PP10 | position-map | — | — | — | 2696 | — |
+| PP6b | density-swap | — | — | — | 415 | — |
+| PP6c | density-swap | — | — | — | 362 | — |
+
+---
+
+## [long] Mid-cost work, bit later (482f9d0e1 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 247 | 247 | — |
+| JA2 | open-detail | — | — | — | 126 | — |
+| JA3 | metadata-click | 61 | 514 | 979 | 979 | 391 |
+| JB1 | search | 0 | — | 249 | 249 | — |
+| JB2 | facet-click | 70 | — | 301 | 301 | — |
+| JB3 | facet-click | 56 | 298 | 325 | 325 | 722 |
+| JB4 | scrubber-scroll | — | — | — | 14 | — |
+| JB5 | fullscreen-exit | — | — | — | 6 | — |
+
+---
+
+## [short] Mid-cost work, after perf fixes (482f9d0e1 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 266 | 266 | — |
+| PP2 | sort-no-focus | 62 | — | 230 | 230 | — |
+| PP3 | sort-around-focus | 64 | 231 | 549 | 549 | 318 |
+| PP4 | sort-around-focus | 61 | 238 | 553 | 553 | 325 |
+| PP5 | filter-toggle | 60 | 300 | — | 479 | 179 |
+| PP6 | density-swap | — | — | — | 223 | — |
+| PP7 | scrubber-seek | 1 | — | 720 | 720 | — |
+| PP7b | scrubber-seek | 1 | — | 674 | 674 | — |
+| PP7c | scrubber-scroll | — | — | — | 133 | — |
+| PP8 | search | 0 | 222 | 751 | 751 | 530 |
+| PP9 | search | 0 | — | 243 | 243 | — |
+| PP10 | position-map | — | — | — | 2564 | — |
+| PP6b | density-swap | — | — | — | 411 | — |
+| PP6c | density-swap | — | — | — | 361 | — |
+
+---
+
+## [long] Mid-cost work, after perf fixes (482f9d0e1 (dirty), 2026-05-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 210 | 210 | — |
+| JA2 | open-detail | — | — | — | 119 | — |
+| JA3 | metadata-click | 60 | 532 | 931 | 931 | 399 |
+| JB1 | search | 0 | — | 245 | 245 | — |
+| JB2 | facet-click | 65 | — | 628 | 628 | — |
+| JB3 | facet-click | 56 | 276 | 324 | 324 | 869 |
+| JB4 | scrubber-scroll | — | — | — | 26 | — |
+| JB5 | fullscreen-exit | — | — | — | 6 | — |

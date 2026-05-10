@@ -14,6 +14,86 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Phase A + Cluster 1: cost, validity, badges, API scaffolding
+
+Two-plus days of bread-and-butter work (7–10 May 2026). This commit contains all
+permanent code; the companion commit adds the `useEnrichment` background loop
+(recorded for history, to be removed in a subsequent strip commit).
+
+**Phase A — Grid API adapter scaffolding:**
+- `dal/grid-api/` — HATEOAS service discovery, adapter (`getImageDetail`,
+  `enrichByIds`), Argo `EmbeddedEntity` unwrapping, error types (`AuthError`,
+  `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`), write-guard
+  Vite plugin.
+- `lib/grid-api-instance.ts` — module singleton with `initGridApi()`.
+- `routes/search.tsx` — mounts `initGridApi()` boot effect + `useEnrichment()`
+  call (import resolves after companion commit).
+
+**Cluster 1 — Cost, validity, enrichment infrastructure:**
+- `lib/cost/calculate-cost.ts` — pure `calculateCost(usageRights, config)`,
+  ported from Scala `CostCalculator`.
+- `lib/cost/validity-map.ts` — `buildValidityMap(image)` +
+  `deriveInvalidReasons()`, ported from `ImageExtras.scala`.
+- `lib/cost/guardian-config.json` — vendored Guardian config snapshot
+  (freeSuppliers, suppliersCollectionExcl, payGettySourceList, category
+  defaults).
+- `stores/enrichment-store.ts` — Zustand store for API overlay data
+  (`Map<id, EnrichmentFields>`).
+- `lib/derive-enriched-image.ts` — pure `deriveImage(image, overlay?)` merge
+  function; ES baseline → API overwrite. Single merge point for all consumers.
+- `hooks/useEnrichedImage.ts` — `useEnrichedImage(image)` hook, subscribes
+  only to enrichment-store per-id (O(1) `Map.get`).
+
+**UI — badges, overlays, detail panel:**
+- `components/CostBadge.tsx` — cost variant badges (free/pay/conditional/
+  overquota/no-rights) at sm/md/lg sizes.
+- `components/ImageGrid.tsx` — cost badge overlay, graphic blur, staff-
+  photographer border, usage icons (print/digital/syndication/persisted).
+- `components/ImageTable.tsx` — `EnrichedTableRow` wrapper, badges column,
+  staff-photographer left border.
+- `components/ImageMetadata.tsx` — Rights section (cost badge, validity
+  disclosure with red/amber/teal states, lease list with relative dates,
+  restrictions banner).
+- `components/MultiImageMetadata.tsx` — Cost summary section (bucket counts
+  + leased-fraction gradient pills).
+- `lib/field-registry.ts` → `.tsx` rename for JSX in `cellRenderer`.
+- `index.css` — cost colour tokens.
+- `lib/image-borders.ts` — shared staff/contract/commissioned border config.
+- `lib/category-labels.ts` — human-readable usage rights category labels.
+
+**ES adapter:**
+- `es-adapter.ts` — `nonFree` filter bug fix (missing free-supplier branch),
+  shape adjustments for enrichment baseline fields.
+
+**Docs + inventories:**
+- Inventories A, B, C (docs/kahuna/backend feature audits).
+- Inventory handoffs, research docs, workplan updates, deviations entries.
+- Visual baseline snapshots regenerated (4 screenshots, expected from UI
+  changes).
+- Perf audit results (audit-log, perceived-log).
+
+### 9 May 2026 — Tier collapse: single-lane enrichment at 300ms
+
+**Context:** The enrichment hook had a two-lane architecture (Tier 1 = 300ms viewport-only `useViewportEnrichment`, Tier 2 = 3000ms full-buffer `useEnrichment`). The 3s gap existed to prevent HTTP/1.1 connection starvation. Both tiers were already using the same `enrichByIds` mechanism after the "Tier 1 restructure" earlier in the session.
+
+**Decision:** Collapse to single lane at 300ms. The HTTP/1.1 concern was re-evaluated and rejected for kupua's traffic profile: ES baseline uses a separate SSH tunnel, thumbnails go to S3/CloudFront, and detail-panel fetches are user-click-triggered (sparse). Worst case: a detail-panel fetch waits ~0.8s behind queued enrichment. The structural cost of two lanes exceeded that runtime risk. Under HTTP/2 (when it lands), no additional change is needed.
+
+**Phase 1 — collapse:**
+- Deleted `useViewportEnrichment`, `VIEWPORT_ENRICHMENT_DEBOUNCE_MS`.
+- `useEnrichment` debounce reduced from 3000ms to 300ms.
+- Added `visibleRange.start/end` as effect dependencies so debounce restarts on scroll.
+- Abort semantics: abort immediately on `cacheKey` change (stale buffer); on scroll-only, leave in-flight running (data still valid), abort only when next debounce fires.
+
+**Phase 1b — visible-first + progressive merging:**
+- Visible-first ordering: IDs in viewport ±6 rows sorted to front of list before chunking. Under HTTP/1.1, chunk 0 returns first (~0.8s); badges appear at ~1.1s.
+- `onChunk` callback added to `GridApiDataSource.enrichByIds` — fires as each chunk resolves before `Promise.all` completes. Callers merge per-chunk hits immediately; final `Promise.all` result does authoritative full replace (removes stale evicted IDs).
+
+**Tests:** 3 new tests in `grid-api-adapter.test.ts` covering `onChunk` success, `onChunk` not called on failure, abort cancels. `useEnrichment.test.ts` gained `useVisibleRange` mock. 748→751 vitest tests passing.
+
+**Docs:** deviations.md entry 21 replaced with single-lane description. Appendix A table in cluster1-ids-enrichment-research.md updated: HTTP/2 no longer a prerequisite for collapse.
+
+**LOC delta:** ~120 lines net deleted (all of `useViewportEnrichment` + Tier 2 duplication removed; ~30 lines added for visible-first + onChunk wiring).
+
 ### 6 May 2026 -- Three reconciliation fixes + frequency tooltips
 
 **Three bugs causing inflated counts in the multi-image metadata panel:**

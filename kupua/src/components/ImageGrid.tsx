@@ -42,6 +42,8 @@ import { useLongPress } from "@/hooks/useLongPress";
 import { Tickbox } from "@/components/Tickbox";
 import { PILL_ACCENT } from "@/components/SearchPill";
 import { useMetadataSearch } from "@/components/metadata-primitives";
+import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
+import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -100,6 +102,26 @@ function buildDateTooltip(image: Image): string {
   return `Uploaded: ${formatDate(image.uploadTime)}\n      Taken: ${formatDate(image.metadata?.dateTaken)}\n  Modified: ${formatDate(image.lastModified)}`;
 }
 
+/** Convert raw persisted reason keys to human-readable past-participle phrases (Kahuna parity). */
+const PERSIST_REASON_LABELS: Record<string, string> = {
+  exports: "cropped",
+  usages: "used",
+  "persistence-identifier": "from Picdar",
+  "photographer-category": "categorised as photographer",
+  "illustrator-category": "categorised as illustrator",
+  "commissioned-agency": "categorised as agency commissioned",
+  "persisted-collection": "added to a persisted collection",
+  photoshoot: "added to a photoshoot",
+  leases: "leased",
+};
+
+function humanisePersistedReasons(reasons: string[]): string {
+  const labels = reasons.map((r) => PERSIST_REASON_LABELS[r] ?? r);
+  if (labels.length === 0) return "";
+  if (labels.length === 1) return labels[0];
+  return labels.slice(0, -1).join(", ") + " and " + labels[labels.length - 1];
+}
+
 /**
  * Pick the date label + value to show on the grid cell based on the primary
  * sort field. Matches kahuna behaviour: when sorting by date taken, show
@@ -116,6 +138,14 @@ function getCellDateLine(image: Image, orderBy: string | undefined): string {
   }
   return `Uploaded: ${formatDate(image.uploadTime)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Image borders — thick border on thumbnail for categorised images.
+// Reusable: map usageRights.category → border colour. Add new categories here.
+// ---------------------------------------------------------------------------
+
+
+import { IMAGE_BORDERS } from "@/lib/image-borders";
 
 // ---------------------------------------------------------------------------
 // GridCell — memoised individual cell
@@ -138,6 +168,8 @@ interface GridCellProps {
   onDragStart?: (imageId: string, e: React.DragEvent) => void;
 }
 
+// Vendored Guardian cost config no longer needed — deriveImage handles cost computation.
+
 const GridCell = memo(function GridCell({
   image,
   isFocused,
@@ -151,6 +183,15 @@ const GridCell = memo(function GridCell({
   draggable,
   onDragStart,
 }: GridCellProps) {
+  // Enrichment — each cell merges its own overlay so only this cell
+  // re-renders when its enrichment data changes.
+  const enriched = useEnrichedImage(image);
+  const [graphicRevealed, setGraphicRevealed] = useState(false);
+  const handleTickBound = useCallback(
+    (e: React.MouseEvent) => { if (image) onTickClick(image.id, e); },
+    [image?.id, onTickClick],
+  );
+
   if (!image) {
     // Placeholder skeleton — no Tickbox (disabled prop renders null)
     return (
@@ -166,6 +207,31 @@ const GridCell = memo(function GridCell({
   const dateTooltip = buildDateTooltip(image);
   const description = image.metadata?.description || image.metadata?.title || "";
   const labels = image.userMetadata?.labels;
+
+  // Cost: from deriveImage (ES baseline + API overlay merged)
+  const cost = enriched?.cost;
+  // Image border — thick coloured border on the thumbnail itself (not the cell).
+  const imageBorderColor = IMAGE_BORDERS[enriched?.usageRights?.category ?? image.usageRights?.category ?? ""];
+  // Graphic blur — only from enrichment (isPotentiallyGraphic is a search-hit-only field)
+  const isPotentiallyGraphic = enriched?.isPotentiallyGraphic;
+  // Usages for print/digital icons — enrichment preferred, ES fallback via enrichedUsages
+  type AnyUsage = { platform: string; dateAdded?: string };
+  const usages: AnyUsage[] | undefined = enriched?.enrichedUsages ?? image.usages;
+  // Persisted (archiver status) — API only
+  const persisted = enriched?.persisted;
+  // Syndication status — API only (not in ES Image type)
+  const syndicationStatus = enriched?.syndicationStatus;
+
+  // Print/digital usage icons derived from usages list
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const hasPrintUsage = usages?.some((u) => u.platform === "print");
+  const hasPrintRecentUsage = usages?.some(
+    (u) => u.platform === "print" && u.dateAdded && new Date(u.dateAdded).getTime() > sevenDaysAgo,
+  );
+  const hasDigitalUsage = usages?.some((u) => u.platform === "digital");
+  const hasDigitalRecentUsage = usages?.some(
+    (u) => u.platform === "digital" && u.dateAdded && new Date(u.dateAdded).getTime() > sevenDaysAgo,
+  );
 
   return (
     <div
@@ -184,10 +250,11 @@ const GridCell = memo(function GridCell({
       onDragStart={draggable ? (e) => onDragStart?.(image.id, e) : undefined}
     >
       {/* Selection tickbox — hidden by CSS, shown on hover or in Selection Mode */}
-      <Tickbox imageId={image.id} onTickClick={(e) => onTickClick(image.id, e)} />
-      {/* Thumbnail area — 190px block, image top-aligned, horizontally centred (matches Kahuna) */}
+      <Tickbox imageId={image.id} onTickClick={handleTickBound} />
+      {/* Thumbnail area — 190px block, flex-centred so img element hugs actual
+           image content (border wraps the visible image, not the container). */}
       <div
-        className="overflow-hidden"
+        className="relative overflow-hidden flex items-center justify-center"
         style={{ height: 190 }}
         title={descTooltip}
       >
@@ -197,7 +264,8 @@ const GridCell = memo(function GridCell({
             src={thumbUrl}
             alt=""
             loading="lazy"
-            className="block w-full h-[186px] object-contain pointer-events-none"
+            className="max-w-full max-h-[186px] pointer-events-none"
+            style={imageBorderColor ? { border: `10px solid ${imageBorderColor}` } : undefined}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
@@ -207,6 +275,22 @@ const GridCell = memo(function GridCell({
             <span className="text-grid-text-dim text-sm">No thumbnail</span>
           </div>
         )}
+
+        {/* Graphic image blur overlay — click to reveal (Kahuna row 5) */}
+        {isPotentiallyGraphic && !graphicRevealed && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-md bg-black/40 cursor-pointer z-10"
+            onClick={(e) => { e.stopPropagation(); setGraphicRevealed(true); }}
+            title="This image may contain graphic content. Click to reveal."
+          >
+            <span className="text-white text-xs font-semibold text-center px-2">
+              Potentially graphic
+            </span>
+            <span className="text-white/70 text-2xs mt-1">Click to reveal</span>
+          </div>
+        )}
+
+        {/* Icon row — bottom-right overlay (syndication, archiver, print/digital) */}
       </div>
 
       {/* Labels — accent-blue pills below image, above description (matches Kahuna).
@@ -243,6 +327,61 @@ const GridCell = memo(function GridCell({
           {dateLine}
         </p>
       </div>
+
+      {/* Bottom icon bar — pinned to cell bottom; status icons left, cost badge right */}
+      <div className="mt-auto flex items-center justify-between px-1 py-0.5 select-none" style={{ minHeight: 20 }}>
+        <div className="flex items-center gap-0.5">
+          {/* Print usage icon (row 13) — local_library Material icon (filled) */}
+          {hasPrintUsage && (
+            <span className={hasPrintRecentUsage ? "text-[#DD0000]" : "text-grid-text-dim"} title={`Print usage${hasPrintRecentUsage ? " (recent)" : ""}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.19 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 8c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z" />
+              </svg>
+            </span>
+          )}
+          {/* Digital usage icon (row 14) — phonelink Material icon */}
+          {hasDigitalUsage && (
+            <span className={hasDigitalRecentUsage ? "text-[#DD0000]" : "text-grid-text-dim"} title={`Digital usage${hasDigitalRecentUsage ? " (recent)" : ""}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z" />
+              </svg>
+            </span>
+          )}
+          {/* Syndication icon (row 11) — monetization_on Material icon */}
+          {syndicationStatus === "sent" && (
+            <span className="text-green-400" title="Syndicated">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.94s4.18 1.36 4.18 3.85c0 1.89-1.44 2.98-3.12 3.19z" />
+              </svg>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5">
+          {/* Cost badge (Kahuna rows 1–4; free hidden per Kahuna) */}
+          {cost && cost !== "free" && (
+            <CostBadge
+              variant={enriched?.noRights ? "no-rights" : cost}
+              size="sm"
+              leased={enriched?.leasesSummary?.hasActiveAllowLease}
+              tooltip={buildCostTooltip(
+                enriched?.noRights ? "no-rights" : cost,
+                enriched?.leasesSummary?.hasActiveAllowLease,
+                enriched?.usageRights?.restrictions,
+              )}
+            />
+          )}
+          {/* Archiver / persisted icon (row 12) — custom "kept in library" padlock, extreme right */}
+          {persisted?.value && (
+            <span className="text-grid-text-dim" title={`Kept in Library because the image has been ${humanisePersistedReasons(persisted.reasons)}.`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor" width={14} height={14}>
+                <path d="M113.8 98.7v15.1H14.1V14.2h42.7V0H14.2C6.4 0 0 6.4 0 14.2v99.6c0 7.8 6.4 14.2 14.2 14.2h99.6c7.8 0 14.2-6.4 14.2-14.2V98.7h-14.2z" />
+                <path d="M67.7 88.6H118c4.6 0 8.4-3.8 8.4-8.4V38.3c0-4.6-3.8-8.4-8.4-8.4h-4.2v-8.4c0-11.5-9.4-20.9-21-20.9s-21 9.4-21 20.9v8.4h-4.2c-4.6 0-8.4 3.8-8.4 8.4v41.9c.1 4.6 3.9 8.4 8.5 8.4zM92.8 70C86.9 70 82 65.2 82 59.2c0-5.9 4.9-10.8 10.8-10.8s10.8 4.9 10.8 10.8c0 6-4.8 10.8-10.8 10.8zM79.9 21.5c0-7.2 5.8-13 13-13s13 5.8 13 13v8.4h-26v-8.4z" />
+              </svg>
+            </span>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 });

@@ -27,6 +27,10 @@ import {
 } from "./metadata-primitives";
 import { MultiSearchPill } from "./SearchPill";
 import { MultiValue } from "./MultiValue";
+import { deriveImage } from "@/lib/derive-enriched-image";
+import { categoryLabel } from "@/lib/category-labels";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
+import type { Cost } from "@/dal/grid-api/types";
 
 import type { ReconciledView } from "@/lib/reconcile";
 
@@ -48,12 +52,14 @@ const LOCATION_IDS = new Set([
 // Placed where the first location_* field would appear in each section.
 const LOCATION_SENTINEL = { id: "__location__" } as unknown as FieldDefinition;
 
-// Sections with the 4 location_* entries collapsed into one sentinel.
+// Sections with the 4 location_* entries collapsed into one sentinel,
+// and usageRights_category excluded (rendered explicitly in Rights section).
 const MULTI_SECTIONS: FieldDefinition[][] = SECTIONS.map((section) => {
-  if (!section.some((f) => LOCATION_IDS.has(f.id))) return section;
+  const filtered = section.filter((f) => f.id !== "usageRights_category");
+  if (!filtered.some((f) => LOCATION_IDS.has(f.id))) return filtered;
   const out: FieldDefinition[] = [];
   let inserted = false;
-  for (const f of section) {
+  for (const f of filtered) {
     if (LOCATION_IDS.has(f.id)) {
       if (!inserted) {
         out.push(LOCATION_SENTINEL);
@@ -276,6 +282,158 @@ function renderField(
 }
 
 // ---------------------------------------------------------------------------
+// Cost summary section — aggregate cost buckets across selection
+// ---------------------------------------------------------------------------
+
+const COST_ORDER: Array<Cost | "no-rights"> = ["free", "conditional", "pay", "overquota", "no-rights"];
+// Labels match Kahuna: count-first, user-facing wording.
+const COST_LABEL: Record<Cost | "no-rights", string> = {
+  free: "free",
+  conditional: "restricted",
+  pay: "paid",
+  overquota: "over quota",
+  "no-rights": "no rights",
+};
+// Base colour for each bucket's pill (Kahuna: free=green, conditional=orange, pay/no_rights/overquota=red)
+const COST_COLOR: Record<Cost | "no-rights", string> = {
+  free: "green",
+  conditional: "orange",
+  pay: "red",
+  overquota: "red",
+  "no-rights": "red",
+};
+// Kahuna only shows lease-fraction gradient on these buckets.
+// free is always solid green; no-rights is always solid red (lease doesn't fix missing rights).
+const LEASE_GRADIENT_BUCKETS = new Set<Cost | "no-rights">(["pay", "overquota", "conditional"]);
+
+function CostSummarySection() {
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const metadataCache = useSelectionStore((s) => s.metadataCache);
+  const enrichmentData = useEnrichmentStore((s) => s.data);
+
+  // Aggregate: count per cost bucket
+  const counts = new Map<Cost | "no-rights", number>();
+  const leasedCounts = new Map<Cost | "no-rights", number>();
+
+  for (const id of selectedIds) {
+    const img = metadataCache.get(id);
+    if (!img) continue;
+    const enriched = deriveImage(img, enrichmentData.get(id));
+    const bucket: Cost | "no-rights" = enriched.noRights
+      ? "no-rights"
+      : enriched.cost;
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    // Leased if any allow-use lease is active (from enrichment summary)
+    if (enriched.leasesSummary?.hasActiveAllowLease) {
+      leasedCounts.set(bucket, (leasedCounts.get(bucket) ?? 0) + 1);
+    }
+  }
+
+  if (counts.size === 0) return null;
+
+  // Full-width blocks breaking out of parent p-3 padding (same negative-margin
+  // pattern as validity/restrictions banners in ImageMetadata).
+  return (
+    <div className="-mx-3 -mt-3 mb-2 flex flex-wrap gap-1 p-1">
+      {COST_ORDER.filter((b) => counts.has(b)).map((bucket) => {
+        const count = counts.get(bucket)!;
+        const leased = leasedCounts.get(bucket) ?? 0;
+        const baseColor = COST_COLOR[bucket];
+        const showGradient = LEASE_GRADIENT_BUCKETS.has(bucket) && leased > 0;
+        const pct = showGradient ? Math.round(100 * leased / count) : 0;
+        const bg =
+          showGradient && leased < count
+            ? `linear-gradient(90deg, teal 0 ${pct}%, ${baseColor} ${pct}% 100%)`
+            : showGradient && leased === count
+              ? "teal"
+              : baseColor;
+        return (
+          <div
+            key={bucket}
+            className="px-3 py-1.5 text-center text-xs font-semibold text-white whitespace-nowrap"
+            style={{ background: bg }}
+            title={showGradient ? `${leased} of ${count} leased` : undefined}
+          >
+            {count} {COST_LABEL[bucket]}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rights & leases section — aggregate counts matching Kahuna's multi-image layout
+// ---------------------------------------------------------------------------
+
+function RightsAndLeasesSection() {
+  const reconciledView = useSelectionStore((s) => s.reconciledView);
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const metadataCache = useSelectionStore((s) => s.metadataCache);
+  const onSearch = useMetadataSearch();
+
+  // Reconciled category from the reconciliation engine
+  const categoryRec = reconciledView?.get("usageRights_category");
+  const categoryField = RECONCILE_FIELDS.find((f) => f.id === "usageRights_category");
+
+  // Aggregate lease counts across selection (Kahuna: "{n} current leases + {m} inactive leases")
+  const enrichmentData = useEnrichmentStore((s) => s.data);
+  let currentLeaseCount = 0;
+  let inactiveLeaseCount = 0;
+  for (const id of selectedIds) {
+    const img = metadataCache.get(id);
+    if (!img) continue;
+    const enriched = deriveImage(img, enrichmentData.get(id));
+    currentLeaseCount += enriched.leasesSummary?.currentCount ?? 0;
+    inactiveLeaseCount += enriched.leasesSummary?.inactiveCount ?? 0;
+  }
+
+  return (
+    <>
+      {/* Rights & restrictions — stacked layout matching Kahuna */}
+      <MetadataSection>
+        {categoryField && categoryRec && (
+          <MetadataBlock label="Rights & restrictions">
+            {renderField(categoryField, categoryRec, onSearch, selectedIds.size) === null ? (
+              <Dash />
+            ) : categoryRec.kind === "all-same" ? (() => {
+              const raw = String((categoryRec as { value: unknown }).value);
+              return (
+                <ValueLink
+                  cqlKey={categoryField.cqlKey!}
+                  value={raw}
+                  label={categoryLabel(raw)}
+                  onSearch={onSearch}
+                />
+              );
+            })()
+            : categoryRec.kind === "mixed" ? (
+              <MultiValue field={categoryField} topValues={(categoryRec as { topValues: Array<{ value: unknown; count: number }> }).topValues} total={selectedIds.size} />
+            ) : categoryRec.kind === "all-empty" ? (
+              <span className="text-xs text-grid-text-dim">None</span>
+            ) : (
+              <Dash />
+            )}
+          </MetadataBlock>
+        )}
+      </MetadataSection>
+
+      {/* Leases summary — separate section with divider */}
+      {(currentLeaseCount > 0 || inactiveLeaseCount > 0) && (
+        <MetadataSection>
+          <MetadataRow label="Leases">
+            <span className="text-xs text-grid-text italic">
+              {currentLeaseCount} current lease{currentLeaseCount !== 1 ? "s" : ""}
+              {inactiveLeaseCount > 0 ? ` + ${inactiveLeaseCount} inactive` : ""}
+            </span>
+          </MetadataRow>
+        </MetadataSection>
+      )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -285,7 +443,10 @@ export function MultiImageMetadata() {
   const onSearch = useMetadataSearch();
 
   return (
-    <dl>
+    <>
+      <CostSummarySection />
+      <dl>
+        <RightsAndLeasesSection />
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si}>
           {sectionFields.map((field) =>
@@ -295,6 +456,7 @@ export function MultiImageMetadata() {
           )}
         </MetadataSection>
       ))}
-    </dl>
+      </dl>
+    </>
   );
 }

@@ -899,15 +899,16 @@ pattern (ES search + per-cell API enrichment) end-to-end.
 **Out of scope for Cluster 1:**
 - Lease *list* in image detail (defer to cluster covering full lease history).
 - Lease editing (Phase C).
-- Usage cost gradients on lease-overridden pills (defer; needs its own UX
-  pass — lease percentage gradient is a Kahuna idiom worth questioning).
-- **Per-cell usage icons (print / digital / photo-sales).** Inventory rows
-  13–15. These need a per-cell `GET /usages/media/{id}` against the usage
-  satellite — O(N) per visible cell, not in the mirror-search payload. Own
-  future cluster with its own enrichment-pattern conversation. Note: the
-  in-detail `gr-image-usage` panel reads `image.data.usages.data` which IS
-  populated client-side after a usages fetch; this is a single-image path,
-  not per-grid-cell.
+- **Photo-sales icon (inventory row 15).** The `hasSyndicationUsages` half
+  is derivable from search-hit data, BUT the icon is gated by
+  `showSendToPhotoSales` clientConfig flag = `false` in both Guardian PROD
+  and TEST, AND the `showPaid` permission. Don't build the render path.
+  When/if a deployment turns the flag on, a future cluster wires it up.
+- **`gr-image-usage` panel (single-image usages list).** Out of scope here
+  to keep Cluster 1 small — own future cluster ("usages display") covers
+  the full per-image list with timestamps, references, etc. Per-cell
+  print/digital BADGES (rows 13–14) ARE in scope because they're free
+  from search-hit data (corrected 7 May 2026; see below).
 - **All UI gated by `enableWarningFlags` (inventory rows 7–10: alert /
   warning / lease-attached selection overlays).** Verified off in both
   Guardian PROD and TEST `clientConfig` snapshots (7 May 2026), with
@@ -941,6 +942,264 @@ genuine consumer: non-contiguous persistent selection reconciliation.
 Wholesale-mirror is impractical (9 hard capability gaps in media-api vs
 kupua's pagination architecture). Cluster 1 implements this pattern.
 
+### Inventory rows in scope for Cluster 1
+
+Source: `kupua/exploration/docs/01 Research/kahuna-search-results-cost-signals.md`
+(grid cells) and `kupua/exploration/docs/01 Research/kahuna-image-detail-inventory.md`
+(detail panel). Replicate-vs-improve decisions made here so the implementer
+doesn't punt:
+
+| Row | Signal | Surface | Decision |
+|---|---|---|---|
+| 1–4 | Cost badge: free / pay / conditional / overquota | Grid cell + table row | Replicate Kahuna semantic colours 1:1 (user pref). Bottom-left thumb overlay. |
+| 5 | Graphic image blur | Grid cell | Replicate Kahuna (blur + click-to-reveal). Gated on `isPotentiallyGraphic` (search hit only) + hardcoded `defaultShouldBlurGraphicImages=true`. |
+| 6 | Staff-photographer border | Grid cell | Replicate. Gated on `usageRights.category === "staff-photographer"`. |
+| 11 | Syndication icon | Grid cell | Replicate. Read from enrichment payload. |
+| 12 | Archiver status icon | Grid cell | Replicate. Read from enrichment `persisted` reasons. |
+| 13 | Print usages icon | Grid cell | Replicate. Derived from `usages[]` (embedded inline on search hit per `ImageResponse.scala:369,372`). `local_library` icon, `icon-warning` red if any usage with `platform="print"` and `dateAdded` within last 7 days. **No additional network call.** |
+| 14 | Digital usages icon | Grid cell | Replicate. Same as row 13 with `platform="digital"`, `phonelink` icon. |
+| 16 | Cost text pill | Single-detail metadata | Replicate. |
+| 17 | Validity link | Single-detail metadata | Replicate as link, opens disclosure of `invalidReasons` map (no editing). |
+| 18 | Lease cards | Single-detail metadata | **Improve:** count-only summary for Cluster 1 ("3 current, 2 inactive"); full list + gradient pills deferred to leases-history cluster. Lease percentage gradient is a Kahuna idiom worth questioning. |
+| 19 | Cost summary pills | Multi-detail metadata | Replicate 1:1 incl. leased-fraction gradient on `pay`/`overquota`/`conditional` pills. Teal-to-{red\|orange} `linear-gradient(90deg, ...)` showing the % of the bucket with active `allow-use` lease (rescues paid → usable). See Cluster1.11 for predicate + colour spec. |
+| 20 | "Free to use only" filter | Toolbar | **Already exists** — `kupua/src/components/SearchFilters.tsx:55-66`. No work. |
+
+### `clientConfig` source (hardcode-defaults rule)
+
+Phase A's `service-discovery.ts:getClientConfig()` returns `undefined`
+(stubbed; `_clientConfig` is a kahuna-template concept, not in media-api
+root). Cluster 1 does NOT wire it. Hardcode Guardian PROD defaults at every
+consumer site, marked with a TODO so a future agent picks them up when
+`GET /config` lands (see `integration-plan-api-first.md` Phase 1):
+
+```ts
+// TODO: clientConfig source — see integration-plan-api-first.md Phase 1
+const enableWarningFlags = false;            // PROD + TEST
+const showSendToPhotoSales = false;          // PROD + TEST
+const usePermissionsFilter = false;          // PROD + TEST
+const defaultShouldBlurGraphicImages = true; // PROD + TEST
+const staffPhotographerOrganisation = "GNM"; // PROD + TEST
+const costFilterLabel = "Free to use only";
+```
+
+Why hardcode rather than wire to kahuna: creates a kahuna-template
+dependency we'd then rip out. eelpie's "frontend should know one URL"
+argument applies. Hardcoded defaults are honest and revisitable in one
+grep when the endpoint exists.
+
+### Concrete steps
+
+#### Cluster1.1 — Vendor `GuardianUsageRightsConfig` snapshot
+
+Create `kupua/src/lib/cost/guardian-config.json` and
+`kupua/src/lib/cost/types.ts`. Sources (read-only, snapshot once, ageing
+slowly):
+
+- `freeSuppliers` (11 entries) →
+  `common-lib/src/main/scala/com/gu/mediaservice/lib/guardian/GuardianUsageRightsConfig.scala:638`
+- `suppliersCollectionExcl` (Getty → payGettySourceList) →
+  `GuardianUsageRightsConfig.scala:651`
+- `payGettySourceList` (~418 entries, contains dupes) →
+  `GuardianUsageRightsConfig.scala:144`. Dedupe on snapshot.
+- UsageRights category → `defaultCost` map (e.g. `staff-photographer→free`,
+  `chargeable→pay`, `pr-image→conditional`, `agency→null`, `handout→free`)
+  derived from
+  `common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala`
+
+These are the standalone-mode (no-Grid) baseline. Permanent, not
+scaffolding (per `enrichment-strategy.md` §C). Add a header comment in
+the JSON noting source paths + snapshot date so a future agent knows
+where to refresh from.
+
+#### Cluster1.2 — Port `CostCalculator` to TS
+
+`kupua/src/lib/cost/calculate-cost.ts`. Pure function:
+
+```ts
+calculateCost(usageRights: UsageRights, config: GuardianCostConfig): Cost | null
+```
+
+Mirror Scala priority chain
+(`media-api/app/lib/usagerights/CostCalculator.scala:39-50`):
+`restrictions ? Conditional : categoryCost ?? supplierCost ?? defaultCost`.
+`supplierCost` = Agency-only check via `freeSuppliers` ∩
+`suppliersCollectionExcl`. **Overquota returns `null`** (live S3 state,
+API-only — let API enrichment overwrite). ~50 lines + Vitest covering
+each branch.
+
+#### Cluster1.3 — Port `validityMap` to TS
+
+`kupua/src/lib/cost/validity-map.ts` from
+`media-api/app/lib/ImageExtras.scala:50`. Mechanical port. Inputs:
+`usageRights`, `metadata.credit`, `metadata.description`, `leases`. Output:
+`Record<reasonKey, boolean>`. Vitest unit tests.
+
+#### Cluster1.4 — Mirror-search method on `GridApiDataSource`
+
+Add `searchByQuery(q, length, orderBy, offset?, signal?)` to
+`kupua/src/dal/grid-api/grid-api-adapter.ts`. `GET /api/images?q=…&length=…&orderBy=…&offset=…`.
+Returns the `SearchResponse` envelope already typed in Phase A.1.
+Graceful absence: network/timeout/non-2xx → `null` (per AGENTS directive,
+ES baseline still renders). Same error-class mapping as `getImageDetail`
+for auth/guard/Argo cases. Vitest with fixtures (use the search-hit
+fixture set added in Phase A.6).
+
+**Deep-scroll enrichment is out of scope for Cluster 1.** With `offset`
+support, enrichment covers buffer windows up to `offset+length ≤ 10_000`
+(media-api inherits ES `index.max_result_window`). Past that, ES baseline
+renders without enrichment overwrite — no errors, just absence. Add a
+one-line entry to `deviations.md` documenting the cap.
+
+A separate research session **before any cluster that makes deep-scroll
+enrichment user-visible** must compare candidate strategies against
+(a) all three scroll modes (in-memory <1k, two-tier 1k-65k, seek >65k),
+(b) all sort fields (not just date), (c) URL/body size limits at
+`page_size=200`, (d) cancellation/staleness semantics, (e) what (if
+anything) media-api would need to add. Candidates identified so far:
+
+  1. `offset` paginated mirror-search (this cluster's choice; dies past 10k).
+  2. `GET /api/images?ids=…` chunked — exact window, but 200 ids ≈ 7kB URL,
+     CloudFront/ALB header limits a real risk.
+  3. Ranged sort-cursor mirror (e.g. `since`/`until` for `uploadTime`,
+     equivalents for other fields) — works past 10k for date sorts;
+     tie-handling and non-date sorts unsolved.
+  4. New POST/mget endpoint on media-api — cleanest, but scope creep into
+     media-api territory we've otherwise avoided.
+
+Decision blocked on that research; do NOT attempt it inside Cluster 1.
+
+#### Cluster1.5 — `useEnrichment` hook
+
+New `kupua/src/hooks/useEnrichment.ts`. Per-buffer-fill mirror-search
+keyed off the active query/orderBy/cursor span. Returns
+`Map<imageId, EnrichmentFields>` where `EnrichmentFields` =
+`{ cost, valid, invalidReasons, persisted, usageRights, leasesSummary, actions, isPotentiallyGraphic }`.
+Discards mirror-search response shape; exposes only the fields cluster
+needs. Cancellation tied to the buffer's `AbortController`. Re-runs when
+the buffer cursor span changes, NOT per-cell.
+
+#### Cluster1.6 — Enrichment merge in store
+
+Wire `useEnrichment` into search-store (or co-located selector) such
+that visible cells expose enriched fields. **Merge direction: ES baseline
+→ API overwrite** (per `enrichment-strategy.md`, §C). ES baseline:
+`calculateCost(image.usageRights, guardianConfig)` + `validityMap(image)`
+computed locally. API result overwrites field-by-field on arrival,
+including `cost = "overquota"`. No flicker mitigation needed for v1
+(baseline is computed instantly; API arrives 50–200ms later — visible
+state goes from "computed-best-effort" to "authoritative", same colour
+99% of the time).
+
+#### Cluster1.7 — Badge primitives + Tailwind colour tokens
+
+Author `Badge` in `kupua/src/components/metadata-primitives.tsx`.
+Variants: `free` (green), `pay` (red), `conditional` (amber), `overquota`
+(purple), `no-rights` (red). Extend `tailwind.config.ts` with semantic
+tokens (`grid-cost-free`, `grid-cost-pay`, `grid-cost-conditional`,
+`grid-warning`, `grid-danger`) — Kahuna semantic colours sampled from the
+existing UI (replicate near 1:1 per user pref). Vitest snapshot per variant.
+
+#### Cluster1.8 — Grid cell overlays
+
+Mount in `kupua/src/components/ImageGrid.tsx:187-200` thumbnail container:
+
+- Cost `Badge` bottom-left (rows 1–4).
+- `GraphicWarningOverlay` blur + click-to-reveal (row 5). Gate on
+  `isPotentiallyGraphic && defaultShouldBlurGraphicImages`.
+- Staff-photographer border (row 6). Gate on
+  `usageRights.category === "staff-photographer"`.
+- Syndication icon (row 11). From enrichment.
+- Archiver status icon (row 12). From `persisted` reasons.
+- Print usages icon (row 13). From `usages[]` filtered to `platform==="print"`.
+  `local_library` icon, `icon-warning` red if any usage has `dateAdded`
+  within last 7 days.
+- Digital usages icon (row 14). Same as row 13 for `platform==="digital"`,
+  `phonelink` icon.
+
+Playwright spec covering visible cells light up after the buffer-fill
+mirror-search resolves.
+
+#### Cluster1.9 — Table row column
+
+Add a `cost` entry to `kupua/src/lib/field-registry.ts` with a
+`cellRenderer` that reuses the `Badge` primitive. No new component.
+
+#### Cluster1.10 — Single-image detail "Rights" section
+
+In `kupua/src/components/ImageMetadata.tsx:70-90`, add a `MetadataSection`
+named "Rights" containing:
+
+- Cost text pill (row 16) — same `Badge` primitive, larger size variant.
+- Validity link (row 17) — opens disclosure of `invalidReasons` map.
+- `LeaseCard` count-only summary (row 18) — new component, just
+  `"{n} current · {m} inactive"`. Full list + gradient pills deferred to
+  the leases-history cluster.
+
+#### Cluster1.11 — Multi-detail cost summary (with leased-fraction gradient)
+
+In `kupua/src/components/MultiImageMetadata.tsx`, add a top "Cost summary"
+section: aggregate counts across selection (row 19). Reuses `Badge`
+primitive at small size for `free` / `no_rights` (no gradient).
+
+For `pay`, `overquota`, and `conditional` pills, replicate Kahuna's
+leased-fraction gradient 1:1 (`gr-info-panel.js:61-68`):
+
+```ts
+// Predicate: image is in this cost bucket AND has an active allow-use lease
+const isLeased = (img) =>
+  img.cost === bucket.cost &&
+  img.leases?.leases?.some(l => l.access === "allow-use" && l.active);
+
+const pct = Math.floor(100 * leasedCount / bucket.count);
+const altColor = bucket.cost === "conditional" ? "orange" : "red";
+const style = { backgroundImage:
+  `linear-gradient(90deg, teal 0 ${pct}%, ${altColor} ${pct}% 100%)` };
+```
+
+Semantics: the teal-to-{red|orange} split shows what fraction of paid /
+overquota / restricted images in the selection have an **active
+`allow-use` lease** that lifts the paid blocker (rescues them to usable).
+Lease access values in Grid are `allow-use`, `allow-syndication`,
+`deny-use`, `deny-syndication` — only `allow-use` triggers the rescue.
+Cropping/syndication permissions are independent and don't feed this
+gradient. **Replicate exact colours** (`teal` / `red` / `orange` literal
+keywords as Kahuna does) — these are muscle-memory for editorial users.
+
+`free` and `no_rights` pills get no gradient: free has no upgrade path,
+no_rights has no rescue mechanism.
+
+#### Cluster1.12 — Test surface
+
+- **Vitest unit:** `calculate-cost`, `validity-map`, `Badge` snapshots,
+  `searchByQuery` adapter (mock fetch with §10 search-hit fixtures).
+- **Vitest hook:** `useEnrichment` with mocked `GridApiDataSource` —
+  assert API overwrites ES baseline; assert cancellation on
+  buffer-cursor change.
+- **Playwright e2e (against TEST):** load grid, verify cost badges
+  populate on visible cells after a moment. Open image detail, verify
+  cost pill + lease summary + validity link render.
+- **Playwright graceful absence:** stub `/api/images` proxy to 503;
+  verify ES baseline still renders (cost computed locally), no toast,
+  no console error in normal operation.
+
+Run mandatory surfaces per AGENTS table:
+`npm --prefix kupua test` then `npm --prefix kupua run test:e2e`.
+Warn user about port :3000 before Playwright.
+
+#### Cluster1.13 — Anti-goals (do NOT build in this cluster)
+
+- Lease editing (Phase C).
+- Lease full list / gradient pills (deferred cluster).
+- Per-cell photo-sales icon (row 15) — gated off by `showSendToPhotoSales`
+  in PROD + TEST. Data is free (in `usages[]`), render path not built.
+- Warning-flag overlays (rows 7–10) — gated off in Guardian PROD + TEST.
+- Photo-sales icon (row 15) — gated off.
+- Permissions-filter mode — gated off.
+- `gr-image-usage` panel in image detail — single-image usage fetch,
+  separate cluster.
+- `clientConfig` wiring — defer to API-first plan Phase 1
+  (`GET /config`), use TODO-marked hardcoded defaults.
+
 ### Future cluster candidates (NOT pre-committed)
 
 Listed for awareness; ordering decided after Cluster 1:
@@ -962,15 +1221,15 @@ their own clusters.
    `kupua/exploration/docs/00 Architecture and philosophy/enrichment-strategy.md`.
    Strategic answer: stay direct-ES + enrich via mirror-search
    side-channel. No new media-api endpoints required.
-2. **Cluster 1 detailed workplan** — Cost + leases + validity. All UI
-   affordances mapped to contract §§ and to Kahuna UI inventory rows.
-   Replicate-vs-improve UX decisions logged before implementation.
-   Test surface defined. Cost-split decided (7 May 2026): TS computation
-   for Free/Conditional/Pay using a vendored `GuardianUsageRightsConfig`
-   snapshot, kept permanently as the standalone-mode (no-Grid) baseline;
-   API enrichment overwrites when reachable, including overquota state.
-   Production-ready kupua will fetch quotas on boot (rare-changing JSON,
-   ~5 agencies). See `enrichment-strategy.md` §C "Cost computation".
+2. ~~**Cluster 1 detailed workplan**~~ — **DONE (7 May 2026).** Inlined
+   above as Cluster1.1–Cluster1.13 with replicate-vs-improve decisions
+   made, mount points cited, vendored config sources cited. Cost-split
+   decided (7 May 2026): TS computation for Free/Conditional/Pay using a
+   vendored `GuardianUsageRightsConfig` snapshot, kept permanently as the
+   standalone-mode (no-Grid) baseline; API enrichment overwrites when
+   reachable, including overquota state. Production-ready kupua will
+   fetch quotas on boot (rare-changing JSON, ~5 agencies). See
+   `enrichment-strategy.md` §C "Cost computation".
 3. **Cluster 2 selection** — Decided after Cluster 1 ships. Don't
    pre-write.
 

@@ -37,6 +37,8 @@ import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { useLongPress } from "@/hooks/useLongPress";
+import { useEnrichedImage } from "@/hooks/useEnrichedImage";
+import { IMAGE_BORDERS } from "@/lib/image-borders";
 import { DataSearchPill } from "./SearchPill";
 import {
   FIELD_REGISTRY,
@@ -109,12 +111,18 @@ function compositeCellRenderer(field: FieldDefinition) {
 
 /**
  * Generate a TanStack column def from a FieldDefinition.
+ *
+ * NOTE: `field.cellRenderer` (enrichment-aware) is NOT baked into the column def.
+ * It is called by `EnrichedTableRow` at the row level, which has access to the
+ * enriched image via `useEnrichedImage`. Only list/composite renderers
+ * (which don't need enrichment) are embedded in the column def.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fieldToColumnDef(field: FieldDefinition): ColumnDef<Image, any> {
-  // Pick the cell renderer
-  const renderer = field.cellRenderer
-    ?? (field.isList ? listCellRenderer(field) : undefined)
+  // Only embed non-enrichment renderers in the column def.
+  // field.cellRenderer is handled by EnrichedTableRow at the row level.
+  const renderer =
+    (field.isList ? listCellRenderer(field) : undefined)
     ?? (field.isComposite ? compositeCellRenderer(field) : undefined);
 
   return columnHelper.accessor(
@@ -228,6 +236,123 @@ function buildColumnSizeVars(
 }
 
 // ---------------------------------------------------------------------------
+// (D2) EnrichedTableRow — one useEnrichedImage hook per row
+//
+// Wraps the per-row rendering so that each row calls useEnrichedImage(id)
+// exactly once. Fields with a cellRenderer receive the EnrichedImage
+// (with computed cost, validity, etc.) rather than the raw ES Image.
+// Fields without cellRenderers fall through to TanStack's flexRender
+// (accessor / formatter based — only needs the raw Image).
+// ---------------------------------------------------------------------------
+
+interface EnrichedTableRowProps {
+  row: Row<Image>;
+  image: Image;
+  virtualRow: VirtualItem;
+  isFocused: boolean;
+  animClass: string;
+  handleCellClick: (columnId: string, image: Image, e: React.MouseEvent) => void;
+  handleRowDoubleClick: (imageId: string) => void;
+  handleRowClick: (imageId: string, e: React.MouseEvent) => void;
+  handleTickClick: (imageId: string, e: React.MouseEvent) => void;
+  /** Busts memo when column visibility changes. */
+  visibleColumnCount: number;
+}
+
+const EnrichedTableRow = memo(function EnrichedTableRow({
+  row,
+  image,
+  virtualRow,
+  isFocused,
+  animClass,
+  handleCellClick,
+  handleRowDoubleClick,
+  handleRowClick,
+  handleTickClick,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
+  visibleColumnCount: _visColCount,
+}: EnrichedTableRowProps) {
+  const enriched = useEnrichedImage(image);
+  const handleTickBound = useCallback(
+    (e: React.MouseEvent) => handleTickClick(image.id, e),
+    [image.id, handleTickClick],
+  );
+  const rowBorderColor = IMAGE_BORDERS[enriched?.usageRights?.category ?? image.usageRights?.category ?? ""];
+
+  return (
+    <div
+      key={row.id}
+      role="row"
+      data-image-id={image.id}
+      data-cell-id={image.id}
+      aria-rowindex={virtualRow.index + 2}
+      aria-selected={isFocused}
+      className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
+        isFocused
+          ? "bg-grid-hover/40 outline-2 -outline-offset-2 outline-grid-accent"
+          : "hover:bg-grid-hover/15"
+      } ${animClass}`}
+      style={{
+        height: `${virtualRow.size}px`,
+        transform: `translateY(${virtualRow.start}px)`,
+      }}
+      onClick={(e) => handleRowClick(image.id, e)}
+      onDoubleClick={() => handleRowDoubleClick(image.id)}
+    >
+      {/* Selection column — also carries the category accent border on its left edge */}
+      <div
+        role="gridcell"
+        className="flex items-center justify-center shrink-0 border-r border-grid-separator/20"
+        style={{ width: 32, height: "100%", borderLeft: rowBorderColor ? `7px solid ${rowBorderColor}` : undefined }}
+      >
+        <TableTickbox
+          imageId={image.id}
+          onTickClick={handleTickBound}
+        />
+      </div>
+      {row.getVisibleCells().map((cell) => {
+        const field = FIELDS_BY_ID.get(cell.column.id);
+        const rawValue = getFieldRawValue(cell.column.id, cell.row.original);
+        const isClickable =
+          cell.column.id in COLUMN_CQL_KEYS ||
+          cell.column.id === "location" ||
+          cell.column.id === "subjects" ||
+          cell.column.id === "people";
+
+        // If the field has an enrichment-aware cellRenderer, call it with
+        // the enriched image instead of using TanStack's flexRender.
+        const content = field?.cellRenderer && enriched
+          ? field.cellRenderer(enriched)
+          : flexRender(cell.column.columnDef.cell, cell.getContext());
+
+        return (
+          <div
+            key={cell.id}
+            role="gridcell"
+            data-cql-cell={isClickable ? "" : undefined}
+            className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
+            style={{ width: `var(--col-${cell.column.id})`, contain: 'layout' }}
+            title={rawValue ?? undefined}
+            onMouseDown={
+              isClickable
+                ? (e) => { if (e.shiftKey || e.altKey) e.preventDefault(); }
+                : undefined
+            }
+            onClick={
+              isClickable
+                ? (e) => handleCellClick(cell.column.id, cell.row.original, e)
+                : undefined
+            }
+          >
+            {content}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
 // (D) Memoised table body — zero re-renders while dragging
 //
 // During a column resize drag, TanStack Table updates columnSizingInfo on
@@ -266,8 +391,7 @@ const TableBody = memo(function TableBody({
   handleTickClick,
   focusedImageId,
   inSelectionMode,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
-  visibleColumnCount: _,
+  visibleColumnCount,
   getImage,
 }: TableBodyProps) {
   // Animation state
@@ -351,85 +475,19 @@ const TableBody = memo(function TableBody({
             : "";
 
         return (
-          <div
+          <EnrichedTableRow
             key={row.id}
-            role="row"
-            data-image-id={image.id}
-            data-cell-id={image.id}
-            aria-rowindex={virtualRow.index + 2} // +2: 1-based, header is row 1
-            aria-selected={isFocused}
-            className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
-              isFocused
-                ? "bg-grid-hover/40 ring-2 ring-inset ring-grid-accent"
-                : "hover:bg-grid-hover/15"
-            } ${animClass}`}
-            style={{
-              height: `${virtualRow.size}px`,
-              transform: `translateY(${virtualRow.start}px)`,
-            }}
-            onClick={(e) => handleRowClick(image.id, e)}
-            onDoubleClick={() => handleRowDoubleClick(image.id)}
-          >
-            {/* Selection column — always present, fixed 32px, not user-hideable.
-                TableTickbox is hidden by CSS and shown on hover or in selection mode. */}
-            <div
-              role="gridcell"
-              className="flex items-center justify-center shrink-0 border-r border-grid-separator/20"
-              style={{ width: 32, height: "100%" }}
-            >
-              <TableTickbox
-                imageId={image.id}
-                onTickClick={(e) => handleTickClick(image.id, e)}
-              />
-            </div>
-            {row.getVisibleCells().map((cell) => {
-              const rawValue = getFieldRawValue(
-                cell.column.id,
-                cell.row.original
-              );
-              const isClickable =
-                cell.column.id in COLUMN_CQL_KEYS ||
-                cell.column.id === "location" ||
-                cell.column.id === "subjects" ||
-                cell.column.id === "people";
-
-              return (
-                <div
-                  key={cell.id}
-                  role="gridcell"
-                  // data-cql-cell is checked in handleRowClick to distinguish
-                  // "shift+click on a field value" (→ click-to-search) from
-                  // "shift+click on image cell / row whitespace" (→ range-select).
-                  data-cql-cell={isClickable ? "" : undefined}
-                  className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
-                  style={{ width: `var(--col-${cell.column.id})`, contain: 'layout' }}
-                  title={rawValue ?? undefined}
-                  onMouseDown={
-                    isClickable
-                      ? (e) => {
-                          if (e.shiftKey || e.altKey) e.preventDefault();
-                        }
-                      : undefined
-                  }
-                  onClick={
-                    isClickable
-                      ? (e) =>
-                          handleCellClick(
-                            cell.column.id,
-                            cell.row.original,
-                            e
-                          )
-                      : undefined
-                  }
-                >
-                  {flexRender(
-                    cell.column.columnDef.cell,
-                    cell.getContext()
-                  )}
-                </div>
-              );
-            })}
-          </div>
+            row={row}
+            image={image}
+            virtualRow={virtualRow}
+            isFocused={isFocused}
+            animClass={animClass}
+            handleCellClick={handleCellClick}
+            handleRowDoubleClick={handleRowDoubleClick}
+            handleRowClick={handleRowClick}
+            handleTickClick={handleTickClick}
+            visibleColumnCount={visibleColumnCount}
+          />
         );
       })}
     </>
@@ -901,6 +959,10 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     (colId: string): number => {
       const col = allColumns.find((c) => getColumnId(c) === colId);
       if (!col) return 100;
+
+      // Icon/component-only columns define a fixed fitWidth (no text to measure)
+      const fieldDef0 = FIELDS_BY_ID.get(colId);
+      if (fieldDef0?.fitWidth) return fieldDef0.fitWidth;
 
       // px-2 = 8px each side, plus 4px for sort arrow, plus a little breathing room
       const PADDING = 8 + 8 + 16;

@@ -27,9 +27,11 @@
  */
 
 import type { Image } from "@/types/image";
+import type { EnrichedImage } from "@/lib/derive-enriched-image";
 import type { ReactNode } from "react";
 import { format } from "date-fns";
 import { gridConfig } from "./grid-config";
+import { CostBadgeFromCost } from "@/components/CostBadge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -107,15 +109,23 @@ export interface FieldDefinition {
   /** Default column width in pixels. */
   defaultWidth: number;
 
+  /**
+   * Fixed fit-width for double-click auto-fit (px). When set, computeFitWidth
+   * returns this instead of measuring cell text. Use for icon/component-only
+   * columns (badges) where measureText is meaningless.
+   */
+  fitWidth?: number;
+
   /** If true, this column is hidden by default (user can show it). */
   defaultHidden?: boolean;
 
   /**
    * Custom cell renderer for the table view.
-   * Receives the image and returns a ReactNode.
+   * Receives an enriched image (ES baseline + API overlay merged via deriveImage).
+   * Called by EnrichedTableRow per row — NOT baked into TanStack column defs.
    * If not provided, the table renders `accessor(image) || "—"`.
    */
-  cellRenderer?: (image: Image) => ReactNode;
+  cellRenderer?: (image: EnrichedImage) => ReactNode;
 
   /**
    * Format the raw value for display (dates, dimensions, MIME types).
@@ -271,6 +281,8 @@ function getHeight(image: Image): number | undefined {
   return (image.source.orientedDimensions ?? image.source.dimensions)?.height;
 }
 
+import { categoryLabel } from "./category-labels";
+
 // ---------------------------------------------------------------------------
 // Field definitions — the single source of truth
 // ---------------------------------------------------------------------------
@@ -282,14 +294,94 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     label: "Category",
     group: "rights",
     accessor: (img) => img.usageRights?.category,
+    formatter: categoryLabel,
     cqlKey: "category",
     esSearchPath: "usageRights.category",
     sortKey: "category",
     defaultWidth: 140,
     fieldType: "keyword",
     aggregatable: true,
+    detailHidden: true, // rendered explicitly in ImageMetadata rights section
     multiSelectBehaviour: "reconcile",
     showWhenEmpty: false,
+  },
+  {
+    // Badges — combined column for cost, usage (print/digital), syndication, and persisted icons.
+    // Replaces the old single-purpose "cost" column. All badge types render inline.
+    id: "badges",
+    label: "Badges",
+    group: "rights",
+    accessor: (img) => img.usageRights?.category ?? "",
+    defaultWidth: 66,
+    // All-badges-visible fit: 3 SVG icons (14px) + CostBadge (27px) + persisted icon (14px)
+    // + 4 × gap-0.5 (2px) + cell px-2 padding (16px) = 99
+    fitWidth: 3 * 14 + 27 + 14 + 4 * 2 + 16,
+    fieldType: "keyword",
+    detailHidden: true,
+    multiSelectBehaviour: "always-suppress" as const,
+    showWhenEmpty: true,
+    cellRenderer: (enriched: EnrichedImage): ReactNode => {
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      type AnyUsage = { platform: string; dateAdded?: string };
+      const usages: AnyUsage[] | undefined = enriched.enrichedUsages ?? enriched.usages;
+      const hasPrint = usages?.some((u) => u.platform === "print");
+      const hasPrintRecent = usages?.some(
+        (u) => u.platform === "print" && u.dateAdded && new Date(u.dateAdded).getTime() > sevenDaysAgo,
+      );
+      const hasDigital = usages?.some((u) => u.platform === "digital");
+      const hasDigitalRecent = usages?.some(
+        (u) => u.platform === "digital" && u.dateAdded && new Date(u.dateAdded).getTime() > sevenDaysAgo,
+      );
+      const syndicationStatus = enriched.syndicationStatus;
+      const persisted = enriched.persisted;
+      const showCost = enriched.cost && enriched.cost !== "free";
+
+      // Nothing to render
+      if (!showCost && !hasPrint && !hasDigital && syndicationStatus !== "sent" && !persisted?.value) return null;
+
+      return (
+        <span className="flex items-center gap-0.5">
+          {hasPrint && (
+            <span className={hasPrintRecent ? "text-[#DD0000]" : "text-grid-text-dim"} title={`Print usage${hasPrintRecent ? " (recent)" : ""}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.19 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 8c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z" />
+              </svg>
+            </span>
+          )}
+          {hasDigital && (
+            <span className={hasDigitalRecent ? "text-[#DD0000]" : "text-grid-text-dim"} title={`Digital usage${hasDigitalRecent ? " (recent)" : ""}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z" />
+              </svg>
+            </span>
+          )}
+          {syndicationStatus === "sent" && (
+            <span className="text-green-400" title="Syndicated">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.94s4.18 1.36 4.18 3.85c0 1.89-1.44 2.98-3.12 3.19z" />
+              </svg>
+            </span>
+          )}
+          {showCost && (
+            <CostBadgeFromCost
+              cost={enriched.cost}
+              noRights={enriched.noRights}
+              hasActiveAllowLease={enriched.leasesSummary?.hasActiveAllowLease}
+              restrictions={enriched.usageRights?.restrictions}
+              size="sm"
+            />
+          )}
+          {persisted?.value && (
+            <span className="text-grid-text-dim" title={`Kept in Library: ${persisted.reasons.join(", ")}`}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor" width={14} height={14}>
+                <path d="M113.8 98.7v15.1H14.1V14.2h42.7V0H14.2C6.4 0 0 6.4 0 14.2v99.6c0 7.8 6.4 14.2 14.2 14.2h99.6c7.8 0 14.2-6.4 14.2-14.2V98.7h-14.2z" />
+                <path d="M67.7 88.6H118c4.6 0 8.4-3.8 8.4-8.4V38.3c0-4.6-3.8-8.4-8.4-8.4h-4.2v-8.4c0-11.5-9.4-20.9-21-20.9s-21 9.4-21 20.9v8.4h-4.2c-4.6 0-8.4 3.8-8.4 8.4v41.9c.1 4.6 3.9 8.4 8.5 8.4zM92.8 70C86.9 70 82 65.2 82 59.2c0-5.9 4.9-10.8 10.8-10.8s10.8 4.9 10.8 10.8c0 6-4.8 10.8-10.8 10.8zM79.9 21.5c0-7.2 5.8-13 13-13s13 5.8 13 13v8.4h-26v-8.4z" />
+              </svg>
+            </span>
+          )}
+        </span>
+      );
+    },
   },
 
   // -- Core metadata --------------------------------------------------------

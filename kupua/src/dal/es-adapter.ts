@@ -28,6 +28,8 @@ import { parseCql } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
+import guardianConfig from "@/lib/cost/guardian-config.json";
+import type { GuardianCostConfig } from "@/lib/cost/types";
 import { devLog } from "@/lib/dev-log";
 import {
   buildSortClause,
@@ -113,6 +115,61 @@ function sortValuesStrictlyAfter(
   return false;
 }
 
+/**
+ * Build the ES "free" filter — mirrors Grid's SearchFilters.freeFilter.
+ *
+ * freeFilter = freeSupplierFilter OR freeUsageRightsFilter
+ *
+ * freeUsageRightsFilter: category ∈ categories where defaultCost is Free or Conditional
+ * freeSupplierFilter: (supplier ∈ freeSuppliers with exclusions, NOT in excluded collections)
+ *                  OR (supplier ∈ freeSuppliers without exclusions)
+ *
+ * Source: media-api/app/lib/elasticsearch/SearchFilters.scala:26–47
+ */
+function buildFreeFilter(config: GuardianCostConfig): Record<string, unknown> {
+  // Branch 1: categories with defaultCost of free or conditional
+  const freeCategories = Object.entries(config.categoryDefaultCost)
+    .filter(([, cost]) => cost === "free" || cost === "conditional")
+    .map(([cat]) => cat);
+  const categoryFilter = { terms: { "usageRights.category": freeCategories } };
+
+  // Branch 2: free suppliers
+  const suppliersWithExcl = config.freeSuppliers.filter(
+    (s) => config.suppliersCollectionExcl[s]?.length,
+  );
+  const suppliersNoExcl = config.freeSuppliers.filter(
+    (s) => !config.suppliersCollectionExcl[s]?.length,
+  );
+
+  const supplierFilters: Record<string, unknown>[] = [];
+
+  // Suppliers with exclusions: must match supplier AND must NOT match excluded collection
+  for (const supplier of suppliersWithExcl) {
+    supplierFilters.push({
+      bool: {
+        must: { term: { "usageRights.supplier": supplier } },
+        must_not: {
+          terms: {
+            "usageRights.suppliersCollection":
+              config.suppliersCollectionExcl[supplier],
+          },
+        },
+      },
+    });
+  }
+
+  // Suppliers without exclusions: simple terms match
+  if (suppliersNoExcl.length > 0) {
+    supplierFilters.push({
+      terms: { "usageRights.supplier": suppliersNoExcl },
+    });
+  }
+
+  // Combine: category OR supplier(s)
+  const should: Record<string, unknown>[] = [categoryFilter, ...supplierFilters];
+  return { bool: { should, minimum_should_match: 1 } };
+}
+
 
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
@@ -165,34 +222,12 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
   // convention).  nonFree=true in URL disables the filter to include paid
   // images.  Default app state has nonFree=true → checkbox unchecked → no
   // filter.  Checking "Free to use only" removes nonFree → filter applies.
+  //
+  // Mirrors Grid's SearchFilters.freeFilter = freeSupplierFilter OR freeUsageRightsFilter.
+  // Derived from vendored guardian-config.json so it doesn't drift from the
+  // cost calculator's config. See SearchFilters.scala:38–47.
   if (params.nonFree !== "true") {
-    filter.push({
-      terms: {
-        "usageRights.category": [
-          "commissioned-agency",
-          "PR Image",
-          "handout",
-          "screengrab",
-          "guardian-witness",
-          "original-source",
-          "social-media",
-          "Bylines",
-          "obituary",
-          "staff-photographer",
-          "contract-photographer",
-          "commissioned-photographer",
-          "pool",
-          "crown-copyright",
-          "staff-illustrator",
-          "contract-illustrator",
-          "commissioned-illustrator",
-          "creative-commons",
-          "composite",
-          "public-domain",
-          "programmes-organisation-owned",
-        ],
-      },
-    });
+    filter.push(buildFreeFilter(guardianConfig as GuardianCostConfig));
   }
 
   // Has crops (kahuna calls them "crops", API calls them "exports")
