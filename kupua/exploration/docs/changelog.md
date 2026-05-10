@@ -14,6 +14,37 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Session A: Drop background enrichment, widen SOURCE_INCLUDES
+
+**Decision:** background enrichment (`useEnrichment`) was doing almost no useful
+work once SOURCE_INCLUDES is widened to include the fields it was fetching. The
+three genuinely API-only deltas (`cost: "overquota"`, `isPotentiallyGraphic`,
+signed download URLs) are either TS-replicable or fired on user intent. The
+connection-starvation complexity (single-lane phase-2, setTimeout yield, Zustand
+subscribe listener) becomes moot. 200 lines of gymnastics gone.
+
+**Changes:**
+- `src/dal/es-config.ts` — SOURCE_INCLUDES widened with enrichment-baseline tier:
+  `cost`, `valid`, `invalidReasons`, `persisted`, `usageRights` (full object,
+  supersedes dot-notation `usageRights.category`), `leases`, `usages`, `actions`,
+  `syndicationStatus`, `fileMetadata.xmp.pur:adultContentWarning` (for Session B
+  TS isPotentiallyGraphic). Note: `isPotentiallyGraphic` is a Painless script
+  field — not stored in `_source` — TS-replicated in Session B instead.
+- `src/hooks/useEnrichment.ts` — DELETED. Full content preserved in changelog
+  entry "10 May 2026 — Background enrichment via useEnrichment [DOOMED]" below.
+- `src/hooks/useEnrichment.test.ts` — DELETED.
+- `src/routes/search.tsx` — `useEnrichment()` mount and import removed. `initGridApi`
+  comment updated (it now serves intent-driven API calls, not the polling loop).
+- `src/lib/derive-enriched-image.ts` — JSDoc updated. Logic unchanged: function
+  still works with overlay=undefined; ES baseline is now authoritative rather than
+  approximate. `hasEnrichment` now reflects intent-driven single-image overlay only.
+- `e2e/shared/helpers.ts`, `e2e/local/selections-mobile.spec.ts` — stale
+  `useEnrichment` references in comments cleaned up.
+
+**Tests:** 748/748 passing after deletion.
+
+**Next:** Session B — TS overquota (`quota-store.ts`) + TS `isImagePotentiallyGraphic`.
+
 ### 10 May 2026 — Background enrichment via useEnrichment [DOOMED — to be stripped]
 
 Recorded for diff history. This hook will be removed in the next commit; the

@@ -12,16 +12,13 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Pre-commit triage complete. Two commits landed on `mk-next-next-next`:
-- `f771f04dd` — Phase A + Cluster 1 (permanent work, 61 files)
-- `e69b6e217` — Background enrichment via useEnrichment (doomed, recorded for history)
+Session A complete: useEnrichment deleted, SOURCE_INCLUDES widened, 748 tests green.
+Session B is next: TS overquota (`quota-store.ts`) + TS `isImagePotentiallyGraphic`.
 
 ## What's next
 
-1. Execute the enrichment strip: `handoff-drop-enrichment-and-ts-replicate.md` Session A
-   (delete useEnrichment hook + tests, remove mount from search.tsx, widen SOURCE_INCLUDES).
-2. Execute Session B (TS overquota + TS isPotentiallyGraphic).
-3. Inventory condensation: `handoff-inventory-condensation.md`.
+1. Execute Session B (TS overquota + TS isPotentiallyGraphic).
+2. Inventory condensation: `handoff-inventory-condensation.md`.
 
 ## Session Log
 

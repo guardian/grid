@@ -2,15 +2,20 @@
  * deriveImage — the single merge point for ES baseline data + API enrichment.
  *
  * Pure function. Given an ES `Image` and an optional `EnrichmentFields` overlay
- * from the API mirror-search, produces an `EnrichedImage` that every consumer
- * reads. This is the ONLY place that knows both data sources exist.
+ * from an intent-driven single-image API fetch, produces an `EnrichedImage` that
+ * every consumer reads. This is the ONLY place that knows both data sources exist.
  *
- * Baseline fields (cost, invalidReasons, valid) are computed from ES data
- * using calculateCost/buildValidityMap. When an API overlay is present, its
- * fields win (server-authoritative, includes overquota/persisted/etc.).
+ * ES baseline (cost, valid, invalidReasons, usageRights, leases, usages, etc.)
+ * is now authoritative for 99% of fields. SOURCE_INCLUDES was widened (10 May 2026)
+ * to pull these directly from the search response — no background polling required.
+ * Background enrichment (useEnrichment) was removed at the same time.
  *
- * See worklog-current.md "Architectural review + revised plan (8 May 2026)"
- * for the design rationale.
+ * When an API overlay is present (intent-driven single-image fetch), its fields
+ * win for cost/valid/invalidReasons (server-authoritative, includes overquota).
+ * API-only fields (persisted, actions, isPotentiallyGraphic, syndicationStatus,
+ * leasesSummary) are only present when the overlay provides them.
+ *
+ * See kupua/exploration/docs/changelog.md (Session A, 10 May 2026) for rationale.
  */
 
 import type { Image } from "@/types/image";
@@ -48,11 +53,11 @@ export type { EnrichmentFields } from "@/stores/enrichment-store";
  */
 export interface EnrichedImage extends Image, ComputedBaseline {
   /**
-   * True when API enrichment overlay is present for this image.
-   * When false, cost/valid/invalidReasons are baseline-only (ES-derived)
-   * and may be inaccurate (e.g. SOURCE_INCLUDES canary makes baseline
-   * cost always "pay"). Consumers should suppress cost badges when false
-   * to avoid misleading flashes during seek transitions.
+   * True when an intent-driven API enrichment overlay is present for this image
+   * (e.g. from a single-image detail fetch). When false, all fields are ES-baseline
+   * (accurate since SOURCE_INCLUDES widening on 10 May 2026 — cost, valid,
+   * invalidReasons, usageRights, leases, usages, actions are all returned directly
+   * from ES search hits).
    */
   hasEnrichment: boolean;
   /**
@@ -77,11 +82,12 @@ export interface EnrichedImage extends Image, ComputedBaseline {
 // ---------------------------------------------------------------------------
 
 /**
- * Merge an ES Image with an optional API enrichment overlay.
+ * Merge an ES Image with an optional intent-driven API enrichment overlay.
  *
- * When `overlay` is undefined (API unavailable or not yet loaded), all
- * baseline fields are still computed — consumers get correct data for
- * every field that can be derived from ES alone.
+ * When `overlay` is undefined (API not yet fired for this image), all
+ * baseline fields are still computed and accurate (ES baseline is
+ * authoritative since SOURCE_INCLUDES widening). The overlay is only
+ * applied for images that have had an explicit single-image API fetch.
  *
  * When `overlay` is present, its fields win for cost/valid/invalidReasons
  * (server-authoritative, includes overquota). API-only fields (persisted,

@@ -32,7 +32,7 @@ import { test, expect, devices } from "@playwright/test";
 
 test.use({ ...devices["Pixel 5"] });
 
-// Block Grid API enrichment calls — same rationale as the kupua fixture in helpers.ts.
+// Block Grid API calls — same rationale as the kupua fixture in helpers.ts.
 test.beforeEach(async ({ page }) => {
   await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
 });

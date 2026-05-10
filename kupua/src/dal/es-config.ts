@@ -52,7 +52,7 @@ export const SOURCE_EXCLUDES: string[] = [];
  *   metadata.specialInstructions, metadata.subjects,
  *   metadata.peopleInImage, metadata.subLocation, metadata.city,
  *   metadata.state, metadata.country, uploadedBy, uploadInfo.filename,
- *   source.dimensions, source.orientedDimensions, usageRights.category
+ *   source.dimensions, source.orientedDimensions
  *
  * Tier 3 — detail panel, hidden table columns, imgproxy rotation:
  *   metadata.suppliersReference, metadata.bylineTitle, metadata.keywords,
@@ -61,6 +61,19 @@ export const SOURCE_EXCLUDES: string[] = [];
  *   fileMetadata.iptc.Edit Status, fileMetadata.icc.Profile Description,
  *   fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType,
  *   fileMetadata.xmp.Iptc4xmpCore:Scene
+ *
+ * Enrichment baseline — fields that were previously fetched via the
+ * background enrichment loop (useEnrichment) but are now sourced
+ * directly from ES. With these included, the TS cost/validity
+ * calculations in derive-enriched-image.ts operate on authoritative
+ * server-computed values rather than approximations.
+ *   cost, valid, invalidReasons, persisted, usageRights (full),
+ *   leases, usages, actions, syndicationStatus,
+ *   fileMetadata.xmp.pur:adultContentWarning (for TS isPotentiallyGraphic)
+ *
+ * Note: isPotentiallyGraphic is a Painless script field — NOT stored in
+ * _source. It is TS-replicated instead (see lib/graphic-image-blur.ts,
+ * Session B).
  */
 export const SOURCE_INCLUDES = [
   // Tier 1 — grid
@@ -87,7 +100,6 @@ export const SOURCE_INCLUDES = [
   "uploadInfo.filename",
   "source.dimensions",
   "source.orientedDimensions",
-  "usageRights.category",
   // Tier 3 — detail panel, hidden table columns, imgproxy
   "metadata.suppliersReference",
   "metadata.bylineTitle",
@@ -102,6 +114,17 @@ export const SOURCE_INCLUDES = [
   "fileMetadata.icc.Profile Description",
   "fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType",
   "fileMetadata.xmp.Iptc4xmpCore:Scene",
+  // Enrichment baseline — previously fetched via background loop, now sourced from ES
+  "cost",
+  "valid",
+  "invalidReasons",
+  "persisted",
+  "usageRights",                                  // full object (supersedes usageRights.category)
+  "leases",
+  "usages",
+  "actions",
+  "syndicationStatus",
+  "fileMetadata.xmp.pur:adultContentWarning",     // for TS isPotentiallyGraphic (Session B)
 ];
 
 /**

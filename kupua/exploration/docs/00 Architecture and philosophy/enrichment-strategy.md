@@ -428,6 +428,31 @@ in a `useEnrichment` hook. This is the path.
 
 ---
 
+## §F Background enrichment dropped (10 May 2026)
+
+After Inventory C confirmed the full shape of `?ids=` responses and the SOURCE_INCLUDES
+whitelist was audited, the conclusion was: background enrichment is doing almost no useful
+work. The fields it was fetching (`cost`, `valid`, `invalidReasons`, `usageRights`, `leases`,
+`usages`, `actions`, `syndicationStatus`) are all stored in `_source` and can be returned
+directly by ES search hits. Widening SOURCE_INCLUDES is ~10 lines; maintaining the polling
+loop was ~200 lines of connection-starvation machinery.
+
+The three genuinely API-only deltas:
+- `cost: "overquota"` — TS-replicable via `/usage/quotas` on app boot (Session B).
+- `isPotentiallyGraphic` — script field, not in `_source`. TS-replicable from XMP flag
+  + keyword scan (Session B).
+- Signed download URLs — fired on user click (no polling needed).
+
+**Outcome:** `useEnrichment` deleted. SOURCE_INCLUDES widened. `deriveImage` unchanged —
+overlay still applies for intent-driven single-image fetches. `hasEnrichment` is now almost
+always false (accurate; ES baseline is authoritative). Background loop, AbortController
+subscribe listener, phase-2 sequential chunking, setTimeout yield — all gone.
+
+See §E for the final inventory that informed this decision. See `changelog.md` (10 May 2026,
+Session A) for the full changeset.
+
+---
+
 ## Appendix — TEST Verification (completed 7 May 2026)
 
 All checks performed against `https://api.media.test.dev-gutools.co.uk`.

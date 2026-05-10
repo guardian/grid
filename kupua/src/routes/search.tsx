@@ -41,7 +41,6 @@ import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { useEnrichment } from "@/hooks/useEnrichment";
 import { initGridApi } from "@/lib/grid-api-instance";
 
 export const searchRoute = createRoute({
@@ -62,12 +61,9 @@ function SearchPage() {
   // Keep document.title in sync with the search query
   useDocumentTitle();
 
-  // Cluster 1 — Grid API enrichment: single-lane 300ms debounce, visible-first
-  // ordering, progressive per-chunk merging. See useEnrichment.ts for rationale.
-  useEnrichment();
-
   // Initialise Grid API service discovery once on mount (idempotent).
-  // This fetches the HATEOAS root so useEnrichment can construct API URLs.
+  // Fetches the HATEOAS root so intent-driven API calls (e.g. single-image
+  // enrichment, action gating) can construct API URLs when they fire.
   useEffect(() => {
     void initGridApi();
   // eslint-disable-next-line react-hooks/exhaustive-deps

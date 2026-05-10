@@ -80,8 +80,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Fields | `lib/field-registry.tsx` | ~920 | 37+ hardcoded + config aliases. Drives all surfaces. Renamed `.ts`→`.tsx` (cost cellRenderer uses JSX). Cluster 1: `cost` field added. `RECONCILE_FIELDS` exported. |
 | Cost calculator | `lib/cost/calculate-cost.ts`, `lib/cost/validity-map.ts`, `lib/cost/types.ts`, `lib/cost/guardian-config.json` | ~200 | ES-baseline cost + validity. Port of CostCalculator.scala + ImageExtras.scala. Vendored GuardianUsageRightsConfig snapshot (2026-05-07). Never returns "overquota" (server-only). |
 | Grid API singleton | `lib/grid-api-instance.ts` | ~20 | Module-level `GridApiDataSource` + `ServiceDiscovery`. `initGridApi()` called once on search route mount. |
-| Enrichment store | `stores/enrichment-store.ts` | ~90 | Zustand. `EnrichmentFields` per image id. `setEnrichment(map)` replaces whole buffer window. No persistence (ephemeral). |
-| useEnrichment | `hooks/useEnrichment.ts` | ~125 | Mirror-search hook. Fires per buffer change. AbortController cancellation. Graceful null on API absence. `useEnrichmentForImage(id)` per-cell selector. |
+| Enrichment store | `stores/enrichment-store.ts` | ~90 | Zustand. `EnrichmentFields` per image id. `setEnrichment(map)` replaces whole buffer window. No persistence (ephemeral). Single-image intent-driven overlay; no background polling. |
 | CostBadge | `components/CostBadge.tsx` | ~60 | `CostBadge` + `CostBadgeFromCost`. 5 cost variants, 3 sizes. CSS custom property colours. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
 | URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
@@ -98,7 +97,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **726 Vitest** unit/integration tests (~40s) -- `npm test`
+- **748 Vitest** unit/integration tests (~40s) -- `npm test`
 - **223 Playwright E2E** tests (~7min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
