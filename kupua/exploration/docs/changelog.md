@@ -14,6 +14,41 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Bug fix: scrubber blank when entire result set is in null zone
+
+**Bug:** Searching with `-has:dateTaken` sorted by `-taken` produced a completely blank
+scrubber track — no ticks, no labels, no red null-zone indicator.
+
+**Root cause:** A 5-step cascade starting in `es-adapter.ts`. When ES returns
+`stats.count === 0` for the `dateTaken` stats aggregation (zero docs have the field),
+`getDateDistribution` returned `null` — conflating "fetch failed" with "zero coverage".
+Downstream: `sortDistribution` was `null` in the store, so the null-zone fetch effect
+never fired, the tick cache key fell to `""`, and the scrubber received an empty array.
+
+**Fixes (3 files):**
+
+- **`es-adapter.ts` Fix A** (`getDateDistribution`): split `!stats || stats.count === 0`
+  into two cases — `!stats` returns `null` (failure), `stats.count === 0` returns
+  `{ buckets: [], coveredCount: 0 }` (valid zero-coverage distribution).
+- **`es-adapter.ts` Fix B** (`getKeywordDistribution`): removed dead `if (buckets.length
+  === 0) return null` guard (unreachable, but semantically wrong).
+- **`sort-context.ts` Fix C** (`computeTrackTicksWithNullZone`): guard changed from
+  `coveredCount <= 0` to `coveredCount < 0` so the `coveredCount === 0` case passes
+  through. Boundary tick always emitted at `position: coveredCount` — when `coveredCount
+  === 0` this is `position: 0`, rendering the "No date taken" label at the top of the
+  track (matching the user's request). No Scrubber.tsx changes needed: existing
+  top-edge overflow clamp already handles position-0 labels correctly.
+
+**Downstream self-correction** (no code changes): once Fix A lands, `sortDistribution`
+is truthy with `coveredCount: 0` → null-zone effect fires → `fetchNullZoneDistribution`
+called → uploadTime distribution loads → track fills with red ticks.
+
+**Tests:** 3 new unit tests added to `search-store-extended.test.ts` covering the
+all-null-zone case, the transient state (boundary tick before uploadTime dist loads),
+and a regression guard for the mixed-zone path. All 794 tests green.
+
+---
+
 ### 10 May 2026 — Inventory condensation: three raw inventories superseded by §E
 
 Three inventory docs (A: from kupua docs, B: from kahuna source, C: from Grid backend

@@ -12,9 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Cluster 1 row 5: wire `isImagePotentiallyGraphic` (from `src/lib/graphic-image-blur.ts`)
-into grid cell + table row blur overlay. Then Cluster 1 row 6 (staff-photographer
-border) and rows 12-15.
+No current task.
 
 ## Session Log
 

@@ -990,12 +990,16 @@ export function computeTrackTicksWithNullZone(
   const coveredTicks = computeTrackTicks(orderBy, total, bufferOffset, results, sortDist);
 
   const coveredCount = sortDist?.coveredCount;
-  if (coveredCount == null || coveredCount <= 0 || coveredCount >= total) {
+  if (coveredCount == null || coveredCount < 0 || coveredCount >= total) {
     // No null zone — return covered ticks as-is
     return coveredTicks;
   }
 
   // --- Boundary tick ---
+  // Position is coveredCount — the boundary between covered and null zones.
+  // When coveredCount === 0, the entire result set is null-zone: position 0
+  // maps to topPx=0 (top of track), so the "No [fieldname]" label appears
+  // at the top of the scrubber, anchored to the start of the null zone.
   const sortKey = resolvePrimarySortKey(orderBy);
   const fieldName = sortKey ? getSortFieldDisplayName(sortKey) : "value";
   const boundaryTick: TrackTick = {

@@ -1132,8 +1132,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
       }
     }
 
-    if (buckets.length === 0) return null;
-
     devLog(
       `[ES] getKeywordDistribution: ${field} ${direction} — ` +
       `${buckets.length} unique values, ${cumulative} docs covered ` +
@@ -1190,7 +1188,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
       };
       statsTimeMs = Date.now() - startTime;
       const stats = statsResult.aggregations?.range;
-      if (!stats || stats.count === 0) return null;
+      if (!stats) return null;
+      if (stats.count === 0) return { buckets: [], coveredCount: 0 };
 
       spanMs = Math.abs(stats.max - stats.min);
       const MS_PER_DAY = 86_400_000;

@@ -14,7 +14,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
-import { interpolateSortLabel, getSortContextLabel } from "@/lib/sort-context";
+import { interpolateSortLabel, getSortContextLabel, computeTrackTicksWithNullZone } from "@/lib/sort-context";
+import type { SortDistribution } from "@/dal/types";
 import { buildSortClause, reverseSortClause } from "@/dal/adapters/elasticsearch/sort-builders";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 
@@ -1006,5 +1007,96 @@ describe("extendBackward column-trim guard (audit #9)", () => {
       "buffer should have grown by 2 (items 0 and 1 prepended)",
     ).toBe(bufferLengthBefore + 2);
     assertPositionsConsistent("after extendBackward with 3-column guard");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeTrackTicksWithNullZone — all-null-zone case (Bug #1)
+// Covers the scenario: -taken sort, every doc lacks dateTaken.
+// ES returns stats.count=0 → sortDist = { buckets: [], coveredCount: 0 }.
+// ---------------------------------------------------------------------------
+
+describe("computeTrackTicksWithNullZone — all-null-zone", () => {
+  const nullZoneDist: SortDistribution = {
+    coveredCount: 100,
+    buckets: [
+      { key: "2023-01-01T00:00:00.000Z", count: 30, startPosition: 0 },
+      { key: "2023-07-01T00:00:00.000Z", count: 30, startPosition: 30 },
+      { key: "2024-01-01T00:00:00.000Z", count: 40, startPosition: 60 },
+    ],
+  };
+
+  it("produces boundary tick at top + red null-zone ticks when coveredCount is 0 and nullZoneDist is loaded", () => {
+    // Bug: guard was `coveredCount <= 0` — hit for coveredCount=0 → returned []
+    // Fix: guard is `coveredCount < 0` — allows coveredCount=0 through.
+    // The boundary tick always emits, positioned at 0 (= top of track).
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 0 };
+    const ticks = computeTrackTicksWithNullZone(
+      "-taken",
+      100,  // total
+      0,    // bufferOffset
+      [],   // results
+      sortDist,
+      nullZoneDist,
+    );
+
+    expect(ticks.length, "should produce ticks — not empty").toBeGreaterThan(0);
+
+    // Exactly one boundary tick, at position 0 (top of track = start of null zone)
+    const boundaryTicks = ticks.filter(t => t.boundary);
+    expect(boundaryTicks).toHaveLength(1);
+    expect(boundaryTicks[0].position).toBe(0);
+    expect(boundaryTicks[0].label).toBe("No date taken");
+
+    // All non-boundary ticks should be red (null-zone uploadTime ticks)
+    const NULL_ZONE_COLOR = "rgba(255, 140, 140, 0.55)";
+    const nonBoundary = ticks.filter(t => !t.boundary);
+    expect(nonBoundary.length).toBeGreaterThan(0);
+    for (const tick of nonBoundary) {
+      expect(tick.color, `tick at pos ${tick.position} should be red`).toBe(NULL_ZONE_COLOR);
+    }
+  });
+
+  it("returns boundary-only tick when nullZoneDist is not yet loaded", () => {
+    // Transient state: sortDist loaded (coveredCount=0) but nullZoneDist pending.
+    // Should show the "No date taken" label at the top immediately, without
+    // waiting for the uploadTime distribution to arrive.
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 0 };
+    const ticks = computeTrackTicksWithNullZone("-taken", 1000, 0, [], sortDist, null);
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0].boundary).toBe(true);
+    expect(ticks[0].position).toBe(0);
+  });
+
+  it("regression: mixed case (coveredCount > 0) still produces boundary tick + red ticks", () => {
+    // Ensures Fix C does not break the existing mixed-zone path
+    const sortDist: SortDistribution = {
+      coveredCount: 50,
+      buckets: [
+        { key: "2023-01-01T00:00:00.000Z", count: 25, startPosition: 0 },
+        { key: "2023-07-01T00:00:00.000Z", count: 25, startPosition: 25 },
+      ],
+    };
+    const mixedNullZoneDist: SortDistribution = {
+      coveredCount: 50,
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 25, startPosition: 0 },
+        { key: "2024-07-01T00:00:00.000Z", count: 25, startPosition: 25 },
+      ],
+    };
+
+    const ticks = computeTrackTicksWithNullZone("-taken", 100, 0, [], sortDist, mixedNullZoneDist);
+
+    // Must still have exactly one boundary tick at the covered/null zone boundary
+    const boundaryTicks = ticks.filter(t => t.boundary);
+    expect(boundaryTicks).toHaveLength(1);
+    expect(boundaryTicks[0].position).toBe(50);
+
+    // Null-zone ticks must be offset by coveredCount (position >= 50)
+    const redTicks = ticks.filter(t => t.color === "rgba(255, 140, 140, 0.55)");
+    expect(redTicks.length).toBeGreaterThan(0);
+    for (const tick of redTicks) {
+      expect(tick.position).toBeGreaterThanOrEqual(50);
+    }
   });
 });
