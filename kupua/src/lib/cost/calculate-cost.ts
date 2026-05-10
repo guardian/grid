@@ -13,8 +13,9 @@
  *   supplierCost? → Free (for free agency suppliers not in excluded collection)
  *   default        → Pay
  *
- * NOTE: "overquota" is never returned here — it requires live quota data only
- * available from the server. The API enrichment layer handles it.
+ * NOTE: "overquota" can be returned here when quota data has been fetched at
+ * startup via quota-store.ts. If quota data is unavailable (dev, network error),
+ * free images stay "free" — quota absence is graceful.
  *
  * Vendored config source: guardian-config.json (snapshot 2026-05-07).
  * Refresh from: common-lib/src/main/scala/com/gu/mediaservice/lib/guardian/
@@ -24,6 +25,7 @@
 import type { Cost } from "@/dal/grid-api/types";
 import type { GuardianCostConfig } from "./types";
 import type { UsageRights } from "@/types/image";
+import { isSupplierOverQuota } from "./quota-store";
 
 /**
  * Compute the cost for an image's usage rights against the Guardian config.
@@ -60,9 +62,8 @@ export function calculateCost(
     if (supplier && isFreeSupplier(supplier, config)) {
       const suppliersCollection = usageRights.suppliersCollection;
       if (!isExcludedCollection(supplier, suppliersCollection, config)) {
-        // Free agency supplier, not in a pay collection → Free
-        // (Overquota handled by API enrichment only — we return Free here)
-        return "free";
+        // Free agency supplier, not in a pay collection → Free (or Overquota if exceeded).
+        return isSupplierOverQuota(supplier) ? "overquota" : "free";
       }
     }
   }

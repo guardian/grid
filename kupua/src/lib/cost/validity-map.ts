@@ -9,8 +9,8 @@
  * Source: media-api/app/lib/ImageExtras.scala
  *
  * IMPORTANT differences from the Scala version:
- *   - "over_quota": OMITTED (requires live quota data from the server).
- *     The API enrichment layer handles this via `valid` / `invalidReasons`.
+ *   - "over_quota": derived from quota-store (populated once at app startup).
+ *     Empty quota map (dev, network failure) → no over_quota reason added.
  *   - "has_write_permission": always false in standalone mode (no auth context).
  *   - "current_allow_lease": derived from the ES leases[] array.
  *     Active lease detection: lease.active === "true" && lease.access === "allow-use".
@@ -20,6 +20,7 @@
  */
 
 import type { Image } from "@/types/image";
+import { isSupplierOverQuota } from "./quota-store";
 
 export interface ValidityCheck {
   invalid: boolean;
@@ -51,9 +52,8 @@ export const VALIDITY_DESCRIPTIONS: Record<string, string> = {
  * Returns true for `invalid` when the check fails (i.e. the condition IS present).
  * Keys with invalid=false are not meaningful — callers should filter to invalid=true.
  *
- * The server may return additional keys (e.g. "over_quota") that are not computed
- * here. The API enrichment layer (`useEnrichment`) will overwrite `invalidReasons`
- * with the server-authoritative map when available.
+ * The server may return additional keys not computed here.
+ * The API enrichment layer can overwrite `invalidReasons` with server-authoritative values.
  */
 export function buildValidityMap(image: Image): ValidityMap {
   const leases = image.leases?.leases ?? [];
@@ -93,27 +93,60 @@ export function buildValidityMap(image: Image): ValidityMap {
     missing_credit: createCheck(!hasCredit, false),
     missing_description: createCheck(!hasDescription, false),
     tass_agency_image: { invalid: isTass, overrideable: true, shouldOverride: true },
-    // over_quota intentionally omitted — server-only
+    // over_quota: per-supplier quota check, independent of cost. Mirrors
+    // Grid's ImageExtras.scala — quota is checked unconditionally for any
+    // agency image with a supplier, even if the image's cost is already "pay"
+    // (e.g. excluded-collection Getty images). Both "paid_image" and
+    // "over_quota" can appear in invalidReasons together; UI renders all
+    // reasons, badge colour is driven by cost ("pay" wins, stays red).
+    // See exploration/docs/01 Research/grid-cost-validity-pay-collection-overquota.md.
+    over_quota: createCheck(
+      usageRights?.category === "agency" &&
+        !!usageRights.supplier &&
+        isSupplierOverQuota(usageRights.supplier),
+    ),
   };
 }
 
 /**
- * Derive invalidReasons from a ValidityMap (ES baseline).
+ * Derive invalidReasons from a ValidityMap.
  *
- * Returns Record<key, description> for all checks that are invalid
- * and NOT overridden by a current allow-lease.
+ * Returns Record<key, description> for ALL checks where invalid=true,
+ * regardless of override state.
  *
- * This mirrors Scala's `invalidReasons()` + the `isValid` check combined:
- * a check is "active" if invalid=true AND NOT (overrideable && shouldOverride).
+ * Mirrors Scala's ImageExtras.invalidReasons() exactly:
+ *   validityMap.filter { case (_, v) => v.invalid }.map(id → description)
+ *
+ * NOTE: Do NOT use this as a proxy for !valid. valid is computed
+ * independently by deriveValid(). An overridden check appears in
+ * invalidReasons (recording why a lease was needed) but does not
+ * make valid=false. (contract-audit §6.7)
  */
 export function deriveInvalidReasons(validityMap: ValidityMap): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, check] of Object.entries(validityMap)) {
-    const active = check.invalid && !(check.overrideable && check.shouldOverride);
-    if (active) {
+    if (check.invalid) {
       const desc = VALIDITY_DESCRIPTIONS[key];
       if (desc) result[key] = desc;
     }
   }
   return result;
+}
+
+/**
+ * Derive valid from a ValidityMap.
+ *
+ * An image is valid when every check passes isValid:
+ *   !invalid || (overrideable && shouldOverride)
+ *
+ * Mirrors Scala's ImageExtras.isValid() exactly:
+ *   validityMap.values.forall(_.isValid)
+ *
+ * Independent of deriveInvalidReasons — the two can diverge when
+ * shouldOverride=true (e.g. active allow-use lease, or write permission).
+ */
+export function deriveValid(validityMap: ValidityMap): boolean {
+  return Object.values(validityMap).every(
+    (check) => !check.invalid || (check.overrideable && check.shouldOverride),
+  );
 }

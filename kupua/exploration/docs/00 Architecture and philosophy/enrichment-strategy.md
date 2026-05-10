@@ -4,6 +4,16 @@
 **Auditor:** Opus 4.6  
 **Status:** Complete. All sections verified including empirical TEST checks.
 
+> **⚠ SUPERSEDED in part — 10 May 2026.** This doc was written when the plan
+> was "direct-ES + background `?ids=` enrichment side-channel". After Inventory
+> A/B/C surfaced that the enrichment loop was doing almost no useful work once
+> SOURCE_INCLUDES is widened, the background loop was deleted. **`useEnrichment`
+> no longer exists.** API enrichment now fires only on user intent (download click,
+> selection actions, etc.). Per-image cost / validity / overquota / isPotentiallyGraphic
+> are TS-computed from ES baseline. See **§F** for the pivot summary and **§E**
+> for the inventory takeaways. Sections C and 4 below contain superseded
+> recommendations — flagged inline.
+
 ---
 
 ## Section 0 — Push-back
@@ -121,10 +131,18 @@ Functionally identical.
 
 Data sourced from comms-audit §2.1 "Data Model Accessors" and contract-audit §3.
 
+> **§C SUPERSEDED in part — see banner at top.** The "API enrichment overwrites"
+> framing throughout this section is stale. Cost / overquota / isPotentiallyGraphic
+> are now TS-only (no per-image API call). The cost row's TS implementation landed
+> as `calculate-cost.ts`; overquota is implemented (boot-time `quota-store.ts`,
+> not a vendored snapshot). The `actions` / `links` / signed-URL rows remain
+> accurate as describing the data Grid emits — but kupua no longer fetches them
+> in the background; intent-driven only.
+
 | Datum | Source | Kupua surface(s) | Fetch mechanism | Notes |
 |---|---|---|---|---|
 | `cost` — Free/Conditional/Pay (ES-derivable) | `usageRights.category` → `defaultCost` (static map); `usageRights.restrictions` → Conditional; `usageRights.supplier` + `suppliersCollection` → free supplier check (config list) | Results grid (badge), results table (column), image detail | **Client-side TS replication** using ES fields + vendored config snapshot | ~50 lines. Covers ~95% of images. Needs `freeSuppliers` + `suppliersCollectionExcl` (incl. `payGettySourceList`, ~400 entries) from `common-lib/src/main/scala/com/gu/mediaservice/lib/guardian/GuardianUsageRightsConfig.scala`. Vendor as `kupua/src/lib/cost/config-snapshot.json` — rare-changing, ~5–10KB. See "Cost computation" decision note below. Cite: `CostCalculator.scala:35–52`. |
-| `cost` — Overquota (currently API-only) | `UsageQuota.isOverQuota` — checks runtime usage store (S3 bucket, scheduled refresh) against per-supplier quotas | Results grid (overquota badge) | **Boot-time fetch** of quotas JSON in production-ready kupua; vendored placeholder for now | Quotas JSON is small (~5 agencies, integer counts). For dev/standalone: vendor a snapshot. For production-ready kupua (far future): fetch on boot, refresh on a schedule (quotas can change mid-day). Until then: standalone TS computation never returns `overquota`; API enrichment overwrites when present. Cite: `UsageQuota.scala:38–44`. |
+| `cost` — Overquota (~~currently API-only~~ — **TS as of 10 May 2026**) | `UsageQuota.isOverQuota` — checks runtime usage store (S3 bucket, scheduled refresh) against per-supplier quotas | Results grid (overquota badge) | **Boot-time fetch** of `/api/usage/quotas` via `quota-store.ts`; synchronous read thereafter | Implemented 10 May 2026. No vendored placeholder. Empty map (dev / 401 / network failure) → no images marked overquota (graceful absence). Cite: `UsageQuota.scala:38–44`; `kupua/src/lib/cost/quota-store.ts`. |
 | `leases` (active leases, access type) | Embedded in ES `leases` field — also via `GET /leases/media/{id}` | Image detail (lease indicator), results grid (teal colour = allow lease), multi-select | Per-id; `?ids=` for multi-select | Leases drive validity overrides: allow-lease overrides "paid_image" invalidity; deny-lease adds "current_deny_lease" to `invalidReasons`. The teal UsageRights UI colouring comes from `hasCurrentAllowLease`. Lease data IS in ES (`leases.leases[]` with `access`, `active` fields). Cite: `ImageExtras.scala:40–42` |
 | `valid` + `invalidReasons` | Computed by `ImageResponse` from metadata completeness + rights + leases + quotas | Results grid (invalid overlay), image detail (warning) | Same as cost — comes with every API response | Blockers: missing credit, no rights, deny lease, paid without lease, over quota, TASS warning. Most checks use ES-available data; `over_quota` is the one that requires API. |
 | `persisted` + reasons | Computed by `ImageResponse` from 12 persistence rules | Image detail (persistence badge), multi-select panel | Per-id (detail); `?ids=` for multi-select reconciliation | 12 rules match `SearchFilters.persistedFilter` |
@@ -143,36 +161,42 @@ URLs all come from the SAME `imageResponse.create()` call — they always travel
 together. A single `GET /images/{id}` (or a search hit) delivers all of them.
 No separate fetches needed per datum.
 
-### Cost computation — design decision (7 May 2026)
+### Cost computation — design decision (7 May 2026 — partly SUPERSEDED 10 May)
 
-**Frame: ES baseline + API overwrite, both permanent.** Not "scaffolding to rip
-out". The TS cost computation stays forever as the standalone-mode fallback
-(Setup C, Playwright, ES-only, no Grid). API enrichment overwrites when present.
-This matches the graceful-absence directive: kupua works without Grid, gets
-better with Grid. There is no "rip-out event" — the TS path becomes a fallback
-that fires less often.
+> **SUPERSEDED:** The "ES baseline + API overwrite, both permanent" framing
+> assumed a background loop would overwrite TS-computed cost with server-
+> authoritative values. After 10 May, **TS is the only path for cost,
+> overquota, and isPotentiallyGraphic.** The API does not overwrite them.
+> The vendored-config + drift-risk reasoning below remains accurate. Strike
+> the "production-ready kupua will have API enrichment as the authoritative
+> path" line and the "Pattern generalises (TS floor → API ceiling)" framing.
+
+**Frame:** TS cost computation is the permanent and only path. ES baseline
+→ TS compute → render. No API overwrite layer. Standalone (Setup C,
+Playwright, no Grid) and connected (TEST/CODE/PROD) use the same code path.
+This matches the graceful-absence directive: kupua works without Grid; with
+Grid, only the quota snapshot is richer.
 
 **Vendored config:** `freeSuppliers`, `suppliersCollectionExcl`, and
 `payGettySourceList` are committed as a JSON snapshot under `kupua/src/lib/cost/`.
 ~5–10KB total. Refresh manually when Grid changes them; logged in
-`deviations.md`. Live fetch is the production-ready future (quotas can change
-mid-day) but unnecessary now — quota state is the only fast-moving variable
-and is overwritten by API enrichment whenever the API is reachable.
+`deviations.md`. The fast-moving variable (per-supplier quota state) is
+fetched once at boot via `quota-store.ts` and used as a synchronous lookup.
 
 **Drift risk acknowledged.** `CostCalculator.scala` could change semantics and
-our TS version would silently lie to standalone-mode users. Mitigation: a
-comment in the TS file pointing at the Scala source, and a `deviations.md`
-entry. Acceptable trade-off because (a) standalone is dev-only right now and
-(b) production-ready kupua will have API enrichment as the authoritative path.
+our TS version would silently disagree with Grid. Mitigation: a comment in
+the TS file pointing at the Scala source, a `deviations.md` entry, and the
+research doc `01 Research/grid-cost-validity-pay-collection-overquota.md`
+as a reference for verifying specific scenarios when needed.
 
 **Lease awareness not needed for cost.** `CostCalculator.getCost` runs before
 lease overrides apply. Leases affect `valid` / `invalidReasons` (per
 contract-audit §6.7.1), not `cost`. Keeps the TS function genuinely small.
 
-**Pattern generalises.** `isPotentiallyGraphic` (painless script over keywords)
-and other small server-computed fields can follow the same pattern: TS
-computation as ES-baseline floor, API value overwrites as ceiling. Establish
-this cleanly in Cluster 1 so it's not re-debated each time.
+**Pattern:** TS-replicate from ES baseline whenever feasible.
+`isPotentiallyGraphic` follows the same TS-only pattern (`graphic-image-blur.ts`).
+Genuine API-only deltas (signed download URLs, write-fanout) fire on user
+intent, never as a background loop. See §E.1 / §E.2 for the full split.
 
 ---
 
@@ -385,9 +409,17 @@ Neither requires `?ids=`.
 
 ---
 
-## Section 4 — Recommendation
+## Section 4 — Recommendation (SUPERSEDED 10 May 2026)
 
-### Per-surface mechanism
+> **The per-surface table below is the deleted background-enrichment plan.**
+> Mirror-search + `?ids=` per buffer-fill is gone. Current strategy: ES-only
+> baseline (with widened SOURCE_INCLUDES) + TS compute + intent-driven API for
+> the few genuine gaps. Selection reconciliation no longer uses `?ids=` either —
+> selection metadata comes from the same ES search hits as everything else.
+> Kept here for historical reference; see **§F** for the current state and
+> **§E.1 / §E.2** for the per-capability split.
+
+### Per-surface mechanism (HISTORICAL — see §F)
 
 | Kupua surface | Mechanism | Rationale |
 |---|---|---|
@@ -414,17 +446,112 @@ all enrichment needs.
 A future `search_after` endpoint on media-api would be needed only if kupua
 were to wholesale-mirror — which it shouldn't (see below).
 
-### Strategic answer
+### Strategic answer (SUPERSEDED 10 May 2026)
 
-**Stay direct-ES + enrich via media-api.** Wholesale-mirror is not viable:
+> **Final position: stay direct-ES, drop the side-channel entirely, TS-replicate
+> the gaps.** The historical text below described `useEnrichment` (~80 lines
+> background loop) as "the path". After widening SOURCE_INCLUDES and reading
+> Inventory C, the side-channel turned out to be doing almost no useful work.
+> `useEnrichment` was deleted on 10 May; cost / overquota / isPotentiallyGraphic
+> are TS-computed; API fires on user intent only. See §F.
+
+**Stay direct-ES** ~~+ enrich via media-api~~. Wholesale-mirror is not viable:
 9 hard gaps make it impossible without adding `search_after`, PIT, composite
 aggs, percentile aggs, `_source` shaping, and reverse-sort to media-api —
 effectively reimplementing kupua's entire pagination architecture in Scala.
 That's a multi-month project with no user benefit (kupua already has these
-capabilities). The enrichment side-channel costs one additional HTTP request
+capabilities). ~~The enrichment side-channel costs one additional HTTP request
 per buffer-fill (mirror the same query to media-api, merge `cost`/`valid`/
 `persisted` into the ES-sourced hits client-side). Net new code: ~80 lines
-in a `useEnrichment` hook. This is the path.
+in a `useEnrichment` hook. This is the path.~~
+
+---
+
+## §E Inventory takeaways (10 May 2026)
+
+Condensed from three inventory docs (A: from kupua docs, B: from kahuna source, C: from
+Grid backend Scala) totalling 568 lines. Raw inventories deleted after this section landed.
+Citations below reference surviving sources only.
+
+---
+
+### §E.1 — Confirmed TS-feasible (close the gap, drop the API call)
+
+Capabilities that can be served from ES + TS compute without any API call.
+
+- **`isPotentiallyGraphic` blur overlay** — TS path: `fileMetadata.xmp['pur:adultContentWarning'] != null` (XMP flag) + keyword scan for graphic-content phrases. API equivalent: Painless script field on search hits (not stored). Both paths already implemented. [Inv-C `ElasticSearch.scala:291-305`]
+- **Persistence reasons (`persisted.value` + `persisted.reasons`)** — TS path: evaluate all 12 `PersistenceReason` rules against ES fields: `HasPersistenceIdentifier`, `HasExports`, `HasUsages`, `IsArchived`, `IsPhotographerCategory`, `IsIllustratorCategory`, `IsAgencyCommissionedCategory`, `HasLeases`, `IsInPersistedCollection`, `AddedToPhotoshoot`, `HasLabels`, `HasUserEdits`. All 12 are ES-derivable. API equivalent: `persisted` on enrichment payload. [Inv-C `ImagePersistenceReasons.scala:10-22`]
+- **Lease display (active-lease teal colouring, validity overrides)** — TS path: `leases.leases[]` ES array with `access`/`active` fields; compute `hasCurrentAllowLease`, `hasCurrentDenyLease`. API equivalent: `leases` on enrichment payload. [enrichment-strategy §C]
+- **`valid` + `invalidReasons` (ES-derivable subset)** — TS path: `validity-map.ts` already ports the non-quota checks (missing credit, missing description, no rights, deny lease, TASS warning). The `over_quota` check is handled separately by `quota-store.ts`. API equivalent: `valid` + `invalidReasons` on enrichment payload. [enrichment-strategy §C; `ImageExtras.scala:38-41`]
+- **`actions[]` permission gating** — TS path: combine ES state (soft-deleted, archiver, exports, leases) with boot-time `GET /session` permissions cache. No per-image API fetch. API equivalent: `actions` HATEOAS array. [contract-audit §3.3]
+- **Print/digital usage icons on cells** — TS path: `usages[]` array on ES search hit contains `platform` field; count `digital` and `print` entries. Zero extra fetch. API equivalent: kahuna's `tickerCounts`. [Inv-A `cost-signals §2 rows 13-14`]
+- **Archiver status icon (`persisted.value`, `persisted.reasons`)** — TS path: same 12-rule evaluation as persistence reasons above; `IsArchived` reason drives the kept/archived/unarchived icon. [Inv-A `cost-signals §2 row 12`]
+- **`TASS agency image` validity warning** — TS path: `metadata.source == "TASS"` or `originalMetadata.byline contains "ITAR-TASS"`. Overrideable. [Inv-C `ImageExtras.scala:38-41`]
+- **`originalMetadata` vs `metadata` distinction** — TS path: both objects present in ES `_source`. `metadata` is always the Thrall-merged result (originalMetadata + userMetadata). Surfacing `originalMetadata` separately is TS-free once SOURCE_INCLUDES covers it. [Inv-C `Mappings.scala:154-174`]
+- **Staff-photographer thumbnail border** — TS path: `usageRights.category` in `["staff-photographer", "contract-photographer"]` — same fields already driving cost badge. [Inv-B `image-logic.js:37-49`]
+
+---
+
+### §E.2 — Genuine API-only gaps (keep adapter ready, fire on intent)
+
+- **Signed S3 download URL (original)** — Trigger: user clicks download. Endpoint: `download` HATEOAS link from `GET /images/:id`. Why API-only: S3 pre-signing requires AWS credentials server-side; secret-required. [Inv-B `downloads.js:44-73`]
+- **Signed S3 download URL (low-res / optimised)** — Trigger: user clicks download variant. Endpoint: `downloadOptimised` HATEOAS link (imgops). Why API-only: same secret-required constraint. [Inv-B `imgops/service.js:33-60`]
+- **`isDownloadable` gating** — Trigger: before showing download button. Endpoint: `download`/`downloadOptimised` link presence on `GET /images/:id`. Why API-only: `downloadableMap` evaluation includes quota state and `config.restrictDownload`; cannot be replicated client-side. [Inv-C `ImageExtras.scala:56-65`]
+- **Image soft-delete / hard-delete / undelete** — Trigger: user confirms delete action (editing phase). Endpoint: `DELETE /images/:id` (soft), hard-delete route, undelete route. Why API-only: auth-gated (`DeleteImage` permission) + write-fanout to Kinesis. [contract-audit §5.11]
+- **`syndicationStatus` (display in detail panel)** — Trigger: image detail open. Endpoint: `GET /images/:id` response field. Why API-only: computed from `syndicationRights` (RCS external service) at API response time; not stored in ES. [Inv-C `MediaApi.scala:63`; `es-adapter.ts:256`]
+- **Quota status per supplier (`GET /usage/quotas`)** — Trigger: app boot (already implemented via `quota-store.ts`). Why API-only: quota store is S3-backed, server-refreshed. [Inv-C `UsageController.scala:57-71`]
+- **Per-image soft-delete state (`softDeletedMetadata`)** — Trigger: image detail / delete action. Endpoint: `GET /images/:id/softDeletedMetadata`. Why API-only: authoritative state in DynamoDB, not always ES-consistent. [Inv-C `MediaApi.scala:269-281`]
+- **Cropper write (export original, create crop)** — Trigger: user clicks export / crop tool (editing phase). Endpoint: `POST` to cropper service. Why API-only: write-fanout. [Inv-B `gr-export-original-image.js:23`]
+- **Metadata-editor writes (labels, photoshoot, syndication, archive)** — Trigger: user edits field (editing phase). Endpoint: `metadata-editor/conf/routes`. Why API-only: auth-gated + write-fanout to Thrall/ES. [contract-audit §5.2]
+
+---
+
+### §E.3 — Out of scope for the Guardian deployment
+
+Capabilities confirmed dead in Guardian PROD/TEST per `clientConfig`. A future agent should not evaluate these.
+
+- Photo-sales syndicate flow — gated off by `showSendToPhotoSales`. [Inv-B `results.js:~820-855`]
+- BBC warning-flags overlay — gated off by `enableWarningFlags`. [field-catalogue `domain_metadata` row]
+- `usePermissionsFilter` / `interimFilterOptions` — BBC-only config; always false in Guardian. [comms-audit §1]
+- `usageInstructions` config-injected override — gated by `customSpecialInstructions` config; not populated in Guardian. [Inv-C `ImageResponse.scala:258-271`]
+- `recordDownloadAsUsage` download tracking — config false in Guardian; no download usage events fired. [Inv-C `usage/conf/routes:9`]
+- Witness report integration — `witness.theguardian.com` pattern-match; not a Guardian PROD concern. [Inv-B `witness.js:14-52`]
+- Telemetry / session logging — external telemetry service; not deployed for kupua. [comms-audit §2.11]
+- Pinboard — not in Grid's scope for kupua. [out of scope, period]
+- `agencyPicksColour` badge colour config — `agencyPicksIngredients` config not set in Guardian. `is:agency-pick` predicate is in §E.5 backlog, but the badge colour is config-only. [Inv-C out-of-scope item 9]
+- `shouldDisplayOrgOwnedCountAndFilterCheckbox` / `maybeAgencyPickQuery` ticker counts — config-dependent; not configured in Guardian. [Inv-C out-of-scope item 8]
+
+---
+
+### §E.4 — Inventory contradictions resolved
+
+- **`isPotentiallyGraphic` Lives-in** — A classified as `Both`; C contradicts: it is a Painless runtime `ScriptField` at search time, never written to ES by Thrall. Authoritative: C. Live-in is effectively `API-only` (script field on media-api search response). [`ElasticSearch.scala:291-305`]
+- **Persistence reasons complexity** — A claimed "12 rules include S3 bucket checks, cross-index lookups". C reads actual Scala: all 12 `PersistenceReason` objects use only ES fields. No S3, no cross-index. Authoritative: C. [`ImagePersistenceReasons.scala:10-22`]
+- **`metadata-search` / `label-search` service location** — A classified as `Other-service (satellite)`. C confirms both routes are on `media-api/conf/routes:4-5` — they are `API-only`, not satellite. Authoritative: C.
+- **`payType` filter availability** — B implied disabled in backend (kahuna client-side comment). C: backend fully implements `Free`/`MaybeFree`/`Pay` in `SearchFilters.scala:26-43`. Authoritative: C. `MaybeFree` is particularly useful (matches free AND no-rights-category images).
+- **`takenSince/Until`, `modifiedSince/Until`, `hasCrops`, `hasRightsAcquired`, `persisted` filter, `countAll`, typeahead, date field selector** — A/B original drafts marked several of these `Don't-have`. B §0 correction note explains the systematic error: the evaluating agent asked "does kupua call media-api with this param?" rather than "does kupua's DAL/schema handle it?". All are `Have-full` in kupua's direct-ES path. Authoritative: B §0 correction.
+- **`metadata` is a Thrall merge result, not raw IPTC** — A treats `metadata.*` fields as directly IPTC-sourced. C: `metadata` is the Painless `refreshMetadataScript` merge of `originalMetadata + userMetadata.metadata`, applied on every ingest and every user edit. Kupua reads the correct merged field; `originalMetadata` is the separate pre-edit copy. [`thrall/ElasticSearch.scala:758-766`]
+- **`syndicationStatus` search filter non-functional in direct-ES** — C reveals `syndicationStatus` is not stored in ES; it is computed from `syndicationRights` at API response time. Kupua's `es-adapter.ts:256` maps it to an ES field that doesn't exist, so the filter always returns no results in direct-ES mode. Authoritative: C. [`MediaApi.scala:63`; `es-adapter.ts:256`]
+
+---
+
+### §E.5 — Backlog items extracted
+
+- **Print/digital usage icons on cells** — value: parity with kahuna cell info density; free from `usages[]` on search hit. Effort: trivial.
+- **Staff-photographer thumbnail border** — value: visual role indicator from `usageRights.category`; zero extra data. Effort: trivial.
+- **Archiver status icon** — value: persist/reap workflow signal per cell. Effort: trivial (same data as persistence reasons).
+- **`is:agency-pick` CQL predicate** — value: editorial curation filter. Effort: moderate (config-driven ES query; needs `agencyPicksIngredients` config wired to CQL translator). [`IsQueryFilter.scala:67-68`; `image-logic.js:37-49`]
+- **`is:reapable` CQL predicate** — value: admin bulk-deletion workflow filter. Effort: moderate (gated by `useReaper` config; replicates `IsQueryFilter` logic). [`IsQueryFilter.scala:64-66`]
+- **`usagePlatform` / `usageStatus` search filter UI** — value: filter to published/digital/print/syndication usages. Effort: trivial (DAL already handles `usagesPlatform`/`usagesStatus` denormalised rollup fields; needs UI chips). [`Mappings.scala:341-343`]
+- **`usages@platform` CQL value resolver** — value: typeahead for `usages@platform:digital` etc; `by` photographer value resolver also missing. Effort: moderate (B §0 notes these resolvers absent; needs ES agg resolver). [Inv-B §0 correction]
+- **Credit / photoshoot completion suggesters** — value: typeahead suggestions from ES completion fields (faster and more accurate than terms agg). Effort: moderate (redo using `/suggest/metadata/credit` and `/suggest/metadata/photoshoot` endpoints; current typeahead uses terms agg). [`SuggestionController.scala:18-20`]
+- **AI / vector search + more-like-this** — value: high; semantic image discovery. Effort: hard (C confirms `cohereEmbedV4` 256-dim + `cohereEmbedEnglishV3` 1024-dim in ES; kNN endpoint exists API-side; feature-switch `enable-ai-search` + `useAISearch` URL param pattern from kahuna). [`Mappings.scala:96-131`; `gr-more-like-this.js:15-19`]
+- **`fromIndex` field on image responses** — value: migration correctness (when dual-index is active, kupua needs to know which index alias served the hit to avoid stale-index artefacts). Effort: trivial (field is on every API response; wire through to ES-source metadata). [`ImageResponse.scala:153`]
+- **`GET /images/:id/_elasticsearch` + projection/diff** — value: debugging and migration auditing; nice-to-have routed under `/api` prefix same as kahuna pattern. Effort: trivial adapter wiring. [`MediaApi.scala:168-213`]
+- **Image seen/seenSince tracking** — value: editorial workflow (mark batch as reviewed). Effort: trivial (localStorage key per query; no server involvement). [Inv-B `results.js:~700-730`]
+- **"New images" polling banner** — value: live editorial workflows (know when fresh wire images arrive). Effort: moderate (15s poll for images since `lastSearchFirstResultTime`; disable for AI search). [Inv-B `results.js:~540-600`]
+- **Upload paths** — value: kupua is read-only today; full DAM requires ingest. Effort: hard (direct-to-S3 + loader integration; SHA-1 client-side; `uploadStatuses` polling). [Inv-B `manager.js:49-66`]
+- **Write paths: cropper, metadata-editor, collections tree, batch export** — value: full editing phase. Effort: hard (auth-gated, write-fanout; separate sessions per surface). [contract-audit §5; `metadata-editor/conf/routes`; `cropper/conf/routes`]
 
 ---
 

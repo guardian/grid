@@ -15,6 +15,7 @@ import {
   type CqlStr,
 } from "@guardian/cql";
 import { gridConfig } from "@/lib/grid-config";
+import { getOverQuotaSuppliers } from "@/lib/cost/quota-store";
 
 // ---------------------------------------------------------------------------
 // CQL Parser instance — configure shortcuts like kahuna does
@@ -350,6 +351,19 @@ function buildIsQuery(value: string, negated: boolean): QueryClause {
   if (v === `${org}-owned-illustration`) {
     return {
       query: { terms: { "usageRights.category": ILLUSTRATOR_CATEGORIES } },
+      negated,
+    };
+  }
+
+  if (v === "under-quota") {
+    // Mirrors Scala's IsUnderQuota: exclude images from over-quota suppliers.
+    // If no suppliers are over quota, match_all (no restriction).
+    const overQuotaSuppliers = getOverQuotaSuppliers();
+    if (overQuotaSuppliers.length === 0) {
+      return { query: { match_all: {} }, negated };
+    }
+    return {
+      query: { bool: { must_not: { terms: { "usageRights.supplier": overQuotaSuppliers } } } },
       negated,
     };
   }

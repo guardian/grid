@@ -393,52 +393,24 @@ sentinels, so extends and seeks through the null zone work correctly.
 Total fetch time increases by one round-trip (~200ms) but the fetch is already
 background and non-blocking.
 
-### 21. Single-lane enrichment via `?ids=` at 300ms debounce, visible-first ordering
+### 21. ~~Single-lane enrichment via `?ids=` at 300ms debounce~~ — REMOVED (10 May 2026)
 
-**What:** `useEnrichment` fetches enrichment data for the entire buffer via
-`GET /api/images?ids=id1,id2,…&length=N&orderBy=…`, debounced at 300ms after
-the last scroll or buffer change. IDs are sorted visible-first before chunking so
-the first chunk covers the visible viewport; chunks are merged progressively via
-`onChunk` so cost badges appear as soon as the viewport chunk resolves.
+`useEnrichment` was deleted on 10 May 2026 after the inventory audit (A/B/C)
+showed the background loop was doing almost no useful work once SOURCE_INCLUDES
+is widened. The three genuinely API-only deltas — `cost: "overquota"`,
+`isPotentiallyGraphic`, download URLs — are now TS-replicated or fired on user
+intent. See §24 and §25. The 200 lines of connection-starvation gymnastics
+(single-lane sequential chunking, Zustand subscribe abort, setTimeout yield)
+are gone. See changelog entry "Session A: Drop background enrichment" for full rationale.
 
-**Why single lane (not two):** The former two-lane architecture (Tier 1 at 300ms
-viewport-only, Tier 2 at 3000ms full-buffer) was motivated by HTTP/1.1
-connection-budget concerns: `/api` is HTTP/1.1 in TEST/CODE/PROD (6 connections
-per origin), and 5 parallel enrichment chunks could potentially starve
-detail-panel / satellite-proxy fetches. On evaluation that concern doesn't hold
-for kupua's traffic profile: ES baseline uses a separate SSH tunnel, thumbnails
-go to S3/CloudFront, and detail-panel fetches are sparse (user-click-triggered).
-Worst case under HTTP/1.1: a detail-panel fetch waits ~0.8s behind queued
-enrichment chunks — annoying but not broken. The structural cost of two lanes
-(extra hook, extra debounce constant, extra cache key, dual mental model) exceeded
-the runtime benefit. Under HTTP/2 (when it lands), no additional kupua change is
-needed. See `cluster1-tier-collapse-implementation-handoff.md`.
+The adapter scaffolding (`enrichByIds`, `getImageDetail`, `enrichment-store.ts`,
+service-discovery, write-guard, Argo helpers) is KEPT for intent-driven single-image
+and selection-action paths.
 
-**Visible-first ordering:** within a 300ms debounce fire, viewport IDs (+/- 6
-rows) are pushed to the front of the ID list before chunking. Under HTTP/1.1,
-chunk 0 goes out first and returns first (~0.8s), so the user sees cost badges
-at ~1.1s regardless of buffer size.
+### 22. ~~ES-baseline validity map omits `over_quota`~~ — RESOLVED (10 May 2026)
 
-**Infrastructure dependency:** Pekko HTTP's default `max-uri-length=2048` caps the
-URL at ~46 IDs per request. Kupua chunks at 46 IDs (parallel `Promise.all`) until
-`pekko.http.server.parsing.max-uri-length=16384` lands in `common-lib`, at which
-point the chunk size raises to ~370 and a single request covers the full buffer.
-See `exploration/docs/cluster1-ids-enrichment-research.md` for the full research.
-
-### 22. ES-baseline validity map omits `over_quota`
-
-**What:** `buildValidityMap()` does not include an `over_quota` check. The
-`deriveInvalidReasons()` output therefore never contains `over_quota` in
-standalone/ES-only mode.
-
-**Why:** `over_quota` requires a live quota call to `GET /api/usage/quota`
-(per supplier), which is not available in the ES-only baseline. The API
-enrichment layer (`useEnrichment`) overwrites `invalidReasons` with the
-server-authoritative map (which may include `over_quota`) when available.
-
-**Trade-off:** Images from quota-exceeded suppliers show valid (or pay) instead of
-"over quota" when API enrichment is unavailable. Acceptable for standalone/Playwright
-mode. When connected to real infrastructure, API enrichment covers this.
+`over_quota` is now included in `buildValidityMap()` via `quota-store.ts`.
+See §24. The API enrichment dependency is no longer needed for overquota detection.
 
 ### 23. `field-registry.ts` renamed to `field-registry.tsx`
 
@@ -450,6 +422,67 @@ mode. When connected to real infrastructure, API enrichment covers this.
 **Trade-off:** Minor — the file now requires React imports and the bundler treats it
 as a React module. All 14 importers use the `@/lib/field-registry` path alias, which
 resolves the extension transparently.
+
+### 24. TS overquota via `quota-store.ts` — departs from "let API overwrite" rule
+
+**What:** `over_quota` cost and validity checks are computed client-side at startup
+via `quota-store.ts`, which fetches `/api/usage/quotas` once on mount and provides
+a synchronous `isSupplierOverQuota(supplier)` read. This is wired into both
+`calculate-cost.ts` (cost = `"overquota"` for exceeded suppliers) and
+`buildValidityMap()` (adds `over_quota` check). There is no background refresh.
+
+**Why:** Background enrichment (`useEnrichment`) was deleted on 10 May 2026 (§21).
+The quota data is refreshed server-side every 10 minutes by media-api's
+`BaseStore.scheduleUpdates`; one boot-time client fetch captures a recent enough
+snapshot for a session. A one-hour `setInterval` refresh (deferred) would handle
+long-lived sessions.
+
+**Departures from prior design:**
+- `inventory-A-from-docs.md` classified "Cost: overquota badge" as
+  `Impossible-without-server` (quota lives in S3, refreshed server-side). That
+  classification assumed the only path was live API enrichment per image.
+  The `GET /api/usage/quotas` endpoint (Argo EntityResponse wrapping
+  `StoreAccess`) provides the entire quota state in a single call, making
+  a boot-time fetch practical.
+- Quota state is session-static (no reactive update if a quota exceeds mid-session).
+  This is intentional: media-api itself refreshes every 10 minutes from S3, and
+  a mid-session quota flip would only affect newly loaded images anyway.
+
+**Trade-off:** In standalone/Playwright mode (no `/api` proxy), the quota fetch
+returns null and all suppliers are treated as under-quota. Cost badges show
+"free" or "pay" instead of "overquota". This is the correct graceful-absence
+behaviour per the directive. In TEST/CODE/PROD the endpoint is available and
+the quota map is populated within milliseconds of app startup.
+
+### 25. `isImagePotentiallyGraphic` is a TS heuristic, not the server field
+
+**What:** `src/lib/graphic-image-blur.ts` computes potentially-graphic status from:
+1. Phrase scan on `metadata.description/title/specialInstructions/keywords` (9 phrases).
+2. SMOUT substring in `specialInstructions` (case-sensitive); `SMOUT` keyword
+   (case-insensitive via `toUpperCase()`).
+3. XMP `pur:adultContentWarning` flag from `fileMetadata.xmp`.
+
+**Why:** Grid's `isPotentiallyGraphic` is a Painless script field injected at
+query time on search hits — it is NOT stored in `_source` and is absent from
+single-image GET responses. `SOURCE_INCLUDES` whitelisting cannot bring it in.
+Kupua's TS heuristic mirrors kahuna's phrase list and detection logic exactly,
+providing equivalent coverage via the data that IS available in `_source`.
+
+**Departures from kahuna:**
+- Kahuna also checks `image.data.isPotentiallyGraphic` (the server Painless
+  field). Kupua skips this and relies solely on the TS heuristic.
+- Kahuna's `shouldBlurGraphicImages` is a cookie-derived user preference.
+  Kupua hardcodes `defaultShouldBlurGraphicImages = true` per the Cluster 1
+  "hardcode-defaults rule". The `shouldBlur` parameter exists for future
+  toggle support without logic changes.
+- Render wiring (blur overlay on grid cells) is not yet implemented. Function
+  is ready for Cluster 1 row 5 wiring.
+
+**Trade-off:** The TS heuristic may false-positive (metadata containing a phrase
+without the image being graphic) or false-negative (graphic image without matching
+metadata/XMP). Kahuna has the same false-negative risk — the server field relies
+on the same keyword scan. The XMP flag path reduces false-negatives for images
+with the proper metadata flag set at ingest time.
 
 ---
 

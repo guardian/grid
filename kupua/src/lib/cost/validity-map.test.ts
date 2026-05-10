@@ -1,6 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { buildValidityMap, deriveInvalidReasons } from "./validity-map";
+import { describe, it, expect, beforeEach } from "vitest";
+import { buildValidityMap, deriveInvalidReasons, deriveValid } from "./validity-map";
+import { _setQuotaMapForTest } from "./quota-store";
 import type { Image } from "@/types/image";
+
+beforeEach(() => {
+  _setQuotaMapForTest(new Map());
+});
 
 function makeImage(overrides: Partial<Image> = {}): Image {
   return {
@@ -65,9 +70,36 @@ describe("buildValidityMap", () => {
     expect(map.tass_agency_image.invalid).toBe(false);
   });
 
-  it("does not include over_quota key", () => {
-    const map = buildValidityMap(makeImage());
-    expect(Object.keys(map)).not.toContain("over_quota");
+  it("over_quota is false when quota map is empty", () => {
+    const map = buildValidityMap(makeImage({ usageRights: { category: "agency", supplier: "Getty Images" } }));
+    expect(map.over_quota.invalid).toBe(false);
+  });
+
+  it("over_quota is true when supplier is in over-quota map", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({ usageRights: { category: "agency", supplier: "Getty Images" } }));
+    expect(map.over_quota.invalid).toBe(true);
+  });
+
+  it("over_quota is false for non-agency categories even if supplier is in map", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({ usageRights: { category: "staff-photographer", supplier: "Getty Images" } }));
+    expect(map.over_quota.invalid).toBe(false);
+  });
+
+  it("over_quota is true for excluded-collection agency image (mirrors Grid: both paid_image and over_quota fire)", () => {
+    // Grid's ImageExtras checks quota unconditionally for agency images with a
+    // supplier. Cost is "pay" by collection (badge stays red), but invalidReasons
+    // emits both reasons. See grid-cost-validity-pay-collection-overquota.md.
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({
+      usageRights: {
+        category: "agency",
+        supplier: "Getty Images",
+        suppliersCollection: "Getty Images Sport Classic",
+      },
+    }));
+    expect(map.over_quota.invalid).toBe(true);
   });
 
   it("sets paid_image and conditional_paid to invalid=false (derived by callers)", () => {
@@ -93,18 +125,19 @@ describe("deriveInvalidReasons", () => {
     expect(reasons).toHaveProperty("no_rights");
   });
 
-  it("overrides missing_credit when allow-use lease is active", () => {
+  it("includes missing_credit even when allow-use lease is active (not overrideable)", () => {
     const map = buildValidityMap(makeImage({
       leases: { leases: [{ id: "l1", access: "allow-use", active: "true" }] },
       metadata: {} as Image["metadata"],
     }));
-    // missing_credit is not overrideable (overrideable: false), so allow-lease does NOT suppress it
+    // missing_credit has overrideable=false — always appears in invalidReasons
     const reasons = deriveInvalidReasons(map);
     expect(reasons).toHaveProperty("missing_credit");
   });
 
-  it("suppresses current_deny_lease when allow-use lease is active (overrideable)", () => {
-    // active deny-use + active allow-use → shouldOverride=true, current_deny_lease.overrideable=true → suppressed
+  it("includes current_deny_lease in invalidReasons even when allow-use lease overrides it", () => {
+    // Grid's invalidReasons() includes ALL invalid checks regardless of override.
+    // The override only affects valid (via deriveValid), not invalidReasons.
     const map = buildValidityMap(makeImage({
       leases: {
         leases: [
@@ -114,6 +147,67 @@ describe("deriveInvalidReasons", () => {
       },
     }));
     const reasons = deriveInvalidReasons(map);
-    expect(reasons).not.toHaveProperty("current_deny_lease");
+    expect(reasons).toHaveProperty("current_deny_lease");
+  });
+
+  it("includes over_quota in invalidReasons when supplier is overquota", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({ usageRights: { category: "agency", supplier: "Getty Images" } }));
+    const reasons = deriveInvalidReasons(map);
+    expect(reasons).toHaveProperty("over_quota");
+  });
+});
+
+describe("deriveValid", () => {
+  it("returns true when no checks are invalid", () => {
+    const map = buildValidityMap(makeImage({
+      usageRights: { category: "staff-photographer" },
+      metadata: { credit: "Guardian", description: "A photo" } as Image["metadata"],
+    }));
+    expect(deriveValid(map)).toBe(true);
+  });
+
+  it("returns false when a non-overrideable check is invalid", () => {
+    // missing_credit has overrideable=false — even with allow-use lease, image is invalid
+    const map = buildValidityMap(makeImage({
+      leases: { leases: [{ id: "l1", access: "allow-use", active: "true" }] },
+      metadata: {} as Image["metadata"],
+      usageRights: { category: "staff-photographer" },
+    }));
+    expect(deriveValid(map)).toBe(false);
+  });
+
+  it("returns true when overrideable check is overridden by allow-use lease", () => {
+    // current_deny_lease overrideable=true + shouldOverride=true → isValid=true
+    const map = buildValidityMap(makeImage({
+      leases: {
+        leases: [
+          { id: "l1", access: "deny-use", active: "true" },
+          { id: "l2", access: "allow-use", active: "true" },
+        ],
+      },
+      usageRights: { category: "staff-photographer" },
+      metadata: { credit: "Guardian", description: "A photo" } as Image["metadata"],
+    }));
+    expect(deriveValid(map)).toBe(true);
+  });
+
+  it("returns false for over_quota with no lease (overrideable but not overridden)", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({
+      usageRights: { category: "agency", supplier: "Getty Images" },
+      metadata: { credit: "Getty", description: "A photo" } as Image["metadata"],
+    }));
+    expect(deriveValid(map)).toBe(false);
+  });
+
+  it("returns true for over_quota when allow-use lease is active (overrideable+overridden)", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const map = buildValidityMap(makeImage({
+      usageRights: { category: "agency", supplier: "Getty Images" },
+      metadata: { credit: "Getty", description: "A photo" } as Image["metadata"],
+      leases: { leases: [{ id: "l1", access: "allow-use", active: "true" }] },
+    }));
+    expect(deriveValid(map)).toBe(true);
   });
 });

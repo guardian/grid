@@ -22,7 +22,7 @@ import type { Image } from "@/types/image";
 import type { Cost } from "@/dal/grid-api/types";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { calculateCost } from "@/lib/cost/calculate-cost";
-import { buildValidityMap, deriveInvalidReasons } from "@/lib/cost/validity-map";
+import { buildValidityMap, deriveInvalidReasons, deriveValid } from "@/lib/cost/validity-map";
 import guardianConfig from "@/lib/cost/guardian-config.json";
 import type { GuardianCostConfig } from "@/lib/cost/types";
 
@@ -102,7 +102,7 @@ export function deriveImage(
   const baselineCost = calculateCost(image.usageRights, GUARDIAN_COST_CONFIG);
   const validityMap = buildValidityMap(image);
   const baselineInvalidReasons = deriveInvalidReasons(validityMap);
-  const baselineValid = Object.keys(baselineInvalidReasons).length === 0;
+  const baselineValid = deriveValid(validityMap);
   const noRights = !image.usageRights?.category;
 
   // --- Merge: overlay wins when present ---

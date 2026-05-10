@@ -6,7 +6,13 @@ import { markUserInitiatedNavigation, markPushSnapshot } from "./lib/orchestrati
 import { synthesiseKupuaKeyIfAbsent, getCurrentKupuaKey } from "./lib/orchestration/history-key";
 import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/history-snapshot";
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
+import { fetchQuotas } from "./lib/cost/quota-store";
 import "./index.css";
+
+// Populate quota map once at startup. Fire-and-forget — if the API is
+// unavailable (dev without tunnel, 401) the map stays empty and images stay
+// "free". See kupua/src/lib/cost/quota-store.ts.
+fetchQuotas();
 
 // Disable browser's automatic scroll restoration — we manage scroll
 // position ourselves via snapshot-based restoration on popstate.

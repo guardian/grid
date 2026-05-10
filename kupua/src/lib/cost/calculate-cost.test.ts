@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { calculateCost } from "./calculate-cost";
+import { _setQuotaMapForTest } from "./quota-store";
 import type { GuardianCostConfig } from "./types";
 
 const config: GuardianCostConfig = {
@@ -22,6 +23,10 @@ const config: GuardianCostConfig = {
 };
 
 describe("calculateCost", () => {
+  beforeEach(() => {
+    // Reset quota map before each test — quota-store is a module singleton.
+    _setQuotaMapForTest(new Map());
+  });
   it("returns pay when usageRights is undefined", () => {
     expect(calculateCost(undefined, config)).toBe("pay");
   });
@@ -82,8 +87,37 @@ describe("calculateCost", () => {
     expect(calculateCost({ category: "" }, config)).toBe("pay");
   });
 
-  it("never returns overquota (server-only)", () => {
-    const result = calculateCost({ category: "agency", supplier: "Getty Images" }, config);
-    expect(result).not.toBe("overquota");
+  it("returns free when quota map is empty (no data fetched)", () => {
+    const result = calculateCost({ category: "agency", supplier: "Getty Images", suppliersCollection: "Sports" }, config);
+    expect(result).toBe("free");
+  });
+
+  it("returns overquota for free supplier when exceeded=true in quota map", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const result = calculateCost({ category: "agency", supplier: "Getty Images", suppliersCollection: "Sports" }, config);
+    expect(result).toBe("overquota");
+  });
+
+  it("does not apply overquota to pay suppliers (not in freeSuppliers)", () => {
+    _setQuotaMapForTest(new Map([["Alamy", true]]));
+    const result = calculateCost({ category: "agency", supplier: "Alamy" }, config);
+    expect(result).toBe("pay");
+  });
+
+  it("does not apply overquota to excluded-collection images (already pay)", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    const result = calculateCost({
+      category: "agency",
+      supplier: "Getty Images",
+      suppliersCollection: "Premium Collection",
+    }, config);
+    expect(result).toBe("pay");
+  });
+
+  it("does not apply overquota to non-agency categories", () => {
+    _setQuotaMapForTest(new Map([["Getty Images", true]]));
+    // staff-photographer is free via categoryDefaultCost, not via supplier path
+    const result = calculateCost({ category: "staff-photographer" }, config);
+    expect(result).toBe("free");
   });
 });

@@ -445,6 +445,7 @@ test.describe("S4 -- multi-image Details panel", () => {
     // Select first two images via tickbox
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -466,6 +467,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -487,10 +489,12 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     const cells = kupua.page.locator('[data-grid-cell]');
 
-    // Select first 3 images
+    // Select first 3 images — hover each cell first (tickbox only visible on hover)
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
+    await cells.nth(2).hover();
     await cells.nth(2).locator('button[aria-label="Select image"]').click();
 
     expect(await getSelectionCount(kupua.page)).toBe(3);
@@ -573,6 +577,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -604,6 +609,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     // StatusBar should show count
@@ -626,6 +632,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     await cells.nth(0).hover();
     await cells.nth(0).locator('button[aria-label="Select image"]').click();
+    await cells.nth(1).hover();
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     // Wait for source_mimeType to reach all-same (test data is expected to be homogenous)

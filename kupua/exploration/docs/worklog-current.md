@@ -1,5 +1,5 @@
-<!-- AGENT PROTOCOL
-STOP! If you do NOT see your own "🤖 Agent check-in" entry at the bottom of the
+<\!-- AGENT PROTOCOL
+STOP\! If you do NOT see your own "🤖 Agent check-in" entry at the bottom of the
 Session Log that YOU wrote in THIS conversation, you are a NEW agent.
 Follow the Fresh Agent Protocol in copilot-instructions.md:
   1. Say "Hi, I'm a fresh agent."
@@ -12,13 +12,10 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-Session A complete: useEnrichment deleted, SOURCE_INCLUDES widened, 748 tests green.
-Session B is next: TS overquota (`quota-store.ts`) + TS `isImagePotentiallyGraphic`.
-
-## What's next
-
-1. Execute Session B (TS overquota + TS isPotentiallyGraphic).
-2. Inventory condensation: `handoff-inventory-condensation.md`.
+Cluster 1 row 5: wire `isImagePotentiallyGraphic` (from `src/lib/graphic-image-blur.ts`)
+into grid cell + table row blur overlay. Then Cluster 1 row 6 (staff-photographer
+border) and rows 12-15.
 
 ## Session Log
 
+(empty — fresh worklog)

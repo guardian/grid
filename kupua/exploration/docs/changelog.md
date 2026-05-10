@@ -14,6 +14,98 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Inventory condensation: three raw inventories superseded by §E
+
+Three inventory docs (A: from kupua docs, B: from kahuna source, C: from Grid backend
+Scala) totalling 568 lines deleted. Their contents condensed into a single §E section
+appended to `enrichment-strategy.md`, with five sub-sections:
+
+- §E.1: 10 confirmed TS-feasible capabilities (persistence reasons, lease display, usage
+  icons, staff-photographer border, archiver icon, etc.)
+- §E.2: 9 genuine API-only gaps (downloads, soft-delete, syndicationStatus, writes)
+- §E.3: 10 Guardian-deployment out-of-scope items (BBC-only config gates)
+- §E.4: 7 inventory contradictions resolved (isPotentiallyGraphic Lives-in, persistence
+  reason complexity, metadata-search service location, payType availability, systematic
+  Have-full misclassification, metadata merge behaviour, syndicationStatus non-functional
+  in direct-ES)
+- §E.5: 15 backlog items extracted (AI search, suggesters, usagePlatform UI, upload,
+  write paths, etc.)
+
+Files deleted: `inventory-{A-from-docs,B-from-kahuna,C-from-backend}.md`,
+`inventory-handoff-{A-docs,B-kahuna,C-backend}.md`, `handoff-inventory-condensation.md`.
+
+### 10 May 2026 — Session B: TS overquota + TS isImagePotentiallyGraphic + validity model fix
+
+**B.1 — TS overquota**
+
+Added `src/lib/cost/quota-store.ts`: module-level singleton `Map<supplier, boolean>`.
+`fetchQuotas()` fires at app startup (mounted in `main.tsx`) against `/api/usage/quotas`
+(Argo `EntityResponse` wrapping `StoreAccess`). Graceful absence — network failure or
+non-2xx → empty map, `isSupplierOverQuota()` returns false for all suppliers.
+
+Updated `calculate-cost.ts`: free-supplier agency path now returns `"overquota"` when
+`isSupplierOverQuota(supplier)` is true. The overquota result only upgrades from "free";
+pay/conditional/category-default paths are unaffected.
+
+Updated `cql.ts`: `is:under-quota` CQL predicate wired to `getOverQuotaSuppliers()`.
+`mustNot { terms: { "usageRights.supplier": overQuotaSuppliers } }` — matches Scala's
+`IsUnderQuota`. If quota map is empty, returns `match_all` (no filter).
+
+Added `over_quota` check to `buildValidityMap` in `validity-map.ts`. Added to
+`ALLOWED_ES_PATHS` in `es-config.ts`: `_mget` (used by selection `getByIds`).
+
+**B.1b — Structural validity model fix**
+
+Discovered the existing `deriveInvalidReasons` was conflating `valid` and `invalidReasons`
+by applying the override filter inline (suppressing checks where `overrideable && shouldOverride`).
+This diverged from Grid's `ImageExtras.scala`, where the two are computed independently.
+
+Fix:
+- `deriveInvalidReasons` now returns ALL checks where `invalid=true`, no override filter.
+  Mirrors Scala's `validityMap.filter { case (_, v) => v.invalid }`.
+- New `deriveValid(validityMap): boolean` — independent computation:
+  `every check: !invalid || (overrideable && shouldOverride)`.
+  Mirrors Scala's `isValid()`.
+- `derive-enriched-image.ts` now uses `deriveValid(validityMap)` instead of
+  `Object.keys(baselineInvalidReasons).length === 0`.
+
+Consequence: "overquota" banner in kupua shows red for read-only users (no
+`shouldOverride`) — correct. Users with write permission will get orange
+automatically when permissions are wired (no further changes needed to the
+validity model).
+
+Updated `validity-map.test.ts`: fixed the deny-lease suppression test (which was
+testing the old wrong behaviour), added `deriveValid` test suite (5 tests).
+
+**B.2 — TS isImagePotentiallyGraphic**
+
+Added `src/lib/graphic-image-blur.ts`: port of kahuna's `graphic-image-blur.js`
+phrase list and detection logic.
+
+Inputs (OR'd):
+1. Phrase scan on `metadata.description/title/specialInstructions/keywords` —
+   9 phrases verbatim from kahuna: "graphic content", "depicts death", "dead child",
+   "child casualty", "sensitive material", "dead body", "dead bodies", "body of",
+   "bodies of".
+2. SMOUT: case-sensitive substring in `specialInstructions`; case-insensitive
+   exact-word in `keywords` (via `toUpperCase() === "SMOUT"`).
+3. XMP `pur:adultContentWarning` flag: `fileMetadata?.xmp?.["pur:adultContentWarning"] != null`.
+
+Note: Kahuna also checks the server-side `isPotentiallyGraphic` Painless script field.
+That field is absent from `_source` (not storable) and from single-image GET responses.
+Kupua drops reliance on it per the "TS-replicate" decision. Absence treated as "unknown",
+not "false" — function runs unconditionally.
+
+`defaultShouldBlurGraphicImages = true` hardcoded. The `shouldBlur` parameter allows
+future user-preference toggle without changing the logic.
+
+Not yet wired to render — Cluster 1 row 5 work handles that.
+
+Added `src/lib/graphic-image-blur.test.ts`: 14 tests covering all phrase paths,
+SMOUT variants, XMP flag, shouldBlur=false short-circuit.
+
+**Tests:** 790/790 passing.
+
 ### 10 May 2026 — Session A: Drop background enrichment, widen SOURCE_INCLUDES
 
 **Decision:** background enrichment (`useEnrichment`) was doing almost no useful
