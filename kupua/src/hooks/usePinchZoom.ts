@@ -1,8 +1,12 @@
 /**
- * usePinchZoom — two-finger pinch to zoom, single-finger pan while zoomed,
+ * usePinchZoom — zoom and pan for both touch and mouse.
+ *
+ * Touch: two-finger pinch to zoom, single-finger pan while zoomed,
  * double-tap to toggle 1x ↔ 2x.
  *
- * Standard pattern in GPhotos, iOS Photos, Twitter/X.
+ * Mouse (desktop fullscreen): single click toggles 1x ↔ 2x at click
+ * point, mousewheel zooms continuously centred on cursor, drag-to-pan
+ * while zoomed with momentum.
  *
  * Applies transform to the `<img>` element directly (not the container),
  * so carousel layout and dismiss gestures are unaffected.
@@ -45,6 +49,10 @@ interface UsePinchZoomOptions {
   lastSwipeTimeRef?: RefObject<number>;
   /** Optional external scaleRef — if provided, used instead of internal. */
   scaleRef?: RefObject<number>;
+  /** Called when zoom state crosses the 1x threshold (zoomed in ↔ out). */
+  onScaleChange?: (zoomed: boolean) => void;
+  /** Called on rapid double-click (second click within 300ms). Resets zoom first. */
+  onDoubleClick?: () => void;
 }
 
 interface UsePinchZoomReturn {
@@ -67,7 +75,12 @@ function touchMidpoint(a: Touch, b: Touch): { x: number; y: number } {
   };
 }
 
-/** Clamp translate so image edges don't scroll past container edges. */
+/**
+ * Clamp translate so image doesn't scroll too far past container edges.
+ * @param overflow — fraction of container dimension allowed beyond the tight
+ *   edge (0 = image edges stop at container edges, 0.5 = corners can reach
+ *   screen centre). Drag/momentum use 0.5; keyboard uses 0.05.
+ */
 function clampTranslate(
   tx: number,
   ty: number,
@@ -76,6 +89,7 @@ function clampTranslate(
   imgH: number,
   cW: number,
   cH: number,
+  overflow = 0.5,
 ): { tx: number; ty: number } {
   // The image is object-contain inside the container, so its rendered size
   // may be smaller than the container. Compute rendered size:
@@ -92,8 +106,12 @@ function clampTranslate(
     renderedW = cH * aspectImg;
   }
 
-  const maxTx = Math.max(0, (renderedW * scale - cW) / 2);
-  const maxTy = Math.max(0, (renderedH * scale - cH) / 2);
+  // Tight bound: image edge stops at container edge.
+  // Overflow adds a fraction of container size beyond that.
+  const tightX = Math.max(0, (renderedW * scale - cW) / 2);
+  const tightY = Math.max(0, (renderedH * scale - cH) / 2);
+  const maxTx = scale > 1 ? tightX + cW * overflow : 0;
+  const maxTy = scale > 1 ? tightY + cH * overflow : 0;
   return {
     tx: Math.max(-maxTx, Math.min(maxTx, tx)),
     ty: Math.max(-maxTy, Math.min(maxTy, ty)),
@@ -106,9 +124,15 @@ export function usePinchZoom({
   enabled = true,
   lastSwipeTimeRef,
   scaleRef: externalScaleRef,
+  onScaleChange,
+  onDoubleClick,
 }: UsePinchZoomOptions): UsePinchZoomReturn {
   const internalScaleRef = useRef(1);
   const scaleRef = externalScaleRef ?? internalScaleRef;
+  const onScaleChangeRef = useRef(onScaleChange);
+  onScaleChangeRef.current = onScaleChange;
+  const onDoubleClickRef = useRef(onDoubleClick);
+  onDoubleClickRef.current = onDoubleClick;
 
   useEffect(() => {
     if (!enabled) return;
@@ -150,7 +174,11 @@ export function usePinchZoom({
     let panLastTime = 0;
     let momentumRaf = 0; // requestAnimationFrame id — 0 = none
 
+    // Touch-vs-mouse disambiguation — suppress mouse handlers after touch
+    let lastTouchTime = 0;
+
     function applyTransform(animate = false) {
+      const wasZoomed = scaleRef.current > 1;
       if (animate) {
         img.style.transition = `transform ${ANIMATION_MS}ms ease-out`;
       } else {
@@ -163,6 +191,8 @@ export function usePinchZoom({
           : `translate3d(${translateX}px, ${translateY}px, 0) scale3d(${scale}, ${scale}, 1)`;
       img.style.willChange = scale > 1 ? "transform" : "";
       scaleRef.current = scale;
+      const isZoomed = scale > 1;
+      if (isZoomed !== wasZoomed) onScaleChangeRef.current?.(isZoomed);
     }
 
     function resetZoom(animate = false) {
@@ -181,6 +211,7 @@ export function usePinchZoom({
     }
 
     function onTouchStart(e: TouchEvent) {
+      lastTouchTime = Date.now();
       // Suppress zoom during post-swipe cooldown
       if (lastSwipeTimeRef?.current && Date.now() - lastSwipeTimeRef.current < SWIPE_ZOOM_COOLDOWN_MS) return;
       if (e.touches.length === 2) {
@@ -401,15 +432,267 @@ export function usePinchZoom({
       }
     }
 
+    // ── Mouse handlers (desktop zoom) ────────────────────────────────
+
+    let mouseDown = false;
+    let mouseMovedDuringDrag = false;
+    let mousePanStartX = 0;
+    let mousePanStartY = 0;
+    let mousePanTranslateStart = { x: 0, y: 0 };
+    let mousePanVx = 0;
+    let mousePanVy = 0;
+    let mousePanLastX = 0;
+    let mousePanLastY = 0;
+    let mousePanLastTime = 0;
+
+    /** Suppress mouse handlers briefly after touch to avoid ghost clicks. */
+    function isRecentTouch() { return Date.now() - lastTouchTime < 500; }
+
+    function onMouseDown(e: MouseEvent) {
+      if (e.button !== 0 || isRecentTouch()) return;
+      if (scale <= 1) return; // only pan when zoomed
+      if ((e.target as HTMLElement).closest("button")) return;
+      mouseDown = true;
+      mouseMovedDuringDrag = false;
+      mousePanStartX = e.clientX;
+      mousePanStartY = e.clientY;
+      mousePanTranslateStart = { x: translateX, y: translateY };
+      mousePanVx = 0;
+      mousePanVy = 0;
+      mousePanLastX = e.clientX;
+      mousePanLastY = e.clientY;
+      mousePanLastTime = e.timeStamp;
+      if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+      img.style.transition = "";
+      e.preventDefault();
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (!mouseDown) return;
+      const dx = e.clientX - mousePanStartX;
+      const dy = e.clientY - mousePanStartY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) mouseMovedDuringDrag = true;
+      translateX = mousePanTranslateStart.x + dx;
+      translateY = mousePanTranslateStart.y + dy;
+      const dt = e.timeStamp - mousePanLastTime;
+      if (dt > 0) {
+        const ivx = (e.clientX - mousePanLastX) / dt;
+        const ivy = (e.clientY - mousePanLastY) / dt;
+        mousePanVx = mousePanVx * 0.4 + ivx * 0.6;
+        mousePanVy = mousePanVy * 0.4 + ivy * 0.6;
+      }
+      mousePanLastX = e.clientX;
+      mousePanLastY = e.clientY;
+      mousePanLastTime = e.timeStamp;
+      const cr = getContainerRect();
+      const nat = getImageNaturalSize();
+      const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height);
+      translateX = clamped.tx;
+      translateY = clamped.ty;
+      applyTransform();
+    }
+
+    function onMouseUp() {
+      if (!mouseDown) return;
+      mouseDown = false;
+      // Momentum — same physics as touch pan
+      const speed = Math.sqrt(mousePanVx * mousePanVx + mousePanVy * mousePanVy);
+      if (speed > 0.15 && mouseMovedDuringDrag) {
+        const friction = 0.95;
+        let vx = mousePanVx * 16;
+        let vy = mousePanVy * 16;
+        let prevTime = performance.now();
+        const step = (now: number) => {
+          const elapsed = now - prevTime;
+          prevTime = now;
+          const frames = elapsed / 16.67;
+          const f = Math.pow(friction, frames);
+          vx *= f;
+          vy *= f;
+          translateX += vx;
+          translateY += vy;
+          const cr = getContainerRect();
+          const nat = getImageNaturalSize();
+          const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height);
+          if (clamped.tx !== translateX) vx = 0;
+          if (clamped.ty !== translateY) vy = 0;
+          translateX = clamped.tx;
+          translateY = clamped.ty;
+          applyTransform();
+          if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) {
+            momentumRaf = requestAnimationFrame(step);
+          } else {
+            momentumRaf = 0;
+          }
+        };
+        momentumRaf = requestAnimationFrame(step);
+      }
+    }
+
+    let lastClickTime = 0;
+
+    function onClick(e: MouseEvent) {
+      if (mouseMovedDuringDrag) { mouseMovedDuringDrag = false; return; }
+      if (isRecentTouch()) return;
+      if ((e.target as HTMLElement).closest("button")) return;
+
+      const now = e.timeStamp;
+      const dt = now - lastClickTime;
+      lastClickTime = now;
+
+      // Rapid second click → double-click: reset zoom and fire callback
+      if (dt < DOUBLE_TAP_MS && onDoubleClickRef.current) {
+        lastClickTime = 0; // prevent triple-click re-trigger
+        resetZoom(true);
+        onDoubleClickRef.current();
+        return;
+      }
+
+      if (scale > 1) {
+        resetZoom(true);
+      } else {
+        const cr = getContainerRect();
+        const cx = cr.left + cr.width / 2;
+        const cy = cr.top + cr.height / 2;
+        scale = DOUBLE_TAP_SCALE;
+        translateX = (cx - e.clientX) * (scale - 1);
+        translateY = (cy - e.clientY) * (scale - 1);
+        const nat = getImageNaturalSize();
+        const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height);
+        translateX = clamped.tx;
+        translateY = clamped.ty;
+        applyTransform(true);
+      }
+    }
+
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      const zoomSpeed = 0.002;
+      const delta = -e.deltaY * zoomSpeed;
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * (1 + delta)));
+      if (Math.abs(newScale - scale) < 0.001) return;
+      const cr = getContainerRect();
+      const cx = cr.left + cr.width / 2;
+      const cy = cr.top + cr.height / 2;
+      // Zoom centred on cursor: keep the image point under the cursor stable
+      const imgOffX = (e.clientX - cx - translateX) / scale;
+      const imgOffY = (e.clientY - cy - translateY) / scale;
+      scale = newScale;
+      translateX = (e.clientX - cx) - imgOffX * scale;
+      translateY = (e.clientY - cy) - imgOffY * scale;
+      const nat = getImageNaturalSize();
+      const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height);
+      translateX = clamped.tx;
+      translateY = clamped.ty;
+      applyTransform();
+    }
+
+    // ── Keyboard handlers (desktop zoom) ────────────────────────────
+
+    /** Fraction of viewport per arrow-key press. */
+    const PAN_STEP = 0.25;
+    /** Keyboard clamp: 5% beyond tight image edge. */
+    const KB_OVERFLOW = 0.05;
+
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+
+      // Space: toggle zoom centred (no double-click trigger)
+      if (e.key === " ") {
+        e.preventDefault();
+        if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+        if (scale > 1) {
+          resetZoom(true);
+        } else {
+          scale = DOUBLE_TAP_SCALE;
+          translateX = 0;
+          translateY = 0;
+          applyTransform(true);
+        }
+        return;
+      }
+
+      // Everything below: only when zoomed
+      if (scale <= 1) return;
+
+      const cr = getContainerRect();
+      const nat = getImageNaturalSize();
+
+      switch (e.key) {
+        case "ArrowLeft":
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          translateX += cr.width * PAN_STEP;
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          translateX -= cr.width * PAN_STEP;
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          translateY += cr.height * PAN_STEP;
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          translateY -= cr.height * PAN_STEP;
+          break;
+        case "Home": {
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          const max = clampTranslate(1e6, 1e6, scale, nat.w, nat.h, cr.width, cr.height, KB_OVERFLOW);
+          translateX = e.shiftKey ? -max.tx : max.tx;
+          translateY = max.ty;
+          applyTransform(true);
+          return;
+        }
+        case "End": {
+          e.preventDefault();
+          if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
+          const max = clampTranslate(1e6, 1e6, scale, nat.w, nat.h, cr.width, cr.height, KB_OVERFLOW);
+          translateX = e.shiftKey ? max.tx : -max.tx;
+          translateY = -max.ty;
+          applyTransform(true);
+          return;
+        }
+        default:
+          return;
+      }
+
+      // Clamp and apply for arrow keys (instant — no animation, supports key repeat)
+      const clamped = clampTranslate(translateX, translateY, scale, nat.w, nat.h, cr.width, cr.height, KB_OVERFLOW);
+      translateX = clamped.tx;
+      translateY = clamped.ty;
+      applyTransform();
+    }
+
+    // ── Listener registration ────────────────────────────────────────
+
     container.addEventListener("touchstart", onTouchStart, { passive: true });
     container.addEventListener("touchmove", onTouchMove, { passive: false });
     container.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    container.addEventListener("click", onClick);
+    container.addEventListener("wheel", onWheel, { passive: false });
+    container.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("keydown", onKeyDown);
 
     // Reset zoom when image changes (handled by effect re-run via enabled dep)
     return () => {
       container.removeEventListener("touchstart", onTouchStart);
       container.removeEventListener("touchmove", onTouchMove);
       container.removeEventListener("touchend", onTouchEnd);
+      container.removeEventListener("click", onClick);
+      container.removeEventListener("wheel", onWheel);
+      container.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("keydown", onKeyDown);
       if (momentumRaf) cancelAnimationFrame(momentumRaf);
       // Clean up transform if leaving
       resetZoom();

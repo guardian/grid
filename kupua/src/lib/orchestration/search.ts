@@ -114,6 +114,28 @@ export function scrollFocusedIntoView(): void {
   _scrollToFocused?.();
 }
 
+// ---------------------------------------------------------------------------
+// Fullscreen preview orchestration (middle-click from grid/table)
+// ---------------------------------------------------------------------------
+
+let _enterPreview: (() => void) | null = null;
+
+/**
+ * Register the FullscreenPreview's enterPreview callback.
+ * Called by FullscreenPreview on mount; cleared on unmount.
+ */
+export function registerEnterPreview(fn: (() => void) | null) {
+  _enterPreview = fn;
+}
+
+/**
+ * Enter fullscreen preview for the currently focused image.
+ * No-op if FullscreenPreview is not mounted or no image is focused.
+ */
+export function enterFullscreenPreview(): void {
+  _enterPreview?.();
+}
+
 /**
  * Imperatively prepare for a "go home" transition — called by SearchBar logo,
  * ImageDetail logo, and metadata clicks. Orchestrates:

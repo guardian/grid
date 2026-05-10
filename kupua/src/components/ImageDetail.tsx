@@ -327,15 +327,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     scaleRef,
   });
 
-  // Pinch-to-zoom: two-finger pinch on the image. Fullscreen-only.
+  // Pinch-to-zoom (touch) + click/wheel/drag zoom (desktop). Fullscreen-only.
   // Exposes scaleRef so carousel and dismiss can skip when zoomed.
   // lastSwipeTimeRef: suppress zoom during post-swipe cooldown.
+  const [isZoomed, setIsZoomed] = useState(false);
   usePinchZoom({
     containerRef,
     imageRef,
     enabled: !!image && isFullscreen,
     lastSwipeTimeRef,
     scaleRef,
+    onScaleChange: setIsZoomed,
+    onDoubleClick: toggleFullscreen,
   });
 
   // Swipe-to-dismiss: pull down on the image to close detail view.
@@ -431,6 +434,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     }
     // Reset pinch-zoom state — new image starts at 1x
     scaleRef.current = 1;
+    setIsZoomed(false);
     const img = imageRef.current;
     if (img) {
       img.style.transform = "";
@@ -459,11 +463,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           break;
         case "ArrowLeft":
           e.preventDefault();
-          goToPrev();
+          if (scaleRef.current <= 1) goToPrev();
           break;
         case "ArrowRight":
           e.preventDefault();
-          goToNext();
+          if (scaleRef.current <= 1) goToNext();
           break;
         // Escape exits fullscreen — handled natively by the browser.
         // When not in fullscreen, Escape does nothing. Close image detail
@@ -474,6 +478,31 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [closeDetail, goToPrev, goToNext]);
+
+  // Middle-click toggles fullscreen (undiscoverable power-user shortcut).
+  // auxclick fires for non-primary buttons; we filter to button 1 (middle).
+  // preventDefault on mousedown suppresses browser autoscroll mode.
+  // `image` in deps: on reload, the loading placeholder renders first (no
+  // containerRef div). When image arrives the real div mounts — we need the
+  // effect to re-run so it can bind to it.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onAuxClick = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      toggleFullscreen();
+    };
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mousedown", onMiddleDown);
+    return () => {
+      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mousedown", onMiddleDown);
+    };
+  }, [toggleFullscreen, image]);
 
   // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
   // Request screen-sized image (not window-sized) so a single request covers
@@ -728,16 +757,14 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                     if (imageId) markFullResLoaded(imageId);
                   }}
                   onDoubleClick={
-                    // Desktop: double-click toggles fullscreen / closes detail.
-                    // Mobile (coarse pointer): suppressed in fullscreen — double-tap
-                    // is handled by usePinchZoom for zoom, not fullscreen toggle.
+                    // Fullscreen: no dblclick — click-to-zoom handles interaction.
+                    // Non-fullscreen desktop: dblclick closes detail.
                     // Mount guard: suppress stray dblclick from phantom-mode grid/table
                     // click leaking through (see mountTimeRef).
-                    _pointerCoarse && isFullscreen ? undefined
+                    isFullscreen ? undefined
                       : () => {
                           if (Date.now() - mountTimeRef.current < 500) return;
-                          if (isFullscreen) toggleFullscreen();
-                          else closeDetail();
+                          closeDetail();
                         }
                   }
                   onError={(e) => {
@@ -781,10 +808,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
           {/* Prev/next navigation strips — desktop only (mobile uses swipe).
               Positioned on top of the carousel strip. */}
-          {!(isFullscreen && cursorHidden) && prevImage && (
+          {!(isFullscreen && cursorHidden) && !isZoomed && prevImage && (
             <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
           )}
-          {!(isFullscreen && cursorHidden) && nextImage && (
+          {!(isFullscreen && cursorHidden) && !isZoomed && nextImage && (
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} className="hidden sm:flex" />
           )}
         </div>

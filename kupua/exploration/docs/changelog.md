@@ -14,6 +14,74 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Desktop zoom, middle-click fullscreen preview, phantom pulse fix
+
+**Desktop zoom in fullscreen (ImageDetail + FullscreenPreview)**
+
+Added mouse-driven zoom and pan to both fullscreen surfaces, matching the existing
+touch/pinch support:
+
+- **Click-to-zoom:** Single click toggles between 1× and 2× zoom, centered on the
+  click point. Immediate response — no 300ms tap-delay.
+- **Wheel zoom:** Continuous zoom (1×–4×) centered on cursor position, `zoomSpeed=0.002`.
+- **Drag-to-pan:** Click-and-drag pans when zoomed, with momentum (friction 0.95,
+  `requestAnimationFrame` decay loop). Relaxed clamp bounds so image corners can
+  reach screen centre (50% overflow). Keyboard pan uses tighter bounds (5% overflow).
+- **Double-click exit:** Rapid second click (within 300ms) resets zoom and exits
+  fullscreen — resolves the conflict between click-to-zoom and the previous
+  double-click-to-toggle-fullscreen gesture.
+- **Traversal gated by zoom state:** Arrow keys and NavStrips disabled while zoomed >1×.
+  Zoom resets on image change.
+- **Keyboard zoom shortcuts (in fullscreen):**
+  - Space: toggle 1×↔2× (centred, no double-click trigger).
+  - Arrows (when zoomed): pan 25% of viewport per press, instant (key-repeat friendly).
+  - Home / End: snap to top-left / bottom-right corner (animated).
+  - Shift+Home / Shift+End: snap to top-right / bottom-left corner (animated).
+
+Touch vs mouse disambiguation: 500ms `lastTouchTime` guard prevents ghost-click
+firing after `touchend`. All mouse handlers bail if `Date.now() - lastTouchTime < 500`.
+
+**`usePinchZoom` hook changes** (`src/hooks/usePinchZoom.ts`): Added `onClick`,
+`onWheel`, `onMouseDown/Move/Up`, `onKeyDown` handlers. New interface fields:
+`onScaleChange?: (zoomed: boolean) => void` (threshold crossing notification),
+`onDoubleClick?: () => void` (rapid second click callback). `clampTranslate`
+parameterised with `overflow` fraction (default 0.5 for drag, 0.05 for keyboard).
+
+**Middle-click as universal fullscreen preview shortcut**
+
+Middle-click (auxclick, `button === 1`) on any image in grid or table opens
+FullscreenPreview. Also works as exit from both FullscreenPreview and ImageDetail
+fullscreen. Solves the gap where click-to-open mode had no quick way to peek at
+fullscreen without opening the detail panel.
+
+- **ImageGrid / ImageTable:** `auxclick` event delegation on scroll container, finds
+  `[data-image-id]` via `closest()`, sets focus, then `requestAnimationFrame(() =>
+  enterFullscreenPreview())`.
+- **Orchestration:** New `registerEnterPreview` / `enterFullscreenPreview` pair in
+  `src/lib/orchestration/search.ts`, same pattern as existing `scrollToFocused`.
+
+**Phantom pulse fix on FullscreenPreview exit**
+
+When exiting FullscreenPreview in phantom focus mode, the pulse animation now fires
+(matching ImageDetail's existing behaviour). Added `_phantomPulseImageId` set in both
+`exitPreview()` and the `fullscreenchange` listener, gated by
+`getEffectiveFocusMode() === "phantom"`.
+
+**Bug fix: middle-click broken after reload in ImageDetail**
+
+On page reload in image detail, the loading placeholder renders before the real
+`containerRef` div. The auxclick effect ran with `containerRef.current === null` and
+never re-ran because `toggleFullscreen` identity didn't change. Fixed by adding
+`image` to the effect's dependency array (same pattern as `useSwipeCarousel`'s
+`enabled: !!image`).
+
+**Files changed:** `usePinchZoom.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`,
+`ImageGrid.tsx`, `ImageTable.tsx`, `src/lib/orchestration/search.ts`.
+
+**Tests:** 794 unit tests green. No new unit tests — the hook's imperative DOM
+manipulation (refs, `requestAnimationFrame`, `addEventListener`) doesn't lend itself
+to jsdom unit tests; the real coverage surface is Playwright e2e.
+
 ### 10 May 2026 — Bug fixes: Alt+arrow word-jump broken in table view; table horizontal scroll pixel-by-pixel
 
 **Bug 2 — Alt+Left/Right (word jump) broken in search box when table is active**

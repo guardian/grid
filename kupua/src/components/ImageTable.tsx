@@ -30,7 +30,7 @@ import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContext
 import { TableTickbox } from "./Tickbox";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
-import { cancelSearchDebounce, pushNavigate } from "@/lib/orchestration/search";
+import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview } from "@/lib/orchestration/search";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
@@ -526,6 +526,32 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // once per session (mount) plus optionally on font load or resize.
   // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
   const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
+
+  // Middle-click on a row → focus that image + enter fullscreen preview.
+  // Event delegation on the scroll container; find nearest [data-image-id].
+  useEffect(() => {
+    const el = parentRef.current;
+    if (!el) return;
+    const onAuxClick = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      const row = (e.target as HTMLElement).closest("[data-image-id]");
+      if (!row) return;
+      const id = row.getAttribute("data-image-id");
+      if (!id) return;
+      e.preventDefault();
+      setFocusedImageId(id);
+      requestAnimationFrame(() => enterFullscreenPreview());
+    };
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mousedown", onMiddleDown);
+    return () => {
+      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mousedown", onMiddleDown);
+    };
+  }, [setFocusedImageId]);
 
   // Double-click a row → show image detail overlay by adding image to URL.
   // Also sets focus so returning from image detail highlights this row.

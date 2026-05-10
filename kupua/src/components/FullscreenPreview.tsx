@@ -33,15 +33,16 @@
  * the adjacent image is outside the buffer.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
+import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
-import { scrollFocusedIntoView } from "@/lib/orchestration/search";
+import { scrollFocusedIntoView, registerEnterPreview } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 
@@ -68,9 +69,12 @@ function getImageUrl(image: Image): string | undefined {
 
 export function FullscreenPreview() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const scaleRef = useRef(1);
   const [isActive, setIsActive] = useState(false);
   const [currentImage, setCurrentImage] = useState<Image | null>(null);
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   // Track whether we initiated the fullscreen (vs. ImageDetail's fullscreen)
   const initiatedRef = useRef(false);
@@ -150,6 +154,12 @@ export function FullscreenPreview() {
     });
   }, [resolveLocalIndex]);
 
+  // Register enterPreview for imperative access (middle-click from grid/table).
+  useEffect(() => {
+    registerEnterPreview(enterPreview);
+    return () => registerEnterPreview(null);
+  }, [enterPreview]);
+
   const exitPreview = useCallback(() => {
     trace("fullscreen-exit", "t_0");
     if (document.fullscreenElement && initiatedRef.current) {
@@ -159,7 +169,13 @@ export function FullscreenPreview() {
     initiatedRef.current = false;
     cooldownRef.current = false;
     setNavReady(false);
-
+    // Phantom pulse — in click-to-open mode, pulse the image so the user
+    // knows which image they landed on (same animation as return-from-detail).
+    const fid = useSearchStore.getState().focusedImageId;
+    if (fid && getEffectiveFocusMode() === "phantom") {
+      useSearchStore.setState({ _phantomPulseImageId: fid });
+      setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+    }
     // After exiting fullscreen, the focused image may have moved off-screen
     // during arrow-key traversal. Scroll it into view (align: "auto" — only
     // scrolls if needed, places at nearest edge).
@@ -172,12 +188,63 @@ export function FullscreenPreview() {
     });
   }, []);
 
+  // Zoom (touch pinch + desktop click/wheel/drag). Active when preview is open.
+  usePinchZoom({
+    containerRef,
+    imageRef,
+    enabled: isActive,
+    scaleRef,
+    onScaleChange: setIsZoomed,
+    onDoubleClick: exitPreview,
+  });
+
+  // Reset zoom state when image changes during traversal
+  useLayoutEffect(() => {
+    scaleRef.current = 1;
+    setIsZoomed(false);
+    const img = imageRef.current;
+    if (img) {
+      img.style.transform = "";
+      img.style.willChange = "";
+      img.style.transition = "";
+    }
+  }, [currentImage?.id]);
+
+  // Middle-click exits fullscreen preview (matches ImageDetail's middle-click toggle).
+  useEffect(() => {
+    if (!isActive) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const onAuxClick = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      exitPreview();
+    };
+    const onMiddleDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mousedown", onMiddleDown);
+    return () => {
+      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mousedown", onMiddleDown);
+    };
+  }, [isActive, exitPreview]);
+
   // Listen for fullscreen exit (Esc is handled natively by the browser)
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && initiatedRef.current) {
         setIsActive(false);
         initiatedRef.current = false;
+
+        // Phantom pulse (same as exitPreview)
+        const fid = useSearchStore.getState().focusedImageId;
+        if (fid && getEffectiveFocusMode() === "phantom") {
+          useSearchStore.setState({ _phantomPulseImageId: fid });
+          setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+        }
+
         // Scroll focused image into view — same as exitPreview().
         requestAnimationFrame(() => {
           scrollFocusedIntoView();
@@ -219,11 +286,11 @@ export function FullscreenPreview() {
           break;
         case "ArrowLeft":
           e.preventDefault();
-          goToPrev();
+          if (scaleRef.current <= 1) goToPrev();
           break;
         case "ArrowRight":
           e.preventDefault();
-          goToNext();
+          if (scaleRef.current <= 1) goToNext();
           break;
       }
     };
@@ -257,6 +324,7 @@ export function FullscreenPreview() {
         <>
           {imageUrl ? (
             <img
+              ref={imageRef}
               src={imageUrl}
               alt=""
               className="w-full h-full object-contain select-none"
@@ -269,10 +337,10 @@ export function FullscreenPreview() {
           )}
 
           {/* Navigation strips — hidden during animation and when cursor hidden */}
-          {navReady && !cursorHidden && prevImage && (
+          {navReady && !cursorHidden && !isZoomed && prevImage && (
             <NavStrip direction="prev" onClick={goToPrev} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
           )}
-          {navReady && !cursorHidden && nextImage && (
+          {navReady && !cursorHidden && !isZoomed && nextImage && (
             <NavStrip direction="next" onClick={goToNext} onMouseEnter={navMouseEnter} onMouseLeave={navMouseLeave} />
           )}
         </>
