@@ -14,6 +14,38 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 10 May 2026 — Background enrichment via useEnrichment [DOOMED — to be stripped]
+
+Recorded for diff history. This hook will be removed in the next commit; the
+working-tree-only code would otherwise be lost without git archaeology.
+
+`useEnrichment` is the background enrichment loop that fires `?ids=` requests
+against the Grid API to overwrite ES-baseline fields with server-computed
+values (cost, validity, leases, actions, isPotentiallyGraphic). It evolved
+through three architectures during 7–9 May:
+
+1. **Mirror-search** (`searchByQuery`, offset-based) — paginated into ≤200
+   chunks. Hit 10k offset cap. Replaced.
+2. **IDs-based** (`enrichByIds`, `?ids=` chunked to ≤46 per Pekko URL limit)
+   — exact buffer coverage, no offset cap. Replaced mirror-search.
+3. **Single-lane visible-first** — 300ms debounce, visible viewport IDs
+   sorted to front, sequential phase-2 chunks (at most 1 HTTP connection),
+   Zustand subscribe listener for immediate abort on seek/search, setTimeout(0)
+   yield between phases. This is the version in this commit.
+
+Connection-starvation prevention (the subscribe listener, sequential chunking,
+yield) exists because all dev traffic flows through one Vite origin under
+HTTP/1.1. In production (different origins per service), the deadlock cannot
+occur.
+
+**Why it's being removed:** After inventory audit (A/B/C), the background
+loop does almost no useful work once SOURCE_INCLUDES is widened. The
+genuinely API-only deltas (overquota, isPotentiallyGraphic, download URLs,
+actions) are TS-replicable or fired on user click. See
+`handoff-drop-enrichment-and-ts-replicate.md` for the full rationale.
+
+Files: `hooks/useEnrichment.ts` (268 lines), `hooks/useEnrichment.test.ts`.
+
 ### 10 May 2026 — Phase A + Cluster 1: cost, validity, badges, API scaffolding
 
 Two-plus days of bread-and-butter work (7–10 May 2026). This commit contains all
@@ -65,6 +97,32 @@ permanent code; the companion commit adds the `useEnrichment` background loop
 - `es-adapter.ts` — `nonFree` filter bug fix (missing free-supplier branch),
   shape adjustments for enrichment baseline fields.
 
+**Enrichment architecture (survives the strip — canonical reference):**
+```
+ES adapter   → search-store.results: Image[]              (unchanged, pure ES)
+API adapter  → enrichment-store.overlay: Map<id, Overlay>  (ephemeral)
+                                ↓
+                deriveImage(image, overlay?) → EnrichedImage
+                                ↓
+        useEnrichedImage(image) — ONE hook, ONE merge function
+```
+- `deriveImage` is the single merge point. Runs `calculateCost`/`buildValidityMap`
+  for baseline, layers overlay field-by-field. API wins.
+- `useEnrichedImage(image)` takes the `Image` from props (not an id lookup).
+  Subscribes only to enrichment-store per-id (`Map.get`, O(1)). No search-store
+  subscription — avoids O(cells × buffer) scan.
+- `deriveImage(image, undefined)` returns full baseline — graceful degradation.
+- Components read `EnrichedImage` directly. No `??` fallback patterns.
+
+**Known issue: SOURCE_INCLUDES canary (intentional, deferred):**
+`es-config.ts` only whitelists `usageRights.category`, not `.supplier` /
+`.suppliersCollection` / `.restrictions`. This makes `calculateCost()` return
+wrong baseline for agency images (always "pay"). The resulting Pay→Free flash
+when enrichment arrives is an intentional diagnostic canary — it proves
+enrichment is working. Fix is trivial (3 lines in SOURCE_INCLUDES) but
+deferred until enrichment is verified across all surfaces. The strip commit
+(Session A.1) widens SOURCE_INCLUDES and resolves this.
+
 **Docs + inventories:**
 - Inventories A, B, C (docs/kahuna/backend feature audits).
 - Inventory handoffs, research docs, workplan updates, deviations entries.
@@ -93,6 +151,217 @@ permanent code; the companion commit adds the `useEnrichment` background loop
 **Docs:** deviations.md entry 21 replaced with single-lane description. Appendix A table in cluster1-ids-enrichment-research.md updated: HTTP/2 no longer a prerequisite for collapse.
 
 **LOC delta:** ~120 lines net deleted (all of `useViewportEnrichment` + Tier 2 duplication removed; ~30 lines added for visible-first + onChunk wiring).
+
+### 9 May 2026 — HTTP/1.1 connection starvation: diagnosis and fix
+
+**Superseded** by the tier collapse (above) and ultimately by the enrichment
+strip. Recorded for the diagnostic reasoning, which applies to any future
+parallel-fetch pattern against the Vite dev proxy.
+
+*Symptom:* Scrubber seek froze the grid for 3–7s with enrichment active.
+Binary isolation confirmed `useEnrichment()` as sole cause.
+
+*Scroll-block note (separate pre-existing bug):* The user also reported a
+"scroll-block" (can't scroll further, as if at end of results). A/B testing
+with stash proved this exists on baseline too — NOT caused by enrichment.
+Less severe on baseline (triggers later, recovers faster). Unresolved.
+
+*Wrong hypothesis 1 — React re-render cascade from `onChunk`:* Progressive
+`onChunk` callback called `setEnrichment(new Map(existing))` per chunk (22
+chunks for 1000 IDs ÷ 46). Each replaced the Map reference, triggering
+Zustand subscriber evaluation for ~100 mounted cells. Theory: 22 render waves
+blocked the main thread. Testing disproved — visible-only test (1 chunk,
+1 store update) was fast, but single-update-all-IDs was slow (5–10s). Problem
+was not store updates.
+
+*Wrong hypothesis 2 — seek ES request blocked behind slow `Promise.all`:*
+With 22 chunks via `Promise.all`, all 6 HTTP/1.1 connections occupied.
+Testing showed abort fired immediately (subscribe listener worked) but seek
+still took 3+s. Aborting a `fetch()` doesn't instantly free TCP connections.
+
+*Root cause (confirmed):* All kupua dev traffic flows through `localhost:3000`
+(Vite). HTTP/1.1 limits 6 TCP connections per origin. The deadlock cycle:
+- Abort needs → `cacheKey` change → seek response → free connection
+- Seek response needs → free connection
+- Free connection needs → abort
+React effect lifecycle couldn't break this because `cacheKey` only changes
+AFTER the seek response arrives (via `_seekGeneration` increment inside
+`set()`). By the time effect cleanup ran, the damage was done.
+
+*Fix (three mechanisms):*
+1. Zustand subscribe listener — fires OUTSIDE React effect lifecycle. When
+   `loading` flips true (seek starting), immediately aborts enrichment
+   AbortController and clears pending debounce. Breaks the deadlock.
+2. `setTimeout(0)` yield between phase 1 and phase 2 — creates a macrotask
+   window where the subscribe listener's abort can prevent phase 2 from
+   ever opening connections.
+3. Sequential single-request chunking in phase 2 — at most 1 HTTP
+   connection used by enrichment, 5 always free.
+
+*Performance results (seek durations, `performance.now()`):*
+| Scenario | Seek 1 | Seek 2 | Seek 3 | Seek 4 |
+|---|---|---|---|---|
+| Before fix (parallel `onChunk`) | 800ms | **3060ms** | — | — |
+| After fix (sequential + yield + abort) | 810ms | 841ms | 1069ms | 895ms |
+
+*Trade-off:* Phase 2 offscreen enrichment ~6.6s (sequential) vs ~5s
+(parallel). Invisible — offscreen cells don't paint.
+
+*Pound-sign flash (deferred):* Cost badges briefly show "pay" (SOURCE_INCLUDES
+canary) before thumbnails finish loading after seek. Timing mismatch between
+DOM paint and image decode, not an enrichment bug. Deferred.
+
+*This is a dev-only artifact.* In production, ES/thumbnails/API are on
+different origins; each gets its own 6-connection budget.
+
+**Future server-side improvements that would simplify API call patterns:**
+- **Raising `pekko.http.server.parsing.max-uri-length` to 16384** (+
+  matching nginx `large_client_header_buffers`): ~300 IDs per request
+  instead of 46. Buffer of 500 IDs = 2 requests instead of 11.
+- **HTTP/2**: multiplexes all requests over one TCP connection — no
+  6-connection limit. Parallel `Promise.all` becomes safe.
+- **POST endpoint for `?ids=` enrichment**: body has no URL length limit.
+  One request for all IDs, zero chunking.
+
+### 9 May 2026 — Tier 2 IDs-enrichment swap + Tier 1 restructure
+
+**Superseded** by the tier collapse (above) and ultimately by the enrichment
+strip. Two changes in one session:
+
+**IDs-enrichment swap:** `useEnrichment` (Tier 2) switched from offset-based
+mirror-search (`searchByQuery`) to `?ids=` lookup (`enrichByIds`). Removed
+incremental fetch logic, 10k offset cap, `bufferOffset`/`bufferLength` store
+subscriptions. `enrichByIds` chunks into parallel batches of ≤46 IDs (Pekko
+HTTP 2048-char URL limit). Cache key simplified to
+`query|orderBy|bufferGeneration`. IDs extracted from buffer imperatively at
+fire-time (skipping undefined placeholders). `searchByQuery` deleted (dead
+code after swap).
+
+**Tier 1 restructure:** `useViewportEnrichment` internals swapped from
+per-ID `getImageDetail` concurrency loop to single `enrichByIds` call.
+Deleted `extractEnrichmentFromDetail`, `VIEWPORT_CONCURRENCY`. Tier 1 now
+also delivers `actions` + `isPotentiallyGraphic` (previously missing from
+per-ID endpoint). `enrichByIds` failure semantics changed from
+single-shared-failure to per-chunk-tolerate-failure.
+
+Also: 5 console.logs stripped, dead `const now` removed, TS fix for
+`SearchHitImageData` missing `actions` field (`argo.ts:unwrapSearchHits`
+now merges `entity.actions` onto each hit).
+
+### 9 May 2026 — Inventories B + C produced
+
+**Inventory B** (`inventory-B-from-kahuna.md`): 62 new rows from direct
+kahuna source reading, not covered by Inventory A (docs-based).
+
+**Inventory C** (`inventory-C-from-backend.md`): 54 new data rows from
+direct Scala source reading. Sources: media-api routes + all 5 controllers,
+ImageResponse.scala, ImageExtras.scala, UsageQuota/Store.scala,
+ImagePersistenceReasons.scala, ElasticSearch.scala (both media-api and
+thrall), SearchFilters.scala, all satellite service route files, image-loader,
+image-counter-lambda, image-embedder-lambda.
+
+Key findings: payType IS implemented backend-side; isPotentiallyGraphic is
+runtime script field not stored; embedding fields exist in ES (cohereEmbedV4
+256-dim + cohereEmbedEnglishV3 1024-dim); 12 persistence reasons confirmed;
+10 new search params; many satellite routes not in A/B.
+
+### 9 May 2026 — Code review fixes
+
+- `useViewportEnrichment` had no try/catch around `getImageDetail`.
+  `AuthError`/`SessionExpiredError` from expired panda cookie → unhandled
+  rejection → entire batch dropped. Violated graceful-API-absence directive.
+  Fixed: wrapped inner call in try/catch returning null.
+- Playwright e2e: 227 passed, 4 visual baseline snapshots regenerated
+  (expected from Cluster 1 UI changes). 231/231 green.
+
+### 8 May 2026 — Enrichment architecture redesign
+
+**Superseded** the initial Cluster 1 enrichment wiring (enrichment-store
+subscriptions in individual components). Replaced parallel side-channel
+pattern with a derived-view layer:
+
+- `lib/derive-enriched-image.ts` — pure `deriveImage(image, overlay?)`.
+  ES baseline → API overwrite. Single merge point for all consumers.
+- `hooks/useEnrichedImage.ts` — `useEnrichedImage(image)` hook. Takes
+  `Image` from props (not an id lookup). Subscribes only to enrichment-store
+  per-id (`Map.get`, O(1)). No search-store subscription.
+- `components/ImageTable.tsx` — `EnrichedTableRow` wrapper.
+- `cellRenderer` signature changed: `(image: Image)` → `(enriched: EnrichedImage)`.
+- Deleted `useEnrichmentForImage` (clean cut, all callers migrated).
+
+### 8 May 2026 — Mirror-search pagination fix + incremental enrichment
+
+**Both superseded** by the IDs-enrichment swap (9 May).
+
+**Pagination fix:** Grid API enforces `length ≤ 200`. After buffer extends
+(scroll/PgDown/position-restore), buffer grows to 397–600 items → 422
+Unprocessable Entity → no enrichment. Fix: `useEnrichment` paginated into
+parallel chunks of ≤200 via `Promise.all`. Partial failure tolerated.
+
+**Incremental enrichment + 300ms debounce:** Delta detection via
+`prevRangeRef` (query, orderBy, offset, length, generation). Forward extend
+→ fetch only new tail. Backward prepend → fetch only new head. Seek/query/
+sort/ticker → full refetch. If new range fully covered by previous
+enrichment → 0 requests (no-op). 744 vitest tests passing.
+
+### 8 May 2026 — Two-tier enrichment (viewport-first)
+
+**Superseded** by the tier collapse (9 May) and ultimately by the enrichment
+strip.
+
+Root cause of perceived slowness: Grid API mirror-search at deep offsets
+takes 4–9s (ES `from/size` pagination penalty). Visible cost badges waited
+on full-buffer enrichment.
+
+Fix: two-tier architecture:
+- **Tier 1** (`useViewportEnrichment`): per-ID `getImageDetail` for visible
+  items + 6-item margin. Concurrency-limited to 4. 300ms debounce. Badges
+  appear in ~1s regardless of scroll depth.
+- **Tier 2** (existing `useEnrichment`): buffer-level mirror-search, 3s
+  debounce. Background backfill.
+
+Without API: per-ID fetches get 502 → null in <10ms. Zero slowdown in
+standalone mode.
+
+### 8 May 2026 — Visual polish: table + grid badges, image detail enhancements
+
+- Restrictions tooltip on grid cells: fixed `deriveImage()` to overlay
+  `usageRights` (was missing → tooltip always showed generic text).
+- `IMAGE_BORDERS` extracted to shared `src/lib/image-borders.ts`.
+- Table rows: 7px left border for staff photographer categories.
+- Badges column: print → digital → syndication → cost → persisted (matches
+  grid cell order). `defaultWidth: 66`, `fitWidth: 99`; new
+  `FieldDefinition.fitWidth` for icon-only columns.
+- Image detail — restrictions banner (Kahuna inventory #22).
+- Image detail — usage rights row with human-readable category (#25).
+- Image detail — lease list: expandable, access type, date range, notes,
+  active/inactive border styling, relative dates via `formatLeaseRelative()`.
+- Validity banner: 3-state coloured (red/amber/teal). Text matches Kahuna.
+  `isOverridden`, `isStrongWarning` logic. Both validity and restrictions
+  banners show simultaneously (removed earlier guard that suppressed one).
+- Cost row removed from detail panel; `usageRights_category.detailHidden = true`.
+
+### 8 May 2026 — Enrichment wiring audit + perf fix
+
+**Wiring audit:** Full audit of all `EnrichmentFields` consumers.
+- Bug fix: `MultiImageMetadata.tsx CostSummarySection` was reading
+  `img.leases?.leases?.some(...)` (raw ES, always undefined). Fixed to
+  `enriched.leasesSummary?.hasActiveAllowLease`.
+- Bug fix: `RightsAndLeasesSection` was reading `img.leases.leases` for
+  aggregate counts (always zero). Fixed to enriched fields.
+- Minor fix: `ImageGrid.tsx` + `ImageTable.tsx` border colour now reads
+  `enriched?.usageRights?.category` with raw fallback.
+- Dead code removed: `useEnrichedSelectedImage` (defined, never imported).
+
+**Perf fix (S1):** `useEnrichedImage(id)` subscribed to search-store and
+ran `results.find()` per visible cell on every store mutation — O(cells ×
+buffer). All callers already had `Image` in props. Fix: changed signature
+to `useEnrichedImage(image: Image | undefined)`. Removed search-store
+subscription. +15–20ms ack regression eliminated; +176ms scrubber seek
+regression eliminated.
+
+**Perf fix (S2):** Tickbox memo-busting inline arrow in GridCell and
+EnrichedTableRow. Fixed with `useCallback`.
 
 ### 6 May 2026 -- Three reconciliation fixes + frequency tooltips
 
