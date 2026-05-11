@@ -327,8 +327,10 @@ object GettyXmpParser extends ImageProcessor {
     Agencies
       .getWithCollection("getty", suppliersCollection)
 
-  private val PhotoByPattern = """(?i)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*(.*)$""".r
+  private val PhotoByPattern = """(?i)^\s*(.*?)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*(.*?)\s*$""".r
 
+  /** Normalise a string for comparison only: strips accent/diacritic marks (e.g. é→e, ç→c),
+    * folds to lowercase, and collapses whitespace/punctuation. Never used on data written back. */
   private def normalise(s: String): String = {
     val folded = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
     folded.toLowerCase.replaceAll("[.\\s]+", " ").trim
@@ -343,12 +345,8 @@ object GettyXmpParser extends ImageProcessor {
     * while the metadata credit uses "/" (e.g. "AFP/Getty Images"), so we normalise both before comparing.
     */
   def cleanDescription(description: String, byline: Option[String], credit: Option[String]): String = {
-    PhotoByPattern.findFirstMatchIn(description) match {
-      case Some(m) =>
-        val descByline = m.group(1)
-        val descCredits = m.group(2)
-        val trailing = m.group(3).trim
-
+    PhotoByPattern.findFirstMatchIn(description).map(_.subgroups) match {
+      case Some(before :: descByline :: descCredits :: trailing :: Nil) =>
         val bylineMatches = byline.exists(b => normalise(b) == normalise(descByline))
 
         // Normalise "via" → "/" so "AFP via Getty Images" matches credit "AFP/Getty Images"
@@ -356,16 +354,15 @@ object GettyXmpParser extends ImageProcessor {
         val creditMatches = credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
 
         if (bylineMatches && creditMatches) {
-          val before = description.substring(0, m.start).trim
-          if (trailing.nonEmpty) s"$before $trailing".trim else before
+          List(before, trailing).filter(_.nonEmpty).mkString(" ")
         }
         else description
-      case None => description
+      case _ => description
     }
   }
 
   // Matches: "LOC1, LOC2 - MONTH DAY:" or "LOC1, LOC2 - MONTH DAY, YEAR:" or "LOC1, LOC2 - MON DAY, YEAR - "
-  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?::\s*|-\s+)""".r
+  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?:\:\s*|-\s+)(.*)$""".r
 
   private val monthNumbers: Map[String, Int] = Map(
     "january" -> 1, "jan" -> 1, "february" -> 2, "feb" -> 2,
@@ -397,6 +394,7 @@ object GettyXmpParser extends ImageProcessor {
         val monthStr = m.group(3).toLowerCase
         val day = m.group(4).toInt
         val yearOpt = Option(m.group(5)).map(_.toInt)
+        val rest = m.group(6)
 
         val locationFields = List(subLocation, city, state, country).flatten
 
@@ -421,8 +419,7 @@ object GettyXmpParser extends ImageProcessor {
           monthMatch && dayMatch && yearMatch
         }
 
-        if (locationMatches && dateMatches.getOrElse(false)) {
-          val rest = description.substring(m.end)
+        if (locationMatches && dateMatches.contains(true)) {
           // Preserve any content before the location (e.g. "***BESTPIX***")
           val leading = loc1SuffixField.map { f =>
             loc1.substring(0, loc1.length - f.length).trim
@@ -450,10 +447,8 @@ object GettyXmpParser extends ImageProcessor {
     byline: Option[String],
     credit: Option[String]
   ): (Option[String], Option[String]) = {
-    (byline, credit, PhotoByPattern.findFirstMatchIn(description)) match {
-      case (Some(currentByline), Some(currentCredit), Some(m)) =>
-        val descByline = m.group(1).trim
-        val descCredits = m.group(2).trim
+    (byline, credit, PhotoByPattern.findFirstMatchIn(description).map(_.subgroups)) match {
+      case (Some(currentByline), Some(currentCredit), Some(_ :: descByline :: descCredits :: _ :: Nil)) =>
         val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
 
         // If current byline already matches the description byline, no fix needed
