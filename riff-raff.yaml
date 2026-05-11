@@ -132,6 +132,20 @@ deployments:
       fileName: image-embedder.zip
     actions:
       - uploadLambda
+  lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-backfill-lambda:
+    type: aws-lambda
+    stacks:
+      - media-service
+    regions:
+      - eu-west-1
+    app: image-embedder-backfill-lambda
+    contentDirectory: image-embedder-backfill-lambda
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-embedder.zip
+    actions:
+      - uploadLambda
   cfn-eu-west-1-image-embedder-lambda-image-embedder-lambda:
     type: cloud-formation
     regions:
@@ -144,12 +158,27 @@ deployments:
         TEST: ImageEmbedderLambda-euwest-1-TEST.template.json
     dependencies:
       - lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-lambda
+      - lambda-upload-eu-west-1-image-embedder-lambda-image-embedder-backfill-lambda
   lambda-update-eu-west-1-image-embedder-lambda-image-embedder-lambda:
     type: aws-lambda
     regions:
       - eu-west-1
     app: image-embedder-lambda
     contentDirectory: image-embedder-lambda
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-embedder.zip
+    actions:
+      - updateLambda
+    dependencies:
+      - cfn-eu-west-1-image-embedder-lambda-image-embedder-lambda
+  lambda-update-eu-west-1-image-embedder-lambda-image-embedder-backfill-lambda:
+    type: aws-lambda
+    regions:
+      - eu-west-1
+    app: image-embedder-backfill-lambda
+    contentDirectory: image-embedder-backfill-lambda
     parameters:
       bucketSsmLookup: true
       lookupByTags: true

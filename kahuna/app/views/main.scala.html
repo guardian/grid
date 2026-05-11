@@ -86,6 +86,7 @@
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
           usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(false),
+          aiSearchResultLimit: @kahunaConfig.aiSearchResultLimit,
           usageRightsSummary: @kahunaConfig.usageRightsSummary.getOrElse(false),
           interimFilterOptions: @Html(interimFilterOptions),
           permissionsDefault: "@kahunaConfig.permissionsDefault",
@@ -115,6 +116,37 @@
 @scriptsToLoad.map { scriptDetail =>
 <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
 }
+
+<script module="true">
+
+    const telemetryUri = window._clientConfig.telemetryUri;
+
+    if(telemetryUri) {
+        let loadedPageUri = window.location.pathname;
+
+        function loadTrackingPixel() {
+            const image = new Image();
+            const path = window.location.pathname;
+            image.src = `${window._clientConfig.telemetryUri}/guardian-tool-accessed?app=kahuna&path=` + path;
+        }
+
+        const observer = new MutationObserver(() => {
+            if (loadedPageUri !== window.location.pathname) {
+                loadedPageUri = window.location.pathname;
+                loadTrackingPixel();
+            }
+        });
+
+        observer.observe(window.document.body, {
+            characterDataOldValue: true,
+            subtree: true,
+            childList: true,
+            characterData: true
+        });
+
+        loadTrackingPixel();
+    }
+</script>
 
 </body>
 </html>

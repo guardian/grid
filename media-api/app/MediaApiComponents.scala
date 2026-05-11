@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, S3Vectors, SimpleSqsMessageConsumer, ThrallMessageSender}
+import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, S3, S3Vectors, SimpleSqsMessageConsumer, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
@@ -16,7 +16,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
   val mediaApiMetrics = new MediaApiMetrics(config, actorSystem, applicationLifecycle)
 
-  val s3Client = new S3Client(config)
+  val s3Client = new S3(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
   usageQuota.quotaStore.update()
@@ -29,7 +29,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
-  val embedder = new Embedder(new S3Vectors(config), new Bedrock(config), new SimpleSqsMessageConsumer(config.queueUrl, config))
+  val embedder = new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(config.queueUrl, config))
 
   val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation, embedder)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)

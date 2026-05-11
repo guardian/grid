@@ -20,6 +20,20 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
+lazy val jacksonVersion = "2.21.1"
+lazy val jacksonAnnotationsVersion = "2.21"
+lazy val jacksonOverrides = Seq(
+  "com.fasterxml.jackson.core" % "jackson-core",
+  "com.fasterxml.jackson.core" % "jackson-databind",
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310",
+  "com.fasterxml.jackson.module" % "jackson-module-parameter-names",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala"
+).map(_ % jacksonVersion) ++ Seq(
+  "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
+)
+
 val commonSettings = Seq(
   scalaVersion := "2.13.18",
   description := "grid",
@@ -40,7 +54,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.19.0",
+  dependencyOverrides ++= jacksonOverrides,
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -63,7 +77,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val awsSdkV2Version = "2.32.33"
+val awsSdkV2Version = "2.42.25"
 val elastic4sVersion = "8.18.2"
 val okHttpVersion = "3.12.1"
 
@@ -81,7 +95,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
@@ -151,6 +164,7 @@ lazy val mediaApi = playProject("media-api", 9001)
       "org.apache.commons" % "commons-email" % "1.5",
       "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
+      "com.github.blemale" %% "scaffeine" % "5.3.0"
     )
   )
 
