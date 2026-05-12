@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 12 May 2026 — Scroll and overscroll fixes (grid, toolbar, detail)
+
+Three CSS-only fixes for scroll/overscroll behaviour on macOS trackpad:
+
+1. **Grid horizontal scroll latch** (`ImageGrid.tsx`): Changed grid scroll container
+   from `overflow-auto` to `overflow-y-auto overflow-x-hidden`. The grid has no
+   horizontal content, but `overflow: auto` allowed trackpad diagonal swipes to latch
+   into horizontal scroll tracking, causing the grid to drift sideways. Reported with
+   Magic Mouse / trackpad; not reproducible with one-directional scroll wheels.
+
+2. **Vertical overscroll bounce on non-scrollable surfaces** (`__root.tsx`): Added
+   `overscroll-y-none` to the root layout div. This div has `overflow: hidden`, making
+   it a scroll event sink — scroll events from toolbar/chrome are consumed here without
+   bouncing, while the grid/table's own scroll containers keep their per-element
+   rubber-band bounce via their existing `overscroll-y-contain`.
+
+3. **Horizontal content shift during swipe-to-navigate** (`index.css`): Added
+   `overflow-x: hidden` on `html`. This prevents the page content from visibly shifting
+   left/right during the trackpad back/forward gesture, while preserving the browser's
+   navigation gesture itself. Using `overscroll-behavior-x: none` was tried but it
+   killed the navigation gesture entirely; `overflow-x: hidden` achieves the visual fix
+   without disabling browser-level gestures.
+
 ### 10 May 2026 — Desktop zoom, middle-click fullscreen preview, phantom pulse fix
 
 **Desktop zoom in fullscreen (ImageDetail + FullscreenPreview)**

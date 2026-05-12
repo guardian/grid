@@ -182,6 +182,7 @@
 html {
   color-scheme: dark;
   scrollbar-color: #666 #333;
+  overflow-x: hidden;
 }
 
 /*

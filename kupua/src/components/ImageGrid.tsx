@@ -835,7 +835,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       ref={parentRef}
       role="region"
       aria-label="Image results grid"
-      className="flex-1 min-w-0 overflow-auto hide-scrollbar pt-1 overscroll-y-contain"
+      className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain"
       data-selection-mode={inSelectionMode ? "true" : undefined}
       onClick={handleBackgroundClick}
     >
