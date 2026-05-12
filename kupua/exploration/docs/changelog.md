@@ -21,8 +21,8 @@ Three CSS-only fixes for scroll/overscroll behaviour on macOS trackpad:
 1. **Grid horizontal scroll latch** (`ImageGrid.tsx`): Changed grid scroll container
    from `overflow-auto` to `overflow-y-auto overflow-x-hidden`. The grid has no
    horizontal content, but `overflow: auto` allowed trackpad diagonal swipes to latch
-   into horizontal scroll tracking, causing the grid to drift sideways. Reported with
-   Magic Mouse / trackpad; not reproducible with one-directional scroll wheels.
+   into horizontal scroll tracking, causing the grid not be scrollable. Reported with
+   Magic Mouse; not reproducible with one-directional scroll wheels.
 
 2. **Vertical overscroll bounce on non-scrollable surfaces** (`__root.tsx`): Added
    `overscroll-y-none` to the root layout div. This div has `overflow: hidden`, making

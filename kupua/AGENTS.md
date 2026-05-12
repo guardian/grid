@@ -30,70 +30,49 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Working on… | Read these files |
 |---|---|
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
-| **Two-tier virtualisation (real scrolling 12k-65k)** | `scroll-two-tier-virtualisation-workplan.md`, `two-tier-virtualisation-handoff.md`, `useDataWindow.ts`, `dal/position-map.ts` |
+| **Two-tier virtualisation (real scrolling 1k-65k)** | `03-scroll-architecture.md`, `useDataWindow.ts`, `dal/position-map.ts`, `lib/two-tier.ts` |
 | **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-prefetch.test.ts` |
-| **Touch gestures (swipe carousel, dismiss, pinch-zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts`, `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `zz Archive/swipe-carousel-review.md`, `zz Archive/prefetch-cadence-workplan.md` |
-| **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `scrubber-dual-mode-ideation.md`, `scrubber-ticks-and-labels.md` |
-| **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `es-audit.md` |
+| **Touch & desktop gestures (swipe, dismiss, zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts` (touch + mouse + wheel + keyboard zoom), `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx` |
+| **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `search-store.ts` (seek paths, `buildSeekCursorAnchors`, `fetchNullZoneDistribution`), `dal/null-zone.ts`, `scrubber-ticks-and-labels.md` |
+| **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
 | **Grid API adapter / bread-and-butter integration** | `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md`, `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.ts` |
-| **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts` |
+| **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `focus-position-preservation-workplan.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
-| **Image detail / fullscreen** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-offset-cache.ts` |
-| **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts`, `panels-plan.md` |
+| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
+| **Image detail / fullscreen / zoom** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
+| **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
-| **Browser history** | `00 Architecture and philosophy/04-browser-history-architecture.md`, `zz Archive/browser-history-workplan.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts`, `position-preservation-reference.md` |
-| **Field registry** | `field-registry.ts` (~644 lines, 23 fields + config aliases) |
+| **Browser history** | `04-browser-history-architecture.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts` |
+| **Field registry** | `field-registry.ts` (37+ fields + config aliases) |
 | **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
-| **Performance** | `perf-measurement-report.md`, `rendering-perf-plan.md`, `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
-| **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}`, `exploration/docs/perceived-perf-audit.md` |
+| **Performance** | `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
+| **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
 ## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
 
 **Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against ~9M images. Still read-only, no auth, no Grid API.
 
-### Component Summary
+### System Summary
 
-| Component | Key files | ~Lines | Purpose |
-|---|---|---|---|
-| DAL (ES) | `dal/types.ts`, `es-adapter.ts`, `adapters/elasticsearch/*` | 2,700 | `ImageDataSource` interface → ES. 15 methods. Write protection. |
-| Grid API adapter | `dal/grid-api/types.ts`, `dal/grid-api/argo.ts`, `dal/grid-api/service-discovery.ts`, `dal/grid-api/grid-api-adapter.ts`, `dal/grid-api/errors.ts` | ~450 | `GridApiDataSource`. Phase A: `getImageDetail(id)`. Argo envelope helpers. HATEOAS service discovery. Error hierarchy (AuthError, SessionExpiredError, ArgoError, WriteGuardBlockedError). Phase B+ adds satellite adapters; Phase C+ adds writes. |
-| Position Map | `dal/position-map.ts` | 80 | `PositionMap` struct-of-arrays (ids + sortValues), `cursorForPosition()` helper |
-| Store | `stores/search-store.ts` | 3,580 | Windowed buffer (max 1000), seek, extend/evict, PIT, sort-around-focus, frozenUntil, position map, parallel seek |
-| Data Window | `hooks/useDataWindow.ts` | 460 | Buffer↔view bridge. Two-tier mode (`virtualizerCount=total`), scroll-triggered seek, extend triggers |
-| Table | `components/ImageTable.tsx` | 1,300 | TanStack Table + Virtual. Column defs from field-registry. |
-| Grid | `components/ImageGrid.tsx` | ~570 | Responsive thumbnails, scroll anchoring on width change. Cluster 1: cost badge, graphic blur overlay, staff-photographer ring, print/digital usage icons per cell via `useEnrichmentForImage`. |
-| Scrubber | `components/Scrubber.tsx`, `lib/sort-context.ts` | 1,150 + 1,040 | Scroll/seek/indexed modes, ticks, tooltip, null-zone support |
-| Scroll | `hooks/useScrollEffects.ts` | 985 | Shared scroll lifecycle. Seek, prepend compensation, density-focus, two-tier gates. |
-| Detail | `components/ImageDetail.tsx` | — | Overlay (search stays mounted). Fullscreen, position cache. Uses `useImageTraversal`. Stacked layout on mobile (flex-col, image top, metadata below). |
-| Fullscreen | `components/FullscreenPreview.tsx` | — | `f` key peek. Uses `useImageTraversal`. Nav buttons. |
-| Traversal | `hooks/useImageTraversal.ts` | 210 | Shared prev/next for detail + fullscreen. Proactive extend, pending nav, prefetch. All scroll modes. |
-| Swipe Carousel | `hooks/useSwipeCarousel.ts` | ~290 | Visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, commitStripReset. |
-| Swipe Dismiss | `hooks/useSwipeDismiss.ts` | ~140 | Pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only. |
-| Pinch Zoom | `hooks/usePinchZoom.ts` | ~260 | Two-finger pinch 1x–5x, single-finger pan, double-tap 1x↔2x. Fullscreen-only. Exposes scaleRef. |
-| Panels | `components/PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx` | — | Left (filters) / right (metadata). Resize, persisted state. Cluster 1: Rights section added (cost badge, validity disclosure, lease count). |
-| Fields | `lib/field-registry.tsx` | ~920 | 37+ hardcoded + config aliases. Drives all surfaces. Renamed `.ts`→`.tsx` (cost cellRenderer uses JSX). Cluster 1: `cost` field added. `RECONCILE_FIELDS` exported. |
-| Cost calculator | `lib/cost/calculate-cost.ts`, `lib/cost/validity-map.ts`, `lib/cost/types.ts`, `lib/cost/guardian-config.json` | ~200 | ES-baseline cost + validity. Port of CostCalculator.scala + ImageExtras.scala. Vendored GuardianUsageRightsConfig snapshot (2026-05-07). Never returns "overquota" (server-only). |
-| Grid API singleton | `lib/grid-api-instance.ts` | ~20 | Module-level `GridApiDataSource` + `ServiceDiscovery`. `initGridApi()` called once on search route mount. |
-| Enrichment store | `stores/enrichment-store.ts` | ~90 | Zustand. `EnrichmentFields` per image id. `setEnrichment(map)` replaces whole buffer window. No persistence (ephemeral). Single-image intent-driven overlay; no background polling. |
-| CostBadge | `components/CostBadge.tsx` | ~60 | `CostBadge` + `CostBadgeFromCost`. 5 cost variants, 3 sizes. CSS custom property colours. |
-| Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | — | Imperative coordination. Debounce, scroll-reset, go-home. |
-| URL sync | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts` | — | URL = single source of truth. Zod-validated. |
-| UI Prefs | `stores/ui-prefs-store.ts` | 75 | `focusMode` preference (explicit/phantom), `pointer: coarse` auto-detection, localStorage-persisted |
-| Settings | `components/SettingsMenu.tsx` | 115 | Three-dot menu in SearchBar. Click mode toggle (explicit↔phantom). Coarse pointer disables explicit. |
-| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | 478 | `@guardian/cql` Web Component + CQL→ES translator |
-| Selection Store | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts` | ~620 | Multi-image selection: `selectedIds` (Set), LRU metadata cache, debounced sessionStorage persist, lazy idle-frame reconciliation, `hydrate()` called on `/search` mount. `interpretClick` pure function owns click policy. `chip-array` and `summary` reconciliation kinds (S4). `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` flag in `tuning.ts` gates clear-on-navigation (S6). |
-| Selection UI (S2+S3a+S6) | `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts` | ~120 + ~160 + ~80 | Tickbox overlay (grid) + column (table). `useIsSelected(id)` per-id subscription. `dispatchClickEffects` executes `ClickEffect[]`. Count + Clear folded into `StatusBar`. Mode-flip is CSS-driven via `data-selection-mode`. `useRangeSelection` orchestrates in-buffer fast path + server-walk for shift-click. `useUrlSearchSync` clears selection on any new search (gated by flag). |
-| Toast primitive | `stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx` | ~150 | Queue-backed toast notifications. BBC PR #4253 vocabulary. `addToast()` imperative export for non-React callers (selection-store hydration drop). |
-| Touch gestures (S5) | `hooks/useLongPress.ts`, `components/SelectionFab.tsx` | ~140 | `useLongPress`: 500ms long-press threshold, move/scroll/contextmenu cancellation, Android pointercancel fix (committed state guard). Long-press enters selection mode; second long-press dispatches full `add-range` effect (buffer/server walk, same as desktop shift-click). Paint-drag cut -- `touch-action` timing prevents it on mobile (see deviations.md). `SelectionFab`: bottom-right floating button, shows count + X, coarse-pointer only. StatusBar count/clear hidden on coarse pointer. `addGroup`/`removeGroup` in selection-store (latent). Desktop: `IS_COARSE_POINTER` gates `draggable` on GridCell. |
-| Multi-image panel (S4) | `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SearchPill.tsx` (`MultiSearchPill`) | ~200 + ~260 + ~80 | `MultiImageMetadata` renders reconciled field view for 2+ images. Cluster 1: cost summary section at top (bucket counts + leased-fraction gradient). `metadata-primitives` shared by single and multi panels. `MultiValue` renders "Multiple X" for mixed scalars. `MultiSearchPill` adds partial/full chip state. |
+| System | Key entry points | What it does |
+|---|---|---|
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/adapters/elasticsearch/*` | `ImageDataSource` interface → ES adapter. Search, pagination (PIT + `search_after`), aggregations, distributions. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| Store | `stores/search-store.ts` | Centre of gravity (~3,750 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. |
+| Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Viewport anchor tracking for density-focus and sort-around-focus. |
+| Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map. |
+| Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (37+). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
+| URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. |
+| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). |
+| Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
+| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts` | Three-layer merge: ES baseline → TS cost/validity calculation → optional Grid API overlay. `deriveImage()` is the single merge point. |
+| Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
-> Detailed descriptions of each: `exploration/docs/00 Architecture and philosophy/component-detail.md`
+> Full component inventory (views, gesture hooks, panels, toast, etc.): `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
@@ -110,22 +89,12 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ### Known Issues
 
 - **P8 (table fast scroll):** p95=83ms, severe=66, domChurn=~117k (overscan 15). Root cause: virtualiser DOM churn. Needs skeleton rows.
-- ~~**Null-zone position map crash:**~~ Fixed. ES Long.MAX/MIN_VALUE sentinels in sort values broke `search_after`. Two-phase `fetchPositionIndex` + universal `sanitizeSortValues` in `es-adapter.ts`. See 26 Apr changelog.
-- ~~**P4b focusDrift:**~~ Fixed. Phantom drift (Bug A coordinate mismatch + Bug B anchor-walk), seek column-alignment.
-- ~~**Scrubber thumb flash-to-top:**~~ Fixed. DOM guard in Scrubber.tsx.
 
 ### Backlog
 
 - [ ] P8 domChurn ~117k (overscan 15, down from ~155k; see perf report §5)
 - [ ] Scrubber scroll-mode visual polish (Step 3 of `scrubber-dual-mode-ideation.md`)
-- [x] ~~Raise scroll-mode threshold beyond 1000~~ → Position map Phases 0-4a complete
-- [x] ~~Two-tier virtualisation: real scrolling 12k-65k~~ → Complete
 - [ ] Column reordering via drag-and-drop
-- [x] ~~Consolidate hardcoded `nonFree: "true"` to `DEFAULT_SEARCH`~~ → `home-defaults.ts`
-- [x] ~~Phantom focus mode (click-to-open, settings menu, coarse pointer)~~ → `ui-prefs-store.ts`, `SettingsMenu.tsx`
-- [x] ~~Browser history Phases 1–4~~ → kupuaKey, snapshot capture, popstate restore, reload survival
-- [x] ~~Browser history Phase 5 — experimental flag retirement~~ → focus-as-anchor promoted, lenient match removed (dead code)
-- [x] ~~Phantom anchor drift on history back/forward~~ — Bug A (coordinate mismatch), Bug B (anchor-walk cascade), seek column-alignment fix. Reference: `position-preservation-reference.md`
 
 ### Deferred to Later Phases
 
@@ -139,28 +108,23 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 | Doc | Path | Summary |
 |---|---|---|
-| Migration plan | `exploration/docs/migration-plan.md` | Phased plan (1–6), kahuna feature inventory |
-| Integration plan (direct-ES) | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan.md` | Phased plan for Grid backend integration (direct-ES + media-api hybrid) |
-| API-first plan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | Detailed API-first integration plan: additive media-api endpoints, phased rollout, elastic4s specs |
 | Frontend philosophy | `exploration/docs/00 Architecture and philosophy/01-frontend-philosophy.md` | Density continuum, "Never Lost", click-to-search |
 | Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Focus, phantom focus, position engine, relaxation model, mobile |
-| Focus workplan | `exploration/docs/focus-position-preservation-workplan.md` | 6-session implementation plan: search-context survival → phantom mode |
-| Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
-| `search_after` plan | `exploration/docs/search-after-plan.md` | Windowed buffer, PIT, scrubber, sort-around-focus |
-| Scrubber dual-mode | `exploration/docs/zz Archive/Scrolling bonanza/scrubber-dual-mode-ideation.md` | Scroll mode vs seek mode, tooltip, visual philosophy |
-| Scrubber ticks & labels | `exploration/docs/00 Architecture and philosophy/scrubber-ticks-and-labels.md` | Coordinate system, tick placement, null zone |
-| Panels plan | `exploration/docs/zz Archive/panels-plan.md` | Left/right panels, resize, keyboard, agg safeguards |
-| ES audit | `exploration/docs/es-audit.md` | 9 issues found, 4 fixed |
-| Performance | `exploration/docs/zz Archive/perf-measurement-report.md` | Phases 0–C measured results |
-| Rendering perf plan | `exploration/docs/zz Archive/rendering-perf-plan.md` | Issue taxonomy (A–F), quantitative gates |
-| Position map workplan | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-through-24-workplan.md` | 8-phase plan for 65k scroll-like scrubber (Phases 0-4a done, 4b-7 superseded) |
-| Two-tier virtualisation | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md` | 4-session plan: real scrolling through 12k-65k via two-tier virtualisation |
-| Position map measurements | `exploration/docs/zz Archive/Scrolling bonanza/scroll-real-position-map-measurements.md` | Phase 0 results + decisions |
-| Prefetch cadence workplan | `exploration/docs/zz Archive/prefetch-cadence-workplan.md` | Traversal session model, cadence EMA, 7-session plan (1–4+6 done, 5 skipped) |
-| Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix, Selections-vs-Operations boundary |
+| Scroll architecture | `exploration/docs/00 Architecture and philosophy/03-scroll-architecture.md` | Windowed buffer, search_after + PIT, seek, extend/evict, two-tier, swimming |
+| Browser history architecture | `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md` | kupuaKey, snapshot capture, popstate restore, reload survival |
+| Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix |
 | Selections field catalogue | `exploration/docs/00 Architecture and philosophy/field-catalogue.md` | Per-field reference: multi-select behaviour, ES presence, Kupua/Kahuna parity (46 fields) |
-| Selections workplan (archived) | `exploration/docs/zz Archive/selections-workplan.md` | 9-phase implementation log (S0–S6 + S0.5 perf scaffold). Done; kept for historical reference. |
+| Keyboard navigation | `exploration/docs/00 Architecture and philosophy/keyboard-navigation.md` | Focus modes, page-scroll math, arrow key behaviour |
+| Scrubber ticks & labels | `exploration/docs/00 Architecture and philosophy/scrubber-ticks-and-labels.md` | Coordinate system, tick placement, null zone |
+| Tuning knobs | `exploration/docs/00 Architecture and philosophy/tuning-knobs.md` | Master reference for every configurable constant |
+| Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
+| ES audit | `exploration/docs/es-audit.md` | 9 issues found, 4 fixed |
+| Integration workplan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md` | Active workplan for Grid API integration (API-first hybrid) |
+| API-first architecture | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | HATEOAS/API-first integration plan: endpoints, phased rollout, elastic4s specs |
+| Enrichment strategy | `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` | ES-baseline + Grid API optional enrichment |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
+
+> Archived workplans, audits, and handoffs: `exploration/docs/zz Archive/`. Docs inventory: `exploration/docs/docs-inventory-2026-05-07.md`.
 
 ## Stable Test Corpora (TEST cluster, pinned via `until`)
 
@@ -187,9 +151,17 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 1. **All views are one page** — table, grid, image detail, and fullscreen preview are density levels of the same ordered list. URL reflects full state. Browser back/forward restores position. ("Never Lost")
 
-2. **Windowed buffer + Scrubber** — fixed-capacity buffer (max 1000) with `bufferOffset`. `search_after` + PIT for cursor-based pagination. Extend at edges, evict to keep memory bounded. Deep seek via percentile estimation or composite walk. Bidirectional seek places user in buffer middle. Full design: `search-after-plan.md`.
+2. **Three-tier scroll architecture** — all tiers share a windowed buffer (max 1000, `search_after` + PIT). Tier is auto-selected by result count:
 
-3. **DAL interface** — `ImageDataSource` with 15 methods. `ElasticsearchDataSource` for Phase 2, `GridApiDataSource` planned for Phase 3. Write protection on non-local ES.
+   | Tier | Total | Scrubber | Key mechanism |
+   |---|---|---|---|
+   | **Scroll** | ≤1,000 | Real scrollbar (buffer = full result set) | Simplest path: no position map, no skeletons |
+   | **Indexed scroll** | 1k–65k | Real scrollbar (position map + sliding buffer) | Two-tier virtualisation (KAD #12). Skeleton cells outside buffer. No swimming (items replaced at fixed global positions). |
+   | **Seek** | >65k | Seek control (teleport on pointer-up) | Deep seek via percentile estimation or composite walk. Bidirectional seek places user in buffer middle. |
+
+   Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
+
+3. **DAL interface** — `ImageDataSource` with 13 methods. `ElasticsearchDataSource` for Phase 2, `GridApiDataSource` planned for Phase 3. Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 
@@ -207,4 +179,4 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 11. **TanStack Table column ID caveat** — dot-path accessors get dots→underscores in IDs. Maps keyed by column ID must use underscores.
 
-12. **Two-tier virtualisation** — When total is in the position-map-eligible range (1k < total ≤ 65k), `virtualizerCount = total`, indices become global, scrubber drag directly scrolls the container. `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background performance optimisation (faster seeks), not a coordinate-space decision. Buffer slides via extends and scroll-triggered seeks. `search()` invalidates the map (→ reverts to buffer-local); `seek()` preserves it. Parallel forward+backward fetch saves ~250-350ms. Full design: `scroll-two-tier-virtualisation-workplan.md`.
+12. **Two-tier virtualisation (indexed scroll tier)** — `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background perf optimisation (faster seeks), not a coordinate-space decision. `search()` invalidates the map; `seek()` preserves it.

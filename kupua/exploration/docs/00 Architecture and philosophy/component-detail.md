@@ -3,96 +3,177 @@
 > This file contains detailed descriptions of every major component/subsystem.
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
+>
+> **Last updated: 11 May 2026.**.
 
 ---
 
 # Data Layer
 
-## DAL (`src/dal/`, ~3,270 lines across 9 files)
+## DAL (`src/dal/`)
 
-`ImageDataSource` interface → `ElasticsearchDataSource`. Core: `search`, `searchAfter` / `searchRange` (+ PIT with 404/410 fallback, optional `sortOverride` + `extraFilter` for null-zone seek), `count`, `getById`, batched `getAggregations`. Advanced: `countBefore` (null-aware via `exists`/`must_not:exists`), `estimateSortValue` (percentile), `findKeywordSortValue` (composite walk), `getKeywordDistribution`, `getDateDistribution` (adaptive interval: month / day / hour / 30m / 10m / 5m via `calendar_interval` or `fixed_interval`). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` config and `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index mapping global position → sort values for scrubber fast-path seek (avoids percentile estimation when total ≤ POSITION_MAP_THRESHOLD). ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (with universal `uploadTime` fallback). Tuning constants in `constants/tuning.ts`.
+`ImageDataSource` interface (`dal/types.ts`) → `ElasticsearchDataSource` (`es-adapter.ts`). 13 methods spanning search, cursor-based pagination (PIT with 404/410 fallback), aggregations, percentile estimation, composite keyword walk, and date/keyword distributions (adaptive interval selection). Selection-era additions: `getByIds` (mget, 1k-chunk parallel) and `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek (avoids percentile when total ≤ POSITION_MAP_THRESHOLD).
 
-## State (`src/stores/search-store.ts`, ~3,200 lines)
+ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (universal `uploadTime` fallback). Null-zone helpers in `dal/null-zone.ts` (`detectNullZoneCursor`, `remapNullZoneSortValues`) — shared across seek, extend, fill, and getIdRange paths.
 
-Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek). Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. Scroll-mode fill for small result sets. `imagePositions: Map` for O(1) lookup. Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD) enables fast-path scrubber seek without percentile estimation. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
+**Gotchas:**
+- **`DATE_SORT_FIELDS`** (exported set) — ES sort values are epoch ms; `_source` values are ISO strings. Callers must convert ISO→epoch before comparing.
+- **`ALLOWED_ES_PATHS`** lives in **both** `es-config.ts` and `vite.config.ts` (separate hardcoded arrays that must be kept manually in sync).
 
-## Field Registry (`field-registry.ts`, ~760 lines)
+## Grid API Adapter (`src/dal/grid-api/`, ~450 lines across 5 files)
 
-Single source of truth for all image fields. 26 hardcoded + config-driven aliases. Drives table columns, sort dropdown, facet filters, detail panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display. Exports `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` set for the sort controls.
+`GridApiDataSource` — HATEOAS service discovery (`service-discovery.ts`) against the Grid API root. `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort enrichment: network failure or non-2xx → `null` → caller degrades gracefully. Image rendering is never gated on API data (ES + S3 proxy + own imgproxy path is always the baseline). Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount; serves intent-driven single-image fetches only (no polling loop).
+
+## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
+
+Three-layer merge model:
+
+1. **ES baseline** — `SOURCE_INCLUDES` in `es-config.ts` fetches cost/validity/rights/leases/usages/labels/syndicationStatus/XMP fields. Always available.
+2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
+3. **Optional API overlay** — `enrichment-store` (Zustand, no persistence) populated by single-image Grid API fetch on detail open. `deriveImage(image, overlay?)` is the single merge point; API wins field-by-field; `undefined` overlay returns full baseline.
+
+**Consuming enriched data:** Components use `useEnrichedImage(image)` — subscribes per-id to enrichment-store (O(1) `Map.get`), no search-store subscription. Non-React callers use `deriveImage` directly.
+
+## State (`src/stores/search-store.ts`, 3,750 lines)
+
+Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek) — shared by all three scroll tiers (`03-scroll-architecture.md` §2). Scroll-mode fill (`_fillBufferForScrollMode`) loads all results when total ≤ SCROLL_MODE_THRESHOLD (1000). Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD = 65k) enables indexed scroll tier. Above 65k, the scrubber falls back to seek-only. Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
+
+## Field Registry (`lib/field-registry.tsx`, ~920 lines — renamed `.ts`→`.tsx` for JSX in `cellRenderer`)
+
+Single source of truth for all image fields. 37+ hardcoded + config-driven aliases. Fields carry `multiSelectBehaviour` (`"scalar" | "chip-array" | "summary" | "always-suppress"`), `showWhenEmpty` (renders `<Dash />` placeholder), `visibleWhen` (config gate, e.g. `imageTypes?.length`), `summariser`. `RECONCILE_FIELDS` exported (non-`always-suppress` fields). Drives table columns, sort dropdown, facet filters, detail panel, multi-image metadata panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display. `pillVariant?: "default" | "accent"` for field-specific pill styling (accent = Guardian blue, used by `labels`). Exports `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` set for sort controls. `cost` field added (Cluster 1); `labels` field added (`userMetadata.labels`, `pillVariant: "accent"`).
 
 ## URL Sync
 
-Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params (`search-params-schema.ts`). `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation. Sort-only change detection triggers `sortAroundFocusId` when only `orderBy` changes while an image is focused. `useDocumentTitle` hook sets `document.title` to `{query} | the Grid` (mirrors kahuna's `ui-title` directive), with `(N new)` prefix from the new-images ticker.
+Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params (`search-params-schema.ts`). `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation. Sort-only change detection triggers `sortAroundFocusId` when only `orderBy` changes while an image is focused. Sort-around-focus falls back to `anchorId` when `focusedImageId` is null and selection mode is active (so sort changes in selection mode preserve position). `useDocumentTitle` hook sets `document.title` to `{query} | the Grid`, with `(N new)` prefix from the new-images ticker. Selections clear-on-navigation hook wired here (gated on `SELECTIONS_PERSIST_ACROSS_NAVIGATION` in `tuning.ts`, skips sort-only and first-mount).
 
 ## CQL
 
-`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via a ref-based getter to avoid rebuilding the typeahead on every render), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`.
+`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via a ref-based getter to avoid rebuilding the typeahead on every render), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`, `is:under-quota` (wired to quota-store's `getOverQuotaSuppliers()` — `mustNot: { terms: { "usageRights.supplier": [...] } }`).
 
 ## Image URLs (`lib/image-urls.ts`, ~250 lines)
 
-URL builders for thumbnails and full-size images. Thumbnails served from S3 via local proxy (`/s3/thumb/<id>`). Full-size images served via imgproxy: AVIF format by default, DPR-aware sizing (two-tier: 1× for standard displays, 1.5× for HiDPI > 1.3), EXIF orientation → explicit `rotate:N` (auto_rotate disabled), native-resolution cap to prevent upscaling. `getFullImageUrl()` builds imgproxy processing URLs; `getThumbnailUrl()` returns proxied S3 paths. Both return `undefined` when the respective service is unavailable (local mode).
+URL builders for thumbnails and full-size images. Thumbnails served from S3 via local proxy (`/s3/thumb/<id>`). Full-size images served via imgproxy: AVIF format by default, DPR-aware sizing (two-tier: 1× for standard displays, 1.5× for HiDPI > 1.3), EXIF orientation → explicit `rotate:N` (auto_rotate disabled), native-resolution cap to prevent upscale. `getFullImageUrl()` builds imgproxy processing URLs; `getThumbnailUrl()` returns proxied S3 paths. Both return `undefined` when the respective service is unavailable (local mode).
+
+## Grid Config (`lib/grid-config.ts`)
+
+Hardcoded mock of Grid's runtime config (image types, usage rights categories, CQL typeahead field lists). Derived from `exploration/mock/grid-config.conf`. CQL parser and typeahead resolvers depend on this. **Known tech debt:** will be replaced by a real config endpoint in Phase 3 (Grid API integration).
 
 ---
 
 # Hooks & Coordination
 
-## Data Window (`useDataWindow.ts`, ~430 lines)
+## Data Window (`hooks/useDataWindow.ts`)
 
-Bridge between the search store and view components (ImageTable, ImageGrid, ImageDetail). Provides buffer-aware data access (`getImage(index)`), edge detection + extend triggers (`reportVisibleRange`), and a density-independent API. Two modes: **normal** (buffer-local indices, virtualiserCount = results.length) and **two-tier** (global indices 0..total-1, skeleton cells outside buffer, scrubber drag directly scrolls). Viewport anchor tracking (always the centre image) for density-focus and sort-around-focus fallback. Scroll-seek debounce (200ms) for two-tier mode.
+Bridge between the search store and view components (ImageTable, ImageGrid, ImageDetail). Provides buffer-aware data access (`getImage(index)`), edge detection + extend triggers (`reportVisibleRange`), and a density-independent API. Two hook modes: **normal** (buffer-local indices, virtualiserCount = results.length) and **two-tier** (global indices 0..total-1, skeleton cells outside buffer, scrubber drag directly scrolls). Normal mode serves both the scroll tier (≤1k, full buffer) and the seek tier (>65k, windowed buffer); two-tier mode serves the indexed scroll tier (1k–65k). Viewport anchor tracking (always the centre image) for density-focus and sort-around-focus fallback. Scroll-seek debounce (200ms) for two-tier mode.
 
-## Scroll Effects (`useScrollEffects.ts`, ~910 lines)
+## Scroll Effects (`hooks/useScrollEffects.ts`)
 
-Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descriptor. Handles: scroll reset orchestration, prepend/forward-evict compensation, seek scroll-to-target (effect #6: reverse-compute + lastVisibleRow buffer-shrink preservation + `_seekSubRowOffset` for headroom-zone sub-row pixel preservation), sort-around-focus scroll, density-focus save/restore (with edge clamping), bufferOffset→0 guard. Seek timing constants in `tuning.ts`: `SEEK_COOLDOWN_MS` (100ms, post-arrival extend block — tuned down from 700ms, floor at 65–80ms), `SEEK_DEFERRED_SCROLL_MS` (derived: cooldown + 50ms = 150ms, fires synthetic scroll to trigger extends), `SEARCH_FETCH_COOLDOWN_MS` (2000ms, blocks extends during in-flight search/abort). Post-extend cooldown: each `extendBackward` completion sets a 50ms cooldown (tuned down from 200ms, floor at 32ms) to prevent cascading prepend compensations (swimming). Full timing chain: seek data → 100ms cooldown → 150ms deferred scroll → first extends fire (was 700ms → 800ms, 5.3× faster). The old `_postSeekBackwardSuppress` flag in `useDataWindow.ts` has been removed — it prevented swimming but also prevented scrolling up after seek. Module-level bridges for density-focus and sort-focus.
+Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descriptor. Handles: scroll reset orchestration, prepend/forward-evict compensation, seek scroll-to-target (reverse-compute + lastVisibleRow buffer-shrink preservation + headroom-zone sub-row pixel preservation), sort-around-focus scroll, density-focus save/restore (with edge clamping), bufferOffset→0 guard.
 
-## List Navigation (`useListNavigation.ts`, ~540 lines)
+**Scope by tier:** Prepend compensation and eviction compensation apply only in the **scroll** (≤1k) and **seek** (>65k) tiers where the virtualizer count equals the buffer length and items are inserted/removed. In the **indexed scroll** tier (1k–65k), the virtualizer always spans `total` items — items are replaced at fixed global positions, not inserted or removed. Swimming does not exist in indexed scroll mode. The timing chain below still applies to seek cooldowns.
 
-Shared keyboard navigation for all density views, parameterised by `ListNavigationConfig`. Two modes: **no focus** (Arrow Up/Down scroll one row, PageUp/Down scroll one page, Home/End go to absolute start/end — none set focus) and **has focus** (arrows move focus by ±columnsPerRow, PageUp/Down move focus by one page of rows, Home/End focus first/last image, Enter opens detail). Table passes `columnsPerRow: 1`, grid passes `columnsPerRow: N`. CQL input propagates ArrowUp/Down/PageUp/Down/Home/End; native inputs are excluded via `isNativeInputTarget`. Home key uses the same two-branch scroll-reset strategy as orchestration (eager when `bufferOffset === 0`, deferred otherwise).
+**Key invariants:**
+- **Seek cooldowns** (constants in `tuning.ts`): post-arrival extend block, deferred scroll timer (fires synthetic scroll to trigger extends without causing swimming), search-fetch cooldown (blocks extends during in-flight search/abort).
+- **Post-extend cooldown:** prevents cascading prepend compensations (swimming).
+- **`seekGeneration` ref guard:** on seek, skips one stale `handleScroll` to prevent spurious `extendBackward`.
+- **End-seek focus guard:** `_pendingFocusAfterSeek: "last"` always set; actual `focusedImageId` write conditional on existing focus.
+- Module-level bridges for density-focus and sort-focus.
 
-## Image Traversal (`useImageTraversal.ts`, ~260 lines)
+## List Navigation (`hooks/useListNavigation.ts`)
 
-Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniformly across all three scroll modes (buffer, two-tier, seek). If the adjacent image is in the buffer → navigate immediately; if near buffer edge → trigger extend, store pending navigation, resolve when buffer grows; if at absolute boundary → no-op. All logic in global indices. Fires `prefetchNearbyImages` on every successful navigation (direction-aware).
+Shared keyboard navigation for all density views, parameterised by `ListNavigationConfig`. Two modes: **no focus** (Arrow Up/Down scroll one row, PageUp/Down scroll one page, Home/End go to absolute start/end — none set focus) and **has focus** (arrows move focus by ±columnsPerRow, PageUp/Down move focus by one page of rows, Home/End focus first/last image, Enter opens detail). Table passes `columnsPerRow: 1`, grid passes `columnsPerRow: N`. CQL input propagates ArrowUp/Down/PageUp/Down/Home/End; native inputs excluded via `isNativeInputTarget`. Home key: two-branch scroll-reset (eager `scrollTop=0` when `bufferOffset=0`, deferred otherwise). End key: uses `virtualizer.scrollToIndex` (not raw `scrollHeight` — that overshoots by sticky header height). In selection mode: arrow keys are scroll-only; table Left/Right scroll container horizontally. Alt+arrow combos fall through to browser defaults.
 
-## Prefetch Pipeline (`image-prefetch.ts`, ~470 lines)
+## Image Traversal (`hooks/useImageTraversal.ts`)
 
-Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). The session records an EMA-smoothed cadence (interval between `prefetchNearbyImages` calls, weight 0.4). During fast bursts (cadence < 350ms), only i±1 + far lookahead i±6 are prefetched; at stable cadence, the full radius (i+4 ahead, i-1 behind) is issued. A 280ms post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests are cancelled via `img.src = ""` when they leave the desired set. `fetchPriority` hints (`"high"` for i+1 full-res and i±1 thumbnails, `"low"` for the rest) keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. Session auto-closes after 2s idle. All thresholds are tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
+Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniformly across all three scroll modes (buffer, two-tier, seek). If the adjacent image is in the buffer → navigate immediately; if near buffer edge → trigger extend, store pending navigation, resolve when buffer grows; if at absolute boundary → no-op. All logic in global indices. Fires `prefetchNearbyImages` on every successful navigation (direction-aware). Traversal is disabled while `usePinchZoom` reports scale > 1×.
 
-## Prepend Transform (`prepend-transform.ts`, ~140 lines)
+## Return from Detail (`hooks/useReturnFromDetail.ts`)
 
-CSS `translateY` pre-compensation for backward extends and forward eviction. Eliminates the intermediate frame between React's DOM mutation and the `useLayoutEffect` scroll compensation. Zustand `subscribe` fires synchronously on `set()`, applies GPU-composited transform to the spacer div, removed in the same frame by `useLayoutEffect`. Zero ongoing overhead.
+Restores focus and scroll position when the image detail overlay closes (the other half of architecture decision #7). When the `image` URL param transitions present → absent, scrolls the list to the previously-viewed image and restores keyboard focus. Extracted from duplicated logic in ImageTable and ImageGrid.
 
-## Orchestration (`lib/orchestration/search.ts`, ~200 lines)
+## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
-Imperative coordination functions extracted from UI components and hooks. Holds: debounce cancellation (`cancelSearchDebounce`, `getCqlInputGeneration`), go-home preparation (`resetScrollAndFocusSearch` — aborts extends, resets scroll when safe, resets visible range + scrubber thumb, focuses CQL input; scroll-reset uses a two-branch strategy: **eager `scrollTop = 0` when `bufferOffset === 0`** (buffer has correct first-page data, no flash risk) or **deferred via effect #8** when `bufferOffset > 0` (prevents flash of stale deep-offset content) — same logic as the Home key handler in `useListNavigation.ts`), URL sync reset (`resetSearchSync`). Called by SearchBar, ImageTable, ImageMetadata, ImageDetail, useScrollEffects, useUrlSearchSync. Dependency direction: components → hooks → lib → dal.
+Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). EMA-smoothed cadence determines prefetch radius: fast bursts → narrow (i±1 + far lookahead); stable cadence → full radius. Post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests cancelled via `img.src = ""`. `fetchPriority` hints keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. All thresholds tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
 
-## Reset-to-Home (`lib/reset-to-home.ts`, ~160 lines)
+## Prepend Transform — DEAD CODE
 
-Single `resetToHome()` function deduplicating the reset sequence from SearchBar and ImageDetail logo click handlers. Clears `focusedImageId` and density-focus saved state **before** navigation — prevents the table unmount from saving a stale viewport ratio and the grid mount from restoring it (which would fight the go-home scroll-to-top intent).
+> **`lib/prepend-transform.ts` is dead code** (~140 lines, zero importers). Created for
+> the A+T CSS-transform experiment (April 2026), reverted, never deleted. See
+> `scroll-audit.md` §Q4 and `dead-code-audit-findings.md` #1. Delete when convenient.
 
-## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`, ~180 lines)
+## Orchestration (`lib/orchestration/search.ts`)
+
+Imperative coordination functions extracted from UI components and hooks. Holds: debounce cancellation (`cancelSearchDebounce`, `getCqlInputGeneration`), go-home preparation (`resetScrollAndFocusSearch`), URL sync reset (`resetSearchSync`), fullscreen preview registration (`registerEnterPreview` / `enterFullscreenPreview` — used by middle-click handler in ImageGrid/ImageTable, same pattern as `scrollToFocused`). Called by SearchBar, ImageTable, ImageMetadata, ImageDetail, useScrollEffects, useUrlSearchSync. Dependency direction: components → hooks → lib → dal.
+
+## Reset-to-Home (`lib/reset-to-home.ts`)
+
+Single `resetToHome()` function deduplicating the reset sequence from SearchBar and ImageDetail logo click handlers. Clears `focusedImageId`, density-focus saved state, and selection (`selection.clear()`) **before** navigation — prevents the table unmount from saving a stale viewport ratio and the grid mount from restoring it (which would fight the go-home scroll-to-top intent).
+
+## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`)
 
 Centralised shortcut registry. Single-character shortcuts: bare key when not in an editable field, Alt+key when editing (Alt chosen to avoid Cmd/Ctrl browser conflicts). One `keydown` listener on `document` (capture phase). Components register via `registerShortcut()`/`unregisterShortcut()` or `useKeyboardShortcut` hook. `shortcutTooltip()` formats hints for button titles. `isNativeInputTarget()` guards against firing in date inputs and other native controls.
+
+## Browser History (`lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`)
+
+`kupuaKey` scheme attaches a per-entry UUID to every `pushState`/`replaceState`. `history-snapshot.ts` stores/retrieves `HistorySnapshot` (scroll position, buffer state, focus, etc.) in sessionStorage keyed by `kupuaKey`. `build-history-snapshot.ts` constructs the snapshot from current store state. `useUrlSearchSync.ts` popstate handler restores the snapshot (if present) rather than doing a fresh search. Full architecture: `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md`.
+
+## Touch Gesture Hooks
+
+- **`hooks/useSwipeCarousel.ts`** — visual slide-in carousel for prev/next on mobile touch. Velocity-aware commit, `commitStripReset`. Used by ImageDetail.
+- **`hooks/useSwipeDismiss.ts`** — pull-down-to-dismiss image detail. Spring-back, fade+scale. Mobile, non-fullscreen only.
+- **`hooks/useLongPress.ts`** — 500ms threshold, movement cancel, contextmenu suppress, Android `pointercancel` fix via committed-state guard. First long-press enters selection mode; second long-press dispatches full `add-range` (same buffer/server path as desktop shift-click). `handleLongPressStart.ts` is the shared helper extracted from grid+table.
+- **`hooks/usePinchZoom.ts`** — fullscreen-only. Touch: two-finger pinch 1×–5×, single-finger pan, double-tap 1×↔2×. Desktop: click-to-zoom 1×↔2×, wheel zoom 1×–4×, drag-to-pan with momentum (rAF decay, relaxed overflow clamp), keyboard zoom (Space toggle, arrows pan, Home/End snap to corners). Rapid second click exits fullscreen (double-click window). **Ghost-click guard:** `lastTouchTime` gate prevents mouse handlers firing after `touchend`. **`onScaleChange` callback** notifies traversal hook to disable nav while zoomed. Zoom resets on image change.
+
+---
+
+# Selection System
+
+## Selection Store (`stores/selection-store.ts`)
+
+Zustand with `persist` middleware → sessionStorage, debounced 250ms. State: `selectedIds: Set<string>`, `anchorId: string | null`, `metadataCache: LRU<id, Image>` (cap 5000), lazy-computed `reconciledView`. Cohesion rules enforced in store: `toggle()` and `setAnchor()` both call `ensureMetadata()` (batched mget via `getByIds`). After mget resolves, reconciliation is enqueued if any fetched IDs overlap `selectedIds` — callers do NOT do `.then(enqueueReconcile)`. `electFallbackAnchor()` re-elects anchor on deselect/remove to the last remaining `Set` entry, keeping `anchorId` always pointing at a selected image (or null). `add(ids[])` is atomic (one persist write per call). `hydrate()` called on `/search` route mount — passes `fullRecompute: true` to prevent count inflation on top of persisted view. Hydration-drop toast fires when ES no longer returns stored IDs (deduplicated via module-level `_hydrationToastShown`, reset on `clear()`). `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` in `tuning.ts` gates clear-on-search.
+
+## Click Interpreter (`lib/interpretClick.ts`)
+
+Pure function `interpretClick(ctx) → ClickEffect[]`. Six-row rule table is the contract: plain click = focus only; tickbox/cmd+click = toggle + set anchor; shift+click = `add-range` effect (polarity computed in `useRangeSelection` from `selectedIds.has(anchorId)` — not from `targetIsSelected`). `ClickEffect` union: `focus`, `toggle`, `set-anchor`, `add-range`. `dispatchClickEffects.ts` executes `ClickEffect[]` against store + navigation.
+
+## Reconciliation (`lib/reconcile.ts`)
+
+`recomputeAll(cache, selectedIds)` — O(N×F) full recompute, called on hydrate/clear/fullRecompute. Incremental: `reconcileAdd(view, image)` O(F) and `reconcileRemove(view, id)` O(F) with dirty-field marker on `mixed` remove. `chip-array` type uses `applyChipArrayAdd` (incremental, avoids O(N²)). `mixed` type stores `topValues: Array<{value, count}>` sorted by count desc (built via frequency `Map` during recomputeAll — zero extra iteration). `MultiValue.tsx` tooltip shows top 5 with counts (`Getty (31/47)`, `(+N others)` when >5). Idle-frame chunked scheduler in selection-store (~500 items/chunk via `requestIdleCallback`).
+
+## Range Selection (`hooks/useRangeSelection.ts`)
+
+Orchestrates shift-click range selection. In-buffer fast path: walks `imagePositions` directly. Out-of-buffer: server walk via `getIdRange`. AbortController + generation counter prevents stale results racing. `extractSortValues` converts ISO date strings to epoch ms for `DATE_SORT_FIELDS` — ES sort values are epoch ms while `_source` values are ISO strings; callers must not compare them directly. Toasts on hard-cap truncation (warning at 5000) and soft-cap (info at 2000, non-destructive). Mounted once in `routes/search.tsx`; `handleRange` passed as prop to ImageGrid/ImageTable. Image cell + row whitespace dispatch range; field cells (`data-cql-cell`) keep click-to-search.
+
+## Selection UI
+
+- **`components/Tickbox.tsx`** — absolute-positioned overlay (grid) + 32px leftmost column (table). `hooks/useIsSelected.ts` — per-id Zustand selector, prevents mass re-render on toggle. CSS-driven mode-flip via `[data-selection-mode="true"]` on container — zero React reconciliations on first tick. Blue cell overlay via CSS `:has(.tickbox[aria-checked="true"])`. Focus ring suppressed in selection mode.
+- **`components/SelectionFab.tsx`** — coarse-pointer only. Count + X button. StatusBar count/clear hidden on coarse pointer.
 
 ---
 
 # UI Components — Search & Toolbar
 
-## SearchBar (`SearchBar.tsx`, ~180 lines)
+## SearchBar (`components/SearchBar.tsx`)
 
-Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce, clear button, `SearchFilters` (middle + right). Manages CQL input generation for stale-debounce detection. Cancels pending debounce on unmount to prevent navigation bouncing.
+Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce, clear button, `SearchFilters` (middle + right), `SettingsMenu`. Manages CQL input generation for stale-debounce detection. Cancels pending debounce on unmount to prevent navigation bouncing.
 
-## Search Filters (`SearchFilters.tsx`, ~270 lines)
+## Settings Menu (`components/SettingsMenu.tsx`)
+
+Three-dot menu in SearchBar. Click mode toggle (explicit ⇔ phantom focus). Coarse pointer auto-detection (`stores/ui-prefs-store.ts` — `focusMode` + `pointer: coarse` detection, localStorage-persisted) disables explicit mode on touch devices.
+
+## Search Filters (`components/SearchFilters.tsx`)
 
 Split into two layout slots: **FilterControls** (middle — "Free to use only" toggle + `DateFilter`) and **SortControls** (right — sort field dropdown from `SORT_DROPDOWN_OPTIONS`, direction toggle, secondary sort with shift-click). Hidden on small screens (`< sm`). Sort via column header clicks still works on any screen size.
 
-## Date Filter (`DateFilter.tsx`, ~520 lines)
+## Date Filter (`components/DateFilter.tsx`)
 
-Dropdown for date range filtering. Mirrors kahuna's `gu-date-range`. Field selector (Upload time / Date taken / Last modified), preset buttons (Anytime, Today, Past 24h, Past week, Past 6 months, Past year), two date inputs (From / To) for custom ranges. Preset matching uses 2-hour tolerance for relative presets (survives stale tabs). Collapsed state shows "Anytime" or a summary label with accent dot.
+Dropdown for date range filtering. Mirrors kahuna's `gu-date-range`. Field selector (Upload time / Date taken / Last modified), preset buttons (Anytime, Today, Past 24h, Past week, Past 6 months, Past year), two date inputs (From / To) for custom ranges. Preset matching uses 2-hour tolerance for relative presets (survives stale tabs). Collapsed state shows "Anytime" or a summary label with accent dot. Timezone: picker is always local time; URL is always UTC. `toDateInputValue` uses `format(parseISO(iso), "yyyy-MM-dd")` (date-fns, local-time) — not `iso.slice(0, 10)` (which returns UTC date, wrong for timezones ahead of UTC).
 
-## Status Bar (`StatusBar.tsx`, ~170 lines)
+## Status Bar (`components/StatusBar.tsx`)
 
-Thin strip between toolbar and views. Left-panel toggle (with hover-prefetch for aggregations when the Filters section is localStorage-expanded), result count, new-images ticker, sort-around-focus indicator, density toggle (grid/table icons), right-panel toggle. Container queries for responsive label display.
+Thin strip between toolbar and views. Left-panel toggle (with hover-prefetch for aggregations when the Filters section is localStorage-expanded), result count, new-images ticker (click clears selection before `reSearch()` to prevent flicker of old reconciled state), sort-around-focus indicator, density toggle, right-panel toggle. Selection count + Clear button (fine-pointer only — coarse uses FAB). Container queries for responsive label display.
 
-## CQL Search Input (`CqlSearchInput.tsx`)
+## CQL Search Input (`components/CqlSearchInput.tsx`)
 
 Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ Web Component lifecycle. `LazyTypeahead` provides non-blocking suggestions.
 
@@ -100,39 +181,65 @@ Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ We
 
 # UI Components — Views
 
-## Table View (`ImageTable.tsx`, ~1,330 lines)
+## Table View (`components/ImageTable.tsx`)
 
-TanStack Table + Virtual. Column defs from field-registry (26 hardcoded + config-driven alias fields). Resize (CSS-variable injection avoids React re-renders during drag), auto-fit, visibility context menu (`ColumnContextMenu.tsx`, rendered outside scroll container to avoid `contain: strict` breaking `position: fixed`), sort on header click (shift for secondary), auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip). Row focus, double-click to detail. ARIA roles (`grid`, `row`, `columnheader`, `gridcell`). Horizontal scrollbar via proxy div; vertical hidden (Scrubber replaces it).
+TanStack Table + Virtual. Column defs from field-registry (37+ hardcoded + config-driven alias fields). `EnrichedTableRow` wrapper reads enriched data via `useEnrichedImage`. Badges column (cost badge), staff-photographer left border. Resize (CSS-variable injection avoids React re-renders during drag), auto-fit, visibility context menu (`ColumnContextMenu.tsx`, rendered outside scroll container to avoid `contain: strict` breaking `position: fixed`), sort on header click (shift for secondary), auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip) — field cells flagged with `data-cql-cell`; image cell + row whitespace dispatch range selection. Row focus, double-click to detail. Middle-click (`auxclick`, `button===1`) opens FullscreenPreview via `enterFullscreenPreview()`. ARIA roles (`grid`, `row`, `columnheader`, `gridcell`). Horizontal scrollbar via proxy div; vertical hidden (Scrubber replaces it). In selection mode: Left/Right arrows scroll container horizontally.
 
-## Grid View (`ImageGrid.tsx`, ~520 lines)
+## Grid View (`components/ImageGrid.tsx`)
 
-Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav. `ResizeObserver` with `captureAnchor` mechanism for scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field).
+Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav. `ResizeObserver` with `captureAnchor` mechanism for scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field). Cluster 1 overlays: cost badge, graphic blur (`isImagePotentiallyGraphic`), staff-photographer ring (`lib/image-borders.ts`), print/digital/syndication/persisted usage icons (via `useEnrichedImage`). Label pills rendered in a fixed-height (`h-6`) strip between thumbnail and description (`flex-nowrap overflow-hidden`, click-to-search with `stopPropagation`). Middle-click opens FullscreenPreview.
 
-## Image Detail (`ImageDetail.tsx`, ~440 lines)
+## Image Detail (`components/ImageDetail.tsx`)
 
-Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), cadence-aware prefetch pipeline (shared `image-prefetch.ts` session model), fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing).
+Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), cadence-aware prefetch pipeline (shared `image-prefetch.ts` session model). Desktop zoom/pan via `usePinchZoom` (click/wheel/drag/keyboard). Touch swipe via `useSwipeCarousel` (velocity-aware prev/next) + `useSwipeDismiss` (pull-down dismiss). Fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing). Stacked layout on mobile (flex-col, image top, metadata below). Middle-click exits fullscreen. Bug note: auxclick effect deps include `image` — prevents null-ref on reload when placeholder renders before `containerRef` div.
 
-## Fullscreen Preview (`FullscreenPreview.tsx`, ~270 lines)
+## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
-Lightweight fullscreen peek from grid/table — press `f` to view focused image edge-to-edge via Fullscreen API (`useFullscreen` hook). No route change, no metadata. Arrow keys traverse images via `useImageTraversal`, updating `focusedImageId`; exit (Esc/Backspace/f) scrolls list to centered focused image. Shares prefetch pipeline with ImageDetail. Another density of the same ordered list.
+Lightweight fullscreen peek — press `f` or middle-click to view focused image edge-to-edge via Fullscreen API (`useFullscreen` hook). No route change, no metadata. Arrow keys traverse images via `useImageTraversal`, updating `focusedImageId`; exit (Esc/Backspace/f/middle-click) scrolls list to centered focused image. Shares prefetch pipeline and `usePinchZoom` (desktop zoom) with ImageDetail. Phantom pulse animation fires on exit when in phantom focus mode. Another density of the same ordered list.
 
-## Image Metadata (`ImageMetadata.tsx`, ~320 lines)
+## Image Metadata (`components/ImageMetadata.tsx`)
 
-Shared metadata display for focused image — used in both ImageDetail sidebar and right side panel. Registry-driven field order via `DETAIL_PANEL_FIELDS`. Section breaks on group change. Fields with `detailLayout: "stacked"` render label above value; others render inline (key 30% / value 70%). Click-to-search on values (shift = AND, alt = exclude). Location sub-parts as individual search links. List fields (keywords, subjects, people) as `SearchPill` components.
+Single-image metadata display — used in ImageDetail sidebar and right side panel. Registry-driven field order. `showWhenEmpty: true` fields render `<Dash />` placeholder; `visibleWhen` gate applied. Section breaks on group change. Fields with `detailLayout: "stacked"` render label above value; others render inline (key 30% / value 70%). Click-to-search on values (shift = AND, alt = exclude). Location sub-parts as individual search links. List fields (keywords, subjects, people, labels) as `SearchPill` components. Rights section: cost badge, validity disclosure (red/amber/teal states), lease list with relative dates, restrictions banner. Phantom mode: single-selected image falls back to `metadataCache.get(singleSelectedId)` when buffer lookup misses.
 
-## Panels (`PanelLayout.tsx`, ~250 lines)
+## Multi-Image Metadata (`components/MultiImageMetadata.tsx`)
 
-Left (facet filters) / right (focused-image metadata). Resize handles, `[`/`]` keyboard shortcuts, `AccordionSection` with persisted state (via `panel-store`).
+Shown in right panel when 2+ images selected. Dispatches per `multiSelectBehaviour` from field-registry. `metadata-primitives.tsx` shares `MetadataSection`, `MetadataRow`, `FieldValue`, `groupFieldsIntoSections`, `useMetadataSearch`, `Dash` between single and multi panels. `MultiValue.tsx` renders "Multiple {noun}" with tooltip showing top 5 values + counts. `MultiSearchPill` (in `SearchPill.tsx`) — partial (hollow) vs full (solid) chip state. Location sub-fields collapsed into one composite "Location" row. Cost summary section at top (bucket counts + leased-fraction gradient pills). Denominator for counts is `selectedIds.size`.
 
-## Facet Filters (`FacetFilters.tsx`, ~330 lines)
+## Cost Badge (`components/CostBadge.tsx`)
+
+5 cost variants (free/pay/conditional/overquota/no-rights), 3 sizes (sm/md/lg). CSS custom property colours from `index.css` cost colour tokens.
+
+## Toast System (~350 lines: `stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx`)
+
+Queue-backed toast notifications. BBC PR #4253 vocabulary (`ToastCategory`, `ToastLifespan`). `addToast()` imperative export for non-React callers (selection-store hydration drop, range-cap warnings). Single `<ToastContainer />` mounted in `routes/__root.tsx`. `toast-store.ts` has `typeof window !== "undefined"` guard at top level (Vitest compatibility).
+
+## Panels (`components/PanelLayout.tsx`)
+
+Left (facet filters) / right (metadata). Resize handles, `[`/`]` keyboard shortcuts, `AccordionSection` with persisted state (via `panel-store`). Right panel: "Combined metadata…" placeholder for count=0; single-image metadata for count=1; `MultiImageMetadata` for count≥2. Phantom mode: single-selection falls back to `metadataCache` (not `focusedImageId`).
+
+## Facet Filters (`components/FacetFilters.tsx`)
 
 Left panel content. Batched aggregation fetch via store. Click → set CQL chip, alt-click → exclude. "Show more" expands per-field agg counts. Agg timing display (`AggTiming` component).
 
-## Scrubber (`Scrubber.tsx`, ~1,170 lines)
+---
 
-Vertical track, proportional thumb. Two modes: **scroll mode** (total ≤ threshold, direct scroll) and **seek mode** (windowed buffer, seek on pointer-up). Deep seek via percentile estimation (date/numeric) or composite aggregation (keyword) with direction-aware `search_after` cursor anchors (`buildSeekCursorAnchors` in `search-store.ts` — desc fields get `MAX_SAFE_INTEGER`, asc get `0`, id gets `""`). Binary search refinement on the `id` tiebreaker when keyword bucket drift exceeds PAGE_SIZE. End key fast path: reverse `search_after` when target is within PAGE_SIZE of total, guaranteeing the buffer covers the last items. Null-zone seek uses the null-zone uploadTime distribution (fetched with `must_not:exists` filter for accuracy) for direct position→date mapping — no percentile needed, ~0.6% position accuracy. Sort-aware tooltip with adaptive date granularity. Keyword distribution binary search (O(log n), zero network during drag). Track tick marks with label decimation + hover animation; ticks are positioned by doc count (not time), so their spacing functions as a density map — dense clusters spread wide, sparse gaps compress. This is an explicit design choice: never linearise ticks by time. Null-zone UX: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks in the null zone, italic "Uploaded: {date}" tooltip labels for null-zone positions. Seek cooldown (`SEEK_COOLDOWN_MS` at data arrival; deferred scroll timer `SEEK_DEFERRED_SCROLL_MS` fires after cooldown to trigger extends without causing swimming — see `tuning.ts`).
+# UI Components — Scrubber & Sort
 
-## Sort Context (`lib/sort-context.ts`, ~1,030 lines)
+## Scrubber (`components/Scrubber.tsx`, 1,222 lines)
+
+Vertical track, proportional thumb. Three modes, auto-selected by result count (see `03-scroll-architecture.md` §2):
+
+| Mode | Total | Behaviour |
+|---|---|---|
+| **Scroll** | ≤1k | Real scrollbar — thumb tracks container scroll directly. All data in buffer. |
+| **Indexed scroll** | 1k–65k | Real scrollbar — position map enables instant cursor lookup. Buffer slides via extends + scroll-triggered seeks. Skeleton cells fill outside the buffer. |
+| **Seek** | >65k | Seek control — dragging shows tooltip, releasing triggers `seek()`. Deep seek via percentile estimation (date/numeric) or composite aggregation (keyword). |
+
+Deep seek details: direction-aware `search_after` cursor anchors (`buildSeekCursorAnchors` in `search-store.ts` — desc fields get `MAX_SAFE_INTEGER`, asc get `0`, id gets `""`). Binary search refinement on the `id` tiebreaker when keyword bucket drift exceeds PAGE_SIZE. End key fast path: reverse `search_after` when target is within PAGE_SIZE of total, guaranteeing the buffer covers the last items. Null-zone seek uses the null-zone uploadTime distribution (fetched with `must_not:exists` filter for accuracy) for direct position→date mapping — no percentile needed, ~0.6% position accuracy. Sort-aware tooltip with adaptive date granularity. Keyword distribution binary search (O(log n), zero network during drag). Track tick marks with label decimation + hover animation; ticks are positioned by doc count (not time), so their spacing functions as a density map — dense clusters spread wide, sparse gaps compress. This is an explicit design choice: never linearise ticks by time. Null-zone UX: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks in the null zone, italic "Uploaded: {date}" tooltip labels for null-zone positions. Seek cooldown (`SEEK_COOLDOWN_MS` at data arrival; deferred scroll timer `SEEK_DEFERRED_SCROLL_MS` fires after cooldown to trigger extends without causing swimming — see `tuning.ts`).
+
+Scrubber also handles the all-null-zone edge case: `getDateDistribution` returns `{ buckets: [], coveredCount: 0 }` (not `null`) when `stats.count === 0`; `computeTrackTicksWithNullZone` emits boundary tick at `position: 0`; top-edge overflow clamp renders it correctly.
+
+## Sort Context (`lib/sort-context.ts`, 1,038 lines)
 
 Sort-aware label computation for the scrubber tooltip and track ticks. `SORT_LABEL_MAP` maps sort keys to image field accessors and display formatters (date, keyword, numeric). Adaptive date granularity: total span < 28 days → show time (d Mon H:mm); ≥ 28 days → d Mon yyyy; viewport > 28 days → Mon yyyy. Fixed-width `<span>` elements prevent tooltip jitter during drag. `interpolateNullZoneSortLabel` handles null-zone tooltip labels (italic "Uploaded: {date}"). `computeTrackTicksWithNullZone` builds tick arrays with null-zone boundary and red-tinted null ticks. O(log n) binary search on distributions — zero network during drag.
 
@@ -146,17 +253,23 @@ When sorting by fields with many missing values (e.g. `lastModified`, `dateTaken
 
 ## Null-Zone Scrubber UX
 
-Visual feedback when the user enters the null zone. A red boundary tick with a vertical "No {field}" label marks the transition. Null-zone ticks are rendered in red (from a separate uploadTime `date_histogram` distribution, auto-fetched when the primary distribution reveals `coveredCount < total`). Tooltip labels in the null zone show italic "Uploaded: {date}" using the null-zone distribution. The boundary label is edge-clamped via a ref callback (`offsetHeight` measurement + 5px pad) so it never overflows the track bounds. All null-zone UX is in `sort-context.ts` (`interpolateNullZoneSortLabel`, `computeTrackTicksWithNullZone`) + `Scrubber.tsx` (boundary tick rendering) + `search.tsx` (wiring) + `search-store.ts` (`fetchNullZoneDistribution`).
+Visual feedback when the user enters the null zone: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks, italic "Uploaded: {date}" tooltip. The boundary label uses a ref callback (`offsetHeight` measurement + pad) for overflow clamping. UX code split across `sort-context.ts` (`interpolateNullZoneSortLabel`, `computeTrackTicksWithNullZone`), `Scrubber.tsx` (rendering), `search.tsx` (wiring), `search-store.ts` (`fetchNullZoneDistribution`).
 
 ---
 
-# Testing
+# Testing & Instrumentation
 
-291 Vitest unit/integration tests (~5s) — includes 10 null-zone seek/extend tests + 3 total-corruption regression tests using sparse `MockDataSource` (50k images, 20% `lastModified` coverage) + **17 reverse-compute unit tests** (`computeScrollTarget` edge cases: cold-start headroom, sub-row preservation, End key, fractional boundary, buffer-shrink clamping). 147 Playwright E2E tests — scrubber (including flash-prevention golden table with **0px scroll-drift tolerance**, bidirectional buffer verification, scroll-up-after-seek grid+table with headroom-adjusted wheel events, settle-window visible content stability — **0 items content shift** with bidirectional seek, headroom-zone swim regression test, **scrollTop=0 cold-start seek test**, **rAF scrollTop monotonicity test** using frame-accurate `sampleScrollTopAtFrameRate` helper), buffer corruption regression suite (including Home logo scroll-reset without prior deep seek), density-focus drift, visual baselines. Safety gate refuses real ES. 19 perf scenarios + 6 experiment scenarios. Corpus pinned via `PERF_STABLE_UNTIL`. 11 smoke tests for TEST cluster (`manual-smoke-test.spec.ts`). 18 scroll stability smoke tests (`smoke-scroll-stability.spec.ts`, S12-S27b) including headroom-zone position preservation (S24), **rAF-enhanced settle-window with CLS capture (S23)**, and **fresh-app cold-start seek (S25)**. Shared `smoke-report.ts` writes structured JSON report to `test-results/smoke-report.json` for agent consumption; all 29 passed on real data (1.3M docs, except 2 pre-existing Credit sort failures S2/S6). `CPU_THROTTLE` env var enables CDP CPU throttle on any test mode for slow-hardware experiments (e.g. `CPU_THROTTLE=4`).
+Test counts and surfaces: see `kupua/AGENTS.md` Testing Summary (single source of truth for numbers).
 
-**Test suite reference:** `e2e/README.md` — 8 test modes, decision tree, file map, full env var / runner flag documentation.
+**Notable test strategies:** null-zone seek/extend with sparse `MockDataSource` (50k images, 20% coverage), reverse-compute edge cases (cold-start, sub-row, End key, buffer-shrink), selection reconciliation (chip-array, summary, mixed frequency, inflation bugs), cost/validity/graphic-blur. E2E: scrubber flash-prevention golden table with **0px scroll-drift tolerance**, **0 items CLS** settle-window, **rAF scrollTop monotonicity**, selections (desktop + mobile Pixel 5 emulation), browser history.
 
-**npm scripts:** `test`, `test:e2e`, `test:e2e:full`, `test:smoke`, `test:perf`, `test:experiment`, `test:diag`.
+Full reference: `e2e/README.md` (8 test modes, decision tree, env vars). npm scripts: `test`, `test:e2e`, `test:e2e:full`, `test:smoke`, `test:perf`, `test:experiment`, `test:diag`.
 
-**Logging pattern:** all diagnostic `console.log` calls use `devLog()` from `src/lib/dev-log.ts` — a thin wrapper guarded by `import.meta.env.DEV` so Vite DCEs them in prod. E2E tests can still read these messages via `KupuaHelpers.getConsoleLogs()` because Playwright runs against the dev server. Use `devLog` for all new diagnostic logging; reserve bare `console.warn` for genuine error paths only.
+## Perceived-Performance Instrumentation (`lib/perceived-trace.ts`)
+
+Lightweight action-boundary tracer. **Zero production cost** — tree-shaken via `import.meta.env.DEV` guard. Off by default in dev; enabled via `localStorage.setItem("kupua_perceived_perf", "1")`. Playwright harness sets the flag before navigation.
+
+Usage: `trace("sort-around-focus", "t_0", { sort, focusedId })` / `trace("sort-around-focus", "t_settled")`. Reading: `await page.evaluate(() => window.__perceivedTrace__)`. ~10 call sites across stores/hooks/components. Action names and phase conventions in `e2e-perf/README.md`.
+
+**Logging:** use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E via `KupuaHelpers.getConsoleLogs()`). Reserve bare `console.warn` for genuine error paths only.
 

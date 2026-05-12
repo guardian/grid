@@ -111,33 +111,51 @@ cd kupua && docker compose down
 cd kupua && docker compose down -v
 ```
 
-## Project Structure
+## Architecture
 
-```
-kupua/
-  scripts/
-    start.sh                   # One-command startup (local or --use-TEST)
-    load-sample-data.sh        # Index creation + bulk data load
-    s3-proxy.mjs               # Local S3 thumbnail proxy (TEST mode)
-  docker-compose.yml           # ES on port 9220 + imgproxy (port 3002)
-  src/
-    main.tsx                   # React entry point
-    router.ts                  # TanStack Router with custom URL serialisation
-    index.css                  # Tailwind CSS + Grid colour theme + Open Sans
-    routes/                    # /search, /images/:id (redirect), / (redirect)
-    components/                # SearchBar, ImageTable, ImageDetail, DateFilter, etc.
-    dal/                       # Data Access Layer (ElasticsearchDataSource)
-    stores/                    # Zustand stores (search, columns)
-    hooks/                     # URL↔store sync, fullscreen API
-    lib/                       # CQL parser, grid config, typeahead, image URLs
-    types/                     # TypeScript types from ES mapping
-  exploration/
-    mock/                      # Sample data, ES mapping, mock Grid config
-    docs/                      # Migration plan, deviations log, safeguards
-  public/
-    fonts/                     # Self-hosted Open Sans (from kahuna)
-    images/                    # Grid logo, favicon
-  AGENTS.md                    # Agent context (read by Copilot)
+```mermaid
+flowchart LR
+    subgraph Browser["Kupua (React SPA)"]
+        direction TB
+        UI["Views · Grid · Table · Detail"]
+        Stores["Zustand stores"]
+        DAL["Data Access Layer"]
+        UI --> Stores --> DAL
+    end
+
+    subgraph Vite["Vite Dev Server :3000"]
+        direction TB
+        P1["/es"]
+        P2["/s3"]
+        P3["/imgproxy"]
+        P4["/api"]
+    end
+
+    subgraph External["External Systems"]
+        direction TB
+        ES[("Elasticsearch\n:9220 local\n:9200 tunnel")]
+        S3T["S3 Proxy :3001\n(thumbnails)"]
+        IMG["imgproxy :3002\n(full-size → AVIF)"]
+        API["Grid media-api\n(optional enrichment)"]
+    end
+
+    subgraph S3["S3"]
+        S3T_B[("image-thumb")]
+        S3O_B[("image-origin")]
+    end
+
+    DAL -- "search · count · mget" --> P1
+    DAL -- "thumbnail URLs" --> P2
+    DAL -- "resized originals" --> P3
+    DAL -- "quota state\n(boot-time only)" --> P4
+
+    P1 -- "read-only\nguardrails" --> ES
+    P2 --> S3T
+    P3 --> IMG
+    P4 -- "GET only" --> API
+
+    S3T --> S3T_B
+    IMG --> S3O_B
 ```
 
 ## Isolation from Grid
@@ -151,9 +169,11 @@ Kupua is fully isolated from the main Grid application:
 
 ## Key Documentation
 
-- **[AGENTS.md](AGENTS.md)** – agent context with current state, decisions, and "What's Done" / "What's Next"
-- **[Migration Plan](exploration/docs/migration-plan.md)** – phased roadmap, kahuna feature inventory, architecture
-- **[Frontend Philosophy](exploration/docs/00%20Architecture%20and%20philosophy/01-frontend-philosophy.md)** – UX/UI philosophy: density continuum, interaction patterns, comparison with Lightroom/Photos/Finder
+- **[AGENTS.md](AGENTS.md)** – agent context: system summary, architecture decisions, context routing, current phase
+- **[Scroll Architecture](exploration/docs/00%20Architecture%20and%20philosophy/03-scroll-architecture.md)** – three-tier scroll system (scroll/indexed/seek), windowed buffer, swimming
+- **[Frontend Philosophy](exploration/docs/00%20Architecture%20and%20philosophy/01-frontend-philosophy.md)** – density continuum, "Never Lost", interaction patterns
+- **[Selections Architecture](exploration/docs/00%20Architecture%20and%20philosophy/05-selections.md)** – multi-image selection, click semantics, reconciliation
+- **[Component Detail](exploration/docs/00%20Architecture%20and%20philosophy/component-detail.md)** – per-component/hook technical reference
 - **[Deviations](exploration/docs/deviations.md)** – intentional differences from Grid/kahuna
 - **[Safeguards](exploration/docs/infra-safeguards.md)** – Elasticsearch & S3 safety documentation
 
@@ -161,4 +181,4 @@ Kupua is fully isolated from the main Grid application:
 
 **Phase 2 – Live Elasticsearch (Read-Only)**
 
-Connected to real ES clusters via SSH tunnel. Table view with CQL search, date filters, sort, column resize/visibility, click-to-search, image detail overlay with fullscreen and prev/next navigation. See [AGENTS.md](AGENTS.md) for details.
+Grid/table views with three-tier scroll architecture (≤1k/1k–65k/>65k), multi-image selection, CQL search, keyboard navigation, touch gestures and mobile view, image detail with zoom. Connected to real ES clusters via SSH tunnel. See [AGENTS.md](AGENTS.md) for full details.
