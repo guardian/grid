@@ -8,6 +8,7 @@ declare global {
     _clientConfig: {
       rootUri: string;
       telemetryUri: string;
+      aiSearchResultLimit: number;
       featureSwitches: Array<FeatureSwitchData>;
       interimFilterOptions: Array<PermissionOption>;
       maybeOrgOwnedValue: string | undefined;
@@ -43,6 +44,9 @@ declare global {
       maybeUploadLimitInBytes: number;
       imageTypes: string[];
       staffPhotographerOrganisation: string;
+      agencyPicksIngredients: {
+        [field: string]: string[];
+      }
     };
   }
 }

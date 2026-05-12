@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
@@ -19,7 +20,7 @@ import java.net.{URI, URLEncoder}
 import scala.annotation.tailrec
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
+class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota)
   extends EditsResponse with GridLogging {
 
   implicit val usageQuotas: UsageQuota = usageQuota
@@ -47,7 +48,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   private val imgPersistenceReasons = ImagePersistenceReasons(
     config.maybePersistOnlyTheseCollections,
-    config.persistenceIdentifier
+    config.persistenceIdentifiers
   )
 
   def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.reasons(image)
@@ -84,7 +85,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
 
     val thumbUrl = config.cloudFrontDomainThumbBucket
-      .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+      .map(domain => s"https://$domain${fileUri.getPath}")
       .getOrElse(s3SignedThumbUrl)
 
     val validityMap = checkUsageRestrictions(source, ImageExtras.validityMap(image, withWritePermission))
@@ -319,36 +320,41 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   import play.api.libs.json.JodaWrites._
 
-  def imageResponseWrites(id: String, expandFileMetaData: Boolean): OWrites[Image] = (
-    (__ \ "id").write[String] ~
-      (__ \ "uploadTime").write[DateTime] ~
-      (__ \ "uploadedBy").write[String] ~
-      (__ \ "softDeletedMetadata").writeNullable[SoftDeletedMetadata] ~
-      (__ \ "lastModified").writeNullable[DateTime] ~
-      (__ \ "identifiers").write[Map[String, String]] ~
-      (__ \ "uploadInfo").write[UploadInfo] ~
-      (__ \ "source").write[Asset] ~
-      (__ \ "thumbnail").writeNullable[Asset] ~
-      (__ \ "optimisedPng").writeNullable[Asset] ~
-      (__ \ "fileMetadata").write[FileMetadataEntity]
-        .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
-      (__ \ "userMetadata").writeNullable[Edits] ~
-      (__ \ "metadata").write[ImageMetadata](ImageResponse.newlineNormalisingImageMetadataWriter) ~
-      (__ \ "originalMetadata").write[ImageMetadata] ~
-      (__ \ "usageRights").write[UsageRights] ~
-      (__ \ "originalUsageRights").write[UsageRights] ~
-      (__ \ "exports").write[List[Export]]
-        .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_: Crop))) ~
-      (__ \ "usages").write[UsagesEntity]
-        .contramap(usagesEntity(id, _: List[Usage])) ~
-      (__ \ "leases").write[MediaLeasesEntity]
-        .contramap(leasesEntity(id, _: LeasesByMedia)) ~
-      (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
-        .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
-      (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
-      (__ \ "usermetaDataLastModified").writeNullable[DateTime]
+  def imageResponseWrites(id: String, expandFileMetaData: Boolean): OWrites[Image] = {
+    def writes[T](v: T)(implicit writer: Writes[T]): Option[JsValue] =
+      Some(writer writes v)
 
-    ) (unlift(Image.unapply))
+    def writesOpt[T](v: Option[T])(implicit writer: Writes[T]): Option[JsValue] = v map writer.writes
+
+    OWrites { image =>
+      JsObject(Map(
+        "id" -> writes(image.id),
+        "uploadTime" -> writes(image.uploadTime),
+        "uploadedBy" -> writes(image.uploadedBy),
+        "softDeletedMetadata" -> writesOpt(image.softDeletedMetadata),
+        "lastModified" -> writesOpt(image.lastModified),
+        "identifiers" -> writes(image.identifiers),
+        "uploadInfo" -> writes(image.uploadInfo),
+        "source" -> writes(image.source),
+        "thumbnail" -> writesOpt(image.thumbnail),
+        "optimisedPng" -> writesOpt(image.optimisedPng),
+        "fileMetadata" -> writes(fileMetadataEntity(id, expandFileMetaData, image.fileMetadata)),
+        "userMetadata" -> writesOpt(image.userMetadata),
+        "metadata" -> writes(image.metadata)(using ImageResponse.newlineNormalisingImageMetadataWriter),
+        "originalMetadata" -> writes(image.originalMetadata),
+        "usageRights" -> writes(image.usageRights),
+        "originalUsageRights" -> writes(image.originalUsageRights),
+        "exports" -> writes(image.exports.map(Export.fromCrop)),
+        "usages" -> writes(usagesEntity(id, image.usages)),
+        "leases" -> writes(leasesEntity(id, image.leases)),
+        "collections" -> writes(image.collections.map(collectionsEntity(id, _))),
+        "syndicationRights" -> writesOpt(image.syndicationRights),
+        "userMetadataLastModified" -> writesOpt(image.userMetadataLastModified),
+        "embedding" -> writes(image.embedding),
+      ).collect { case (key, Some(value)) => (key, value) })
+    }
+  }
+
 
   def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
 

@@ -15,6 +15,7 @@ import '../components/gr-archiver/gr-archiver';
 import '../components/gr-delete-image/gr-delete-image';
 import '../components/gr-undelete-image/gr-un-delete-image';
 import '../components/gr-downloader/gr-downloader';
+import '../components/gr-more-like-this/gr-more-like-this';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
@@ -50,6 +51,7 @@ export var results = angular.module('kahuna.search.results', [
     'gu.lazyTableShortcuts',
     'gr.archiver',
     'gr.downloader',
+    'gr.moreLikeThis',
     'gr.batchExportOriginalImages',
     'gr.deleteImage',
     'gr.undeleteImage',
@@ -213,7 +215,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.loading = true;
 
         ctrl.revealNewImages = revealNewImages;
-        ctrl.applyOrgOwnedFilter = applyOrgOwnedFilter;
+        ctrl.applyFilter = applyFilter;
 
         ctrl.getLastSeenVal = getLastSeenVal;
         ctrl.imageHasBeenSeen = imageHasBeenSeen;
@@ -227,52 +229,88 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        // Initial search to find upper `until` boundary of result set
-        // (i.e. the uploadTime of the newest result in the set)
+        function initialiseSharedResults(images) {
+          ctrl.totalResults = images.total;
+          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+          ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
-        // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
-            ctrl.totalResults = images.total;
-            // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-            ctrl.orgOwnedCount = images.$response?.$$state?.value?.actions;
+          ctrl.hasQuery = !!$stateParams.query;
+          ctrl.initialSearchUri = images.uri;
+          ctrl.embeddableUrl = window.location.href;
 
-            ctrl.hasQuery = !!$stateParams.query;
-            ctrl.initialSearchUri = images.uri;
-            ctrl.embeddableUrl = window.location.href;
+          // images will be the array of loaded images, used for display
+          ctrl.images = [];
 
-            // images will be the array of loaded images, used for display
-            ctrl.images = [];
+          imagesPositions = new Map();
 
-            // imagesAll will be a sparse array of all the results
-            const totalLength = Math.min(images.total, ctrl.maxResults);
-            ctrl.imagesAll = [];
-            ctrl.imagesAll.length = totalLength;
+          notificationMessages(ctrl.extendedSortProps, ctrl.totalResults);
+        }
 
-            // TODO: ultimately we want to manage the state in the
-            // results stream exclusively
-            results.clear();
-            results.resize(totalLength);
+        function initialiseAiResults(images) {
+          const totalLength = images.data.length;
+          ctrl.imagesAll = new Array(totalLength);
 
-            notificationMessages(ctrl.extendedSortProps, images.total);
+          // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
+          // so we populate the full backing array up front to avoid placeholder rows.
+          results.clear();
+          results.resize(totalLength);
 
-            imagesPositions = new Map();
+          images.data.forEach((image, index) => {
+            ctrl.imagesAll[index] = image;
+            imagesPositions.set(image.data.id, index);
+            results.set(index, image);
+          });
 
+          ctrl.images = images.data.slice();
+        }
+
+        function initialisePagedResults(images) {
+          const totalLength = Math.min(images.total, ctrl.maxResults);
+          ctrl.imagesAll = [];
+          ctrl.imagesAll.length = totalLength;
+
+          // TODO: ultimately we want to manage the state in the
+          // results stream exclusively
+          results.clear();
+          results.resize(totalLength);
+        }
+
+        function updateLastSearchBoundary() {
+          const until = $stateParams.until || null;
+          const latestTime = until || moment().toISOString();
+
+          if (latestTime && ! isReloadingPreviousSearch) {
+            lastSearchFirstResultTime = latestTime;
+          }
+        }
+
+        function initialiseResults(images, { isAiSearch }) {
+          initialiseSharedResults(images);
+
+          if (isAiSearch) {
+            initialiseAiResults(images);
+          } else {
+            initialisePagedResults(images);
             checkForNewImages();
+          }
 
-            // Keep track of time of the latest result for all
-            // subsequent searches (so we always query the same set of
-            // results), unless we're reloading a previous search in
-            // which case we reuse the previous time too
+          updateLastSearchBoundary();
 
-            const until = $stateParams.until || null;
-            const latestTime = until || moment().toISOString();
+          return images;
+        }
 
-            if (latestTime && ! isReloadingPreviousSearch) {
-                lastSearchFirstResultTime = latestTime;
-            }
+          // Initial search to find upper `until` boundary of result set
+          // (i.e. the uploadTime of the newest result in the set)
 
-            return images;
-        }).catch(error => {
+          // TODO: avoid this initial search (two API calls to init!)
+          const isAiSearch = !!$stateParams.useAISearch;
+          const initialSearchParams = isAiSearch
+            ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
+            : {length: 1, orderBy: 'newest'};
+
+          ctrl.searched = search(initialSearchParams).then(images =>
+            initialiseResults(images, { isAiSearch })
+          ).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
@@ -280,9 +318,13 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
+            if ($stateParams.useAISearch) {
+              return;
+            }
+
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
-                // Update imagesAll with newly loaded images
+            // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     const position = index + start;
                     const imageId = image.data.id;
@@ -307,7 +349,6 @@ results.controller('SearchResultsCtrl', [
 
                     results.set(position, image);
                 });
-
                 // images should not contain any 'holes'
                 ctrl.images = compact(ctrl.imagesAll);
             });
@@ -320,11 +361,11 @@ results.controller('SearchResultsCtrl', [
         onNextEvent($scope, 'gu-lazy-table:height-changed').
             // Attempt to resume the top position ASAP, so as to limit
             // visible jump
-            then(() => scrollPosition.resume($stateParams)).
+            then(() => scrollPosition.resume($state.href('search.results', $stateParams))).
             // When navigating back, resuming the position immediately
             // doesn't work, so we try again after a little while
             then(() => delay(30)).
-            then(() => scrollPosition.resume($stateParams)).
+            then(() => scrollPosition.resume($state.href('search.results', $stateParams))).
             then(scrollPosition.clear);
 
         const pollingPeriod = 15 * 1000; // ms
@@ -381,6 +422,10 @@ results.controller('SearchResultsCtrl', [
 
         // FIXME: this will only add up to 50 images (search capped)
         function checkForNewImages() {
+            // Polling for new images is meaningless for AI search — results are
+            // ranked by vector similarity, not upload time.
+            if ($stateParams.useAISearch) { return; }
+
             $timeout(() => {
                 // Use explicit `until`, or blank it to find new images
                 const until = $stateParams.until || null;
@@ -391,7 +436,22 @@ results.controller('SearchResultsCtrl', [
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
                     // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-                    ctrl.newOrgOwnedCount = resp.$response?.$$state?.value?.actions;
+                    const newTickerCounts = resp.$response?.$$state?.value?.actions?.tickerCounts;
+                    if (newTickerCounts) {
+                      Object.entries(newTickerCounts).forEach(([key, {value, subCounts}]) => {
+                        const existing = ctrl.tickerCounts[key];
+                        existing.value += value;
+                        if (existing.subCounts && subCounts){
+                          Object.entries(subCounts).forEach(([subKey, subCount]) => {
+                            if (existing.subCounts[subKey]){
+                              existing.subCounts[subKey] += subCount;
+                            } else {
+                              existing.subCounts["other"] += subCount;
+                            }
+                          });
+                        }
+                      });
+                    }
 
                     if (ctrl.newImagesCount > 0) {
                         $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
@@ -418,16 +478,15 @@ results.controller('SearchResultsCtrl', [
         }
 
         ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
-        const isOrgOwnedClause = `is:${ctrl.maybeOrgOwnedValue}`;
-        function applyOrgOwnedFilter() {
+        function applyFilter(searchClause) {
           $window.scrollTo(0,0);
-          const toParams = $stateParams.query?.includes(isOrgOwnedClause)
+          const toParams = $stateParams.query?.includes(searchClause)
               ? $stateParams
               : {
                   ...$stateParams,
                   query: $stateParams.query
-                    ? `${$stateParams.query} ${isOrgOwnedClause}`
-                    : isOrgOwnedClause
+                    ? `${$stateParams.query} ${searchClause}`
+                    : searchClause
               };
           $state.transitionTo(
             $state.current,
@@ -850,7 +909,7 @@ results.controller('SearchResultsCtrl', [
         $scope.$on('$destroy', () => {
             // only save scroll position if we're destroying grid scope (avoids issue regarding ng-if triggering scope refresh)
             if (0 < $scope.ctrl.images.length) {
-              scrollPosition.save($stateParams);
+              scrollPosition.save($state.href('search.results', $stateParams));
             }
             freeUpdatesListener();
             freeImageDeleteListener();

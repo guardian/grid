@@ -16,6 +16,9 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
 
+  val lowerEnvironmentSamplingPercentageAsDecimal = intOpt("s3.sampling.percentage").getOrElse(1) / 100.0
+  val maybeLowerEnvironmentQueueBucketToSampleInto = stringOpt("s3.sampling.targetBucket")
+
   val tempDir: File = new File(stringDefault("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256
@@ -32,7 +35,7 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val uploadStatusExpiry: FiniteDuration = configuration.get[FiniteDuration]("uploadStatus.recordExpiry")
 
   val shouldEmbed: Boolean = boolean("s3.vectors.shouldEmbed")
-
+  val maybeImageEmbedderQueueUrl: Option[String] = stringOpt("sqs.image.embedder.queue.url")
   /**
     * Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.

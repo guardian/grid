@@ -42,7 +42,7 @@
     >
        <div class="preview__fade"></div>
        <img class="preview__image"
-            ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
+            ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer, 'preview__image--agency-pick': ctrl.states.isAgencyPick}"
             alt="{{::ctrl.imageDescription}}"
             ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"/>
     </a>
@@ -53,7 +53,7 @@
     >
         <div class="preview__fade"></div>
         <img class="preview__image"
-             ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
+             ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer, 'preview__image--agency-pick': ctrl.states.isAgencyPick}"
              alt="{{::ctrl.image.data.metadata.description}}"
              ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"
              ui-drag-data="ctrl.image | asImageDragData"/>

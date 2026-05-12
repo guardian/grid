@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
@@ -17,6 +18,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -27,6 +29,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
+import scala.collection.immutable.ListMap
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +41,30 @@ class ElasticSearch(
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
-  private val orgOwnedAggName = "org-owned"
+  private val maybeOrgOwnedExtraCount: Option[(String, ExtraCountConfig)] =
+    if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+      Some(s"${config.staffPhotographerOrganisation}-owned" -> ExtraCountConfig(
+        searchClause = s"is:${config.staffPhotographerOrganisation}-owned",
+        backgroundColour = "#005689"
+      ))
+    else
+      None
+
+  private val maybeAgencyPicksExtraCount: Option[(String, ExtraCountConfig)] =
+    config.maybeAgencyPickQuery.map(_ =>
+      "agency picks" -> ExtraCountConfig(
+        searchClause = "is:agency-pick",
+        backgroundColour = config.agencyPicksColour,
+        maybeSubAggregation = Some(
+          termsAgg(name = "byAgency", field = "usageRights.supplier").size(9)
+        )
+      )
+    )
+
+  private val aggregationsNameToSearchClauseMap: Map[String, ExtraCountConfig] = List(
+    maybeOrgOwnedExtraCount,
+    maybeAgencyPicksExtraCount
+  ).flatten.toMap
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -120,7 +146,6 @@ class ElasticSearch(
 
   private val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
-
   private def resolveHit(hit: SearchHit) = mapImageFrom(
     hit.sourceAsString,
     hit.id,
@@ -145,8 +170,25 @@ class ElasticSearch(
     executeAndLog(searchRequest, "ids lookup")
       .map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = r.result.totalHits, maybeOrgOwnedCount = None)
+        SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
       }
+  }
+
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+               (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val knn = Knn("embedding.cohereEmbedV4.image")
+        .queryVector(queryEmbedding.map(_.toDouble))
+        .k(k)
+        .numCandidates(numCandidates)
+
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .knn(knn)
+      .size(k)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+    }
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
@@ -270,10 +312,10 @@ class ElasticSearch(
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
-      .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
-        orgOwnedAggName,
-        queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
-      )) else Nil)
+      .aggregations(aggregationsNameToSearchClauseMap.map {
+        case (name, ExtraCountConfig(searchClause, _, maybeSubAggregation)) =>
+          filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))).subAggregations(maybeSubAggregation)
+      })
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -287,11 +329,23 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        maybeOrgOwnedCount =
-          if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
-            Some(r.result.aggregations.filter(orgOwnedAggName).docCount)
-          else
-            None
+        extraCounts = Some(ExtraCounts(
+          tickerCounts = aggregationsNameToSearchClauseMap.map {
+            case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubAggregation)) =>
+              val aggResult = r.result.aggregations.filter(name)
+              val maybeSubAggResult = maybeSubAggregation.map(_.name).map(aggResult.result[Terms])
+              name -> ExtraCount(
+                value = aggResult.docCount,
+                searchClause,
+                backgroundColour,
+                subCounts = maybeSubAggResult.map { termsAgg =>
+                  ListMap(termsAgg.buckets.sortBy(_.docCount).reverse.map { bucket =>
+                    (bucket.key, bucket.docCount)
+                  }: _*) + ("other" -> termsAgg.otherDocCount)
+                }.filter(_.exists { case (_, count) => count > 0 })
+              )
+          }
+        ))
       )
     }
   }

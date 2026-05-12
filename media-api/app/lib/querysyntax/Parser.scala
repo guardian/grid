@@ -2,12 +2,18 @@ package lib.querysyntax
 
 object Parser {
 
+  private val thingsToHideByDefault = List(
+    "is:deleted",
+    "usages@status:replaced"
+  )
+
   def run(input: String): List[Condition] = {
     normalise(
       parse(
-        if(input.contains("is:deleted")) input
-        else input.concat(" -is:deleted").trim
-      )
+        thingsToHideByDefault.fold(input)((input, thingToHide) =>
+          if(input.contains(thingToHide)) input
+          else input.concat(s" -$thingToHide").trim
+        ))
     )
   }
 

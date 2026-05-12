@@ -1,11 +1,9 @@
 package com.gu.mediaservice.lib.aws
 
 import java.util.concurrent.Executors
-
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import org.apache.pekko.actor.ActorSystem
-import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.sqs.model.{Message => SQSMessage}
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -13,6 +11,7 @@ import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -48,7 +47,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
 
   private def recordMessageCount(message: SNSMessage) = {
     val dimensions = message.subject match {
-      case Some(subject) => List(new Dimension().withName("subject").withValue(subject))
+      case Some(subject) => List(Dimension.builder().name("subject").value(subject).build())
       case None          => List()
     }
     metric.recordOne(1L, dimensions)

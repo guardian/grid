@@ -10,6 +10,13 @@
 
             {{usage.title}}
 
+            <span ng-if="usage.childUsageMetadata" ng-switch="usage.status">
+                <span ng-switch-when="derivative">Used to create</span>
+                <span ng-switch-when="replaced">Replaced with</span>
+                <a href="{{usage.childUsageMetadata.childMediaId}}">{{usage.childUsageMetadata.childMediaId}}</a>
+                (added by {{usage.childUsageMetadata.addedBy}}).
+            </span>
+
             <div class="more-info">
                 <span title="{{usage.dateAdded | date:'d MMM yyyy, HH:mm'}}" class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
 

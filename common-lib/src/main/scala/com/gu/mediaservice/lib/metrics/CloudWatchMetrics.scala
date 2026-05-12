@@ -1,18 +1,18 @@
 package com.gu.mediaservice.lib.metrics
 
+import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.apache.pekko.actor.{Actor, ActorSystem, Props, Timers}
 import org.apache.pekko.pattern.ask
 import org.apache.pekko.util.Timeout
-import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
-import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit, StatisticSet}
-import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.inject.ApplicationLifecycle
+import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model._
 
-import java.util.Date
-import scala.jdk.CollectionConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import java.time.Instant
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 
 trait Metric[A] {
@@ -29,7 +29,7 @@ abstract class CloudWatchMetrics(
 ) extends GridLogging {
 
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Count, value.toDouble, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.COUNT, value.toDouble, dimensions)
 
     def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Unit = recordOne(n, dimensions)
 
@@ -41,10 +41,10 @@ abstract class CloudWatchMetrics(
   }
 
   class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.Milliseconds, value.toDouble, dimensions)
+    protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.MILLISECONDS, value.toDouble, dimensions)
   }
 
-  private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
+  private val client = config.withAWSCredentialsV2(CloudWatchClient.builder()).build()
 
   private val random = new Random()
   private[CloudWatchMetrics] val metricsActor = actorSystem.actorOf(MetricsActor.props(namespace, client), s"metricsactor-${random.alphanumeric.take(8).mkString}")
@@ -59,7 +59,7 @@ abstract class CloudWatchMetrics(
       metricsActor ! MetricsActor.AddMetrics(values.map(value => toDatum(value, dimensions)))
 
     final def recordMany(data: Seq[(A, List[Dimension])]): Unit = {
-      val values = data map { case (count, dimensions) => toDatum(count, dimensions).withTimestamp(new Date) }
+      val values = data map { case (count, dimensions) => toDatum(count, dimensions).toBuilder.timestamp(Instant.now).build() }
       metricsActor ! MetricsActor.AddMetrics(values)
     }
 
@@ -68,26 +68,27 @@ abstract class CloudWatchMetrics(
 
     /** Convenience method for instantiating a `MetricDatum` with this metric's `name` and `dimension` */
     protected def datum(unit: StandardUnit, value: Double, dimensions: List[Dimension]): MetricDatum =
-      new MetricDatum()
-        .withMetricName(name)
-        .withUnit(unit)
-        .withValue(value)
-        .withDimensions(dimensions.asJava)
-        .withTimestamp(new java.util.Date())
+      MetricDatum.builder()
+        .metricName(name)
+        .unit(unit)
+        .value(value)
+        .dimensions(dimensions.asJava)
+        .timestamp(Instant.now())
+        .build()
   }
 }
 
 object MetricsActor {
-  def props(namespace: String, client: AmazonCloudWatch): Props =
+  def props(namespace: String, client: CloudWatchClient): Props =
     Props(new MetricsActor(namespace, client))
 
   private final case object Tick
   final case object Shutdown
   final case class AddMetrics(values: Seq[MetricDatum])
 }
-private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends Actor with Timers with GridLogging {
-  import context._
+private class MetricsActor(namespace: String, client: CloudWatchClient) extends Actor with Timers with GridLogging {
   import MetricsActor._
+  import context._
 
   private val maxGroupSize = 20
   private val interval: FiniteDuration = 1.minute
@@ -95,18 +96,22 @@ private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends 
 
   private def putData(data: Seq[MetricDatum]): Future[Unit] = Future {
     val aggregatedMetrics: Seq[MetricDatum] = data
-      .groupBy(metric => (metric.getMetricName, metric.getDimensions))
+      .groupBy(metric => (metric.metricName(), metric.dimensions()))
       .map { case (_, values) =>
-        values.reduce((m1, m2) => m1.clone()
-          .withValue(null)
-          .withStatisticValues(aggregateMetricStats(m1,m2)))
+        values.reduce((m1, m2) => m1.toBuilder
+          .value(null)
+          .statisticValues(aggregateMetricStats(m1,m2))
+          .build()
+        )
       }
       .toSeq
 
     aggregatedMetrics.grouped(maxGroupSize).foreach(chunkedMetrics => { //can only send max 20 metrics to CW at a time
-      client.putMetricData(new PutMetricDataRequest()
-        .withNamespace(namespace)
-        .withMetricData(chunkedMetrics.asJava))
+      client.putMetricData(PutMetricDataRequest.builder()
+        .namespace(namespace)
+        .metricData(chunkedMetrics.asJava)
+        .build()
+      )
     })
 
     logger.info(s"Put ${data.size} metric data points (aggregated to ${aggregatedMetrics.size} points) to namespace $namespace")
@@ -115,19 +120,21 @@ private class MetricsActor(namespace: String, client: AmazonCloudWatch) extends 
   }
 
   private def aggregateMetricStats(metricDatumOriginal: MetricDatum, metricDatumNew: MetricDatum): StatisticSet = {
-    metricDatumOriginal.getStatisticValues match {
+    metricDatumOriginal.statisticValues() match {
       case stats if stats == null =>
-        new StatisticSet()
-          .withMinimum(Math.min(metricDatumOriginal.getValue, metricDatumNew.getValue))
-          .withMaximum(Math.max(metricDatumOriginal.getValue, metricDatumNew.getValue))
-          .withSum(metricDatumOriginal.getValue + metricDatumNew.getValue)
-          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else 2d)
+        StatisticSet.builder()
+          .minimum(Math.min(metricDatumOriginal.value(), metricDatumNew.value()))
+          .maximum(Math.max(metricDatumOriginal.value(), metricDatumNew.value()))
+          .sum(metricDatumOriginal.value() + metricDatumNew.value())
+          .sampleCount(if (metricDatumOriginal.unit().equals(StandardUnit.COUNT)) 1d else 2d)
+          .build()
       case stats =>
-        new StatisticSet()
-          .withMinimum(Math.min(stats.getMinimum, metricDatumNew.getValue))
-          .withMaximum(Math.max(stats.getMinimum, metricDatumNew.getValue))
-          .withSum(stats.getSum + metricDatumNew.getValue)
-          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else stats.getSampleCount + 1)
+        StatisticSet.builder()
+          .minimum(Math.min(stats.minimum(), metricDatumNew.value()))
+          .maximum(Math.max(stats.minimum(), metricDatumNew.value()))
+          .sum(stats.sum() + metricDatumNew.value())
+          .sampleCount(if (metricDatumOriginal.unit().equals(StandardUnit.COUNT)) 1d else stats.sampleCount() + 1)
+          .build()
     }
   }
 

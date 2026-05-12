@@ -3,7 +3,9 @@ package com.gu.mediaservice.lib.elasticsearch
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import org.joda.time.DateTime
-import com.gu.mediaservice.lib.config. Provider
+import com.gu.mediaservice.lib.config.Provider
+import scalaz.NonEmptyList
+
 import scala.concurrent.Future
 
 trait ReapableEligibility extends Provider{
@@ -13,7 +15,7 @@ trait ReapableEligibility extends Provider{
 
 
   val maybePersistOnlyTheseCollections: Option[Set[String]] // typically from config
-  val persistenceIdentifier: String // typically from config
+  val persistenceIdentifiers: NonEmptyList[String] // typically from config
 
   private def moreThanTwentyDaysOld =
     filters.date("uploadTime", None, Some(DateTime.now().minusDays(20))).getOrElse(matchAllQuery())
@@ -29,7 +31,7 @@ trait ReapableEligibility extends Provider{
     PersistedQueries.addedToPhotoshoot,
     PersistedQueries.hasLabels,
     PersistedQueries.hasLeases,
-    PersistedQueries.existedPreGrid(persistenceIdentifier),
+    PersistedQueries.hasPersistedIdentifier(persistenceIdentifiers),
     PersistedQueries.isInPersistedCollection(maybePersistOnlyTheseCollections)
   )
 
