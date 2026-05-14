@@ -49,7 +49,7 @@ const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string
     }, 1);
 };
 
-export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean ) => {
+export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean, useAISearch?: boolean ) => {
     const structuredQuery = structureQuery(query || "");
     const searchUuid = v4();
     // nonFree is unfortunately either a boolean, stringified boolean, or undefined
@@ -63,7 +63,6 @@ export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string,
     if (uploadedByMeOnly) {
         sendFilterTelemetryEvent('uploadedByMeOnly', 'true', searchUuid);
     }
-
     structuredQuery.forEach(queryComponent => {
         // e.g. filter or search:
         // search > {type: 'text', value: 'my search'}
@@ -78,7 +77,8 @@ export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string,
         // In case search is empty, as with a search containing only filters
         sendTelemetryEvent(formattedType(type), {
             ...queryComponent,
-            searchUuid: searchUuid
+            searchUuid: searchUuid,
+            useAISearch: useAISearch ?? false
         }, 1);
     });
 };

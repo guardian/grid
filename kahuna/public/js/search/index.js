@@ -193,9 +193,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         // Non-URL parameters
         params: {
             // Routing-level property indicating whether the state has
-            // been loaded as part of a deep-state redirect. Note that
-            // this param gets cleared below so it should never reach
-            // controllers
+            // been loaded as part of a deep-state redirect.
             isDeepStateRedirect: {value: false, type: 'bool'}
         },
         data: {
@@ -207,11 +205,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             // Helper state to determine whether this is just
             // reloading a previous search state, or a new search
             isReloadingPreviousSearch: ['$stateParams', function($stateParams) {
-                const isDeepStateRedirect = $stateParams.isDeepStateRedirect;
-                // *Clear* that transient routing-level flag so we
-                // *don't pollute the $stateParams
-                delete $stateParams.isDeepStateRedirect;
-                return isDeepStateRedirect;
+                return $stateParams.isDeepStateRedirect === true;
             }],
             selection: ['orderedSetFactory', function(orderedSetFactory) {
                 return orderedSetFactory();
@@ -321,7 +315,15 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 // FIXME: This is here if you go to another state directly e.g. `'/images/id'`
 // and then navigate to search. As it has no remembered `deepStateRedirect`,
 // we just land on `/`. See [1].
-search.run(['$rootScope', '$state', function($rootScope, $state) {
+search.run(['$rootScope', '$state', '$stateParams', '$timeout', function($rootScope, $state, $stateParams, $timeout) {
+    $rootScope.$on('$viewContentLoaded', (_, view) => {
+        if (view === 'results@search') {
+            // using a timeout of 0 to schedule the task for execution ASAP, but outside the ongoing transition
+            $timeout(() => {
+                $state.go('search.results', {isDeepStateRedirect: false});
+            });
+        }
+    });
     $rootScope.$on('$stateChangeSuccess', (_, toState) => {
         if (toState.name === 'search') {
             $state.go('search.results', null, {reload: true});

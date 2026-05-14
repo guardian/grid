@@ -62,7 +62,7 @@
     "htmllint-cli": "0.0.7",
     "image-minimizer-webpack-plugin": "3.2.3",
     "imagemin": "8.0.1",
-    "imagemin-svgo": "10.0.1",
+    "imagemin-svgo": "12.0.0",
     "jest": "30.0.0",
     "jest-environment-jsdom": "30.0.0",
     "style-loader": "3.3.1",
