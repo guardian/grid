@@ -420,7 +420,7 @@ object ApParser extends ImageProcessor {
 
   def isApCredit(credit: String): Boolean = {
     val lc = credit.toLowerCase.trim
-    lc == "ap" || lc == "associated press"
+    lc == "ap" || lc == "associated press" || lc == "ap photo"
   }
 
   def isBareInvisionCredit(credit: String): Boolean =
