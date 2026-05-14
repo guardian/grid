@@ -18,7 +18,7 @@ import _root_.play.api.libs.ws.WSRequest
 import software.amazon.awssdk.services.s3.model.GetObjectResponse
 
 import java.io.{File, FileOutputStream, InputStream}
-import java.time.Instant
+import java.time.{Instant, OffsetDateTime}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -58,7 +58,7 @@ object S3FileExtractedMetadata {
     }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(Instant.parse)
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(OffsetDateTime.parse).map(_.toInstant)
     val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
     val identifiers = fileUserMetadata.filter{ case (key, _) =>
       key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)

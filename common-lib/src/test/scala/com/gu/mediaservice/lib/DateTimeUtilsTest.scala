@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib
 
-import org.joda.time.DateTime
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 

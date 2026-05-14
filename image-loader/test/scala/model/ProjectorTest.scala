@@ -246,7 +246,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
       val result = S3FileExtractedMetadata(res)
       result.uploadFileName shouldBe Some("This photo was taken in Łódź.jpg")
       result.uploadedBy shouldBe "séb.cevey@theguardian.co.uk"
-      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34Z"
       result.identifiers.size shouldBe 1
       result.identifiers.get("picdarurn") shouldBe Some("12*543^25")
     }
@@ -265,7 +265,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
       val result = S3FileExtractedMetadata(res)
       result.uploadFileName shouldBe Some("filename.jpg")
       result.uploadedBy shouldBe "user"
-      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34Z"
       result.identifiers.size shouldBe 1
       result.identifiers.get("picdarurn") shouldBe Some("12*543")
     }
