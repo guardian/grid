@@ -1,18 +1,14 @@
 package lib.storage
 
-import com.amazonaws.HttpMethod
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.services.s3.model.{DeleteObjectResponse, GetObjectResponse, NoSuchKeyException, PutObjectRequest}
-import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 
 import java.io.File
 import java.time.{Duration, Instant, ZonedDateTime}
-import java.util.Date
 import scala.jdk.CollectionConverters._
 
 class S3FileDoesNotExistException extends Exception()
