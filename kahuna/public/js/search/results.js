@@ -229,52 +229,88 @@ results.controller('SearchResultsCtrl', [
             lastSearchFirstResultTime = undefined;
         }
 
-        // Initial search to find upper `until` boundary of result set
-        // (i.e. the uploadTime of the newest result in the set)
+        function initialiseSharedResults(images) {
+          ctrl.totalResults = images.total;
+          // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
+          ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
-        // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
-            ctrl.totalResults = images.total;
-            // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
-            ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
+          ctrl.hasQuery = !!$stateParams.query;
+          ctrl.initialSearchUri = images.uri;
+          ctrl.embeddableUrl = window.location.href;
 
-            ctrl.hasQuery = !!$stateParams.query;
-            ctrl.initialSearchUri = images.uri;
-            ctrl.embeddableUrl = window.location.href;
+          // images will be the array of loaded images, used for display
+          ctrl.images = [];
 
-            // images will be the array of loaded images, used for display
-            ctrl.images = [];
+          imagesPositions = new Map();
 
-            // imagesAll will be a sparse array of all the results
-            const totalLength = Math.min(images.total, ctrl.maxResults);
-            ctrl.imagesAll = [];
-            ctrl.imagesAll.length = totalLength;
+          notificationMessages(ctrl.extendedSortProps, ctrl.totalResults);
+        }
 
-            // TODO: ultimately we want to manage the state in the
-            // results stream exclusively
-            results.clear();
-            results.resize(totalLength);
+        function initialiseAiResults(images) {
+          const totalLength = images.data.length;
+          ctrl.imagesAll = new Array(totalLength);
 
-            notificationMessages(ctrl.extendedSortProps, images.total);
+          // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
+          // so we populate the full backing array up front to avoid placeholder rows.
+          results.clear();
+          results.resize(totalLength);
 
-            imagesPositions = new Map();
+          images.data.forEach((image, index) => {
+            ctrl.imagesAll[index] = image;
+            imagesPositions.set(image.data.id, index);
+            results.set(index, image);
+          });
 
+          ctrl.images = images.data.slice();
+        }
+
+        function initialisePagedResults(images) {
+          const totalLength = Math.min(images.total, ctrl.maxResults);
+          ctrl.imagesAll = [];
+          ctrl.imagesAll.length = totalLength;
+
+          // TODO: ultimately we want to manage the state in the
+          // results stream exclusively
+          results.clear();
+          results.resize(totalLength);
+        }
+
+        function updateLastSearchBoundary() {
+          const until = $stateParams.until || null;
+          const latestTime = until || moment().toISOString();
+
+          if (latestTime && ! isReloadingPreviousSearch) {
+            lastSearchFirstResultTime = latestTime;
+          }
+        }
+
+        function initialiseResults(images, { isAiSearch }) {
+          initialiseSharedResults(images);
+
+          if (isAiSearch) {
+            initialiseAiResults(images);
+          } else {
+            initialisePagedResults(images);
             checkForNewImages();
+          }
 
-            // Keep track of time of the latest result for all
-            // subsequent searches (so we always query the same set of
-            // results), unless we're reloading a previous search in
-            // which case we reuse the previous time too
+          updateLastSearchBoundary();
 
-            const until = $stateParams.until || null;
-            const latestTime = until || moment().toISOString();
+          return images;
+        }
 
-            if (latestTime && ! isReloadingPreviousSearch) {
-                lastSearchFirstResultTime = latestTime;
-            }
+          // Initial search to find upper `until` boundary of result set
+          // (i.e. the uploadTime of the newest result in the set)
 
-            return images;
-        }).catch(error => {
+          // TODO: avoid this initial search (two API calls to init!)
+          const isAiSearch = !!$stateParams.useAISearch;
+          const initialSearchParams = isAiSearch
+            ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
+            : {length: 1, orderBy: 'newest'};
+
+          ctrl.searched = search(initialSearchParams).then(images =>
+            initialiseResults(images, { isAiSearch })
+          ).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
@@ -282,6 +318,10 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
+            if ($stateParams.useAISearch) {
+              return;
+            }
+
             const length = end - start + 1;
             search({offset: start, length: length, countAll: false}).then(images => {
             // Update imagesAll with newly loaded images

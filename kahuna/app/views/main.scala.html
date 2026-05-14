@@ -86,6 +86,7 @@
           featureSwitches: @Html(featureSwitches),
           telemetryUri: '@kahunaConfig.telemetryUri.getOrElse("")',
           usePermissionsFilter: @kahunaConfig.usePermissionsFilter.getOrElse(false),
+          aiSearchResultLimit: @kahunaConfig.aiSearchResultLimit,
           usageRightsSummary: @kahunaConfig.usageRightsSummary.getOrElse(false),
           interimFilterOptions: @Html(interimFilterOptions),
           permissionsDefault: "@kahunaConfig.permissionsDefault",
