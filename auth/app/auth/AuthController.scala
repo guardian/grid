@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
 
 import java.net.URI
-import java.util.Date
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -35,7 +35,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def cookieMonster = auth { request =>
     providers.userProvider match {
       case panda: PandaAuthenticationProvider =>{
-        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = new Date().getTime)))
+        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = Instant.now())))
         cookieBatter.fold(respond("Me want cookie."))(cookie => respond("Cookies are a sometimes food.").withCookies(cookie))
       }
       case _ => respond("Me want cookie.")
