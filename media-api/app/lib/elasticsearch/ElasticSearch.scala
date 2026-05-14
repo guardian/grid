@@ -200,56 +200,17 @@ class ElasticSearch(
     queryEmbedding: List[Float],
     k: Int,
     numCandidates: Int,
-//    maxScore: Double,
     vecWeight: Double,
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
   ): Future[SearchResults] = {
 
-//    TEST ON CEREBRO WITH
-//     {"query": {
-//      "bool": {
-//        "must": [
-//          {
-//            "multi_match": {
-//              "query": "politics",
-//              "fields": [
-//                "id",
-//                "source.mimeType",
-//                "metadata.description",
-//                "metadata.title",
-//                "metadata.byline",
-//                "metadata.source",
-//                "metadata.credit",
-//                "metadata.keywords",
-//                "metadata.subLocation",
-//                "metadata.city",
-//                "metadata.state",
-//                "metadata.country",
-//                "metadata.suppliersReference",
-//                "metadata.peopleInImage",
-//                "metadata.specialInstructions",
-//                "metadata.englishAnalysedCatchAll",
-//                "metadata.imageType",
-//                "userMetadata.labels",
-//                "identifiers.YOUR_PERSISTENCE_IDENTIFIER",
-//                "identifiers.derivative-of-media-ids",
-//                "usageRights.restrictions"
-//              ],
-//              "type": "best_fields",
-//              "fuzziness": "AUTO",
-//              "max_expansions": 50,
-//              "operator": "and",
-//              "prefix_length": 1
-//            }
-//          }
-//        ]
-//      }
-//    }
-//  }
+// BM25 scores are unbounded [0,inf] and typically much larger in magnitude
+// than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
+// the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
+// and can be effectively combined in a hybrid query.
     def maxBM25Score(query: String): Future[Double] = {
-
       val maxScore = ElasticDsl.search(imagesCurrentAlias)
         .query(BoolQuery().must(
           MultiMatchQuery(
@@ -260,11 +221,8 @@ class ElasticSearch(
             maxExpansions = Some(50),
             operator = Some(And),
             prefixLength = Some(1),
-//            boost = Some(1.0)
           ))
         )
-        .size(0) // we don't actually need the hits, just the max score
-
       val maxScoreFuture = executeAndLog(withSearchQueryTimeout(maxScore), "max BM25 score").map { r =>
         logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore} with total hits ${r.result.totalHits}")
         if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
@@ -282,8 +240,17 @@ class ElasticSearch(
     val lexicalWeight = 1.0 - vecWeight
 
     maxBM25Score(query).flatMap { maxScore =>
-      val scalingFactor = 1.0 / maxScore
-      val multiMatchBoost = lexicalWeight * scalingFactor
+//    TODO check if maxScore is 0 and check if vecWeight is 0
+
+//    KNN results are in [0,1], but BM25 scores are unbounded and typically much
+//    larger than cosine similarity, so we need to apply a scaling factor to the
+//    BM25 score to bring it to the same range as the cosine similarity
+      val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
+
+//    We want to apply only one boost if we can help it, so we scale the
+//    multi_match boost to be in line with the max_score and the desired
+//    lexical_weight/vec_weight balance
+      val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight/vecWeight) * scalingFactor else 1.0
 
       logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
