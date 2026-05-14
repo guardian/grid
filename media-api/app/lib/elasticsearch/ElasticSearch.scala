@@ -200,61 +200,112 @@ class ElasticSearch(
     queryEmbedding: List[Float],
     k: Int,
     numCandidates: Int,
-    maxScore: Double,
+//    maxScore: Double,
     vecWeight: Double,
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
   ): Future[SearchResults] = {
+
+//    TEST ON CEREBRO WITH
+//     {"query": {
+//      "bool": {
+//        "must": [
+//          {
+//            "multi_match": {
+//              "query": "politics",
+//              "fields": [
+//                "id",
+//                "source.mimeType",
+//                "metadata.description",
+//                "metadata.title",
+//                "metadata.byline",
+//                "metadata.source",
+//                "metadata.credit",
+//                "metadata.keywords",
+//                "metadata.subLocation",
+//                "metadata.city",
+//                "metadata.state",
+//                "metadata.country",
+//                "metadata.suppliersReference",
+//                "metadata.peopleInImage",
+//                "metadata.specialInstructions",
+//                "metadata.englishAnalysedCatchAll",
+//                "metadata.imageType",
+//                "userMetadata.labels",
+//                "identifiers.YOUR_PERSISTENCE_IDENTIFIER",
+//                "identifiers.derivative-of-media-ids",
+//                "usageRights.restrictions"
+//              ],
+//              "type": "best_fields",
+//              "fuzziness": "AUTO",
+//              "max_expansions": 50,
+//              "operator": "and",
+//              "prefix_length": 1
+//            }
+//          }
+//        ]
+//      }
+//    }
+//  }
+    def maxBM25Score(query: String): Future[Double] = {
+
+      val maxScore = ElasticDsl.search(imagesCurrentAlias)
+        .query(BoolQuery().must(
+          MultiMatchQuery(
+            text = query,
+            fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),
+            `type` = Some(BEST_FIELDS),
+            fuzziness = Some("AUTO"),
+            maxExpansions = Some(50),
+            operator = Some(And),
+            prefixLength = Some(1),
+//            boost = Some(1.0)
+          ))
+        )
+        .size(0) // we don't actually need the hits, just the max score
+
+      val maxScoreFuture = executeAndLog(withSearchQueryTimeout(maxScore), "max BM25 score").map { r =>
+        logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore} with total hits ${r.result.totalHits}")
+        if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
+      }
+      maxScoreFuture
+    }
+
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
     val knn = Knn("embedding.cohereEmbedV4.image")
       .queryVector(queryEmbeddingDouble)
       .k(k)
       .numCandidates(numCandidates)
+      .boost(1.0)
 
-    val multiMatchQuery = MultiMatchQuery(
-      text = query,
-      fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),
-      `type` = Some(BEST_FIELDS),
-      fuzziness = Some("AUTO"),
-      maxExpansions = Some(50),
-      operator = Some(And),
-      prefixLength = Some(1)
-    )
+    val lexicalWeight = 1.0 - vecWeight
 
-    val scriptParams: Map[String, Any] = Map(
-      "queryVector" -> queryEmbeddingDouble,
-      "maxScore" -> maxScore,
-      "vecWeight" -> vecWeight,
-      "lexicalWeight" -> (1.0 - vecWeight),
-    )
+    maxBM25Score(query).flatMap { maxScore =>
+      val scalingFactor = 1.0 / maxScore
+      val multiMatchBoost = lexicalWeight * scalingFactor
 
-    //language=groovy -- it's actually painless, but that's pretty similar to groovy and this provides syntax highlighting
-    val script: String =
-      """// _score reflects lexical relevance but is not pure BM25
-        |double scoreVal = _score;
-        |// Normalise lexical magnitude using approximate max to prevent BM25 signal dominance
-        |double scoreNorm = (scoreVal / params.maxScore) + 1.0;
-        |
-        |// Cosine similarity shifted to positive range.
-        |// Pre-shifting, negative similarities are rare in practice but allowed.
-        |double vectorScore = 0;
-        |if (doc['embedding.cohereEmbedV4.image'].size() > 0) {
-        |  vectorScore = cosineSimilarity(params.queryVector, 'embedding.cohereEmbedV4.image') + 1.0;
-        |}
-        |
-        |return (params.vecWeight * vectorScore) +
-        |       (params.lexicalWeight * scoreNorm);
-        |""".stripMargin
+      logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
-    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
-      .scriptfields(ScriptField("source", Script(script, params = scriptParams)))
-      .size(k)
+      val multiMatchQuery = MultiMatchQuery(
+        text = query,
+        fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),
+        `type` = Some(BEST_FIELDS),
+        fuzziness = Some("AUTO"),
+        maxExpansions = Some(50),
+        operator = Some(And),
+        prefixLength = Some(1),
+        boost = Some(multiMatchBoost)
+      )
 
-    executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search").map { r =>
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-      SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+        .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+        .size(k)
+
+      executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search").map { r =>
+        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+      }
     }
   }
 

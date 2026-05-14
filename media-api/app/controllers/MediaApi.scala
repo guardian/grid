@@ -641,8 +641,7 @@ class MediaApi(
           queryEmbedding = embedding,
           k = k,
           numCandidates = Math.max(k * 2, 100),
-          maxScore = 1, // TODO execute first query to get max score
-          vecWeight = 0.5, // TODO hardcode the actual constant here
+          vecWeight = 1.0, // TODO hardcode the actual constant here
         )
       } yield searchResults
     }
