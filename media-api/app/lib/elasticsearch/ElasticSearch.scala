@@ -240,8 +240,6 @@ class ElasticSearch(
     val lexicalWeight = 1.0 - vecWeight
 
     maxBM25Score(query).flatMap { maxScore =>
-//    TODO check if maxScore is 0 and check if vecWeight is 0
-
 //    KNN results are in [0,1], but BM25 scores are unbounded and typically much
 //    larger than cosine similarity, so we need to apply a scaling factor to the
 //    BM25 score to bring it to the same range as the cosine similarity
@@ -254,6 +252,7 @@ class ElasticSearch(
 
       logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
+//      TODO make case class for multimatchQuery to avoid repetition
       val multiMatchQuery = MultiMatchQuery(
         text = query,
         fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),

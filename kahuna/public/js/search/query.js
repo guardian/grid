@@ -82,8 +82,10 @@ query.controller('SearchQueryCtrl', [
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
+      ctrl.vecWeight = false;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+      ctrl.vecWeight = ($stateParams.vecWeight === 8 || $stateParams.vecWeight === true) ? true : false;
     }
 
     //--react - angular interop events--

@@ -86,6 +86,7 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
+  vecWeight: Option[Int] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -175,6 +176,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
+      request.getQueryString("vecWeight") flatMap parseIntFromQuery,
     )
   }
 

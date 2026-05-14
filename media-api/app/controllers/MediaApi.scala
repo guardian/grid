@@ -88,7 +88,8 @@ class MediaApi(
     "syndicationStatus",
     "countAll",
     "persisted",
-    "useAISearch"
+    "useAISearch",
+    "vecWeight"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -618,7 +619,7 @@ class MediaApi(
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByText(query: String, k: Int, vecWeight: Int): Future[SearchResults] = {
       // Normalise key so that "Dogs" and "dogs " share a cache entry.
       val cacheKey = query.trim.toLowerCase
 
@@ -634,6 +635,7 @@ class MediaApi(
       // load fires and both callers receive the same Future.
       val embeddingFuture = embeddingCache.get(cacheKey)
 
+      logger.info(markers, s"vecWeight for query '$query' is $vecWeight")
       for {
         embedding <- embeddingFuture
         searchResults <- elasticSearch.hybridSearch(
@@ -646,11 +648,11 @@ class MediaApi(
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(query: String): Future[Result] = {
+    def performAiSearchAndRespond(query: String, vecWeight: Option[Int]): Future[Result] = {
       val k = config.aiSearchResultLimit
       val searchResultsFuture = parseAiSearchMode(query) match {
         case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, vecWeight.getOrElse(0))
       }
 
       searchResultsFuture.map(aiSearchResponseFromResults)
@@ -662,7 +664,7 @@ class MediaApi(
         case _ if _searchParams.length == 0 =>
           emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(q)
+          performAiSearchAndRespond(q, _searchParams.vecWeight)
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
