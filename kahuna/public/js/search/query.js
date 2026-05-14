@@ -85,7 +85,7 @@ query.controller('SearchQueryCtrl', [
       ctrl.vecWeight = false;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
-      ctrl.vecWeight = ($stateParams.vecWeight === 8 || $stateParams.vecWeight === true) ? true : false;
+      ctrl.vecWeight = $stateParams.vecWeight;
     }
 
     //--react - angular interop events--
@@ -457,11 +457,12 @@ query.controller('SearchQueryCtrl', [
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
-          useAISearch: true
+          useAISearch: true,
+          vecWeight: ctrl.vecWeight
         });
       } else {
           $state.go('search.results', {...ctrl.filter,  useAISearch: null});
-      }
+    }
     });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {

@@ -86,7 +86,7 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
-  vecWeight: Option[Int] = None
+  vecWeight: Option[Double] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -116,6 +116,7 @@ object SearchParams {
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseDoubleFromQuery(s: String): Option[Double] = Try(s.toDouble).toOption
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
   def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
@@ -176,7 +177,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
-      request.getQueryString("vecWeight") flatMap parseIntFromQuery,
+      request.getQueryString("vecWeight") flatMap parseDoubleFromQuery,
     )
   }
 

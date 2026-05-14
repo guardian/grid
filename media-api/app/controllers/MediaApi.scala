@@ -619,7 +619,7 @@ class MediaApi(
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int, vecWeight: Int): Future[SearchResults] = {
+    def semanticSearchByText(query: String, k: Int, vecWeight: Option[Double]): Future[SearchResults] = {
       // Normalise key so that "Dogs" and "dogs " share a cache entry.
       val cacheKey = query.trim.toLowerCase
 
@@ -631,11 +631,13 @@ class MediaApi(
         logger.info(markers, s"AI search embedding cache miss query=$query")
       }
 
+      val weight = vecWeight.getOrElse(0.8)
+
       // cache.get(key) is atomic: if two requests race on the same key, only one
       // load fires and both callers receive the same Future.
       val embeddingFuture = embeddingCache.get(cacheKey)
 
-      logger.info(markers, s"vecWeight for query '$query' is $vecWeight")
+      logger.info(markers, s"vecWeight for query '$query' is $weight")
       for {
         embedding <- embeddingFuture
         searchResults <- elasticSearch.hybridSearch(
@@ -643,16 +645,16 @@ class MediaApi(
           queryEmbedding = embedding,
           k = k,
           numCandidates = Math.max(k * 2, 100),
-          vecWeight = 0.0, // TODO hardcode the actual constant here
+          vecWeight = weight,
         )
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(query: String, vecWeight: Option[Int]): Future[Result] = {
+    def performAiSearchAndRespond(query: String, vecWeight: Option[Double]): Future[Result] = {
       val k = config.aiSearchResultLimit
       val searchResultsFuture = parseAiSearchMode(query) match {
         case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, vecWeight.getOrElse(0))
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, vecWeight)
       }
 
       searchResultsFuture.map(aiSearchResponseFromResults)
