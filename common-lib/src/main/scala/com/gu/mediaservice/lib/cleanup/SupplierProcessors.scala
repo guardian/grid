@@ -275,7 +275,7 @@ object ApParser extends ImageProcessor {
   }
 
   def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("ap") | Some("associated press") => image.copy(
+    case Some("ap") | Some("ap photo") | Some("associated press") => image.copy(
       usageRights = Agency("AP"),
       metadata    = image.metadata.copy(credit = Some("AP"), suppliersReference = getSuppliersReference(image))
     )
