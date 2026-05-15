@@ -201,15 +201,30 @@ export function FieldValue({
     );
   }
 
-  // List field -- render as search pills
+  // List field -- render as search pills or stacked links
   if (field.isList) {
     const values = field.accessor(image);
     if (!Array.isArray(values) || values.length === 0) return null;
     const accent = field.pillVariant === "accent";
+
+    // Stacked links style (e.g. collections -- one clickable link per line)
+    if (field.detailListStyle === "links") {
+      return (
+        <div className="flex flex-col gap-0.5 pt-0.5">
+          {values.map((v) => {
+            const label = field.detailItemLabel?.(image, v) ?? v;
+            return (
+              <ValueLink key={v} cqlKey={field.cqlKey!} value={v} label={label} onSearch={onSearch} />
+            );
+          })}
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-wrap gap-1 pt-0.5">
         {values.map((v) => (
-          <SearchPill key={v} cqlKey={field.cqlKey!} value={v} onSearch={onSearch} accent={accent} />
+          <SearchPill key={v} cqlKey={field.cqlKey!} value={v} label={field.detailItemLabel?.(image, v)} onSearch={onSearch} accent={accent} />
         ))}
       </div>
     );

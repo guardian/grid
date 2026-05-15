@@ -45,6 +45,7 @@ These gaps block or degrade the following Kupua features:
 | **Accent-insensitive field search** | `by:Jose` finds `José Oliva`. `city:Munster` finds `Münster`. `credit:Jurgen` finds `Jürgen Schwarz`. | Requires the proposed `standard_folding` analyser (§2c) on text fields, and `lowercase_asciifolding` normalizer on keyword fields. Currently, 10 of 12 text fields lack folding. |
 | **Exact phrase search (no stemming)** | `description:"running man"` finds exactly that phrase, not documents about "a man who runs". | Requires `.exact` sub-field on `description` and `title` (§2b). Currently, stemmed fields can only do stemmed search. |
 | **Grouping / deduplication** | Group results by photographer, by location, by copyright holder — useful for editorial workflows ("show me one image per photographer from this event"). | Needs keyword sub-fields for `terms` aggregation with `top_hits`. |
+| **Exact collection subtree counts** | CollectionTree needs per-node counts that include all descendants. Currently uses a `terms` agg on `collections.pathId` + client-side tree walk to sum children — overcounts when a document belongs to multiple sibling collections (~4% on TEST). A `terms` agg on `collections.pathHierarchy` would give exact subtree counts directly (the `hierarchyAnalyzer` tokenizes each pathId into all ancestor prefixes, so the bucket for `culture` naturally includes all `culture/*` docs). | `pathHierarchy` is `text` — terms aggs require `fielddata: true` (§2d). |
 
 ---
 
@@ -113,7 +114,7 @@ the individual text fields the same folding that the catch-all already has.
 
 ---
 
-## 2. Three Proposed Enhancements
+## 2. Four Proposed Enhancements
 
 ### 2a. Add `.keyword` sub-fields to name/place fields
 
@@ -283,6 +284,65 @@ collapse into one bucket instead of appearing twice:
 
 Same trade-off: agg results are normalised. Use `_source` for display.
 
+### 2d. Enable `fielddata` on `collections.pathHierarchy` for subtree aggregation
+
+**The problem.** The CollectionTree panel displays per-node image counts.
+The count for a parent should include all descendants — e.g. `culture`
+should count images in `culture/test collection 1/test` too. Kupua
+currently runs a `terms` agg on `collections.pathId` (keyword) and walks
+the collection tree client-side to sum children into parents
+(`buildSubtreeCounts`). This has two problems:
+
+1. **Overcounting.** `doc_count` per bucket is not exclusive — a document in
+   two sibling subcollections is counted in both. Naive summation overcounts.
+   On TEST: the `culture` subtree sums to 69 via tree walk but the actual
+   unique document count is 66 (~4% overcount).
+2. **Tree/agg mismatch.** If a subcollection exists in ES data but is missing
+   from the collection service tree, its `doc_count` is silently lost. On
+   TEST: `culture/test collection 1/test` (12 docs) was absent from the tree
+   → `culture` showed 57 instead of 66.
+
+**The fix.** `collections.pathHierarchy` uses `hierarchyAnalyzer`
+(`path_hierarchy` tokenizer + lowercase). When `pathId: "culture/test
+collection 1/test"` is indexed, `copy_to` sends it to `pathHierarchy`,
+which tokenizes it into: `culture`, `culture/test collection 1`,
+`culture/test collection 1/test`. A `terms` agg on `pathHierarchy` would
+produce one bucket per path prefix, with `doc_count` = the exact number
+of unique documents at or below that prefix. No client-side tree walk
+needed, no overcounting, no tree-mismatch risk.
+
+**The blocker.** `pathHierarchy` is a `text` field. ES refuses `terms`
+aggs on text fields unless `fielddata: true` is set — this loads all
+unique terms into JVM heap at first use and keeps them there.
+
+**Memory estimate.** `pathHierarchy` is low-cardinality for a text field:
+~6,000 unique collection pathIds × a few hierarchy tokens each ≈ ~20,000
+unique terms. With ~9M docs and typically 1–3 collection memberships per
+doc, the fielddata footprint is roughly 100–300 MB — significant but
+manageable, and far below the multi-GB heap cost of enabling fielddata on
+a high-cardinality field like `description`.
+
+**Change required:**
+
+```scala
+// In Mappings.scala, inside collectionMapping():
+"pathHierarchy" -> textField("pathHierarchy")
+  .analyzer("hierarchyAnalyzer")
+  .fielddata(true)   // ← NEW: enables terms agg for subtree counts
+```
+
+No re-index needed — `fielddata: true` is a mapping property change that
+takes effect immediately (it changes query-time behaviour, not index-time
+behaviour). Existing data is already tokenized correctly.
+
+**Alternative if fielddata is rejected:** add a new keyword array field
+`collections.pathAncestors` that materializes the hierarchy at index time
+(same pattern as the `usages` rollup fields in §3). Each document would
+store `["culture", "culture/test collection 1", "culture/test collection
+1/test"]` as keyword values. A terms agg on this field gives the same
+result without fielddata. Downside: requires a Thrall indexing change and
+a re-index.
+
 ---
 
 ## 3. Which Fields Need What
@@ -325,6 +385,12 @@ Same trade-off: agg results are normalised. Use `_source` for display.
 |---|---|---|
 | **`metadata.credit`** | `keyword` | Correct type. But case-sensitive and no folding. `credit:Jurgen` doesn't find `"Jürgen Schwarz"`. Normalizer would fix. |
 | **`metadata.source`** | `keyword` | Same. |
+
+### Fields that should get `fielddata: true`
+
+| Field | Current mapping | Why |
+|---|---|---|
+| **`collections.pathHierarchy`** | `text` (`hierarchyAnalyzer`) | Subtree counts for CollectionTree. The hierarchy tokenizer already produces ancestor-prefix tokens — `fielddata: true` enables a terms agg that gives exact per-node subtree counts in a single query, replacing the current client-side tree walk (which overcounts and misses orphaned nodes). Low-cardinality (~20k terms) so fielddata heap cost is manageable (~100–300 MB). No re-index needed. |
 
 ### Precedent: the `usages` rollup pattern
 

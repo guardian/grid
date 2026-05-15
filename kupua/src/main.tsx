@@ -7,12 +7,18 @@ import { synthesiseKupuaKeyIfAbsent, getCurrentKupuaKey } from "./lib/orchestrat
 import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/history-snapshot";
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
+import { useCollectionStore } from "./stores/collection-store";
 import "./index.css";
 
 // Populate quota map once at startup. Fire-and-forget — if the API is
 // unavailable (dev without tunnel, 401) the map stays empty and images stay
 // "free". See kupua/src/lib/cost/quota-store.ts.
 fetchQuotas();
+
+// Load collection tree + counts once at startup. Fire-and-forget — if the
+// collections service is unavailable, the Collections panel section is hidden.
+// See kupua/src/stores/collection-store.ts.
+useCollectionStore.getState().loadCollections();
 
 // Disable browser's automatic scroll restoration — we manage scroll
 // position ourselves via snapshot-based restoration on popstate.

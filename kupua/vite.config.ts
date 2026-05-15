@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -85,6 +86,13 @@ function gridApiWriteGuard(): Plugin {
       }
     },
   };
+}
+
+// Load .env.local into process.env so proxy targets can read it.
+// Vite does not inject .env files into process.env automatically for vite.config.ts.
+// Gated: vitest re-uses this config and the side-effect leaks real env vars into tests.
+if (!process.env.VITEST) {
+  Object.assign(process.env, loadEnv("development", process.cwd(), ""));
 }
 
 export default defineConfig({

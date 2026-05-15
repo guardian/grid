@@ -46,6 +46,21 @@ export const DATE_SORT_FIELDS = new Set([
 export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   if (!orderBy) return [{ uploadTime: "desc" }, { id: "asc" }];
 
+  // Special sort: dateAddedToCollection → collections.actionData.date
+  // Convention: -field = desc (newest first), field = asc (oldest first).
+  // Usable globally (not only inside a collection context): images without
+  // any collection membership have no actionData.date — missing: "_last"
+  // pushes them to the end regardless of direction, and the uploadTime
+  // secondary sort keeps null-zone pagination working correctly.
+  if (orderBy === "-dateAddedToCollection" || orderBy === "dateAddedToCollection") {
+    const dir = orderBy.startsWith("-") ? "desc" : "asc";
+    return [
+      { "collections.actionData.date": { order: dir, missing: "_last" } },
+      { uploadTime: dir },
+      { id: "asc" },
+    ];
+  }
+
   // Short sort aliases (from dropdown / URL) → ES field paths.
   // The URL only ever contains the short alias; the full ES path is
   // resolved here at query time. See field-registry.ts sortKey values.
@@ -146,6 +161,11 @@ export function reverseSortClause(
     const key = Object.keys(clause)[0];
     if (!key) return clause;
     const val = clause[key];
+    if (typeof val === "object" && val !== null && "order" in val) {
+      const obj = val as Record<string, unknown>;
+      const flipped = obj.order === "desc" ? "asc" : "desc";
+      return { [key]: { ...obj, order: flipped } };
+    }
     const dir = typeof val === "string" ? val : "asc";
     return { [key]: dir === "desc" ? "asc" : "desc" };
   });
@@ -163,8 +183,12 @@ export function parseSortField(clause: Record<string, unknown>): {
   if (!key) return { field: null, direction: "asc" };
 
   const val = clause[key];
-  const direction: "asc" | "desc" =
-    typeof val === "string" ? (val as "asc" | "desc") : "asc";
+  let direction: "asc" | "desc" = "asc";
+  if (typeof val === "string") {
+    direction = val as "asc" | "desc";
+  } else if (typeof val === "object" && val !== null && "order" in val) {
+    direction = (val as { order: string }).order as "asc" | "desc";
+  }
 
   return { field: key, direction };
 }

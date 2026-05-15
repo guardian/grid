@@ -69,7 +69,7 @@ interface Lease {
 }
 
 interface Collection {
-  path?: string;
+  path?: string[];
   pathId?: string;
   description?: string;
   actionData?: {

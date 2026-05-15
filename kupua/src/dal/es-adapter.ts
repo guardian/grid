@@ -81,11 +81,12 @@ function sanitizeSortValues(sv: SortValues): SortValues {
  * Returns true if `hitSv` sorts STRICTLY AFTER `cursor` given `sortClause`.
  *
  * Null handling: ES default is `missing: "_last"` regardless of direction.
- * `buildSortClause` (used by `getIdRange`) never sets `missing` explicitly,
- * so null always sorts last. Note: other code paths in this file (e.g. the
- * two-phase null-zone seek around line 1300) DO set `missing` direction-
- * dependently — if a sort clause built that way is ever fed into this
- * helper, the null branch below will need to become direction-aware.
+ * `buildSortClause` uses `missing: "_last"` explicitly for dateAddedToCollection
+ * (matching the default), so null always sorts last for all our sort clauses.
+ * Note: other code paths in this file (e.g. the two-phase null-zone seek
+ * around line 1300) DO set `missing` direction-dependently — if a sort clause
+ * built that way is ever fed into this helper, the null branch below will
+ * need to become direction-aware.
  */
 function sortValuesStrictlyAfter(
   hitSv: SortValues,

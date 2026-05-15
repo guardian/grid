@@ -21,6 +21,7 @@ import type {
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
+import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
@@ -346,9 +347,41 @@ export function buildTypeaheadFields(
 
     // --- Config-driven field aliases with search hints ---
     ...aliasFields,
+
+    // --- Collections (from collection-store tree) ---
+    {
+      fieldName: "collection",
+      resolver: async (value: string) => {
+        const { tree, status } = useCollectionStore.getState();
+        if (!tree || status !== "ready") return [];
+        const pathIds = flattenCollectionPathIds(tree);
+        const lower = value.toLowerCase();
+        return pathIds
+          .filter((id) => id.includes(lower))
+          .sort()
+          .map((id) => ({ value: id }));
+      },
+    },
   ];
 
   // Sort alphabetically, same as kahuna
   return fields.sort((a, b) => a.fieldName.localeCompare(b.fieldName));
 }
 
+// ---------------------------------------------------------------------------
+// Collection tree helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Flatten a CollectionNode tree into a list of all pathIds (depth-first).
+ * Nodes without inner data (no pathId) are skipped.
+ */
+function flattenCollectionPathIds(root: CollectionNode): string[] {
+  const ids: string[] = [];
+  function walk(node: CollectionNode) {
+    if (node.data.data?.pathId) ids.push(node.data.data.pathId);
+    for (const child of node.data.children) walk(child);
+  }
+  walk(root);
+  return ids;
+}

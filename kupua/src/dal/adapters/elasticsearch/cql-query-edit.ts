@@ -170,6 +170,70 @@ export function upsertFieldTerm(
   return query ? `${query} ${desired}` : desired;
 }
 
+/**
+ * Remove ALL occurrences of a field key (any value, any polarity) from a CQL
+ * query string. Useful for exclusive filters like collection, where selecting
+ * a new value should clear all previous values for that key.
+ *
+ * Positions are spliced right-to-left so earlier offsets remain valid.
+ */
+export function removeAllFieldTerms(query: string, key: string): string {
+  if (!query.trim()) return query;
 
+  const result = parser(query);
+  if (!result.queryAst?.content) return query;
 
+  // Collect all matching term positions
+  // queryAst.content is a CqlBinary (the parser always wraps at the top level),
+  // so we call collectInBinary — not collectByKey, which expects a CqlExpr.
+  const found: FoundTerm[] = [];
+  collectInBinary(result.queryAst.content, key, query, found);
+
+  if (found.length === 0) return query;
+
+  // Sort descending by start so we splice from right to left
+  found.sort((a, b) => b.start - a.start);
+
+  let q = query;
+  for (const term of found) {
+    q = (q.slice(0, term.start) + q.slice(term.end)).replace(/\s{2,}/g, " ").trim();
+  }
+  return q;
+}
+
+function collectByKey(
+  expr: CqlExpr,
+  key: string,
+  query: string,
+  out: FoundTerm[]
+): void {
+  switch (expr.content.type) {
+    case "CqlField": {
+      const field = expr.content;
+      const fieldKey = field.key.literal ?? field.key.lexeme;
+      if (fieldKey.toLowerCase() === key.toLowerCase()) {
+        const fieldValue = field.value?.literal ?? field.value?.lexeme ?? "";
+        const term = matchField(expr, field, key, fieldValue, query);
+        if (term) out.push(term);
+      }
+      break;
+    }
+    case "CqlBinary":
+      collectInBinary(expr.content, key, query, out);
+      break;
+    case "CqlGroup":
+      collectInBinary(expr.content.content, key, query, out);
+      break;
+  }
+}
+
+function collectInBinary(
+  binary: CqlBinary,
+  key: string,
+  query: string,
+  out: FoundTerm[]
+): void {
+  collectByKey(binary.left, key, query, out);
+  if (binary.right) collectInBinary(binary.right.binary, key, query, out);
+}
 

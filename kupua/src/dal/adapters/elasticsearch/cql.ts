@@ -246,9 +246,13 @@ function fieldToClause(field: CqlField, negated: boolean): QueryClause {
   }
 
   if (key === "collection") {
+    // pathHierarchy uses a hierarchyAnalyzer with a lowercase filter at index
+    // time, but `term` queries are NOT analysed — so the value must arrive
+    // pre-lowercased. Tree-sourced pathIds are already lowercase; the
+    // .toLowerCase() is defensive against hypothetical manual CQL input.
     return {
       query: {
-        term: { [getFieldPath("pathHierarchy")]: value.toLowerCase() },
+        term: { "collections.pathHierarchy": value.toLowerCase() },
       },
       negated,
     };

@@ -45,6 +45,18 @@ const SORT_LABEL_MAP: Record<
     accessor: (img) => img.lastModified,
     type: "date",
   },
+  dateAddedToCollection: {
+    // ES sorts by max actionData.date across all collection memberships
+    // (non-nested object flattening) — mirror that for the tooltip.
+    accessor: (img) => {
+      const dates = img.collections
+        ?.map((c) => c.actionData?.date)
+        .filter((d): d is string => !!d)
+        .sort();
+      return dates?.at(-1);
+    },
+    type: "date",
+  },
   credit: {
     accessor: (img) => img.metadata?.credit,
     type: "keyword",
@@ -100,6 +112,7 @@ const SORT_KEY_ALIASES: Record<string, string> = {};
 const NULL_ZONE_LABEL_OVERRIDES: Record<string, string> = {
   lastModified: "modified",
   taken: "date taken",
+  dateAddedToCollection: "collection date",
 };
 
 function getSortFieldDisplayName(sortKey: string): string {
@@ -293,6 +306,7 @@ const DATE_SORT_ES_FIELDS: Record<string, string> = {
   uploadTime: "uploadTime",
   taken: "metadata.dateTaken",
   lastModified: "lastModified",
+  dateAddedToCollection: "collections.actionData.date",
 };
 
 /**

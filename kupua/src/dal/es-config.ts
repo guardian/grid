@@ -125,6 +125,11 @@ export const SOURCE_INCLUDES = [
   "actions",
   "syndicationStatus",
   "fileMetadata.xmp.pur:adultContentWarning",     // for TS isPotentiallyGraphic (Session B)
+  // Collections — required for CollectionTree display + field-registry chip rendering
+  "collections.pathId",
+  "collections.description",
+  "collections.actionData.date",
+  "collections.path",
 ];
 
 /**

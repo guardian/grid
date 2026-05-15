@@ -30,6 +30,7 @@ import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useCollectionStore, buildColourMap } from "@/stores/collection-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
@@ -40,7 +41,7 @@ import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEf
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Tickbox } from "@/components/Tickbox";
-import { PILL_ACCENT } from "@/components/SearchPill";
+import { PILL_ACCENT, PILL_BASE } from "@/components/SearchPill";
 import { useMetadataSearch } from "@/components/metadata-primitives";
 import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
@@ -136,6 +137,14 @@ function getCellDateLine(image: Image, orderBy: string | undefined): string {
   if (primary === "lastModified") {
     return `Modified: ${formatDate(image.lastModified)}`;
   }
+  if (primary === "dateAddedToCollection") {
+    // ES sorts by max actionData.date across all memberships — mirror that here.
+    const dates = image.collections
+      ?.map((c) => c.actionData?.date)
+      .filter((d): d is string => !!d)
+      .sort();
+    return `Added: ${formatDate(dates?.at(-1))}`;
+  }
   return `Uploaded: ${formatDate(image.uploadTime)}`;
 }
 
@@ -162,6 +171,8 @@ interface GridCellProps {
   onTickClick: (imageId: string, e: React.MouseEvent) => void;
   /** Label pill click → search. StopPropagation handled inside GridCell. */
   onLabelSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
+  /** pathId → cssColour from collection store tree. Undefined when store not yet loaded. */
+  collectionColours?: Record<string, string>;
   /** Desktop only: set by ImageGrid when IS_COARSE_POINTER is false. */
   draggable?: boolean;
   /** Desktop only: dragstart handler passed from ImageGrid. */
@@ -180,6 +191,7 @@ const GridCell = memo(function GridCell({
   onCellDoubleClick,
   onTickClick,
   onLabelSearch,
+  collectionColours,
   draggable,
   onDragStart,
 }: GridCellProps) {
@@ -293,7 +305,7 @@ const GridCell = memo(function GridCell({
         {/* Icon row — bottom-right overlay (syndication, archiver, print/digital) */}
       </div>
 
-      {/* Labels — accent-blue pills below image, above description (matches Kahuna).
+      {/* Labels + collection badges — accent-blue pills below image, above description (matches Kahuna).
            Fixed height (h-6) reserved even when empty so descriptions align across cells. */}
       <div className="flex flex-nowrap gap-1 px-2 pt-1 overflow-hidden h-6 select-none">
         {labels && labels.length > 0 && labels.map((l) => (
@@ -310,6 +322,26 @@ const GridCell = memo(function GridCell({
             {l}
           </button>
         ))}
+        {image.collections?.filter(c => c.pathId).map((col) => {
+          const name = col.path?.at(-1) ?? col.pathId!.split("/").at(-1);
+          const tooltip = col.path ? col.path.join(" \u25B8 ") : col.pathId!;
+          const colour = collectionColours?.[col.pathId!] ?? "#555"; // #555 = Kahuna fallback
+          return (
+            <button
+              key={col.pathId}
+              type="button"
+              className={PILL_BASE + " shrink-0 max-w-full truncate hover:brightness-125"}
+              style={{ backgroundColor: colour, color: "#fff" }}
+              title={tooltip}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLabelSearch("collection", col.pathId!, e);
+              }}
+            >
+              {name}
+            </button>
+          );
+        })}
       </div>
 
       {/* Metadata — same background as cell, no separate strip */}
@@ -611,8 +643,16 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
     );
   }, []);
 
-  // Label pill click → search. Same click/shift/alt pattern as metadata panel.
+  // Label + collection pill click → search.
   const handleLabelSearch = useMetadataSearch();
+
+  // Collection badge colours: pathId → cssColour, derived from the tree once at load.
+  // Colour lives on the collection service node, not on the image ES document.
+  const collectionTree = useCollectionStore(s => s.tree);
+  const collectionColours = useMemo(
+    () => collectionTree ? buildColourMap(collectionTree) : undefined,
+    [collectionTree],
+  );
 
   useLongPress({
     containerRef: parentRef,
@@ -889,6 +929,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
                     onCellDoubleClick={handleCellDoubleClick}
                     onTickClick={handleTickClick}
                     onLabelSearch={handleLabelSearch}
+                    collectionColours={collectionColours}
                     draggable={IS_COARSE_POINTER ? undefined : true}
                     onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
                   />

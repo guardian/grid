@@ -1792,3 +1792,48 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
     expect(state()._pendingFocusDelta).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: Search generation counter (staleness bailout)
+// ---------------------------------------------------------------------------
+
+describe("search generation counter", () => {
+  it("first search is discarded when a second search overtakes it", async () => {
+    mock = new MockDataSource(100);
+    useSearchStore.setState({ dataSource: mock });
+
+    // Intercept searchAfter to control resolution order.
+    // First call will be delayed; second call resolves immediately.
+    let resolveFirst!: () => void;
+    const firstBarrier = new Promise<void>((r) => { resolveFirst = r; });
+    let callCount = 0;
+    const original = mock.searchAfter.bind(mock);
+    mock.searchAfter = async (...args: Parameters<typeof mock.searchAfter>) => {
+      callCount++;
+      if (callCount <= 1) {
+        // First search's first page — block until released
+        await firstBarrier;
+      }
+      return original(...args);
+    };
+
+    // Fire first search (will block on firstBarrier)
+    const search1 = actions().search("slow-query");
+    await flush();
+
+    // Fire second search — it will increment _searchGeneration
+    const search2 = actions().search("fast-query");
+    await search2;
+
+    // Now release the first search — it should bail at the generation check
+    resolveFirst();
+    await search1;
+    await flush();
+
+    // The store should reflect the SECOND search's results, not the first.
+    // The second search ran against a 100-image mock, so total should be 100.
+    expect(state().total).toBe(100);
+    // Buffer should be populated (not wiped by the stale first search)
+    expect(state().results.length).toBeGreaterThan(0);
+  });
+});

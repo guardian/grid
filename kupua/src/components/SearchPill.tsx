@@ -28,7 +28,7 @@ const PILL_DEFAULT = `${PILL_BASE} bg-grid-cell-hover/60 text-grid-text hover:bg
 const PILL_ACCENT = `${PILL_BASE} bg-grid-accent text-white hover:bg-grid-accent-light hover:text-white`;
 
 /** Exported for direct use in grid cell label rendering. */
-export { PILL_ACCENT };
+export { PILL_ACCENT, PILL_BASE };
 
 const PILL_PARTIAL = `${PILL_BASE} border border-grid-cell-hover text-grid-text-dim bg-transparent hover:border-grid-accent hover:text-grid-accent`;
 
@@ -41,13 +41,15 @@ interface SearchPillProps {
   value: string;
   /** CQL field key for search (e.g. "keyword", "person", "subject"). */
   cqlKey: string;
+  /** Optional display label override. If set, shown instead of value. Value is still used for CQL search. */
+  label?: string;
   /** Callback fired on click -- receives cqlKey, value, and the event. */
   onSearch: (cqlKey: string, value: string, e: React.MouseEvent) => void;
   /** Accent variant (Guardian blue bg) — used for labels. */
   accent?: boolean;
 }
 
-export function SearchPill({ value, cqlKey, onSearch, accent }: SearchPillProps) {
+export function SearchPill({ value, cqlKey, label, onSearch, accent }: SearchPillProps) {
   return (
     <button
       type="button"
@@ -56,9 +58,9 @@ export function SearchPill({ value, cqlKey, onSearch, accent }: SearchPillProps)
         : PILL_DEFAULT
       }
       onClick={(e) => onSearch(cqlKey, value, e)}
-      title={`${value}\nShift+click to add, ${ALT_CLICK} to exclude`}
+      title={`${label ?? value}\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
-      {value}
+      {label ?? value}
     </button>
   );
 }

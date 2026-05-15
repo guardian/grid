@@ -178,6 +178,21 @@ export interface FieldDefinition {
   isList?: boolean;
 
   /**
+   * For list fields only: maps each value to a human-readable display label.
+   * The raw value is still used for CQL search; this label is shown in the UI.
+   * E.g. collections shows breadcrumb paths ("Sport \u25B8 Football") while
+   * searching on the pathId ("sport/football").
+   */
+  detailItemLabel?: (img: Image, value: string) => string;
+
+  /**
+   * For list fields in the detail panel: how to render each item.
+   * "pills" (default) = compact pill buttons (SearchPill), all on one line.
+   * "links" = stacked clickable text links, one per line (Kahuna collections style).
+   */
+  detailListStyle?: "pills" | "links";
+
+  /**
    * For composite fields (location): composed of multiple sub-fields,
    * each with its own CQL key. Requires `subFields` to be defined.
    */
@@ -719,6 +734,29 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
 
   // -- Editorial (user-supplied) --------------------------------------------
   {
+    id: "collections",
+    label: "Collections",
+    group: "editorial",
+    accessor: (img) => img.collections?.map((c) => c.pathId).filter(Boolean) as string[] | undefined,
+    rawValue: (img) => img.collections?.map((c) => c.pathId).filter(Boolean).join(", "),
+    detailItemLabel: (img, value) => {
+      const col = img.collections?.find((c) => c.pathId === value);
+      return col?.path ? col.path.join(" \u25B8 ") : value;
+    },
+    cqlKey: "collection",
+    esSearchPath: "collections.pathId",
+    detailLayout: "stacked",
+    detailGroup: "collections",
+    detailListStyle: "links",
+    defaultWidth: 200,
+    defaultHidden: true,
+    fieldType: "list",
+    isList: true,
+    multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
+    pillVariant: "default",
+  },
+  {
     id: "labels",
     label: "Labels",
     group: "editorial",
@@ -967,11 +1005,11 @@ export const SORTABLE_FIELDS: Readonly<Record<string, string>> =
   );
 
 /** Set of orderBy keys that default to descending. */
-export const DESC_BY_DEFAULT: ReadonlySet<string> = new Set(
-  FIELD_REGISTRY
-    .filter((f) => f.descByDefault)
-    .map((f) => f.sortKey!)
-);
+export const DESC_BY_DEFAULT: ReadonlySet<string> = new Set([
+  ...FIELD_REGISTRY.filter((f) => f.descByDefault).map((f) => f.sortKey!),
+  // dateAddedToCollection is a sort-only concept (no registry field) — newest first by default.
+  "dateAddedToCollection",
+]);
 
 /** Default hidden column IDs. */
 export const DEFAULT_HIDDEN_COLUMNS: readonly string[] = FIELD_REGISTRY
@@ -986,10 +1024,13 @@ export const SORT_DROPDOWN_OPTIONS: readonly { label: string; value: string }[] 
     .filter((f) => ["dates", "core", "rights", "technical"].includes(f.group));
   const dates = sortable.filter((f) => f.group === "dates");
   const rest = sortable.filter((f) => f.group !== "dates");
-  // Dates in explicit order: Uploaded, Taken on, Last modified
+  // Dates in explicit order: Uploaded, Taken on, Last modified, Added to collection
   const DATE_ORDER = ["uploadTime", "taken", "lastModified"];
   dates.sort((a, b) => DATE_ORDER.indexOf(a.sortKey!) - DATE_ORDER.indexOf(b.sortKey!));
-  return [...dates, ...rest].map((f) => ({ label: f.label, value: f.sortKey! }));
+  const dateOptions = dates.map((f) => ({ label: f.label, value: f.sortKey! }));
+  const restOptions = rest.map((f) => ({ label: f.label, value: f.sortKey! }));
+  // dateAddedToCollection is sort-only (no displayable image field) — appended after other dates.
+  return [...dateOptions, { label: "Added to collection", value: "dateAddedToCollection" }, ...restOptions];
 })();
 
 /** Fields shown in the details/metadata panel, in display order.

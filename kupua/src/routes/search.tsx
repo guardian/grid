@@ -28,6 +28,8 @@ import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { Scrubber } from "@/components/Scrubber";
 import { FacetFilters, AggTiming } from "@/components/FacetFilters";
+import { CollectionTree } from "@/components/CollectionTree";
+import { useCollectionStore } from "@/stores/collection-store";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { MultiImageMetadata } from "@/components/MultiImageMetadata";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
@@ -52,6 +54,7 @@ export const searchRoute = createRoute({
 
 function SearchPage() {
   const { image, density } = useSearch({ from: "/search" });
+  const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
   const handleRange = useRangeSelection();
@@ -214,9 +217,16 @@ function SearchPage() {
         <SelectionFab />
         <PanelLayout
           leftPanel={
-            <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggTiming />}>
-              <FacetFilters />
-            </AccordionSection>
+            <>
+              {collectionStatus !== "absent" && (
+                <AccordionSection sectionId="left-collections" title="Collections">
+                  <CollectionTree />
+                </AccordionSection>
+              )}
+              <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggTiming />}>
+                <FacetFilters />
+              </AccordionSection>
+            </>
           }
           rightPanel={
             <AccordionSection sectionId="right-metadata" title="Details">

@@ -14,6 +14,130 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 15 May 2026 — Collections polish, auto-sort race fix, sort robustness
+
+**Collections UI polish (across multiple sub-sessions):**
+- Grid cell badges: collection leaf name with tree-derived colour, breadcrumb tooltip.
+- Detail panel: `detailListStyle: "links"` renders collections as stacked breadcrumb
+  links (own section with divider).
+- CollectionTree: scroll-trapping bug (`overflow: hidden` → `overflow: clip`), click
+  dead zone (handler on row div, node text downgraded to `<span>`), sticky-row hover
+  (four-state className logic with opaque `color-mix()` for sticky backdrop).
+- Subtree counts: replaced tree-walk approach with pathId-splitting (mirrors ES
+  `hierarchyAnalyzer` tokenization) — orphaned subcollections now counted in parents.
+
+**Phantom focus race condition (auto-sort two-search race):**
+Clearing a collection chip with phantom focus caused stale buffer state — two
+sequential `search()` calls from separate effects (URL sync vs auto-sort revert).
+The first `search()`'s `_findAndFocusImage` could resolve after the second completed,
+overwriting correct state.
+
+Fix (two parts):
+1. *Atomic auto-sort:* Moved auto-sort from reactive `useEffect` into
+   `useUpdateSearchParams()` — sort change merged into the same `navigate()` as query
+   change → single `search()` call. Eliminates the two-search pattern entirely.
+2. *Search generation counter (defence-in-depth):* Module-scope `_searchGeneration`
+   in `search-store.ts`. Each `search()` bumps + captures; stale completions bail after
+   `await Promise.all`. Abort controller capture bug also fixed (signal captured before
+   await, passed as override).
+
+**`dateAddedToCollection` sort made robust globally (was broken outside collection
+context):**
+- `buildSortClause`: explicit `missing: "_last"` + `uploadTime` secondary → null-zone
+  pagination works for non-collection images.
+- `parseSortField` + `reverseSortClause`: handle object-form clause `{ order, missing }`.
+- `DATE_SORT_ES_FIELDS`: added entry → distribution fetch, ticks, and null-zone all fire.
+  Without this, scrubber had zero labels and tooltip showed garbage ("Mar 12395").
+- `NULL_ZONE_LABEL_OVERRIDES`: "No collection date" boundary mark.
+
+**`loadEnv` test pollution fixed:**
+`vite.config.ts` `Object.assign(process.env, loadEnv(...))` leaked `.env.local` values
+into vitest (notably `VITE_DEEP_SEEK_THRESHOLD=200`), breaking 3 tests via seek path
+changes. Gated with `if (!process.env.VITEST)`. Also fixed the latent bugs the leaked
+env exposed: no-scroll-container seek fallback (used buffer-centre instead of
+`targetLocalIndex`), mock-data-source `searchAfter` ignoring `reverse` when cursor null.
+
+**Other review fixes:** Generation-counter invariant comment + unit test; inline
+`buildColourMap` deduplicated (→ collection-store export); CQL `collection` handler
+`.toLowerCase()` restored with explanatory comment.
+
+803 unit tests, 8/8 collection e2e tests passing.
+
+### 12 May 2026 — Collections feature C0–C4 implemented
+
+Full collections feature implemented across phases C0–C4. Design spec in
+`collections-feature.md`. Key decisions came from a prior Opus design session.
+
+**C0 — Infrastructure (no tests):**
+- `vite.config.ts`: Added `/grid-collections` proxy (→ `http://localhost:9010`) and
+  added it to `GRID_API_PROXY_PREFIXES` for the write-guard middleware.
+- `es-config.ts`: Added `collections.pathId`, `collections.description`,
+  `collections.actionData.date`, `collections.path` to `SOURCE_INCLUDES`.
+- `src/types/image.ts`: `Collection` interface and `Image.collections` already existed
+  — no changes needed.
+- `src/lib/format-count.ts`: Extracted `formatCount()` from `FacetFilters.tsx`
+  to a shared utility.
+- `src/lib/dom-utils.ts`: Extracted `findScrollParent()` from `FacetFilters.tsx`
+  to a shared utility.
+- `src/lib/field-registry.tsx`: Added `collections` field (cqlKey: "collection",
+  isList, chip-array, accent pill, detailGroup: "editorial", defaultHidden: true).
+  Note: not `aggregatable` (no facet panel) since the CollectionTree is the
+  dedicated UI for that.
+
+**C1 — Collection store (`stores/collection-store.ts`):**
+- Zustand store with `persist` (sessionStorage), `status: 'idle'|'loading'|'ready'|'absent'`.
+- `loadCollections()`: parallel fetch of tree + ES agg, builds subtree counts via
+  `buildSubtreeCounts()` pure function.
+- Graceful-absence: tree fetch failure → `status='absent'` (section hidden). Agg
+  failure → tree shown without counts.
+- `buildSubtreeCounts()` recursively walks the tree bottom-up. Exported for testing.
+- 7 unit tests in `stores/collection-store.test.ts` (all passing).
+- Boot: `useCollectionStore.getState().loadCollections()` in `main.tsx` (fire-and-forget,
+  same pattern as `fetchQuotas()`).
+
+**C2 — CollectionTree component (`components/CollectionTree.tsx`):**
+- Renders when `status === 'ready'`. Returns `null` when `status === 'absent'`.
+- Expand state: local `useState<Set<string>>` keyed by pathId (or basename for nodes
+  without inner data). Collapsed by default.
+- Each node: colour stripe (cssColour or transparent), chevron toggle (parent) or
+  spacer (leaf), name button (clickable if has pathId), subtree count (hidden if 0).
+- Active row highlighting: `findFieldTerm(currentQuery, "collection", pathId)` !== null.
+- Collapse drift correction: `requestAnimationFrame` scrolls collapsed node's row to
+  top of panel scroll container (same pattern as `FacetFilters.handleCollapse`).
+- Depth-0 only gets `position: sticky` + `top: 0` (first-pass, depth-1+ scroll normally).
+- Wired into `search.tsx` leftPanel above the existing Filters section.
+- 8 Playwright e2e tests in `e2e/local/collections.spec.ts`, mocking
+  `/grid-collections/**` with a 3-node test fixture.
+
+**C3 — CQL integration + auto-sort:**
+- `~` shorthand and `collection` key in `cql.ts` were ALREADY present. No parser changes.
+- Auto-sort in `CollectionTree.handleNodeClick`: adding a `collection:` filter when sort
+  is default → also updates `orderBy: "dateAddedToCollection"`. Removing the last
+  `collection:` filter when sort is `dateAddedToCollection` → reverts `orderBy: undefined`.
+  Both happen in a single `updateSearch()` call (atomic URL update).
+- `lib/typeahead-fields.ts`: Added `collection` resolver reading from `useCollectionStore.getState()`.
+  When tree is ready, flattens all pathIds via `flattenCollectionPathIds()` and filters by
+  typed value. No ES call needed — we already have the tree.
+
+**C4 — Image collection display:**
+- Delivered by the C0 field-registry entry. Detail panel, multi-image panel, and table
+  column (hidden by default) all show collections as accent pills via `FieldValue`
+  and `chip-array` `multiSelectBehaviour`.
+- `defaultHidden: true` so the table column doesn't clutter the default view.
+- Chip click emits `collection:pathId` (not `~pathId`) — see deviations.md §19.
+
+**Pre-existing finding noted (not fixed):**
+- `cql.ts` line 248: `collection` key handler does `term: { [getFieldPath("pathHierarchy")]: value }`.
+  `getFieldPath("pathHierarchy")` returns bare `"pathHierarchy"` (not `"collections.pathHierarchy"`).
+  This may be a bug in the existing code but is out of scope for the collections UI feature.
+  The UI feature uses `collections.pathId` (for the agg-based count) rather than `collections.pathHierarchy`.
+
+**Test counts after this session:**
+- 801 Vitest unit tests passing (42 test files)
+- 8 new Playwright e2e tests in `collections.spec.ts`
+
+
+
 ### 12 May 2026 — Scroll and overscroll fixes (grid, toolbar, detail)
 
 Three CSS-only fixes for scroll/overscroll behaviour on macOS trackpad:

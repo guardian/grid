@@ -406,12 +406,26 @@ export class MockDataSource implements ImageDataSource {
       const offset = params.offset ?? 0;
       const hits: Image[] = [];
       const sortVals: SortValues[] = [];
-      for (let i = 0; i < length && offset + i < effectiveTotal; i++) {
-        const idx = sortedIndices ? sortedIndices[offset + i] : offset + i;
-        const img = this.getImageAt(idx)!;
-        hits.push(img);
-        sortVals.push(sortValuesForImage(img, sortClause));
+
+      if (reverse) {
+        // Reverse with no cursor = last N items (End-key seek path)
+        const endPos = effectiveTotal;
+        const startPos = Math.max(0, endPos - length);
+        for (let pos = startPos; pos < endPos; pos++) {
+          const idx = sortedIndices ? sortedIndices[pos] : pos;
+          const img = this.getImageAt(idx)!;
+          hits.push(img);
+          sortVals.push(sortValuesForImage(img, sortClause));
+        }
+      } else {
+        for (let i = 0; i < length && offset + i < effectiveTotal; i++) {
+          const idx = sortedIndices ? sortedIndices[offset + i] : offset + i;
+          const img = this.getImageAt(idx)!;
+          hits.push(img);
+          sortVals.push(sortValuesForImage(img, sortClause));
+        }
       }
+
       return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
     }
 

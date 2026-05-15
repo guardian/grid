@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-05-07
+Last updated: 2026-05-12
 
 ---
 
@@ -328,10 +328,56 @@ keyboard up by default — they tap the search bar explicitly when they
 want to type. Kahuna doesn't have this issue because it isn't designed
 for mobile use.
 
-**Trade-off:** Power users on tablets with attached keyboards lose the
-autofocus convenience. Acceptable: same users can tap the search bar to
-focus, and avoiding the dominant mobile case (phones, finger-only
-tablets) matters more.
+### 19. Collections — chip format uses `collection:pathId` not `~pathId`
+
+**What:** When a collection chip is clicked in the detail panel (or via
+`useMetadataSearch()`), it emits `collection:pathId` into the CQL query
+(e.g. `collection:sport/football`). The design spec originally proposed
+`~pathId` (using the `~` CQL shorthand). The tree click handler in
+`CollectionTree.tsx` also emits `collection:pathId`.
+
+**Why:** Consistency. The `~` shorthand in the CQL parser is a syntactic
+alias for `collection:`. Both forms are equivalent to the ES adapter.
+Using `collection:` everywhere means tree clicks and chip clicks produce
+identical query strings — easier to reason about and simpler to test.
+
+**Trade-off:** Users who type `~` manually in the search box will still
+see it transformed to `collection:` (the CQL chip editor renders the
+canonical form). This is intentional and matches how `#` becomes `label:`.
+
+### 20. Collections auto-sort is atomic and bidirectional (Kahuna departure)
+
+**What:** When a `collection:` chip appears anywhere in the CQL query,
+kupua auto-switches the sort to `-dateAddedToCollection` and remembers the
+previous sort. When the chip disappears (clear query, click a metadata
+value that replaces it, etc.), it reverts to the previous sort — unless
+the user manually changed the sort while viewing a collection, in which
+case the manual choice is respected.
+
+**Implementation:** Inside `useUpdateSearchParams()` in `useUrlSearchSync.ts`.
+Before `navigate()` fires, the callback inspects prev/next query strings for
+`collection:` presence via `/(?:^|\s)collection:/` regex. Sort change is merged
+into the same `navigate()` call as the query change → single URL update →
+single `search()` call. Module-scope `_preSortBeforeCollection` holds the
+pre-collection sort for revert.
+
+**Kahuna difference:** Kahuna auto-sorts only on tree clicks and only when
+the current sort is the default (`-uploadTime`). It does not auto-revert
+when the collection filter is removed. Kupua's approach is strictly more
+useful: it fires regardless of how the chip arrives (tree, pill, typing),
+and the auto-revert prevents users from being stranded on a sort order
+that only makes sense in collection context.
+
+**Back-navigation guard:** If `orderBy` is already `-dateAddedToCollection`
+when the chip appears (e.g. navigating back to a URL that has both), the
+current sort is NOT captured as the revert target. Leaving
+`_preSortBeforeCollection` as-is means revert falls back to default sort.
+
+**Why atomic (not reactive):** The previous approach used a `useEffect` in
+`search.tsx` that fired after the URL change. This caused two sequential
+`search()` calls (one with the old sort, one with the new), creating a race
+condition with phantom focus. The atomic approach eliminates the race by
+construction — zero throwaway ES queries.
 
 ### 19. Caret position preserved across tab/window switch
 

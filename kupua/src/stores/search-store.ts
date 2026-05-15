@@ -485,6 +485,14 @@ let _rangeAbortController = new AbortController();
 let _findFocusAbortController = new AbortController();
 
 /**
+ * Monotonically increasing generation counter for search(). Each call to
+ * search() bumps this and captures its own generation. After every await,
+ * if the generation has moved on, the stale search bails out — preventing
+ * a slower earlier search from overwriting a faster newer one.
+ */
+let _searchGeneration = 0;
+
+/**
  * Cooldown timestamp after a seek. Extends are suppressed until this time
  * to prevent a cascade of backward extends when the virtualizer starts at
  * scrollTop=0 after a seek (visible range [0..20], bufferOffset > 0 →
@@ -1117,6 +1125,10 @@ async function _findAndFocusImage(
    *  focusedImageId. Uses the seek scroll mechanism instead of
    *  sortAroundFocusGeneration. Used by phantom focus promotion. */
   phantomOnly?: boolean,
+  /** Abort signal for the find-focus work (Steps 1-2). Passed by the caller
+   *  rather than read from module scope, so concurrent search() calls don't
+   *  grab each other's controllers. */
+  findFocusSignalOverride?: AbortSignal,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1126,11 +1138,11 @@ async function _findAndFocusImage(
   trace("sort-around-focus", "t_status_visible", { status: "Finding image\u2026" });
   set({ sortAroundFocusStatus: "Finding image…" });
 
-  // Use _findFocusAbortController for Steps 1-2 (find sort values +
-  // countBefore). This is NOT shared with seek() — only search() can
-  // abort it. This prevents the race where two-tier mode's scroll-triggered
-  // seek aborts the focus-finding work.
-  const findFocusSignal = _findFocusAbortController.signal;
+  // Use the caller-provided signal when available (search() captures the
+  // signal BEFORE its await, so concurrent searches don't cross-contaminate).
+  // Falls back to reading from module scope for seekToFocused() which is
+  // single-flight and doesn't race.
+  const findFocusSignal = findFocusSignalOverride ?? _findFocusAbortController.signal;
 
   // Timeout controller: if the process takes longer than 8s, abort the
   // in-flight ES requests and fall back gracefully. This prevents both
@@ -1210,7 +1222,7 @@ async function _findAndFocusImage(
                   // Recurse: find-and-focus the surviving neighbour.
                   // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
                   clearTimeout(timeoutId);
-                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, findFocusSignalOverride);
                   return;
                 }
               }
@@ -1632,6 +1644,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean }) => {
     trace("search", "t_0");
+    // Bump generation so any in-flight stale search bails out after its
+    // next await. Captured locally — after every await below, if the
+    // module-level counter has moved on, this search is stale.
+    _searchGeneration += 1;
+    const myGeneration = _searchGeneration;
+
     const { dataSource, params, pitId: oldPitId } = get();
 
     // Capture neighbours of the focused image BEFORE the search replaces
@@ -1687,6 +1705,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _findFocusAbortController = new AbortController();
     _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
     const signal = _rangeAbortController.signal;
+    // Capture the find-focus signal NOW, before the await. Passed to
+    // _findAndFocusImage so it uses THIS search's controller, not a
+    // later search's (which would be non-aborted and run to completion).
+    const findFocusSignal = _findFocusAbortController.signal;
 
     // Abort any in-flight sort distribution or expanded agg fetch
     if (_sortDistAbortController) _sortDistAbortController.abort();
@@ -1742,6 +1764,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ),
       ]);
 
+      // Stale search — a newer search() was called while we were awaiting.
+      // Bail out to avoid overwriting the newer search's state.
+      // INVARIANT: no further awaits between this check and the final set()
+      // block below. If you add an await, repeat this check after it —
+      // the mechanism doesn't fail loudly when violated.
+      if (_searchGeneration !== myGeneration) return;
+
       // On popstate restore with a frozenUntil, reuse the original freeze
       // timestamp so the ticker correctly counts new images since the
       // user's original search — not since the back/forward navigation.
@@ -1795,7 +1824,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, findFocusSignal)
           .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
@@ -3239,8 +3268,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
         _diagReverseIndex = reverseIndex;
       } else {
-        // No scroll container (shouldn't happen) — fall back to center.
-        scrollTargetIndex = Math.floor(result.hits.length / 2);
+        // No scroll container (tests, SSR). For exact-offset seeks the target
+        // index is known-correct; for inexact paths fall back to buffer centre.
+        scrollTargetIndex = exactOffset ? targetLocalIndex : Math.floor(result.hits.length / 2);
       }
 
 

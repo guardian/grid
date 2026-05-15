@@ -221,6 +221,14 @@ Left (facet filters) / right (metadata). Resize handles, `[`/`]` keyboard shortc
 
 Left panel content. Batched aggregation fetch via store. Click → set CQL chip, alt-click → exclude. "Show more" expands per-field agg counts. Agg timing display (`AggTiming` component).
 
+## Collection Tree (`components/CollectionTree.tsx`)
+
+Left panel, above Facet Filters. Reads tree + subtree counts from `collection-store`. Click a node → injects `collection:pathId` into CQL query (exclusive — replaces any existing collection filter). Active node click is a no-op. Depth-0 expanded nodes are `position: sticky`. Expand state is local `useState<Set>`, collapsed by default, not persisted. Row click target is the full-height div (not the text span). Colour stripe from `node.data.cssColour`. Auto-sort handled atomically by `useUpdateSearchParams()` (not by this component). See `06-collections.md` for full architecture.
+
+## Collection Store (`stores/collection-store.ts`)
+
+Zustand + persist (sessionStorage). Loads tree from collections service + unfiltered ES agg at boot (`main.tsx`). `buildSubtreeCounts` uses pathId-splitting (not tree walk) to handle orphan subcollections. `buildColourMap` exported for grid cell badge colours. Graceful-absence: fetch failure → `status: 'absent'` → panel section hidden.
+
 ---
 
 # UI Components — Scrubber & Sort

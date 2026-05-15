@@ -7,6 +7,7 @@ import {
   SORTABLE_FIELDS,
   DESC_BY_DEFAULT,
   DEFAULT_HIDDEN_COLUMNS,
+  SORT_DROPDOWN_OPTIONS,
   getFieldRawValue,
   getFieldDisplayValue,
 } from "./field-registry";
@@ -99,8 +100,13 @@ describe("FIELD_REGISTRY structure", () => {
     }
   });
 
-  it("DESC_BY_DEFAULT only contains sort keys that exist in the registry", () => {
-    const allSortKeys = new Set(FIELD_REGISTRY.filter((f) => f.sortKey).map((f) => f.sortKey!));
+  it("DESC_BY_DEFAULT only contains sort keys that exist in the registry or dropdown", () => {
+    // Include sort-only keys from SORT_DROPDOWN_OPTIONS (e.g. dateAddedToCollection
+    // has no registry field but is a valid sort option).
+    const allSortKeys = new Set([
+      ...FIELD_REGISTRY.filter((f) => f.sortKey).map((f) => f.sortKey!),
+      ...SORT_DROPDOWN_OPTIONS.map((o) => o.value),
+    ]);
     for (const key of DESC_BY_DEFAULT) {
       expect(allSortKeys, `DESC_BY_DEFAULT contains "${key}" which is not a sort key`).toContain(key);
     }

@@ -43,6 +43,21 @@ import { useSelectionStore } from "@/stores/selection-store";
 // predecessor to capture a departure snapshot for.
 let _lastKupuaKey: string | undefined;
 
+// ---------------------------------------------------------------------------
+// Collection auto-sort — atomically adjust sort when a `collection:` chip
+// appears or disappears from the query. Handled inside useUpdateSearchParams
+// so the sort change is part of the same navigate() call as the query change,
+// producing a single URL update → single search() call. This eliminates the
+// two-search race condition that the previous useEffect-based approach caused.
+// See deviations.md §20, exploration/docs/worklog-current.md.
+// ---------------------------------------------------------------------------
+const COLLECTION_CHIP_RE = /(?:^|\s)collection:/;
+const COLLECTION_SORT = "-dateAddedToCollection";
+
+/** The sort order active before a collection chip appeared. Module-level
+ *  because there's only one search route instance. */
+let _preSortBeforeCollection: string | undefined;
+
 /**
  * Strips undefined values from search params so they don't appear in the URL
  * as `?query=&since=` etc.
@@ -358,6 +373,35 @@ export function useUpdateSearchParams() {
       }
       markUserInitiatedNavigation();
       const merged = { ...paramsRef.current, ...updates };
+
+      // --- Collection auto-sort: atomically adjust sort when the
+      //     collection chip appears or disappears. ---
+      const prevQuery = paramsRef.current.query ?? "";
+      const newQuery = merged.query ?? "";
+      const hadCollection = COLLECTION_CHIP_RE.test(prevQuery);
+      const hasCollection = COLLECTION_CHIP_RE.test(newQuery);
+
+      if (!hadCollection && hasCollection) {
+        // Collection chip just appeared → remember current sort, switch.
+        // Guard: if sort is already the collection sort (e.g. back-nav
+        // to a URL with both chip + sort), don't capture it as the
+        // "previous" sort — that would lock in the collection sort as
+        // the revert target. Leaving _preSortBeforeCollection as-is
+        // means revert falls back to default. See deviations.md §20.
+        if (merged.orderBy !== COLLECTION_SORT) {
+          _preSortBeforeCollection = merged.orderBy;
+          merged.orderBy = COLLECTION_SORT;
+        }
+      } else if (hadCollection && !hasCollection) {
+        // Collection chip just disappeared → revert if the user didn't
+        // manually change the sort while viewing the collection.
+        if (merged.orderBy === COLLECTION_SORT) {
+          merged.orderBy = _preSortBeforeCollection;
+        }
+        _preSortBeforeCollection = undefined;
+      }
+      // --- end collection auto-sort ---
+
       // kupuaKey: mint a fresh one on push (new history entry), re-pass
       // the current one on replace (same entry, key must survive).
       const state = isReplace ? withCurrentKupuaKey() : withFreshKupuaKey();

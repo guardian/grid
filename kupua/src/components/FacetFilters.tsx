@@ -20,6 +20,8 @@ import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
 import { findFieldTerm, upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import { trace } from "@/lib/perceived-trace";
+import { formatCount } from "@/lib/format-count";
+import { findScrollParent } from "@/lib/dom-utils";
 import type { AggregationBucket } from "@/dal";
 
 // ---------------------------------------------------------------------------
@@ -33,16 +35,6 @@ const FACET_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY.filter(
 
 /** Max buckets shown before "show more" (matches AGG_DEFAULT_SIZE in store). */
 const INITIAL_VISIBLE = 10;
-
-// ---------------------------------------------------------------------------
-// Compact count formatter (Decision #14)
-// ---------------------------------------------------------------------------
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (n >= 10_000) return `${Math.round(n / 1_000)}k`;
-  return n.toLocaleString();
-}
 
 // ---------------------------------------------------------------------------
 // AggTiming — shows ms counter in the section header (right side).
@@ -193,20 +185,6 @@ export function FacetFilters() {
       ))}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Scroll anchor helper — find the nearest scrollable ancestor
-// ---------------------------------------------------------------------------
-
-function findScrollParent(el: HTMLElement): HTMLElement | null {
-  let node = el.parentElement;
-  while (node) {
-    const { overflowY } = getComputedStyle(node);
-    if (overflowY === "scroll" || overflowY === "auto") return node;
-    node = node.parentElement;
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------
