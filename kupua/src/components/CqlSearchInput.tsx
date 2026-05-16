@@ -373,6 +373,48 @@ export function CqlSearchInput({
           savedSelection = { ...lastKnownSelection };
         }
       }, true);
+
+      // Mobile keyboard retention: when a chip is deleted, ProseMirror
+      // removes the focused <chip-value contenteditable> from the DOM.
+      // Mobile browsers interpret this as "user finished editing" and
+      // dismiss the virtual keyboard. Re-focus the editor in the focusout
+      // handler to prevent dismissal — but ONLY when focus was lost as a
+      // side effect of a keyboard action (Backspace/Delete removing a chip
+      // node). If the user tapped away (entering image detail, etc.), the
+      // keyboard should dismiss normally.
+      if (isMobile()) {
+        let recentKeyAction = false;
+        let keyActionTimer: ReturnType<typeof setTimeout> | undefined;
+
+        view.dom.addEventListener("keydown", (e: KeyboardEvent) => {
+          if (e.key === "Backspace" || e.key === "Delete") {
+            recentKeyAction = true;
+            clearTimeout(keyActionTimer);
+            // Clear after a frame — any DOM-mutation blur from this keypress
+            // will fire synchronously or in the same microtask.
+            keyActionTimer = setTimeout(() => { recentKeyAction = false; }, 80);
+          }
+        }, true);
+
+        view.dom.addEventListener("focusout", (e: FocusEvent) => {
+          if (!recentKeyAction) return;
+          const related = e.relatedTarget as Node | null;
+          // If focus moved to another element outside the editor, don't interfere
+          if (related && !el.contains(related) && !el.shadowRoot?.contains(related)) {
+            return;
+          }
+          // Focus left because the DOM node was removed (chip deletion).
+          // Refocus to keep the keyboard open.
+          queueMicrotask(() => {
+            const active = document.activeElement;
+            // Only refocus if nothing else grabbed focus in the meantime
+            if (!active || active === document.body || active === el || el.contains(active)) {
+              view.focus();
+            }
+          });
+        });
+      }
+
       lastKnownSelection = {
         from: view.state.selection.from,
         to: view.state.selection.to,

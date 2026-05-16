@@ -14,6 +14,45 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 16 May 2026 — CQL popover dead-space fix
+
+The CQL typeahead popover container uses `height: 100%` to support scrolling on long
+suggestion lists, but this makes the container extend ~150px beyond the visible dropdown.
+Clicks/taps in this dead space were swallowed instead of passing through to elements
+underneath. Fix: `pointer-events: none` on `.Cql__TypeaheadPopoverContainer`, `pointer-events: auto`
+on the inner `.Cql__TypeaheadPopover`. PR: https://github.com/guardian/cql/pull/126
+
+### 15 May 2026 — Mobile keyboard retention on chip delete, typeahead self-referential fix
+
+**Mobile keyboard retention (CqlSearchInput.tsx):**
+When a chip's value is cleared via backspace on mobile, CQL's ProseMirror removes
+the focused `<chip-value contenteditable>` from the DOM. Mobile browsers interpret
+this as "user finished editing" and dismiss the virtual keyboard. Fix: a `focusout`
+listener (gated behind `isMobile()`) detects focus loss immediately after a
+Backspace/Delete keypress and refocuses the editor in a microtask. A `recentKeyAction`
+flag (cleared after 80ms) ensures the refocus only fires for DOM-mutation blurs —
+tapping away (e.g. entering image detail) still dismisses the keyboard normally.
+Desktop is unaffected. SwiftKey on Android still dismisses (third-party keyboard
+quirk, not fixable from our side).
+
+**Typeahead self-referential aggregation fix (typeahead-fields.ts):**
+Editing an existing chip value (e.g. clearing `credit:John Smith`) showed only the
+previously selected value in suggestions — the resolver was reading query-scoped
+aggregations that included the chip's own filter. Fix: when resolving suggestions for
+field X and the current query contains `X:value`, skip the store's cached aggregations
+(tainted) and fetch a fresh aggregation from ES with X's chip expression stripped from
+the query. Two new helpers: `stripFieldFromQuery()` (regex-removes a CQL field
+expression) and `queryContainsField()` (detects presence). `scopedAgg()` accepts an
+optional `cqlKey` and strips it before querying. The regex approach is a documented
+workaround (deviations §14) pending a CQL upstream fix (resolver context API).
+
+**CQL upstream: `handleTextInput` for mobile chip triggers:**
+Verified that adding `handleTextInput` to CQL's ProseMirror plugin fixes `+`/`-` not
+triggering chip creation on mobile virtual keyboards (which fire `key: "Unidentified"`
+in `keydown`). Patch tested live on Android Chrome, CQL test suite passes (197/197).
+PR: https://github.com/guardian/cql/pull/125. Desktop unaffected (`handleKeyDown`
+catches first, `handleTextInput` never fires).
+
 ### 15 May 2026 — Collections polish, auto-sort race fix, sort robustness
 
 **Collections UI polish (across multiple sub-sessions):**

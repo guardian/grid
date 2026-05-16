@@ -879,6 +879,57 @@ remount workaround (`_cqlInputGeneration` key + generation-bumping in
 `cancelSearchDebounce`).  `setAttribute("value", ...)` will then work
 directly for polarity changes.
 
+### 14. Typeahead resolver strips own field from query via regex (workaround for missing CQL context)
+
+**What:** When the user edits a chip value (e.g. clears `credit:John Smith`
+to re-pick a different credit), the typeahead resolver needs aggregations
+that exclude the chip's own filter — otherwise the results are
+self-referential (only "John Smith" is returned). CQL's resolver API is
+`(value: string) => Suggestion[]` — it provides no context about which
+chip is being edited or what the query looks like without it.
+
+**Workaround:** `stripFieldFromQuery()` and `queryContainsField()` in
+`typeahead-fields.ts` use regex to detect and remove chip expressions
+(e.g. `credit:"John Smith"`) from the serialised query string before
+passing it to ES for aggregations. This is fragile string manipulation
+of a structured language.
+
+**Why it's a hack:** CQL already has the ProseMirror document state and
+knows exactly which chip the user is editing. It could trivially serialize
+"everything except the chip at cursor" and pass it to the resolver. Regex
+parsing duplicates (badly) what CQL's own parser already does.
+
+**Upstream fix:** Extend the resolver callback signature:
+```typescript
+// Current:  resolver(value: string) => Suggestion[]
+// Proposed: resolver(value: string, context: ResolverContext) => Suggestion[]
+// where ResolverContext = { fieldName: string; queryWithoutCurrentChip: string }
+```
+Backward-compatible — existing resolvers that don't use the second arg
+are unaffected. Once available, `stripFieldFromQuery` and
+`queryContainsField` can be deleted and `scopedAgg` can use
+`context.queryWithoutCurrentChip` directly.
+
+**Broader pattern — CQL treats consumers as text-in/text-out:**
+
+| Problem | Kupua workaround | Upstream fix | Status |
+|---|---|---|---|
+| Polarity change not re-rendering | Remount component (§13) | Fix internal diff (`sameContentMarkup`) | PR #121 open |
+| Resolver gets self-referential aggs | Regex-strip field from query (this §) | Resolver receives `ResolverContext` | Not filed |
+| `+`/`-` not triggering on mobile | — | Add `handleTextInput` fallback | PR #125 open |
+| Popover dead space below suggestions | — | `pointer-events: none` on container | PR #126 open |
+| Blur resets caret to position 0 | Capture-phase blur + microtask restore (§19 lib) | `preserveCaretOnBlur` option | Not filed |
+| Eager `Promise.all` stalls popover | `LazyTypeahead` override (§12 lib) | Decouple key/value resolution in `suggestCqlField` | Not filed |
+| Mobile keyboard dismiss on chip delete | `focusout` + `recentKeyAction` refocus | Shift focus to stable node before chip removal | Not filed |
+| `setAttribute` clobbers in-progress chip | `selfCausedChangeRef` guard | Smarter internal reconciliation (ignore attr if matches effective state) | Not filed |
+| No `::part` / theme key for internal elements | Style injection into `shadowRoot` | Expose CSS parts or extend theme schema | Not filed |
+| Home/End swallowed by shadow DOM | Capture-phase `document` listener (§7 lib) | Propagate nav keys from `stopUnhandled` | Architectural |
+| Multi-value padding breaks `calc()` in shadow DOM | Single-value padding only | Use `padding-*` longhand internally | Not filed |
+| Stale debounce after remount | `setExternalQuery` latch | — (consequence of §13; goes away with PR #121) | Blocked |
+
+Three consumers exist (kahuna, kupua, CQL demo page). Exposing minimal
+structured context is not speculative API surface.
+
 ### 17. No migration-aware dual-index search
 
 During a Grid index migration (`ThrallMigrationClient`), the `media-api`

@@ -89,6 +89,31 @@ function bucketFilter(
     .map((b) => ({ value: b.key, count: b.count }));
 }
 
+/**
+ * Strip all chip expressions for a given CQL key from a query string.
+ * E.g. stripFieldFromQuery("credit", 'cats credit:"John Smith" dogs')
+ *   → "cats dogs"
+ */
+function stripFieldFromQuery(cqlKey: string, query: string): string {
+  // Matches: optional +/- prefix, the field key, colon, then either a
+  // quoted value or a non-whitespace run.
+  const pattern = new RegExp(
+    `[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:(?:"[^"]*"|\\S+)`,
+    "gi",
+  );
+  return query.replace(pattern, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/** Returns true if the query string contains a filter for the given CQL key. */
+function queryContainsField(cqlKey: string, query: string | undefined): boolean {
+  if (!query) return false;
+  const pattern = new RegExp(
+    `(?:^|\\s)[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`,
+    "i",
+  );
+  return pattern.test(query);
+}
+
 /** Merge a static value list with optional store-cached agg counts.
  *  `mapBucketKey` transforms the ES bucket key to match the static value
  *  (e.g. strip "image/" prefix from MIME types). */
@@ -147,13 +172,20 @@ export function buildTypeaheadFields(
   getAggregations?: () => AggregationsResult | null,
   getParams?: () => SearchParams,
 ): TypeaheadFieldDef[] {
-  /** Fetch a single field's agg scoped to the current query.
-   *  Uses getAggregations (batched endpoint with buildQuery) so the
-   *  buckets reflect the user's current search — not the whole index. */
-  async function scopedAgg(field: string, size: number = 50): Promise<AggregationResult> {
+  /** Fetch a single field's agg scoped to the current query, excluding the
+   *  field's own filter to avoid self-referential results. When `cqlKey` is
+   *  provided and the query contains that field, the field's chip expression
+   *  is stripped before querying — so editing `credit:X` shows ALL credits
+   *  (still scoped by other filters) rather than only X. */
+  async function scopedAgg(field: string, size: number = 50, cqlKey?: string): Promise<AggregationResult> {
     const params = getParams?.();
     if (params) {
-      const result = await dataSource.getAggregations(params, [{ field, size }]);
+      let adjustedParams = params;
+      if (cqlKey && params.query && queryContainsField(cqlKey, params.query)) {
+        const stripped = stripFieldFromQuery(cqlKey, params.query);
+        adjustedParams = { ...params, query: stripped || undefined };
+      }
+      const result = await dataSource.getAggregations(adjustedParams, [{ field, size }]);
       return result.fields[field] ?? { buckets: [], total: 0 };
     }
     // No params callback — fall back to unscoped (match_all)
@@ -173,11 +205,14 @@ export function buildTypeaheadFields(
     .map((fa) => ({
       fieldName: fa.alias,
       resolver: async (value: string) => {
-        const cached = storeBuckets(fa.alias, getAggregations);
-        if (cached) {
-          return mergeWithCounts(value, fa.searchHintOptions!, cached);
+        const query = getParams?.()?.query;
+        if (!queryContainsField(fa.alias, query)) {
+          const cached = storeBuckets(fa.alias, getAggregations);
+          if (cached) {
+            return mergeWithCounts(value, fa.searchHintOptions!, cached);
+          }
         }
-        const { buckets } = await scopedAgg(fa.elasticsearchPath);
+        const { buckets } = await scopedAgg(fa.elasticsearchPath, 50, fa.alias);
         return mergeWithCounts(value, fa.searchHintOptions!, buckets);
       },
       showInKeySuggestions: fa.displaySearchHint,
@@ -191,54 +226,72 @@ export function buildTypeaheadFields(
     {
       fieldName: "category",
       resolver: async (value: string) => {
-        const cached = storeBuckets("category", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("usageRights.category");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("category", query)) {
+          const cached = storeBuckets("category", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("usageRights.category", 50, "category");
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "credit",
       resolver: async (value: string) => {
-        const cached = storeBuckets("credit", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("metadata.credit");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("credit", query)) {
+          const cached = storeBuckets("credit", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("metadata.credit", 50, "credit");
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "label",
       resolver: async (value: string) => {
-        const cached = storeBuckets("label", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("userMetadata.labels");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("label", query)) {
+          const cached = storeBuckets("label", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("userMetadata.labels", 50, "label");
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "photoshoot",
       resolver: async (value: string) => {
-        const cached = storeBuckets("photoshoot", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("userMetadata.photoshoot.title");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("photoshoot", query)) {
+          const cached = storeBuckets("photoshoot", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("userMetadata.photoshoot.title", 50, "photoshoot");
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "source",
       resolver: async (value: string) => {
-        const cached = storeBuckets("source", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("metadata.source");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("source", query)) {
+          const cached = storeBuckets("source", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("metadata.source", 50, "source");
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "supplier",
       resolver: async (value: string) => {
-        const cached = storeBuckets("supplier", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("usageRights.supplier");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("supplier", query)) {
+          const cached = storeBuckets("supplier", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("usageRights.supplier", 50, "supplier");
         return bucketFilter(value, buckets);
       },
     },
@@ -249,11 +302,14 @@ export function buildTypeaheadFields(
     {
       fieldName: "fileType",
       resolver: async (value: string) => {
-        const cached = storeBuckets("fileType", getAggregations);
-        if (cached) {
-          return mergeWithCounts(value, FILE_TYPES, cached, (k) => k.replace("image/", ""));
+        const query = getParams?.()?.query;
+        if (!queryContainsField("fileType", query)) {
+          const cached = storeBuckets("fileType", getAggregations);
+          if (cached) {
+            return mergeWithCounts(value, FILE_TYPES, cached, (k) => k.replace("image/", ""));
+          }
         }
-        const { buckets } = await scopedAgg("source.mimeType");
+        const { buckets } = await scopedAgg("source.mimeType", 50, "fileType");
         return mergeWithCounts(value, FILE_TYPES, buckets, (k) => k.replace("image/", ""));
       },
     },
@@ -264,9 +320,12 @@ export function buildTypeaheadFields(
     {
       fieldName: "subject",
       resolver: async (value: string) => {
-        const cached = storeBuckets("subject", getAggregations);
-        if (cached) return mergeWithCounts(value, SUBJECTS, cached);
-        const { buckets } = await scopedAgg("metadata.subjects");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("subject", query)) {
+          const cached = storeBuckets("subject", getAggregations);
+          if (cached) return mergeWithCounts(value, SUBJECTS, cached);
+        }
+        const { buckets } = await scopedAgg("metadata.subjects", 50, "subject");
         return mergeWithCounts(value, SUBJECTS, buckets);
       },
     },
@@ -282,9 +341,12 @@ export function buildTypeaheadFields(
     {
       fieldName: "uploader",
       resolver: async (value: string) => {
-        const cached = storeBuckets("uploader", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("uploadedBy");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("uploader", query)) {
+          const cached = storeBuckets("uploader", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("uploadedBy", 50, "uploader");
         return bucketFilter(value, buckets);
       },
     },
@@ -293,9 +355,12 @@ export function buildTypeaheadFields(
     {
       fieldName: "croppedBy",
       resolver: async (value: string) => {
-        const cached = storeBuckets("croppedBy", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("exports.author");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("croppedBy", query)) {
+          const cached = storeBuckets("croppedBy", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("exports.author", 50, "croppedBy");
         return bucketFilter(value, buckets);
       },
     },
@@ -306,9 +371,12 @@ export function buildTypeaheadFields(
     {
       fieldName: "keyword",
       resolver: async (value: string) => {
-        const cached = storeBuckets("keyword", getAggregations);
-        if (cached) return bucketFilter(value, cached);
-        const { buckets } = await scopedAgg("metadata.keywords");
+        const query = getParams?.()?.query;
+        if (!queryContainsField("keyword", query)) {
+          const cached = storeBuckets("keyword", getAggregations);
+          if (cached) return bucketFilter(value, cached);
+        }
+        const { buckets } = await scopedAgg("metadata.keywords", 50, "keyword");
         return bucketFilter(value, buckets);
       },
     },
