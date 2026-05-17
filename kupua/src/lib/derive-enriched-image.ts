@@ -12,19 +12,22 @@
  *
  * When an API overlay is present (intent-driven single-image fetch), its fields
  * win for cost/valid/invalidReasons (server-authoritative, includes overquota).
- * API-only fields (persisted, actions, isPotentiallyGraphic, syndicationStatus,
- * leasesSummary) are only present when the overlay provides them.
+ * API-only fields (persisted, actions, isPotentiallyGraphic) are only present
+ * when the overlay provides them. syndicationStatus is computed from ES baseline
+ * (always present) but the overlay wins when available.
  *
  * See kupua/exploration/docs/changelog.md (Session A, 10 May 2026) for rationale.
  */
 
 import type { Image } from "@/types/image";
 import type { Cost } from "@/dal/grid-api/types";
+import type { SyndicationStatus } from "@/dal/grid-api/types";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { calculateCost } from "@/lib/cost/calculate-cost";
 import { buildValidityMap, deriveInvalidReasons, deriveValid } from "@/lib/cost/validity-map";
 import guardianConfig from "@/lib/cost/guardian-config.json";
 import type { GuardianCostConfig } from "@/lib/cost/types";
+import { calculateSyndicationStatus } from "@/lib/syndication/calculate-syndication-status";
 
 const GUARDIAN_COST_CONFIG = guardianConfig as GuardianCostConfig;
 
@@ -71,8 +74,11 @@ export interface EnrichedImage extends Image, ComputedBaseline {
   actions?: EnrichmentFields["actions"];
   /** Graphic flag — API search-hit only (not on single-image detail). */
   isPotentiallyGraphic?: boolean;
-  /** Syndication status — API only. */
-  syndicationStatus?: EnrichmentFields["syndicationStatus"];
+  /**
+   * Syndication status — always present (computed from ES baseline by
+   * calculateSyndicationStatus). API overlay wins when present (server-authoritative).
+   */
+  syndicationStatus: SyndicationStatus;
   /** Usage list for print/digital icons — API preferred, ES fallback on Image.usages. */
   enrichedUsages?: EnrichmentFields["usages"];
 }
@@ -104,6 +110,8 @@ export function deriveImage(
   const baselineInvalidReasons = deriveInvalidReasons(validityMap);
   const baselineValid = deriveValid(validityMap);
   const noRights = !image.usageRights?.category;
+  const nowMs = Date.now();
+  const baselineSyndicationStatus = calculateSyndicationStatus(image, nowMs);
 
   // --- Merge: overlay wins when present ---
   const cost = overlay?.cost ?? baselineCost;
@@ -122,7 +130,7 @@ export function deriveImage(
     persisted: overlay?.persisted,
     actions: overlay?.actions,
     isPotentiallyGraphic: overlay?.isPotentiallyGraphic,
-    syndicationStatus: overlay?.syndicationStatus,
+    syndicationStatus: overlay?.syndicationStatus ?? baselineSyndicationStatus,
     enrichedUsages: overlay?.usages ?? image.usages,
   };
 }

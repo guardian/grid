@@ -22,6 +22,42 @@ export const gridConfig = {
    */
   staffPhotographerOrganisation: "GNM",
 
+  /**
+   * Categories that qualify an image for the syndication "review" queue.
+   * Mirrors `IsOwnedPhotograph` in IsQueryFilter.scala (UsageRights.photographer):
+   *   NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
+   * Same three categories used for the blue border in image-borders.ts.
+   * If Grid ever adds a new photographer category, update here.
+   */
+  syndicatableCategories: [
+    "staff-photographer",
+    "contract-photographer",
+    "commissioned-photographer",
+  ] as string[],
+
+  /**
+   * Earliest upload date for the syndication "review" filter (PROD only).
+   * Mirrors `syndication.start` in MediaApiConfig.scala; applied only in PROD
+   * to exclude the long tail of pre-syndication images.
+   * Set to null for TEST/CODE (no cutoff), matching Scala's `case _ => rightsAcquiredNoLeaseFilter`.
+   * Hardcoded for now — move to proper runtime config when that system is built.
+   * (07-syndication-and-leases.md §4.2)
+   */
+  syndicationStartDate: null as string | null,
+
+  /**
+   * Whether to show a warning banner when a deny-syndication lease is active.
+   * Mirrors Kahuna's `_clientConfig.showDenySyndicationWarning`.
+   * Set to true by default — operators can override once runtime config is wired.
+   */
+  showDenySyndicationWarning: true,
+
+  /**
+   * Text shown in the deny-syndication warning banner.
+   * Mirrors Kahuna's `_clientConfig.denySyndicationTextHeader`.
+   */
+  denySyndicationTextHeader: "This image has been denied for syndication.",
+
 
   /** Whether the reaper feature is enabled */
   useReaper: false,

@@ -67,9 +67,14 @@ export const SOURCE_EXCLUDES: string[] = [];
  * directly from ES. With these included, the TS cost/validity
  * calculations in derive-enriched-image.ts operate on authoritative
  * server-computed values rather than approximations.
- *   cost, valid, invalidReasons, persisted, usageRights (full),
- *   leases, usages, actions, syndicationStatus,
+ *   cost, valid, invalidReasons, usageRights (full),
+ *   leases, usages, actions,
  *   fileMetadata.xmp.pur:adultContentWarning (for TS isPotentiallyGraphic)
+ *
+ * NOT included (server-computed Scala defs, not stored in ES _source):
+ *   syndicationStatus — computed by Image.scala at request time; not a stored field.
+ *     Kupua computes this client-side via calculateSyndicationStatus() (SY-2).
+ *   persisted — computed by Archiver service at request time; not a stored field.
  *
  * Note: isPotentiallyGraphic is a Painless script field — NOT stored in
  * _source. It is TS-replicated instead (see lib/graphic-image-blur.ts,
@@ -118,12 +123,15 @@ export const SOURCE_INCLUDES = [
   "cost",
   "valid",
   "invalidReasons",
-  "persisted",
   "usageRights",                                  // full object (supersedes usageRights.category)
   "leases",
   "usages",
   "actions",
-  "syndicationStatus",
+  // syndicationRights — minimal dot-path fetch (dot-path filtering for nested arrays
+  // verified against PROD 16 May 2026; strips rightCode, properties[], suppliers[]).
+  "syndicationRights.published",
+  "syndicationRights.isInferred",
+  "syndicationRights.rights.acquired",
   "fileMetadata.xmp.pur:adultContentWarning",     // for TS isPotentiallyGraphic (Session B)
   // Collections — required for CollectionTree display + field-registry chip rendering
   "collections.pathId",

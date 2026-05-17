@@ -30,6 +30,7 @@ import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 import guardianConfig from "@/lib/cost/guardian-config.json";
 import type { GuardianCostConfig } from "@/lib/cost/types";
+import { gridConfig } from "@/lib/grid-config";
 import { devLog } from "@/lib/dev-log";
 import {
   buildSortClause,
@@ -171,6 +172,192 @@ function buildFreeFilter(config: GuardianCostConfig): Record<string, unknown> {
   return { bool: { should, minimum_should_match: 1 } };
 }
 
+// ---------------------------------------------------------------------------
+// Syndication status filter builder
+// ---------------------------------------------------------------------------
+// Ports media-api's SyndicationFilter.scala to a client-side ES query builder.
+// Five statuses, each producing a composite bool query against stored ES fields.
+//
+// Key design decisions:
+// - "review" uses a date-range on leases.leases.endDate to detect expired
+//   deny-syndication leases (option b). The Scala uses a Painless runtime field
+//   (hasActiveDenySyndicationLease) as an additional correctness layer; we cannot
+//   deploy Painless from the FE. Since MediaLeaseController enforces at most 1
+//   deny-syndication lease per image, the de-correlation risk (plain object, not
+//   nested) is negligible in practice. (See deviations.md, 07-syndication-and-leases.md §4.2)
+// - leases.leases is a plain (non-nested) object field — plain term clauses work.
+//   (Verified against PROD, 07-syndication-and-leases.md §3.2)
+// - "review" syndicatableCategory + syndicationStartDate come from gridConfig.
+// - useRuntimeFieldsToFixSyndicationReviewQueueQuery → skipped (FE can't deploy Painless).
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a composite ES filter for a `syndicationStatus` URL param value.
+ * Returns null for unknown status values (caller should ignore/skip the filter).
+ *
+ * Mirrors: media-api/app/lib/elasticsearch/SyndicationFilter.scala#statusFilter
+ *
+ * @param syndicationStartDate - PROD-only upload-time cutoff (ISO string or null).
+ *   Defaults to gridConfig.syndicationStartDate. Overridable for unit testing.
+ *
+ * Exported for unit testing only. Use via `buildQuery` → params.syndicationStatus.
+ */
+export function buildSyndicationStatusFilter(
+  status: string,
+  syndicationStartDate: string | null = gridConfig.syndicationStartDate,
+): Record<string, unknown> | null {
+  // ---- shared building blocks (mirrors SyndicationFilter.scala private vals) ----
+
+  const hasRightsAcquired = {
+    term: { "syndicationRights.rights.acquired": true },
+  };
+  // noRightsAcquired: field absent OR field = false
+  const noRightsAcquired = {
+    bool: {
+      should: [
+        {
+          bool: {
+            must_not: { exists: { field: "syndicationRights.rights.acquired" } },
+          },
+        },
+        { term: { "syndicationRights.rights.acquired": false } },
+      ],
+      minimum_should_match: 1,
+    },
+  };
+
+  const hasAllowSyndicationLease = {
+    term: { "leases.leases.access": "allow-syndication" },
+  };
+  const hasDenySyndicationLease = {
+    term: { "leases.leases.access": "deny-syndication" },
+  };
+  const hasSyndicationUsage = { term: { usagesPlatform: "syndication" } };
+
+  // leaseHasStarted: startDate absent OR startDate <= now
+  const leaseHasStarted = {
+    bool: {
+      should: [
+        {
+          bool: {
+            must_not: { exists: { field: "leases.leases.startDate" } },
+          },
+        },
+        { range: { "leases.leases.startDate": { lte: "now" } } },
+      ],
+      minimum_should_match: 1,
+    },
+  };
+
+  // syndicationRightsPublished: published absent OR published <= now
+  const syndicationRightsPublished = {
+    bool: {
+      should: [
+        {
+          bool: {
+            must_not: { exists: { field: "syndicationRights.published" } },
+          },
+        },
+        { range: { "syndicationRights.published": { lte: "now" } } },
+      ],
+      minimum_should_match: 1,
+    },
+  };
+
+  // denySyndicationLeaseNotExpired (endDate absent OR endDate >= now)
+  // Used in "review" must_not to exclude images with an active deny-syndication lease.
+  const denySyndicationLeaseNotExpired = {
+    bool: {
+      should: [
+        {
+          bool: {
+            must_not: { exists: { field: "leases.leases.endDate" } },
+          },
+        },
+        { range: { "leases.leases.endDate": { gte: "now" } } },
+      ],
+      minimum_should_match: 1,
+    },
+  };
+
+  // Syndicatable category: staff/contract/commissioned photographer
+  // (mirrors IsOwnedPhotograph in IsQueryFilter.scala)
+  const syndicatableCategory = {
+    terms: { "usageRights.category": gridConfig.syndicatableCategories },
+  };
+
+  // ---- status dispatch ----
+
+  switch (status) {
+    case "unsuitable":
+      return noRightsAcquired;
+
+    case "sent":
+      // rights acquired AND allow-syndication lease AND syndication usage
+      return {
+        bool: {
+          filter: [hasRightsAcquired, hasAllowSyndicationLease, hasSyndicationUsage],
+        },
+      };
+
+    case "queued":
+      // rights acquired AND no syndication usage AND allow-syndication lease
+      // AND lease has started AND syndicationRights published
+      return {
+        bool: {
+          filter: [
+            hasRightsAcquired,
+            hasAllowSyndicationLease,
+            leaseHasStarted,
+            syndicationRightsPublished,
+          ],
+          must_not: [hasSyndicationUsage],
+        },
+      };
+
+    case "blocked":
+      // rights acquired AND deny-syndication lease (existence only, no date check at query level)
+      return {
+        bool: {
+          filter: [hasRightsAcquired, hasDenySyndicationLease],
+        },
+      };
+
+    case "review": {
+      // rights acquired AND syndicatable category
+      // AND NOT allow-syndication
+      // AND NOT active deny-syndication (exists + not expired)
+      // Optionally: AND uploadTime >= syndicationStartDate (PROD only, when configured)
+      const hasActiveDenySyndication = {
+        bool: {
+          filter: [hasDenySyndicationLease, denySyndicationLeaseNotExpired],
+        },
+      };
+      const rightsAcquiredNoLease = {
+        bool: {
+          filter: [hasRightsAcquired, syndicatableCategory],
+          must_not: [hasAllowSyndicationLease, hasActiveDenySyndication],
+        },
+      };
+
+      if (syndicationStartDate) {
+        return {
+          bool: {
+            filter: [
+              { range: { uploadTime: { gte: syndicationStartDate } } },
+              rightsAcquiredNoLease,
+            ],
+          },
+        };
+      }
+      return rightsAcquiredNoLease;
+    }
+
+    default:
+      return null;
+  }
+}
+
 
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
@@ -253,19 +440,16 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
     });
   }
 
-  // Syndication status
+  // Syndication status — composite query builder porting SyndicationFilter.scala (SY-3)
   if (params.syndicationStatus) {
-    filter.push({ term: { syndicationStatus: params.syndicationStatus } });
+    const syndicationFilter = buildSyndicationStatusFilter(params.syndicationStatus);
+    if (syndicationFilter) {
+      filter.push(syndicationFilter);
+    }
   }
 
-  // Persisted
-  if (params.persisted === "true") {
-    filter.push({ term: { "persisted.value": true } });
-  } else if (params.persisted === "false") {
-    filter.push({
-      bool: { must_not: { term: { "persisted.value": true } } },
-    });
-  }
+  // Persisted — dead code: persisted is computed by the Archiver service, not stored in ES _source.
+  // Removed in SY-0. Leaving the `params.persisted` field in SearchParams for now (SY-3+ may reuse).
 
   const query: Record<string, unknown> =
     must.length === 0 && mustNot.length === 0 && filter.length === 0

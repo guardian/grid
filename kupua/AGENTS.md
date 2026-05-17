@@ -71,15 +71,15 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
-| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts` | Three-layer merge: ES baseline → TS cost/validity calculation → optional Grid API overlay. `deriveImage()` is the single merge point. |
+| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | Three-layer merge: ES baseline → TS cost/validity/syndication calculation → optional Grid API overlay. `deriveImage()` is the single merge point. Syndication status computed client-side from `syndicationRights`, `leases`, `usages` (SY-0–SY-5). |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
 > Full component inventory (views, gesture hooks, panels, toast, etc.): `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
-- **801 Vitest** unit/integration tests (~40s) -- `npm test`
-- **223+ Playwright E2E** tests (~7min) -- `npx playwright test`
+- **843 Vitest** unit/integration tests (~40s) -- `npm test`
+- **239 Playwright E2E** tests (~8min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`

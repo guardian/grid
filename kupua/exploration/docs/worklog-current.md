@@ -12,7 +12,7 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-No task.
+(none)
 
 ## Session Log
 

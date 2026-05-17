@@ -13,13 +13,14 @@
  *     Empty quota map (dev, network failure) → no over_quota reason added.
  *   - "has_write_permission": always false in standalone mode (no auth context).
  *   - "current_allow_lease": derived from the ES leases[] array.
- *     Active lease detection: lease.active === "true" && lease.access === "allow-use".
- *     Note: in the ES Image type, lease.active is a string, not boolean.
+ *     Active lease detection: date-based via isLeaseActive() — does NOT trust
+ *     the stale ES `active` snapshot. See 07-syndication-and-leases.md §3.2.1.
  *   - "tass_agency_image": non-critical validity warning (included as it's
  *     fully derivable from ES data without quota or write-permission state).
  */
 
 import type { Image } from "@/types/image";
+import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { isSupplierOverQuota } from "./quota-store";
 
 export interface ValidityCheck {
@@ -57,11 +58,12 @@ export const VALIDITY_DESCRIPTIONS: Record<string, string> = {
  */
 export function buildValidityMap(image: Image): ValidityMap {
   const leases = image.leases?.leases ?? [];
+  const nowMs = Date.now();
   const hasCurrentAllowLease = leases.some(
-    (l) => l.active === "true" && l.access === "allow-use",
+    (l) => l.access === "allow-use" && isLeaseActive(l, nowMs),
   );
   const hasCurrentDenyLease = leases.some(
-    (l) => l.active === "true" && l.access === "deny-use",
+    (l) => l.access === "deny-use" && isLeaseActive(l, nowMs),
   );
   const shouldOverride = hasCurrentAllowLease;
 

@@ -89,14 +89,16 @@ describe("deriveImage", () => {
       expect(enriched.metadata.title).toBe("My Photo");
     });
 
-    it("sets API-only fields to undefined when no overlay", () => {
+    it("computes syndicationStatus baseline (no overlay, no syndicationRights → unsuitable)", () => {
       const img = makeImage({ usageRights: { category: "staff-photographer" } });
       const enriched = deriveImage(img, undefined);
       expect(enriched.leasesSummary).toBeUndefined();
       expect(enriched.persisted).toBeUndefined();
       expect(enriched.actions).toBeUndefined();
       expect(enriched.isPotentiallyGraphic).toBeUndefined();
-      expect(enriched.syndicationStatus).toBeUndefined();
+      // syndicationStatus is now always present — baseline from calculateSyndicationStatus.
+      // Fixture has no syndicationRights → unsuitable.
+      expect(enriched.syndicationStatus).toBe("unsuitable");
     });
 
     it("uses image.usages as fallback for enrichedUsages", () => {

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kupua Lease UI Showcase</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1e1e1e; color: #e0e0e0; padding: 24px; line-height: 1.4; }
+  h1 { font-size: 18px; margin-bottom: 16px; color: #fff; }
+  h2 { font-size: 14px; margin: 24px 0 8px; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+  h3 { font-size: 12px; margin: 16px 0 6px; color: #888; }
+  .columns { display: flex; gap: 48px; flex-wrap: wrap; }
+  .column { flex: 1; min-width: 300px; max-width: 400px; }
+
+  /* Single-image lease cards */
+  .lease-section { padding: 10px 12px; border-bottom: 1px solid #444; }
+  .lease-heading { font-size: 12px; font-weight: bold; color: #999; padding-bottom: 6px; }
+  .lease-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .lease-card { font-size: 11px; background: #565656; border-radius: 3px; }
+  .lease-card.dimmed { opacity: 0.5; }
+  .lease-card-inner { padding: 6px 8px; border-top: 5px solid; border-radius: 3px 3px 0 0; }
+  .lease-card-inner.allow { border-color: teal; }
+  .lease-card-inner.deny { border-color: red; }
+  .lease-label { font-weight: 600; }
+  .lease-date { font-style: italic; margin: 2px 0; color: #ccc; }
+  .lease-notes { margin-top: 3px; color: #bbb; }
+
+  /* Multi-image lease rows */
+  .multi-section { padding: 10px 12px; border-bottom: 1px solid #444; }
+  .multi-heading { font-size: 12px; font-weight: bold; color: #999; padding-bottom: 6px; }
+  .multi-rows { display: flex; flex-direction: column; gap: 2px; }
+  .multi-row { display: flex; align-items: baseline; justify-content: space-between; font-size: 11px; border-left: 3px solid; padding: 3px 0 3px 8px; }
+  .multi-row.allow { border-color: teal; }
+  .multi-row.deny { border-color: red; }
+  .multi-row .label { color: #e0e0e0; }
+  .multi-row .label.bold { font-weight: bold; }
+  .multi-row .count { color: #e0e0e0; font-variant-numeric: tabular-nums; }
+  .multi-row .count.bold { font-weight: bold; }
+  .multi-row .circle { display: inline-block; width: 14px; text-align: center; }
+  .multi-row .circle.allow { color: teal; }
+  .multi-row .circle.deny { color: red; }
+  .footnote { font-size: 10px; color: #888; font-style: italic; margin-top: 6px; }
+  .no-leases { font-size: 12px; color: #888; }
+
+  .panel { background: #2a2a2a; border-radius: 6px; padding: 4px 0; margin-bottom: 12px; }
+  .scenario-label { font-size: 10px; color: #666; margin-bottom: 4px; padding: 0 12px; }
+</style>
+</head>
+<body>
+
+<h1>Kupua Lease UI — All Combinations</h1>
+
+<div class="columns">
+
+<!-- SINGLE IMAGE -->
+<div class="column">
+<h2>Single Image View</h2>
+
+<h3>All four types active + one pending + one expired</h3>
+<div class="panel">
+  <div class="scenario-label">Sorted: use first, deny first, active→pending→expired</div>
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card" title="expires at: 20 May 2026, 09:00&#10;leased by: editor@guardian.co.uk&#10;leased at: 10 May 2026, 14:30">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny use</div><div class="lease-date">Expires in 4 days</div></div>
+      </li>
+      <li class="lease-card" title="starts at: 18 May 2026, 08:00&#10;leased by: editor@guardian.co.uk&#10;leased at: 16 May 2026, 10:00">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny use (pending)</div><div class="lease-date">Starts in 2 days</div><div class="lease-date">Expires in 9 days</div></div>
+      </li>
+      <li class="lease-card" title="expires at: 25 May 2026, 18:00&#10;leased by: picture.desk@guardian.co.uk&#10;leased at: 12 May 2026, 09:15">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow use</div><div class="lease-date">Expires in 9 days</div><div class="lease-notes">AP contract — week licence</div></div>
+      </li>
+      <li class="lease-card dimmed" title="expired at: 14 May 2026, 12:00&#10;leased by: someone@guardian.co.uk&#10;leased at: 7 May 2026, 11:00">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow use</div><div class="lease-date">Expired 2 days ago</div></div>
+      </li>
+      <li class="lease-card" title="leased by: andrew.nowak@guardian.co.uk&#10;leased at: 25 Mar 2025, 12:36">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny syndication</div><div class="lease-date">Never expires</div></div>
+      </li>
+      <li class="lease-card" title="starts at: 19 May 2026, 00:00&#10;leased by: syndication@guardian.co.uk&#10;leased at: 16 May 2026, 15:00">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow syndication (pending)</div><div class="lease-date">Starts in 3 days</div><div class="lease-date">Never expires</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>Single active lease (minimal)</h3>
+<div class="panel">
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card" title="leased by: mateusz.karpow@guardian.co.uk&#10;leased at: 16 May 2026, 22:15">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow use</div><div class="lease-date">Never expires</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>Only expired leases (all dimmed)</h3>
+<div class="panel">
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card dimmed" title="expired at: 10 May 2026, 00:00&#10;leased by: editor@guardian.co.uk&#10;leased at: 3 May 2026, 09:00">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny use</div><div class="lease-date">Expired 6 days ago</div></div>
+      </li>
+      <li class="lease-card dimmed" title="expired at: 12 May 2026, 18:00&#10;leased by: editor@guardian.co.uk&#10;leased at: 5 May 2026, 14:00">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow use</div><div class="lease-date">Expired 4 days ago</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>Pending only (not yet active)</h3>
+<div class="panel">
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card" title="starts at: 20 May 2026, 09:00&#10;leased by: syndication@guardian.co.uk&#10;leased at: 16 May 2026, 11:00">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow syndication (pending)</div><div class="lease-date">Starts in 4 days</div><div class="lease-date">Never expires</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>Deny syndication — never expires (common case)</h3>
+<div class="panel">
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card" title="leased by: andrew.nowak@guardian.co.uk&#10;leased at: 25 Mar 2025, 12:36">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny syndication</div><div class="lease-date">Never expires</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<h3>Sub-day precision examples</h3>
+<div class="panel">
+  <div class="lease-section">
+    <div class="lease-heading">Leases</div>
+    <ul class="lease-list">
+      <li class="lease-card" title="expires at: 16 May 2026, 23:45&#10;leased by: editor@guardian.co.uk&#10;leased at: 16 May 2026, 20:00">
+        <div class="lease-card-inner deny"><div class="lease-label">Deny use</div><div class="lease-date">Expires in 3 hours</div></div>
+      </li>
+      <li class="lease-card" title="starts at: 16 May 2026, 21:15&#10;leased by: editor@guardian.co.uk&#10;leased at: 16 May 2026, 20:30">
+        <div class="lease-card-inner allow"><div class="lease-label">Allow use (pending)</div><div class="lease-date">Starts in 45 minutes</div><div class="lease-date">Expires in 7 days</div></div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+</div>
+
+<!-- MULTI IMAGE -->
+<div class="column">
+<h2>Multi-Image View (Selection)</h2>
+
+<h3>Mixed active + pending (48 images selected)</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows">
+      <div class="multi-row deny"><span class="label bold">Deny use</span><span class="count bold">All images <span class="circle deny">●</span></span></div>
+      <div class="multi-row deny"><span class="label">Deny use (pending)</span><span class="count">3 of 48 <span class="circle deny">◐</span></span></div>
+      <div class="multi-row allow"><span class="label">Allow use</span><span class="count">12 of 48 <span class="circle allow">◐</span></span></div>
+      <div class="multi-row allow"><span class="label">Allow use (pending)</span><span class="count">1 of 48 <span class="circle allow">◐</span></span></div>
+      <div class="multi-row deny"><span class="label bold">Deny syndication</span><span class="count bold">All images <span class="circle deny">●</span></span></div>
+      <div class="multi-row allow"><span class="label">Allow syndication</span><span class="count">2 of 48 <span class="circle allow">◐</span></span></div>
+      <div class="multi-row allow"><span class="label">Allow syndication (pending)</span><span class="count">5 of 48 <span class="circle allow">◐</span></span></div>
+    </div>
+    <div class="footnote">3 images with expired leases</div>
+  </div>
+</div>
+
+<h3>All images have same active lease (simple case)</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows">
+      <div class="multi-row allow"><span class="label bold">Allow use</span><span class="count bold">All images <span class="circle allow">●</span></span></div>
+    </div>
+  </div>
+</div>
+
+<h3>Only some have leases</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows">
+      <div class="multi-row deny"><span class="label">Deny syndication</span><span class="count">7 of 50 <span class="circle deny">◐</span></span></div>
+    </div>
+    <div class="footnote">2 images with expired leases</div>
+  </div>
+</div>
+
+<h3>No leases at all</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="no-leases">No leases</div>
+  </div>
+</div>
+
+<h3>Only expired (no active or pending)</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows"></div>
+    <div class="footnote">12 images with expired leases</div>
+  </div>
+</div>
+
+<h3>Pending only — no active leases yet</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows">
+      <div class="multi-row allow"><span class="label">Allow syndication (pending)</span><span class="count bold">All images <span class="circle allow">●</span></span></div>
+    </div>
+  </div>
+</div>
+
+<h3>Large selection — 5000 images, deny everywhere</h3>
+<div class="panel">
+  <div class="multi-section">
+    <div class="multi-heading">Leases</div>
+    <div class="multi-rows">
+      <div class="multi-row deny"><span class="label bold">Deny use</span><span class="count bold">All images <span class="circle deny">●</span></span></div>
+      <div class="multi-row deny"><span class="label bold">Deny syndication</span><span class="count bold">All images <span class="circle deny">●</span></span></div>
+    </div>
+    <div class="footnote">847 images with expired leases</div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<p style="margin-top: 32px; font-size: 10px; color: #555;">Hover over single-image cards to see tooltips with absolute dates.</p>
+</body>
+</html>

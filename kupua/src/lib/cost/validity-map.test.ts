@@ -53,9 +53,12 @@ describe("buildValidityMap", () => {
     expect(map.current_deny_lease.invalid).toBe(true);
   });
 
-  it("marks current_deny_lease valid when no deny lease is active", () => {
+  it("marks current_deny_lease valid when deny lease is expired (date-based, not active-flag)", () => {
+    // active:"false" is no longer the signal — we use date-based isLeaseActive.
+    // Expired endDate = inactive regardless of the stale snapshot value.
+    const expiredDate = new Date(Date.now() - 86_400_000).toISOString(); // 1 day ago
     const map = buildValidityMap(makeImage({
-      leases: { leases: [{ id: "l1", access: "deny-use", active: "false" }] },
+      leases: { leases: [{ id: "l1", access: "deny-use", active: "true", endDate: expiredDate }] },
     }));
     expect(map.current_deny_lease.invalid).toBe(false);
   });
@@ -106,6 +109,26 @@ describe("buildValidityMap", () => {
     const map = buildValidityMap(makeImage());
     expect(map.paid_image.invalid).toBe(false);
     expect(map.conditional_paid.invalid).toBe(false);
+  });
+
+  it("expired allow-use lease with stale active:\"true\" does not override — staleness fix regression guard", () => {
+    // ES snapshot can still show active:"true" after a lease expires (thrall hasn't re-indexed).
+    // Date-based isLeaseActive() must return false for an expired endDate,
+    // so shouldOverride stays false and the validity banner stays red.
+    const expiredDate = new Date(Date.now() - 86_400_000).toISOString(); // 1 day ago
+    const map = buildValidityMap(makeImage({
+      leases: {
+        leases: [
+          { id: "l1", access: "allow-use", active: "true", endDate: expiredDate },
+          { id: "l2", access: "deny-use", active: "true" },
+        ],
+      },
+      usageRights: { category: "agency" },
+      metadata: { credit: "Getty", description: "A photo" } as Image["metadata"],
+    }));
+    // Expired allow-use → shouldOverride=false → deny-use check is not overridden
+    expect(map.current_deny_lease.shouldOverride).toBe(false);
+    expect(map.current_deny_lease.invalid).toBe(true);
   });
 });
 

@@ -14,6 +14,150 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 May 2026 — Syndication review follow-ups (lease-staleness completion, badge dedupe, doc fixes)
+
+**Task 1 — Finish `lease.active` → date-based migration:**
+- `src/lib/cost/validity-map.ts`: imported `isLeaseActive`; hoisted `nowMs` in `buildValidityMap`;
+  replaced two `l.active === "true"` snapshot checks with `isLeaseActive(l, nowMs)`. This fixes
+  the staleness bug (§3.2.1) for the validity banner and `shouldOverride` signal — an expired
+  allow-use lease no longer keeps the banner teal. Updated JSDoc to document the date-based approach.
+- `src/components/ImageMetadata.tsx` line 182: fixed the last `l.active === "true"` fallback for
+  `hasActiveAllowLease` when `leasesSummary` is absent.
+- `src/lib/cost/validity-map.test.ts`: updated the deny-lease-inactive test to use an expired
+  `endDate` instead of `active:"false"` (old approach no longer works with date-based check). Added
+  regression guard: expired allow-use lease with stale `active:"true"` → `shouldOverride=false`.
+- `grep -rn 'l.active === "true"' kupua/src/` returns 0 hits (migration complete).
+
+**Task 2 — Extract `<SyndicationBadge>` component:**
+- Created `src/components/SyndicationBadge.tsx`: props `{ status: SyndicationStatus | null | undefined }`,
+  returns null for unsuitable/null, renders monetization_on SVG with status-driven colour + tooltip.
+- `ImageGrid.tsx`: replaced ~17-line inline block with `<SyndicationBadge status={syndicationStatus} />`,
+  removed now-unused `syndicationReason` import, added `SyndicationBadge` import.
+- `field-registry.tsx`: replaced `{hasSyndicationBadge && <span>...SVG...</span>}` block with
+  `{hasSyndicationBadge && <SyndicationBadge status={syndicationStatus} />}`, replaced
+  `syndicationReason` import with `SyndicationBadge` import. `hasSyndicationBadge` early-return
+  guard kept intact.
+
+**Task 3 — Fix contradictory comment in `calculate-syndication-status.ts`:**
+- Rewrote the file header's first paragraph: it said "existence-based allow-syndication lease
+  check" but the code used `isLeaseActive()`. New text accurately describes (a) mirrors
+  Image.scala priority order, (b) departs via date-based active check, (c) omits
+  search-filter-only gates.
+
+**Task 4 — Add deviations.md entry for date-based active detection:**
+- Added `### Leases panel — date-based active detection, not ES snapshot (SY-5)` entry at end
+  of deviations.md. Covers what, why, and trade-off; warns future agents not to revert to
+  `active === "true"` checks.
+- 844/844 unit tests passing.
+
+
+
+### 16 May 2026 — SY-4 + SY-5: Syndication UI (badge, info panel, warning banner, leases)
+
+**SY-4 — Grid/table syndication badge:**
+- Extended the existing `monetization_on` icon in `ImageGrid.tsx` and the badges column in
+  `field-registry.tsx` from "sent only" to all four non-unsuitable statuses.
+- Colour scheme (Kahuna parity): sent=green, queued=orange, blocked=red, review=white.
+  White is safe in kupua's dark-theme icon bar (unlike Kahuna where it risks blending
+  with light thumbnails — not a concern here since the icon bar always has `bg-grid-cell`).
+- Tooltip text provided by `syndicationReason()` from `lib/syndication/syndication-reason.ts` (SY-2).
+- `hasSyndicationBadge` flag added to the null-return guard in field-registry badges column
+  so queued/blocked/review images now render their badge.
+- Fixed stale comment in `ImageGrid.tsx` line 235 ("API only" — was wrong since SY-2).
+
+**SY-5 — Info panel (Syndication Rights section, §5.2):**
+- Added "Syndication rights" section at bottom of `ImageMetadata.tsx`.
+- Three variants: "No information available." / "...have been acquired..." / "...have **not** been acquired...".
+- `isInferred` and `published` are available on the type but not rendered in v1 (matches Kahuna; data
+  layer ready for future iteration without schema changes).
+
+**SY-5 — Deny-syndication warning banner (§5.3):**
+- Added `showDenySyndicationWarning` and `denySyndicationTextHeader` to `grid-config.ts`.
+- When an active deny-syndication lease exists (computed via `isLeaseActive()` — date-based,
+  not trusting the stale ES snapshot) AND `gridConfig.showDenySyndicationWarning` is true:
+  - If validity banner is already showing: the deny-syndication message is appended as a `<li>` inside it (Kahuna behaviour).
+  - If no validity banner: a standalone amber banner is shown (Kahuna behaviour).
+
+**SY-5 — Leases panel (§5.4):**
+- All four access types were already typed in `LEASE_ACCESS_LABELS` in `ImageMetadata.tsx` (allow-use,
+  deny-use, allow-syndication, deny-syndication) — no label changes needed.
+- Migrated lease card "isActive" dimming from `lease.active === "true"` (stale ES snapshot)
+  to `isLeaseActive(lease, nowMs)` (date-based, imported from SY-2's calculate-syndication-status.ts).
+- Also migrated the count fallbacks (currentLeaseCount, inactiveLeaseCount) to use date-based check
+  when `leasesSummary` is absent.
+- `nowMs = Date.now()` hoisted once per render and shared by all three date-based checks
+  (count fallbacks, deny-syndication check, card dimming).
+
+**Tests:** 843/843 unit + 239/239 e2e all green.
+
+### 16 May 2026 — SY-0/1/2/3: Syndication data layer and search filter
+
+**SY-0 — Cleanup: remove phantom fields from SOURCE_INCLUDES:**
+- `syndicationStatus` was in `SOURCE_INCLUDES` but the field is a Painless runtime script —
+  not stored in `_source`. Every search returned `undefined` for it, and existing ES filters
+  (`{ term: { syndicationStatus: value } }`) matched nothing. Removed from `SOURCE_INCLUDES`.
+- `persisted` was in the same category — a media-api computed field, not in `_source`. Removed.
+- Removed dead `syndicationStatus` and `persisted` term filters in `es-adapter.ts`
+  (previously silently matched zero documents). Fixed misleading comment block in `es-config.ts`.
+
+**SY-1 — Data layer: syndicationRights + lease type tightening:**
+- Added `syndicationRights.published`, `syndicationRights.isInferred`,
+  `syndicationRights.rights.acquired` dot-paths to `SOURCE_INCLUDES`. Verified against PROD
+  mapping — dot-paths strip noise (`rightCode`, `properties[]`) while preserving what kupua
+  needs. Full `syndicationRights` object would double per-hit payload for no gain.
+- Defined `SyndicationRights` interface in `image.ts` (acquired/isInferred/published).
+- Defined `LeaseAccess` union type: `"allow-use" | "deny-use" | "allow-syndication" |
+  "deny-syndication"`. Tightened `Lease.access` from `string` to this union. Checked all
+  break sites (validity-map.ts, ImageMetadata.tsx, validity-map.test.ts) — all already used
+  literal strings within the union, no code changes needed beyond the type declaration.
+
+**SY-2 — Client-side syndication status computation:**
+- Created `src/lib/syndication/calculate-syndication-status.ts`:
+  - `isLeaseActive(lease, nowMs)`: date-based active check (startDate ≤ now < endDate).
+    Does NOT trust the stale `lease.active` ES snapshot — that field reflects state at last
+    thrall reindex, not current time. Design decision: Option B from syndication.md §4.3
+    (be correct about lease expiry rather than match Kahuna's existence-only check).
+  - `calculateSyndicationStatus(image, nowMs)`: returns one of `"sent" | "queued" |
+    "blocked" | "review" | "unsuitable"`. Logic mirrors `SyndicationFilter.scala` derivation
+    but runs client-side per image. Checks (in priority order): has active allow-syndication
+    usage → "sent"; rights acquired + no active deny-syndication + has usable category →
+    "queued" or "review" depending on lease state; otherwise "unsuitable".
+- Created `src/lib/syndication/syndication-reason.ts`: human-readable tooltip text per
+  status ("Sent to partners", "Awaiting review", etc.).
+- Wired `calculateSyndicationStatus` into `deriveImage()` as baseline computation — overlay
+  from Grid API still wins if present (future-proofing). Updated
+  `derive-enriched-image.test.ts` fixture assertion (`syndicationStatus` now `"unsuitable"`
+  not `undefined`).
+- 15 new unit tests: 8 required fixtures (one per status path + edge cases) + 7 edge cases
+  (expired leases, missing rights, lease-without-dates).
+
+**SY-3 — Search filter: composite ES query builder:**
+- Read `SyndicationFilter.scala` in full. No undocumented logic — five statuses all match
+  syndication.md §4.2. Noted: Scala's `useRuntimeFieldsToFixSyndicationReviewQueueQuery`
+  adds a Painless `hasActiveDeny` runtime field for "review" — kupua can't deploy Painless
+  from FE, so uses Option B (date-range on `leases.leases.endDate`) as documented.
+- Created `buildSyndicationStatusFilter(status, startDate?)` in `es-adapter.ts` (exported
+  for direct testing). Produces composite bool queries per status:
+  - `sent`: `must[usages.platform exists, usageRights.category in syndicatableCategories]`
+  - `queued`: rights acquired + syndicatable category + no active deny-syndication lease +
+    no syndication usage
+  - `blocked`: rights NOT acquired
+  - `review`: rights acquired + syndicatable category + has active deny-syndication lease
+    (date-range check: `startDate ≤ now AND (no endDate OR endDate > now)`)
+  - `unsuitable`: NOT in syndicatable categories
+- Added `syndicatableCategories` array and `syndicationStartDate: null` to `grid-config.ts`.
+  `syndicationStartDate` is an SSM secret in PROD (not committed); `null` = no date gate
+  (correct for TEST/CODE).
+- URL wiring: NO changes needed — `syndicationStatus` already threaded through
+  `search-params-schema` → `useUrlSearchSync` → `search-store` → `buildQuery`.
+- 25 new unit tests covering all five statuses, edge cases, and the PROD start-date variant
+  (via parameter override).
+- TEST cluster spot-check (16 May 2026): browser verification against TEST showed all five
+  status values matching Kahuna's results. Option-B divergence (expired deny-syndication
+  de-correlation) untestable in TEST — requires PROD data. Documented in deviations.md.
+
+**Tests:** 843/843 unit (818 pre-existing + 25 SY-3) + 239/239 e2e all green.
+
 ### 16 May 2026 — CQL popover dead-space fix
 
 The CQL typeahead popover container uses `height: 100%` to support scrolling on long

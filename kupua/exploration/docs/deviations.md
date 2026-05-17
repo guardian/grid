@@ -1454,3 +1454,162 @@ Desktop drag-to-collection works as expected.
 **Trade-off:** Two adapters to maintain. The decision matrix is documented in `dal/grid-api/README.md` and `integration-workplan-bread-and-butter.md §"Architectural rule"`.
 
 Reference: `integration-workplan-bread-and-butter.md`, `enrichment-strategy.md`.
+
+---
+
+### syndicationStatus display matches Kahuna's `Image.scala`, not `SyndicationFilter.scala`
+
+**What:** Kupua computes `syndicationStatus` client-side for display (badges, info panel) using
+the simpler `Image.scala#syndicationStatus` logic — existence-based allow-syndication lease
+check, no `syndicationRights.published <= now` gate, no `syndicatableCategory` (photographer
+category) gate. The ES search filter (`?syndicationStatus=review`) DOES apply those gates,
+mirroring `SyndicationFilter.scala`.
+
+**Why this is a "deviation worth recording" even though we match Kahuna:** Kahuna has the same
+display/filter mismatch and it is arguably a bug — an image can show a "queued" or "review"
+badge during normal browsing but be absent from the equivalent filter results. We considered
+"fixing" this in kupua by applying the stricter filter logic to display too. We chose not to:
+
+- An aggregation against PROD (9.8M docs, 16 May 2026) found **2 docs** with
+  `syndicationRights.published > now`. The "fix" would cost a per-render date compare on every
+  image in the grid hot path to handle a case that essentially does not occur.
+- The `syndicatableCategory` gate would suppress "review" badges on non-photographer images
+  with rights data. Same near-zero benefit, same render cost, plus surprising UX (badge
+  disappears for images that clearly have syndication rights).
+- Matching Kahuna means editors retrained on kupua see identical badge behaviour. Zero
+  retraining surface; any divergence here would be confusing without being useful.
+
+A future agent looking at the display code may notice it doesn't match the filter and try to
+"correct" it. Don't. The asymmetry is intentional and matches Kahuna.
+
+**The one place we DO depart from Kahuna's display:** date-based `isLeaseActive()` (see
+07-syndication-and-leases.md §4.1). That fixes a genuine staleness bug — expired
+deny-syndication leases remain in the ES array and Kahuna shows them as "blocked" forever.
+We compute active from `startDate`/`endDate` instead. Negligible perf cost (sub-ms per page),
+real correctness win.
+
+Reference: `00 Architecture and philosophy/07-syndication-and-leases.md` §3.2.1, §4.1, §6.
+
+---
+
+### `syndicationStatus=review` filter uses date-range (not Painless) for expired deny-syndication
+
+**What:** The "review" search filter (`?syndicationStatus=review`) must exclude images that
+have an *active* deny-syndication lease. In `SyndicationFilter.scala`, when
+`useRuntimeFieldsToFixSyndicationReviewQueueQuery` is enabled, an additional Painless runtime
+field (`hasActiveDenySyndicationLease`) is computed at query time to walk the lease array and
+check `endDate > now` on each entry — correctly handling de-correlated lease data in the
+non-nested `leases.leases` array.
+
+Kupua uses a date-range filter on `leases.leases.endDate` instead: the `must_not` clause is
+`hasDenyLease AND (endDate absent OR endDate >= now)`.
+
+**Why:** Painless scripts require server-side configuration and cannot be deployed from a
+pure frontend. The date-range approach has a theoretical de-correlation flaw for images with
+multiple leases of different types: ES flattens non-nested arrays so `access` and `endDate`
+values from different leases are indexed separately, meaning the query can check the wrong
+lease's dates. In practice this is not a problem: `MediaLeaseController.scala:57-67` enforces
+at most one `deny-syndication` lease per image (new leases replace existing ones). The
+de-correlation scenario requires two simultaneous deny-syndication leases, which cannot occur.
+
+Reference: `SyndicationFilter.scala`, `07-syndication-and-leases.md` §4.2, §5.
+
+---
+
+### `syndicationStartDate` is null (no PROD cutoff) in the current config
+
+**What:** The "review" filter in media-api also gates by `uploadTime >= syndicationStartDate`
+when running in PROD (via `MediaApiConfig.syndication.start`). Kupua exposes this as
+`gridConfig.syndicationStartDate` in `src/lib/grid-config.ts`, currently set to `null` (no
+cutoff). `buildSyndicationStatusFilter("review")` accepts the start date as a parameter,
+defaulting to `gridConfig.syndicationStartDate`, so the PROD behaviour can be restored by
+setting the property.
+
+**Why null now:** The `syndication.start` config value is a runtime secret stored in AWS SSM
+— it is not in the public repo. Setting it to `null` means the filter returns the same result
+as the Scala code's `case _ => rightsAcquiredNoLeaseFilter` (non-PROD path). For TEST
+verification this is correct: TEST is not PROD, so no date gate is expected.
+
+**To enable for PROD:** Set `syndicationStartDate` in `grid-config.ts` to the ISO date string
+from the `syndication.start` SSM parameter. Do NOT commit the actual value to the public repo.
+When runtime config is added to kupua (future phase), this should move there.
+
+Reference: `MediaApiConfig.scala`, `SyndicationFilter.scala`, `07-syndication-and-leases.md` §4.2.
+
+---
+
+### Lease panel display — sorting, pending state, and multi-image summary
+
+**What (single image):** Kupua sorts leases in a deliberate order instead of showing them in
+raw ES insertion order. Sort priority: use before syndication → deny before allow → active
+then pending then expired → creation date within each sub-group. Pending leases (start date
+in the future) are shown at full opacity with "(pending)" appended to the label and "Starts
+in X" displayed. Expired leases are dimmed. Kahuna shows all leases in insertion order with
+no sorting, no pending/expired distinction beyond a binary "active" flag, and groups them
+only as "active" (full opacity) or "inactive" (dimmed).
+
+**What (single image — date precision):** Kupua uses sub-day precision for relative dates:
+"Starts in 3 hours", "Expires in 45 minutes", matching `moment.fromNow()` granularity.
+Kahuna uses `moment.fromNow()` directly; kupua reimplements without moment.js dependency.
+
+**What (single image — tooltips):** Kupua tooltips include the relevant temporal event as
+an absolute date ("expires at: 18 May 2026, 18:12") in addition to Kahuna's "leased by" /
+"leased at" lines. This gives users the exact timestamp behind the relative wording.
+
+**What (single image — start date suppression):** For active leases, the past start date is
+not shown (noise — the user only cares about expiry). Kahuna shows "Started X ago" for all
+leases with a start date regardless of state.
+
+**What (multi image):** Kupua shows per-type active and pending counts with ALL/SOME
+indicators (●/◐), coloured left borders matching single-image cards, and "All images" (bold)
+vs "N of M" display. Order mirrors single-image sort. Expired leases collapse to a single
+footnote ("X images with expired leases"). Kahuna shows only "{n} current leases + {m}
+inactive leases" for multi-image — no per-type breakdown, no pending distinction, no ALL/SOME
+signal. This is functionally useless for editors deciding whether to bulk-add leases.
+
+**What (multi image — twitch prevention):** Total for ALL/SOME comparison is derived from
+images actually in the metadata cache (not `selectedIds.size`), so adding a new image to the
+selection doesn't briefly flash "49 of 50" before the new image's metadata loads.
+
+**Why:** Leases are action-critical information — editors need to know at a glance what
+restrictions exist before adding/removing them. Insertion order provides no useful signal.
+The pending/active/expired trichotomy reflects genuine user-facing difference: "affects me
+now" vs "coming soon, don't duplicate" vs "historical record". Kahuna's flat "inactive"
+conflates pending (actionable) with expired (ignorable).
+
+**Trade-off:** Sort is computed on every render (`[...leases].sort(...)`) — negligible for
+typical lease counts (1–5 per image). Multi-image iterates the full metadata cache on each
+render — acceptable for up to 5k images (Set iteration + date comparisons, no allocations
+beyond the counter objects).
+
+Reference: `ImageMetadata.tsx` (single), `MultiImageMetadata.tsx` (multi),
+`kahuna/public/js/leases/leases.{html,js}`.
+
+---
+
+### Leases panel — date-based active detection, not ES snapshot (SY-5)
+
+**What:** Kupua determines whether a lease is currently active from `startDate` and `endDate`
+via `isLeaseActive()` rather than trusting the `active` field stored in the ES document.
+This applies to: the active/pending/expired three-state sort in the panel, the active-count
+fallback (`leasesSummary` absent), the validity banner `shouldOverride` signal in
+`validity-map.ts`, and the deny-syndication warning in `ImageMetadata.tsx`.
+
+**Why:** The `active` field is set by thrall at index time and can become stale. An expired
+`allow-use` lease still shows `active: "true"` until the image is re-indexed. Trusting it
+means the validity banner stays teal ("leased override") and the cost `shouldOverride` flag
+stays true long after the lease has actually expired — editors see an incorrect "this image
+is leased" state with no way to detect the discrepancy. Date-based computation costs one
+integer comparison per lease (negligible) and is always correct regardless of thrall lag.
+
+This is the same fix applied to `calculateSyndicationStatus` in SY-2 (deny-syndication
+banner) and to the validity map in the SY-5 follow-up review. All three call sites now use
+`isLeaseActive()`. See `07-syndication-and-leases.md` §3.2.1 for the staleness mechanics.
+
+**Trade-off:** Sub-ms per render; no meaningful cost. The `active` field is still carried
+through the ES `Lease` type and still appears on the wire — we just don't act on it.
+A future agent may notice the field and try to "simplify" back to `active === "true"` checks.
+Don't — the date-based path is both cheaper and more correct.
+
+Reference: `calculate-syndication-status.ts` (`isLeaseActive`), `validity-map.ts`,
+`ImageMetadata.tsx`, `07-syndication-and-leases.md` §3.2.1, §4.1.

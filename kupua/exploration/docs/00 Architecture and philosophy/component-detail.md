@@ -28,7 +28,7 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 
 Three-layer merge model:
 
-1. **ES baseline** — `SOURCE_INCLUDES` in `es-config.ts` fetches cost/validity/rights/leases/usages/labels/syndicationStatus/XMP fields. Always available.
+1. **ES baseline** — `SOURCE_INCLUDES` in `es-config.ts` fetches cost/validity/rights/leases/usages/labels/syndicationRights/XMP fields. Always available.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
 3. **Optional API overlay** — `enrichment-store` (Zustand, no persistence) populated by single-image Grid API fetch on detail open. `deriveImage(image, overlay?)` is the single merge point; API wins field-by-field; `undefined` overlay returns full baseline.
 

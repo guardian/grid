@@ -56,9 +56,25 @@ interface UsageRights {
   restrictions?: string;
 }
 
+/**
+ * Syndication rights as stored in ES (Mappings.scala:213).
+ * Dot-path SOURCE_INCLUDES fetches only the three fields kupua needs;
+ * the rest (rightCode, properties, suppliers) are excluded from _source.
+ */
+interface SyndicationRights {
+  /** Date the rights were published (ISO string). */
+  published?: string;
+  /** True when the rights were inferred rather than explicitly set. */
+  isInferred?: boolean;
+  /** Sparse array — only the `acquired` boolean is fetched via dot-path. */
+  rights?: { acquired?: boolean }[];
+}
+
+export type LeaseAccess = "allow-use" | "deny-use" | "allow-syndication" | "deny-syndication";
+
 interface Lease {
   id: string;
-  access: string;
+  access: LeaseAccess;
   leasedBy?: string;
   startDate?: string;
   endDate?: string;
@@ -161,7 +177,7 @@ export interface Image {
   // Rights
   usageRights?: UsageRights;
   originalUsageRights?: UsageRights;
-  syndicationRights?: Record<string, unknown>;
+  syndicationRights?: SyndicationRights;
 
   // File metadata (EXIF, IPTC, XMP, etc.)
   fileMetadata?: Record<string, unknown>;

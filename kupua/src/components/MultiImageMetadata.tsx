@@ -27,19 +27,15 @@ import {
 } from "./metadata-primitives";
 import { MultiSearchPill } from "./SearchPill";
 import { MultiValue } from "./MultiValue";
+import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { categoryLabel } from "@/lib/category-labels";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Cost } from "@/dal/grid-api/types";
 
-import type { ReconciledView } from "@/lib/reconcile";
 
 // Pre-computed sections (stable reference -- RECONCILE_FIELDS is a module-level constant).
 const SECTIONS = groupFieldsIntoSections(RECONCILE_FIELDS);
-
-// ---------------------------------------------------------------------------
-// Location composite: collapse the 4 location_* sub-fields into one row.
-// ---------------------------------------------------------------------------
 
 const LOCATION_IDS = new Set([
   "location_subLocation",
@@ -363,7 +359,38 @@ function CostSummarySection() {
 }
 
 // ---------------------------------------------------------------------------
-// Rights & leases section — aggregate counts matching Kahuna's multi-image layout
+// Lease type row — compact card row for multi-image lease summary.
+// Left coloured border matches single-image lease cards; count right-aligned.
+// deny → red, allow → teal; "All" is bold + coloured to stand out from counts.
+// ---------------------------------------------------------------------------
+
+const LEASE_ROW_ORDER: { key: string; access: string; label: string; isAllow: boolean; state: "active" | "pending" }[] = [
+  { key: "deny-use-active", access: "deny-use", label: "Deny use", isAllow: false, state: "active" },
+  { key: "deny-use-pending", access: "deny-use", label: "Deny use (pending)", isAllow: false, state: "pending" },
+  { key: "allow-use-active", access: "allow-use", label: "Allow use", isAllow: true, state: "active" },
+  { key: "allow-use-pending", access: "allow-use", label: "Allow use (pending)", isAllow: true, state: "pending" },
+  { key: "deny-syndication-active", access: "deny-syndication", label: "Deny syndication", isAllow: false, state: "active" },
+  // deny-syndication can't be pending (no startDate by design)
+  { key: "allow-syndication-active", access: "allow-syndication", label: "Allow syndication", isAllow: true, state: "active" },
+  { key: "allow-syndication-pending", access: "allow-syndication", label: "Allow syndication (pending)", isAllow: true, state: "pending" },
+];
+
+function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: number; total: number; isAllow: boolean }) {
+  if (count === 0) return null;
+  const isAll = count >= total;
+  return (
+    <div className={`flex items-baseline justify-between text-2xs border-l-[3px] ${isAllow ? "border-[teal]" : "border-[red]"} pl-1.5 py-0.5`}>
+      <span className={`text-grid-text ${isAll ? "font-bold" : ""}`}>{label}</span>
+      <span className={`text-grid-text ${isAll ? "font-bold" : ""} tabular-nums`}>
+        {isAll ? "All images" : `${count} of ${total}`}{" "}
+        <span className={`inline-block w-3 text-center ${isAllow ? "text-[teal]" : "text-[red]"}`}>{isAll ? "●" : "◐"}</span>
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Rights & leases section
 // ---------------------------------------------------------------------------
 
 function RightsAndLeasesSection() {
@@ -376,17 +403,47 @@ function RightsAndLeasesSection() {
   const categoryRec = reconciledView?.get("usageRights_category");
   const categoryField = RECONCILE_FIELDS.find((f) => f.id === "usageRights_category");
 
-  // Aggregate lease counts across selection (Kahuna: "{n} current leases + {m} inactive leases")
-  const enrichmentData = useEnrichmentStore((s) => s.data);
-  let currentLeaseCount = 0;
-  let inactiveLeaseCount = 0;
+  // Aggregate active + pending lease counts per access type across selection.
+  // Uses isLeaseActive() (date-based) — does not trust the stale ES `active` snapshot.
+  // Total is counted from cached images (not selectedIds.size) to avoid
+  // twitch when a newly-added image hasn't loaded into cache yet.
+  const nowMs = Date.now();
+  const activeCounts: Record<string, number> = {
+    "allow-use": 0, "deny-use": 0, "allow-syndication": 0, "deny-syndication": 0,
+  };
+  const pendingCounts: Record<string, number> = {
+    "allow-use": 0, "deny-use": 0, "allow-syndication": 0, "deny-syndication": 0,
+  };
+  let imagesWithAnyExpired = 0;
+  let cachedTotal = 0;
   for (const id of selectedIds) {
     const img = metadataCache.get(id);
     if (!img) continue;
-    const enriched = deriveImage(img, enrichmentData.get(id));
-    currentLeaseCount += enriched.leasesSummary?.currentCount ?? 0;
-    inactiveLeaseCount += enriched.leasesSummary?.inactiveCount ?? 0;
+    cachedTotal++;
+    const leases = img.leases?.leases ?? [];
+    const seenActive = new Set<string>();
+    const seenPending = new Set<string>();
+    let hasAnyExpired = false;
+    for (const lease of leases) {
+      if (isLeaseActive(lease, nowMs)) {
+        if (!seenActive.has(lease.access)) {
+          seenActive.add(lease.access);
+          activeCounts[lease.access] = (activeCounts[lease.access] ?? 0) + 1;
+        }
+      } else if (lease.startDate && new Date(lease.startDate).getTime() > nowMs) {
+        // Pending: start in future
+        if (!seenPending.has(lease.access)) {
+          seenPending.add(lease.access);
+          pendingCounts[lease.access] = (pendingCounts[lease.access] ?? 0) + 1;
+        }
+      } else {
+        hasAnyExpired = true;
+      }
+    }
+    if (hasAnyExpired) imagesWithAnyExpired++;
   }
+  const hasAnyActive = Object.values(activeCounts).some((c) => c > 0);
+  const hasAnyPending = Object.values(pendingCounts).some((c) => c > 0);
 
   return (
     <>
@@ -418,17 +475,30 @@ function RightsAndLeasesSection() {
         )}
       </MetadataSection>
 
-      {/* Leases summary — separate section with divider */}
-      {(currentLeaseCount > 0 || inactiveLeaseCount > 0) && (
-        <MetadataSection>
-          <MetadataRow label="Leases">
-            <span className="text-xs text-grid-text italic">
-              {currentLeaseCount} current lease{currentLeaseCount !== 1 ? "s" : ""}
-              {inactiveLeaseCount > 0 ? ` + ${inactiveLeaseCount} inactive` : ""}
-            </span>
-          </MetadataRow>
-        </MetadataSection>
-      )}
+      {/* Leases — compact card rows, use before syndication, deny before allow, active before pending */}
+      <MetadataSection>
+        <div className="text-xs font-bold text-grid-text-dim pb-1">Leases</div>
+        {!hasAnyActive && !hasAnyPending && imagesWithAnyExpired === 0 ? (
+          <p className="text-xs text-grid-text-dim">No leases</p>
+        ) : (
+          <div className="space-y-0.5">
+            {LEASE_ROW_ORDER.map(({ key, access, label, isAllow, state }) => (
+              <LeaseTypeRow
+                key={key}
+                label={label}
+                count={state === "active" ? activeCounts[access] : pendingCounts[access]}
+                total={cachedTotal}
+                isAllow={isAllow}
+              />
+            ))}
+            {imagesWithAnyExpired > 0 && (
+              <p className="text-2xs text-grid-text-dim italic mt-1">
+                {imagesWithAnyExpired} image{imagesWithAnyExpired !== 1 ? "s" : ""} with expired leases
+              </p>
+            )}
+          </div>
+        )}
+      </MetadataSection>
     </>
   );
 }
