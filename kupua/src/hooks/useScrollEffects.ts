@@ -212,6 +212,13 @@ export interface UseScrollEffectsConfig {
    * compensation (prepend/evict) must NOT fire.
    */
   twoTier: boolean;
+
+  /**
+   * Optional custom centering callback — used by ImageTable to bypass
+   * TanStack's scrollToIndex({align:"center"}) which doesn't account
+   * for the sticky header.  When absent, falls back to scrollToIndex.
+   */
+  scrollRowToCenter?: (rowIdx: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,9 +250,15 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     focusedImageId,
     findImageIndex,
     twoTier,
+    scrollRowToCenter,
   } = config;
 
   const searchParams = useSearch({ from: "/search" });
+
+  // Ref-stabilise the optional centering callback so closures in
+  // mount-only effects always see the latest version.
+  const scrollRowToCenterRef = useRef(scrollRowToCenter);
+  scrollRowToCenterRef.current = scrollRowToCenter;
 
   // -------------------------------------------------------------------------
   // 1. Register scroll container for Scrubber (mount/unmount)
@@ -289,7 +302,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       if (localIdx < 0) return;
       const geo = geometryRef.current;
       const rowIdx = Math.floor(localIdx / geo.columns);
-      virtualizerRef.current.scrollToIndex(rowIdx, { align: "center" });
+      if (scrollRowToCenterRef.current) {
+        scrollRowToCenterRef.current(rowIdx);
+      } else {
+        virtualizerRef.current.scrollToIndex(rowIdx, { align: "center" });
+      }
     });
     return () => { registerScrollToFocused(null); };
   }, []);
@@ -797,7 +814,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
               useSearchStore.setState({ focusedImageId: nextImage.id, _focusedImageKnownOffset: targetGlobalIdx });
               const nextIdx = twoTier ? targetGlobalIdx : targetLocalIdx;
               const rowIdx = localIndexToRowIndex(nextIdx, geo);
-              virtualizer.scrollToIndex(rowIdx, { align: "center" });
+              if (scrollRowToCenterRef.current) {
+                scrollRowToCenterRef.current(rowIdx);
+              } else {
+                virtualizer.scrollToIndex(rowIdx, { align: "center" });
+              }
             }
           }
         }
@@ -1008,7 +1029,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
           : geoNow.columns;
         const rowIdxNow = localIndexToRowIndex(idxNow, { ...geoNow, columns: colsNow });
-        virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
+        if (scrollRowToCenterRef.current) {
+          scrollRowToCenterRef.current(rowIdxNow);
+        } else {
+          virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
+        }
         clearDensityFocusRatio();
       });
     });

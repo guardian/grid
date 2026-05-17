@@ -48,6 +48,13 @@ interface ReturnFromDetailConfig {
 
   /** Convert a flat image index to the virtualizer row index for scrolling. */
   flatIndexToRow: (flatIndex: number) => number;
+
+  /**
+   * Optional custom centering callback — used by ImageTable to bypass
+   * TanStack's scrollToIndex({align:"center"}) which doesn't account
+   * for the sticky header.  When absent, falls back to scrollToIndex.
+   */
+  scrollRowToCenter?: (rowIdx: number) => void;
 }
 
 export function useReturnFromDetail({
@@ -57,6 +64,7 @@ export function useReturnFromDetail({
   findImageIndex,
   virtualizer,
   flatIndexToRow,
+  scrollRowToCenter,
 }: ReturnFromDetailConfig): void {
   // Track previous image param to detect the closing transition.
   const prevImageParam = useRef(imageParam);
@@ -113,7 +121,11 @@ export function useReturnFromDetail({
       if (idx >= 0) {
         const rowIdx = flatIndexToRow(idx);
         requestAnimationFrame(() => {
-          virtualizer.scrollToIndex(rowIdx, { align: "center" });
+          if (scrollRowToCenter) {
+            scrollRowToCenter(rowIdx);
+          } else {
+            virtualizer.scrollToIndex(rowIdx, { align: "center" });
+          }
         });
       }
     }

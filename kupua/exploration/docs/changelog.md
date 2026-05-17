@@ -14,6 +14,45 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 May 2026 — Fix: table scroll-to-center off by 45px after detail/fullscreen exit
+
+Focused image in table density landed 45 CSS px too low when returning from image
+detail or fullscreen preview. Grid density was unaffected. The investigation spanned
+multiple agent sessions; full research in `centering-investigation.md`.
+
+**Root cause (41px decomposition):**
+TanStack Virtual's `scrollToIndex({align:"center"})` centres within the full
+`clientHeight` of the scroll container, unaware that a sticky header eats 36px of
+usable viewport. The sticky header is a flow child *inside* `data-table-root` (the
+virtualizer's content wrapper), not outside the scroll container where it could be
+accounted for by `scrollPaddingStart`. This architectural quirk — header inside the
+content wrapper — means TanStack's centering math is structurally wrong for table
+density. An additional 5px came from a font strut descent: `data-table-root` is
+`display: inline-block` with `line-height: 24px` (Open Sans), and the empty first
+flex child (selection column header, no text) caused the baseline to fall to its
+bottom margin edge, adding ~5.8px of strut descent below.
+
+**Two-part fix:**
+1. `leading-[0]` on `data-table-root` — collapses the font strut to 0, making the
+   static offset exactly equal to `headerHeight` (36px). No more mystery 5px gap.
+2. Custom `scrollRowToCenter` callback in `ImageTable.tsx` — bypasses TanStack's
+   `scrollToIndex` entirely. Computes `rowCenter = rowIdx × ROW_HEIGHT + ROW_HEIGHT/2`
+   and `usableHeight = clientHeight − headerHeight`, then calls
+   `virtualizer.scrollToOffset(rowCenter − usableHeight/2)`. No magic numbers — uses
+   the same `headerHeight` from `useHeaderHeight` (ResizeObserver-measured).
+
+The callback is wired into `useScrollEffects` (fullscreen exit, keyboard nav,
+density-switch restore) and `useReturnFromDetail` (detail exit) — table only. Grid
+doesn't pass it, so grid keeps TanStack's native centering which works correctly
+(no sticky header in the content wrapper). Updated table visual baseline snapshot.
+
+**NOT fixed:** fullscreen exit still has a separate timing bug on macOS — the
+centering scroll fires before the macOS fullscreen-exit resize animation completes,
+so `clientHeight` is stale. Invisible to Playwright (no real fullscreen API in
+headless Chromium). Filed as a follow-up.
+
+Validated: 846 unit tests, 3 DIAG centering tests (0px offset), 239 e2e tests.
+
 ### 17 May 2026 — Fix: horizontal swipe back through usePinchZoom wheel handler
 
 `usePinchZoom`'s `onWheel` handler unconditionally called `e.preventDefault()` on every

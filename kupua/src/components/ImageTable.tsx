@@ -739,9 +739,26 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // scroll compensation, seek, search-params reset, density/sort focus, etc.)
   // -------------------------------------------------------------------------
 
+  // Custom centering for table: bypass TanStack's scrollToIndex({align:"center"})
+  // which doesn't account for the sticky header inside the scroll container.
+  // The header's flow height shifts virtual rows down by headerHeight pixels;
+  // TanStack centres within the full clientHeight, not the usable area below
+  // the header.  This callback computes the correct scrollTop directly.
+  const scrollRowToCenter = useCallback(
+    (rowIdx: number) => {
+      const el = parentRef.current;
+      if (!el) return;
+      const rowCenter = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const usableHeight = el.clientHeight - headerHeight;
+      virtualizer.scrollToOffset(Math.max(0, rowCenter - usableHeight / 2));
+    },
+    [virtualizer, headerHeight],
+  );
+
   useScrollEffects({
     virtualizer,
     parentRef,
+    scrollRowToCenter,
     geometry: useMemo(
       () => ({
         rowHeight: ROW_HEIGHT,
@@ -910,6 +927,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     findImageIndex,
     virtualizer,
     flatIndexToRow: (idx) => idx,
+    scrollRowToCenter,
   });
 
 
@@ -1330,7 +1348,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         aria-label="Image search results"
         aria-rowcount={total}
         style={{ height: virtualizer.getTotalSize() }}
-        className="relative inline-block min-w-full"
+        className="relative inline-block min-w-full leading-[0]"
       >
         {/* Header: inline-flex so the browser sizes it from its children
             — no JS-computed width, correct at any browser zoom level. */}
