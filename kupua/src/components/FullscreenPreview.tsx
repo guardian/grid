@@ -80,6 +80,17 @@ export function FullscreenPreview() {
   // Track whether we initiated the fullscreen (vs. ImageDetail's fullscreen)
   const initiatedRef = useRef(false);
 
+  // ── Bug-fix refs ───────────────────────────────────────────────
+  // Bug #1: Track the focused image at entry time. On exit, only scroll
+  // if the user traversed — otherwise the grid's scrollTop is already
+  // correct (the grid stays in the DOM behind the fullscreen layer).
+  const entryImageIdRef = useRef<string | null>(null);
+
+  // Bug #2: Track whether we pushed a phantom history entry (the "back
+  // absorber"). Checked in exitPreview, fullscreenchange, and the
+  // popstate listener to prevent double-pops and coordinate cleanup.
+  const phantomEntryRef = useRef(false);
+
   // Cooldown after entering fullscreen — Chrome shows a permission overlay
   // ("Press Esc to exit full screen") that swallows the first keypress.
   // Ignore all keyboard input during this window to prevent broken state.
@@ -125,6 +136,16 @@ export function FullscreenPreview() {
     setImageUrl(getImageUrl(image));
     setIsActive(true);
     initiatedRef.current = true;
+    entryImageIdRef.current = image.id;
+
+    // Push a phantom history entry so browser back closes the preview
+    // instead of navigating the underlying page. Same URL — invisible
+    // to TanStack Router (dedup guard catches same-URL popstate).
+    history.pushState(
+      { ...history.state, _kupuaFullscreenPreview: true },
+      "",
+    );
+    phantomEntryRef.current = true;
 
     // Prefetch neighbours immediately on enter (no throttle).
     const { results } = useSearchStore.getState();
@@ -152,6 +173,11 @@ export function FullscreenPreview() {
       setIsActive(false);
       initiatedRef.current = false;
       cooldownRef.current = false;
+      // Roll back phantom entry on fullscreen failure.
+      if (phantomEntryRef.current) {
+        phantomEntryRef.current = false;
+        history.back();
+      }
     });
   }, [resolveLocalIndex]);
 
@@ -160,6 +186,29 @@ export function FullscreenPreview() {
     registerEnterPreview(enterPreview);
     return () => registerEnterPreview(null);
   }, [enterPreview]);
+
+  /** Common exit cleanup: phantom pulse + conditional scroll. */
+  const cleanupAfterExit = useCallback(() => {
+    const fid = useSearchStore.getState().focusedImageId;
+    // Phantom pulse — in click-to-open mode, pulse the image so the user
+    // knows which image they landed on (same animation as return-from-detail).
+    if (fid && getEffectiveFocusMode() === "phantom") {
+      useSearchStore.setState({ _phantomPulseImageId: fid });
+      setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+    }
+    // Only scroll if the user traversed to a different image. When the
+    // image hasn't changed, the grid's scrollTop is already correct
+    // (the grid stays in the DOM behind the fullscreen layer).
+    const traversed = fid !== entryImageIdRef.current;
+    if (traversed) {
+      requestAnimationFrame(() => {
+        scrollFocusedIntoView();
+        trace("fullscreen-exit", "t_settled");
+      });
+    } else {
+      trace("fullscreen-exit", "t_settled");
+    }
+  }, []);
 
   const exitPreview = useCallback(() => {
     trace("fullscreen-exit", "t_0");
@@ -170,24 +219,15 @@ export function FullscreenPreview() {
     initiatedRef.current = false;
     cooldownRef.current = false;
     setNavReady(false);
-    // Phantom pulse — in click-to-open mode, pulse the image so the user
-    // knows which image they landed on (same animation as return-from-detail).
-    const fid = useSearchStore.getState().focusedImageId;
-    if (fid && getEffectiveFocusMode() === "phantom") {
-      useSearchStore.setState({ _phantomPulseImageId: fid });
-      setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+    cleanupAfterExit();
+    // Pop the phantom history entry. Clear the ref BEFORE history.back()
+    // so the popstate listener (which fires synchronously) sees it as
+    // already handled and doesn't double-process.
+    if (phantomEntryRef.current) {
+      phantomEntryRef.current = false;
+      history.back();
     }
-    // After exiting fullscreen, the focused image may have moved off-screen
-    // during arrow-key traversal. Scroll it into view (align: "auto" — only
-    // scrolls if needed, places at nearest edge).
-    requestAnimationFrame(() => {
-      scrollFocusedIntoView();
-      // t_settled: fires after the synchronous scroll restoration. If the
-      // focused image is out of buffer and sortAroundFocus fires async, its
-      // own t_settled (fired later) will be used instead by computeMetrics.
-      trace("fullscreen-exit", "t_settled");
-    });
-  }, []);
+  }, [cleanupAfterExit]);
 
   // Zoom (touch pinch + desktop click/wheel/drag). Active when preview is open.
   usePinchZoom({
@@ -267,24 +307,51 @@ export function FullscreenPreview() {
       if (!document.fullscreenElement && initiatedRef.current) {
         setIsActive(false);
         initiatedRef.current = false;
-
-        // Phantom pulse (same as exitPreview)
-        const fid = useSearchStore.getState().focusedImageId;
-        if (fid && getEffectiveFocusMode() === "phantom") {
-          useSearchStore.setState({ _phantomPulseImageId: fid });
-          setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+        cleanupAfterExit();
+        // Pop phantom history entry (same as exitPreview).
+        if (phantomEntryRef.current) {
+          phantomEntryRef.current = false;
+          history.back();
         }
-
-        // Scroll focused image into view — same as exitPreview().
-        requestAnimationFrame(() => {
-          scrollFocusedIntoView();
-        });
       }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  }, [cleanupAfterExit]);
+
+  // Listen for popstate — handles browser back gesture closing the preview
+  // and bounces dead phantom entries on forward navigation.
+  useEffect(() => {
+    const handlePopstate = () => {
+      // Case 1: Preview is active and browser back popped our phantom entry.
+      // The phantom is already gone from the history stack — just clean up.
+      if (phantomEntryRef.current && initiatedRef.current) {
+        phantomEntryRef.current = false;
+        trace("fullscreen-exit", "t_0");
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsActive(false);
+        initiatedRef.current = false;
+        cooldownRef.current = false;
+        setNavReady(false);
+        cleanupAfterExit();
+        return;
+      }
+      // Case 2: Dead phantom entry — user pressed forward after closing
+      // preview. The entry has _kupuaFullscreenPreview in state but the
+      // preview isn't active. Bounce back so the entry is invisible.
+      if (
+        history.state?._kupuaFullscreenPreview &&
+        !initiatedRef.current
+      ) {
+        history.back();
+      }
+    };
+    window.addEventListener("popstate", handlePopstate);
+    return () => window.removeEventListener("popstate", handlePopstate);
+  }, [cleanupAfterExit]);
 
   // Register `f` shortcut — when no image detail is mounted, this is the
   // active handler. When ImageDetail mounts, its `f` registration pushes

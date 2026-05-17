@@ -14,6 +14,51 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 May 2026 — Fix: horizontal swipe back through usePinchZoom wheel handler
+
+`usePinchZoom`'s `onWheel` handler unconditionally called `e.preventDefault()` on every
+wheel event (registered with `{ passive: false }`), which prevented the browser from
+detecting horizontal overscroll and triggering back/forward navigation gestures.
+
+Fix in `usePinchZoom.ts`: when at 1× zoom, let horizontal-dominant wheel events through
+(where `|deltaX| > |deltaY| × 2` and no `ctrlKey`). Vertical scroll and actual pinch
+(`ctrlKey`) still zoom normally. When already zoomed in (`scale > 1`), all wheel events
+are captured for panning. Confirmed working in Firefox and Chrome on macOS.
+
+### 17 May 2026 — Fix: FullscreenPreview scroll position + browser history
+
+Two bugs in `FullscreenPreview.tsx`, both fixed in the same file:
+
+**Bug 1 — scroll position not preserved on close (no traversal).** Closing fullscreen
+preview always called `scrollFocusedIntoView()` which centres the image via
+`align: "center"`, even when the user didn't traverse. The grid stays in the DOM behind
+the fullscreen layer, so its `scrollTop` is naturally preserved — centering was wrong.
+Fix: track `entryImageIdRef` on enter; on exit, only call `scrollFocusedIntoView()` if
+`focusedImageId !== entryImageIdRef` (i.e. the user traversed). Mirrors the logic in
+`useReturnFromDetail` and `ImageDetail`'s swipe-to-dismiss `onDragStart`.
+
+**Bug 2 — browser back navigated underneath the fullscreen overlay.** FullscreenPreview
+didn't participate in browser history — it was a pure state overlay. Swiping back
+navigated the underlying page while the fullscreen stayed on top. Fix: push a phantom
+history entry (`pushState` with same URL + `_kupuaFullscreenPreview: true`) on enter.
+Three exit paths coordinate cleanup via `phantomEntryRef`:
+- User-initiated (f/Backspace/middle-click/double-click): `exitPreview()` clears ref,
+  calls `history.back()` to pop phantom.
+- ESC (browser-native fullscreen exit): `fullscreenchange` handler does the same.
+- Browser back (swipe gesture): `popstate` handler detects active preview, exits
+  fullscreen, cleans up. No `history.back()` needed — browser already popped.
+- Dead phantom entry bounce: if user presses forward after closing, lands on the
+  phantom entry with `_kupuaFullscreenPreview` but preview isn't active — immediately
+  bounces back via `history.back()` so the entry is invisible.
+
+The phantom entry uses the same URL, so TanStack Router's dedup guard catches the
+same-URL popstate — no search fires, no snapshot capture, no side effects. Trade-off:
+`pushState` truncates the forward stack, but forward entries only exist when the user
+recently pressed back without doing anything else (uncommon).
+
+Extracted `cleanupAfterExit()` helper to deduplicate phantom pulse + conditional scroll
+logic across the three exit paths.
+
 ### 17 May 2026 — Zoom-enhanced hi-res image loading and pan clamping improvements
 
 **Zoom hi-res loading (`image-urls.ts`, `FullscreenPreview.tsx`, `ImageDetail.tsx`):**

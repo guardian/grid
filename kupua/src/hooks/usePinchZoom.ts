@@ -587,6 +587,18 @@ export function usePinchZoom({
     }
 
     function onWheel(e: WheelEvent) {
+      // On macOS trackpad, horizontal two-finger swipe fires wheel events
+      // with dominant deltaX. Let those through so browser back/forward
+      // gestures still work. Only capture vertical-dominant events (zoom)
+      // and pinch gestures (ctrlKey). When already zoomed in, capture
+      // everything — pan takes priority over navigation.
+      if (
+        scale <= 1 &&
+        !e.ctrlKey &&
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) * 2
+      ) {
+        return;
+      }
       e.preventDefault();
       const zoomSpeed = 0.002;
       const delta = -e.deltaY * zoomSpeed;
