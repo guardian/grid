@@ -258,6 +258,26 @@ export function getFullImageUrl(
 /** Whether thumbnails are available in the current configuration. */
 export const thumbnailsEnabled = S3_PROXY_ENABLED;
 
+/**
+ * Get a zoom-enhanced image URL for fullscreen pinch/wheel zoom.
+ *
+ * Doubles the standard DPR multiplier (e.g. 1.5 → 3 on desktop Retina,
+ * 2 → 4 on mobile) so that zooming past 1× reveals additional detail
+ * rather than blurring the standard-res image. The requested size is
+ * still capped at native dimensions — no upscaling.
+ *
+ * Returns undefined when imgproxy isn't available or the image has no ID.
+ */
+export function getZoomImageUrl(image: Image): string | undefined {
+  return getFullImageUrl(image, {
+    width: typeof window !== "undefined" ? window.screen.width : 1200,
+    height: typeof window !== "undefined" ? window.screen.height : 1200,
+    dpr: detectDpr() * 2.5,
+    nativeWidth: image.source?.dimensions?.width,
+    nativeHeight: image.source?.dimensions?.height,
+  });
+}
+
 /** Whether full-size image viewing is available (imgproxy running). */
 const fullImagesEnabled = IMGPROXY_ENABLED && !!IMAGE_BUCKET;
 

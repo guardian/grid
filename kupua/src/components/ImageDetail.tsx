@@ -51,7 +51,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
 import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
 import { usePinchZoom } from "@/hooks/usePinchZoom";
-import { getFullImageUrl, getThumbnailUrl } from "@/lib/image-urls";
+import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
 import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { NavStrip } from "@/components/NavStrip";
 import { StableImg } from "@/components/StableImg";
@@ -442,6 +442,33 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       img.style.transition = "";
     }
   }, [imageId, scaleRef]);
+
+  // ── Zoom-enhanced hi-res loading ───────────────────────────────
+  // When the user zooms past 1× in fullscreen, load a higher-resolution
+  // image (2× the standard DPR) so pinch/wheel zoom reveals extra detail.
+  // On zoom-out or image change, cancel the in-flight fetch. StableImg's
+  // layoutEffect will revert to the standard-res URL on its next render.
+  useEffect(() => {
+    if (!isZoomed || !isFullscreen || !image) return;
+    const zoomUrl = getZoomImageUrl(image);
+    if (!zoomUrl) return;
+    const img = imageRef.current;
+    if (img && img.src === new URL(zoomUrl, window.location.href).href) return;
+
+    let cancelled = false;
+    const loader = new window.Image();
+    loader.src = zoomUrl;
+    loader.decode().then(() => {
+      if (cancelled) return;
+      const el = imageRef.current;
+      if (el) el.src = zoomUrl;
+    }).catch(() => { /* cancelled or decode error — ignore */ });
+
+    return () => {
+      cancelled = true;
+      loader.src = ""; // abort in-flight fetch
+    };
+  }, [isZoomed, isFullscreen, image?.id]);
 
   // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
   // single-character shortcuts, so they don't go through the shortcut

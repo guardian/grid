@@ -30,7 +30,7 @@ const DOUBLE_TAP_MS = 300;
 const DOUBLE_TAP_DISTANCE = 20; // px
 
 /** Double-tap target scale. */
-const DOUBLE_TAP_SCALE = 2;
+const DOUBLE_TAP_SCALE = 3;
 
 /** Snap-back animation duration (ms). */
 const ANIMATION_MS = 200;
@@ -83,8 +83,8 @@ function touchMidpoint(a: Touch, b: Touch): { x: number; y: number } {
 /**
  * Clamp translate so image doesn't scroll too far past container edges.
  * @param overflow — fraction of container dimension allowed beyond the tight
- *   edge (0 = image edges stop at container edges, 0.5 = corners can reach
- *   screen centre). Drag/momentum use 0.5; keyboard uses 0.05.
+ *   edge (0 = image edges stop at container edges, 0.25 = corners can reach
+ *   25% past the edge). Drag/momentum use 0.25; keyboard uses 0.05.
  */
 function clampTranslate(
   tx: number,
@@ -94,7 +94,7 @@ function clampTranslate(
   imgH: number,
   cW: number,
   cH: number,
-  overflow = 0.5,
+  overflow = 0.25,
 ): { tx: number; ty: number } {
   // The image is object-contain inside the container, so its rendered size
   // may be smaller than the container. Compute rendered size:
@@ -111,12 +111,15 @@ function clampTranslate(
     renderedW = cH * aspectImg;
   }
 
-  // Tight bound: image edge stops at container edge.
-  // Overflow adds a fraction of container size beyond that.
-  const tightX = Math.max(0, (renderedW * scale - cW) / 2);
-  const tightY = Math.max(0, (renderedH * scale - cH) / 2);
-  const maxTx = scale > 1 ? tightX + cW * overflow : 0;
-  const maxTy = scale > 1 ? tightY + cH * overflow : 0;
+  // Max visible gap between image edge and container edge = overflowPx on
+  // every side, regardless of aspect ratio. When the image doesn't fill the
+  // container in a dimension (letterbox), that existing gap counts toward
+  // the limit — so panning is reduced or eliminated in that axis.
+  // (renderedDim * scale - cDim) / 2 is positive when image exceeds
+  // container (pan allowed), negative when smaller (letterbox eats into limit).
+  const overflowPx = Math.min(cW, cH) * overflow;
+  const maxTx = scale > 1 ? Math.max(0, (renderedW * scale - cW) / 2 + overflowPx) : 0;
+  const maxTy = scale > 1 ? Math.max(0, (renderedH * scale - cH) / 2 + overflowPx) : 0;
   return {
     tx: Math.max(-maxTx, Math.min(maxTx, tx)),
     ty: Math.max(-maxTy, Math.min(maxTy, ty)),

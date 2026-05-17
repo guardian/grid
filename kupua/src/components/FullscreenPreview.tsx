@@ -42,6 +42,7 @@ import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { NavStrip } from "@/components/NavStrip";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
+import { getZoomImageUrl } from "@/lib/image-urls";
 import { scrollFocusedIntoView, registerEnterPreview } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
@@ -209,6 +210,35 @@ export function FullscreenPreview() {
       img.style.transition = "";
     }
   }, [currentImage?.id]);
+
+  // ── Zoom-enhanced hi-res loading ───────────────────────────────
+  // When the user zooms past 1×, load a higher-resolution image (2× the
+  // standard DPR) so pinch/wheel zoom reveals extra detail. On zoom-out
+  // or image change, cancel the in-flight fetch and revert to standard.
+  // The old bitmap stays as the compositor texture while the new one
+  // decodes — no flash, no layout disruption.
+  useEffect(() => {
+    if (!isZoomed || !currentImage) return;
+    const zoomUrl = getZoomImageUrl(currentImage);
+    if (!zoomUrl) return;
+    // Don't reload if already showing this URL
+    const img = imageRef.current;
+    if (img && img.src === new URL(zoomUrl, window.location.href).href) return;
+
+    let cancelled = false;
+    const loader = new window.Image();
+    loader.src = zoomUrl;
+    loader.decode().then(() => {
+      if (cancelled) return;
+      const el = imageRef.current;
+      if (el) el.src = zoomUrl;
+    }).catch(() => { /* cancelled or decode error — ignore */ });
+
+    return () => {
+      cancelled = true;
+      loader.src = ""; // abort in-flight fetch
+    };
+  }, [isZoomed, currentImage?.id]);
 
   // Middle-click exits fullscreen preview (matches ImageDetail's middle-click toggle).
   useEffect(() => {

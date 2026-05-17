@@ -14,6 +14,77 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 May 2026 — Zoom-enhanced hi-res image loading and pan clamping improvements
+
+**Zoom hi-res loading (`image-urls.ts`, `FullscreenPreview.tsx`, `ImageDetail.tsx`):**
+When the user zooms in (pinch or double-tap), a higher-resolution image is fetched and
+swapped in via `new Image()` + `.decode()` to avoid flicker. The zoom URL is built by
+`getZoomImageUrl()` which requests `detectDpr() × 2.5` the CSS viewport dimensions —
+enough to exceed physical pixel density on every tested device at any zoom level.
+
+The hi-res image is never reverted on zoom-out: once loaded, it stays as a free quality
+upgrade until the user navigates to a different image (at which point React writes the
+standard URL for the new image). In `FullscreenPreview` the swap targets the raw `<img>`
+element via ref; in `ImageDetail` it targets `StableImg`'s imperative ref (only when
+fullscreen + zoomed).
+
+Requests are never upscaled — `getZoomImageUrl` caps width/height at the original image's
+native dimensions, and imgproxy itself won't enlarge beyond source.
+
+**Double-tap zoom scale (`usePinchZoom.ts`):**
+`DOUBLE_TAP_SCALE` increased from 2 to **3** — the previous 2× felt underwhelming on
+high-DPI mobile screens where even 2× barely revealed more detail than the standard view.
+
+**Letterbox-aware pan clamping (`usePinchZoom.ts`):**
+The old pan overflow formula used `containerWidth × overflow` for horizontal and
+`containerHeight × overflow` for vertical, producing unequal overflow distances on
+non-square containers (e.g. a landscape image on a portrait phone had ~200px letterbox
+top/bottom, making the vertical "gap" much larger than horizontal). Rewritten to:
+
+```
+overflowPx = min(containerW, containerH) × 0.25
+maxTx = max(0, (renderedW × scale − containerW) / 2 + overflowPx)
+maxTy = max(0, (renderedH × scale − containerH) / 2 + overflowPx)
+```
+
+The `(renderedDim × scale − containerDim) / 2` term is positive when the scaled image
+exceeds the container (allowing pan) and negative when smaller (letterbox eats into the
+limit). This gives equal overflow on all four edges regardless of aspect ratio.
+
+**Resolution coverage across devices:**
+
+| Device | Physical W | screen.width | DPR | detectDpr | Standard req | Phys coverage | Zoom req | Phys coverage |
+|---|---|---|---|---|---|---|---|---|
+| 27" Mac | 5120 | 2560 | 2 | 1.5 | 3840 | 75.0% | 9600 | 187.5% |
+| MacBook Pro 14" (default) | 3024 | 1512 | 2 | 1.5 | 2268 | 75.0% | 5670 | 187.5% |
+| MacBook Pro 14" (1920×1200) | 3024 | 1920 | 1 | 1 | 1920 | 63.5% | 4800 | 158.7% |
+| iPhone 16/17 Pro Max | 1320 | 440 | 3 | 2 | 880 | 66.7% | 2200 | 166.7% |
+| Pixel 10 Pro | 1280 | ~412 | ~3.1 | 2 | 824 | 64.4% | 2060 | 160.9% |
+
+> **Display zooming note:** macOS "More Space" (1800×1169) reports DPR 2, so standard
+> request = 2700 (89.3% coverage) — fine. The 1920×1200 row is a worst-case manual
+> "Show all resolutions" pick that reports DPR 1. Even there, zoom delivers 158.7%.
+>
+> **No upscaling:** requests are capped at original image dimensions client-side;
+> imgproxy also won't enlarge beyond source. Coverage >100% means the request exceeds
+> physical pixels — the image is served at native resolution (lossless at any zoom level).
+>
+> **Mobile display scaling paradox:** on Android, increasing "Display size" (Settings →
+> Display) raises the system DPI, which *shrinks* `screen.width` while raising
+> `devicePixelRatio`. Because `detectDpr()` caps at 2 for mobile, the DPR increase is
+> lost but the viewport shrink is felt — so a larger display-size setting paradoxically
+> requests *smaller* images. iOS "Display Zoom" (Settings → Display & Brightness) has the
+> same effect: it renders at a smaller iPhone's layout, shrinking `screen.width` while
+> `DPR` stays at 3. In both cases the zoom multiplier (×2.5) provides enough headroom
+> that even the reduced request comfortably exceeds physical pixels when zoomed.
+
+**Constants (final values):**
+- `DOUBLE_TAP_SCALE = 3` — double-tap zoom level
+- `MAX_SCALE = 5` — maximum pinch zoom
+- `SNAP_TO_1_THRESHOLD = 1.05` — snap back to 1× when close (unchanged)
+- Zoom DPR multiplier = `2.5` — applied on top of `detectDpr()` for zoom URLs
+- Pan overflow = `0.25` of `min(cW, cH)` — letterbox-aware, equal on all edges
+
 ### 17 May 2026 — Pinch-zoom and phantom-mode Home fixes
 
 Three bugs discovered during mobile testing, all fixed in one commit.
