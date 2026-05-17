@@ -45,6 +45,7 @@ vi.mock("@/stores/search-store", () => ({
 // ---------------------------------------------------------------------------
 
 import { useReturnFromDetail } from "./useReturnFromDetail";
+import { suppressReturnFromDetail } from "./useReturnFromDetail";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,5 +218,57 @@ describe("useReturnFromDetail — explicit mode", () => {
     // scrollToIndex is inside requestAnimationFrame; jsdom fires rAF synchronously
     // in act(), so we can assert it here.
     expect(scrollToIndex).toHaveBeenCalledWith(3, { align: "center" });
+  });
+});
+
+describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () => {
+  it("skips scroll restoration in phantom mode when suppressReturnFromDetail was called", () => {
+    // Regression: on mobile (phantom mode), pressing Home from image detail
+    // cleared focusedImageId, but useReturnFromDetail re-set focus to the
+    // old image and scrolled to it instead of staying at the top.
+    mockFocusMode = "phantom";
+    const setFocusedImageId = vi.fn();
+    const props = makeProps({ imageParam: "img-1", focusedImageId: null, setFocusedImageId });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    suppressReturnFromDetail();
+
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+
+    expect(setFocusedImageId).not.toHaveBeenCalled();
+  });
+
+  it("suppress flag is consumed (one-shot) — next close works normally", () => {
+    mockFocusMode = "phantom";
+    const setFocusedImageId = vi.fn();
+    const props = makeProps({ imageParam: "img-1", focusedImageId: null, setFocusedImageId });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    // First close: suppressed
+    suppressReturnFromDetail();
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+    expect(setFocusedImageId).not.toHaveBeenCalled();
+
+    // Re-enter detail
+    act(() => {
+      rerender({ ...props, imageParam: "img-2" });
+    });
+
+    // Second close: NOT suppressed — normal phantom restore fires
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+    expect(setFocusedImageId).toHaveBeenCalledOnce();
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-2");
   });
 });

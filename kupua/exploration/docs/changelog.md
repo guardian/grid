@@ -14,6 +14,36 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 May 2026 — Pinch-zoom and phantom-mode Home fixes
+
+Three bugs discovered during mobile testing, all fixed in one commit.
+
+**Bug 1 — Double-tap broken after pinch-zoom-out (usePinchZoom.ts):**
+After a pinch-zoom-out gesture ended at scale=1, the `moved` flag remained `true` from the
+two-finger touchmove. Subsequent single-tap set `moved = false` on touchstart, but only for
+the *first* touch of a new pinch — the single-touch else-if branch was missing. Double-tap
+detection (`!moved` guard) therefore failed. Fix: added `else if (e.touches.length === 1)`
+branch in `onTouchStart` that resets `moved = false`.
+
+**Bug 2 — Swipe-dismiss stuck after imprecise unpinch (usePinchZoom.ts):**
+After a real pinch gesture, users rarely land exactly at scale=1.0 — typically ~1.01–1.03.
+The only snap-to-1 check was `scale <= 1` which never fires (MIN_SCALE clamp prevents <1).
+This left the hook in zoomed/pan mode at scale ≈1.02, blocking vertical swipe-dismiss.
+Fix: introduced `SNAP_TO_1_THRESHOLD = 1.05` and added snap logic in three places:
+pinch-end one-finger-lifted, pinch-end all-fingers-lifted, and pan-end.
+
+**Bug 3 — Home button didn't scroll to top in phantom focus mode (useReturnFromDetail.ts,
+reset-to-home.ts):**
+In phantom mode (mobile default, also available on desktop), `focusedImageId` is always null.
+The `useReturnFromDetail` guard `if (previousFocus === null && mode !== "phantom") return`
+was designed to detect "intentional focus clear by resetToHome" — but in phantom mode the
+guard was bypassed (null is the *normal* state), so it continued to `setFocusedImageId(wasViewing)`
+and scrolled to the old image instead of staying at the top.
+Fix: added one-shot `suppressReturnFromDetail()` flag (same pattern as existing
+`suppressNextRestore`), called by `resetToHome()` before navigating. Checked *before* the
+phantom-mode bypass so it works on both mobile and desktop phantom mode. Two unit tests added:
+suppress skips restoration, and the flag is consumed (one-shot) so next close works normally.
+
 ### 17 May 2026 — Syndication review follow-ups (lease-staleness completion, badge dedupe, doc fixes)
 
 **Task 1 — Finish `lease.active` → date-based migration:**

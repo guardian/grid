@@ -521,3 +521,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 56 | 292 | 349 | 349 | 921 |
 | JB4 | scrubber-scroll | — | — | — | 27 | — |
 | JB5 | fullscreen-exit | — | — | — | 6 | — |
+
+---
+
+## [short] After syndication and leases (528a51b61 (dirty), 2026-05-17)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 258 | 258 | — |
+| PP2 | sort-no-focus | 64 | — | 279 | 279 | — |
+| PP3 | sort-around-focus | 65 | 290 | 647 | 647 | 357 |
+| PP4 | sort-around-focus | 64 | 266 | 630 | 630 | 365 |
+| PP5 | filter-toggle | 64 | 358 | — | 539 | 182 |
+| PP6 | density-swap | — | — | — | 229 | — |
+| PP7 | scrubber-seek | 1 | — | 879 | 879 | — |
+| PP7b | scrubber-seek | 1 | — | 687 | 687 | — |
+| PP7c | scrubber-scroll | — | — | — | 131 | — |
+| PP8 | search | 0 | 231 | 726 | 726 | 503 |
+| PP9 | search | 0 | — | 242 | 242 | — |
+| PP10 | position-map | — | — | — | 2786 | — |
+| PP6b | density-swap | — | — | — | 415 | — |
+| PP6c | density-swap | — | — | — | 370 | — |
+
+---
+
+## [long] After syndication and leases (528a51b61 (dirty), 2026-05-17)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 237 | 237 | — |
+| JA2 | open-detail | — | — | — | 125 | — |
+| JA3 | metadata-click | 62 | 541 | 1006 | 1006 | 382 |
+| JB1 | search | 0 | — | 273 | 273 | — |
+| JB2 | facet-click | 65 | — | 324 | 324 | — |
+| JB3 | facet-click | 60 | 297 | 1146 | 1146 | 854 |
+| JB4 | scrubber-scroll | — | — | — | 27 | — |
+| JB5 | fullscreen-exit | — | — | — | 7 | — |

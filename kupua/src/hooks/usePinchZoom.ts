@@ -35,6 +35,11 @@ const DOUBLE_TAP_SCALE = 2;
 /** Snap-back animation duration (ms). */
 const ANIMATION_MS = 200;
 
+/** Snap-to-1 threshold — pinch/pan ending below this scale snaps to 1×.
+ *  Prevents "almost zoomed out" stuck states where scaleRef stays > 1
+ *  (blocking swipe-dismiss, arrow keys, etc.) after an imprecise unpinch. */
+const SNAP_TO_1_THRESHOLD = 1.05;
+
 /** Post-swipe cooldown — suppress zoom triggers for this long after a swipe. */
 const SWIPE_ZOOM_COOLDOWN_MS = 400;
 
@@ -242,6 +247,10 @@ export function usePinchZoom({
         // Cancel any in-flight momentum
         if (momentumRaf) { cancelAnimationFrame(momentumRaf); momentumRaf = 0; }
         img.style.transition = "";
+      } else if (e.touches.length === 1) {
+        // Single touch at 1x — reset moved so double-tap detection works
+        // after a pinch-zoom-out (which leaves moved=true from the pinch).
+        moved = false;
       }
     }
 
@@ -318,8 +327,9 @@ export function usePinchZoom({
 
     function onTouchEnd(e: TouchEvent) {
       if (isPinching) {
-        // If one finger lifted but one remains, switch to pan
-        if (e.touches.length === 1 && scale > 1) {
+        // If one finger lifted but one remains, switch to pan —
+        // UNLESS scale is near 1× (imprecise unpinch), in which case snap.
+        if (e.touches.length === 1 && scale >= SNAP_TO_1_THRESHOLD) {
           isPinching = false;
           isPanning = true;
           panStartX = e.touches[0].clientX;
@@ -333,8 +343,8 @@ export function usePinchZoom({
           panLastTime = e.timeStamp;
         } else {
           isPinching = false;
-          // Snap to 1x if pinched below
-          if (scale <= 1) {
+          // Snap to 1x if at or near minimum scale
+          if (scale < SNAP_TO_1_THRESHOLD) {
             resetZoom(true);
           }
         }
@@ -343,6 +353,14 @@ export function usePinchZoom({
 
       if (isPanning) {
         isPanning = false;
+
+        // Snap to 1x if scale drifted near minimum (e.g. pinch→pan→release
+        // path where the pinch ended just above 1 and pan didn't change scale).
+        if (scale < SNAP_TO_1_THRESHOLD) {
+          resetZoom(true);
+          // Skip momentum + double-tap — we're snapping out.
+          return;
+        }
 
         // Momentum: if the finger was moving fast enough, drift with deceleration.
         const speed = Math.sqrt(panVx * panVx + panVy * panVy);

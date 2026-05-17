@@ -20,6 +20,16 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 
+// ---------------------------------------------------------------------------
+// One-shot suppress flag — set by resetToHome() so useReturnFromDetail
+// skips scroll restoration even in phantom mode (where focusedImageId
+// is always null and can't signal "intentional clear").
+// ---------------------------------------------------------------------------
+let _suppressReturnFromDetail = false;
+
+/** Suppress the next useReturnFromDetail scroll restoration. */
+export function suppressReturnFromDetail(): void { _suppressReturnFromDetail = true; }
+
 interface ReturnFromDetailConfig {
   /** Current `image` URL search param (undefined when detail is closed). */
   imageParam: string | undefined;
@@ -62,6 +72,16 @@ export function useReturnFromDetail({
 
     // Only act on the transition: image param was set → now gone
     if (!wasViewing || imageParam) return;
+
+    // resetToHome sets this flag to prevent scroll restoration — the user
+    // is going Home, not returning to the list at their old position.
+    // Must be checked BEFORE the phantom-mode bypass below, because in
+    // phantom mode focusedImageId is always null and can't signal an
+    // intentional clear.
+    if (_suppressReturnFromDetail) {
+      _suppressReturnFromDetail = false;
+      return;
+    }
 
     // If focusedImageId was cleared before the image param disappeared,
     // something intentionally reset focus (e.g. resetToHome). Don't undo
