@@ -39,6 +39,9 @@ GET     /usage/suppliers/:id                                        controllers.
 GET     /usage/quotas                                               controllers.UsageController.quotas
 GET     /usage/quotas/:id                                           controllers.UsageController.quotaForImage(id: String)
 
+# configuration
+GET     /configuration/crop-variations                              controllers.ConfigurationController.index
+
 # Management
 GET     /management/healthcheck                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
 GET     /management/manifest                                        com.gu.mediaservice.lib.management.Management.manifest
