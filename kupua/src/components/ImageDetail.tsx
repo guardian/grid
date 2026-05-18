@@ -507,7 +507,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, [closeDetail, goToPrev, goToNext]);
 
   // Middle-click toggles fullscreen (undiscoverable power-user shortcut).
-  // auxclick fires for non-primary buttons; we filter to button 1 (middle).
+  // Uses mouseup (not auxclick) because auxclick doesn't carry transient
+  // user activation in Firefox — requestFullscreen() fails silently.
   // preventDefault on mousedown suppresses browser autoscroll mode.
   // `image` in deps: on reload, the loading placeholder renders first (no
   // containerRef div). When image arrives the real div mounts — we need the
@@ -515,18 +516,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const onAuxClick = (e: MouseEvent) => {
+    const onMiddleUp = (e: MouseEvent) => {
       if (e.button !== 1) return;
       e.preventDefault();
-      toggleFullscreen();
+      // setTimeout breaks out of the mouse-handler stack — Firefox blocks
+      // requestFullscreen() called from inside a non-left-button handler.
+      // Transient user activation survives ~5s, so the deferred call works.
+      setTimeout(toggleFullscreen, 0);
     };
     const onMiddleDown = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
     };
-    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);
     return () => {
-      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mouseup", onMiddleUp);
       el.removeEventListener("mousedown", onMiddleDown);
     };
   }, [toggleFullscreen, image]);

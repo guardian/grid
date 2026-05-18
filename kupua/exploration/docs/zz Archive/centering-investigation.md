@@ -1080,3 +1080,133 @@ This is robust: it doesn't assume static_pos = 0, doesn't depend on `headerHeigh
 
 **Fullscreen timing** remains a separate concern (macOS animation race, Playwright can't test it). File as a follow-up after Path B lands.
 
+---
+
+## Part 2: Fullscreen Exit Centering (started 17 May 2026)
+
+> Previous sections dealt with the table geometry bug (45px error from sticky
+> header). That was fixed in commit `44d0502eb` — `leading-[0]` + custom
+> `scrollRowToCenter`. This section covers the **remaining** fullscreen exit
+> centering bug, which affects **both grid and table** and is a different
+> root cause.
+
+### The bug
+
+After exiting FullscreenPreview (Backspace/Esc/f) having traversed to a
+different image, the focused image does not land at vertical center. It
+lands noticeably too low.
+
+### Reproduction
+
+- **Windows + Firefox**: Confirmed. Table: 17 rows above focused, 10 below
+  (should be roughly equal). Grid: also too low.
+- **macOS + Chrome**: Confirmed (earlier in investigation, reported as ~132px
+  grid, ~211px table — but those numbers included the now-fixed 45px geometry
+  bug, so actual fullscreen-specific offset is smaller).
+- **Playwright (headless Chromium)**: DIAG 1 and DIAG 3 pass at 0px. See
+  "Playwright validity" below.
+
+**The macOS animation theory is dead.** Windows Firefox has no fullscreen exit
+animation, and the bug reproduces identically. Whatever is wrong is not
+OS-specific or animation-related.
+
+### The exit flow (step by step)
+
+When the user presses Backspace in FullscreenPreview:
+
+1. `exitPreview()` fires (`FullscreenPreview.tsx:213`)
+2. `document.exitFullscreen()` called — **async**, returns a Promise, NOT awaited
+3. `setIsActive(false)` — queues React state update (batched)
+4. `cleanupAfterExit()` (`FullscreenPreview.tsx:191`):
+   - Checks if user traversed (`fid !== entryImageIdRef.current`)
+   - If yes: `requestAnimationFrame(() => scrollFocusedIntoView())`
+5. `history.back()` — pops the phantom history entry
+6. Call stack ends → React processes batched updates → re-render
+7. Browser layout/paint
+8. **rAF fires** → `scrollFocusedIntoView()` → registered callback in
+   `useScrollEffects.ts:294` → computes rowIdx → calls either:
+   - Table: `scrollRowToCenter(rowIdx)` — reads `el.clientHeight` and
+     `headerHeight`, computes `scrollToOffset`
+   - Grid: `virtualizer.scrollToIndex(rowIdx, { align: "center" })` —
+     TanStack reads `clientHeight` internally
+
+The `fullscreenchange` event listener (`FullscreenPreview.tsx:306`) does NOT
+double-fire because `initiatedRef.current` was already set to `false` in
+step 2.
+
+### What we DON'T know yet
+
+1. **Does `clientHeight` change between fullscreen-active and fullscreen-exited?**
+   Element fullscreen puts the preview div in the browser's "top layer." In
+   theory the rest of the page keeps its normal layout. But does the browser
+   actually reflow the grid/table to fill the viewport when chrome (title bar,
+   tabs, bookmarks bar) disappears? If it does, `clientHeight` would be
+   larger during fullscreen and needs to shrink back on exit.
+
+2. **Has `document.exitFullscreen()` completed by the time rAF fires?**
+   `exitFullscreen()` is async and is NOT awaited. The rAF is scheduled in
+   the same synchronous call stack. If the exit hasn't completed by the time
+   rAF fires, the page may be in a transitional layout state.
+
+3. **Does `history.back()` (step 5) interfere?** It pops the phantom entry
+   and fires a synchronous `popstate` event. If any listener resets
+   `focusedImageId` or triggers a search refresh, the scroll target could be
+   wrong.
+
+4. **Is the focused image even in the virtualizer's buffer?** After traversing
+   in fullscreen, the focused image may be far from where the grid/table was
+   last scrolled. `scrollToIndex` computes the offset mathematically
+   (doesn't need the row rendered), but the row index calculation depends on
+   `imagePositions` and `bufferOffset` being current.
+
+### Why detail exit works but fullscreen exit doesn't
+
+Both paths end up calling the same scroll functions. The difference is timing:
+
+| | Detail exit | Fullscreen exit |
+|---|---|---|
+| Trigger | `useReturnFromDetail` effect fires on `imageDetailOpenKey → null` | `cleanupAfterExit` → `rAF` |
+| When scroll fires | After React commit (detail overlay unmounted, layout stable) | One rAF after `exitPreview()` call — before `exitFullscreen()` may have completed |
+| Layout state | Grid/table at final dimensions | Grid/table possibly in transitional state |
+| Browser API | None (SPA overlay toggle) | `document.exitFullscreen()` (async, not awaited) |
+
+### Playwright validity
+
+DIAG 1 (grid fullscreen) and DIAG 3 (table fullscreen) both measure 0px
+offset. But Playwright runs in headless Chromium where:
+
+- `requestFullscreen()` likely succeeds but the viewport is already the
+  entire "screen" — no browser chrome to hide/restore
+- `exitFullscreen()` is essentially a no-op dimensionally — `clientHeight`
+  doesn't change
+- The rAF timing issue doesn't manifest because there's no dimension change
+  to wait for
+
+**These tests validate the centering math (correct) but do NOT test the
+real fullscreen exit path.** They are not evidence that the bug doesn't
+exist — they're evidence that the bug is triggered by real browser
+fullscreen behaviour that Playwright can't reproduce.
+
+**To validate a fix, we need either:**
+- A headed Playwright run on a real desktop with `--headed` flag (element
+  fullscreen works in headed mode — browser chrome actually hides/shows)
+- Manual testing on Windows + Firefox and macOS + Chrome
+
+### Next steps
+
+1. **Instrument**: Add temporary logging to `scrollRowToCenter` and the grid
+   `scrollToIndex` path to capture `clientHeight`, `scrollTop`, `rowIdx`, and
+   `el.getBoundingClientRect()` at the exact moment the scroll fires. Also
+   log whether `document.fullscreenElement` is still set (= `exitFullscreen`
+   hasn't completed yet).
+
+2. **Measure in headed Playwright**: Run DIAG 1 and DIAG 3 with `--headed`
+   on macOS. If the numbers are still 0px, the bug requires manual testing.
+   If they reproduce, we have an automated measurement.
+
+3. **Test the obvious fix**: Await `exitFullscreen()` or listen for the
+   `fullscreenchange` event before scheduling the scroll. If the bug is
+   purely "rAF fires before exitFullscreen completes", this should fix it.
+   If the bug persists, the cause is elsewhere (history.back interference,
+   stale buffer, etc.).
+

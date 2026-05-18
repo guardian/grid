@@ -521,18 +521,20 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const navigate = useNavigate();
 
   // C.1: Measure the actual rendered header height via ResizeObserver.
-  // Falls back to TABLE_HEADER_HEIGHT (45) on the first frame before the DOM
+  // Falls back to TABLE_HEADER_HEIGHT (36) on the first frame before the DOM
   // is ready — same value as the constant, so no visible jump. Fires at most
   // once per session (mount) plus optionally on font load or resize.
   // Does NOT fire during scroll (ResizeObserver tracks border-box, not scrollTop).
   const [headerCallbackRef, headerHeight] = useHeaderHeight(HEADER_HEIGHT);
 
   // Middle-click on a row → focus that image + enter fullscreen preview.
+  // Uses mouseup (not auxclick) because auxclick doesn't carry transient
+  // user activation in Firefox — requestFullscreen() fails silently.
   // Event delegation on the scroll container; find nearest [data-image-id].
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
-    const onAuxClick = (e: MouseEvent) => {
+    const onMiddleUp = (e: MouseEvent) => {
       if (e.button !== 1) return;
       const row = (e.target as HTMLElement).closest("[data-image-id]");
       if (!row) return;
@@ -545,10 +547,10 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     const onMiddleDown = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
     };
-    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);
     return () => {
-      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mouseup", onMiddleUp);
       el.removeEventListener("mousedown", onMiddleDown);
     };
   }, [setFocusedImageId]);
@@ -726,7 +728,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     // Subtract one ROW_HEIGHT because the padding is additive with the
     // virtualizer's own item-boundary snapping.
     // C.1: headerHeight is the ResizeObserver-measured value (falls back to
-    // TABLE_HEADER_HEIGHT = 45 on first frame). Stays accurate if the header
+    // TABLE_HEADER_HEIGHT = 36 on first frame). Stays accurate if the header
     // ever changes size (e.g. font scale, added filter row).
     scrollPaddingStart: headerHeight - ROW_HEIGHT,
     // Buffer at the bottom so the focused row is never clipped by the
@@ -750,7 +752,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       if (!el) return;
       const rowCenter = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
       const usableHeight = el.clientHeight - headerHeight;
-      virtualizer.scrollToOffset(Math.max(0, rowCenter - usableHeight / 2));
+      const target = Math.max(0, rowCenter - usableHeight / 2);
+      virtualizer.scrollToOffset(target);
     },
     [virtualizer, headerHeight],
   );
@@ -764,10 +767,10 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         rowHeight: ROW_HEIGHT,
         columns: 1,
         isTable: true,
-        headerOffset: HEADER_HEIGHT,
+        headerOffset: headerHeight,
         preserveScrollLeftOnSort: true,
       }),
-      [],
+      [headerHeight],
     ),
     reportVisibleRange,
     resultsLength: results.length,

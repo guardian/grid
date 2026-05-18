@@ -14,6 +14,56 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 May 2026 — Fix: fullscreen exit centering + Firefox middle-click activation
+
+Two fixes and one investigation closure.
+
+**1. Fullscreen exit centering — resize-debounce timing fix
+(`FullscreenPreview.tsx`)**
+
+After exiting FullscreenPreview, the focused image landed too low in both grid
+and table. Root cause: `cleanupAfterExit` scheduled a single `rAF` to scroll,
+but `document.exitFullscreen()` is async and on macOS Chrome the window animates
+back from fullscreen — `clientHeight` transitions over ~300-500ms. The scroll
+fired before layout settled, using stale dimensions.
+
+Fix: resize-debounce pattern. After `fullscreenchange` (or immediately for
+browser-initiated Esc exits), listen for `resize` events: 50ms quick-path if
+no resizes arrive (e.g. Firefox, no animation), 150ms debounce after each
+resize, 1s safety cap. Only then fire `doScroll()` → `rAF` →
+`scrollFocusedIntoView()`. Grid fullscreen exit now lands at 0px offset.
+Table fullscreen exit has a residual ~12.5 CSS px (DPR 2) offset — something
+shifts `scrollTop` *after* the centering scroll fires. Root cause unknown;
+formula inputs are identical to detail exit (which is perfect). Accepted.
+
+**2. Middle-click fullscreen in Firefox (`ImageDetail.tsx`, `ImageGrid.tsx`,
+`ImageTable.tsx`, `FullscreenPreview.tsx`)**
+
+Firefox blocks `requestFullscreen()` called from inside a mouse event handler
+not triggered by the left button. Two changes were needed:
+
+(a) `auxclick` → `mouseup` in all four middle-click handlers. `auxclick`
+doesn't carry transient user activation in Firefox at all; `mouseup` does,
+but Firefox still blocks `requestFullscreen()` if the call is synchronous
+inside the handler.
+
+(b) `setTimeout(toggleFullscreen, 0)` in `ImageDetail.tsx`. Grid and table
+were already immune because their path goes through `rAF` →
+`enterFullscreenPreview()` → state update → React effect → `requestFullscreen()`
+— fully outside the handler stack. ImageDetail called `toggleFullscreen()`
+synchronously. The `setTimeout` posts to the macrotask queue, breaking out of
+the handler stack while transient user activation survives (~5s window).
+
+Middle-click fullscreen now works in Firefox across all three surfaces
+(grid, table, image detail). No change in Chrome behaviour — `setTimeout(fn, 0)`
+is within Chrome's activation window too.
+
+**Investigation closure:** `centering-investigation.md` — 800+ line research
+doc spanning 6 agent sessions — moved to archive. The table geometry bug (45px
+from sticky header) was fixed in commit `44d0502eb`; fullscreen exit timing
+addressed in this commit. Remaining 12.5px table fullscreen exit offset
+accepted; full diagnosis in the archived doc.
+
 ### 17 May 2026 — Fix: table scroll-to-center off by 45px after detail/fullscreen exit
 
 Focused image in table density landed 45 CSS px too low when returning from image

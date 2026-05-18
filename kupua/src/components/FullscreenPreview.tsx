@@ -201,10 +201,53 @@ export function FullscreenPreview() {
     // (the grid stays in the DOM behind the fullscreen layer).
     const traversed = fid !== entryImageIdRef.current;
     if (traversed) {
-      requestAnimationFrame(() => {
-        scrollFocusedIntoView();
-        trace("fullscreen-exit", "t_settled");
-      });
+      const doScroll = () => {
+        requestAnimationFrame(() => {
+          scrollFocusedIntoView();
+          trace("fullscreen-exit", "t_settled");
+        });
+      };
+
+      // After fullscreenchange fires, the Fullscreen API considers the exit
+      // complete, but on macOS Chrome the window animates back from
+      // fullscreen — clientHeight transitions over ~300-500ms. Scrolling
+      // with mid-animation dimensions produces wrong centering. Wait for
+      // resize events to stop (layout settled) before scrolling.
+      // Quick-path: if no resize within 50ms (e.g. Firefox, no animation),
+      // scroll immediately. Safety cap at 1s prevents infinite waiting.
+      const scrollAfterLayoutSettles = () => {
+        let debounceTimer: ReturnType<typeof setTimeout>;
+        const maxTimer = setTimeout(finalize, 1000);
+
+        function finalize() {
+          window.removeEventListener("resize", onResize);
+          clearTimeout(debounceTimer);
+          clearTimeout(maxTimer);
+          doScroll();
+        }
+
+        function onResize() {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(finalize, 150);
+        }
+
+        debounceTimer = setTimeout(finalize, 50);
+        window.addEventListener("resize", onResize);
+      };
+
+      if (document.fullscreenElement) {
+        // User-initiated exit (Backspace/f): exitFullscreen() is async and
+        // hasn't completed. Wait for fullscreenchange, then for layout.
+        const onExit = () => {
+          document.removeEventListener("fullscreenchange", onExit);
+          scrollAfterLayoutSettles();
+        };
+        document.addEventListener("fullscreenchange", onExit);
+      } else {
+        // Browser-initiated exit (Esc): fullscreenchange already fired,
+        // but macOS animation may still be in progress.
+        scrollAfterLayoutSettles();
+      }
     } else {
       trace("fullscreen-exit", "t_settled");
     }
@@ -281,11 +324,12 @@ export function FullscreenPreview() {
   }, [isZoomed, currentImage?.id]);
 
   // Middle-click exits fullscreen preview (matches ImageDetail's middle-click toggle).
+  // Uses mouseup (not auxclick) for Firefox compatibility — see ImageDetail.tsx.
   useEffect(() => {
     if (!isActive) return;
     const el = containerRef.current;
     if (!el) return;
-    const onAuxClick = (e: MouseEvent) => {
+    const onMiddleUp = (e: MouseEvent) => {
       if (e.button !== 1) return;
       e.preventDefault();
       exitPreview();
@@ -293,10 +337,10 @@ export function FullscreenPreview() {
     const onMiddleDown = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
     };
-    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);
     return () => {
-      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mouseup", onMiddleUp);
       el.removeEventListener("mousedown", onMiddleDown);
     };
   }, [isActive, exitPreview]);

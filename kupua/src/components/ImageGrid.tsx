@@ -772,11 +772,13 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   const handleCellDoubleClick = enterDetail;
 
   // Middle-click on a cell → focus that image + enter fullscreen preview.
+  // Uses mouseup (not auxclick) because auxclick doesn't carry transient
+  // user activation in Firefox — requestFullscreen() fails silently.
   // Event delegation on the scroll container; find nearest [data-image-id].
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
-    const onAuxClick = (e: MouseEvent) => {
+    const onMiddleUp = (e: MouseEvent) => {
       if (e.button !== 1) return;
       const cell = (e.target as HTMLElement).closest("[data-image-id]");
       if (!cell) return;
@@ -791,10 +793,10 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
     const onMiddleDown = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
     };
-    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);
     return () => {
-      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("mouseup", onMiddleUp);
       el.removeEventListener("mousedown", onMiddleDown);
     };
   }, [setFocusedImageId]);
