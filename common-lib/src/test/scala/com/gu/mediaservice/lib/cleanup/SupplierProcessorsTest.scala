@@ -294,11 +294,46 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("Invision for Quaker"))
     }
 
-    it("should match __/Invision/AP credit") {
-      val image = createImageFromMetadata("credit" -> "Andy Kropa /Invision/AP")
+    it("should match intermediary/AP credit") {
+      val image = createImageFromMetadata("credit" -> "Lehtikuva/AP")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("AP", Some("Invision")))
-      processedImage.metadata.credit should be(Some("Andy Kropa /Invision/AP"))
+      processedImage.usageRights should be(Agency("AP", Some("Lehtikuva")))
+      processedImage.metadata.credit should be(Some("Lehtikuva/AP"))
+    }
+
+    it("should match intermediary/ap credit, capitalising AP") {
+      val image = createImageFromMetadata("credit" -> "Lehtikuva/ap")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Lehtikuva")))
+      processedImage.metadata.credit should be(Some("Lehtikuva/AP"))
+    }
+
+    it("should match ABC/NYT/AP credit") {
+      val image = createImageFromMetadata("credit" -> "ABC/NYT/AP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("ABC/NYT")))
+      processedImage.metadata.credit should be(Some("ABC/NYT/AP"))
+    }
+
+    it("should not match 'ABC/NYT/AP AP' credit") {
+      val image = createImageFromMetadata("credit" -> "ABC/NYT/AP AP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(NoRights)
+      processedImage.metadata.credit should be(Some("ABC/NYT/AP AP"))
+    }
+
+    it("should not match 'ABC/Associated Press', because we don't think we get those") {
+      val image = createImageFromMetadata("credit" -> "ABC/Associated Press")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(NoRights)
+      processedImage.metadata.credit should be(Some("ABC/Associated Press"))
+    }
+
+    it("should still cover the case of 'Photographer /Invision/AP', which had its own special case before") {
+      val image = createImageFromMetadata("credit" -> "Photographer /Invision/AP")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("AP", Some("Photographer /Invision")))
+      processedImage.metadata.credit should be(Some("Photographer /Invision/AP"))
     }
   }
 

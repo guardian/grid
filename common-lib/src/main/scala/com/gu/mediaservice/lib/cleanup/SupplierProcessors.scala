@@ -265,7 +265,7 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
 object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
-  val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
+  val IntermediaryAp = "(.+)/ap$".r
 
   def getSuppliersReference(image: Image) = {
     image.fileMetadata.readXmpHeadStringProp("plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
@@ -280,10 +280,19 @@ object ApParser extends ImageProcessor {
       metadata    = image.metadata.copy(credit = Some("AP"), suppliersReference = getSuppliersReference(image))
     )
     case Some("invision") | Some("invision/ap") |
-         Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
+         Some(InvisionFor(_)) => image.copy(
       usageRights = Agency("AP", Some("Invision")),
       metadata = image.metadata.copy(suppliersReference = getSuppliersReference(image))
     )
+    case Some(IntermediaryAp(_)) =>
+      val collection = image.metadata.credit.map(c => c.replaceAll("(?i)/ap$", ""))
+      image.copy(
+        usageRights = Agency("AP", collection),
+        metadata    = image.metadata.copy(
+          credit = image.metadata.credit.map(c => c.replaceAll("(?i)/ap$", "/AP")),
+          suppliersReference = getSuppliersReference(image)
+        )
+      )
     case _ => image
   }
 }
