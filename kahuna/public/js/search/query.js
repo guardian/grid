@@ -28,18 +28,21 @@ import {
 } from "../components/gr-sort-control/gr-sort-control-config";
 import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+const isNonFreeString = (val) => val === 'true';
+
 export var query = angular.module('kahuna.search.query', [
-    // Note: temporarily disabled for performance reasons, see above
-    // 'ngAnimate',
-    eq.name,
-    guDateRange.name,
-    syntax.name,
-    grStructuredQuery.name,
-    'util.storage',
-    'gr.sortControl',
-    'gr.extendedSortControl',
-    'gr.permissionsFilter',
-    'gr.myUploads'
+  // Note: temporarily disabled for performance reasons, see above
+  // 'ngAnimate',
+  eq.name,
+  guDateRange.name,
+  syntax.name,
+  grStructuredQuery.name,
+  'util.storage',
+  'gr.sortControl',
+  'gr.extendedSortControl',
+  'gr.permissionsFilter',
+  'gr.myUploads'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -60,23 +63,24 @@ query.controller('SearchQueryCtrl', [
     ctrl.maybeOrgOwnedValue = window._clientConfig.maybeOrgOwnedValue;
     ctrl.canUpload = false;
     mediaApi.canUserUpload().then(canUpload => {
-        ctrl.canUpload = canUpload;
+      ctrl.canUpload = canUpload;
     });
 
     ctrl.ordering = {
-        orderBy: $stateParams.orderBy
+      orderBy: $stateParams.orderBy
     };
 
     ctrl.filter = {
-        uploadedByMe: false
+      uploadedByMe: false
     };
 
     ctrl.dateFilter = {
-        // filled in by the watcher below
+      // filled in by the watcher below
     };
 
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
+    let lastUploadedByEventKey;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
@@ -88,7 +92,7 @@ query.controller('SearchQueryCtrl', [
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
-      const boolShowPaid = (showPaid === true || showPaid === "true") ? true : false;
+      const boolShowPaid = toNonFreeString(showPaid) === 'true';
       const customEvent = new CustomEvent('setPayableImages', {
         detail: {showPaid: boolShowPaid},
         bubbles: true
@@ -114,8 +118,14 @@ query.controller('SearchQueryCtrl', [
 
     function raiseUploadedByCheckEvent() {
       if (ctrl.user) {
+        const uploadedBy = ctrl.filter ? ctrl.filter.uploadedBy : undefined;
+        const eventKey = `${ctrl.user.email}|${uploadedBy || ''}`;
+        if (eventKey === lastUploadedByEventKey) {
+          return;
+        }
+        lastUploadedByEventKey = eventKey;
         const customEvent = new CustomEvent('uploadedByEvent', {
-          detail: { userEmail: ctrl.user.email, uploadedBy: $stateParams.uploadedBy },
+          detail: { userEmail: ctrl.user.email, uploadedBy: uploadedBy },
           bubbles: true
         });
         window.dispatchEvent(customEvent);
@@ -138,9 +148,9 @@ query.controller('SearchQueryCtrl', [
       } else {
         if (sender === "selectMyUploads") {
           const shouldOverwriteUploadedBy =
-             !filter.uploadedBy ||
-             filter.uploadedBy === (ctrl.user ? ctrl.user.email : undefined) ||
-             ctrl.filterMyUploads;
+            !filter.uploadedBy ||
+            filter.uploadedBy === (ctrl.user ? ctrl.user.email : undefined) ||
+            ctrl.filterMyUploads;
           if (shouldOverwriteUploadedBy) {
             ctrl.filter.uploadedBy = (ctrl.user && ctrl.filterMyUploads) ? ctrl.user.email : undefined;
             ctrl.filter.uploadedByMe = ctrl.filterMyUploads;
@@ -151,48 +161,50 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
-    function manageDefaultNonFree(filter) {
-        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
-          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
-          if (newNonFree !== filter.nonFree) {
-            storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
-            storage.setJs("defaultIsNonFree", newNonFree ? newNonFree : false, true);
-            storage.setJs("isUploadedByMe", false, true);
-            storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
-            ctrl.filter.orgOwned = false;
-          }
-          Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
-          raiseFilterChangeEvent(ctrl.filter);
+    function manageDefaultNonFree() {
+      const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+      if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
+        const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
+        storage.setJs("isNonFree", newNonFree, true);
+        storage.setJs("defaultIsNonFree", newNonFree, true);
+        storage.setJs("isUploadedByMe", false, true);
+        storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
+        ctrl.filterMyUploads = false;
+        if (ctrl.myUploadsProps) {
+          syncMyUploadsProps();
         }
+        ctrl.filter.orgOwned = false;
+        Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+        raiseFilterChangeEvent(ctrl.filter);
+      }
     }
 
     function manageOrgOwnedSetting(filter) {
-        const structuredQuery = structureQuery(filter.query) || [];
-        const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
-        const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
-        if (ctrl.filter.orgOwned && !queryHasOrgOwned){
-          // If the checkbox is ticked, ensure the chip is part of the search bar
-          const orgOwnedChip = {
-            type: "filter",
-            filterType: "inclusion",
-            key : "is",
-            value: ctrl.maybeOrgOwnedValue
-          };
-          ctrl.filter.query = renderQuery([
-            ...structuredQuery,
-            orgOwnedChip
-          ]);
-        } else if (!ctrl.filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
-          // If the checkbox is unticked, ensure chip is no longer in the search bar
-          structuredQuery.splice(orgOwnedIndexInQuery, 1);
-          ctrl.filter.query = renderQuery(structuredQuery);
-        }
+      const structuredQuery = structureQuery(filter.query) || [];
+      const orgOwnedIndexInQuery = structuredQuery.findIndex(item => item.value === ctrl.maybeOrgOwnedValue);
+      const queryHasOrgOwned = orgOwnedIndexInQuery >= 0;
+      if (ctrl.filter.orgOwned && !queryHasOrgOwned){
+        // If the checkbox is ticked, ensure the chip is part of the search bar
+        const orgOwnedChip = {
+          type: "filter",
+          filterType: "inclusion",
+          key : "is",
+          value: ctrl.maybeOrgOwnedValue
+        };
+        ctrl.filter.query = renderQuery([
+          ...structuredQuery,
+          orgOwnedChip
+        ]);
+      } else if (!ctrl.filter.orgOwned && queryHasOrgOwned && !ctrl.usePermissionsFilter) {
+        // If the checkbox is unticked, ensure chip is no longer in the search bar
+        structuredQuery.splice(orgOwnedIndexInQuery, 1);
+        ctrl.filter.query = renderQuery(structuredQuery);
+      }
     }
 
     function resetQuery() {
-        ctrl.filter.query = undefined;
-        ctrl.filter.orgOwned = false;
+      ctrl.filter.query = undefined;
+      ctrl.filter.orgOwned = false;
     }
 
     function checkForCollection(query) {
@@ -245,9 +257,9 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
-      let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
-      if (sender && sender == "filterChange" && !newFilter.nonFree) {
-        showPaid = ctrl.user.permissions.showPaid;
+      let showPaid = toNonFreeString(newFilter.nonFree);
+      if (ctrl.usePermissionsFilter && sender && sender === "filterChange" && newFilter.nonFree === undefined) {
+        showPaid = toNonFreeString(ctrl.user.permissions.showPaid);
       }
       storage.setJs("isNonFree", showPaid, true);
 
@@ -273,20 +285,20 @@ query.controller('SearchQueryCtrl', [
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
-      manageDefaultNonFree(newFilter);
+      manageDefaultNonFree();
       manageOrgOwnedSetting(newFilter);
 
       const { nonFree, uploadedByMe } = ctrl.filter;
       let nonFreeCheck = nonFree;
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
         const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid;
-      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = defaultShowPaid === 'true' ? 'true' : 'false';
+      } else if (!ctrl.usePermissionsFilter && nonFreeCheck === 'false') {
         nonFreeCheck = undefined;
       }
       ctrl.filter.nonFree = nonFreeCheck;
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
@@ -299,8 +311,16 @@ query.controller('SearchQueryCtrl', [
     }
 
     //-my uploads-
+    function syncMyUploadsProps() {
+      ctrl.myUploadsProps = {
+        ...ctrl.myUploadsProps,
+        myUploads: ctrl.filterMyUploads
+      };
+    }
+
     function selectMyUploads(myUploadsChecked) {
       ctrl.filterMyUploads = myUploadsChecked;
+      syncMyUploadsProps();
       watchSearchChange(ctrl.filter, "selectMyUploads");
     }
 
@@ -319,7 +339,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: ctrl.filter.query,
+      query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
@@ -328,12 +348,12 @@ query.controller('SearchQueryCtrl', [
     function updatePermissionsChips (permissionsSel, showChargeable) {
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
-      ctrl.filter.nonFree = showChargeable;
+      ctrl.filter.nonFree = toNonFreeString(showChargeable);
       watchSearchChange(ctrl.filter, "updatePermissionsChips");
     }
 
     function chargeableChange (showChargeable) {
-      ctrl.filter.nonFree = showChargeable;
+      ctrl.filter.nonFree = toNonFreeString(showChargeable);
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
@@ -341,12 +361,12 @@ query.controller('SearchQueryCtrl', [
     let defOptVal = PermissionsConf.permissionsDefaultOpt();
     let pfDefPerm = pfOpts.filter(opt => opt.value == defOptVal)[0];
     ctrl.permissionsProps = { options: pfOpts,
-                              selectedOption: pfDefPerm,
-                              onSelect: updatePermissionsChips,
-                              onChargeable: chargeableChange,
-                              chargeable: ctrl.filter.nonFree ? ctrl.filter.nonFree : ($stateParams.nonFree == "true"),
-                              query: ctrl.filter.query
-                            };
+      selectedOption: pfDefPerm,
+      onSelect: updatePermissionsChips,
+      onChargeable: chargeableChange,
+      chargeable: (ctrl.filter.nonFree || $stateParams.nonFree) === "true",
+      query: ctrl.filter.query
+    };
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;
@@ -360,36 +380,34 @@ query.controller('SearchQueryCtrl', [
     const pastYear      = moment().subtract(1, 'years').toISOString();
 
     ctrl.payTypeOptions = [
-        {label: 'Free', value: 'free'},
-        {label: 'Free and No Rights', value: 'maybe-free'},
-        {label: 'All (inc. paid)', value: 'all'}
+      {label: 'Free', value: 'free'},
+      {label: 'Free and No Rights', value: 'maybe-free'},
+      {label: 'All (inc. paid)', value: 'all'}
     ];
 
     ctrl.sinceOptions = [
-        {label: 'Anytime'},   // value: undefined
-        {label: 'Today',         value: lastMidnight},
-        {label: 'Past 24 hours', value: past24Hours},
-        {label: 'Past week',     value: pastWeek},
-        {label: 'Past 6 months', value: past6Months},
-        {label: 'Past year',     value: pastYear}
+      {label: 'Anytime'},   // value: undefined
+      {label: 'Today',         value: lastMidnight},
+      {label: 'Past 24 hours', value: past24Hours},
+      {label: 'Past week',     value: pastWeek},
+      {label: 'Past 6 months', value: past6Months},
+      {label: 'Past year',     value: pastYear}
     ];
 
     ctrl.filterDateFieldsOptions = [
-        {label: 'Upload time',   name: 'uploaded'}, // value: undefined
-        {label: 'Date taken',    name: 'taken',        value: 'taken'},
-        {label: 'Last modified', name: 'modified',     value: 'modified'}
+      {label: 'Upload time',   name: 'uploaded'}, // value: undefined
+      {label: 'Date taken',    name: 'taken',        value: 'taken'},
+      {label: 'Last modified', name: 'modified',     value: 'modified'}
     ];
 
     const dateFilterParams = [
-        'dateField', 'since', 'until', 'takenSince', 'takenUntil',
-        'modifiedSince', 'modifiedUntil'
+      'dateField', 'since', 'until', 'takenSince', 'takenUntil',
+      'modifiedSince', 'modifiedUntil'
     ];
     Object.keys($stateParams).
-        // Exclude date-related filters, managed separately in dateFilter
-        filter(key => dateFilterParams.indexOf(key) === -1).
-        // Exclude useAISearch, managed separately by its own dedicated watcher
-        filter(key => key !== 'useAISearch').
-        forEach(setAndWatchParam);
+      // Exclude date-related filters, managed separately in dateFilter
+      filter(key => dateFilterParams.indexOf(key) === -1).
+    forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
     // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
@@ -397,49 +415,49 @@ query.controller('SearchQueryCtrl', [
     function valOrUndefined(str) { return str ? str : undefined; }
 
     function setAndWatchParam(key) {
-        //this value has been set on ctrl.order
+      //this value has been set on ctrl.order
+      if (key !== 'orderBy') {
+        ctrl.filter[key] = valOrUndefined($stateParams[key]);
+      }
+
+      ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
+      storeCollection(ctrl.filter.query);
+
+      $scope.$watch(() => $stateParams[key], onValChange(newVal => {
+        // FIXME: broken for 'your uploads'
+        // FIXME: + they triggers filter $watch and $state.go (breaks history)
         if (key !== 'orderBy') {
-          ctrl.filter[key] = valOrUndefined($stateParams[key]);
+          ctrl.filter[key] = valOrUndefined(newVal);
         }
 
-        ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
-        storeCollection(ctrl.filter.query);
-
-        $scope.$watch(() => $stateParams[key], onValChange(newVal => {
-            // FIXME: broken for 'your uploads'
-            // FIXME: + they triggers filter $watch and $state.go (breaks history)
-            if (key !== 'orderBy') {
-                ctrl.filter[key] = valOrUndefined(newVal);
-            }
-
-            // don't track changes to `query` as it would trigger on every keypress
-            if (key !== 'query') {
-                $rootScope.$emit(
-                  'track:event', 'Query', 'Change', 'Success', null, { field: key, value: newVal }
-                );
-            }
-        }));
+        // don't track changes to `query` as it would trigger on every keypress
+        if (key !== 'query') {
+          $rootScope.$emit(
+            'track:event', 'Query', 'Change', 'Success', null, { field: key, value: newVal }
+          );
+        }
+      }));
     }
 
     // Init and apply date-related changes in $stateParams to ctrl.dateFilter
     $scope.$watchCollection(() => $stateParams, () => {
-        switch ($stateParams.dateField) {
+      switch ($stateParams.dateField) {
         case 'taken':
-            ctrl.dateFilter.since = $stateParams.takenSince;
-            ctrl.dateFilter.until = $stateParams.takenUntil;
-            ctrl.dateFilter.field = 'taken';
-            break;
+          ctrl.dateFilter.since = $stateParams.takenSince;
+          ctrl.dateFilter.until = $stateParams.takenUntil;
+          ctrl.dateFilter.field = 'taken';
+          break;
         case 'modified':
-            ctrl.dateFilter.since = $stateParams.modifiedSince;
-            ctrl.dateFilter.until = $stateParams.modifiedUntil;
-            ctrl.dateFilter.field = 'modified';
-            break;
+          ctrl.dateFilter.since = $stateParams.modifiedSince;
+          ctrl.dateFilter.until = $stateParams.modifiedUntil;
+          ctrl.dateFilter.field = 'modified';
+          break;
         default: // uploaded (default so represented as `undefined`)
-            ctrl.dateFilter.since = $stateParams.since;
-            ctrl.dateFilter.until = $stateParams.until;
-            ctrl.dateFilter.field = undefined;
-            break;
-        }
+          ctrl.dateFilter.since = $stateParams.since;
+          ctrl.dateFilter.until = $stateParams.until;
+          ctrl.dateFilter.field = undefined;
+          break;
+      }
     });
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(newFilter => {
@@ -447,7 +465,7 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-        $state.go('search.results', {...ctrl.filter, orderBy: newVal});
+      $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
@@ -458,81 +476,91 @@ query.controller('SearchQueryCtrl', [
           useAISearch: true
         });
       } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
+        $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
       }
     });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
-        // Translate dateFilter to actual state and query params
-        $state.go('search.results', {...ctrl.filter, ...{
-            since:         field === undefined  ? since : null,
-            until:         field === undefined  ? until : null,
-            takenSince:    field === 'taken'    ? since : null,
-            takenUntil:    field === 'taken'    ? until : null,
-            modifiedSince: field === 'modified' ? since : null,
-            modifiedUntil: field === 'modified' ? until : null,
-            dateField:     field
+      // Translate dateFilter to actual state and query params
+      $state.go('search.results', {...ctrl.filter, ...{
+          since:         field === undefined  ? since : null,
+          until:         field === undefined  ? until : null,
+          takenSince:    field === 'taken'    ? since : null,
+          takenUntil:    field === 'taken'    ? until : null,
+          modifiedSince: field === 'modified' ? since : null,
+          modifiedUntil: field === 'modified' ? until : null,
+          dateField:     field
         }});
     }));
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
-        //-uploaded by me-
-        const isUploadedByMe = storage.getJs("isUploadedByMe", true);
-        ctrl.user = session.user;
-        if (isUploadedByMe === null) {
-          ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
+      //-uploaded by me-
+      const isUploadedByMe = storage.getJs("isUploadedByMe", true);
+      ctrl.user = session.user;
+      if (ctrl.filter.uploadedBy === ctrl.user.email) {
+        ctrl.filter.uploadedByMe = true;
+        ctrl.filterMyUploads = true;
+        storage.setJs("isUploadedByMe", true);
+      } else if (isUploadedByMe === null) {
+        ctrl.filter.uploadedByMe = ctrl.filter.uploadedBy === ctrl.user.email;
+        ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
+        storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+      } else {
+        if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
+          ctrl.filter.uploadedByMe = true;
           ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
           storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
         } else {
-          if ((ctrl.filter.uploadedBy === ctrl.user.email) && !isUploadedByMe ) {
-            ctrl.filter.uploadedByMe = true;
-            ctrl.filterMyUploads = ctrl.filter.uploadedByMe;
-            storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
-          } else {
-            ctrl.filter.uploadedByMe = isUploadedByMe;
-            ctrl.filterMyUploads = isUploadedByMe;
-          }
+          ctrl.filter.uploadedByMe = isUploadedByMe;
+          ctrl.filterMyUploads = isUploadedByMe;
         }
+      }
 
-        //-default non free-
-        const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
-        storage.setJs("defaultIsNonFree", defNonFree ? defNonFree : false, true);
-        if (!ctrl.initialShowPaidEvent && (defNonFree === true || defNonFree === "true")) {
-          ctrl.initialShowPaidEvent = true;
-          raisePayableImagesEvent(defNonFree);
-        }
+      syncMyUploadsProps();
+      raiseUploadedByCheckEvent();
 
+      //-default non free-
+      const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
+      storage.setJs("defaultIsNonFree", toNonFreeString(defNonFree), true);
+      if (!ctrl.initialShowPaidEvent && toNonFreeString(defNonFree) === 'true') {
+        ctrl.initialShowPaidEvent = true;
+        raisePayableImagesEvent(defNonFree);
+      }
+
+      // If nonFree is provided in URL params, use that; otherwise use stored value
+      if ($stateParams.nonFree !== undefined) {
+        ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
+        storage.setJs("isNonFree", ctrl.filter.nonFree, true);
+      } else {
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
-          ctrl.filter.nonFree = $stateParams.nonFree;
-          storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : (ctrl.usePermissionsFilter ? "false" : undefined), true);
-        }
-        else if (isNonFree === true || isNonFree === "true") {
-          ctrl.filter.nonFree = "true";
+          ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
+          storage.setJs("isNonFree", ctrl.filter.nonFree, true);
         } else {
-          ctrl.filter.nonFree = (ctrl.usePermissionsFilter ? "false" : undefined);
+          ctrl.filter.nonFree = isNonFreeString(isNonFree) ? 'true' : 'false';
         }
+      }
 
-        //-org owned-
-        const structuredQuery = structureQuery(ctrl.filter.query);
-        const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
-        ctrl.filter.orgOwned = orgOwned;
+      //-org owned-
+      const structuredQuery = structureQuery(ctrl.filter.query);
+      const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
+      ctrl.filter.orgOwned = orgOwned;
 
-        watchSearchChange(ctrl.filter, "userPermissions");
+      watchSearchChange(ctrl.filter, "userPermissions");
     });
 
 
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
-}]);
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+  }]);
 
 query.directive('searchQuery', [function() {
-    return {
-        restrict: 'E',
-        controller: 'SearchQueryCtrl as searchQuery',
-        template: template
-    };
+  return {
+    restrict: 'E',
+    controller: 'SearchQueryCtrl as searchQuery',
+    template: template
+  };
 }]);
