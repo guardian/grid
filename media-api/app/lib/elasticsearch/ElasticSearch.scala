@@ -223,8 +223,11 @@ class ElasticSearch(
             prefixLength = Some(1),
           ))
         )
+        .size(1)
+        .fetchSource(false)
+        .trackTotalHits(false)
       val maxScoreFuture = executeAndLog(withSearchQueryTimeout(maxScore), "max BM25 score").map { r =>
-        logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore} with total hits ${r.result.totalHits}")
+        logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
         if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
       }
       maxScoreFuture
