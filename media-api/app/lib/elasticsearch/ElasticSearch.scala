@@ -238,7 +238,7 @@ class ElasticSearch(
       .queryVector(queryEmbeddingDouble)
       .k(k)
       .numCandidates(numCandidates)
-      .boost(1.0)
+      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
 
     val lexicalWeight = 1.0 - vecWeight
 
