@@ -207,6 +207,52 @@ class ElasticSearch(
       boost = boost
     )
 
+  private def fetchMaxBm25Score(query: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+    val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(BoolQuery().must(
+        createMultiMatchQuery(query)
+      ))
+
+    executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
+      logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
+      if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
+    }
+  }
+
+  private def makeHybridSearchRequest(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    maxScore: Double
+  )(implicit logMarker: LogMarker): SearchRequest = {
+    val knn = Knn("embedding.cohereEmbedV4.image")
+      .queryVector(queryEmbedding)
+      .k(k)
+      .numCandidates(numCandidates)
+      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
+
+    val lexicalWeight = 1.0 - vecWeight
+
+    // KNN results are in [0,1], but BM25 scores are unbounded and typically much
+    // larger than cosine similarity, so we need to apply a scaling factor to the
+    // BM25 score to bring it to the same range as the cosine similarity.
+    val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
+
+    // Scale the lexical part so it stays aligned with the desired
+    // lexical_weight / vec_weight balance.
+    val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
+
+    logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
+
+    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
+
+    ElasticDsl.search(imagesCurrentAlias)
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+      .size(k)
+  }
+
   def hybridSearch(
     query: String,
     queryEmbedding: List[Float],
@@ -217,55 +263,15 @@ class ElasticSearch(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
   ): Future[SearchResults] = {
-
-    // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
-    // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
-    // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
-    // and can be effectively combined in a hybrid query.
-    def maxBM25Score(query: String): Future[Double] = {
-      val maxScore = ElasticDsl.search(imagesCurrentAlias)
-        .query(BoolQuery().must(
-          createMultiMatchQuery(query)
-        ))
-      val maxScoreFuture = executeAndLog(withSearchQueryTimeout(maxScore), "max BM25 score").map { r =>
-        logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
-        if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
-      }
-      maxScoreFuture
-    }
-
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
-    val knn = Knn("embedding.cohereEmbedV4.image")
-      .queryVector(queryEmbeddingDouble)
-      .k(k)
-      .numCandidates(numCandidates)
-      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
 
-    val lexicalWeight = 1.0 - vecWeight
-
-    maxBM25Score(query).flatMap { maxScore =>
-      //    KNN results are in [0,1], but BM25 scores are unbounded and typically much
-      //    larger than cosine similarity, so we need to apply a scaling factor to the
-      //    BM25 score to bring it to the same range as the cosine similarity
-      val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
-
-      //    We want to apply only one boost if we can help it, so we scale the
-      //    multi_match boost to be in line with the max_score and the desired
-      //    lexical_weight/vec_weight balance
-      val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight/vecWeight) * scalingFactor else 1.0
-
-      logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
-
-      val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
-
-      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-        .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
-        .size(k)
-
-      executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search").map { r =>
-        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
-      }
+    for {
+      maxScore <- fetchMaxBm25Score(query)
+      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore)
+      result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
+    } yield {
+      val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
     }
   }
 
