@@ -1,3 +1,4 @@
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.play.GridComponents
@@ -15,7 +16,9 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
   val crops = new Crops(config, store, imageOperations)
   val notifications = new Notifications(config)
 
-  val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient, authorisation)
+  private val gridClient = GridClient(config.services)(wsClient)
+
+  val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, authorisation, gridClient)
   val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
