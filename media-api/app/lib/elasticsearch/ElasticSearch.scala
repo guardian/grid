@@ -206,10 +206,10 @@ class ElasticSearch(
     logMarker: LogMarker
   ): Future[SearchResults] = {
 
-// BM25 scores are unbounded [0,inf] and typically much larger in magnitude
-// than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
-// the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
-// and can be effectively combined in a hybrid query.
+    // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
+    // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
+    // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
+    // and can be effectively combined in a hybrid query.
     def maxBM25Score(query: String): Future[Double] = {
       val maxScore = ElasticDsl.search(imagesCurrentAlias)
         .query(BoolQuery().must(
@@ -223,9 +223,6 @@ class ElasticSearch(
             prefixLength = Some(1),
           ))
         )
-        .size(1)
-        .fetchSource(false)
-        .trackTotalHits(false)
       val maxScoreFuture = executeAndLog(withSearchQueryTimeout(maxScore), "max BM25 score").map { r =>
         logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
         if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
@@ -243,19 +240,19 @@ class ElasticSearch(
     val lexicalWeight = 1.0 - vecWeight
 
     maxBM25Score(query).flatMap { maxScore =>
-//    KNN results are in [0,1], but BM25 scores are unbounded and typically much
-//    larger than cosine similarity, so we need to apply a scaling factor to the
-//    BM25 score to bring it to the same range as the cosine similarity
+    //    KNN results are in [0,1], but BM25 scores are unbounded and typically much
+    //    larger than cosine similarity, so we need to apply a scaling factor to the
+    //    BM25 score to bring it to the same range as the cosine similarity
       val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
 
-//    We want to apply only one boost if we can help it, so we scale the
-//    multi_match boost to be in line with the max_score and the desired
-//    lexical_weight/vec_weight balance
+    //    We want to apply only one boost if we can help it, so we scale the
+    //    multi_match boost to be in line with the max_score and the desired
+    //    lexical_weight/vec_weight balance
       val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight/vecWeight) * scalingFactor else 1.0
 
       logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
-//      TODO make case class for multimatchQuery to avoid repetition
+    //      TODO make case class for multimatchQuery to avoid repetition
       val multiMatchQuery = MultiMatchQuery(
         text = query,
         fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),

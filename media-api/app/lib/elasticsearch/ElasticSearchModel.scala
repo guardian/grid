@@ -116,7 +116,7 @@ object SearchParams {
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
-  def parseDoubleFromQuery(s: String): Option[Double] =
+  def parseBoundedDoubleFromQuery(s: String): Option[Double] =
     Try(s.toDouble).toOption.filter(d => !d.isNaN && !d.isInfinity && d >= 0.0 && d <= 1.0)
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
@@ -178,7 +178,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
-      request.getQueryString("vecWeight") flatMap parseDoubleFromQuery,
+      request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
     )
   }
 
