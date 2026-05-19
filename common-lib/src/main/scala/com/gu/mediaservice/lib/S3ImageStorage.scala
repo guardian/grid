@@ -4,11 +4,11 @@ import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.MimeType
-import org.slf4j.LoggerFactory
+import software.amazon.awssdk.services.s3.model.{DeleteObjectRequest, HeadObjectRequest, ListObjectsRequest}
 
 import java.io.File
-import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 // TODO: If deleteObject fails - we should be catching the errors here to avoid them bubbling to the application
 class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage with GridLogging {
@@ -28,19 +28,19 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   }
 
   def deleteImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    client.deleteObject(bucket, id)
+    client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).build())
     logger.info(logMarker, s"Deleted image $id from bucket $bucket")
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    val objectVersion = client.getObjectMetadata(bucket, id).getVersionId
-    client.deleteVersion(bucket, id, objectVersion)
+    val objectVersion = client.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
+    client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
     logger.info(logMarker, s"Deleted image $id from bucket $bucket (version: $objectVersion)")
   }
 
   def deleteFolder(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-		val files = client.listObjects(bucket, id).getObjectSummaries.asScala
-		files.foreach(file => client.deleteObject(bucket, file.getKey))
+		val files = client.listObjects(ListObjectsRequest.builder().bucket(bucket).prefix(s"$id/").build()).contents().asScala
+		files.foreach(file => client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(file.key()).build()))
 		logger.info(logMarker, s"Deleting images in folder $id from bucket $bucket")
 	}
 

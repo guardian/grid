@@ -1,15 +1,10 @@
 package model
 
-import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
-
-import java.io.File
-import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -17,19 +12,22 @@ import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumb
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.lib._
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
-import lib.{DigestedFile, ImageLoaderConfig, Notifications}
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
-import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import _root_.play.api.libs.json.Json
+import _root_.play.api.libs.ws.WSRequest
 
-import scala.collection.compat._
+import java.io.File
+import java.nio.file.Files
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
@@ -40,24 +38,24 @@ case object ImageUpload {
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
     val usageRights = NoRights
     Image(
-      uploadRequest.imageId,
-      uploadRequest.uploadTime,
-      uploadRequest.uploadedBy,
-      None,
-      Some(uploadRequest.uploadTime),
-      uploadRequest.identifiers,
-      uploadRequest.uploadInfo,
-      source,
-      Some(thumbnail),
-      png,
-      fileMetadata,
-      None,
-      metadata,
-      metadata,
-      usageRights,
-      usageRights,
-      List(),
-      List(),
+      id = uploadRequest.imageId,
+      uploadTime = new DateTime(uploadRequest.uploadTime.toEpochMilli),
+      uploadedBy = uploadRequest.uploadedBy,
+      softDeletedMetadata = None,
+      lastModified = Some(new DateTime(uploadRequest.uploadTime.toEpochMilli)),
+      identifiers = uploadRequest.identifiers,
+      uploadInfo = uploadRequest.uploadInfo,
+      source = source,
+      thumbnail = Some(thumbnail),
+      optimisedPng = png,
+      fileMetadata = fileMetadata,
+      userMetadata = None,
+      metadata = metadata,
+      originalMetadata = metadata,
+      usageRights = usageRights,
+      originalUsageRights = usageRights,
+      exports = List(),
+      usages = List(),
       //      ImageEmbedding will be written by lambda later
       embedding = None
     )
@@ -176,7 +174,7 @@ object Uploader extends GridLogging {
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
+      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified.map(lm => new DateTime(lm.toEpochMilli)))
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions, sourceOrientationMetadata)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -238,7 +236,7 @@ object Uploader extends GridLogging {
   def toMetaMap(uploadRequest: UploadRequest): Map[String, String] = {
     val baseMeta = Map(
       ImageStorageProps.uploadedByMetadataKey -> uploadRequest.uploadedBy,
-      ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime)
+      ImageStorageProps.uploadTimeMetadataKey -> printInstant(uploadRequest.uploadTime)
     ) ++
       uploadRequest.identifiersMeta ++
       uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
@@ -320,7 +318,7 @@ object Uploader extends GridLogging {
   }
 
   def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: S3Object): UploadRequest = {
-    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
+    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(Instant.now), s3Object.metadata.userMetadata)
     request.copy(
       uploadTime = metadata.uploadTime,
       uploadedBy = metadata.uploadedBy,
@@ -403,7 +401,7 @@ class Uploader(
   def loadFile(digestedFile: DigestedFile,
                uploadedBy: String,
                identifiers: Map[String, String],
-               uploadTime: DateTime,
+               uploadTime: Instant,
                filename: Option[String])
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
@@ -470,7 +468,7 @@ class Uploader(
           val mediaId = imageUpload.image.id
           logger.info(logMarker, s"Copying $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket")
           try {
-            store.client.copyObject(
+            store.copyObject(
               config.imageBucket, fileKeyFromId(mediaId),
               lowerEnvironmentQueueBucket, s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}"
             )

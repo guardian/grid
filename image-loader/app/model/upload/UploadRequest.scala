@@ -1,21 +1,16 @@
 package model.upload
 
 import com.gu.mediaservice.lib.ImageStorageProps
+import com.gu.mediaservice.model.{MimeType, UploadInfo}
 
 import java.io.File
-import java.util.UUID
-import com.gu.mediaservice.model.{MimeType, UploadInfo}
-import net.logstash.logback.marker.{LogstashMarker, Markers}
-import org.joda.time.format.ISODateTimeFormat
-import org.joda.time.{DateTime, DateTimeZone}
-
-import scala.jdk.CollectionConverters._
+import java.time.Instant
 
 case class UploadRequest(
                           imageId: String,
                           tempFile: File,
                           mimeType: Option[MimeType],
-                          uploadTime: DateTime,
+                          uploadTime: Instant,
                           uploadedBy: String,
                           identifiers: Map[String, String],
                           uploadInfo: UploadInfo,

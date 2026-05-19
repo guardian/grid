@@ -1,14 +1,13 @@
 package com.gu.mediaservice.lib
 
-import org.apache.pekko.actor.{Cancellable, Scheduler}
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
+import org.apache.pekko.actor.{Cancellable, Scheduler}
 import org.joda.time.DateTime
 
-import java.util.concurrent.atomic.AtomicReference
 import java.io.InputStream
-import scala.jdk.CollectionConverters._
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
@@ -25,15 +24,14 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
-    val objects = s3.client
-      .listObjects(bucket).getObjectSummaries.asScala
-      .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
+    val objects = s3.listObjects(bucket)
+      .filterNot(_.key() == "AMAZON_SES_SETUP_NOTIFICATION")
 
     if (objects.nonEmpty) {
-      val obj = objects.maxBy(_.getLastModified)
-      logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
+      val obj = objects.maxBy(_.lastModified())
+      logger.info(s"Latest key ${obj.key()} in bucket $bucket")
 
-      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+      val stream = s3.getObject(bucket, obj.key())
       Some(stream)
     } else {
       logger.error(s"Bucket $bucket is empty")

@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.storage.ImageLoaderStore
 
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 
 case class S3IngestObject (
@@ -11,7 +12,7 @@ case class S3IngestObject (
   uploadedBy: String,
   filename:String,
   maybeMediaIdFromUiUpload: Option[String],
-  uploadTime: java.util.Date,
+  uploadTime: Instant,
   contentLength: Long,
   getInputStream: () => java.io.InputStream,
   identifiers: Map[String, String] = Map.empty
@@ -24,17 +25,18 @@ object S3IngestObject {
     val keyParts = key.split("/")
 
     val s3Object = store.getS3Object(key)
-    val metadata = s3Object.getObjectMetadata
+    val response = s3Object.response()
+    val metadata = response.metadata().asScala
 
     S3IngestObject(
       key,
       uploadedBy = keyParts.head,
       filename = keyParts.last,
-      maybeMediaIdFromUiUpload = metadata.getUserMetadata.asScala.get("media-id"), // set by the client in upload in manager.js
-      uploadTime = metadata.getLastModified,
-      contentLength = metadata.getContentLength,
-      getInputStream = () => s3Object.getObjectContent,
-      identifiers = metadata.getUserMetadata.asScala.collect{
+      maybeMediaIdFromUiUpload = metadata.get("media-id"), // set by the client in upload in manager.js
+      uploadTime = response.lastModified(),
+      contentLength = response.contentLength(),
+      getInputStream = () => s3Object,
+      identifiers = metadata.collect {
         case (key, value) if key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix) =>
           key.stripPrefix(ImageStorageProps.identifierMetadataKeyPrefix) -> value
       }.toMap

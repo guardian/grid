@@ -1,7 +1,5 @@
 package controllers
 
-import org.apache.pekko.actor.Scheduler
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.S3Vectors
@@ -9,17 +7,20 @@ import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.{ImageStatusRecord, SoftDeletedMetadata}
-import lib.{BatchDeletionIds, ThrallConfig, ThrallMetrics, ThrallStore}
 import lib.elasticsearch.ElasticSearch
+import lib.{BatchDeletionIds, ThrallConfig, ThrallMetrics, ThrallStore}
+import org.apache.pekko.actor.Scheduler
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import scalaz.NonEmptyList
 
+import java.time.format.DateTimeFormatter
+import java.time.{ZoneId, ZonedDateTime}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -66,7 +67,7 @@ class ReaperController(
         interval = INTERVAL,
       ){ () =>
         try {
-          if (store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
+          if (store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
             logger.info("Reaper is paused")
             es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
             es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
@@ -102,14 +103,15 @@ class ReaperController(
     }
   }
 
-  private def s3DirNameFromDate(date: DateTime) = date.toString("YYYY-MM-dd")
+  private lazy val dateOnlyFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+  private def s3DirNameFromDate(date: ZonedDateTime) = date.format(dateOnlyFormatter)
 
   private def persistedBatchDeleteOperation(deleteType: String)(doBatchDelete: => Future[JsValue]) = config.maybeReaperBucket match {
     case None => Future.failed(new Exception("Reaper bucket not configured"))
     case Some(reaperBucket) => doBatchDelete.map { json =>
-      val now = DateTime.now(DateTimeZone.UTC)
-      val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-      store.client.putObject(reaperBucket, key, json.toString())
+      val now = ZonedDateTime.now(ZoneId.of("UTC"))
+      val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString}.json"
+      store.putObject(reaperBucket, key, json.toString())
       json
     }
   }
@@ -181,23 +183,24 @@ class ReaperController(
     }).map(Json.toJson(_))
   }
   def index = withLoginRedirect {
-    val now = DateTime.now(DateTimeZone.UTC)
+    val now = ZonedDateTime.now(ZoneId.of("UTC"))
+
     (config.maybeReaperBucket, config.maybeReaperCountPerRun) match {
     case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
     case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
-      val isPaused = store.client.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
+      val isPaused = store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
-        store.client.listObjects(reaperBucket, s"soft/$s3DirName/").getObjectSummaries.asScala.toList ++
-          store.client.listObjects(reaperBucket, s"hard/$s3DirName/").getObjectSummaries.asScala.toList
+        store.listObjects(reaperBucket, s"soft/$s3DirName/") ++
+          store.listObjects(reaperBucket, s"hard/$s3DirName/")
       }
 
       val recentRecordKeys = recentRecords
-        .filter(_.getLastModified after now.minusHours(48).toDate)
-        .sortBy(_.getLastModified)
+        .filter(_.lastModified() isAfter now.minusHours(48).toInstant)
+        .sortBy(_.lastModified())
         .reverse
-        .map(_.getKey)
+        .map(_.key())
 
       Ok(views.html.reaper(isPaused, INTERVAL.toString(), countOfImagesToReap, recentRecordKeys))
   }}
@@ -205,22 +208,23 @@ class ReaperController(
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      Ok(
-        store.client.getObjectAsString(reaperBucket, key)
-      ).as(JSON)
+      store.getObjectAsString(reaperBucket, key) match {
+        case Some(contents) => Ok(contents).as(JSON)
+        case None => NotFound(s"No record found for $key")
+      }
   }}
 
   def pauseReaper = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.client.putObject(reaperBucket, CONTROL_FILE_NAME, "")
+      store.putObject(reaperBucket, CONTROL_FILE_NAME, "")
       Redirect(routes.ReaperController.index)
   }}
 
   def resumeReaper = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.client.deleteObject(reaperBucket, CONTROL_FILE_NAME)
+      store.deleteObject(reaperBucket, CONTROL_FILE_NAME)
       Redirect(routes.ReaperController.index)
   }}
 

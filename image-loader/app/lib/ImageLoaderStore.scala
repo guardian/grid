@@ -1,32 +1,33 @@
 package lib.storage
 
-import com.amazonaws.HttpMethod
-import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest, S3Object}
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.gu.mediaservice.lib.logging.LogMarker
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.model.{DeleteObjectResponse, GetObjectResponse, NoSuchKeyException, PutObjectRequest}
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 
 import java.io.File
-import java.time.ZonedDateTime
-import java.util.Date
+import java.time.{Duration, Instant, ZonedDateTime}
+import scala.jdk.CollectionConverters._
 
 class S3FileDoesNotExistException extends Exception()
 
 class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperations(config.imageBucket, config.thumbnailBucket, config) {
 
-  private def handleNotFound[T](key: String)(doWork: => T)(loggingIfNotFound: => Unit): T = {
+  private def handleNotFound[T](doWork: => T)(loggingIfNotFound: => Unit): T = {
     try {
       doWork
     } catch {
-      case e: AmazonS3Exception if e.getStatusCode == 404 || e.getStatusCode == 403 =>
+      case _: NoSuchKeyException =>
         loggingIfNotFound
         throw new S3FileDoesNotExistException
       case other: Throwable => throw other
     }
   }
 
-  def getS3Object(key: String)(implicit logMarker: LogMarker): S3Object = handleNotFound(key) {
-    client.getObject(config.maybeIngestBucket.get, key)
+  def getS3Object(key: String)(implicit logMarker: LogMarker): ResponseInputStream[GetObjectResponse] = handleNotFound {
+    getObject(config.maybeIngestBucket.get, key)
   } {
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
@@ -41,29 +42,34 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
       )
   }
 
-  def generatePreSignedUploadUrl(filename: String, expiration: ZonedDateTime, uploadedBy: String, mediaId: String): String = {
-    val request = new GeneratePresignedUrlRequest(
-      config.maybeBucketForUIUploads.get, // bucket
-      s"$uploadedBy/$filename", // key
-    )
-      .withMethod(HttpMethod.PUT)
-      .withExpiration(Date.from(expiration.toInstant));
+  def generatePreSignedUploadUrl(
+    filename: String,
+    expiration: ZonedDateTime,
+    uploadedBy: String,
+    mediaId: String
+  ): String = {
+    val putObjectRequest = PutObjectRequest.builder()
+      .bucket(config.maybeBucketForUIUploads.get)
+      .key(s"$uploadedBy/$filename")
+      .metadata(Map("media-id" -> mediaId).asJava)
+      .build()
+    val presignRequest = PutObjectPresignRequest.builder()
+      .putObjectRequest(putObjectRequest)
+      .signatureDuration(Duration.between(Instant.now, expiration))
+      .build()
 
-    // sent by the client in manager.js
-    request.putCustomRequestHeader("x-amz-meta-media-id", mediaId)
-
-    client.generatePresignedUrl(request).toString
+    presigner.presignPutObject(presignRequest).url().toExternalForm
   }
 
-  def moveObjectToFailedBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key){
-    client.copyObject(config.maybeIngestBucket.get, key, config.maybeFailBucket.get, key)
+  def moveObjectToFailedBucket(key: String)(implicit logMarker: LogMarker): DeleteObjectResponse = handleNotFound {
+    copyObject(config.maybeIngestBucket.get, key, config.maybeFailBucket.get, key)
     deleteObjectFromIngestBucket(key)
   } {
     logger.warn(logMarker, s"Attempted to copy $key from ingest bucket to fail bucket, but it does not exist.")
   }
 
-  def deleteObjectFromIngestBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key) {
-    client.deleteObject(config.maybeIngestBucket.get,key)
+  def deleteObjectFromIngestBucket(key: String)(implicit logMarker: LogMarker): DeleteObjectResponse = handleNotFound {
+    deleteObject(config.maybeIngestBucket.get,key)
   } {
     logger.warn(logMarker, s"Attempted to delete $key from ingest bucket, but it does not exist.")
   }

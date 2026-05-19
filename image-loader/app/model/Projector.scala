@@ -1,54 +1,51 @@
 package model
 
-import java.io.{File, FileOutputStream}
-import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.{GridClient, ImageDataMerger}
-import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
-import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.lib._
 import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
 import org.apache.commons.io.IOUtils
-import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import _root_.play.api.libs.ws.WSRequest
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
 
-import java.nio.file.Path
-import scala.jdk.CollectionConverters._
+import java.io.{File, FileOutputStream, InputStream}
+import java.time.{Instant, OffsetDateTime}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 
 object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbedder)
+  = new Projector(toImageUploadOpsCfg(config), S3Ops(S3Ops.buildS3Client(config)), imageOps, processor, auth, maybeEmbedder)
 }
 
 case class S3FileExtractedMetadata(
   uploadedBy: String,
-  uploadTime: DateTime,
+  uploadTime: Instant,
   uploadFileName: Option[String],
   identifiers: Map[String, String]
 )
 
 object S3FileExtractedMetadata {
-  def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
-    val lastModified = new DateTime(s3ObjectMetadata.getLastModified)
-    val userMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+  def apply(s3ObjectMetadata: GetObjectResponse): S3FileExtractedMetadata = {
+    val lastModified = s3ObjectMetadata.lastModified()
+    val userMetadata = s3ObjectMetadata.metadata().asScala.toMap
     apply(lastModified, userMetadata)
   }
 
-  def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
+  def apply(lastModified: Instant, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
     val fileUserMetadata = userMetadata.map { case (key, value) =>
       // Fix up the contents of the metadata.
       (
@@ -61,7 +58,7 @@ object S3FileExtractedMetadata {
     }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(new DateTime(_).withZone(DateTimeZone.UTC))
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(OffsetDateTime.parse).map(_.toInstant)
     val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
     val identifiers = fileUserMetadata.filter{ case (key, _) =>
       key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
@@ -81,7 +78,7 @@ object S3FileExtractedMetadata {
 }
 
 class Projector(config: ImageUploadOpsCfg,
-                s3: AmazonS3,
+                s3: S3Ops,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication,
@@ -104,7 +101,7 @@ class Projector(config: ImageUploadOpsCfg,
 
       try {
         val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
-        val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
+        val extractedS3Meta = S3FileExtractedMetadata(s3Source.response())
 
         val finalImageFuture = projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
         val finalImage = Await.result(finalImageFuture, Duration.Inf)
@@ -116,10 +113,10 @@ class Projector(config: ImageUploadOpsCfg,
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
+  private def getSrcFileDigestForProjection(s3Src: InputStream, imageId: String, tempFile: File) = {
     val fos = new FileOutputStream(tempFile)
     try {
-      IOUtils.copy(s3Src.getObjectContent, fos)
+      IOUtils.copy(s3Src, fos)
       DigestedFile(tempFile, imageId)
     } finally {
       fos.close()
@@ -159,11 +156,11 @@ class Projector(config: ImageUploadOpsCfg,
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
-                               s3: AmazonS3,
+                               s3: S3Ops,
                                maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
-  import Uploader.{fromUploadRequestShared, toMetaMap}
+  import Uploader.fromUploadRequestShared
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
@@ -216,10 +213,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
         logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
         Future.successful(None) // falls back to creating from original file
       case true =>
-        val obj = s3.getObject(new GetObjectRequest(bucket, key))
+        val obj = s3.getObject(bucket, key)
         val fos = new FileOutputStream(outFile)
         try {
-          IOUtils.copy(obj.getObjectContent, fos)
+          IOUtils.copy(obj, fos)
         } finally {
           fos.close()
           obj.close()

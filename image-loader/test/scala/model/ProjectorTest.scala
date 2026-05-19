@@ -1,12 +1,8 @@
 package model
 
-import java.io.File
-import java.net.URI
-import java.util.{Date, UUID}
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -14,7 +10,6 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.freespec.AnyFreeSpec
@@ -22,13 +17,16 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, JsString}
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
 import test.lib.ResourceHelpers
 
-import java.nio.file.Path
+import java.io.File
+import java.net.URI
+import java.time.Instant
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
-import scala.concurrent.{ExecutionContext, Future}
 
 class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with MockitoSugar {
 
@@ -44,9 +42,10 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   private val maybeEmbedder = None
 
-  private val s3 = mock[AmazonS3]
+  private val s3 = mock[S3Client]
+
   private val auth = mock[Authentication]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, auth, maybeEmbedder)
+  private val projector = new Projector(config, S3Ops(s3), imageOperations, ImageProcessor.identity, auth, maybeEmbedder)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
@@ -57,7 +56,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
     val id = "id123"
     val fileDigest = DigestedFile(testFile, id)
     val uploadedBy = "test"
-    val uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
+    val uploadTime = Instant.parse("2020-01-24T17:36:08.456Z")
     val uploadFileName = Some("getty.jpg")
 
     // expected
@@ -234,37 +233,39 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
 
   "S3FileExtractedMetadata" - {
     "should extract URL encoded metadata" in {
-      val s3Metadata = new ObjectMetadata()
-      s3Metadata.setLastModified(new Date(1613388118000L))
-      s3Metadata.setUserMetadata(Map(
-        "file-name" -> "This%20photo%20was%20taken%20in%20%C5%81%C3%B3d%C5%BA.jpg",
-        "uploaded-by" -> "s%C3%A9b.cevey%40theguardian.co.uk",
-        "upload-time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
-        "identifier!picdarurn" -> "12*543%5E25"
-      ).asJava)
+      val res = GetObjectResponse.builder()
+        .lastModified(Instant.ofEpochMilli(1613388118000L))
+        .metadata(Map(
+          "file-name" -> "This%20photo%20was%20taken%20in%20%C5%81%C3%B3d%C5%BA.jpg",
+          "uploaded-by" -> "s%C3%A9b.cevey%40theguardian.co.uk",
+          "upload-time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
+          "identifier!picdarurn" -> "12*543%5E25"
+        ).asJava)
+        .build()
 
-      val result = S3FileExtractedMetadata(s3Metadata)
+      val result = S3FileExtractedMetadata(res)
       result.uploadFileName shouldBe Some("This photo was taken in Łódź.jpg")
       result.uploadedBy shouldBe "séb.cevey@theguardian.co.uk"
-      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34Z"
       result.identifiers.size shouldBe 1
       result.identifiers.get("picdarurn") shouldBe Some("12*543^25")
     }
 
     "should remap headers with underscores to dashes" in {
-      val s3Metadata = new ObjectMetadata()
-      s3Metadata.setLastModified(new Date(1613388118000L))
-      s3Metadata.setUserMetadata(Map(
-        "file_name" -> "filename.jpg",
-        "uploaded_by" -> "user",
-        "upload_time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
-        "identifier!picdarurn" -> "12*543"
-      ).asJava)
+      val res = GetObjectResponse.builder()
+        .lastModified(Instant.ofEpochMilli(1613388118000L))
+        .metadata(Map(
+          "file_name" -> "filename.jpg",
+          "uploaded_by" -> "user",
+          "upload_time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
+          "identifier!picdarurn" -> "12*543"
+        ).asJava)
+        .build()
 
-      val result = S3FileExtractedMetadata(s3Metadata)
+      val result = S3FileExtractedMetadata(res)
       result.uploadFileName shouldBe Some("filename.jpg")
       result.uploadedBy shouldBe "user"
-      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34Z"
       result.identifiers.size shouldBe 1
       result.identifiers.get("picdarurn") shouldBe Some("12*543")
     }
@@ -272,14 +273,15 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
     "should correctly read in non URL encoded values" in {
       // we have plenty of values in S3 that are not URL encoded
       // and we must be able to read them correctly
-      val s3Metadata = new ObjectMetadata()
-      s3Metadata.setLastModified(new Date(1613388118000L))
-      s3Metadata.setUserMetadata(Map(
-        "uploaded_by" -> "user",
-        "upload_time" -> "2019-12-11T01:12:10.427Z",
-      ).asJava)
+      val res = GetObjectResponse.builder()
+        .lastModified(Instant.ofEpochMilli(1613388118000L))
+        .metadata(Map(
+          "uploaded_by" -> "user",
+          "upload_time" -> "2019-12-11T01:12:10.427Z",
+        ).asJava)
+        .build()
 
-      val result = S3FileExtractedMetadata(s3Metadata)
+      val result = S3FileExtractedMetadata(res)
       result.uploadedBy shouldBe "user"
       result.uploadTime.toString shouldBe "2019-12-11T01:12:10.427Z"
     }

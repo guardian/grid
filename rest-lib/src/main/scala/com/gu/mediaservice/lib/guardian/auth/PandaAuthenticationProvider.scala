@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{UserPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.aws.S3Ops
@@ -17,7 +17,6 @@ import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result}
 
-import scala.concurrent.duration.{Duration, HOURS}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -33,8 +32,6 @@ class PandaAuthenticationProvider(
   override lazy val panDomainSettings: PanDomainAuthSettingsRefresher = buildPandaSettings()
   override def wsClient: WSClient = resources.wsClient
   override def controllerComponents: ControllerComponents = resources.controllerComponents
-
-  override def apiGracePeriod: Long = Duration(24, HOURS).toMillis
 
   val loginLinks = List(
     Link("login", resources.commonConfig.services.loginUriTemplate)
