@@ -270,7 +270,7 @@ class ElasticSearch(
 
       executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search").map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
+        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
       }
     }
   }
