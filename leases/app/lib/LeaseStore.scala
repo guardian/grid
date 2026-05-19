@@ -10,15 +10,13 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class LeaseStore(config: LeasesConfig) {
-  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
-
+class LeaseStore(tableName: String, client: DynamoDbAsyncClient) {
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
   implicit val enumFormat: Typeclass[MediaLeaseType] =
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_), _.toString)
 
-  private val leasesTable = Table[MediaLease](config.leasesTable)
+  private val leasesTable = Table[MediaLease](tableName)
 
   def get(id: String)(implicit ec: ExecutionContext): Future[Option[MediaLease]] = {
     ScanamoAsync(client).exec(leasesTable.get("id" === id)).map(_.flatMap(_.toOption))

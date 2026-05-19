@@ -16,10 +16,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 case class ImageRecord(id: String, collections: List[Collection])
 
-class ImageCollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
-
-  override val tableName = config.imageCollectionsTable
-  lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+class ImageCollectionsStore(val tableName: String, val client: DynamoDbAsyncClient) extends DynamoHelpers {
 
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =
