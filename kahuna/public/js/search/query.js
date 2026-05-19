@@ -462,7 +462,7 @@ query.controller('SearchQueryCtrl', [
         });
       } else {
           $state.go('search.results', {...ctrl.filter,  useAISearch: null});
-    }
+      }
     });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
