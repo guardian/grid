@@ -80,11 +80,6 @@ query.controller('SearchQueryCtrl', [
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
-    if (!ctrl.shouldDisplayAISearchOption) {
-      ctrl.useAISearch = false;
-    } else {
-      ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
-    }
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -286,7 +281,7 @@ query.controller('SearchQueryCtrl', [
       }
       ctrl.filter.nonFree = nonFreeCheck;
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, !!ctrl.filter.aiQuery);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
@@ -387,8 +382,6 @@ query.controller('SearchQueryCtrl', [
     Object.keys($stateParams).
         // Exclude date-related filters, managed separately in dateFilter
         filter(key => dateFilterParams.indexOf(key) === -1).
-        // Exclude useAISearch, managed separately by its own dedicated watcher
-        filter(key => key !== 'useAISearch').
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -449,18 +442,6 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
-    $scope.$watch(() => ctrl.useAISearch, () => {
-      // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
-      // This is the behaviour we want so that the URL is updated based on the AI search toggle
-      if (ctrl.useAISearch) {
-        $state.go('search.results', {
-          ...ctrl.filter,
-          useAISearch: true
-        });
-      } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
-      }
-    });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params
@@ -526,7 +507,7 @@ query.controller('SearchQueryCtrl', [
 
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, !!ctrl.filter.aiQuery);
 }]);
 
 query.directive('searchQuery', [function() {

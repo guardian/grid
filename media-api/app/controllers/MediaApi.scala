@@ -88,7 +88,8 @@ class MediaApi(
     "syndicationStatus",
     "countAll",
     "persisted",
-    "useAISearch"
+    "useAISearch",
+    "aiQuery"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -600,7 +601,7 @@ class MediaApi(
       )
     }
 
-    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByImage(imageId: String, k: Int, filter: Option[com.sksamuel.elastic4s.requests.searches.queries.Query]): Future[SearchResults] = {
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
         maybeEmbedding = maybeImage
@@ -611,14 +612,14 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filter = filter)
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByText(query: String, k: Int, filter: Option[com.sksamuel.elastic4s.requests.searches.queries.Query]): Future[SearchResults] = {
       // Normalise key so that "Dogs" and "dogs " share a cache entry.
       val cacheKey = query.trim.toLowerCase
 
@@ -636,46 +637,53 @@ class MediaApi(
 
       for {
         embedding <- embeddingFuture
-        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+        searchResults <- elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filter = filter)
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(query: String): Future[Result] = {
+    def performAiSearchAndRespond(aiQuery: String, filter: Option[com.sksamuel.elastic4s.requests.searches.queries.Query]): Future[Result] = {
       val k = config.aiSearchResultLimit
-      val searchResultsFuture = parseAiSearchMode(query) match {
-        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k)
+      val searchResultsFuture = parseAiSearchMode(aiQuery) match {
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, filter)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, filter)
       }
 
       searchResultsFuture.map(aiSearchResponseFromResults)
     }
 
-    if (_searchParams.useAISearch.contains(true)) {
-      _searchParams.query match {
-        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
-        case _ if _searchParams.length == 0 =>
+    // AI/KNN search is now triggered by the presence of a non-blank `aiQuery` parameter.
+    // The standard `query` (and other SearchParams like dates, uploadedBy, etc.) becomes
+    // an Elasticsearch filter applied to the KNN candidates, enabling hybrid
+    // "filter by metadata, rank by vector similarity" searches.
+    _searchParams.aiQuery match {
+      case Some(aiQuery) if !aiQuery.isBlank =>
+        // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls
+        if (_searchParams.length == 0) {
           emptyAiSearchResponse
-        case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(q)
-        // Empty queries do not make sense for AI search as we can
-        // only rank results once we have a meaningful vector to compare with.
-        // So return 0 results if the query was empty.
-        case _ =>
-          emptyAiSearchResponse
-      }
-    } else {
-      val searchParams = if (canViewDeletedImages) {
-        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      } else {
-        _searchParams
-      }
-      SearchParams.validate(searchParams).fold(
-        // TODO: respondErrorCollection?
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => performSearchAndRespond(params)
-      )
+        } else {
+          val effectiveParams = if (canViewDeletedImages) {
+            _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+          } else {
+            _searchParams
+          }
+          // Only build a filter if there are any constraining params beyond aiQuery itself.
+          // We always include the tier filter (handled inside buildSearchQuery via params.tier).
+          val filter = Some(elasticSearch.buildSearchQuery(effectiveParams))
+          performAiSearchAndRespond(aiQuery, filter)
+        }
+      case _ =>
+        val searchParams = if (canViewDeletedImages) {
+          _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+        } else {
+          _searchParams
+        }
+        SearchParams.validate(searchParams).fold(
+          // TODO: respondErrorCollection?
+          errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+            errors.map(_.message).mkString(", "))
+          ),
+          params => performSearchAndRespond(params)
+        )
     }
   }
 

@@ -27,7 +27,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     $grChipsCtrl.configureNgModel = function(ngModelCtrl, onChangeExpr, autoCompleteExpr,
                                              validKeysExpr, autofocus, placeholder) {
         $grChipsCtrl.defaultPlaceholder = placeholder || 'Search for images... (type + for advanced search)';
-        $grChipsCtrl.aiSearchPlaceholder = 'Search for conceptual images using AI search... (no filters available)';
 
 
         $grChipsCtrl.onChange = () => onChangeExpr($scope, {$chips: $grChipsCtrl.items});
@@ -63,9 +62,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     });
 
     $grChipsCtrl.getPlaceholder = function() {
-        return $grChipsCtrl.useAiSearch ?
-            $grChipsCtrl.aiSearchPlaceholder :
-            $grChipsCtrl.defaultPlaceholder;
+        return $grChipsCtrl.defaultPlaceholder;
     };
 
     $grChipsCtrl.isEmpty = function() {
@@ -179,9 +176,6 @@ grChips.directive('grChips', ['$parse', function($parse) {
         template: template,
         controller: 'grChipsCtrl',
         controllerAs: '$grChipsCtrl',
-        bindToController: {
-            useAiSearch: '<?'
-        },
         compile: function compile(element, attrs) {
             const autoCompleteExpr = $parse(attrs.grAutocomplete);
             const onChangeExpr = $parse(attrs.grOnChange);

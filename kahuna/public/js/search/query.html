@@ -1,12 +1,4 @@
 <form class="search">
-    <span id="ai-search-checkbox" class="search__modifier-item search__modifier-checkbox"
-        ng-if="searchQuery.shouldDisplayAISearchOption">
-        <label>
-            <input type="checkbox"
-                   ng-model="searchQuery.useAISearch"/>
-            Use AI search
-        </label>
-    </span>
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
@@ -22,6 +14,26 @@
         </button>
     </span>
 
+    <span class="search-query search-query--ai"
+          ng-if="searchQuery.shouldDisplayAISearchOption"
+          title="Rank by AI/vector similarity. Combine with the metadata search to filter and re-rank.">
+        <gr-icon class="search-query__magnifier search-query__icon">auto_awesome</gr-icon>
+        <input class="search-query__query search-query__query--ai"
+               type="text"
+               ng-model="searchQuery.filter.aiQuery"
+               ng-model-options="{ debounce: 300 }"
+               placeholder="AI search (concepts, e.g. 'in the rain')"
+               aria-label="AI search query"/>
+        <button class="search-query__icon search-query__clear clear-button"
+                type="button"
+                title="Clear AI query"
+                ng-show="searchQuery.filter.aiQuery"
+                ng-click="searchQuery.filter.aiQuery = ''"
+                aria-label="Clear AI search">
+            <gr-icon>cancel</gr-icon>
+        </button>
+    </span>
+
     <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
@@ -30,7 +42,7 @@
         <gr-icon>info_outline</gr-icon>
     </button>
 
-    <div ng-if="!searchQuery.usePermissionsFilter && !searchQuery.useAISearch" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -92,7 +104,7 @@
         </ul>
     </div>
 
-    <div ng-if="!searchQuery.usePermissionsFilter && !searchQuery.useAISearch" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
         <div class="search__modifier-sort">
             <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
         </div>
