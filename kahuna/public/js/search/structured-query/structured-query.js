@@ -73,8 +73,7 @@ grStructuredQuery.directive("grStructuredQuery", [
                       ng-model="ctrl.structuredQuery"
                       gr:valid-keys="ctrl.filterFields"
                       gr:on-change="ctrl.structuredQueryChanged($chips)"
-                      gr:autocomplete="ctrl.getSuggestions($chip)"
-                      use-ai-search="searchQuery.useAISearch">
+                      gr:autocomplete="ctrl.getSuggestions($chip)">
             </gr-chips>
             <gr-cql-input ng-if="ctrl.useCql"
                           on-change="ctrl.handleChange"
