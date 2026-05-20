@@ -213,9 +213,7 @@ class ElasticSearch(
   // and can be effectively combined in a hybrid query.
   private def fetchMaxBm25Score(query: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
     val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(BoolQuery().must(
-        createMultiMatchQuery(query)
-      ))
+      .query(createMultiMatchQuery(query))
 
     executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
       logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
