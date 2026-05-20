@@ -631,7 +631,7 @@ class MediaApi(
         logger.info(markers, s"AI search embedding cache miss query=$query")
       }
 
-      val weight = vecWeight.getOrElse(0.8)
+      val weight = vecWeight.getOrElse(1.0)
 
       // cache.get(key) is atomic: if two requests race on the same key, only one
       // load fires and both callers receive the same Future.
