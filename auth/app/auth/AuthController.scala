@@ -34,10 +34,13 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
   def cookieMonster = auth { request =>
     providers.userProvider match {
-      case panda: PandaAuthenticationProvider =>{
-        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = Instant.now())))
+      case panda: PandaAuthenticationProvider =>
+        val cookieBatter = panda.readAuthenticatedUser(request)
+          // Note the cookie monster does not expire the cookie itself, but instead expires the panda token stored
+          // by the cookie. The cookie will remain in the browser storage, but if decoded will declare that it expired
+          // at the epoch in 1970.
+          .map(user => panda.generateCookie(user.copy(expires = Instant.ofEpochMilli(0L))))
         cookieBatter.fold(respond("Me want cookie."))(cookie => respond("Cookies are a sometimes food.").withCookies(cookie))
-      }
       case _ => respond("Me want cookie.")
     }
   }
