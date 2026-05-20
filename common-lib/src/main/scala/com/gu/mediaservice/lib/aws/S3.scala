@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.services.s3.model._
+import com.amazonaws.services.s3.model.{Region => _, _}
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
 import com.amazonaws.util.IOUtils
 import com.amazonaws.{AmazonServiceException, ClientConfiguration}
@@ -8,6 +8,8 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
 
 import java.io.File
 import java.net.URI
@@ -185,5 +187,15 @@ object S3Ops {
     }
 
     config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
+  }
+
+  def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
+    val builder = config.awsLocalEndpoint match {
+      case Some(_) if config.isDev =>
+        S3Client.builder().forcePathStyle(true)
+      case _ => S3Client.builder()
+    }
+
+    config.withAWSCredentialsV2(builder, localstackAware, maybeRegionOverride).build()
   }
 }
