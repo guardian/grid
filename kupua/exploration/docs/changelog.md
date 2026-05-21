@@ -14,6 +14,33 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 May 2026 — Fix 413 on large selections + clear ghost chips on Home
+
+**Bug: large range selections fail silently (413 Request Entity Too Large)**
+
+Root cause: `getByIds` in `es-adapter.ts` repeated the full 45-field
+`SOURCE_INCLUDES` array per document in the `_mget` request body. At the
+1,000-doc batch size, the body reached ~1.2MB — exceeding nginx's default
+1MB `client_max_body_size`. The 413 was silently caught by `ensureMetadata`,
+leaving the metadata cache empty. Reconciliation then ran on only the anchor
+image, making the Detail panel appear stuck in single-image mode.
+
+Fix: moved source filtering to the `_source_includes` URL query parameter
+(universally supported across ES 5.x–8.x). The body now contains only doc
+IDs (~50KB for 1,000 docs). Confirmed working with 1,550-image selections
+(3 chunks, largest 50KB).
+
+**Bug: partial/ghost chips not cleared by Home button**
+
+Partial chips (e.g. `+credit:` with no value) live in ProseMirror's internal
+document model inside the `<cql-input>` Web Component. Setting `value=""`
+via attribute doesn't reliably destroy them — only a full remount does.
+`resetToHome` never bumped `_cqlInputGeneration`, so partial chips survived.
+
+Fix: added `cancelSearchDebounce("")` in `resetToHome` before `setParams`.
+This bumps the generation counter, changing the React key on
+`<CqlSearchInput>`, forcing a clean remount that destroys ghost chips.
+
 ### 21 May 2026 — Ticker system, agency-pick border, `is:` counts, and `is:` typeahead
 
 Complete implementation of ticker badges, agency-pick image borders, `is:` document

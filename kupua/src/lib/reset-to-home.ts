@@ -17,7 +17,7 @@
  * `<a>` + `e.preventDefault()` so the browser doesn't navigate eagerly.
  */
 
-import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
+import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, cancelSearchDebounce } from "@/lib/orchestration/search";
 import { useSearchStore, suppressNextRestore, clearSuppressRestore } from "@/stores/search-store";
 import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
@@ -118,6 +118,10 @@ export async function resetToHome(navigate: () => void) {
     searchKeys.map((k) => [k, undefined])
   );
   const store = useSearchStore.getState();
+  // Cancel any pending debounce and force CqlSearchInput to remount (via
+  // generation bump). This destroys partial/ghost chips that live only in
+  // ProseMirror's internal state and aren't cleared by setAttribute alone.
+  cancelSearchDebounce("");
   // Apply the full reset, then overlay the home defaults (DEFAULT_SEARCH).
   // Single source of truth: if the home URL defaults change, this follows.
   store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });

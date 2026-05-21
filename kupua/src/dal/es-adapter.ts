@@ -1850,22 +1850,22 @@ export class ElasticsearchDataSource implements ImageDataSource {
       chunks.push(ids.slice(i, i + BATCH_SIZE));
     }
 
-    const sourceFilter =
+    // Pass _source_includes as a URL query parameter rather than repeating
+    // per-doc in the body. With 45 fields × 1000 docs the per-doc approach
+    // pushes the body over nginx's 1MB default limit → 413.
+    const mgetPath =
       SOURCE_INCLUDES.length > 0
-        ? { includes: SOURCE_INCLUDES }
-        : undefined;
+        ? `_mget?_source_includes=${SOURCE_INCLUDES.map(encodeURIComponent).join(",")}`
+        : "_mget";
 
     const results = await Promise.all(
       chunks.map(async (chunk) => {
         const body: Record<string, unknown> = {
-          docs: chunk.map((id) => ({
-            _id: id,
-            ...(sourceFilter ? { _source: sourceFilter } : {}),
-          })),
+          docs: chunk.map((id) => ({ _id: id })),
         };
 
         try {
-          const result = (await this.esRequest("_mget", body, signal)) as {
+          const result = (await this.esRequest(mgetPath, body, signal)) as {
             docs: Array<{
               _id: string;
               found: boolean;
