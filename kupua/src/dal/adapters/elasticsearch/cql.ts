@@ -311,12 +311,12 @@ function fieldToClause(field: CqlField, negated: boolean): QueryClause {
 }
 
 // Usage rights categories — mirrors Scala's UsageRights model
-const PHOTOGRAPHER_CATEGORIES = [
+export const PHOTOGRAPHER_CATEGORIES = [
   "staff-photographer",
   "contract-photographer",
   "commissioned-photographer",
 ];
-const ILLUSTRATOR_CATEGORIES = [
+export const ILLUSTRATOR_CATEGORIES = [
   "staff-illustrator",
   "contract-illustrator",
   "commissioned-illustrator",
@@ -368,6 +368,21 @@ function buildIsQuery(value: string, negated: boolean): QueryClause {
     }
     return {
       query: { bool: { must_not: { terms: { "usageRights.supplier": overQuotaSuppliers } } } },
+      negated,
+    };
+  }
+
+  if (v === "agency-pick" && gridConfig.hasAgencyPicks) {
+    // Mirrors MediaApiConfig.scala maybeAgencyPickQuery — boolean-OR of
+    // match_phrase queries across metadata fields (description/keywords/title).
+    // Note: these are editorial metadata fields, NOT usageRights.* fields.
+    // Wire agencies embed selection keywords (e.g. "topshot", "aptopix") in
+    // image metadata; the query finds those images.
+    const shoulds = Object.entries(gridConfig.agencyPicksIngredients).flatMap(
+      ([field, values]) => values.map((val) => ({ match_phrase: { [field]: val } })),
+    );
+    return {
+      query: { bool: { should: shoulds, minimum_should_match: 1 } },
       negated,
     };
   }

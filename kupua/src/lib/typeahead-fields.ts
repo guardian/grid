@@ -17,11 +17,18 @@ import type {
   AggregationBucket,
   AggregationResult,
   AggregationsResult,
+  FilterAggRequest,
   SearchParams,
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
 import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
+import {
+  PHOTOGRAPHER_CATEGORIES,
+  ILLUSTRATOR_CATEGORIES,
+  parseCql,
+} from "@/dal/adapters/elasticsearch/cql";
+import type { TickerCountResult } from "@/dal";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
@@ -55,7 +62,7 @@ const FILE_TYPES = ["jpeg", "tiff", "png"];
 
 const USAGE_PLATFORMS = ["print", "digital", "download"];
 
-function buildIsOptions(): string[] {
+export function buildIsOptions(): string[] {
   const org = gridConfig.staffPhotographerOrganisation;
   const options = [
     `${org}-owned-photo`,
@@ -68,6 +75,9 @@ function buildIsOptions(): string[] {
   if (gridConfig.hasAgencyPicks) options.push("agency-pick");
   return options;
 }
+
+// Hoisted: gridConfig is a static object; result never changes at runtime.
+const IS_OPTIONS = buildIsOptions();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,6 +181,8 @@ export function buildTypeaheadFields(
   dataSource: ImageDataSource,
   getAggregations?: () => AggregationsResult | null,
   getParams?: () => SearchParams,
+  getTickerCounts?: () => Record<string, TickerCountResult> | null,
+  getIsFilterCounts?: () => Record<string, number> | null,
 ): TypeaheadFieldDef[] {
   /** Fetch a single field's agg scoped to the current query, excluding the
    *  field's own filter to avoid self-referential results. When `cqlKey` is
@@ -315,7 +327,70 @@ export function buildTypeaheadFields(
     },
     {
       fieldName: "is",
-      resolver: isOptions,  // synthetic field — no counts possible
+      resolver: async (prefix: string) => {
+        const org = gridConfig.staffPhotographerOrganisation;
+        const countMap = new Map<string, number | undefined>();
+
+        // GNM-owned, agency-pick — already in tickerCounts (no extra request).
+        // tickerCounts is cleared on new search start, so always safe to read.
+        const tickers = getTickerCounts?.();
+        for (const def of gridConfig.tickerDefinitions) {
+          if (def.searchClause.startsWith("is:")) {
+            const isVal = def.searchClause.slice(3);
+            const count = tickers?.[def.name]?.value;
+            if (count != null) countMap.set(isVal, count);
+          }
+        }
+
+        // GNM-owned-photo, GNM-owned-illustration — sum category buckets (free).
+        const categoryBuckets = storeBuckets("category", getAggregations);
+        if (categoryBuckets) {
+          const bm = new Map(categoryBuckets.map((b) => [b.key, b.count]));
+          countMap.set(
+            `${org}-owned-photo`,
+            PHOTOGRAPHER_CATEGORIES.reduce((s, c) => s + (bm.get(c) ?? 0), 0),
+          );
+          countMap.set(
+            `${org}-owned-illustration`,
+            ILLUSTRATOR_CATEGORIES.reduce((s, c) => s + (bm.get(c) ?? 0), 0),
+          );
+        }
+
+        // deleted, under-quota — from panel cache if warm; otherwise direct call.
+        // photo/illustration also in the cold fallback (review #6).
+        const cached = getIsFilterCounts?.();
+        if (cached) {
+          if ("deleted" in cached) countMap.set("deleted", cached["deleted"]);
+          if ("under-quota" in cached) countMap.set("under-quota", cached["under-quota"]);
+        } else {
+          try {
+            const params = getParams?.();
+            if (params) {
+              const filterRequests: FilterAggRequest[] = [
+                { name: "deleted", query: parseCql("is:deleted").must[0] },
+                { name: "under-quota", query: parseCql("is:under-quota").must[0] },
+                { name: `${org}-owned-photo`, query: parseCql(`is:${org}-owned-photo`).must[0] },
+                { name: `${org}-owned-illustration`, query: parseCql(`is:${org}-owned-illustration`).must[0] },
+              ];
+              const counts = await dataSource.getFilterAggregations(params, filterRequests);
+              for (const [k, v] of Object.entries(counts)) countMap.set(k, v);
+            }
+          } catch { /* non-critical — counts just absent */ }
+        }
+
+        // Build suggestions sorted by count desc, then alpha
+        const filtered = prefixFilter(prefix, IS_OPTIONS).map((v) => ({
+          value: v,
+          count: countMap.get(v),
+        }));
+        filtered.sort((a, b) =>
+          a.count != null && b.count != null ? b.count - a.count
+          : a.count != null ? -1
+          : b.count != null ? 1
+          : a.value.localeCompare(b.value),
+        );
+        return filtered;
+      },
     },
     {
       fieldName: "subject",

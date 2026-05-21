@@ -29,6 +29,7 @@ import type {
   AggregationsResult,
   SortDistribution,
   IdRangeResult,
+  CountWithTickersResult,
 } from "./types";
 import type { PositionMap } from "./position-map";
 import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
@@ -334,6 +335,11 @@ export class MockDataSource implements ImageDataSource {
     return this.totalImages;
   }
 
+  async countWithTickers(): Promise<CountWithTickersResult> {
+    this.requestCount++;
+    return { count: this.totalImages, tickerCounts: {} };
+  }
+
   async getById(id: string): Promise<Image | undefined> {
     this.requestCount++;
     const [img] = this.findById(id);
@@ -349,6 +355,10 @@ export class MockDataSource implements ImageDataSource {
     _fields: AggregationRequest[],
   ): Promise<AggregationsResult> {
     return { fields: {} };
+  }
+
+  async getFilterAggregations(): Promise<Record<string, number>> {
+    return {};
   }
 
   async openPit(): Promise<string> {

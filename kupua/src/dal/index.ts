@@ -11,7 +11,10 @@ export type {
   AggregationResult,
   AggregationBucket,
   AggregationsResult,
+  FilterAggRequest,
   SortDistribution,
+  TickerCountResult,
+  CountWithTickersResult,
 } from "./types";
 
 export { ElasticsearchDataSource } from "./es-adapter";

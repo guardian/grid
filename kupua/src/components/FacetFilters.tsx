@@ -19,10 +19,15 @@ import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
 import { findFieldTerm, upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
-import { trace } from "@/lib/perceived-trace";
 import { formatCount } from "@/lib/format-count";
+import { gridConfig } from "@/lib/grid-config";
 import { findScrollParent } from "@/lib/dom-utils";
-import type { AggregationBucket } from "@/dal";
+import type { AggregationBucket, TickerCountResult, AggregationsResult } from "@/dal";
+import {
+  PHOTOGRAPHER_CATEGORIES,
+  ILLUSTRATOR_CATEGORIES,
+} from "@/dal/adapters/elasticsearch/cql";
+import { buildIsOptions } from "@/lib/typeahead-fields";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,6 +69,8 @@ export function AggCircuitBreaker() {
 export function FacetFilters() {
   const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
   const aggregations = useSearchStore((s) => s.aggregations);
+  const tickerCounts = useSearchStore((s) => s.tickerCounts);
+  const isFilterCounts = useSearchStore((s) => s.isFilterCounts);
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
   const total = useSearchStore((s) => s.total);
   const expandedAggs = useSearchStore((s) => s.expandedAggs);
@@ -163,6 +170,27 @@ export function FacetFilters() {
 
   return (
     <div ref={containerRef} className="py-1">
+      {/* "Is" section — all valid is: values, with ticker counts where available.
+          Iterates buildIsOptions() (config-gated canonical list) and annotates
+          entries that have a corresponding ticker count from the store.
+          No extra fetch — ticker counts come from _doSearch filter aggs. */}
+      <IsSection
+        currentQuery={currentQuery}
+        tickerCounts={tickerCounts}
+        aggregations={aggregations}
+        isFilterCounts={isFilterCounts}
+        onIsClick={(value, negated) => {
+          const existing = findFieldTerm(currentQuery, "is", value);
+          let newQuery: string;
+          if (existing && existing.negated === negated) {
+            newQuery = (currentQuery.slice(0, existing.start) + currentQuery.slice(existing.end))
+              .trim().replace(/\s{2,}/g, " ");
+          } else {
+            newQuery = upsertFieldTerm(currentQuery, "is", value, negated);
+          }
+          updateSearch({ query: newQuery || undefined });
+        }}
+      />
       {FACET_FIELDS.map((field) => (
         <FacetSection
           key={field.id}
@@ -291,6 +319,107 @@ function FacetSection({
             Show fewer
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// IsSection — "Is" filter section showing all valid is: values
+// ---------------------------------------------------------------------------
+
+/**
+ * Pre-compute a lookup from is: value → ticker definition so we can find
+ * the right backgroundColour and count without iterating tickerDefinitions
+ * on every render.
+ * "is:GNM-owned" → { name: "GNM-owned", backgroundColour: "#005689", ... }
+ */
+const IS_VALUE_TO_TICKER = new Map(
+  gridConfig.tickerDefinitions
+    .filter((d) => d.searchClause.startsWith("is:"))
+    .map((d) => [d.searchClause.slice(3), d]),
+);
+
+interface IsSectionProps {
+  currentQuery: string;
+  tickerCounts: Record<string, TickerCountResult> | null;
+  aggregations: AggregationsResult | null;
+  isFilterCounts: Record<string, number> | null;
+  onIsClick: (value: string, negated: boolean) => void;
+}
+
+function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, onIsClick }: IsSectionProps) {
+  const isOptions = buildIsOptions();
+  const org = gridConfig.staffPhotographerOrganisation;
+
+  // Derive photo/illustration counts from the category terms agg (free — no extra ES call)
+  const categoryBuckets = aggregations?.fields["usageRights.category"]?.buckets;
+  const categoryCountMap = categoryBuckets
+    ? new Map(categoryBuckets.map((b) => [b.key, b.count]))
+    : null;
+  const derivedIsCount = (value: string): number | undefined => {
+    if (value === `${org}-owned-photo` && categoryCountMap) {
+      return PHOTOGRAPHER_CATEGORIES.reduce((s, c) => s + (categoryCountMap.get(c) ?? 0), 0);
+    }
+    if (value === `${org}-owned-illustration` && categoryCountMap) {
+      return ILLUSTRATOR_CATEGORIES.reduce((s, c) => s + (categoryCountMap.get(c) ?? 0), 0);
+    }
+    if (value === "deleted" || value === "under-quota") {
+      return isFilterCounts?.[value];
+    }
+    return undefined;
+  };
+
+  return (
+    <div className="pb-2">
+      <div className="px-3 pt-2 pb-1 text-sm text-grid-text-muted">Is</div>
+      <div className="flex flex-col gap-px px-3">
+        {isOptions.map((value) => {
+          const existing = findFieldTerm(currentQuery, "is", value);
+          const isActive = !!existing && !existing.negated;
+          const isExcluded = !!existing && existing.negated;
+
+          const tickerDef = IS_VALUE_TO_TICKER.get(value);
+          const count = tickerDef && tickerCounts
+            ? tickerCounts[tickerDef.name]?.value
+            : derivedIsCount(value);
+
+          // Hide ticker-backed values with a known zero count, unless the
+          // user has already applied it (they need to be able to remove it).
+          if (count === 0 && !isActive && !isExcluded) return null;
+
+          return (
+            <button
+              key={value}
+              className={`flex items-center justify-between gap-2 px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-left ${
+                isActive
+                  ? "bg-grid-accent/20 text-grid-accent"
+                  : isExcluded
+                    ? "bg-red-500/15 text-red-400 line-through"
+                    : "text-grid-text hover:bg-grid-hover/30"
+              }`}
+              onClick={(e) => onIsClick(value, e.altKey)}
+              title={`is:${value}${count !== undefined ? ` (${count.toLocaleString()})` : ""}${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
+            >
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="truncate">{value}</span>
+                {/* Colour swatch for ticker-backed values */}
+                {tickerDef && (
+                  <span
+                    className="w-2 h-2 rounded-sm shrink-0"
+                    style={{ backgroundColor: tickerDef.backgroundColour }}
+                    aria-hidden="true"
+                  />
+                )}
+              </span>
+              {count !== undefined && (
+                <span className="text-2xs text-grid-text-dim shrink-0 tabular-nums">
+                  {formatCount(count)}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

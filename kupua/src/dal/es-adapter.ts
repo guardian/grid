@@ -23,6 +23,8 @@ import type {
   SortDistribution,
   SortDistBucket,
   IdRangeResult,
+  TickerCountResult,
+  CountWithTickersResult,
 } from "./types";
 import { parseCql } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
@@ -358,6 +360,84 @@ export function buildSyndicationStatusFilter(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Ticker aggregation helpers — build filter aggs for _doSearch and
+// countWithTickers. Module-level so they have no class dependency.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the `aggs` block for ticker filter aggregations.
+ * Returns null when gridConfig.tickerDefinitions is empty (no-op).
+ *
+ * Each entry is a named `filter` agg whose query is compiled from the
+ * definition's `searchClause` via parseCql. Optional sub-agg (by supplier)
+ * is appended when `subAggField` is set.
+ *
+ * Mirrors ElasticSearch.scala aggregationsNameToSearchClauseMap.
+ */
+function buildTickerAggs(): Record<string, unknown> | null {
+  const defs = gridConfig.tickerDefinitions;
+  if (defs.length === 0) return null;
+
+  const aggs: Record<string, unknown> = {};
+  for (const def of defs) {
+    const parsed = parseCql(def.searchClause);
+    if (parsed.must.length === 0) continue;
+    // Wrap multi-clause must in a bool; single clause used directly.
+    const filter =
+      parsed.must.length === 1
+        ? parsed.must[0]
+        : { bool: { must: parsed.must } };
+
+    const aggEntry: Record<string, unknown> = { filter };
+    if (def.subAggField) {
+      // Sub-aggregation by e.g. usageRights.supplier (top 9 + other).
+      // Mirrors termsAgg(name = "byAgency") in ElasticSearch.scala.
+      aggEntry.aggs = {
+        byAgency: { terms: { field: def.subAggField, size: 9 } },
+      };
+    }
+    aggs[def.name] = aggEntry;
+  }
+  return Object.keys(aggs).length > 0 ? aggs : null;
+}
+
+/**
+ * Parse ES filter aggregation results into TickerCountResult map.
+ * Keyed by ticker name (matching keys in buildTickerAggs output).
+ */
+function parseTickerAggs(
+  aggregations: Record<string, unknown>,
+): Record<string, TickerCountResult> {
+  const result: Record<string, TickerCountResult> = {};
+  for (const def of gridConfig.tickerDefinitions) {
+    const agg = aggregations[def.name] as Record<string, unknown> | undefined;
+    if (!agg) continue;
+    const value = agg.doc_count as number;
+    if (def.subAggField) {
+      const byAgency = agg.byAgency as {
+        buckets: Array<{ key: string; doc_count: number }>;
+        sum_other_doc_count: number;
+      } | undefined;
+      if (byAgency && byAgency.buckets.length > 0) {
+        const subCounts: Record<string, number> = {};
+        for (const bucket of byAgency.buckets) {
+          subCounts[bucket.key] = bucket.doc_count;
+        }
+        if (byAgency.sum_other_doc_count > 0) {
+          subCounts["other"] = byAgency.sum_other_doc_count;
+        }
+        result[def.name] = { value, subCounts };
+      } else {
+        result[def.name] = { value };
+      }
+    } else {
+      result[def.name] = { value };
+    }
+  }
+  return result;
+}
+
 
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
@@ -584,7 +664,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     this.searchAbortController = new AbortController();
     const { signal } = this.searchAbortController;
 
-    return this._doSearch(params, signal);
+    return this._doSearch(params, signal, /* includeTickers */ true);
   }
 
   /**
@@ -593,10 +673,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
    * search. Accepts an optional signal so the caller can abort.
    */
   async searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult> {
-    return this._doSearch(params, signal);
+    // No ticker aggs on range loads — they're additive page-fills that don't
+    // need counts (adding aggs to them wastes work).
+    return this._doSearch(params, signal, /* includeTickers */ false);
   }
 
-  private async _doSearch(params: SearchParams, signal?: AbortSignal): Promise<SearchResult> {
+  private async _doSearch(params: SearchParams, signal?: AbortSignal, includeTickers = false): Promise<SearchResult> {
 
     const body: Record<string, unknown> = {
       query: buildQuery(params),
@@ -605,6 +687,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
       size: params.length ?? 50,
       track_total_hits: true,
     };
+
+    // Inject ticker filter aggregations when requested.
+    // Only on initial searches (search()), not on range fills (searchRange()).
+    const tickerAggs = includeTickers ? buildTickerAggs() : null;
+    if (tickerAggs) {
+      body.aggs = tickerAggs;
+    }
 
     // _source filtering — whitelist fields to reduce response size
     if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
@@ -625,6 +714,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           total: { value: number };
           hits: Array<{ _id: string; _source: Image; sort?: SortValues }>;
         };
+        aggregations?: Record<string, unknown>;
       };
 
       return {
@@ -634,6 +724,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
         sortValues: result.hits.hits.map((hit) =>
           sanitizeSortValues(hit.sort ?? []),
         ),
+        ...(tickerAggs && result.aggregations
+          ? { tickerCounts: parseTickerAggs(result.aggregations) }
+          : {}),
       };
     } catch (e) {
       // Don't treat aborted requests as errors — they're intentional
@@ -650,6 +743,29 @@ export class ElasticsearchDataSource implements ImageDataSource {
       count: number;
     };
     return result.count;
+  }
+
+  async countWithTickers(params: SearchParams): Promise<CountWithTickersResult> {
+    // Use _search with size:0 instead of _count so we can attach filter aggs.
+    // Cost vs _count: negligible — the since: window typically has 0–20 docs,
+    // and running 2 filter aggs over that set is sub-millisecond.
+    const tickerAggs = buildTickerAggs();
+    const body: Record<string, unknown> = {
+      query: buildQuery(params),
+      size: 0,
+      track_total_hits: true,
+      ...(tickerAggs ? { aggs: tickerAggs } : {}),
+    };
+    const result = (await this.esRequest("_search", body)) as {
+      hits: { total: { value: number } };
+      aggregations?: Record<string, unknown>;
+    };
+    return {
+      count: result.hits.total.value,
+      tickerCounts: tickerAggs && result.aggregations
+        ? parseTickerAggs(result.aggregations)
+        : {},
+    };
   }
 
   async getById(id: string): Promise<Image | undefined> {
@@ -748,6 +864,27 @@ export class ElasticsearchDataSource implements ImageDataSource {
     }
 
     return { fields: out, took: result.took };
+  }
+
+  async getFilterAggregations(
+    params: SearchParams,
+    filters: import("./types").FilterAggRequest[],
+    signal?: AbortSignal,
+  ): Promise<Record<string, number>> {
+    if (filters.length === 0) return {};
+    const aggs: Record<string, unknown> = {};
+    for (const { name, query } of filters) {
+      aggs[name] = { filter: query };
+    }
+    const body = { size: 0, query: buildQuery(params), aggs };
+    const result = (await this.esRequest("_search", body, signal)) as {
+      aggregations: Record<string, { doc_count: number }>;
+    };
+    const out: Record<string, number> = {};
+    for (const { name } of filters) {
+      out[name] = result.aggregations[name]?.doc_count ?? 0;
+    }
+    return out;
   }
 
   // ---------------------------------------------------------------------------

@@ -14,6 +14,193 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 May 2026 — Ticker system, agency-pick border, `is:` counts, and `is:` typeahead
+
+Complete implementation of ticker badges, agency-pick image borders, `is:` document
+counts in the Filters panel and CQL typeahead, and a new DAL method for filter
+aggregations.  All uncommitted changes below.
+
+**DAL layer (`dal/types.ts`, `dal/index.ts`)**
+
+Three new types added to the `ImageDataSource` interface:
+- `TickerCountResult { value: number; subCounts?: Record<string, number> }` —
+  mirrors Scala's `ExtraCount`. Carries per-ticker doc count plus optional
+  sub-aggregation buckets (e.g. by supplier for agency picks).
+- `CountWithTickersResult { count: number; tickerCounts: Record<string, TickerCountResult> }` —
+  return type for the new `countWithTickers()` method.
+- `FilterAggRequest { name: string; query: Record<string, unknown> }` —
+  a named filter agg request for composite queries that aren't simple field terms.
+
+Two new methods on `ImageDataSource`:
+- `countWithTickers(params)` — lightweight `size: 0` search that returns the
+  new-images count AND per-ticker deltas in a single ES call.  Replaces the old
+  `count()` call in the new-images poll.
+- `getFilterAggregations(params, filters, signal?)` — fire named filter aggs
+  against the current query context.  Used by `fetchAggregations` (for
+  `is:deleted` / `is:under-quota` panel counts) and the typeahead cold fallback.
+
+**ES adapter (`es-adapter.ts`)**
+
+- `buildTickerAggs()` — compiles `gridConfig.tickerDefinitions` into ES filter
+  agg clauses via `parseCql`.  Each definition can optionally trigger a sub-terms
+  agg (currently `usageRights.supplier` for agency picks, size 9).  Mirrors
+  `ElasticSearch.scala` `aggregationsNameToSearchClauseMap`.
+- `parseTickerAggs()` — parses the ES aggregation response back into
+  `Record<string, TickerCountResult>`, including `sum_other_doc_count` under the
+  key `"other"`.
+- `countWithTickers()` — `size: 0` ES search with `buildTickerAggs()` aggs block.
+- `getFilterAggregations()` — builds an ES `aggs` block from `FilterAggRequest[]`,
+  fires it as `size: 0`, returns `name → doc_count`.
+- `mock-data-source.ts` — stub implementations for both new methods.
+
+**Grid config (`grid-config.ts`)**
+
+- `TickerDefinition` interface: `name`, `searchClause`, `backgroundColour`,
+  optional `subAggField`.
+- `agencyPicksColour: "#7d006880"` — border/badge colour for agency-pick images.
+- `agencyPicksIngredients` — map of ES field paths to keyword lists, mirrors
+  `agencyPicsConfigFragment.conf`.  Three fields: `metadata.description` (topshot,
+  bestpix, PABest, TPX IMAGES OF THE DAY, epaselect), `metadata.keywords`
+  (epaselect, aptopix, SPOTLIGHT, EDITORS' PICKS, PABest), `metadata.title`
+  (aptopix).
+- `tickerDefinitions` array: GNM-owned (`is:GNM-owned`, blue `#005689`) and
+  agency picks (`is:agency-pick`, with `subAggField: "usageRights.supplier"`).
+
+**`cql.ts` additions**
+
+- `PHOTOGRAPHER_CATEGORIES` and `ILLUSTRATOR_CATEGORIES` exported (used by
+  FacetFilters and typeahead to sum photo/illustration counts from the category agg).
+- `agency-pick` case in `buildIsQuery`: builds a `bool.should` with
+  `match_phrase` clauses for every entry in `gridConfig.agencyPicksIngredients`
+  (17 clauses across 3 fields), `minimum_should_match: 1`.
+- `parseCql` was already exported — just needed importing where previously
+  inline query objects were used.
+
+**Image borders (`lib/image-borders.ts`)**
+
+Generalised from a static lookup map to a proper function:
+- `CATEGORY_BORDERS` (private) — the old `IMAGE_BORDERS` object.
+- `isAgencyPick(image)` — scans `metadata.description`, `metadata.keywords`, and
+  `metadata.title` against `gridConfig.agencyPicksIngredients`.  Case-insensitive
+  (`toLowerCase`) because ES standard analyser lowercases at index time.
+- `getImageBorderColour(image)` — public API.  Returns category colour if matched,
+  falls through to agency-pick colour, or `undefined` for no border.
+- `IMAGE_BORDERS` kept as a `@deprecated` alias pointing at `CATEGORY_BORDERS`.
+- `ImageGrid.tsx` and `ImageTable.tsx` updated to call
+  `getImageBorderColour(enriched ?? image)` instead of `IMAGE_BORDERS[category]`.
+
+**Search store (`stores/search-store.ts`)**
+
+New state fields:
+- `tickerCounts: Record<string, TickerCountResult> | null` — from `_doSearch` and
+  additively merged on every poll tick.
+- `tickersLastUpdated: string | null` — ISO timestamp of last tickerCounts update,
+  shown in badge tooltip.
+- `isFilterCounts: Record<string, number> | null` — deleted/under-quota counts
+  from `fetchAggregations`, read by FacetFilters and typeahead.
+
+`_doSearch` changes:
+- Parallelised PIT creation + `countWithTickers` + ES search via `Promise.all`.
+- Initial `tickerCounts` and `tickersLastUpdated` set from the first `countWithTickers`
+  response.  New-images poll skips its initial tick (`skipInitialTick = true`)
+  since the first tick just duplicates what `_doSearch` already fetched.
+- Ticker state resets to `null` on new search start (unless `frozenUntil` set).
+
+Poll changes:
+- `count()` replaced with `countWithTickers()`.
+- `mergeSubCounts()` helper: merges poll delta sub-buckets into existing
+  sub-counts additive-accumulation style (same semantics as Kahuna).
+- `tickerCounts` and `tickersLastUpdated` only written to state when deltas are
+  non-empty (avoids spurious re-renders on quiet polls).
+
+`fetchAggregations` changes:
+- `getAggregations` and `getFilterAggregations` now run in `Promise.all` (parallel).
+- `FilterAggRequest[]` built synchronously before the await using
+  `parseCql("is:deleted").must[0]` and `parseCql("is:under-quota").must[0]`.
+- `isFilterCounts` written to store after each agg cycle.
+
+**StatusBar (`components/StatusBar.tsx`)**
+
+- `buildTickerTooltip(ticker, lastUpdated)` — builds a native `title=` string:
+  "last updated X ago" (from `date-fns` `formatDistanceToNow`) + blank line +
+  `count  SupplierName` rows for non-zero sub-counts, sorted descending.
+- Ticker badge `<button>` elements rendered from `gridConfig.tickerDefinitions`.
+  Badge hidden when count is 0 or equals total result count (same rule as Kahuna).
+  Badge click calls `upsertFieldTerm` to append `is:<value>` to the current query.
+  Active state detected via `findFieldTerm`; active badge rendered at `opacity-60`.
+
+**FacetFilters (`components/FacetFilters.tsx`)**
+
+New `<IsSection>` sub-component:
+- Iterates `buildIsOptions()` (the canonical config-gated `is:` option list).
+- `derivedIsCount(value)` resolves counts from three sources: ticker store
+  (for ticker-backed values), category agg bucket sum (for `gnm-owned-photo`/
+  `gnm-owned-illustration`), and `isFilterCounts` from store (for `deleted`/
+  `under-quota`).
+- `IS_VALUE_TO_TICKER` module-level `Map` for O(1) lookup from `is:` value →
+  ticker definition without iterating on every render.
+- Zero-count entries hidden unless currently active or excluded in the query.
+- Coloured square dot (ticker `backgroundColour`) right of label for
+  ticker-backed values.
+- Click toggles: second click on active entry removes it; left-click applies,
+  right-click (or `onIsClick(value, true)`) excludes.
+
+**CqlSearchInput + typeahead (`CqlSearchInput.tsx`, `typeahead-fields.ts`)**
+
+- `CqlSearchInput` subscribes to `tickerCounts` and `isFilterCounts` via
+  `useSearchStore.subscribe` refs — avoids rebuilding `fieldDefs` on every
+  tick — and passes `getTickerCounts` and `getIsFilterCounts` callbacks to
+  `buildTypeaheadFields`.
+- `buildTypeaheadFields` now takes 5 params (was 3).
+- `IS_OPTIONS` hoisted to module level (built once, not re-built per call).
+- `is:` field resolver: enriches suggestions with document counts from the same
+  four sources as `IsSection`.  Warm path: reads counts synchronously from refs.
+  Cold path (no cached counts): fires `getFilterAggregations` for deleted +
+  under-quota + photo + illustration (4 requests).  `TextSuggestionOption.count`
+  renders the count flush-right in the dropdown.
+
+**Code-review fixes (applied in follow-on session)**
+
+- `parseCql` statically imported in `search-store.ts` (replaces inline query
+  objects) and `typeahead-fields.ts` (replaces dynamic `getOverQuotaSuppliers`
+  import — no longer needed because `parseCql("is:under-quota")` handles it).
+- Cold fallback issues 4 filter requests (deleted, under-quota, photo,
+  illustration), not 2.
+
+**Stale-counts edge case — investigated and deferred**
+
+When a user edits an `is:X` chip (removes the value), the typeahead resolver
+fires before the `queryChange` event, so `tickerCounts` and `isFilterCounts` in
+the store still reflect the previous query.  Two fix attempts both failed:
+(1) reading `params.query` — empty chips are stripped before the store updates;
+(2) comparing `aggCacheKey(state.params)` to `state._aggCacheKey` — params haven't
+updated at resolver time either.  User declared edge case, all related code reverted.
+
+**Tests**
+
+New file `cql.test.ts` — 10 unit tests covering all `is:` branches in `parseCql`:
+deleted, gnm-owned (6 categories), gnm-owned-photo, under-quota (`match_all`),
+agency-pick (`bool.should`, clause count, clause shape, field coverage), and
+`-is:agency-pick` negation.  Test suite: 856 tests, 45 files.
+
+**`useReaper` gap**
+
+`useReaper: false` is correct.  Enabling it would surface `is:reapable` in the UI
+but `buildIsQuery` has no reapable case → `match_none` → 0 results.  Proper
+implementation requires `persistenceIdentifiers` from gridConfig.  Documented as
+a known gap in `ticker-system-reference.md` §5.
+
+**Documentation**
+
+- `ticker-system-reference.md`: Sections 4–6 rewritten to reflect current
+  implementation status (all items ✅ except `is:reapable` and OrgOwned checkbox),
+  known gaps, and design notes.
+- `deviations.md`: §17 (agency-pick image border) and §18 (`Is` panel + typeahead
+  counts) added.  Old §17–§19 renumbered to §19–§21.
+- `component-detail.md`: StatusBar, FacetFilters, ImageGrid/Table, and CQL
+  sections updated.
+- `AGENTS.md`: Vitest count 843 → 856; CQL system summary row updated.
+
 ### 21 May 2026 — Unified busy indicator + timing display in SearchBar
 
 Replaced the "Seeking…" text in the StatusBar with a pulsating dot in the

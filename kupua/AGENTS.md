@@ -69,7 +69,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from ES agg. Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
 | Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (38+). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. |
-| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). |
+| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). `is:` resolver enriches suggestions with counts from ticker store, category aggs, and `getFilterAggregations`. |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
 | Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | Three-layer merge: ES baseline → TS cost/validity/syndication calculation → optional Grid API overlay. `deriveImage()` is the single merge point. Syndication status computed client-side from `syndicationRights`, `leases`, `usages` (SY-0–SY-5). |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
@@ -78,7 +78,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **843 Vitest** unit/integration tests (~40s) -- `npm test`
+- **856 Vitest** unit/integration tests (~40s) -- `npm test`
 - **239 Playwright E2E** tests (~8min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`

@@ -155,7 +155,7 @@ function getCellDateLine(image: Image, orderBy: string | undefined): string {
 // ---------------------------------------------------------------------------
 
 
-import { IMAGE_BORDERS } from "@/lib/image-borders";
+import { getImageBorderColour } from "@/lib/image-borders";
 
 // ---------------------------------------------------------------------------
 // GridCell — memoised individual cell
@@ -224,7 +224,7 @@ const GridCell = memo(function GridCell({
   // Cost: from deriveImage (ES baseline + API overlay merged)
   const cost = enriched?.cost;
   // Image border — thick coloured border on the thumbnail itself (not the cell).
-  const imageBorderColor = IMAGE_BORDERS[enriched?.usageRights?.category ?? image.usageRights?.category ?? ""];
+  const imageBorderColor = getImageBorderColour(enriched ?? image);
   // Graphic blur — only from enrichment (isPotentiallyGraphic is a search-hit-only field)
   const isPotentiallyGraphic = enriched?.isPotentiallyGraphic;
   // Usages for print/digital icons — enrichment preferred, ES fallback via enrichedUsages

@@ -38,7 +38,7 @@ import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEf
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { useLongPress } from "@/hooks/useLongPress";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
-import { IMAGE_BORDERS } from "@/lib/image-borders";
+import { getImageBorderColour } from "@/lib/image-borders";
 import { DataSearchPill } from "./SearchPill";
 import {
   FIELD_REGISTRY,
@@ -277,7 +277,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
     (e: React.MouseEvent) => handleTickClick(image.id, e),
     [image.id, handleTickClick],
   );
-  const rowBorderColor = IMAGE_BORDERS[enriched?.usageRights?.category ?? image.usageRights?.category ?? ""];
+  const rowBorderColor = getImageBorderColour(enriched ?? image);
 
   return (
     <div

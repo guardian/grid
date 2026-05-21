@@ -48,7 +48,7 @@ Single source of truth. `useUrlSearchSync` → store → search. Zod-validated p
 
 ## CQL
 
-`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via a ref-based getter to avoid rebuilding the typeahead on every render), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`, `is:under-quota` (wired to quota-store's `getOverQuotaSuppliers()` — `mustNot: { terms: { "usageRights.supplier": [...] } }`).
+`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via a ref-based getter to avoid rebuilding the typeahead on every render), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`, `is:agency-pick`, `is:under-quota` (wired to quota-store's `getOverQuotaSuppliers()`). `is:` resolver enriches the static option list with document counts: ticker-backed values from `tickerCounts` store, `gnm-owned-photo`/`gnm-owned-illustration` from category agg buckets, `deleted`/`under-quota`/photo/illustration from direct `getFilterAggregations` when store cache is cold. `IS_OPTIONS` hoisted to module level (built once from `buildIsOptions()`). `parseCql` used to derive filter agg queries — single source of truth in `cql.ts`.
 
 ## Image URLs (`lib/image-urls.ts`, ~250 lines)
 
@@ -173,6 +173,8 @@ Dropdown for date range filtering. Mirrors kahuna's `gu-date-range`. Field selec
 
 Thin strip between toolbar and views. Left-panel toggle (with hover-prefetch for aggregations when the Filters section is localStorage-expanded), result count, new-images ticker (click clears selection before `reSearch()` to prevent flicker of old reconciled state), sort-around-focus indicator, density toggle, right-panel toggle. Selection count + Clear button (fine-pointer only — coarse uses FAB). Container queries for responsive label display.
 
+Ticker badges: one per `gridConfig.tickerDefinitions` entry. Hidden when count = 0 or count = total. Background colour from definition. Click appends the `searchClause` to the current query. Native `title=` tooltip shows "last updated X ago" (from `tickersLastUpdated` store state) plus a `count  SupplierName` table for agency-pick subCounts. `buildTickerTooltip()` constructs the tooltip string.
+
 ## CQL Search Input (`components/CqlSearchInput.tsx`)
 
 Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ Web Component lifecycle. `LazyTypeahead` provides non-blocking suggestions.
@@ -187,7 +189,7 @@ TanStack Table + Virtual. Column defs from field-registry (37+ hardcoded + confi
 
 ## Grid View (`components/ImageGrid.tsx`)
 
-Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav. `ResizeObserver` with `captureAnchor` mechanism for scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field). Cluster 1 overlays: cost badge, graphic blur (`isImagePotentiallyGraphic`), staff-photographer ring (`lib/image-borders.ts`), print/digital/syndication/persisted usage icons (via `useEnrichedImage`). Label pills rendered in a fixed-height (`h-6`) strip between thumbnail and description (`flex-nowrap overflow-hidden`, click-to-search with `stopPropagation`). Middle-click opens FullscreenPreview.
+Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus ring + keyboard nav. `ResizeObserver` with `captureAnchor` mechanism for scroll anchoring on column count change. Sort-aware date label (Uploaded/Taken/Modified adapts to primary sort field). Cluster 1 overlays: cost badge, graphic blur (`isImagePotentiallyGraphic`), image border (`lib/image-borders.ts` `getImageBorderColour()` — staff/contract/commissioned photographer: `#005689`; agency-pick: `#7d006880`), print/digital/syndication/persisted usage icons (via `useEnrichedImage`). Label pills rendered in a fixed-height (`h-6`) strip between thumbnail and description (`flex-nowrap overflow-hidden`, click-to-search with `stopPropagation`). Middle-click opens FullscreenPreview.
 
 ## Image Detail (`components/ImageDetail.tsx`)
 
@@ -219,7 +221,7 @@ Left (facet filters) / right (metadata). Resize handles, `[`/`]` keyboard shortc
 
 ## Facet Filters (`components/FacetFilters.tsx`)
 
-Left panel content. Batched aggregation fetch via store. Click → set CQL chip, alt-click → exclude. "Show more" expands per-field agg counts. Agg timing display (`AggTiming` component).
+Left panel content. Batched aggregation fetch via store. Click → set CQL chip, alt-click → exclude. "Show more" expands per-field agg counts. Agg timing display (`AggTiming` component). `Is` section: all valid `is:` values from `buildIsOptions()` (config-gated); counts from `tickerCounts` store (ticker-backed values), category agg buckets (photo/illustration), or `isFilterCounts` store (deleted/under-quota). Zero-count entries hidden unless active or excluded. Coloured dot right of label for ticker-backed values (matching badge colour).
 
 ## Collection Tree (`components/CollectionTree.tsx`)
 

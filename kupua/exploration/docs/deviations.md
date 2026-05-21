@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-05-12
+Last updated: 2026-05-21
 
 ---
 
@@ -285,7 +285,51 @@ media-api), the following kupua-specific features need migration:
 of the above. The only new code is the write adapter. This is already
 the plan in `migration-plan.md` Phase 3.
 
-### 17. Prefetch pipeline — fire-and-forget replaces debounced abort
+### 17. Agency-pick image border colour
+
+Kahuna image borders are driven by `usageRights.category` CSS classes only.
+There is no separate border colour for agency-pick images — those are
+distinguished by the ticker badge in the StatusBar, not by a cell border.
+
+Kupua adds an agency-pick border colour (`gridConfig.agencyPicksColour`,
+currently `#7d006880`) rendered by `getImageBorderColour()` in
+`lib/image-borders.ts`.  The function checks the category-based rule first
+(GNM-owned takes priority — the two sets don't overlap in practice), then
+falls through to `isAgencyPick()` which scans `metadata.description`,
+`metadata.keywords`, and `metadata.title` for any value in
+`gridConfig.agencyPicksIngredients`.
+
+Note: `isAgencyPick()` compares case-insensitively because the ES standard
+analyser lowercases all text at index time, so stored keyword values may
+differ in case from the config values.
+
+**Trade-off:** scanning up to three string fields on every image in the
+visible buffer on every render.  Fields are short (~100 chars), config is
+small (17 values), and JS string operations are fast — no measured impact.
+If the grid grows to display many hundreds of images simultaneously, profile
+before changing the approach.
+
+### 18. `Is` section in Filters panel and `is:` typeahead document counts
+
+Kahuna: the left Filters panel has no `Is` section.  The `is:` typeahead
+shows a static list of values with no document counts.
+
+Kupua: FacetFilters has a dedicated `Is` section that lists all valid
+`is:` values (from `buildIsOptions()`, config-gated) with document counts
+and active/excluded state.  Entries backed by a ticker show the ticker
+count.  `gnm-owned-photo`/`gnm-owned-illustration` are summed from the
+category terms agg.  `deleted`/`under-quota` come from a dedicated
+`getFilterAggregations` request batched with the main agg fetch.
+Zero-count entries are hidden unless active or excluded.
+
+The `is:` typeahead resolver follows the same logic: ticker counts from
+store, photo/illustration from category buckets, deleted/under-quota from
+the panel cache or a direct `getFilterAggregations` call when cold.
+
+These are intentional enhancements — do not remove the `Is` section to
+achieve parity with Kahuna.
+
+### 19. Prefetch pipeline — fire-and-forget replaces debounced abort
 
 **What:** Kupua's `ImageDetail.tsx` (Era 3, commit `85673c0d4`) used
 `fetch()` + `AbortController` with a 400ms debounce for prefetching
@@ -311,7 +355,7 @@ dramatically better: 0ms landing at moderate/fast speeds vs 400-540ms.
 
 Full experiment data: `exploration/docs/zz Archive/traversal-perf-investigation.md`.
 
-### 18. Mobile autofocus suppression for the search input
+### 20. Mobile autofocus suppression for the search input
 
 **What:** On touch-primary devices (`(pointer: coarse)`), kupua does not
 autofocus the CQL search input. Three sites are gated:
@@ -328,7 +372,7 @@ keyboard up by default — they tap the search bar explicitly when they
 want to type. Kahuna doesn't have this issue because it isn't designed
 for mobile use.
 
-### 19. Collections — chip format uses `collection:pathId` not `~pathId`
+### 21. Collections — chip format uses `collection:pathId` not `~pathId`
 
 **What:** When a collection chip is clicked in the detail panel (or via
 `useMetadataSearch()`), it emits `collection:pathId` into the CQL query

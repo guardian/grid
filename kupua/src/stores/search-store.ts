@@ -28,12 +28,15 @@ import type {
   AggregationResult,
   SortDistribution,
   SearchAfterResult,
+  TickerCountResult,
+  FilterAggRequest,
 } from "@/dal";
 import type { PositionMap } from "@/dal/position-map";
 import { cursorForPosition } from "@/dal/position-map";
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
 import { detectNullZoneCursor, remapNullZoneSortValues } from "@/dal/null-zone";
 import { IS_LOCAL_ES } from "@/dal/es-config";
+import { parseCql } from "@/dal/adapters/elasticsearch/cql";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { extractSortValues } from "@/lib/image-offset-cache";
@@ -232,6 +235,15 @@ interface SearchState {
   // New images ticker
   newCount: number;
   newCountSince: string | null;
+  /**
+   * Per-category ticker counts from the most recent search's filter aggs.
+   * Keyed by ticker name (e.g. "GNM-owned", "agency picks").
+   * Null until the first search completes. Reset to null on new search start.
+   * Additively merged on each poll tick (same as Kahuna).
+   */
+  tickerCounts: Record<string, TickerCountResult> | null;
+  /** ISO timestamp of the last tickerCounts update. Drives tooltip "last updated X ago". */
+  tickersLastUpdated: string | null;
 
   // Track in-flight extend operations to avoid duplicates
   _extendForwardInFlight: boolean;
@@ -340,6 +352,8 @@ interface SearchState {
   _aggCacheKey: string | null;
   expandedAggs: Record<string, AggregationResult>;
   expandedAggsLoading: Set<string>;
+  /** Filter agg counts for `is:` values that need full ES queries (deleted, under-quota). */
+  isFilterCounts: Record<string, number> | null;
 
   // --- Sort distribution for scrubber (tooltip + track ticks) ---
   /** Pre-fetched distribution for the current sort field (keyword or date). */
@@ -570,7 +584,7 @@ function sortDistCacheKey(params: SearchParams): string {
   return aggCacheKey(params) + "|" + (params.orderBy ?? "");
 }
 
-function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
+function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void, skipInitialTick = false) {
   stopNewImagesPoll();
   const gen = ++_newImagesPollGeneration;
   const tick = async () => {
@@ -583,14 +597,42 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
           ? params.since
           : newCountSince;
 
-      const count = await dataSource.count({
+      const { count, tickerCounts: deltaTickerCounts } = await dataSource.countWithTickers({
         ...params,
         since,
         offset: 0,
         length: 0,
       });
       if (gen !== _newImagesPollGeneration) return; // stale after await
-      set({ newCount: count });
+
+      // Additive merge of ticker deltas into existing counts.
+      // Mirrors Kahuna's results.js checkForNewImages merge logic.
+      // Drift is not a risk — uploadTime is immutable, so any image can
+      // only cross the `since` threshold once.
+      const prevTickerCounts = get().tickerCounts;
+      let mergedTickerCounts: Record<string, TickerCountResult> | null = prevTickerCounts;
+      if (Object.keys(deltaTickerCounts).length > 0) {
+        mergedTickerCounts = { ...(prevTickerCounts ?? {}) };
+        for (const [name, delta] of Object.entries(deltaTickerCounts)) {
+          const prev = mergedTickerCounts[name];
+          if (!prev) {
+            mergedTickerCounts[name] = delta;
+            continue;
+          }
+          const mergedSubCounts = delta.subCounts
+            ? mergeSubCounts(prev.subCounts, delta.subCounts)
+            : prev.subCounts;
+          mergedTickerCounts[name] = {
+            value: prev.value + delta.value,
+            ...(mergedSubCounts ? { subCounts: mergedSubCounts } : {}),
+          };
+        }
+      }
+
+      set({
+        newCount: count,
+        ...(mergedTickerCounts !== prevTickerCounts ? { tickerCounts: mergedTickerCounts, tickersLastUpdated: new Date().toISOString() } : {}),
+      });
     } catch {
       // Silently ignore — ticker is non-critical
     }
@@ -598,8 +640,26 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
   // Fire immediately so the ticker appears without waiting a full interval.
   // For fresh searches this counts 0 (harmless). For popstate restores with
   // a frozenUntil timestamp, it shows the correct count right away.
-  tick();
+  // skipInitialTick: when the search action already fetched initial ticker
+  // counts in parallel (countWithTickers in Promise.all), skip the immediate
+  // tick to avoid a redundant size:0 request that would return 0 deltas.
+  if (!skipInitialTick) tick();
   _newImagesPollTimer = setInterval(tick, NEW_IMAGES_POLL_INTERVAL);
+}
+
+/**
+ * Merge subCounts from a poll delta into existing subCounts.
+ * Unknown keys accumulate into "other" (same behaviour as Kahuna).
+ */
+function mergeSubCounts(
+  prev: Record<string, number> | undefined,
+  delta: Record<string, number>,
+): Record<string, number> {
+  const merged: Record<string, number> = { ...(prev ?? {}) };
+  for (const [key, count] of Object.entries(delta)) {
+    merged[key] = (merged[key] ?? 0) + count;
+  }
+  return merged;
 }
 
 function stopNewImagesPoll() {
@@ -1566,6 +1626,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   newCount: 0,
   newCountSince: null,
+  tickerCounts: null,
+  tickersLastUpdated: null,
   _extendForwardInFlight: false,
   _extendBackwardInFlight: false,
   _lastPrependCount: 0,
@@ -1592,6 +1654,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _aggCacheKey: null,
   expandedAggs: {},
   expandedAggsLoading: new Set(),
+  isFilterCounts: null,
 
   // Sort distribution state (scrubber tooltip + ticks)
   sortDistribution: null,
@@ -1691,7 +1754,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // and would clobber the phantom snapshot with the leaked focus on
     // the next departure-capture. See
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0 }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && { focusedImageId: null, _focusedImageKnownOffset: null }) });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -1748,7 +1811,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       //
       // CRITICAL: openPit is wrapped in .catch so a PIT rejection does NOT
       // fail the whole Promise.all (naïve form would reject on first failure).
-      const [newPitId, result] = await Promise.all([
+      const [newPitId, result, tickersResult] = await Promise.all([
         IS_LOCAL_ES
           ? Promise.resolve(null)
           : dataSource.openPit("1m").catch((e) => {
@@ -1762,6 +1825,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           null, // no cursor — first page
           null, // no PIT — index-prefixed /{index}/_search
         ),
+        // Fire ticker aggs in parallel with the first page.
+        // countWithTickers uses size:0 so it doesn't compete with the main
+        // search for ES heap. Errors are non-fatal — null means no tickers.
+        dataSource.countWithTickers(
+          options?.frozenUntil
+            ? { ...params, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
+            : params,
+        ).catch(() => null),
       ]);
 
       // Stale search — a newer search() was called while we were awaiting.
@@ -1808,12 +1879,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           pitId: result.pitId ?? newPitId,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
+          tickerCounts: tickersResult?.tickerCounts ?? null,
+          tickersLastUpdated: tickersResult ? new Date().toISOString() : null,
           // Keep loading: true — _findAndFocusImage will set it to false.
           // Keep results/bufferOffset/imagePositions unchanged — old buffer
           // stays visible (or empty on first load) until the focused image's
           // neighbourhood is loaded, preventing flash of wrong content.
         });
-        startNewImagesPoll(get, set);
+        // skipInitialTick: ticker counts already set from countWithTickers above.
+        startNewImagesPoll(get, set, /* skipInitialTick */ true);
         // Fire async — stays loading until complete.
         // Pass the first-page results as fallback so the view shows
         // correct content if the focused image isn't in the new results
@@ -1873,6 +1947,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           focusedImageId: (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
+          tickerCounts: tickersResult?.tickerCounts ?? null,
+          tickersLastUpdated: tickersResult ? new Date().toISOString() : null,
           // Set arriving IDs atomically with results so the animation
           // class (opacity: 0 via fill-mode: both) is applied in the same
           // React render — no one-frame flash of old content.
@@ -1917,7 +1993,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // outruns the 200-item buffer into permanent skeletons.
         _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-        startNewImagesPoll(get, set);
+        // skipInitialTick: ticker counts already set from countWithTickers above.
+        startNewImagesPoll(get, set, /* skipInitialTick */ true);
 
         // -----------------------------------------------------------
         // Scroll-mode fill: if the total is small enough, eagerly
@@ -3578,12 +3655,19 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     const startTime = performance.now();
 
+    // Build filter agg requests synchronously — parseCql handles the
+    // under-quota query (calls getOverQuotaSuppliers internally, same as
+    // buildIsQuery in cql.ts). DRYs the query definition to one place.
+    const isFilterRequests: FilterAggRequest[] = [
+      { name: "deleted", query: parseCql("is:deleted").must[0] },
+      { name: "under-quota", query: parseCql("is:under-quota").must[0] },
+    ];
+
     try {
-      const result = await dataSource.getAggregations(
-        callParams,
-        AGG_FIELDS,
-        _aggAbortController.signal,
-      );
+      const [result, isFilterCounts] = await Promise.all([
+        dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal),
+        dataSource.getFilterAggregations(callParams, isFilterRequests, _aggAbortController.signal),
+      ]);
 
       const elapsed = performance.now() - startTime;
 
@@ -3595,6 +3679,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
         expandedAggs: {},
         expandedAggsLoading: new Set(),
+        isFilterCounts,
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {

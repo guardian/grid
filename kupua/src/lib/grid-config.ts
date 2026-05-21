@@ -15,6 +15,24 @@ interface FieldAlias {
   searchHintOptions?: string[];
 }
 
+/**
+ * A single ticker definition — drives filter aggregations in _doSearch and
+ * badge rendering in StatusBar + Filters panel.
+ */
+export interface TickerDefinition {
+  /** Display name shown in the badge (e.g. "GNM-owned", "agency picks"). */
+  name: string;
+  /** CQL clause applied when the badge is clicked (e.g. "is:GNM-owned"). */
+  searchClause: string;
+  /** CSS background colour for the badge. */
+  backgroundColour: string;
+  /**
+   * When set, the ticker request also fetches top values for this ES field
+   * (sub-aggregation). Currently only used by agency-picks ("usageRights.supplier").
+   */
+  subAggField?: string;
+}
+
 export const gridConfig = {
   /**
    * The organisation name used for `is:<org>-owned` style queries.
@@ -64,6 +82,62 @@ export const gridConfig = {
 
   /** Whether agency pick filtering is available */
   hasAgencyPicks: true,
+
+  /**
+   * Agency picks detection — mirrors `agencyPicks.ingredients` in Grid config.
+   * A map of ES field paths → keyword values whose presence flags an image as
+   * an agency pick (editorial top-shot selected by the wire agency).
+   * Used by `is:agency-pick` in cql.ts (filter aggregation + typeahead).
+   * Source: agencyPicsConfigFragment.conf (redacted copy stored separately).
+   */
+  agencyPicksColour: "#7d006880",
+  agencyPicksIngredients: {
+    "metadata.description": [
+      "topshot",          // Getty
+      "topshots",         // Getty
+      "bestpix",          // Getty
+      "PABest",           // PA
+      "PA Best",          // PA
+      "TPX IMAGES OF THE DAY", // Reuters
+      "epaselect",        // EPA
+    ],
+    "metadata.keywords": [
+      "epaselect",        // EPA
+      "aptopix",          // AP
+      "APTOPIX",          // AP
+      "SPOTLIGHT",        // Rex/Shutterstock
+      "spotlight",        // Rex/Shutterstock
+      "Spotlight",        // Rex/Shutterstock
+      "EDITORS' PICKS",   // Rex/Shutterstock
+      "PABest",           // PA
+    ],
+    "metadata.title": [
+      "aptopix",          // AP
+      "APTOPIX",          // AP
+    ],
+  } as Record<string, string[]>,
+
+  /**
+   * Ticker definitions — each entry drives a filter aggregation in _doSearch
+   * and a badge in StatusBar + Filters panel.
+   * Mirrors the aggregationsNameToSearchClauseMap built in ElasticSearch.scala.
+   * Gated by the same feature flags as the underlying `is:` queries.
+   */
+  tickerDefinitions: [
+    {
+      name: "GNM-owned",
+      searchClause: "is:GNM-owned",
+      backgroundColour: "#005689",
+    },
+    // Agency picks gated by hasAgencyPicks (true in this mock config).
+    // When dynamic config is wired, this entry should be conditional.
+    {
+      name: "agency picks",
+      searchClause: "is:agency-pick",
+      backgroundColour: "#7d006880",
+      subAggField: "usageRights.supplier",
+    },
+  ] as TickerDefinition[],
 
   /** Field aliases from config — drives additional search fields + typeahead */
   fieldAliases: [

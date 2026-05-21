@@ -83,6 +83,36 @@ export interface SearchResult {
    * Used for `search_after` cursor management.
    */
   sortValues?: SortValues[];
+  /**
+   * Ticker counts from filter aggregations injected by _doSearch.
+   * Keyed by ticker name (e.g. "GNM-owned", "agency picks").
+   * Only present when includeTickers was true in the underlying _doSearch call.
+   */
+  tickerCounts?: Record<string, TickerCountResult>;
+}
+
+/**
+ * Result of a single ticker filter aggregation.
+ * Mirrors Scala's ExtraCount (CollectionResponse.scala).
+ */
+export interface TickerCountResult {
+  /** Number of matching documents. */
+  value: number;
+  /**
+   * Sub-aggregation buckets (e.g. by supplier for agency picks).
+   * Keyed by bucket value; includes an "other" key for ES sum_other_doc_count
+   * if > 0. Omitted when the ticker has no subAggField or all counts are 0.
+   */
+  subCounts?: Record<string, number>;
+}
+
+/**
+ * Result of a countWithTickers() call — new-images count plus ticker deltas
+ * for additive merging in the poll.
+ */
+export interface CountWithTickersResult {
+  count: number;
+  tickerCounts: Record<string, TickerCountResult>;
 }
 
 /**
@@ -116,6 +146,18 @@ export interface AggregationRequest {
   field: string;
   /** Max number of buckets to return. Default: 10. */
   size?: number;
+}
+
+/**
+ * A named filter aggregation — wraps an ES query and returns a doc count.
+ * Used for `is:` value counts (deleted, under-quota) which are composite
+ * queries, not simple terms fields.
+ */
+export interface FilterAggRequest {
+  /** Agg name used as the key in the response map. */
+  name: string;
+  /** ES query object for the filter agg. */
+  query: Record<string, unknown>;
 }
 
 /** Result of a batched aggregation — keyed by field path, with timing. */
@@ -184,6 +226,15 @@ export interface ImageDataSource {
   /** Count documents matching params (lightweight — no hits returned). */
   count(params: SearchParams): Promise<number>;
 
+  /**
+   * Count new documents (size: 0 _search with ticker filter aggs).
+   * Used by the new-images poll in place of count() so ticker deltas arrive
+   * in the same request as the new-images count.
+   * Returns both the raw count (for newCount) and per-ticker deltas (for
+   * additive merge into tickerCounts).
+   */
+  countWithTickers(params: SearchParams): Promise<CountWithTickersResult>;
+
   /** Fetch a single image by ID. Returns undefined if not found. */
   getById(id: string): Promise<Image | undefined>;
 
@@ -204,6 +255,17 @@ export interface ImageDataSource {
     fields: AggregationRequest[],
     signal?: AbortSignal,
   ): Promise<AggregationsResult>;
+
+  /**
+   * Fire filter aggregations for a set of named ES queries, returning
+   * name → doc_count. Used for `is:` value counts in the filter panel
+   * and typeahead (deleted, under-quota).
+   */
+  getFilterAggregations(
+    params: SearchParams,
+    filters: FilterAggRequest[],
+    signal?: AbortSignal,
+  ): Promise<Record<string, number>>;
 
   // ---------------------------------------------------------------------------
   // search_after + PIT methods (added for windowed scroll)

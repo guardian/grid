@@ -24,6 +24,36 @@ import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
+import { gridConfig } from "@/lib/grid-config";
+import { upsertFieldTerm, findFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import type { TickerCountResult } from "@/dal";
+
+/**
+ * Builds the native title tooltip for a ticker badge.
+ * Mirrors Kahuna's gr-tooltip-html content:
+ *   "last updated X ago" + blank line + count  SupplierName rows.
+ */
+function buildTickerTooltip(
+  ticker: TickerCountResult,
+  lastUpdated: string | null,
+): string {
+  const lines: string[] = [];
+  if (lastUpdated) {
+    lines.push(`last updated ${formatDistanceToNow(new Date(lastUpdated), { addSuffix: true })}`);
+  }
+  if (ticker.subCounts) {
+    const entries = Object.entries(ticker.subCounts)
+      .filter(([, c]) => c > 0)
+      .sort(([, a], [, b]) => b - a);
+    if (entries.length > 0) {
+      lines.push("");
+      for (const [name, count] of entries) {
+        lines.push(`${count.toLocaleString()}  ${name}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
 
 const SB_TOTAL_KEY = "kupua-sb-total";
 const SB_NEW_KEY = "kupua-sb-new";
@@ -31,6 +61,8 @@ const SB_NEW_KEY = "kupua-sb-new";
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
   const newCount = useSearchStore((s) => s.newCount);
+  const tickerCounts = useSearchStore((s) => s.tickerCounts);
+  const tickersLastUpdated = useSearchStore((s) => s.tickersLastUpdated);
   const selectedCount = useSelectionStore((s) => s.selectedIds.size);
   const clearSelection = useSelectionStore((s) => s.clear);
   const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
@@ -63,6 +95,7 @@ export function StatusBar() {
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const isGrid = searchParams.density !== "table";
+  const currentQuery = searchParams.query ?? "";
 
   const leftVisible = usePanelStore((s) => s.config.left.visible);
   const rightVisible = usePanelStore((s) => s.config.right.visible);
@@ -169,6 +202,34 @@ export function StatusBar() {
           {displayNewCount.toLocaleString()} new
         </button>
       )}
+
+      {/* Category ticker badges — one per tickerDefinition with a non-zero,
+          non-total count. Click applies the corresponding is: filter.
+          Mirrors Kahuna's ng-repeat tickerCounts badges in results.html. */}
+      {tickerCounts && gridConfig.tickerDefinitions.map((def) => {
+        const ticker = tickerCounts[def.name];
+        if (!ticker || ticker.value === 0 || ticker.value === total) return null;
+
+        // Extract the is: value from the searchClause (e.g. "is:GNM-owned" → "GNM-owned")
+        const isValue = def.searchClause.startsWith("is:") ? def.searchClause.slice(3) : def.searchClause;
+        const isActive = !!findFieldTerm(currentQuery, "is", isValue);
+
+        return (
+          <button
+            key={def.name}
+            onClick={() => {
+              const newQuery = upsertFieldTerm(currentQuery, "is", isValue, false);
+              updateSearch({ query: newQuery || undefined });
+            }}
+            className={`px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
+            style={{ backgroundColor: def.backgroundColour, color: "white" }}
+            title={buildTickerTooltip(ticker, tickersLastUpdated)}
+            aria-pressed={isActive}
+          >
+            {ticker.value.toLocaleString()} {def.name}
+          </button>
+        );
+      })}
 
       {/* Spacer */}
       <span className="flex-1" />

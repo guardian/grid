@@ -143,11 +143,23 @@ export function CqlSearchInput({
   const aggregationsRef = useRef(aggregations);
   aggregationsRef.current = aggregations;
 
+  // Refs for is: resolver callbacks — avoids typeahead rebuild on state changes
+  const tickerCountsRef = useRef(useSearchStore.getState().tickerCounts);
+  const isFilterCountsRef = useRef(useSearchStore.getState().isFilterCounts);
+  useEffect(() => {
+    return useSearchStore.subscribe((s) => {
+      tickerCountsRef.current = s.tickerCounts;
+      isFilterCountsRef.current = s.isFilterCounts;
+    });
+  }, []);
+
   // Build typeahead from DAL — memoised so we don't rebuild on every render
   const typeahead = useMemo(() => {
     const getAggs = () => aggregationsRef.current;
     const getParams = () => useSearchStore.getState().params;
-    const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams);
+    const getTickerCounts = () => tickerCountsRef.current;
+    const getIsFilterCounts = () => isFilterCountsRef.current;
+    const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams, getTickerCounts, getIsFilterCounts);
     const hiddenFieldIds = new Set(
       fieldDefs
         .filter((d) => d.showInKeySuggestions === false)
