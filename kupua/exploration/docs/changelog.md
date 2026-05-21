@@ -14,6 +14,44 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 May 2026 — Unified busy indicator + timing display in SearchBar
+
+Replaced the "Seeking…" text in the StatusBar with a pulsating dot in the
+SearchBar that unifies all busy signals: search, sort-around-focus, aggregation,
+reconciliation, and range-selection (shift-click walk). Added wall-clock timing
+display for each operation with contextual tooltips.
+
+**Key changes:**
+
+- `SearchBar.tsx`: Added a green pulsating dot (Tailwind `animate-pulse`) that
+  appears when any operation is in-flight. Implemented 150ms delay-before-show
+  to avoid flashing the dot for sub-150ms operations. Timing spans show the
+  duration and operation name after completion (search, seek, agg,
+  range-selection).
+
+- `StatusBar.tsx`: Removed the `sortAroundFocusStatus` "Seeking…" indicator —
+  this signal is now covered by the unified busy dot.
+
+- `FacetFilters.tsx`: Removed the `AggTiming` sub-component (timing now shown
+  in SearchBar). Only the circuit-breaker button remains.
+
+- `selection-store.ts`: Added `isReconciling`, `isRangeWalking`, and
+  `rangeWalkTime` fields to track selection-related busy state and timing.
+  `clear()` resets all fields.
+
+- `useRangeSelection.ts`: Captures wall-clock timing for the async range walk
+  (shift-click across buffer boundaries). Sets/clears `isRangeWalking` and
+  stores `rangeWalkTime` on completion.
+
+All 846 unit tests and 239 Playwright e2e tests pass.
+
+### 21 May 2026 — Fix: format position number in ImageDetail
+
+The global position counter in the ImageDetail header (e.g. "766939 of
+1,323,948") now formats the left number with locale separators too:
+"766,939 of 1,323,948". One-line change in `ImageDetail.tsx`:
+`(currentGlobalIndex + 1).toLocaleString()`.
+
 ### 18 May 2026 — Fix: fullscreen exit centering + Firefox middle-click activation
 
 Two fixes and one investigation closure.

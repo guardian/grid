@@ -27,7 +27,7 @@ import { ImageGrid } from "@/components/ImageGrid";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { Scrubber } from "@/components/Scrubber";
-import { FacetFilters, AggTiming } from "@/components/FacetFilters";
+import { FacetFilters, AggCircuitBreaker } from "@/components/FacetFilters";
 import { CollectionTree } from "@/components/CollectionTree";
 import { useCollectionStore } from "@/stores/collection-store";
 import { ImageMetadata } from "@/components/ImageMetadata";
@@ -223,7 +223,7 @@ function SearchPage() {
                   <CollectionTree />
                 </AccordionSection>
               )}
-              <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggTiming />}>
+              <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggCircuitBreaker />}>
                 <FacetFilters />
               </AccordionSection>
             </>

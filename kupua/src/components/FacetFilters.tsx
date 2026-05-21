@@ -37,31 +37,24 @@ const FACET_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY.filter(
 const INITIAL_VISIBLE = 10;
 
 // ---------------------------------------------------------------------------
-// AggTiming — shows ms counter in the section header (right side).
+// AggCircuitBreaker — shows "Refresh (slow)" button when agg circuit is open.
 // Rendered by search.tsx as AccordionSection's headerRight prop.
-// Only visible once a real value has been received.
 // ---------------------------------------------------------------------------
 
-export function AggTiming() {
-  const aggLoading = useSearchStore((s) => s.aggLoading);
-  const aggTook = useSearchStore((s) => s.aggTook);
+export function AggCircuitBreaker() {
   const aggCircuitOpen = useSearchStore((s) => s.aggCircuitOpen);
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
-  if (aggCircuitOpen) {
-    return (
-      <button
-        onClick={() => fetchAggregations(true)}
-        className="text-grid-accent hover:underline cursor-pointer"
-      >
-        Refresh (slow)
-      </button>
-    );
-  }
+  if (!aggCircuitOpen) return null;
 
-  if (aggLoading) return <span>…</span>;
-  if (aggTook != null) return <span>{aggTook}ms</span>;
-  return null;
+  return (
+    <button
+      onClick={() => fetchAggregations(true)}
+      className="text-grid-accent hover:underline cursor-pointer"
+    >
+      Refresh (slow)
+    </button>
+  );
 }
 
 // ---------------------------------------------------------------------------

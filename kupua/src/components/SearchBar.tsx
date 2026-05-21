@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
@@ -17,6 +17,7 @@ import {
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
+import { useSelectionStore } from "@/stores/selection-store";
 import { trace } from "@/lib/perceived-trace";
 
 export function SearchBar() {
@@ -25,6 +26,29 @@ export function SearchBar() {
   const navigate = useNavigate();
   const took = useSearchStore((s) => s.took);
   const seekTime = useSearchStore((s) => s.seekTime);
+  const aggTook = useSearchStore((s) => s.aggTook);
+  const aggLoading = useSearchStore((s) => s.aggLoading);
+  const loading = useSearchStore((s) => s.loading);
+  const isReconciling = useSelectionStore((s) => s.isReconciling);
+  const isRangeWalking = useSelectionStore((s) => s.isRangeWalking);
+  const rangeWalkTime = useSelectionStore((s) => s.rangeWalkTime);
+  const busy = loading || aggLoading || isReconciling || isRangeWalking;
+
+  // Delay-before-show: dot only appears if busy persists for 150ms+.
+  // Prevents imperceptible flashes for fast operations.
+  const [showDot, setShowDot] = useState(false);
+  const busyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (busy) {
+      busyTimerRef.current = setTimeout(() => setShowDot(true), 150);
+    } else {
+      if (busyTimerRef.current) clearTimeout(busyTimerRef.current);
+      busyTimerRef.current = null;
+      setShowDot(false);
+    }
+    return () => { if (busyTimerRef.current) clearTimeout(busyTimerRef.current); };
+  }, [busy]);
+
   // Track whether the CQL editor has content (for showing the clear button)
   const [hasEditorContent, setHasEditorContent] = useState(
     !!(searchParams.query)
@@ -179,16 +203,35 @@ export function SearchBar() {
       {/* ES timing — far right. Hidden below lg. Always rendered to avoid layout shift. */}
       <span className="hidden lg:block text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
         {took != null && (
-          <span title="Elasticsearch query time for initial search">
+          <span title="Elasticsearch query time (last search)">
             {took}ms
           </span>
         )}
         {seekTime != null && (
-          <span title="Total wall-clock time of last scrubber seek (includes all ES round-trips)">
+          <span title="Wall-clock time of last scrubber seek (includes all ES round-trips)">
             {" / "}{seekTime < 1000 ? `${seekTime}ms` : `${(seekTime / 1000).toFixed(1)}s`}
           </span>
         )}
+        {aggTook != null && (
+          <span title="Elasticsearch query time (filter aggregations)">
+            {" / "}{aggTook}ms
+          </span>
+        )}
+        {rangeWalkTime != null && (
+          <span title="Wall-clock time of last range-selection server walk">
+            {" / "}{rangeWalkTime < 1000 ? `${rangeWalkTime}ms` : `${(rangeWalkTime / 1000).toFixed(1)}s`}
+          </span>
+        )}
       </span>
+
+      {/* Busy dot — pulsates when app is working (search, seek, reconciliation).
+          Always in DOM; visibility-toggled to avoid layout shift.
+          150ms delay-before-show prevents flashes for fast operations. */}
+      <span
+        className="hidden lg:block text-grid-accent animate-pulse shrink-0 text-sm"
+        style={{ visibility: showDot ? "visible" : "hidden" }}
+        aria-hidden="true"
+      >●</span>
 
       {/* Settings menu — three-dot, far right */}
       <SettingsMenu />

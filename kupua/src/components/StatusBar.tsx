@@ -59,7 +59,6 @@ export function StatusBar() {
   const displayTotal = storeReady ? total : cached.total;
   const displayNewCount = storeReady ? newCount : cached.newCount;
   const newCountSince = useSearchStore((s) => s.newCountSince);
-  const sortAroundFocusStatus = useSearchStore((s) => s.sortAroundFocusStatus);
   const reSearch = useSearchStore((s) => s.search);
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
@@ -169,13 +168,6 @@ export function StatusBar() {
         >
           {displayNewCount.toLocaleString()} new
         </button>
-      )}
-
-      {/* Sort-around-focus indicator — brief, non-blocking */}
-      {sortAroundFocusStatus && (
-        <span className="flex items-center text-grid-accent text-xs animate-pulse ml-1">
-          {sortAroundFocusStatus}
-        </span>
       )}
 
       {/* Spacer */}

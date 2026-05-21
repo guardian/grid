@@ -232,6 +232,7 @@ function enqueueReconcile(ids: string[], fullRecompute = false): void {
   if (fullRecompute) _reconcileNeedsFullRecompute = true;
   if (!_reconcileFrameScheduled) {
     _reconcileFrameScheduled = true;
+    useSelectionStore.setState({ isReconciling: true });
     scheduleIdle(processReconcileChunk);
   }
 }
@@ -246,6 +247,7 @@ function processReconcileChunk(): void {
 
   if (chunk.length === 0) {
     _reconcileFrameScheduled = false;
+    useSelectionStore.setState({ isReconciling: false });
     return;
   }
 
@@ -301,6 +303,7 @@ function processReconcileChunk(): void {
     scheduleIdle(processReconcileChunk);
   } else {
     _reconcileFrameScheduled = false;
+    useSelectionStore.setState({ isReconciling: false });
   }
 }
 
@@ -366,6 +369,12 @@ export interface SelectionState {
   metadataCache: LruMap<string, Image>;
   /** IDs for which a `getByIds` fetch is currently in flight. */
   pendingFetchIds: Set<string>;
+  /** True while idle-frame reconciliation chunks are being processed. */
+  isReconciling: boolean;
+  /** True while a server-walk range selection is in flight. */
+  isRangeWalking: boolean;
+  /** Wall-clock time of the last completed range-walk (ms), or null. */
+  rangeWalkTime: number | null;
   /** Data source — swappable in tests. */
   dataSource: ImageDataSource;
 
@@ -429,6 +438,9 @@ export const useSelectionStore = create<SelectionState>()(
       reconciledView: null,
       metadataCache: new LruMap<string, Image>(SELECTION_METADATA_LRU_CAP),
       pendingFetchIds: new Set<string>(),
+      isReconciling: false,
+      isRangeWalking: false,
+      rangeWalkTime: null,
       dataSource: new ElasticsearchDataSource(),
 
       // --- Actions ---
@@ -588,6 +600,9 @@ export const useSelectionStore = create<SelectionState>()(
           selectedIds: new Set<string>(),
           anchorId: null,
           reconciledView: null,
+          isReconciling: false,
+          isRangeWalking: false,
+          rangeWalkTime: null,
           generationCounter: s.generationCounter + 1,
         }));
       },

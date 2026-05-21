@@ -218,6 +218,8 @@ export function useRangeSelection() {
       // ------------------------------------------------------------------
       // 5. Execute getIdRange.
       // ------------------------------------------------------------------
+      const rangeWalkStart = Date.now();
+      useSelectionStore.setState({ isRangeWalking: true, rangeWalkTime: null });
       let result;
       try {
         result = await selStore.dataSource.getIdRange(
@@ -227,6 +229,7 @@ export function useRangeSelection() {
           controller.signal,
         );
       } catch (e) {
+        useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: null });
         if (generation !== genRef.current) return;
         if (e instanceof Error && e.name === "AbortError") return;
         addToast({
@@ -253,6 +256,7 @@ export function useRangeSelection() {
             controller.signal,
           );
         } catch (e) {
+          useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: null });
           if (generation !== genRef.current) return;
           if (e instanceof Error && e.name === "AbortError") return;
           addToast({
@@ -263,6 +267,8 @@ export function useRangeSelection() {
         }
         if (generation !== genRef.current) return;
       }
+
+      useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: Date.now() - rangeWalkStart });
 
       // ------------------------------------------------------------------
       // 7. Commit.

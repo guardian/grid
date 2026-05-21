@@ -712,7 +712,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           {/* Image position in results */}
           {currentGlobalIndex >= 0 && (
             <span className="text-sm text-grid-text-muted">
-              {currentGlobalIndex + 1} of {total.toLocaleString()}
+              {(currentGlobalIndex + 1).toLocaleString()} of {total.toLocaleString()}
             </span>
           )}
         </header>
