@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 May 2026 — Dead-code audit: useToast hook + isOptions local (#20, #11)
+
+Executed findings #20 and #11 from `dead-code-and-over-abstraction-audit-findings.md`.
+
+**Finding #20 — `useToast.ts` deleted (whole file, ~90 LOC):**
+Investigated BBC PR #4253 notification system before deleting. Confirmed the hook was
+generic React ergonomics (wrapping `addToast` with `useCallback`), not BBC-bridge
+infrastructure. The real BBC vocabulary alignment (matching `category` and `lifespan`
+enums from `gr-notifications-banner`) lives in `toast-store.ts` types, which remain
+untouched. No caller ever imported the hook — both toast producers (`selection-store`,
+`useRangeSelection`) use the imperative `addToast` directly as intended.
+
+Finding #26 (`ToastLifespan` export) reclassified as export-keyword noise after #20
+landed — the type is still used internally by `ToastItem.lifespan` and documents the
+BBC contract for future Phase 3 bridging.
+
+**Finding #11 — dead `const isOptions = buildIsOptions()` removed (1 statement):**
+Leftover from a refactor that hoisted the computation to module-level `IS_OPTIONS`.
+The local call inside `buildTypeaheadFields()` was never cleaned up; the resolver at
+line 382 uses the module-level const. tsc TS6133 confirmed dead.
+
+**Tests:** 856 unit tests pass after both changes.
+
 ### 22 May 2026 — Dead-code audit pass 1c: carry-over TS6133 + ring-buffer cleanup
 
 Executed findings #1–5 and Appendix A item 1 (option B) from

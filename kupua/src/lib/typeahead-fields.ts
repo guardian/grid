@@ -204,8 +204,6 @@ export function buildTypeaheadFields(
     return dataSource.getAggregation(field, undefined, size);
   }
 
-  const isOptions = buildIsOptions();
-
   // Field aliases from config that have search hints.
   // displaySearchHint controls whether the key appears in key suggestions;
   // value suggestions are always available when the user types the key.
