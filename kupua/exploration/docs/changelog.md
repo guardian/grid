@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 May 2026 — Custom swipe-to-navigate in fullscreen (Chrome workaround)
+
+Bug: entering fullscreen via `FullscreenPreview` or `ImageDetail`, then
+two-finger swiping left on a trackpad either did nothing or triggered
+zoom-in instead of browser back navigation.
+
+Diagnosis: disabled ALL wheel event handlers in `usePinchZoom` and confirmed
+the gesture still didn't fire — proving Chrome blocks its native
+swipe-to-navigate when the Fullscreen API is active. Firefox uses OS-level
+gesture detection and is unaffected.
+
+Fix: added custom gesture detection in the `onWheel` handler of `usePinchZoom.ts`.
+Accumulates `deltaX` over a 300ms window, fires `history.back()` when
+`|cumX| > 200` and horizontal-dominant. Key details:
+- Negative `deltaX` = left swipe = back; positive = forward.
+- `deltaX !== 0` guard prevents pure vertical inertia from polluting state.
+- Swipe state resets in `applyTransform` when `isZoomed` transitions false,
+  so swiping works immediately after pinch-to-unzoom (no 300ms wait).
+- Only fires when `scale <= 1` and not Ctrl-held (preserving zoom behaviour).
+- Falls through to zoom for vertical-dominant wheel events.
+
+Deviation entry added (custom gesture replaces native browser behaviour).
+
 ### 21 May 2026 — Fix 413 on large selections + clear ghost chips on Home
 
 **Bug: large range selections fail silently (413 Request Entity Too Large)**

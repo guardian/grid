@@ -185,6 +185,13 @@ export function usePinchZoom({
     // Touch-vs-mouse disambiguation — suppress mouse handlers after touch
     let lastTouchTime = 0;
 
+    // Horizontal swipe → history navigation. Chrome disables its native
+    // back/forward gesture in Fullscreen API mode, so we detect it manually.
+    let swipeCumX = 0;
+    let swipeCumY = 0;
+    let swipeFired = false;
+    let swipeTimer = 0;
+
     function applyTransform(animate = false) {
       const wasZoomed = scaleRef.current > 1;
       if (animate) {
@@ -200,7 +207,13 @@ export function usePinchZoom({
       img.style.willChange = scale > 1 ? "transform" : "";
       scaleRef.current = scale;
       const isZoomed = scale > 1;
-      if (isZoomed !== wasZoomed) onScaleChangeRef.current?.(isZoomed);
+      if (isZoomed !== wasZoomed) {
+        onScaleChangeRef.current?.(isZoomed);
+        if (!isZoomed) {
+          swipeCumX = 0; swipeCumY = 0; swipeFired = false;
+          if (swipeTimer) { clearTimeout(swipeTimer); swipeTimer = 0; }
+        }
+      }
     }
 
     function resetZoom(animate = false) {
@@ -587,17 +600,27 @@ export function usePinchZoom({
     }
 
     function onWheel(e: WheelEvent) {
-      // On macOS trackpad, horizontal two-finger swipe fires wheel events
-      // with dominant deltaX. Let those through so browser back/forward
-      // gestures still work. Only capture vertical-dominant events (zoom)
-      // and pinch gestures (ctrlKey). When already zoomed in, capture
-      // everything — pan takes priority over navigation.
-      if (
-        scale <= 1 &&
-        !e.ctrlKey &&
-        Math.abs(e.deltaX) > Math.abs(e.deltaY) * 2
-      ) {
-        return;
+      // At scale ≤ 1 without ctrlKey: detect horizontal swipe for history
+      // navigation (Chrome blocks its native gesture in Fullscreen API mode)
+      // and only zoom on vertical-dominant events.
+      if (scale <= 1 && !e.ctrlKey) {
+        // Only track events with horizontal content — pure vertical inertia
+        // (from zoom-out momentum) must not pollute swipe state or reset timer.
+        if (e.deltaX !== 0) {
+          swipeCumX += e.deltaX;
+          swipeCumY += e.deltaY;
+          if (swipeTimer) clearTimeout(swipeTimer);
+          swipeTimer = window.setTimeout(() => {
+            swipeCumX = 0; swipeCumY = 0; swipeFired = false; swipeTimer = 0;
+          }, 300);
+        }
+        if (!swipeFired && Math.abs(swipeCumX) > 200 && Math.abs(swipeCumX) > Math.abs(swipeCumY) * 2) {
+          swipeFired = true;
+          if (swipeCumX < 0) history.back(); else history.forward();
+        }
+        // Horizontal-dominant: skip zoom, let gesture accumulate
+        if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+        // Vertical-dominant: fall through to zoom
       }
       e.preventDefault();
       const zoomSpeed = 0.002;

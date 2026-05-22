@@ -8,7 +8,7 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
 
 ---
 
@@ -1657,3 +1657,33 @@ Don't — the date-based path is both cheaper and more correct.
 
 Reference: `calculate-syndication-status.ts` (`isLeaseActive`), `validity-map.ts`,
 `ImageMetadata.tsx`, `07-syndication-and-leases.md` §3.2.1, §4.1.
+
+### Custom horizontal swipe gesture in fullscreen (Chrome workaround)
+
+**What:** `usePinchZoom` implements custom two-finger horizontal swipe detection
+that calls `history.back()` / `history.forward()` when in fullscreen and not
+zoomed in. This replaces the browser's native swipe-to-navigate gesture, which
+Chrome disables when the Fullscreen API is active.
+
+**Why:** Chrome completely blocks its native swipe-to-navigate gesture when a
+page uses `document.documentElement.requestFullscreen()`. The wheel events ARE
+delivered to the page — Chrome just refuses to interpret them as navigation.
+Diagnostic testing confirmed this: disabling ALL wheel handlers still didn't
+restore the gesture. Firefox is unaffected because it uses OS-level gesture
+detection that operates regardless of Fullscreen API state. There is no CSS or
+JS workaround to re-enable Chrome's native gesture in fullscreen mode.
+
+**Implementation:** Accumulates `deltaX` over a 300ms sliding window. Fires
+navigation when `|cumX| > 200px` and horizontal-dominant (`|cumX| > |cumY| × 2`).
+Swipe state resets on zoom transition (so swiping works immediately after
+pinch-to-unzoom) and ignores pure-vertical inertia events (`deltaX !== 0` guard).
+
+**Trade-off:** On Firefox, both the custom gesture AND the native OS gesture
+fire — this produces a harmless double `history.back()` that's absorbed because
+there's only one history entry to go back to (navigating back twice from the
+same page is a no-op). The custom gesture fires even if the user has disabled
+OS/browser swipe navigation in system preferences — this is arguably a feature
+(consistent behaviour regardless of OS settings) but may surprise users who
+deliberately disabled swipe navigation.
+
+Reference: `usePinchZoom.ts` (`onWheel` handler, swipe state variables).
