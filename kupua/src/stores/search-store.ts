@@ -1340,6 +1340,26 @@ async function _findAndFocusImage(
     if (combinedSignal.aborted) return;
     let offset: number;
     let offsetIsEstimate = false;
+
+    // Use the NEW total for path decisions when available. In the sort-around-
+    // focus path after a query/filter change, get().total still reflects the
+    // PREVIOUS search (total is set atomically with the buffer later). Using
+    // the stale total can route us into deep-seek mode (>65k) when the new
+    // result set is actually small (<65k) — causing the stale hint to be used
+    // as bufferOffset, which may exceed the new total → scroll clamps to end.
+    const effectiveTotal = fallbackFirstPage?.total ?? get().total;
+
+    // Guard: a stale hint that exceeds the effective total causes scroll-clamp
+    // to end of results (bufferOffset > total). This happens when the query
+    // narrows results drastically (new total < old hint position). Invalidate
+    // such hints — offset=0 with async correction is far less disruptive than
+    // the catastrophic end-of-results clamp.
+    // Valid hints (from snapshot restore where hint < total, or sort-only where
+    // total is unchanged) pass through safely.
+    const effectiveHint = (hintOffset != null && hintOffset < effectiveTotal)
+      ? hintOffset
+      : null;
+
     const posMap = get().positionMap;
     if (posMap) {
       const idx = posMap.ids.indexOf(imageId);
@@ -1364,8 +1384,8 @@ async function _findAndFocusImage(
       }
     } else if (
       POSITION_MAP_THRESHOLD > 0 &&
-      get().total > SCROLL_MODE_THRESHOLD &&
-      get().total <= POSITION_MAP_THRESHOLD
+      effectiveTotal > SCROLL_MODE_THRESHOLD &&
+      effectiveTotal <= POSITION_MAP_THRESHOLD
     ) {
       // Two-tier range but positionMap is temporarily null — the new map is
       // still fetching in the background (search() nullifies the old sort's
@@ -1386,10 +1406,13 @@ async function _findAndFocusImage(
       // No position map → >65k results (deep-seek mode). countBefore would
       // take 2-5s. Use hintOffset if available (e.g. saved from when the user
       // focused the image), otherwise 0 as placeholder. Correct asynchronously.
-      offset = hintOffset ?? 0;
+      // NOTE: effectiveHint is null when fallbackFirstPage is provided (query
+      // changed) — stale hints from a different query are dangerous even in
+      // deep-seek mode (they may exceed the new total).
+      offset = effectiveHint ?? 0;
       offsetIsEstimate = true;
       devLog(
-        `[sort-around-focus] no position map, using ${hintOffset != null ? `hint offset=${offset}` : "estimated offset=0"} (will correct async)`,
+        `[sort-around-focus] no position map, using ${effectiveHint != null ? `hint offset=${offset}` : "estimated offset=0"} (will correct async)`,
       );
     }
 

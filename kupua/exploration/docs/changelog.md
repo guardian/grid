@@ -14,6 +14,40 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 May 2026 — Fix: metadata click from deep position jumps to end of results
+
+**Bug:** User seeks to a deep position (e.g. offset 100k in 9M results), focuses an
+image, then clicks a metadata value to restrict the search. The filtered results might
+contain only 3k images, but the focused image is thrown to the end of results instead
+of remaining centred.
+
+**Root cause (two compounding issues in `_findAndFocusImage`):**
+
+1. **Stale total for path decision.** The sort-around-focus path intentionally delays
+   updating `total` in the store (to prevent virtualiser mismatch). But the
+   offset-finding algorithm uses `get().total` (the OLD total, e.g. 9M) to decide
+   whether to call `countBefore` (fast, ≤65k) or use a hint offset (deep-seek mode,
+   >65k). With a stale total of 9M, it always enters deep-seek — even when the new
+   filtered results are only 3k.
+
+2. **Stale hint exceeds new total.** In deep-seek mode, the code uses
+   `_focusedImageKnownOffset` (the image's position in the PREVIOUS search) as a
+   buffer-placement hint. When the old offset (100k) exceeds the new total (3k),
+   `_loadBufferAroundImage` sets `bufferOffset ≈ 100k` while `total = 3k`. The
+   virtualiser clamps scroll to max → user lands at end of results.
+
+**Fix (two guards):**
+- `effectiveTotal = fallbackFirstPage?.total ?? get().total` — uses the NEW total
+  (available via `fallbackFirstPage`) for the branch decision. Filters that reduce
+  results below 65k now correctly route to `countBefore`.
+- `effectiveHint = (hintOffset < effectiveTotal) ? hintOffset : null` — if the hint
+  exceeds the new total (catastrophic), discard it. Valid hints (popstate snapshots
+  where offset < total, sort-only changes where total is unchanged) pass through.
+
+**Why intermittent:** only triggers when (a) old offset > new total, AND (b) new total
+still > SCROLL_MODE_THRESHOLD so the image isn't in the first page. Common with
+metadata clicks that narrow from millions to thousands-to-tens-of-thousands.
+
 ### 22 May 2026 — Dead-code audit: useToast hook + isOptions local (#20, #11)
 
 Executed findings #20 and #11 from `dead-code-and-over-abstraction-audit-findings.md`.
