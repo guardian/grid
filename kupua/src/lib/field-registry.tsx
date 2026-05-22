@@ -135,6 +135,14 @@ export interface FieldDefinition {
    */
   formatter?: (value: string) => string;
 
+  /**
+   * When true, the formatter is for display only — the raw bucket key
+   * (not the formatted label) is used as the CQL search value in facet
+   * clicks. Needed for keyword fields where the display label differs
+   * from the stored ES value (e.g. category: "handout" → "Handout").
+   */
+  formatterIsDisplayOnly?: boolean;
+
   // -- Detail panel ---------------------------------------------------------
 
   /**
@@ -311,6 +319,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     group: "rights",
     accessor: (img) => img.usageRights?.category,
     formatter: categoryLabel,
+    formatterIsDisplayOnly: true,
     cqlKey: "category",
     esSearchPath: "usageRights.category",
     sortKey: "category",

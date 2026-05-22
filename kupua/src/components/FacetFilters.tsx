@@ -19,6 +19,7 @@ import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
 import { findFieldTerm, upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
+import { trace } from "@/lib/perceived-trace";
 import { formatCount } from "@/lib/format-count";
 import { gridConfig } from "@/lib/grid-config";
 import { findScrollParent } from "@/lib/dom-utils";
@@ -168,6 +169,10 @@ export function FacetFilters() {
   // Render
   // ------------------------------------------------------------------
 
+  const hasFacetBuckets = FACET_FIELDS.some(
+    (f) => (aggregations?.fields[f.esSearchPath as string]?.buckets?.length ?? 0) > 0,
+  );
+
   return (
     <div ref={containerRef} className="py-1">
       {/* "Is" section — all valid is: values, with ticker counts where available.
@@ -204,6 +209,11 @@ export function FacetFilters() {
           onFacetClick={handleFacetClick}
         />
       ))}
+      {total === 0 && !hasFacetBuckets && (
+        <div className="px-3 py-4 text-xs text-grid-text-dim text-center">
+          No results to filter
+        </div>
+      )}
     </div>
   );
 }
@@ -273,8 +283,11 @@ function FacetSection({
           // fileType:jpeg is what CQL expects (translateMimeType handles
           // short names → full MIME). Using the raw ES value would produce
           // fileType:image/jpeg which CQL can't translate.
+          // Exception: formatterIsDisplayOnly fields (category) use the raw
+          // bucket key for CQL because the label differs from the ES keyword.
           const displayValue = field.formatter ? field.formatter(bucket.key) : bucket.key;
-          const existing = findFieldTerm(currentQuery, cqlKey, displayValue);
+          const cqlValue = field.formatterIsDisplayOnly ? bucket.key : displayValue;
+          const existing = findFieldTerm(currentQuery, cqlKey, cqlValue);
           const isActive = !!existing && !existing.negated;
           const isExcluded = !!existing && existing.negated;
 
@@ -290,7 +303,7 @@ function FacetSection({
                     ? "bg-red-500/15 text-red-400 line-through"
                     : "text-grid-text hover:bg-grid-hover/30"
               }`}
-              onClick={(e) => onFacetClick(field.esSearchPath as string, cqlKey, displayValue, bucket.key, e)}
+              onClick={(e) => onFacetClick(field.esSearchPath as string, cqlKey, cqlValue, bucket.key, e)}
               title={`${displayValue} (${bucket.count.toLocaleString()})${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
             >
               <span className="truncate min-w-0">{displayValue}</span>
@@ -369,6 +382,20 @@ function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, o
     }
     return undefined;
   };
+
+  // Pre-compute visible items to decide whether to render the section at all.
+  const visibleItems = isOptions.filter((value) => {
+    const existing = findFieldTerm(currentQuery, "is", value);
+    const isActive = !!existing && !existing.negated;
+    const isExcluded = !!existing && existing.negated;
+    const tickerDef = IS_VALUE_TO_TICKER.get(value);
+    const count = tickerDef && tickerCounts
+      ? tickerCounts[tickerDef.name]?.value
+      : derivedIsCount(value);
+    return !(count === 0 && !isActive && !isExcluded);
+  });
+
+  if (visibleItems.length === 0) return null;
 
   return (
     <div className="pb-2">

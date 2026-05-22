@@ -29,6 +29,7 @@ import {
   parseCql,
 } from "@/dal/adapters/elasticsearch/cql";
 import type { TickerCountResult } from "@/dal";
+import { categoryLabel } from "./category-labels";
 
 // ---------------------------------------------------------------------------
 // Types matching @guardian/cql's TypeaheadField expectations
@@ -36,6 +37,8 @@ import type { TickerCountResult } from "@/dal";
 
 export interface TypeaheadSuggestion {
   value: string;
+  /** Display label shown in the dropdown. When omitted, `value` is shown. */
+  label?: string;
   count?: number;
 }
 
@@ -239,10 +242,10 @@ export function buildTypeaheadFields(
         const query = getParams?.()?.query;
         if (!queryContainsField("category", query)) {
           const cached = storeBuckets("category", getAggregations);
-          if (cached) return bucketFilter(value, cached);
+          if (cached) return bucketFilter(value, cached).map((s) => ({ ...s, label: categoryLabel(s.value) }));
         }
         const { buckets } = await scopedAgg("usageRights.category", 50, "category");
-        return bucketFilter(value, buckets);
+        return bucketFilter(value, buckets).map((s) => ({ ...s, label: categoryLabel(s.value) }));
       },
     },
     {

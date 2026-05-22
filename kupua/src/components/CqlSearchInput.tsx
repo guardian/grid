@@ -174,7 +174,7 @@ export function CqlSearchInput({
             return suggestions.map((s) =>
               typeof s === "string"
                 ? { label: undefined as undefined, value: s }
-                : { label: undefined as undefined, value: s.value, count: s.count }
+                : { label: s.label ?? undefined, value: s.value, count: s.count }
             );
           }
         : undefined;

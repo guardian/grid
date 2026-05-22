@@ -14,6 +14,47 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 May 2026 — Fix: facet panel bugs (trace import, category 0 results, lonely header, typeahead labels)
+
+Four related fixes to the facet/filter panel, discovered during manual testing:
+
+**1. Facet click silent failure (missing `trace` import):**
+Commit 36ff114d0 (Tickers feature) accidentally removed the `import { trace }` line
+from `FacetFilters.tsx`. Every facet click threw a ReferenceError silently — the
+`handleFacetClick` function calls `trace("facet-click")` which was now undefined.
+Fix: re-added the import.
+
+**2. Category facet click returns 0 results (case mismatch):**
+The Category field has a `formatter: categoryLabel` that maps raw ES keys like
+`"handout"` → `"Handout"`, `"staff-photographer"` → `"Photographer – staff"`. When a
+user clicked a category facet, the code used the *formatted display value* in the CQL
+query (e.g. `category:Handout`). But ES stores these as keyword fields — no analyzer,
+case-sensitive match — so `category:Handout` returns 0 results while `category:handout`
+works.
+
+Fix: Added `formatterIsDisplayOnly?: boolean` to `FieldDefinition` interface. When true,
+`FacetSection` uses the raw `bucket.key` (not the formatted label) as the CQL value
+passed to `handleFacetClick`. Set `formatterIsDisplayOnly: true` on the Category field.
+
+**3. Lonely "Is" section header on 0 results:**
+When a search returns 0 results, all `IsSection` items are hidden (they have no
+meaningful facet data). But the section still rendered its "Is" header with an empty
+body. Fix: `IsSection` pre-computes `visibleItems` and returns `null` when empty.
+Also added a `"No results to filter"` empty state when `total === 0` and no facet
+buckets exist.
+
+**4. Category labels in typeahead dropdown:**
+When typing `category:` in the CQL input, the typeahead dropdown showed raw ES keys
+(`staff-photographer`, `handout`). Now it shows formatted labels (`Photographer – staff`,
+`Handout`) as the primary text, with the raw key shown as subtitle. Upon selection, the
+raw key is inserted into CQL (correct for ES matching).
+
+Implementation: Added optional `label?: string` to `TypeaheadSuggestion` interface.
+Category resolver in `typeahead-fields.ts` now maps suggestions through `categoryLabel()`.
+`CqlSearchInput.tsx` passes `s.label` through to the `@guardian/cql` library's
+`TextSuggestionOption`, which renders label as primary display and value as subtitle
+(library built-in behaviour, no opt-out available).
+
 ### 22 May 2026 — Fix: metadata click from deep position jumps to end of results
 
 **Bug:** User seeks to a deep position (e.g. offset 100k in 9M results), focuses an
