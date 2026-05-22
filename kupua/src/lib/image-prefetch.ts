@@ -140,18 +140,6 @@ function tunable(key: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Read a prefetch tuning constant with localStorage override. */
-function getTunable(key: string): number {
-  switch (key) {
-    case "fastCadenceMs":    return tunable(key, PREFETCH_FAST_CADENCE_MS);
-    case "burstEndMs":       return tunable(key, PREFETCH_BURST_END_MS);
-    case "sessionTimeoutMs": return tunable(key, PREFETCH_SESSION_TIMEOUT_MS);
-    case "farLookahead":     return tunable(key, PREFETCH_FAR_LOOKAHEAD);
-    case "fullRadiusAhead":  return tunable(key, PREFETCH_FULL_RADIUS_AHEAD);
-    case "fullRadiusBehind": return tunable(key, PREFETCH_FULL_RADIUS_BEHIND);
-    default:                 return NaN;
-  }
-}
 
 /**
  * Compute exponentially-smoothed cadence (ms between navigations).
@@ -190,32 +178,12 @@ interface TraversalSession {
 let _currentSession: TraversalSession | null = null;
 
 // ── Dev-only instrumentation ────────────────────────────────────
-// Ring buffer of recent prefetch events for debugging. Only populated
-// in dev mode (import.meta.env.DEV).
 
-interface PrefetchLogEntry {
-  ts: number;
-  tag: string;
-  payload: unknown;
-}
-
-const PREFETCH_LOG_CAP = 200;
-const _prefetchLog: PrefetchLogEntry[] = [];
-
-/** Append to the dev-only prefetch log ring buffer. No-op in prod. */
+/** Dev-only console logger for prefetch events. No-op in prod. */
 function prefetchLog(tag: string, payload?: unknown): void {
   if (!import.meta.env.DEV) return;
-  _prefetchLog.push({ ts: performance.now(), tag, payload });
-  if (_prefetchLog.length > PREFETCH_LOG_CAP) {
-    _prefetchLog.splice(0, _prefetchLog.length - PREFETCH_LOG_CAP);
-  }
   // eslint-disable-next-line no-console
   console.debug(`[prefetch] ${tag}`, payload ?? "");
-}
-
-/** Read the dev-only prefetch log (last 200 entries). */
-function getPrefetchLog(): readonly PrefetchLogEntry[] {
-  return _prefetchLog;
 }
 
 /** Observable stats for the prefetch pipeline — used by tests and
@@ -247,7 +215,6 @@ export function __resetPrefetchForTests(): void {
   _currentSession = null;
   _loadedFullRes.clear();
   _listeners.clear();
-  _prefetchLog.length = 0;
 }
 
 /** Resolve the prefetch URL for an image (screen-sized, with native cap). */

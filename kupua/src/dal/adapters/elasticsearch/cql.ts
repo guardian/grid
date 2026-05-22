@@ -499,12 +499,4 @@ export function parseCql(queryStr: string): CqlParseResult {
   return { must, mustNot };
 }
 
-/**
- * Render a CQL query string from the parser (for round-trip display).
- * Uses the @guardian/cql parser's own queryStr output.
- */
-function normalizeCql(queryStr: string): string {
-  const result = parser(queryStr);
-  return result.queryStr ?? queryStr;
-}
 

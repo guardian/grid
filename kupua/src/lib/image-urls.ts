@@ -278,7 +278,5 @@ export function getZoomImageUrl(image: Image): string | undefined {
   });
 }
 
-/** Whether full-size image viewing is available (imgproxy running). */
-const fullImagesEnabled = IMGPROXY_ENABLED && !!IMAGE_BUCKET;
 
 

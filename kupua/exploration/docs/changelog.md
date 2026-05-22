@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 22 May 2026 — Dead-code audit pass 1c: carry-over TS6133 + ring-buffer cleanup
+
+Executed findings #1–5 and Appendix A item 1 (option B) from
+`dead-code-and-over-abstraction-audit-findings.md`. One commit, full test suite run after.
+
+**Deleted:**
+- `normalizeCql` function — `cql.ts` (finding #1, ~15 LOC)
+- `getTunable` function — `image-prefetch.ts` (finding #2, ~10 LOC)
+- `unregisterShortcut` function — `keyboard-shortcuts.ts` (finding #3, ~10 LOC)
+- `getPrefetchLog` function — `image-prefetch.ts` (finding #4, ~7 LOC)
+- `fullImagesEnabled` const — `image-urls.ts` (finding #5, ~5 LOC)
+
+**Appendix A item 1 — option B (ring-buffer stripped, `console.debug` kept):**
+Deleted from `image-prefetch.ts`: `PrefetchLogEntry` interface, `PREFETCH_LOG_CAP`
+const, `_prefetchLog` array, ring-buffer push/trim code inside `prefetchLog`, and
+`_prefetchLog.length = 0` reset in `__resetPrefetchForTests`. `prefetchLog` kept as a
+pure `console.debug` wrapper — dev-mode debug output preserved. ~20 additional LOC
+reclaimed. User chose option B over full deletion to preserve the 6 `console.debug`
+call sites scattered through the session/burst/cancel paths.
+
+**Tests:** 856 unit tests + 239 e2e tests, all pass.
+
 ### 22 May 2026 — Custom swipe-to-navigate in fullscreen (Chrome workaround)
 
 Bug: entering fullscreen via `FullscreenPreview` or `ImageDetail`, then

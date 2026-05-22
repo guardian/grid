@@ -63,18 +63,6 @@ export function registerShortcut(shortcut: Shortcut): () => void {
   };
 }
 
-/**
- * Unregister a shortcut by reference. Prefer the returned function from
- * `registerShortcut()` — this is a convenience for imperative cleanup.
- */
-function unregisterShortcut(shortcut: Shortcut): void {
-  const stack = registry.get(shortcut.key);
-  if (!stack) return;
-  const idx = stack.indexOf(shortcut);
-  if (idx >= 0) stack.splice(idx, 1);
-  if (stack.length === 0) registry.delete(shortcut.key);
-}
-
 // ---------------------------------------------------------------------------
 // Editable field detection
 // ---------------------------------------------------------------------------
