@@ -14,6 +14,74 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 May 2026 — Perf: stable findImageIndex — stop sort-around-focus useLayoutEffect re-firing on every extend (audit F-05 C5, G-01)
+
+**Background:**
+
+`findImageIndex` is the hook exported from `useDataWindow` that maps an image ID to its
+virtualizer index (buffer-local in normal mode, global in two-tier mode). It's used by
+`useScrollEffects` for the sort-around-focus scroll effect, by `ImageGrid` for click-to-focus,
+and by `ImageDetail` for forward/back traversal.
+
+**The problem — two related bugs from the same root:**
+
+*F-05 (C5):* `findImageIndex` was a `useCallback` with deps
+`[imagePositions, bufferOffset, results.length, twoTier]`. All four of those change on
+every `extendForward`, `extendBackward`, `seek`, and `search` — meaning `findImageIndex`
+got a new function reference on every such action. `imagePositions` was subscribed
+reactively via `useSearchStore((s) => s.imagePositions)`, adding an unnecessary
+subscription to the hook.
+
+*G-01:* `useScrollEffects` has a sort-around-focus `useLayoutEffect` with deps
+`[sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]`. Because
+`findImageIndex` changed on every extend, this effect re-fired on every extend in the
+synchronous React commit phase. It hit the early `if (sortAroundFocusGeneration === 0)
+return` guard and did no real work — but the commit-phase invocation itself is real cost
+and contributes to LoAF (Long Animation Frame). The intent is for this effect to fire
+only when `sortAroundFocusGeneration` actually increments (i.e. when a sort-around-focus
+operation was initiated).
+
+**Why `search.tsx:262` was left untouched:**
+
+The audit's reviewer note flagged `search.tsx:262` as needing a "5-minute check" before
+applying the fix there. That check confirmed: `imagePositions` in `FocusedImageMetadata`
+is used in the render body itself (inside an IIFE that derives the `image` object from
+`imagePositions.get(resolvedId)`). That is a legitimate reactive subscription — the
+metadata panel must re-render when the focused image's global position changes after a
+buffer extend. Converting it to `getState()` would silently cause stale metadata.
+Left completely untouched.
+
+**The fix — `useDataWindow.ts`:**
+
+- Removed `const imagePositions = useSearchStore((s) => s.imagePositions)` (the reactive
+  subscription that was unnecessary since `imagePositions` was only ever read inside the
+  `findImageIndex` callback, never in the render body or JSX).
+- Inside `findImageIndex`, replaced all four closed-over store values with imperative reads:
+  - `imagePositions` → `useSearchStore.getState().imagePositions`
+  - `bufferOffset` → `bufferOffsetRef.current` (the ref was already maintained in the hook
+    for `reportVisibleRange`; reused here rather than adding a new one)
+  - `results.length` → `resultsLenRef.current` (same — already existed)
+  - `twoTier` → `twoTierRef.current` (same — already existed)
+- Changed deps from `[imagePositions, bufferOffset, results.length, twoTier]` to `[]`.
+
+`findImageIndex` is now a stable function reference for the lifetime of the component.
+The sort-around-focus `useLayoutEffect` in `useScrollEffects` no longer fires on every
+extend — only when `sortAroundFocusGeneration` increments.
+
+**A note on re-render count:**
+
+`imagePositions` always changes in the same Zustand `set()` call as `results` and
+`bufferOffset` — the two fields `useDataWindow` already subscribed to for data access.
+So the reactive subscription to `imagePositions` was not causing extra re-render calls
+(React batches multiple selector changes from one state update into one commit). The
+primary, concrete win here is G-01: eliminating the commit-phase `useLayoutEffect`
+invocations on every extend. The secondary win is removing a subscription that could
+theoretically cause extra renders if `imagePositions` ever changed in isolation.
+
+**Tests:** 856 unit tests, all passing.
+
+---
+
 ### 23 May 2026 — Perf: two-tier new-images poll rate + AbortSignal for collection load (audit F-04, App. A #2)
 
 **F-04 — Two-tier poll rate (10s visible / 30s hidden):**

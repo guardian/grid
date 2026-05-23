@@ -307,7 +307,10 @@ export function useDataWindow(): DataWindow {
   const loadMore = useSearchStore((s) => s.loadMore);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
   const setFocusedImageId = useSearchStore((s) => s.setFocusedImageId);
-  const imagePositions = useSearchStore((s) => s.imagePositions);
+  // imagePositions is NOT subscribed reactively here — findImageIndex reads
+  // it imperatively via getState() so that findImageIndex stays stable ([] deps).
+  // A stable findImageIndex prevents the sort-around-focus useLayoutEffect in
+  // useScrollEffects from re-firing on every extend (audit F-05 C5, G-01).
 
   // ---------------------------------------------------------------------------
   // Two-tier virtualisation
@@ -480,18 +483,21 @@ export function useDataWindow(): DataWindow {
    */
   const findImageIndex = useCallback(
     (imageId: string): number => {
-      const globalIdx = imagePositions.get(imageId);
+      // Read all store values imperatively — keeps this callback stable ([] deps)
+      // so the sort-around-focus useLayoutEffect doesn't re-fire on every extend.
+      const globalIdx = useSearchStore.getState().imagePositions.get(imageId);
       if (globalIdx == null) return -1;
-      if (twoTier) {
+      if (twoTierRef.current) {
         // Two-tier: return global index directly (the virtualizer uses global)
         return globalIdx;
       }
       // Normal: return buffer-local index
-      const localIdx = globalIdx - bufferOffset;
-      if (localIdx < 0 || localIdx >= results.length) return -1;
+      const localIdx = globalIdx - bufferOffsetRef.current;
+      if (localIdx < 0 || localIdx >= resultsLenRef.current) return -1;
       return localIdx;
     },
-    [imagePositions, bufferOffset, results.length, twoTier],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
   // Re-run anchor update when buffer changes (e.g. after seek in two-tier

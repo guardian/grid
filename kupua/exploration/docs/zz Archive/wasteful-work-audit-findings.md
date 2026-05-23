@@ -55,7 +55,7 @@ Frequency: **F-Always** = every session/action, **F-Common** = most search sessi
 
 ---
 
-### F-01 — `track_total_hits: true` hardcoded in every `searchAfter` call
+### ✅ F-01 — `track_total_hits: true` hardcoded in every `searchAfter` call
 
 | Field | Value |
 |---|---|
@@ -85,7 +85,7 @@ On TEST with ~65k images, the count scan overhead is modest. On PROD with 9M ima
 
 ---
 
-### F-02 — `buildFreeFilter(guardianConfig)` rebuilds static ES filter object on every `buildQuery` invocation
+### ✅ F-02 — `buildFreeFilter(guardianConfig)` rebuilds static ES filter object on every `buildQuery` invocation
 
 | Field | Value |
 |---|---|
@@ -114,7 +114,7 @@ Reference `FREE_FILTER` in `buildQuery` instead of calling `buildFreeFilter(...)
 
 ---
 
-### F-03 — `buildTickerAggs()` calls `parseCql(def.searchClause)` on every search and every 10s poll tick
+### ✅ F-03 — `buildTickerAggs()` calls `parseCql(def.searchClause)` on every search and every 10s poll tick
 
 | Field | Value |
 |---|---|
@@ -141,7 +141,7 @@ Replace calls to `buildTickerAggs()` with `TICKER_AGGS`. Function body can remai
 
 ---
 
-### F-04 — New-images poll fires unconditionally — no `document.visibilityState` guard
+### ✅ F-04 — New-images poll fires unconditionally — no `document.visibilityState` guard
 
 | Field | Value |
 |---|---|
@@ -185,7 +185,7 @@ Simplest version: add `if (document.visibilityState === "hidden") return;` at th
 
 ---
 
-### F-05 — `imagePositions` Map rebuilt by full O(n) copy on every extend/seek, triggering re-renders in `useDataWindow` and search route
+### ✅ F-05 (C5 only) — `imagePositions` Map rebuilt by full O(n) copy on every extend/seek, triggering re-renders in `useDataWindow` and search route
 
 | Field | Value |
 |---|---|
@@ -411,15 +411,15 @@ Original "first three fixes" replaced with a do / verify / skip ranking. Reasoni
 
 | # | Finding | Why first | Effort | Suggested commit |
 |---|---|---|---|---|
-| 1 | **F-01** — `trackTotalHits` param on `searchAfter`, default `false` | The headline finding; 9M-doc count scan on every extend/seek/fill. Default-false means only one call site changes (initial `search()` page passes `true`). | ~10 min | `perf: stop tracking total hits on every searchAfter (audit F-01)` |
-| 2 | **F-02 + F-03** — hoist `buildFreeFilter` and `buildTickerAggs` to module scope | Both take static immutable JSON config and produce static output; both are rebuilt on every ES request / poll tick. Pure mechanical refactor. | ~10 min | `refactor: hoist static ES request fragments to module scope (audit F-02, F-03)` |
-| 3 | **F-04 + App. A #2** — visibility guard on new-images poll + AbortSignal on collection load | F-04: cuts pointless cluster load from hidden tabs (5-tab user = 30 req/min the cluster doesn't need to answer). App. A #2: panel open/close during a 6000-bucket agg currently can't cancel. Both small, both visible to other Guardian editors via cluster load. Use the simple `if (document.visibilityState === "hidden") return` at the top of `tick` — skip the addEventListener variant (lifecycle bugs, no extra value). | ~15 min | `perf: avoid wasted work in hidden tabs and uncancelable collection load (audit F-04, App. A #2)` |
+| ✅ 1 | **F-01** — `trackTotalHits` param on `searchAfter`, default `false` | The headline finding; 9M-doc count scan on every extend/seek/fill. Default-false means only one call site changes (initial `search()` page passes `true`). | ~10 min | `perf: stop tracking total hits on every searchAfter (audit F-01)` |
+| ✅ 2 | **F-02 + F-03** — hoist `buildFreeFilter` and `buildTickerAggs` to module scope | Both take static immutable JSON config and produce static output; both are rebuilt on every ES request / poll tick. Pure mechanical refactor. | ~10 min | `refactor: hoist static ES request fragments to module scope (audit F-02, F-03)` |
+| ✅ 3 | **F-04 + App. A #2** — visibility guard on new-images poll + AbortSignal on collection load | F-04: cuts pointless cluster load from hidden tabs (5-tab user = 30 req/min the cluster doesn't need to answer). App. A #2: panel open/close during a 6000-bucket agg currently can't cancel. Both small, both visible to other Guardian editors via cluster load. Use the simple `if (document.visibilityState === "hidden") return` at the top of `tick` — skip the addEventListener variant (lifecycle bugs, no extra value). | ~15 min | `perf: avoid wasted work in hidden tabs and uncancelable collection load (audit F-04, App. A #2)` |
 
 ### Do after a 5-minute verification
 
 | # | Finding | Verification |
 |---|---|---|
-| 4 | **F-05 (C5 part only) + G-01** — convert `imagePositions` reactive subscriptions to `getState()` | `useDataWindow.ts` is already verified safe by Section 6.3 (auditor read all 543 lines; `imagePositions` only used inside `findImageIndex`). `search.tsx:262` still needs the 5-minute grep before applying there: confirm every `imagePositions` reference is inside a `useCallback`/event handler/imperative block. **Same code change closes G-01 for free** — making `findImageIndex` stable (via `getState()` reads) stops the sort-around-focus `useLayoutEffect` from re-firing on every extend. One commit, both findings. |
+| ✅ 4 | **F-05 (C5 part only) + G-01** — convert `imagePositions` reactive subscriptions to `getState()` | `useDataWindow.ts` is already verified safe by Section 6.3 (auditor read all 543 lines; `imagePositions` only used inside `findImageIndex`). `search.tsx:262` still needs the 5-minute grep before applying there: confirm every `imagePositions` reference is inside a `useCallback`/event handler/imperative block. **Same code change closes G-01 for free** — making `findImageIndex` stable (via `getState()` reads) stops the sort-around-focus `useLayoutEffect` from re-firing on every extend. One commit, both findings. |
 
 ### Investigate before deciding
 
@@ -461,7 +461,7 @@ Frequency: **F-Always** = every session/action, **F-Common** = most search sessi
 
 | # | Title | File:line(s) | Category | Severity | Frequency | What's done today | What's actually needed | Quantified waste | Confidence | Fix shape |
 |---|---|---|---|---|---|---|---|---|---|---|
-| G-01 | `findImageIndex` instability fires sort-around-focus `useLayoutEffect` on every extend | `useDataWindow.ts:449–458` (deps), `useScrollEffects.ts:851` (effect) | C5 excess re-renders | **W3** | **F-Always** (every extend/seek) | `findImageIndex` is a `useCallback` with `[imagePositions, bufferOffset, results.length, twoTier]` deps; all four change on extends, so it gets a new reference every extend; `useScrollEffects` has `findImageIndex` in the sort-around-focus `useLayoutEffect` deps | `findImageIndex` should be stable; sort-around-focus effect should only fire when `sortAroundFocusGeneration` changes | ~10–20 spurious synchronous `useLayoutEffect` runs per scroll session (each returns immediately via `if (sortAroundFocusGeneration === 0) return`; the real cost is one `useLayoutEffect` in the React commit phase per extend) | High | Read `imagePositions`, `bufferOffset`, `results`, `twoTier` imperatively via `getState()` inside `findImageIndex`, use `[]` deps (same as F-05 C5 fix sketch) |
+| ✅ G-01 | `findImageIndex` instability fires sort-around-focus `useLayoutEffect` on every extend | `useDataWindow.ts:449–458` (deps), `useScrollEffects.ts:851` (effect) | C5 excess re-renders | **W3** | **F-Always** (every extend/seek) | `findImageIndex` is a `useCallback` with `[imagePositions, bufferOffset, results.length, twoTier]` deps; all four change on extends, so it gets a new reference every extend; `useScrollEffects` has `findImageIndex` in the sort-around-focus `useLayoutEffect` deps | `findImageIndex` should be stable; sort-around-focus effect should only fire when `sortAroundFocusGeneration` changes | ~10–20 spurious synchronous `useLayoutEffect` runs per scroll session (each returns immediately via `if (sortAroundFocusGeneration === 0) return`; the real cost is one `useLayoutEffect` in the React commit phase per extend) | High | Read `imagePositions`, `bufferOffset`, `results`, `twoTier` imperatively via `getState()` inside `findImageIndex`, use `[]` deps (same as F-05 C5 fix sketch) |
 | G-02 | `IsSection` re-derives `findFieldTerm` + count for every is: option twice per render | `FacetFilters.tsx:365–391` (filter pass), `FacetFilters.tsx:395–450` (render pass) | C4 redundant recomputation | **W3** | **F-Common** (every 10s ticker-poll re-render; every new search) | `visibleItems` filter pre-computes `findFieldTerm(currentQuery, "is", value)`, `isActive`, `isExcluded`, `tickerDef`, `count` for each option to decide "render section at all"; the render `.map()` over `isOptions` then recomputes all the same values per option before conditionally returning null | Compute each option's derived values once; use them in both the visibility check and the render | 2× `findFieldTerm` + 2× count-derivation per option per render; 7 options → 14 calls instead of 7; fires ~6 times/min when poll ticks with filters open | High | Make `visibleItems` carry `{value, existing, isActive, isExcluded, count, tickerDef}` objects; render uses them directly |
 | G-03 | Scrubber tooltip timer (`tooltipTimerRef`) not cleared on component unmount | `Scrubber.tsx:329–340` (isDragging effect), `Scrubber.tsx:313–319` (flashTooltip) | C7 listener/observer leak | **W3** | **F-Edge** (unmount while 1.5s linger timer is running — navigating away after a scrubber drag) | `isDragging` `useEffect` sets `tooltipTimerRef.current = setTimeout(…, 1500)` but returns no cleanup; `flashTooltip` similarly sets the timer with no unmount-time cancel path | Clear the timer on unmount | 1 stale `setState` call per affected unmount; React 18 ignores it silently, so user impact is nil — but the timer closure and its React `setState` binding are retained until 1.5s after unmount | High | Add `return () => { if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current); }` to the `isDragging` `useEffect` |
 | G-04 | `buildIsOptions()` called on every `IsSection` render despite module-level `IS_OPTIONS` constant existing in the same source file | `FacetFilters.tsx:365`, `src/lib/typeahead-fields.ts:83` | C4 redundant recomputation | **W3** | **F-Common** (every `FacetFilters` re-render with filters panel open) | `IsSection` calls `buildIsOptions()` in its render body each time; `typeahead-fields.ts` already computes `const IS_OPTIONS = buildIsOptions()` at module scope (line 83) but does not export it | Use the already-computed constant | 1 new array + 5–7 string allocations per render instead of 0; trivial per-call but strictly unnecessary | High | Export `IS_OPTIONS` from `typeahead-fields.ts`; import and use it in `FacetFilters.tsx` instead of calling `buildIsOptions()` per render |
@@ -483,7 +483,7 @@ Frequency: **F-Always** = every session/action, **F-Common** = most search sessi
 (≤30 items, one line each. No refactor proposals. No claim of bugs unless explicitly stated.)
 
 1. `getById` in `es-adapter.ts:771` uses `_search` with `terms:{id:[id]}, size:1` — a direct `_doc` GET would avoid query processing overhead (no call sites found in app code; may be dead).
-2. `getAggregations` in `collection-store.ts` uses no AbortSignal — a rapid panel open/close during loading cannot cancel the in-flight 6000-bucket agg.
+2. ✅ `getAggregations` in `collection-store.ts` uses no AbortSignal — a rapid panel open/close during loading cannot cancel the in-flight 6000-bucket agg.
 3. `_doSearch` (es-adapter.ts line ~688): `track_total_hits: true` is CORRECT here — needed for the initial total count. Not a finding.
 4. `countWithTickers` (es-adapter.ts): `track_total_hits: true` is CORRECT here — the ticker needs an exact count. Not a finding.
 5. `getAggregation` (es-adapter.ts:807) uses `match_all: {}` when `query` arg is `undefined`. In app usage, `getParams` is always wired in `buildTypeaheadFields`, so `scopedAgg` always provides params. This path is unreachable in normal operation.
