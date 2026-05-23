@@ -115,6 +115,9 @@ export function buildSubtreeCounts(
 
 const dataSource = new ElasticsearchDataSource();
 
+/** AbortController for the in-flight getAggregations call in loadCollections. */
+let _collectionsAbortController: AbortController | null = null;
+
 export const useCollectionStore = create<CollectionStoreState>()(
   persist(
     (set, get) => ({
@@ -130,9 +133,11 @@ export const useCollectionStore = create<CollectionStoreState>()(
         set({ status: "loading" });
 
         // Fire both requests in parallel
+        _collectionsAbortController?.abort();
+        _collectionsAbortController = new AbortController();
         const [treeResult, aggResult] = await Promise.allSettled([
           fetchCollectionTree(),
-          dataSource.getAggregations({}, [{ field: "collections.pathId", size: 6000 }]),
+          dataSource.getAggregations({}, [{ field: "collections.pathId", size: 6000 }], _collectionsAbortController.signal),
         ]);
 
         // Tree fetch failure → absent (Collections section hidden)

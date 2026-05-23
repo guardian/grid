@@ -51,6 +51,7 @@ import {
   MAX_RESULT_WINDOW,
   DEEP_SEEK_THRESHOLD,
   NEW_IMAGES_POLL_INTERVAL,
+  NEW_IMAGES_POLL_INTERVAL_BG,
   AGG_DEBOUNCE_MS,
   AGG_CIRCUIT_BREAKER_MS,
   AGG_DEFAULT_SIZE,
@@ -468,6 +469,7 @@ interface SearchState {
 // ---------------------------------------------------------------------------
 
 let _newImagesPollTimer: ReturnType<typeof setInterval> | null = null;
+let _newImagesPollVisibilityHandler: (() => void) | null = null;
 
 /**
  * Generation counter for the new-images poll. Bumped every time
@@ -643,8 +645,26 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
   // skipInitialTick: when the search action already fetched initial ticker
   // counts in parallel (countWithTickers in Promise.all), skip the immediate
   // tick to avoid a redundant size:0 request that would return 0 deltas.
+  const scheduleInterval = () => {
+    if (_newImagesPollTimer) clearInterval(_newImagesPollTimer);
+    const interval =
+      typeof document !== "undefined" && document.visibilityState === "hidden"
+        ? NEW_IMAGES_POLL_INTERVAL_BG
+        : NEW_IMAGES_POLL_INTERVAL;
+    _newImagesPollTimer = setInterval(tick, interval);
+  };
+
+  if (typeof document !== "undefined") {
+    _newImagesPollVisibilityHandler = () => {
+      scheduleInterval();
+      // Fire immediately when the tab becomes visible so the count is fresh.
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", _newImagesPollVisibilityHandler);
+  }
+
   if (!skipInitialTick) tick();
-  _newImagesPollTimer = setInterval(tick, NEW_IMAGES_POLL_INTERVAL);
+  scheduleInterval();
 }
 
 /**
@@ -666,6 +686,10 @@ function stopNewImagesPoll() {
   if (_newImagesPollTimer) {
     clearInterval(_newImagesPollTimer);
     _newImagesPollTimer = null;
+  }
+  if (typeof document !== "undefined" && _newImagesPollVisibilityHandler) {
+    document.removeEventListener("visibilitychange", _newImagesPollVisibilityHandler);
+    _newImagesPollVisibilityHandler = null;
   }
   _newImagesPollGeneration++; // invalidate any in-flight count()
 }

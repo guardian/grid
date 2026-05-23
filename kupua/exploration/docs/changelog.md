@@ -14,6 +14,46 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 May 2026 — Perf: two-tier new-images poll rate + AbortSignal for collection load (audit F-04, App. A #2)
+
+**F-04 — Two-tier poll rate (10s visible / 30s hidden):**
+
+The new-images poll (`startNewImagesPoll`) previously fired `countWithTickers` every 10s
+regardless of tab visibility. The simple visibility-guard fix proposed in the audit
+(stop-when-hidden) was rejected because it would prevent the browser's tab-changed-title
+indicator ("blue dot") from updating on background tabs — which is the primary UX value
+of the poll for multi-tab workflows.
+
+Instead: a `visibilitychange` listener swaps the interval rate based on tab state.
+- Visible tab: 10s (unchanged — real-time feel for the active search)
+- Hidden tab: 30s (still updates title/blue-dot, ~66% fewer background requests)
+
+When a tab becomes visible again, an immediate `tick()` fires before the interval
+restarts, so the count is always fresh when the user looks at it.
+
+All `document` access is guarded with `typeof document !== "undefined"` so the
+existing Node/Vitest test environment (which has no `document`) is unaffected.
+
+New constant `NEW_IMAGES_POLL_INTERVAL_BG = 30_000` added to `tuning.ts`.
+Module-level `_newImagesPollVisibilityHandler` tracks the listener for clean removal
+in `stopNewImagesPoll`.
+
+**App. A #2 — AbortSignal for `getAggregations` in `loadCollections`:**
+
+`loadCollections` fires a `getAggregations({}, [{field: "collections.pathId", size: 6000}])`
+request at boot with no cancellation path. Added a module-level `_collectionsAbortController`
+whose signal is passed to `getAggregations`. If `loadCollections` is somehow called again
+while in-flight (currently prevented by the status guard), the previous request is aborted.
+An aborted agg falls into `aggResult.status === "rejected"` in the `Promise.allSettled` call,
+which is already handled gracefully — the collection tree is shown without counts.
+
+The `getAggregations` interface and `ElasticsearchDataSource` implementation already
+accepted an optional `AbortSignal`; no adapter changes required.
+
+**Files changed:** `src/constants/tuning.ts`, `src/stores/search-store.ts`,
+`src/stores/collection-store.ts`.
+**Tests:** 856/856 passed.
+
 ### 23 May 2026 — Perf: hoist static ES request fragments to module scope (audit F-02, F-03)
 
 Two functions in `es-adapter.ts` were being called on every ES request despite

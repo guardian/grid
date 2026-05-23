@@ -193,8 +193,11 @@ export const POST_EXTEND_COOLDOWN_MS = 50;
  */
 export const SEARCH_FETCH_COOLDOWN_MS = 2000;
 
-/** How often to poll for new images (ms). */
+/** How often to poll for new images when the tab is visible (ms). */
 export const NEW_IMAGES_POLL_INTERVAL = 10_000;
+
+/** How often to poll for new images when the tab is hidden (ms). */
+export const NEW_IMAGES_POLL_INTERVAL_BG = 30_000;
 
 // ---------------------------------------------------------------------------
 // Aggregation constants
