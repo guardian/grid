@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 May 2026 — Perf: hoist static ES request fragments to module scope (audit F-02, F-03)
+
+Two functions in `es-adapter.ts` were being called on every ES request despite
+producing identical output every time, because all their inputs are static config.
+
+**F-02 — `buildFreeFilter`:** Called inside `buildQuery` on every request (extends,
+seeks, counts, aggs — every ES call). The function iterates `categoryDefaultCost`,
+`freeSuppliers`, and `suppliersCollectionExcl` from `guardian-config.json` (a vendored
+static JSON import). Computed `FREE_FILTER` once at module load; `buildQuery` now
+references the constant instead of calling the function.
+
+**F-03 — `buildTickerAggs`:** Called in both `_doSearch` (every `search()` action) and
+`countWithTickers` (every 10s poll tick). The function calls `parseCql(def.searchClause)`
+for each ticker definition — parsing static CQL strings from `gridConfig.tickerDefinitions`.
+Computed `TICKER_AGGS` once at module load; both call sites now reference the constant.
+The `_doSearch` short-circuit (`includeTickers ? TICKER_AGGS : null`) is preserved.
+
+Both config sources are static for the lifetime of the page — Guardian config requires
+an EC2 redeploy to change, and `gridConfig` is a hardcoded module. The constants are
+recomputed on each page load, which is the correct granularity.
+
+Unit: 856/856.
+
 ### 23 May 2026 — Perf: stop tracking total hits on every searchAfter (audit F-01)
 
 Every `searchAfter` call in `es-adapter.ts` had `track_total_hits: true` hardcoded,

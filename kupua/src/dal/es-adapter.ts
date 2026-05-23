@@ -174,6 +174,10 @@ function buildFreeFilter(config: GuardianCostConfig): Record<string, unknown> {
   return { bool: { should, minimum_should_match: 1 } };
 }
 
+// Computed once at module load — inputs are static vendored JSON (guardian-config.json).
+// Config changes require a full redeploy, so per-request recomputation is wasteful (audit F-02).
+const FREE_FILTER = buildFreeFilter(guardianConfig as GuardianCostConfig);
+
 // ---------------------------------------------------------------------------
 // Syndication status filter builder
 // ---------------------------------------------------------------------------
@@ -402,6 +406,10 @@ function buildTickerAggs(): Record<string, unknown> | null {
   return Object.keys(aggs).length > 0 ? aggs : null;
 }
 
+// Computed once at module load — ticker definitions are static runtime config.
+// parseCql() on static CQL strings produces the same result every call (audit F-03).
+const TICKER_AGGS: Record<string, unknown> | null = buildTickerAggs();
+
 /**
  * Parse ES filter aggregation results into TickerCountResult map.
  * Keyed by ticker name (matching keys in buildTickerAggs output).
@@ -495,7 +503,7 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
   // Derived from vendored guardian-config.json so it doesn't drift from the
   // cost calculator's config. See SearchFilters.scala:38–47.
   if (params.nonFree !== "true") {
-    filter.push(buildFreeFilter(guardianConfig as GuardianCostConfig));
+    filter.push(FREE_FILTER);
   }
 
   // Has crops (kahuna calls them "crops", API calls them "exports")
@@ -690,7 +698,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // Inject ticker filter aggregations when requested.
     // Only on initial searches (search()), not on range fills (searchRange()).
-    const tickerAggs = includeTickers ? buildTickerAggs() : null;
+    const tickerAggs = includeTickers ? TICKER_AGGS : null;
     if (tickerAggs) {
       body.aggs = tickerAggs;
     }
@@ -749,7 +757,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // Use _search with size:0 instead of _count so we can attach filter aggs.
     // Cost vs _count: negligible — the since: window typically has 0–20 docs,
     // and running 2 filter aggs over that set is sub-millisecond.
-    const tickerAggs = buildTickerAggs();
+    const tickerAggs = TICKER_AGGS;
     const body: Record<string, unknown> = {
       query: buildQuery(params),
       size: 0,
