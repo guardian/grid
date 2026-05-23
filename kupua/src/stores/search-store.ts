@@ -915,9 +915,10 @@ async function _fillBufferForScrollMode(
           results: newBuffer,
           imagePositions: newPositions,
           endCursor: newEndCursor,
-          // When a null-zone filter was used, result.total is the filtered
-          // count, not the full corpus total. Keep existing total.
-          total: nz ? state.total : result.total, // may have changed
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total rather than the result total, which
+          // is 0 when track_total_hits is disabled (audit F-01).
+          total: state.total,
         };
       });
 
@@ -1511,7 +1512,9 @@ async function _findAndFocusImage(
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
-        total: buf.total,
+        // fallbackFirstPage.total is result.total from the initial search().
+        // get().total is a safe fallback (e.g. recursive neighbour-focus call).
+        total: fallbackFirstPage?.total ?? get().total,
         loading: false,
         imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
         startCursor: buf.startCursor,
@@ -1843,8 +1846,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             }),
         dataSource.searchAfter(
           options?.frozenUntil
-            ? { ...params, length: PAGE_SIZE, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
-            : { ...params, length: PAGE_SIZE },
+            ? { ...params, length: PAGE_SIZE, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until, trackTotalHits: true }
+            : { ...params, length: PAGE_SIZE, trackTotalHits: true },
           null, // no cursor — first page
           null, // no PIT — index-prefixed /{index}/_search
         ),
@@ -2172,9 +2175,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return {
           results: newBuffer,
           bufferOffset: newOffset,
-          // When a null-zone filter was used, result.total is the filtered
-          // count (only docs missing the field), not the full corpus total.
-          total: nz ? state.total : result.total,
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          total: state.total,
           endCursor: newEndCursor,
           startCursor: newStartCursor,
           // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
@@ -2341,9 +2344,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           bufferOffset: newOffset,
           startCursor: newStartCursor,
           endCursor: newEndCursor,
-          // When a null-zone filter was used, result.total is the filtered
-          // count (only docs missing the field), not the full corpus total.
-          total: nz ? state.total : result.total,
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          total: state.total,
           imagePositions: newPositions,
           _extendBackwardInFlight: false,
           _lastPrependCount: result.hits.length,
@@ -3338,7 +3341,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // This prevents flash — the virtualizer renders new content at the
           // user's current scroll position, not the (drifted) target position.
           const geo = getScrollGeometry();
-          const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
+          // Total is stable within a search session (frozen params) — always
+          // use the store's known total (audit F-01).
+          const effectiveTotal = get().total;
 
           const computed = computeScrollTarget({
             currentScrollTop: scrollEl.scrollTop,
@@ -3399,8 +3404,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         results: result.hits,
         bufferOffset: actualOffset,
-        // ...existing comment about null-zone filter...
-        total: usedNullZoneFilter ? get().total : result.total,
+        // Total is stable within a search session (frozen params) — always
+        // use the store's known total (audit F-01).
+        total: get().total,
         loading: false,
         imagePositions: buildPositions(result.hits, actualOffset),
         startCursor,
@@ -3440,7 +3446,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // - Normal: ≈ clampedOffset (drift is small) → Effect #6 is a no-op
         // - Null zone: ≈ buffer centre → Effect #6 jumps to the data we found
         _seekTargetGlobalIndex: (() => {
-          const effectiveTotal = usedNullZoneFilter ? get().total : result.total;
+          const effectiveTotal = get().total;
           const inTwoTier =
             POSITION_MAP_THRESHOLD > 0 &&
             effectiveTotal > SCROLL_MODE_THRESHOLD &&
@@ -3455,7 +3461,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       performance.mark('seek-set-done');
 
-      const writtenTotal = usedNullZoneFilter ? get().total : result.total;
+      const writtenTotal = get().total;
 
       devLog(
         `[seek] COMPLETE: target=${clampedOffset}, actualOffset=${actualOffset}, ` +
@@ -3602,7 +3608,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
-        total: buf.total,
+        // get().total is correct here: search() set it before restoreAroundCursor
+        // fires, and the query is frozen so it hasn't changed (audit F-01).
+        total: get().total,
         loading: false,
         imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
         startCursor: buf.startCursor,

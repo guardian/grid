@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 23 May 2026 — Perf: stop tracking total hits on every searchAfter (audit F-01)
+
+Every `searchAfter` call in `es-adapter.ts` had `track_total_hits: true` hardcoded,
+forcing a full 9M-doc count scan on every request — extends, seeks, fills, restores,
+all of them. Only the initial `search()` call actually needs the total.
+
+**Fix:** Added `trackTotalHits?: boolean` to `SearchParams`. `es-adapter` now defaults
+to `track_total_hits: false`; ES 7.x returns `hits.total` as absent in this case, so
+the return path uses `?.value ?? 0`. `search()` passes `trackTotalHits: true` (both
+the frozen-until and normal branches). All other callers (extendForward, extendBackward,
+seek ×3, `_fillBufferForScrollMode`, `_findAndFocusImage`, `restoreAroundCursor`) stop
+writing `result.total` back to state and instead use `get().total` / `state.total`.
+This is safe because `frozenParams()` pins the query after the initial search, so the
+total never legitimately changes during a session.
+
+**Sort-around-focus edge case:** `get().total` is stale at the time `_findAndFocusImage`
+runs (the initial `set()` in `search()` deliberately withholds `total` to avoid a
+virtualizer re-render mismatch). `_findAndFocusImage` uses `fallbackFirstPage?.total
+?? get().total` — `fallbackFirstPage` always carries the correct new-search total
+from `search()`, and is passed through to the recursive call too.
+
+Commit: b967c0d66. Unit: 856/856. E2E: 239/239.
+
 ### 22 May 2026 — Fix: facet panel bugs (trace import, category 0 results, lonely header, typeahead labels)
 
 Four related fixes to the facet/filter panel, discovered during manual testing:

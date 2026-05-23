@@ -70,6 +70,13 @@ export interface SearchParams {
   length?: number;
   /** Whether to return total count for all result subsets */
   countAll?: boolean;
+  /**
+   * Fetch hint: when true, forces ES to return an exact total hit count
+   * (track_total_hits: true). Should only be passed by the initial search()
+   * call — all extend/seek/fill calls omit this to avoid the expensive full-
+   * index count scan on every request.
+   */
+  trackTotalHits?: boolean;
 }
 
 export interface SearchResult {

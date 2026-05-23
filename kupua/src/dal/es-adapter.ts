@@ -947,7 +947,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
       query,
       sort: effectiveSort,
       size: params.length ?? 200,
-      track_total_hits: true,
+      // Only request an exact count on the initial search() call (trackTotalHits: true).
+      // All extend/seek/fill calls omit the flag — ES skips the full-index scan.
+      track_total_hits: params.trackTotalHits === true,
     };
 
     // from/size offset — used when no cursor is provided (initial search, seek, backward extend).
@@ -1006,7 +1008,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
       const sortLen = effectiveSort.length;
       return {
         hits: orderedHits.map((hit) => hit._source),
-        total: result.hits.total.value,
+        // hits.total is absent when track_total_hits: false — safe default to 0.
+        total: result.hits.total?.value ?? 0,
         took: result.took,
         sortValues: orderedHits.map((hit) =>
           sanitizeSortValues(
@@ -1048,7 +1051,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           const orderedHits = reverse ? [...rawHits].reverse() : rawHits;
           return {
             hits: orderedHits.map((hit) => hit._source),
-            total: fallbackResult.hits.total.value,
+            total: fallbackResult.hits.total?.value ?? 0,
             took: fallbackResult.took,
             sortValues: orderedHits.map((hit) =>
               sanitizeSortValues(
