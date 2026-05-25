@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 25 May 2026 — vecWeight hybrid blending (URL-only, no UI)
+
+Added `vecWeight` URL parameter to control hybrid search blending, matching
+Kahuna/media-api's PR #4738 (merged 22 May). Float in [0, 1], default 1.0
+(pure KNN — no behaviour change from before).
+
+- `vecWeight=1` (or absent): pure KNN, same as before
+- `vecWeight=0`: pure BM25 multi_match on the AI text (no Bedrock call)
+- `0 < vecWeight < 1`: hybrid — probe query for max BM25 score, then
+  `bool.should[multi_match(normalised boost), knn]`
+
+Files changed:
+- `src/lib/search-params-schema.ts` — added `vecWeight` field
+- `src/dal/types.ts` — added `vecWeight?: string` to `SearchParams`
+- `src/dal/adapters/elasticsearch/cql.ts` — exported `MATCH_FIELDS`
+- `src/dal/es-adapter.ts` — `searchByAi` now supports three modes
+- `exploration/docs/00 Architecture and philosophy/08-ai-search.md` —
+  new §3.1 documenting the hybrid path
+
+Bug fix during implementation: `parseFloat("0") || 1` evaluates to 1
+because 0 is falsy in JS. Fixed to use `Number.isNaN()` guard instead.
+
 ### 25 May 2026 — AI Search: keyboard navigation from AI widget + auto-collapse on blur
 
 Three small UX refinements to the AiSearchInput widget:

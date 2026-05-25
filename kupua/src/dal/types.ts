@@ -45,6 +45,8 @@ export interface SearchParams {
   orderBy?: string;
   /** Enable AI/semantic search */
   useAISearch?: string;
+  /** Hybrid search blend: 0.0 = pure BM25, 1.0 = pure KNN (default). URL-only, no UI. */
+  vecWeight?: string;
   /** Which date field the date range applies to */
   dateField?: string;
   /** Date taken range — ISO date strings */

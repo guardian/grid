@@ -150,7 +150,7 @@ function resolveNamedField(name: string): string | string[] {
  * Mirrors Scala's MatchFields.matchFields — order matters for scoring.
  * Grid includes `id` first so pasting an image ID into the search box finds it.
  */
-const MATCH_FIELDS = [
+export const MATCH_FIELDS = [
   "id",
   "source.mimeType",
   "metadata.description",

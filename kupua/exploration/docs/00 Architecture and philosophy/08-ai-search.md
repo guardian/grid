@@ -79,9 +79,10 @@ Three independent components:
    entire AI feature disappears from the UI.
 
 2. **Vector search** — `searchByAi` on the DAL builds a single ES `_search`
-   request with a `knn` clause and a `knn.filter` containing the rest of
-   the search (CQL chips, date range, free-text, syndication state — every
-   filter the rest of the app builds).
+   request. The shape depends on the `vecWeight` URL param (§3.1): pure
+   KNN (default), pure BM25, or a hybrid blend of both. In all modes, the
+   rest of the search (CQL chips, date range, free-text, syndication
+   state) is composed as a pre-filter.
 
 3. **In-memory result set** — the store treats the ≤200 returned hits as
    the entire result set. No PIT, no pagination, no polling. Every
@@ -94,6 +95,12 @@ Three independent components:
 
 ```
 ?query=credit:PA &aiQuery=tigers in snow &nonFree=true &orderBy=-relevance
+```
+
+An optional `vecWeight` parameter controls hybrid blending (§3.1):
+
+```
+?aiQuery=tigers in snow &vecWeight=0.4
 ```
 
 The AI query is a top-level URL parameter alongside `query`, `nonFree`,
@@ -116,17 +123,55 @@ React widget anyway (§5), so the loss of "everything-in-one-string" was
 imaginary.
 
 **Consequence for routing:** [`search-params-schema.ts`](../../src/lib/search-params-schema.ts)
-declares `aiQuery: z.string().optional()`. TanStack Router provides typed
+declares `aiQuery: z.string().optional()` and
+`vecWeight: z.string().optional()`. TanStack Router provides typed
 access throughout. The router and URL synchronisation layer
 ([`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts)) treat
-`aiQuery` exactly like any other filter param.
+`aiQuery` and `vecWeight` exactly like any other filter param.
 
 ---
 
 ## §3 The Result-Set Shape
 
+### 3.1 vecWeight — Hybrid Blending
+
+`searchByAi` supports three ranking modes controlled by the `vecWeight`
+URL parameter (a float in [0, 1], default 1.0 when absent). This mirrors
+Kahuna/media-api's hybrid search (PR #4738, merged 22 May 2026):
+
+| `vecWeight` | Mode | ES query shape |
+|---|---|---|
+| 1.0 (default / absent) | Pure KNN | `knn` clause with `knn.filter` |
+| 0.0 | Pure BM25 | `multi_match` on AI text, pre-filter in `bool.filter` |
+| 0 < w < 1 | Hybrid | Probe query for `max_score`, then `bool.should[multi_match(boost), knn]` |
+
+**Hybrid path detail:**
+
+1. **Probe:** A `size:0` BM25 `multi_match` query fires against the AI
+   text to discover the maximum BM25 score for this query. One extra ES
+   round-trip (~30-50ms). Not cached — `max_score` depends on index state.
+2. **Normalisation:** KNN scores are cosine similarity in [0, 1]. BM25
+   scores are unbounded. The probe's `max_score` is used as a scaling
+   factor: `scalingFactor = 1 / maxScore`.
+3. **Boost math:** `multiMatchBoost = ((1 - vecWeight) / vecWeight) * scalingFactor`.
+   This brings BM25 into roughly [0, 1] so the `vecWeight` ratio
+   genuinely controls the blend.
+4. **Main query:** `bool { should: [multi_match(boost: multiMatchBoost), knn], filter: [preFilter] }`.
+
+The pre-filter (CQL chips, dates, etc.) applies in all three modes.
+The Bedrock embedding call is skipped entirely when `vecWeight=0`
+(pure BM25 — no vector needed).
+
+`vecWeight` is URL-only with no UI control. Users manually type
+`&vecWeight=0.4` to experiment. The default (1.0) preserves the
+pre-existing pure-KNN behaviour — identical to before this feature
+was added.
+
+### 3.2 Result shape
+
 ES returns a ranked list of at most `k=200` hits, scored by cosine
-similarity to the query vector. The DAL's
+similarity (pure KNN), BM25 (pure lexical), or a blend of both
+(hybrid). The DAL's
 [`searchByAi`](../../src/dal/es-adapter.ts) maps this into a
 `SearchAfterResult` with three load-bearing properties:
 
@@ -435,11 +480,11 @@ condition for being addressed.
 | [`src/components/AiSearchInput.tsx`](../../src/components/AiSearchInput.tsx) | The widget. |
 | [`src/components/SearchBar.tsx`](../../src/components/SearchBar.tsx) | Reads/writes `aiQuery`, hosts the AI widget alongside CQL. |
 | [`src/components/SearchFilters.tsx`](../../src/components/SearchFilters.tsx) | `SortControls` — prepends Relevance when AI is active. |
-| [`src/lib/search-params-schema.ts`](../../src/lib/search-params-schema.ts) | `aiQuery: z.string().optional()`. |
+| [`src/lib/search-params-schema.ts`](../../src/lib/search-params-schema.ts) | `aiQuery: z.string().optional()`, `vecWeight: z.string().optional()`. |
 | [`src/hooks/useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts) | Auto-switch to/from Relevance; client-side re-sort short-circuit. |
 | [`src/dal/types.ts`](../../src/dal/types.ts) | `searchByAi?` optional on `ImageDataSource`; `aiQuery?` on `SearchParams`. |
 | [`src/dal/es-config.ts`](../../src/dal/es-config.ts) | `KNN_FIELD` (overridable via `VITE_ES_KNN_FIELD`). |
-| [`src/dal/es-adapter.ts`](../../src/dal/es-adapter.ts) | `searchByAi`: text → embedding → KNN with `knn.filter = buildQuery(params)`. |
+| [`src/dal/es-adapter.ts`](../../src/dal/es-adapter.ts) | `searchByAi`: text → embedding → KNN/hybrid/BM25 depending on `vecWeight` (§3.1). |
 | [`src/lib/ai-search-params.ts`](../../src/lib/ai-search-params.ts) | The decorator. Single AI-detection point on the aggregation side. |
 | [`src/stores/search-store.ts`](../../src/stores/search-store.ts) | AI branch in `search()`; `resortAiBuffer`; decorator calls in `fetchAggregations` / `fetchExpandedAgg`. |
 | [`src/types/image.ts`](../../src/types/image.ts) | `__aiScore?: number` on `Image`. |

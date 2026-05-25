@@ -28,6 +28,8 @@ export const searchParamsSchema = z.object({
   orderBy: z.string().optional().catch(undefined),
   /** Enable AI/semantic search */
   useAISearch: z.string().optional().catch(undefined),
+  /** Hybrid search blend weight: 0.0 = pure BM25, 1.0 = pure KNN (default) */
+  vecWeight: z.string().optional().catch(undefined),
   /** Which date field the date range applies to */
   dateField: z.string().optional().catch(undefined),
   /** Date taken range */

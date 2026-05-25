@@ -51,6 +51,7 @@ import {
   KNN_FIELD,
 } from "./es-config";
 import { getEmbedding } from "@/lib/bedrock-proxy-client";
+import { MATCH_FIELDS } from "./adapters/elasticsearch/cql";
 
 // ---------------------------------------------------------------------------
 // Sentinel sanitiser — ES Long.MAX/MIN_VALUE → null
@@ -1098,12 +1099,15 @@ export class ElasticsearchDataSource implements ImageDataSource {
   // ---------------------------------------------------------------------------
 
   /**
-   * Semantic KNN search using Bedrock embeddings.
+   * Semantic KNN search using Bedrock embeddings, with optional hybrid blending.
    *
    * 1. Extracts the `aiQuery:"<text>"` chip from params.query.
    * 2. Fetches a 256-float embedding from the Bedrock proxy (/bedrock/embed).
-   * 3. Builds the remaining CQL + URL params as a `knn.filter` pre-filter.
-   * 4. POSTs a KNN query to ES.
+   * 3. Builds the remaining CQL + URL params as a pre-filter.
+   * 4. Depending on vecWeight:
+   *    - 1.0 (default): pure KNN query with pre-filter
+   *    - 0.0: pure BM25 multi_match on the AI text
+   *    - between: hybrid — probe for maxBm25Score, then bool.should[multiMatch, knn]
    *
    * Returns a flat ≤200 result set where `total === hits.length` (the critical
    * invariant that prevents the store from opening PITs or triggering
@@ -1119,29 +1123,109 @@ export class ElasticsearchDataSource implements ImageDataSource {
       return this.searchAfter(params, null, null, signal);
     }
 
-    // Fetch the embedding for the AI query text.
+    // Parse vecWeight — default 1.0 (pure KNN, matches Kahuna default).
+    const rawVec = parseFloat(params.vecWeight ?? "1");
+    const vecWeight = Math.max(0, Math.min(1, Number.isNaN(rawVec) ? 1 : rawVec));
+
+    // Fetch the embedding for the AI query text (skipped for pure BM25 path).
     // Throws on Bedrock error — propagates to search() catch block which
     // sets loading:false + error state. The store's error handling shows
     // a toast via the existing error display path.
-    const embedding = await getEmbedding(aiText, signal);
+    const embedding = vecWeight > 0 ? await getEmbedding(aiText, signal) : null;
 
-    // Build the KNN pre-filter from the CQL query + URL params.
+    // Build the pre-filter from the CQL query + URL params.
     // buildQuery() returns { bool: { must, mustNot, filter } } which is
     // exactly the shape ES knn.filter accepts. See zz Archive/ai-search-workplan.md §3.1.
     const preFilter = buildQuery(params);
 
     const k = 200;
-    const body: Record<string, unknown> = {
-      knn: {
-        field: KNN_FIELD,
-        query_vector: embedding,
-        k,
-        num_candidates: Math.max(k * 2, 400),
-        filter: preFilter,
-      },
-      size: k,
-      track_total_hits: false,
-    };
+    let body: Record<string, unknown>;
+
+    if (vecWeight === 1.0) {
+      // Pure KNN — current behaviour, no BM25 signal.
+      body = {
+        knn: {
+          field: KNN_FIELD,
+          query_vector: embedding,
+          k,
+          num_candidates: Math.max(k * 2, 400),
+          filter: preFilter,
+        },
+        size: k,
+        track_total_hits: false,
+      };
+    } else if (vecWeight === 0) {
+      // Pure BM25 via the AI path — no vector, just keyword matching on AI text.
+      body = {
+        query: {
+          bool: {
+            must: [{
+              multi_match: {
+                query: aiText,
+                fields: MATCH_FIELDS,
+                type: "best_fields" as const,
+                operator: "and",
+                fuzziness: "AUTO",
+              },
+            }],
+            filter: [preFilter],
+          },
+        },
+        size: k,
+        track_total_hits: false,
+      };
+    } else {
+      // Hybrid — probe for max BM25 score, then blend KNN + multi_match.
+      const probeBody = {
+        query: {
+          multi_match: {
+            query: aiText,
+            fields: MATCH_FIELDS,
+            type: "best_fields" as const,
+            operator: "and",
+            fuzziness: "AUTO",
+          },
+        },
+        size: 0,
+        track_total_hits: false,
+      };
+      const probeResult = (await this.esRequest("_search", probeBody, signal)) as {
+        hits: { max_score: number | null };
+      };
+      const maxScore = probeResult.hits.max_score ?? 1.0;
+      const scalingFactor = maxScore > 0 ? 1.0 / maxScore : 1.0;
+      const lexicalWeight = 1 - vecWeight;
+      const multiMatchBoost = (lexicalWeight / vecWeight) * scalingFactor;
+
+      body = {
+        query: {
+          bool: {
+            should: [
+              {
+                multi_match: {
+                  query: aiText,
+                  fields: MATCH_FIELDS,
+                  type: "best_fields" as const,
+                  operator: "and",
+                  fuzziness: "AUTO",
+                  boost: multiMatchBoost,
+                },
+              },
+              {
+                knn: {
+                  field: KNN_FIELD,
+                  query_vector: embedding,
+                  num_candidates: Math.max(k * 2, 400),
+                },
+              },
+            ],
+            filter: [preFilter],
+          },
+        },
+        size: k,
+        track_total_hits: false,
+      };
+    }
 
     if (SOURCE_INCLUDES.length > 0 || SOURCE_EXCLUDES.length > 0) {
       body._source = {
