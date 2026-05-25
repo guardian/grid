@@ -197,5 +197,12 @@ export interface Image {
 
   // Soft delete
   softDeletedMetadata?: SoftDeletedMetadata;
+
+  /**
+   * AI similarity score from KNN search. Kupua-internal — not from ES _source.
+   * Present only when the image was returned by a KNN (aiQuery:) search.
+   * Value is (1 + cosine_similarity) / 2, normalised to [0, 1].
+   */
+  __aiScore?: number;
 }
 

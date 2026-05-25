@@ -58,6 +58,11 @@ const COLLECTION_SORT = "-dateAddedToCollection";
  *  because there's only one search route instance. */
 let _preSortBeforeCollection: string | undefined;
 
+const AI_SORT = "-relevance";
+
+/** The sort order active before an AI query appeared. */
+let _preSortBeforeAi: string | undefined;
+
 /**
  * Strips undefined values from search params so they don't appear in the URL
  * as `?query=&since=` etc.
@@ -294,7 +299,14 @@ export function useUrlSearchSync() {
       // even if focusedImageId is set (e.g. after return-from-detail).
       // In explicit mode, focusedImageId always takes priority.
       const isExplicitMode = getEffectiveFocusMode() === "explicit";
-      phantomAnchor = explicitFocus ? null : (isSortOnly ? null : getViewportAnchorId());
+
+      // AI removal relaxation: when the AI query just disappeared, phantom
+      // position preservation is unhelpful — the viewport anchor is an AI
+      // result that may live far from the top of chronological results.
+      // Only preserve position when there's a real explicit focus.
+      const aiJustRemoved = !!prev.aiQuery && !searchOnly.aiQuery;
+
+      phantomAnchor = explicitFocus ? null : (isSortOnly || aiJustRemoved ? null : getViewportAnchorId());
       focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor);
 
       // Selection anchor fallback: when in selection mode with no explicit
@@ -325,6 +337,15 @@ export function useUrlSearchSync() {
       searchKeys.map((k) => [k, undefined])
     );
     setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
+
+    // AI mode sort-only: re-sort the in-memory buffer client-side.
+    // No ES round-trip or Bedrock call needed — all ≤200 results are already in memory.
+    if (isSortOnly && !!searchOnly.aiQuery) {
+      useSearchStore.getState().resortAiBuffer(searchOnly.orderBy ?? "-relevance");
+      setExternalQuery(null);
+      return;
+    }
+
     const searchOptions = phantomAnchor && snapshotHints
       ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
       : phantomAnchor
@@ -401,6 +422,25 @@ export function useUpdateSearchParams() {
         _preSortBeforeCollection = undefined;
       }
       // --- end collection auto-sort ---
+
+      // --- AI auto-sort: switch to Relevance when aiQuery appears ---
+      const hadAi = !!paramsRef.current.aiQuery;
+      const hasAi = !!merged.aiQuery;
+
+      if (!hadAi && hasAi) {
+        // AI query just appeared → remember current sort, switch to Relevance.
+        if (merged.orderBy !== AI_SORT) {
+          _preSortBeforeAi = merged.orderBy;
+          merged.orderBy = AI_SORT;
+        }
+      } else if (hadAi && !hasAi) {
+        // AI query just disappeared → revert if the user didn't manually change sort.
+        if (merged.orderBy === AI_SORT) {
+          merged.orderBy = _preSortBeforeAi;
+        }
+        _preSortBeforeAi = undefined;
+      }
+      // --- end AI auto-sort ---
 
       // kupuaKey: mint a fresh one on push (new history entry), re-pass
       // the current one on replace (same entry, key must survive).

@@ -970,6 +970,7 @@ are unaffected. Once available, `stripFieldFromQuery` and
 | Home/End swallowed by shadow DOM | Capture-phase `document` listener (§7 lib) | Propagate nav keys from `stopUnhandled` | Architectural |
 | Multi-value padding breaks `calc()` in shadow DOM | Single-value padding only | Use `padding-*` longhand internally | Not filed |
 | Stale debounce after remount | `setExternalQuery` latch | — (consequence of §13; goes away with PR #121) | Blocked |
+| No API to extract a chip's value or reconstruct the query without a specific chip | Regex on raw query string (typeahead `stripFieldFromQuery`) | Expose `getChipValue(field)` + `queryWithoutChip(field)` on `<cql-input>` element | Not filed |
 
 Three consumers exist (kahuna, kupua, CQL demo page). Exposing minimal
 structured context is not speculative API surface.

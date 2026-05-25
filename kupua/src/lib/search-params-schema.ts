@@ -11,6 +11,8 @@ import { z } from "zod";
 export const searchParamsSchema = z.object({
   /** Free-text / CQL query */
   query: z.string().optional().catch(undefined),
+  /** AI / semantic search query (separate from CQL) */
+  aiQuery: z.string().optional().catch(undefined),
   /** Comma-separated image IDs */
   ids: z.string().optional().catch(undefined),
   /** Upload time range — ISO date strings */

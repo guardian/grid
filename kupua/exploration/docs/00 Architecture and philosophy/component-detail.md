@@ -4,7 +4,7 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last updated: 11 May 2026.**.
+> **Last updated: 25 May 2026.**.
 
 ---
 
@@ -111,7 +111,15 @@ Single `resetToHome()` function deduplicating the reset sequence from SearchBar 
 
 ## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`)
 
-Centralised shortcut registry. Single-character shortcuts: bare key when not in an editable field, Alt+key when editing (Alt chosen to avoid Cmd/Ctrl browser conflicts). One `keydown` listener on `document` (capture phase). Components register via `registerShortcut()`/`unregisterShortcut()` or `useKeyboardShortcut` hook. `shortcutTooltip()` formats hints for button titles. `isNativeInputTarget()` guards against firing in date inputs and other native controls.
+Centralised shortcut registry. Single-character shortcuts: bare key when not in an editable field, Alt+key when editing (Alt chosen to avoid Cmd/Ctrl browser conflicts). One `keydown` listener on `document` (capture phase). Components register via `registerShortcut()`/`unregisterShortcut()` or `useKeyboardShortcut` hook. `shortcutTooltip()` formats hints for button titles. `isNativeInputTarget()` guards against firing in date inputs and other native controls. Elements with `data-grid-nav-input` attribute are excluded from native-input detection (opt-in to grid navigation while remaining an `<input>`).
+
+## Bedrock Proxy Client (`lib/bedrock-proxy-client.ts`)
+
+`getEmbedding(query): Promise<number[]>` and `checkBedrockHealth(): Promise<boolean>`. Plain `fetch()` to Vite middleware endpoints (`/bedrock/embed?q=...`, `/bedrock/health`). Called by `es-adapter.ts:searchByAi()` and `main.tsx` (startup health check). Graceful: network error → returns `false` / throws (caught by store).
+
+## AI Search Params (`lib/ai-search-params.ts`)
+
+`decorateParamsForAggregations(params, resultIds)`: when `params.aiQuery` is present, injects `params.ids = resultIds` so ES aggregation/ticker queries scope to the ≤200 AI result set. No-op when AI inactive. Used by `fetchAggregations`, `fetchExpandedAgg`, and the AI branch's ticker call in `search-store.ts`.
 
 ## Browser History (`lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`)
 
@@ -155,7 +163,21 @@ Orchestrates shift-click range selection. In-buffer fast path: walks `imagePosit
 
 ## SearchBar (`components/SearchBar.tsx`)
 
-Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce, clear button, `SearchFilters` (middle + right), `SettingsMenu`. Manages CQL input generation for stale-debounce detection. Cancels pending debounce on unmount to prevent navigation bouncing.
+Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce, `AiSearchInput` (gated by Bedrock availability), clear button, `SearchFilters` (middle + right), `SettingsMenu`. Manages CQL input generation for stale-debounce detection. Reads `searchParams.aiQuery` and passes to `AiSearchInput`; AI text changes propagate to URL via `updateSearch({ aiQuery })` with 600ms debounce. Cancels pending debounce on unmount to prevent navigation bouncing.
+
+## AI Search Input (`components/AiSearchInput.tsx`)
+
+Expandable semantic search widget inside the search bar border. Gated by `bedrockAvailable` (reactive subscription via `subscribeBedrockAvailable()`). Architecture:
+
+- **Toggle:** Sparkles icon. Click collapsed → expand + autofocus. Click expanded → stash text to module-level `_stashedAiText`, collapse, clear `aiQuery` from URL. Click collapsed with stash → restore.
+- **Local state decoupled from URL:** `localText` is not the URL param — prevents debounce from clobbering mid-keystroke. `selfCausedRef` guards against external changes overwriting local edits.
+- **Content-based ch sizing:** Width computed from text length (focused: up to 28ch, blurred: up to 16ch, collapsed: max-width 0). CSS `transition-all duration-200`.
+- **Auto-collapse on blur when empty:** If user opens widget but doesn't type, clicking away collapses it.
+- **Grid navigation opt-in:** `data-grid-nav-input` attribute on the `<input>` makes `isNativeInputTarget()` return false → Up/Down/PgUp/PgDown/Home/End pass through to grid nav. Left/Right stopped via `stopPropagation` to keep text editing.
+- **Escape:** Stashes text, collapses, clears AI from URL.
+- **Inner ✕ button:** Clears text without collapsing (stays expanded + re-focused). Uses `onMouseDown + preventDefault` to prevent blur-triggered collapse.
+
+URL param: `?aiQuery=<text>`. Store branch: `!!params.aiQuery` → `dal.searchByAi()` → Bedrock embed → KNN query → ≤200 results in-memory. No PIT, no pagination, no new-images poll. Sort auto-switches to `-relevance` on activation (mirrors collection auto-sort pattern). Client-side re-sort via `resortAiBuffer()` when user changes sort while AI active.
 
 ## Settings Menu (`components/SettingsMenu.tsx`)
 

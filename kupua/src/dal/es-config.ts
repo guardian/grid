@@ -172,3 +172,11 @@ export const ALLOWED_ES_METHODS = new Set(["GET", "POST", "DELETE"]);
 export const IS_LOCAL_ES =
   (import.meta.env.VITE_ES_IS_LOCAL ?? "true") === "true";
 
+/**
+ * ES field path for KNN vector search (AI search / aiQuery chip).
+ * Must match the mapping path where Cohere Embed V4 vectors are stored.
+ * Override via VITE_ES_KNN_FIELD if the index uses a different mapping path.
+ */
+export const KNN_FIELD =
+  import.meta.env.VITE_ES_KNN_FIELD ?? "embedding.cohereEmbedV4.image";
+

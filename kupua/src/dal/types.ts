@@ -28,6 +28,8 @@ export interface SearchParams {
 
   /** Free-text / CQL query — named 'query' to match kahuna URL param */
   query?: string;
+  /** AI / semantic search query (separate from CQL) */
+  aiQuery?: string;
   /** Comma-separated image IDs (from Share button) */
   ids?: string;
   /** Upload time range — ISO date strings */
@@ -284,6 +286,18 @@ export interface ImageDataSource {
    * @param keepAlive — PIT keepalive duration (default: "5m").
    */
   openPit(keepAlive?: string): Promise<string>;
+
+  /**
+   * Semantic KNN search via Bedrock embeddings.
+   * Extracts `aiQuery:"..."` chip from params.query, fetches a vector from
+   * the Bedrock proxy, and runs a KNN query with the remaining CQL as a
+   * pre-filter. Returns a flat ≤200 result set (total === hits.length).
+   *
+   * Optional — only implemented by ElasticsearchDataSource when the Bedrock
+   * proxy is reachable. Other implementations (e.g. GridApiDataSource) may
+   * add this later or route AI search through a different backend.
+   */
+  searchByAi?(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult>;
 
   /**
    * Close a PIT. Fire-and-forget — errors are logged but not thrown.

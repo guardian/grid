@@ -90,12 +90,18 @@ function SortControls() {
   const secondary = parseSecondarySort(orderBy);
   const primaryToken = orderBy.split(",")[0].trim();
 
-  const currentLabel =
-    SORTABLE_FIELDS.find((f) => f.value === sortField)?.label ?? sortField;
+  // When AI query is active, prepend a "Relevance" option and treat
+  // -relevance as the default sort (so the indicator dot is suppressed).
+  const hasAiChip = !!params.aiQuery;
+  const effectiveSortableFields = hasAiChip
+    ? [{ label: "Relevance", value: "relevance" }, ...SORTABLE_FIELDS]
+    : SORTABLE_FIELDS;
+  const defaultSort = hasAiChip ? "-relevance" : "-uploadTime";
 
-  // Default sort is "Upload time, descending" — show an indicator dot when
-  // the user has changed it, same as DateFilter does for non-default dates.
-  const isNonDefaultSort = orderBy !== "-uploadTime";
+  const currentLabel =
+    effectiveSortableFields.find((f) => f.value === sortField)?.label ?? sortField;
+
+  const isNonDefaultSort = orderBy !== defaultSort;
 
   const handleSelectField = useCallback(
     (value: string, e: React.MouseEvent) => {
@@ -221,7 +227,7 @@ function SortControls() {
           className="absolute top-full right-0 mt-1 popup-menu"
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {SORTABLE_FIELDS.map((opt) => {
+          {effectiveSortableFields.map((opt) => {
             const isPrimary = sortField === opt.value;
             const isSecondary = secondary?.field === opt.value;
             return (

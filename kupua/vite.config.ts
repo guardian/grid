@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import type { Plugin } from "vite";
+import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 
 /**
  * Proxy-level ES path guard.
@@ -96,7 +97,7 @@ if (!process.env.VITEST) {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard()],
+  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), bedrockEmbedProxy()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

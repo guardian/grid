@@ -103,9 +103,12 @@ describe("FIELD_REGISTRY structure", () => {
   it("DESC_BY_DEFAULT only contains sort keys that exist in the registry or dropdown", () => {
     // Include sort-only keys from SORT_DROPDOWN_OPTIONS (e.g. dateAddedToCollection
     // has no registry field but is a valid sort option).
+    // "relevance" is AI-mode only (not in registry/dropdown) — explicitly allowed.
+    const AI_ONLY_SORT_KEYS = new Set(["relevance"]);
     const allSortKeys = new Set([
       ...FIELD_REGISTRY.filter((f) => f.sortKey).map((f) => f.sortKey!),
       ...SORT_DROPDOWN_OPTIONS.map((o) => o.value),
+      ...AI_ONLY_SORT_KEYS,
     ]);
     for (const key of DESC_BY_DEFAULT) {
       expect(allSortKeys, `DESC_BY_DEFAULT contains "${key}" which is not a sort key`).toContain(key);

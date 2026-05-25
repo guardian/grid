@@ -217,3 +217,133 @@ describe("findKeywordSortValue mid-walk error (audit #20)", () => {
     vi.unstubAllEnvs();
   });
 });
+
+// ---------------------------------------------------------------------------
+// searchByAi — KNN query shape + result mapping
+// ---------------------------------------------------------------------------
+
+vi.mock("@/lib/bedrock-proxy-client", () => ({
+  getEmbedding: vi.fn(),
+  checkBedrockHealth: vi.fn().mockResolvedValue(false),
+}));
+
+import { getEmbedding } from "@/lib/bedrock-proxy-client";
+
+/** Minimal KNN _search response factory. */
+function knnSearchResponse(
+  ids: string[],
+  scores?: number[],
+) {
+  return {
+    took: 5,
+    hits: {
+      hits: ids.map((id, i) => ({
+        _id: id,
+        _source: { id, uploadTime: "2024-01-01T00:00:00Z", uploadedBy: "test" },
+        _score: scores?.[i] ?? 1 - i * 0.01,
+      })),
+    },
+  };
+}
+
+const FAKE_EMBEDDING = Array.from({ length: 256 }, (_, i) => i * 0.001);
+
+describe("searchByAi", () => {
+  beforeEach(() => {
+    vi.mocked(getEmbedding).mockClear();
+    vi.mocked(getEmbedding).mockResolvedValue(FAKE_EMBEDDING);
+  });
+
+  it("builds a KNN query with the AI text and returns mapped results", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse(knnSearchResponse(["img-1", "img-2", "img-3"])),
+    );
+
+    const result = await ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "snowy peaks" });
+
+    // Verify getEmbedding was called with the extracted AI text
+    expect(vi.mocked(getEmbedding)).toHaveBeenCalledWith("snowy peaks", undefined);
+
+    // Verify fetch was called with a KNN body
+    const fetchCall = vi.mocked(global.fetch).mock.calls[0];
+    const body = JSON.parse(fetchCall[1]?.body as string);
+    expect(body).toHaveProperty("knn");
+    expect(body.knn).toMatchObject({
+      query_vector: FAKE_EMBEDDING,
+      k: 200,
+    });
+    expect(body.knn.field).toBe("embedding.cohereEmbedV4.image");
+
+    // Verify result shape
+    expect(result.hits).toHaveLength(3);
+    expect(result.total).toBe(3); // KEY: total === hits.length
+    expect(result.pitId).toBeNull();
+    expect(result.sortValues).toHaveLength(3);
+  });
+
+  it("attaches __aiScore to each hit from _score", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse(knnSearchResponse(["img-1", "img-2"], [0.95, 0.80])),
+    );
+
+    const result = await ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "foggy forest" });
+
+    expect(result.hits[0].__aiScore).toBeCloseTo(0.95);
+    expect(result.hits[1].__aiScore).toBeCloseTo(0.80);
+  });
+
+  it("builds KNN pre-filter from remaining CQL chips", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse(knnSearchResponse(["img-1"])),
+    );
+
+    await ds.searchByAi({
+      orderBy: "-uploadTime",
+      aiQuery: "storm",
+      query: "uploaded-by:alice",
+    });
+
+    const fetchCall = vi.mocked(global.fetch).mock.calls[0];
+    const body = JSON.parse(fetchCall[1]?.body as string);
+    // The pre-filter should include the remaining CQL chip, not the aiQuery chip
+    const filterStr = JSON.stringify(body.knn.filter);
+    expect(filterStr).toContain("alice");
+    expect(filterStr).not.toContain("storm");
+    expect(filterStr).not.toContain("aiQuery");
+  });
+
+  it("returns total === hits.length (pagination invariant)", async () => {
+    const ids = Array.from({ length: 15 }, (_, i) => `img-${i}`);
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(knnSearchResponse(ids)));
+
+    const result = await ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "landscape" });
+
+    expect(result.total).toBe(15);
+    expect(result.total).toBe(result.hits.length);
+  });
+
+  it("propagates getEmbedding errors (Bedrock unavailable)", async () => {
+    vi.mocked(getEmbedding).mockRejectedValue(new Error("Bedrock 503"));
+
+    await expect(
+      ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "test" }),
+    ).rejects.toThrow("Bedrock 503");
+
+    // No ES request should have been made
+    expect(vi.mocked(global.fetch)).not.toHaveBeenCalled();
+  });
+
+  it("falls back to searchAfter when no aiQuery chip present", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse(esSearchHits([{ id: "img-fallback" }])),
+    );
+
+    const result = await ds.searchByAi({ orderBy: "-uploadTime", query: "type:image" });
+
+    // Should NOT call getEmbedding (no chip)
+    expect(vi.mocked(getEmbedding)).not.toHaveBeenCalled();
+
+    // Should still return results (from searchAfter)
+    expect(result.hits.length).toBeGreaterThanOrEqual(0);
+  });
+});

@@ -215,3 +215,24 @@ export const gridConfig = {
   ] as FieldAlias[],
 } as const;
 
+/**
+ * Runtime availability flag for Bedrock AI search.
+ * Set to true by the health check in main.tsx on app startup.
+ * Readable by any UI component that needs to gate AI search features.
+ */
+export let bedrockAvailable = false;
+
+const _bedrockListeners = new Set<(v: boolean) => void>();
+
+/** Subscribe to bedrockAvailable changes. Returns an unsubscribe function. */
+export function subscribeBedrockAvailable(fn: (v: boolean) => void): () => void {
+  _bedrockListeners.add(fn);
+  return () => _bedrockListeners.delete(fn);
+}
+
+/** Called once at startup by main.tsx after the health probe resolves. */
+export function setBedrockAvailable(value: boolean): void {
+  bedrockAvailable = value;
+  _bedrockListeners.forEach((fn) => fn(value));
+}
+

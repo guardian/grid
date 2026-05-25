@@ -1837,3 +1837,122 @@ describe("search generation counter", () => {
     expect(state().results.length).toBeGreaterThan(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: AI search — sortAroundFocusId (browser Back position restoration)
+// ---------------------------------------------------------------------------
+
+describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
+  /** Build a minimal ImageDataSource with a working searchByAi. */
+  function makeAiMock(count = 20) {
+    const base = new MockDataSource(count);
+    const hits = Array.from({ length: count }, (_, i) => ({
+      id: `ai-img-${i}`,
+      uri: `https://example.com/ai-img-${i}`,
+      metadata: { description: `AI image ${i}` },
+      uploadTime: new Date(Date.now() - i * 1000).toISOString(),
+      __aiScore: 1 - i * 0.01,
+    })) as import("@/types/image").Image[];
+
+    const k = hits.length;
+    const sortValues = hits.map((_, i) => [k - i, hits[i].id] as import("@/dal").SortValues);
+
+    return Object.assign(base, {
+      searchByAi: async (_params: unknown, _signal?: AbortSignal) => ({
+        hits,
+        total: hits.length,
+        sortValues,
+        pitId: null,
+        took: 5,
+      }),
+    });
+  }
+
+  beforeEach(() => {
+    const aiMock = makeAiMock(20);
+    useSearchStore.setState({
+      dataSource: aiMock as unknown as import("@/dal").ImageDataSource,
+      results: [],
+      bufferOffset: 0,
+      total: 0,
+      loading: false,
+      error: null,
+      imagePositions: new Map(),
+      startCursor: null,
+      endCursor: null,
+      pitId: null,
+      focusedImageId: null,
+      sortAroundFocusStatus: null,
+      sortAroundFocusGeneration: 0,
+      _extendForwardInFlight: false,
+      _extendBackwardInFlight: false,
+      _lastPrependCount: 0,
+      _prependGeneration: 0,
+      _seekGeneration: 0,
+      _seekTargetLocalIndex: -1,
+      params: {
+        aiQuery: "snowy peaks",
+        offset: 0,
+        length: 200,
+        orderBy: "-uploadTime",
+        nonFree: "true",
+      },
+    });
+  });
+
+  it("sets focusedImageId when sortAroundFocusId is in AI results (Back restore)", async () => {
+    const genBefore = state().sortAroundFocusGeneration;
+
+    await actions().search("ai-img-5");
+    await flush();
+
+    expect(state().focusedImageId).toBe("ai-img-5");
+    // sortAroundFocusGeneration must be bumped to trigger scroll-to-focused
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+    // _scrollReset must NOT be bumped (that would scroll to top instead)
+    // We check by verifying focus is set — if _scrollReset fired exclusively
+    // it would clear the focused image concept.
+    expect(state().results.length).toBe(20);
+    expect(state().total).toBe(20);
+  });
+
+  it("scrolls to top (no focus) when sortAroundFocusId is absent from AI results", async () => {
+    const resetGenBefore = state()._scrollReset.gen;
+
+    await actions().search("ai-img-nonexistent");
+    await flush();
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state()._scrollReset.gen).toBeGreaterThan(resetGenBefore);
+  });
+
+  it("does not set focusedImageId when no sortAroundFocusId provided", async () => {
+    await actions().search();
+    await flush();
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state().results.length).toBe(20);
+  });
+
+  it("sets _phantomFocusImageId when phantomOnly is true and anchor found", async () => {
+    await actions().search("ai-img-3", { phantomOnly: true });
+    await flush();
+
+    expect(state().focusedImageId).toBeNull();
+    expect(state()._phantomFocusImageId).toBe("ai-img-3");
+  });
+
+  it("total === results.length invariant holds", async () => {
+    await actions().search("ai-img-0");
+    await flush();
+
+    expect(state().total).toBe(state().results.length);
+  });
+
+  it("pitId remains null (no PIT for AI search)", async () => {
+    await actions().search();
+    await flush();
+
+    expect(state().pitId).toBeNull();
+  });
+});

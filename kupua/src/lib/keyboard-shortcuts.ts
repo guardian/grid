@@ -87,10 +87,15 @@ function isEditableTarget(e: KeyboardEvent): boolean {
  * element. The CQL search box deliberately lets navigation keys (arrows,
  * PageUp/Down) propagate so useListNavigation can handle them. Native inputs
  * (e.g. <input type="date">) need those keys for their own UI.
+ *
+ * Inputs marked with `data-grid-nav-input` opt in to grid navigation (like
+ * the AI search input) — they are treated as non-native for this purpose.
  */
 export function isNativeInputTarget(e: KeyboardEvent): boolean {
   const target = e.target as HTMLElement | null;
   if (!target) return false;
+
+  if (target.hasAttribute("data-grid-nav-input")) return false;
 
   const tag = target.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";

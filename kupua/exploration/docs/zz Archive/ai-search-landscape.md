@@ -1,6 +1,6 @@
 # AI Search Landscape — What Exists, What's In Flight, and What Kupua Can Do
 
-_Researched 20 May 2026. Based on local codebase + PRs #4738, #4744, #4507, #4554, #4550, #4539._
+_Researched 20 May 2026, updated 24 May. Based on local codebase. #4738 merged 22 May; PRs #4744, #4507, #4554, #4550, #4539 still open._
 
 ---
 
@@ -52,15 +52,16 @@ knn: { field: "embedding.cohereEmbedV4.image", query_vector: [...], k: 200, num_
 
 No BM25 involved. No `vecWeight`.
 
-### B. Hybrid Search (in PR #4738, approved, pending merge)
+### B. Hybrid Search (merged, live since 22 May 2026)
 
 Query: `useAISearch=true&q=dogs playing in snow&vecWeight=0.8`
 
-1. Probe query: runs a `multi_match` BM25 query to get `maxBm25Score`
+1. Probe query: runs a `multi_match` BM25 query (BEST_FIELDS, AND operator, AUTO fuzziness) to get `maxBm25Score`. Falls back to 1.0 if no hits. **Not cached** — one extra ES round-trip per AI text search.
 2. Main query: `bool { should: [multiMatchQuery(boost=lexicalBoost), knn] }`
 3. `lexicalBoost = (lexicalWeight/vecWeight) * (1/maxBm25Score)` — normalises BM25 to [0,1] range so signals are comparable
-4. `vecWeight` defaults to 1.0 if absent (pure KNN fallback); bounded [0.0, 1.0]
-5. Fixed result set: `k=200`, `num_candidates=max(400, 100)`, no pagination
+4. `vecWeight` defaults to 1.0 if absent (pure KNN fallback); bounded [0.0, 1.0]. **Note:** PR description originally said 0.8 default; this was changed to 1.0 during review — meaning hybrid is opt-in via URL param, not the new default behaviour.
+5. Edge cases: `vecWeight=0.0` → KNN boost zeroed, pure BM25 via the AI path. `vecWeight=1.0` → multiMatch boost approaches 0, effectively pure KNN (same behaviour as before the PR).
+6. Fixed result set: `k=200`, `num_candidates=Math.max(k*2, 100)=400`, no pagination
 
 **Key constraint**: AI search returns a fixed-size ranked list (up to 200). No offset/pagination. Kahuna short-circuits length=0 polling requests. Filter-based search params (date range, uploadedBy, etc.) are **completely ignored** — the AI search path bypasses the standard `performSearchAndRespond` branch entirely.
 
@@ -79,8 +80,8 @@ The `matchFields` are: id, mimeType, description, title, byline, source, credit,
 - **Disables all filter chips** when AI mode is on (filter UI removed entirely)
 - **No pagination** in AI mode: result set is loaded once, not lazy-loaded on scroll
 - **Telemetry**: `useAISearch` flag sent in search telemetry events
-- **PR #4738 (about to land)**: adds `vecWeight` to URL params — users can manually add `&vecWeight=0.4` to tune hybrid blend
-- **PR #4744 (vibe-coded draft, not ready for review)**: Dual-box UI — one box for semantic concepts, one for entity/lexical terms. Eliminates the toggle entirely. If semantic box is empty → pure lexical. If lexical box is empty → pure KNN. Both filled → hybrid filtered by lexical, ranked by KNN.
+- **Hybrid search (merged, #4738)**: `vecWeight` URL param live — users manually add `&vecWeight=0.4` to tune hybrid blend. No UI control; power-user URL param only. Default is 1.0 (pure KNN), so the user experience is unchanged unless they explicitly opt in.
+- **PR #4744 (vibe-coded draft, not ready for review)**: Dual-box UI — one box for semantic concepts, one for entity/lexical terms. Eliminates the toggle entirely. If semantic box is empty → pure lexical. If lexical box is empty → pure KNN. Both filled → **pre-filtered** by lexical, ranked by KNN. Important point raised about the trade-off (pre-filter excludes images without matching metadata). Kupua decides to pre-filter for v1 — post-filter is too lossy at k=200. See `ai-search-workplan.md` §3.2.
 
 ---
 
@@ -93,10 +94,10 @@ The `matchFields` are: id, mimeType, description, title, byline, source, credit,
 | Auth / tier filtering | ✅ (full Grid auth) | ❌ (must implement separately) |
 | Image-level access control | ✅ | ❌ |
 | `similar:imageId` pattern | ✅ | Can be replicated (embedding is in ES) |
-| vecWeight hybrid blending | ✅ (PR #4738) | Can be replicated |
+| vecWeight hybrid blending | ✅ (merged) | Can be replicated |
 | S3 Vectors query | Could be added | Could be added independently |
 
-**Critical gap**: Text-to-vector conversion requires Bedrock. Kupua cannot call Bedrock directly (no AWS credentials in the browser). Any text-based AI search via Kupua must go through media-api.
+**Critical gap (resolved 24 May)**: Text-to-vector conversion requires Bedrock. The browser cannot call Bedrock directly, but Kupua's Vite dev server CAN — the `media-service` Janus credentials have `bedrock:InvokeModel` permission (verified). A Vite middleware proxy at `/bedrock/embed` (same pattern as the S3 proxy) gives Kupua direct access to embeddings without media-api. See `ai-search-workplan.md`.
 
 ---
 
@@ -106,7 +107,7 @@ Kupua's `SearchParams` type already has a `useAISearch` field and it's wired int
 
 - `buildQuery` in `es-adapter.ts` **does not handle `useAISearch` at all**. The field is declared, parsed from URL, present in the store, but silently ignored when building ES queries.
 - Kupua goes direct to ES via proxy, so KNN queries are technically possible from the client.
-- Kupua has no mechanism to call Bedrock or media-api's AI search endpoint.
+- **Bedrock access confirmed (24 May):** The `media-service` Janus credentials have `bedrock:InvokeModel` permission. Kupua can call Bedrock from its Vite dev server (same pattern as S3 proxy). See `ai-search-workplan.md` for the design.
 
 ---
 
@@ -163,7 +164,7 @@ ES KNN supports:
 }
 ```
 
-Kupua can implement this _today_ (for the image-to-image path), and via the media-api proxy call this could be threaded through once vecWeight/hybrid is available.
+Kupua can implement this _today_ (for the image-to-image path), and via the media-api proxy call now that vecWeight/hybrid is live.
 
 ### 6.4 Semantic "Find More Like This Collection"
 
@@ -220,7 +221,7 @@ Kupua can implement this without waiting for #4507 by doing terms aggregations d
 ## 7. ES Features Worth Researching for Vector Data
 
 ### 7.1 `knn` in `bool` (the hybrid approach)
-Already in PR #4738. Can be combined with must/filter/should clauses. Important: KNN inside `bool.should` is supported in ES 8.15+. The hybrid approach media-api uses is the recommended pattern.
+Live in media-api (merged #4738). Can be combined with must/filter/should clauses. Important: KNN inside `bool.should` is supported in ES 8.15+. The hybrid approach media-api uses is the recommended pattern. Note: elastic4s bumped to 8.19.1 as part of this change (ES cluster still 8.18).
 
 ### 7.2 `rescore` with KNN
 ES supports a two-phase retrieval: retrieve candidates with a coarser query, then re-rank top K with KNN. This could allow Kupua to do "BM25 first, then re-rank by visual similarity" as an alternative to the additive hybrid approach.
@@ -266,7 +267,7 @@ The biggest one: **Kupua currently cannot access the stored embedding from the i
 | Opportunity | Requires | Effort | Uniqueness |
 |---|---|---|---|
 | Image-to-image KNN via direct ES (with filter support) | Nothing new | Low | Leapfrog — Kahuna can't filter |
-| Hybrid text search via media-api proxy | media-api proxy call | Low | Matches Kahuna once #4738 lands |
+| Hybrid text search via media-api proxy | media-api proxy call | Low | Matches Kahuna (live) |
 | Filtered hybrid (lexical + KNN + date/uploader filter) | Backend thread-through | Medium | Significantly ahead of Kahuna |
 | Collection → vector → "more like selection" | Direct ES | Medium | Nothing like this exists anywhere |
 | Faceted aggregations over AI result set | Direct ES | Medium | Kahuna has no facets in AI mode |

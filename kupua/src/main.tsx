@@ -8,12 +8,19 @@ import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/histo
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
+import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
+import { setBedrockAvailable } from "./lib/grid-config";
 import "./index.css";
 
 // Populate quota map once at startup. Fire-and-forget — if the API is
 // unavailable (dev without tunnel, 401) the map stays empty and images stay
 // "free". See kupua/src/lib/cost/quota-store.ts.
 fetchQuotas();
+
+// Probe Bedrock availability once at startup. Fire-and-forget — if unavailable
+// (no --use-TEST, expired creds, transient AWS error), bedrockAvailable stays false
+// and the AI search UI is hidden entirely. See ai-search-workplan.md §2.4.
+checkBedrockHealth().then(setBedrockAvailable).catch(() => {});
 
 // Load collection tree + counts once at startup. Fire-and-forget — if the
 // collections service is unavailable, the Collections panel section is hidden.

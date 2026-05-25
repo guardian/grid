@@ -37,6 +37,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1027.0",
     "@aws-sdk/client-s3": "^3.1027.0",
     "@aws-sdk/credential-providers": "^3.1027.0",
     "@playwright/test": "^1.59.1",

@@ -37,6 +37,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
 | **Grid API adapter / bread-and-butter integration** | `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md`, `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
+| **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (`searchByAi`), `zz Archive/ai-search-workplan.md` |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx` |
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
@@ -72,6 +73,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). `is:` resolver enriches suggestions with counts from ticker store, category aggs, and `getFilterAggregations`. |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
 | Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | Three-layer merge: ES baseline → TS cost/validity/syndication calculation → optional Grid API overlay. `deriveImage()` is the single merge point. Syndication status computed client-side from `syndicationRights`, `leases`, `usages` (SY-0–SY-5). |
+| AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs` | KNN semantic search via Bedrock embeddings. Vite middleware proxy (dev-only). Store AI branch: all ≤200 results in-memory, no PIT/pagination. `?aiQuery=` URL param. Gated by `/bedrock/health`. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
 > Full component inventory (views, gesture hooks, panels, toast, etc.): `exploration/docs/00 Architecture and philosophy/component-detail.md`
@@ -107,6 +109,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Integration workplan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md` | Active workplan for Grid API integration (API-first hybrid) |
 | API-first architecture | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | HATEOAS/API-first integration plan: endpoints, phased rollout, elastic4s specs |
 | Enrichment strategy | `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` | ES-baseline + Grid API optional enrichment |
+| AI search | `exploration/docs/00 Architecture and philosophy/08-ai-search.md` | KNN semantic search: Bedrock proxy, store branch, UI widget, sort handling, aggregation scoping |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 > Archived workplans, audits, and handoffs: `exploration/docs/zz Archive/`. Docs inventory: `exploration/docs/docs-inventory-2026-05-07.md`.
@@ -150,7 +153,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 
-5. **Routes match kahuna** — `/search?query=...`, `/images/:imageId`, `/` → `/search?nonFree=true`. Full param list: `query`, `ids`, `since`, `until`, `nonFree`, `payType`, `uploadedBy`, `orderBy`, `useAISearch`, `dateField`, `takenSince`, `takenUntil`, `modifiedSince`, `modifiedUntil`, `hasRightsAcquired`, `hasCrops`, `syndicationStatus`, `persisted`, `expandPinboard`, `pinboardId`, `pinboardItemId`, `image` (display-only), `density` (display-only).
+5. **Routes match kahuna** — `/search?query=...`, `/images/:imageId`, `/` → `/search?nonFree=true`. Full param list: `query`, `ids`, `since`, `until`, `nonFree`, `payType`, `uploadedBy`, `orderBy`, `aiQuery`, `useAISearch`, `dateField`, `takenSince`, `takenUntil`, `modifiedSince`, `modifiedUntil`, `hasRightsAcquired`, `hasCrops`, `syndicationStatus`, `persisted`, `expandPinboard`, `pinboardId`, `pinboardItemId`, `image` (display-only), `density` (display-only).
 
 6. **Field Definition Registry** — `field-registry.tsx`: single source of truth for identity, data access, search, sort, display, detail hints, type metadata. Config-driven aliases. Drives all UI surfaces.
 
@@ -165,3 +168,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 11. **TanStack Table column ID caveat** — dot-path accessors get dots→underscores in IDs. Maps keyed by column ID must use underscores.
 
 12. **Two-tier virtualisation (indexed scroll tier)** — `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background perf optimisation (faster seeks), not a coordinate-space decision. `search()` invalidates the map; `seek()` preserves it.
+
+## Backlog (architectural)
+
+- **SearchContext abstraction** — blocking ticket for adding any second alternative-ranking algorithm (Phase 3 image-to-image, Phase 4 collection-based, etc.). The current decorator solution in `src/lib/ai-search-params.ts` is correct for one such algorithm; promote to SearchContext before adding a second. See `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md`.

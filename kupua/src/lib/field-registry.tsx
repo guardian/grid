@@ -1014,6 +1014,8 @@ export const DESC_BY_DEFAULT: ReadonlySet<string> = new Set([
   ...FIELD_REGISTRY.filter((f) => f.descByDefault).map((f) => f.sortKey!),
   // dateAddedToCollection is a sort-only concept (no registry field) — newest first by default.
   "dateAddedToCollection",
+  // relevance is the AI-mode sort — higher score = better match, so descending is correct default.
+  "relevance",
 ]);
 
 /** Default hidden column IDs. */

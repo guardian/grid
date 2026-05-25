@@ -5,6 +5,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
 import { CqlSearchInput } from "./CqlSearchInput";
+import { AiSearchInput } from "./AiSearchInput";
 import {
   _debounceTimerId,
   setDebounceTimer,
@@ -70,15 +71,14 @@ export function SearchBar() {
     };
   }, []);
 
+  // --- AI query lives in its own URL param (searchParams.aiQuery) ---
+  const urlAiText = searchParams.aiQuery ?? null;
+  const urlQuery = searchParams.query ?? "";
+
   const handleQueryChange = useCallback(
     (queryStr: string) => {
       // First keystroke of a new typing session: commit the current URL
       // as a history entry so the pre-edit context is reachable via back.
-      // Without this, the debounced replace overwrites the current entry
-      // and the user loses access to their previous search context.
-      // Raw pushState copies the current entry exactly — no React re-render,
-      // no search, no side effects. The debounced replace then overwrites
-      // this copy with the new query.
       if (!_debounceTimerId) {
         history.pushState(history.state, "", window.location.href);
       }
@@ -94,25 +94,44 @@ export function SearchBar() {
         }
         setExternalQuery(null);
 
-        // CqlSearchInput already strips incomplete chip expressions (key:
-        // with no value) — queryStr arriving here is the effective query.
         // Only update the URL when there's real query content.
         const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
-        updateSearch({ query: meaningful ? queryStr : undefined }, { replace: true });
+        const cqlPart = meaningful ? queryStr : "";
+        updateSearch({ query: cqlPart || undefined }, { replace: true });
       }, 300));
     },
     [updateSearch]
   );
 
+  // AI text change handler — debounced like CQL changes.
+  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleAiTextChange = useCallback(
+    (text: string | null) => {
+      // Push history entry on first edit of a session (same as CQL).
+      if (!aiDebounceRef.current && !_debounceTimerId) {
+        history.pushState(history.state, "", window.location.href);
+      }
+
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+      aiDebounceRef.current = setTimeout(() => {
+        aiDebounceRef.current = null;
+        updateSearch({ aiQuery: text || undefined }, { replace: true });
+      }, 600);
+    },
+    [updateSearch],
+  );
+
   const handleClear = useCallback(() => {
     cancelSearchDebounce();
+    if (aiDebounceRef.current) { clearTimeout(aiDebounceRef.current); aiDebounceRef.current = null; }
     setHasEditorContent(false);
-    updateSearch({ query: undefined });
+    updateSearch({ query: undefined, aiQuery: undefined });
   }, [updateSearch]);
 
-  // Show clear button if the URL has a query OR the editor has content
-  // (editor content tracks un-debounced state, so it reacts instantly)
-  const showClear = hasEditorContent || !!searchParams.query;
+  // Show clear button only when there's CQL content (not just AI).
+  // When only AI is active, the AI widget has its own ✕.
+  const hasCqlContent = hasEditorContent || !!urlQuery;
+  const showClear = hasCqlContent;
 
   return (
     <header
@@ -152,7 +171,7 @@ export function SearchBar() {
            so the query area scrolls horizontally when content overflows.
            The clear button is a normal flex child (not an absolute overlay),
            so it never covers text/chips. */}
-      <div role="search" className="flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
+      <div role="search" className="relative flex items-center flex-1 min-w-0 max-w-2xl border border-grid-border rounded focus-within:border-grid-accent focus-within:ring-1 focus-within:ring-grid-accent bg-grid-bg">
         {/* Search icon — non-selectable, matches Grid's magnifier */}
         <svg
           className="shrink-0 w-4 h-4 ml-2 text-grid-text-muted pointer-events-none select-none"
@@ -170,21 +189,20 @@ export function SearchBar() {
         <div className="flex-1 min-w-0 overflow-hidden">
           <CqlSearchInput
             key={getCqlInputGeneration()}
-            value={searchParams.query ?? ""}
+            value={urlQuery}
             onChange={handleQueryChange}
             onHasContentChange={setHasEditorContent}
           />
         </div>
-        {showClear && (
-          <button
-            onClick={handleClear}
-            aria-label="Clear search"
-            className="shrink-0 text-grid-text-muted hover:text-grid-text text-sm px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors"
-            title="Clear search"
-          >
-            <span aria-hidden="true">✕</span>
-          </button>
-        )}
+        <AiSearchInput key={getCqlInputGeneration()} aiText={urlAiText} onAiTextChange={handleAiTextChange} />
+        <button
+          onClick={handleClear}
+          aria-label="Clear search"
+          className={`shrink-0 text-grid-text-muted hover:text-grid-text text-sm px-1.5 py-0.5 rounded hover:bg-grid-hover transition-colors ${showClear ? "" : "invisible"}`}
+          title="Clear search"
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
       </div>
 
 

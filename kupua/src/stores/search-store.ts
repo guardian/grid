@@ -37,12 +37,14 @@ import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal"
 import { detectNullZoneCursor, remapNullZoneSortValues } from "@/dal/null-zone";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { parseCql } from "@/dal/adapters/elasticsearch/cql";
+import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { extractSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { addToast } from "@/stores/toast-store";
 import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
@@ -462,6 +464,13 @@ interface SearchState {
    * Lazy — triggered when the primary distribution reveals a null zone.
    */
   fetchNullZoneDistribution: () => Promise<void>;
+
+  /**
+   * Re-sort the in-memory AI result buffer by the given orderBy key.
+   * No-op when not in AI mode (results array is unchanged). Used by
+   * useUrlSearchSync to handle sort-only URL changes without an ES round-trip.
+   */
+  resortAiBuffer: (orderBy: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -1843,6 +1852,106 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // Close old PIT (fire-and-forget)
     if (oldPitId) {
       dataSource.closePit(oldPitId);
+    }
+
+    // -----------------------------------------------------------------------
+    // AI search path — bypass PIT, pagination, and new-images poll entirely.
+    // Triggered when the `aiQuery` param is present (separate URL param).
+    // Returns a flat ≤200 result set (total === hits.length) which prevents
+    // the store from opening PITs, triggering scroll-mode fill, or fetching
+    // the position map. See ai-search-workplan.md §9.2.
+    // -----------------------------------------------------------------------
+    const hasAiQuery = !!params.aiQuery;
+    if (hasAiQuery) {
+      if (!dataSource.searchByAi) {
+        // searchByAi not implemented by this data source — clear loading and bail.
+        // This is a defensive guard; in normal operation the UI only surfaces
+        // the aiQuery chip when Bedrock is available.
+        set({ loading: false, error: "AI search is not supported by the current data source" });
+        return;
+      }
+      try {
+        const aiResult = await dataSource.searchByAi(params, signal);
+        if (_searchGeneration !== myGeneration) return;
+
+        const startCursor = aiResult.sortValues.length > 0 ? aiResult.sortValues[0] : null;
+        const endCursor = aiResult.sortValues.length > 0
+          ? aiResult.sortValues[aiResult.sortValues.length - 1]
+          : null;
+        const now = new Date().toISOString();
+
+        // All AI results arrive in one shot (≤200) — the anchor image is always
+        // "in the first page". Mirror the focusedInFirstPage logic from the
+        // normal path so Back-navigation position restoration works correctly.
+        const focusedInAiResults = sortAroundFocusId
+          ? aiResult.hits.some((img) => img?.id === sortAroundFocusId)
+          : false;
+
+        trace("search", "t_first_useful_pixel", { total: aiResult.hits.length });
+        trace("search", "t_settled");
+        set({
+          results: aiResult.hits,
+          bufferOffset: 0,
+          total: aiResult.hits.length, // KEY invariant: total === buffer size → no pagination
+          loading: false,
+          took: aiResult.took ?? null,
+          seekTime: null,
+          params: { ...params, offset: 0 },
+          imagePositions: buildPositions(aiResult.hits, 0),
+          startCursor,
+          endCursor,
+          pitId: null,
+          focusedImageId: (focusedInAiResults && !options?.phantomOnly) ? sortAroundFocusId! : null,
+          _focusedImageKnownOffset: null,
+          newCount: 0,
+          newCountSince: now,
+          tickerCounts: null,
+          tickersLastUpdated: null,
+          _arrivingImageIds: new Set(),
+          _extendForwardInFlight: false,
+          _extendBackwardInFlight: false,
+          _seekTargetLocalIndex: -1,
+          _seekTargetGlobalIndex: -1,
+          // Use sortAroundFocusGeneration (scroll to image) when we have an
+          // anchor, otherwise reset to top.
+          ...(focusedInAiResults
+            ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
+            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
+          ...(focusedInAiResults && options?.phantomOnly
+            ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
+            : {}),
+          _isInitialLoad: false,
+        });
+
+        if (focusedInAiResults && options?.phantomOnly) {
+          setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
+        }
+
+        // Ticker counts scoped to the AI result set (same path as normal search,
+        // but params are decorated to scope to the ≤200 result IDs).
+        const decorated = decorateParamsForAggregations(
+          params,
+          aiResult.hits.map((h) => h.id),
+        );
+        dataSource.countWithTickers(decorated, signal).then((result) => {
+          if (_searchGeneration !== myGeneration) return;
+          set({ tickerCounts: result.tickerCounts, tickersLastUpdated: new Date().toISOString() });
+        }).catch(() => { /* AbortError or network — tickers are non-critical */ });
+
+        // Do NOT start new-images poll — AI results are ranked by relevance;
+        // new uploads don't change the semantic ranking.
+        _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
+      } catch (e) {
+        if (_searchGeneration !== myGeneration) return;
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.warn("[search] AI search failed:", e);
+        const errMsg = e instanceof Error ? e.message : String(e);
+        if (errMsg.includes("503")) {
+          addToast({ category: "error", message: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." });
+        }
+        set({ loading: false, error: errMsg });
+      }
+      return;
     }
 
     try {
@@ -3675,6 +3784,30 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // Aggregation actions (unchanged from pre-buffer architecture)
   // -------------------------------------------------------------------------
 
+  resortAiBuffer: (orderBy: string) => {
+    const desc = orderBy.startsWith("-");
+    const field = desc ? orderBy.slice(1) : orderBy;
+    const { results } = get();
+    const sorted = [...results].sort((a, b) => {
+      if (!a || !b) return 0;
+      if (field === "relevance") {
+        // Invariant: all results have __aiScore when called from AI mode.
+        // The ?? 0 is defensive only — if hit, it indicates a store bug.
+        const va = (a as { __aiScore?: number }).__aiScore ?? 0;
+        const vb = (b as { __aiScore?: number }).__aiScore ?? 0;
+        return desc ? vb - va : va - vb;
+      }
+      if (field === "uploadTime") {
+        const va = new Date(a.uploadTime).getTime();
+        const vb = new Date(b.uploadTime).getTime();
+        return desc ? vb - va : va - vb;
+      }
+      // Unknown field — preserve current order
+      return 0;
+    });
+    set({ results: sorted });
+  },
+
   fetchAggregations: async (force) => {
     const { dataSource, aggCircuitOpen, _aggCacheKey } = get();
 
@@ -3703,7 +3836,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     // Snapshot params for the actual ES call — use these consistently
     // for the request AND the cache key stored with the result.
-    const callParams = frozenParams(get().params, get);
+    const callParams = decorateParamsForAggregations(
+      frozenParams(get().params, get),
+      get().results.map((img) => img?.id).filter(Boolean) as string[],
+    );
 
     _aggAbortController = new AbortController();
     set({ aggLoading: true });
@@ -3760,7 +3896,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       const result = await dataSource.getAggregations(
-        frozenParams(get().params, get),
+        decorateParamsForAggregations(
+          frozenParams(get().params, get),
+          get().results.map((img) => img?.id).filter(Boolean) as string[],
+        ),
         [{ field, size: AGG_EXPANDED_SIZE }],
         signal,
       );

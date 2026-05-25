@@ -48,7 +48,9 @@ import {
   ALLOWED_ES_PATHS,
   ALLOWED_ES_METHODS,
   IS_LOCAL_ES,
+  KNN_FIELD,
 } from "./es-config";
+import { getEmbedding } from "@/lib/bedrock-proxy-client";
 
 // ---------------------------------------------------------------------------
 // Sentinel sanitiser — ES Long.MAX/MIN_VALUE → null
@@ -447,14 +449,18 @@ function parseTickerAggs(
 }
 
 
+// ---------------------------------------------------------------------------
+
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
   const mustNot: Record<string, unknown>[] = [];
   const filter: Record<string, unknown>[] = [];
 
+  const queryStr = params.query ?? "";
+
   // Parse CQL query string into structured ES clauses
-  if (params.query) {
-    const cql = parseCql(params.query);
+  if (queryStr) {
+    const cql = parseCql(queryStr);
     must.push(...cql.must);
     mustNot.push(...cql.mustNot);
   }
@@ -1085,6 +1091,92 @@ export class ElasticsearchDataSource implements ImageDataSource {
       }
       throw e;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // AI / KNN search
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Semantic KNN search using Bedrock embeddings.
+   *
+   * 1. Extracts the `aiQuery:"<text>"` chip from params.query.
+   * 2. Fetches a 256-float embedding from the Bedrock proxy (/bedrock/embed).
+   * 3. Builds the remaining CQL + URL params as a `knn.filter` pre-filter.
+   * 4. POSTs a KNN query to ES.
+   *
+   * Returns a flat ≤200 result set where `total === hits.length` (the critical
+   * invariant that prevents the store from opening PITs or triggering
+   * scroll-mode fill or position-map fetch). See zz Archive/ai-search-workplan.md §9.2.
+   */
+  async searchByAi(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult> {
+    const aiText = params.aiQuery;
+
+    // If no aiQuery param, fall back to a regular first-page search.
+    // This is a defensive guard — the store should only call searchByAi
+    // when the param is present, so this path should not be hit in practice.
+    if (!aiText) {
+      return this.searchAfter(params, null, null, signal);
+    }
+
+    // Fetch the embedding for the AI query text.
+    // Throws on Bedrock error — propagates to search() catch block which
+    // sets loading:false + error state. The store's error handling shows
+    // a toast via the existing error display path.
+    const embedding = await getEmbedding(aiText, signal);
+
+    // Build the KNN pre-filter from the CQL query + URL params.
+    // buildQuery() returns { bool: { must, mustNot, filter } } which is
+    // exactly the shape ES knn.filter accepts. See zz Archive/ai-search-workplan.md §3.1.
+    const preFilter = buildQuery(params);
+
+    const k = 200;
+    const body: Record<string, unknown> = {
+      knn: {
+        field: KNN_FIELD,
+        query_vector: embedding,
+        k,
+        num_candidates: Math.max(k * 2, 400),
+        filter: preFilter,
+      },
+      size: k,
+      track_total_hits: false,
+    };
+
+    if (SOURCE_INCLUDES.length > 0 || SOURCE_EXCLUDES.length > 0) {
+      body._source = {
+        ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
+        ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
+      };
+    }
+
+    const result = (await this.esRequest("_search", body, signal)) as {
+      took?: number;
+      hits: {
+        total?: { value: number };
+        hits: Array<{ _id: string; _source: Image; _score: number }>;
+      };
+    };
+
+    const rawHits = result.hits.hits;
+    // Attach __aiScore (kupua-internal; not from ES _source) for relevance sort in Phase 1c.
+    const images: Image[] = rawHits.map((h) => ({
+      ...h._source,
+      __aiScore: h._score,
+    }));
+
+    // Synthetic sort values — descending score index + id tiebreaker.
+    // Stored as cursors for store compatibility but never used for pagination
+    // (total === hits.length prevents any extend/seek from firing).
+    const sortValues: SortValues[] = images.map((img, i) => [k - i, img.id]);
+
+    return {
+      hits: images,
+      total: images.length, // KEY invariant: no pagination triggered
+      took: result.took,
+      sortValues,
+      pitId: null,
+    };
   }
 
   async countBefore(

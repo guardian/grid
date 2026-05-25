@@ -14,6 +14,391 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 25 May 2026 — AI Search: keyboard navigation from AI widget + auto-collapse on blur
+
+Three small UX refinements to the AiSearchInput widget:
+
+**1. Grid navigation keys pass through from AI input:**
+
+The AI text input is a native `<input>` element, so `isNativeInputTarget()` in
+`keyboard-shortcuts.ts` returned `true` — meaning arrow keys, Home/End, PgUp/PgDown
+were consumed by the input and never reached the grid navigation handlers.
+
+Fix: added `data-grid-nav-input` attribute to the AI input element, and modified
+`isNativeInputTarget()` to return `false` for elements with this attribute. This opts
+the AI input into grid navigation (Up/Down/PgUp/PgDown/Home/End move through images).
+Left/Right are stopped via `e.nativeEvent.stopPropagation()` in the React `onKeyDown`
+handler so they remain as text-editing keys within the input.
+
+**2. Auto-collapse empty widget on blur:**
+
+Bug: user opens AI widget, doesn't type anything, clicks into CQL search box → widget
+stays expanded (empty, taking up space). Expected: widget should collapse when empty
+and focus leaves.
+
+Fix: `handleBlur` now checks `if (!localText) setIsActive(false)`. The sparkles toggle
+button and the clear ✕ button both use `onMouseDown` with `e.preventDefault()` to
+prevent blur from firing when clicking them (toggle already had this; clear button was
+missing it — that was a separate bug, see below).
+
+**3. Clear button no longer causes shrink+expand animation:**
+
+Bug: clicking the AI widget's own ✕ (clear text) button caused the widget to rapidly
+collapse then re-expand. Root cause: clicking the button blurred the input → `handleBlur`
+saw empty `localText` → collapsed → `handleClearText`'s rAF refocus re-expanded.
+
+Fix: added `onMouseDown={(e) => e.preventDefault()}` to the clear button — same pattern
+as the sparkles toggle. Prevents the blur from firing at all; input stays focused after
+clear.
+
+**4. Height reduction (cosmetic):** `my-0.5` → `my-px` on all three container class states.
+
+868/868 tests pass.
+
+---
+
+### 25 May 2026 — Refactor: `aiQuery:"..."` CQL chip → separate `?aiQuery=` URL param (+58 / −166)
+
+**The problem — regex proliferation from a data model mismatch:**
+
+The original Phase 1b/1c design embedded AI search text as a CQL-like pseudo-chip inside
+the `query` URL param: `?query=credit:PA aiQuery:"tigers in snow"`. This meant AI state
+was a structured concept buried inside a flat string. Every consumer that needed to detect,
+extract, or strip the AI text required its own regex:
+
+- `AI_CHIP_RE` in `es-adapter.ts` (`extractAiQuery` — strip chip, return text + remainder)
+- `AI_CHIP_PRESENT_RE` in `useUrlSearchSync.ts` (auto-sort detection)
+- `hasAiChip` regex in `SearchFilters.tsx` (show "Relevance" sort option)
+- Detection in `search-store.ts` (AI branch routing)
+- Split/combine logic in `SearchBar.tsx` (mux AI text into/out of CQL string)
+- Detection in `ai-search-params.ts` (aggregation decoration)
+
+Each regex variant had subtly different requirements. CQL strips quotes from single-word
+values (`aiQuery:"tigers"` → `aiQuery:tigers`), so every regex needed both quoted AND
+unquoted forms. The `AI_CHIP_PRESENT_RE` in useUrlSearchSync only matched the quoted
+form — single-word AI queries silently failed to auto-sort to Relevance. SearchFilters
+had a case mismatch. Fixes kept layering.
+
+**Root cause:** Two independent concepts (CQL text + AI text) stuffed into one string.
+As long as `aiQuery:` lives inside `?query=`, everything downstream must regex-parse it.
+This is true regardless of CQL — even a perfect CQL chip API wouldn't help when the
+fundamental problem is data model mismatch.
+
+**The fix — promote `aiQuery` to its own URL parameter:**
+
+`?query=credit:PA&aiQuery=tigers in snow&nonFree=true`
+
+- Detection everywhere: `!!params.aiQuery` — no regex, no parsing, no edge cases
+- `query` is always pure CQL — nothing to extract, nothing to strip
+- SearchBar reads two params, writes two params — no combine/split logic
+- `extractAiQuery()` deleted entirely (was ~30 lines + 6 unit tests)
+- All 4+ regex patterns deleted
+- TanStack Router Zod schema gives typed access (`params.aiQuery: string | undefined`)
+
+**Files changed:**
+
+| File | Change |
+|---|---|
+| `search-params-schema.ts` | Added `aiQuery: z.string().optional()` |
+| `SearchBar.tsx` | Reads `searchParams.aiQuery` directly, writes via `updateSearch({ aiQuery })`; deleted `combineForUrl()`, `extractAiQuery` import, split/combine logic |
+| `useUrlSearchSync.ts` | AI detection → `!!params.aiQuery`; deleted `AI_CHIP_PRESENT_RE` |
+| `search-store.ts` | AI branch → `!!params.aiQuery`; deleted regex detection |
+| `es-adapter.ts` | Deleted `extractAiQuery()` + `AI_CHIP_RE`; `buildQuery()` uses `params.query` directly (no strip needed); `searchByAi()` reads `params.aiQuery` |
+| `ai-search-params.ts` | Uses `params.aiQuery` directly; deleted regex import |
+| `SearchFilters.tsx` | `hasAiChip` → `!!searchParams.aiQuery` |
+| `es-adapter.test.ts` | Deleted `extractAiQuery` tests (function gone); adapted remaining |
+
+**Trade-off:** URL is slightly less "truthful" — AI query isn't visible in the CQL input.
+But it never was editable there anyway (it lives in its own standalone AiSearchInput
+React widget since the Phase 1c pivot). The CQL input shows only CQL; the AI widget
+shows only AI text. Two concepts, two params, two components. Clean.
+
+**Net: +58 / −166 lines.** 868/868 tests pass.
+
+---
+
+### 25 May 2026 — Bug fix: Home → type does nothing (latent `_externalQuery` latch bug)
+
+**Symptom:** After pressing Home (which navigates to `/search?nonFree=true`) and typing
+in the CQL search box, nothing happens — keystrokes appear in the input but no search
+fires. The debounce callback runs but `updateSearch` is never called.
+
+**Root cause — stale `_externalQuery` latch:**
+
+`resetToHome()` called `cancelSearchDebounce("")` which set `_externalQuery = ""`. The
+`useUrlSearchSync` effect deduplicates URL changes (if serialised params haven't changed
+from what was just navigated to, it skips). After Home, the effect's final
+`setExternalQuery(null)` line is never reached because the effect detects "URL matches
+what I just set" and returns early. The latch stays as `""`.
+
+All subsequent debounce callbacks from typing fail the guard:
+```typescript
+if (_externalQuery !== null && queryStr !== _externalQuery) return; // skip
+```
+Because `"typed text" !== ""` → callback exits without calling `updateSearch`.
+
+**Why it surfaced now:** The aiQuery refactor added `aiQuery` to the URL schema and the
+AiSearchInput component. This changed React render timing — previously an intermediate
+render during `resetToHome()`'s async gap let the effect fire and clear the latch. After
+the refactor, React batches differently and the effect only fires once (post-navigate),
+hitting the dedup guard.
+
+**Fix:** `cancelSearchDebounce("")` → `cancelSearchDebounce()` (no argument). This sets
+`_externalQuery = null` instead of `""`. `clearTimeout` already kills the pending timer,
+and the generation bump remounts the CQL component. Passing `""` served no purpose
+beyond creating a stale latch that blocked future debounce callbacks.
+
+868/868 tests pass.
+
+---
+
+### 24–25 May 2026 — Phase 1c pivot: CQL chip → standalone AiSearchInput widget
+
+**What was attempted (and why it failed):**
+
+The original Phase 1c plan implemented AI search as a real CQL chip (`aiQuery:"..."`)
+with custom styling inside the `<cql-input>` shadow DOM. Three files were built:
+`SparklesButton.tsx` (toggle button), `ai-chip-styling.ts` (shadow-root CSS injection +
+MutationObserver to tag chips with `data-ai-chip`), and wiring in `CqlSearchInput.tsx`.
+
+This approach hit four fatal problems:
+
+1. **Browser crash.** The `MutationObserver` on the CQL shadow root (`childList + subtree
+   + characterData`) created a feedback loop with ProseMirror's own MutationObserver.
+   Both observed the same DOM, both mutated it (one tagging `data-ai-chip`, the other
+   updating PM state from DOM mutations). Infinite loop → tab freeze.
+
+2. **Cursor positioning impossible.** CQL chips are atomic ProseMirror nodes. The caret
+   cannot be placed *inside* a committed chip. Users had no way to edit the AI text
+   without deleting the chip and re-typing from scratch.
+
+3. **Strip logic fragility.** `extractAiQuery()` needed to survive CQL's normalisation
+   (quoting, whitespace). CQL's `queryChange` event reports the canonicalised value, which
+   destroyed `aiQuery:""` (empty-chip state) on every keystroke during composition.
+
+4. **No "composition mode" API.** CQL has no concept of a chip that's visually present
+   but not yet committed to the query string. The chip either exists in ProseMirror state
+   (and immediately affects the URL/search) or doesn't.
+
+**What was built instead (Option D — standalone React widget):**
+
+`AiSearchInput.tsx`: A self-contained expandable widget living *inside* the search bar
+border, between the CQL input and the main clear button. Architecture:
+
+- **Toggle:** Sparkles icon (`auto_awesome` filled, yellow `#facc15`). Click when
+  collapsed → expand + autofocus. Click when expanded → stash text to module-level
+  `_stashedAiText`, collapse, clear AI from URL. Click when collapsed with stash →
+  restore stashed text, expand.
+
+- **Local state decoupled from URL:** The input maintains `localText` state that is
+  NOT the URL param. Changes propagate to URL via `onAiTextChange` callback with the
+  parent's debounce (600ms). This prevents debounce clobbering mid-keystroke — the input
+  always shows what the user typed, not what the URL contains.
+
+- **Content-based sizing:** Width uses `ch` units computed from text length. Focused:
+  `min(max(chars+4, 16), 28)ch`. Blurred: `min(chars+2, 16)ch`. Collapsed: `max-width: 0`.
+  All transitions via `transition-all duration-200 ease-out`.
+
+- **Escape to collapse:** Stashes text, collapses widget, clears AI from URL. Same
+  behaviour as clicking the sparkles toggle when active.
+
+- **Inner ✕ button:** Clears text without collapsing — widget stays expanded and
+  re-focused for a new query. Uses `onMouseDown + e.preventDefault()` to prevent
+  blur-before-click layout shift.
+
+- **Gated by `bedrockAvailable`:** Uses `subscribeBedrockAvailable()` (reactive subscriber
+  pattern on the module-level `let bedrockAvailable` flag). Widget is `null` when
+  Bedrock is unavailable.
+
+**SearchBar orchestration:** Reads `searchParams.aiQuery` directly (after the later
+refactor — see separate changelog entry). Passes `aiText` and `onAiTextChange` to
+`AiSearchInput`. The CQL input is completely unaware of AI — it handles only
+`params.query`.
+
+**Dead code removed:** `SparklesButton.tsx`, `ai-chip-styling.ts`, commented-out import
+in `CqlSearchInput.tsx`.
+
+875/875 unit tests pass (at time of implementation; count changed after later refactor).
+
+---
+
+### 24 May 2026 — Phase 1b fix: AI search tickers & filters empty
+
+**Symptom:** When AI search is active, tickers show zero counts and the Filters panel
+is completely empty.
+
+**Root cause:** The `aiQuery:"..."` chip (at that point still embedded in `params.query`)
+was being passed through to `buildQuery()` by every aggregation/ticker caller. CQL's
+parser doesn't know `aiQuery` as a field, so `parseCql` produces a broken
+`{ match_phrase: { aiQuery: "..." } }` clause → zero ES hits → all aggregations empty.
+
+**Fix (3 files, ~40 lines):**
+
+1. **`buildQuery()` self-defence (`es-adapter.ts`):** Calls `extractAiQuery(params.query).remainder`
+   at the top, uses remainder for `parseCql`. Structurally prevents the poisoned query
+   from reaching any downstream CQL parsing. Load-bearing for ALL callers (search, aggs,
+   tickers, expanded facets).
+
+2. **`decorateParamsForAggregations` helper (new: `src/lib/ai-search-params.ts`):**
+   Single point of AI-mode detection. When AI chip is present: strips it from
+   `params.query` + sets `params.ids` to the ≤200 AI result IDs → ES aggregates over
+   exactly the visible AI results. When AI chip absent: no-op (normal search unchanged).
+
+3. **Store wiring (`search-store.ts`):** AI branch fires `countWithTickers(decoratedParams)`
+   after results land (async, non-blocking). `fetchAggregations` and `fetchExpandedAgg`
+   both decorate their `callParams` before the DAL call.
+
+**Design principle enforced:** "AI is not a mode." No client-side aggregation
+reimplementation, no `_isAiMode` flag, no bespoke TS predicates. Same ES agg
+infrastructure, scoped to the AI result IDs via the existing `params.ids` →
+`terms: { id: [...] }` mechanism that already existed for selection-scoped views.
+
+**Bug caught during implementation:** Initial `.then()` callback set the entire
+`CountWithTickersResult` object (`{ count, tickerCounts }`) as `tickerCounts` in the
+store. Fixed same session — extract `.tickerCounts` from the result.
+
+---
+
+### 24 May 2026 — Phase 1b fix: browser Back breaks position in AI search results
+
+**Symptom:** Browser Back after navigating away from an AI search result lands at the
+TOP of the AI results, not at the previously focused image.
+
+**Root cause:** AI search uses synthetic `sortValues` (`[k-i, img.id]` descending) for
+cursor API compatibility. These are NOT valid ES cursors — `countBefore()` and
+`searchAfter()` cannot use them. The `sortAroundFocus` path that normally restores
+position (via `_findAndFocusImage` → `countBefore` → scroll-to-index) silently failed
+and fell back to scroll-to-top.
+
+**Fix:** The AI branch in `search-store.ts` was modified to handle `sortAroundFocusId`
+(the focused image ID carried through browser history navigation):
+
+- Compute `focusedInAiResults = sortAroundFocusId ? hits.some(h => h.id === sortAroundFocusId) : false`
+- If found: set `focusedImageId = sortAroundFocusId`, bump `sortAroundFocusGeneration`
+  (which triggers the scroll-to-focused-image effect in `useScrollEffects`), handle
+  phantom mode.
+- If not found (image not in top-200 AI results): set `focusedImageId = null`, bump
+  `_scrollReset` (scroll to top — correct behaviour, the image isn't in these results).
+
+**Key insight:** No ES round-trip needed. AI search has all ≤200 results in memory.
+Position restoration is a pure in-memory `Array.some()` lookup + buffer index calculation.
+The heavy `countBefore` / `searchAfter` machinery used by normal search is unnecessary.
+
+6 new store tests added covering: Back restore, phantom mode handling, not-found fallback,
+invariants.
+
+875/875 tests pass.
+
+---
+
+### 24 May 2026 — Phase 1c: sort handling, relevance option, client-side re-sort
+
+**Sort infrastructure for AI mode:**
+
+1. **`-relevance` sort key:** Added `"relevance"` to `DESC_BY_DEFAULT` set in
+   `field-registry.tsx`. Higher KNN `_score` = better match, so descending is the
+   natural default. Unit test updated with `AI_ONLY_SORT_KEYS` allowlist (relevance
+   has no ES field mapping — it only exists in-memory on `__aiScore`).
+
+2. **Sort dropdown:** `SortControls` in `SearchFilters.tsx` prepends
+   `{ label: "Relevance", value: "relevance" }` when an AI query is active.
+   Default-sort indicator dot suppressed when `orderBy === "-relevance"` in AI mode
+   (relevance IS the natural default for AI, so the dot would be noise).
+
+3. **Auto-sort on AI activation/deactivation:** `useUrlSearchSync.ts` adds
+   `_preSortBeforeAi` (mirrors the existing `_preSortBeforeCollection` pattern exactly).
+   When AI chip appears: save current sort, switch to `-relevance`. When AI chip
+   disappears: restore previous sort. Same atomic-navigate pattern (merged into the
+   same `navigate()` call as the query change → single URL update → single `search()`).
+
+4. **Client-side re-sort (`resortAiBuffer`):** New store action. When sort changes
+   while AI mode is active, the URL-sync hook intercepts at the `isSortOnly` branch
+   and calls `resortAiBuffer(orderBy)` instead of firing a new `search()`. Sorts the
+   in-memory ≤200 results by `__aiScore` (relevance) or `uploadTime` (date). Other
+   sort keys are a no-op with a console warning. No ES round-trip for sort changes
+   in AI mode.
+
+---
+
+### 24 May 2026 — Phase 1b: DAL `searchByAi` + store branch (KNN data path)
+
+**Architecture:**
+
+`searchByAi(params: SearchParams)` added as a public method on `ElasticsearchDataSource`
+(declared as optional in `ImageDataSource` interface for non-ES adapters). Flow:
+
+1. Read `params.aiQuery` (text to embed)
+2. `GET /bedrock/embed?q=<text>` → 256-float vector
+3. `buildQuery(params)` → filter clause (all CQL chips + URL filters become `knn.filter`)
+4. POST to ES `/_search` with `{ knn: { field, query_vector, k: 200, filter } }`
+5. Parse hits, inject `__aiScore` from `_score`, build synthetic `sortValues`
+
+**Store branching (`search-store.ts`):**
+
+Inserted BEFORE the main `try {}` block (after `closePit`). Detection: `!!params.aiQuery`.
+Early-returns after setting state. Key differences from normal search path:
+- No PIT opened (AI results are a fixed ≤200 set, no pagination)
+- No new-images poll started (results ranked by relevance, not time)
+- `track_total_hits: false` — total computed from `hits.length`
+- Synthetic `sortValues: [k-i, img.id]` — never used for pagination but stored for
+  cursor API shape compatibility
+- `pitId: null` explicit — store doesn't try to close a non-existent PIT
+- `_seekCooldownUntil` set (mirrors end of normal path)
+
+**`__aiScore` on Image interface:**
+
+Added `__aiScore?: number` to `Image` type. Kupua-internal field (not from ES `_source`).
+Set from each hit's `_score` during result processing. Used by `resortAiBuffer` for
+relevance re-sort and available for future UI display (score badge, etc.).
+
+**Guard for non-ES adapters:** If `dataSource.searchByAi` is `undefined`, sets error
+state and returns cleanly. Covers the `GridApiDataSource` path where KNN isn't available.
+
+6 `extractAiQuery` tests + 6 `searchByAi` tests added (later: `extractAiQuery` tests
+removed when the function was deleted in the refactor).
+
+---
+
+### 24 May 2026 — Phase 1a: Bedrock embed proxy + health check (foundation)
+
+**What was built:**
+
+A Vite dev-server plugin (`scripts/bedrock-embed-proxy.mjs`) that exposes two endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /bedrock/health` | Returns `{"available":true/false}` — gates UI visibility |
+| `GET /bedrock/embed?q=<text>` | Returns 256-float embedding vector for query text |
+
+**Implementation details:**
+
+- Uses `@aws-sdk/client-bedrock-runtime` + `fromIni({ profile })`. Profile from
+  `AWS_PROFILE` env var (default `"media-service"` — same pattern as `s3-proxy.mjs`).
+- Region from `AWS_REGION` (default `"eu-west-1"`).
+- Model: `global.cohere.embed-v4:0` (configurable via `KUPUA_BEDROCK_MODEL_ID` env var).
+- **In-memory LRU cache** (Map, max ~200 entries keyed by `query.trim().toLowerCase()`).
+  Prevents redundant Bedrock calls during a dev session. Second identical request shows
+  `cached: true` in proxy logs.
+- **Graceful failure:** Missing/expired credentials or unreachable Bedrock → `/bedrock/health`
+  returns `{"available":false}`, `/bedrock/embed` returns 503. No crash, no error spam.
+- **Request validation:** Rejects empty queries and queries >2048 chars (400).
+- Credentials stay server-side (Vite process). Never sent to browser.
+
+**App-side wiring:**
+
+- `src/lib/grid-config.ts`: Added `bedrockAvailable` mutable export + `setBedrockAvailable()`
+  setter + `subscribeBedrockAvailable()` for reactive React consumption.
+- `src/lib/bedrock-proxy-client.ts`: Browser-side `getEmbedding(query)` and
+  `checkBedrockHealth()` using plain `fetch()` to `/bedrock/*`.
+- `src/main.tsx`: Calls `checkBedrockHealth()` at startup → sets flag.
+
+**Key design choices:**
+
+- Not a standalone server — runs as Vite middleware (same architecture as the S3 proxy
+  and ES proxy guard).
+- Dev-only infrastructure. Production AI search will use a proper backend endpoint.
+- Single-developer dev server — no rate limiting needed.
+
 ### 23 May 2026 — Perf: stable findImageIndex — stop sort-around-focus useLayoutEffect re-firing on every extend (audit F-05 C5, G-01)
 
 **Background:**
