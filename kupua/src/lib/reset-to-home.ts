@@ -121,7 +121,11 @@ export async function resetToHome(navigate: () => void) {
   // Cancel any pending debounce and force CqlSearchInput to remount (via
   // generation bump). This destroys partial/ghost chips that live only in
   // ProseMirror's internal state and aren't cleared by setAttribute alone.
-  cancelSearchDebounce("");
+  // NOTE: no query arg — clearTimeout already kills the pending timer, and
+  // the generation bump remounts the component. Passing "" would leave a
+  // stale _externalQuery latch that blocks subsequent typing because the
+  // useUrlSearchSync effect deduplicates after Home (never clearing it).
+  cancelSearchDebounce();
   // Apply the full reset, then overlay the home defaults (DEFAULT_SEARCH).
   // Single source of truth: if the home URL defaults change, this follows.
   store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });

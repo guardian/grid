@@ -37,8 +37,11 @@ let _cqlInputGeneration = 0;
  * Call this before programmatically updating the query from outside the
  * CQL editor (e.g. shift/alt-click on a table cell).
  *
- * @param newQuery — the query that the external caller is about to set.
- *   Stored so the debounce callback can detect and skip stale updates.
+ * @param newQuery — optional. When provided, stored as `_externalQuery` so
+ *   the debounce callback can detect it already ran and skip. Use this only
+ *   when the caller is about to set a specific query value (e.g. polarity
+ *   flip from cell click). Omit the argument (latch = null) for reset paths
+ *   like Home — a null latch never blocks future debounce callbacks.
  */
 export function cancelSearchDebounce(newQuery?: string) {
   if (_debounceTimerId) {
