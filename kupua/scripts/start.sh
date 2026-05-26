@@ -38,6 +38,42 @@ yellow='\033[0;33m'
 cyan='\033[0;36m'
 plain='\033[0m'
 
+# ---------------------------------------------------------------------------
+# WOPR-style typing effect (WarGames, 1983)
+# ---------------------------------------------------------------------------
+wopr_type() {
+  local text="$1"
+  local delay="${2:-0.04}"
+  for (( i=0; i<${#text}; i++ )); do
+    printf "%s" "${text:$i:1}"
+    sleep "$delay"
+  done
+  printf "\n"
+}
+
+wopr_intro() {
+  clear
+  echo
+  printf "  ${green}"
+  wopr_type "GREETINGS PROFESSOR FALKEN." 0.03
+  sleep 0.3
+  echo
+  printf "  "
+  wopr_type "SHALL WE PLAY A GAME?" 0.03
+  sleep 0.3
+  echo
+  printf "  "
+  wopr_type "GLOBAL THERMONUCLEAR WAR?" 0.025
+  sleep 0.3
+  echo
+  printf "  "
+  wopr_type "FINE!" 0.08
+  printf "${plain}"
+  sleep 1.0
+  echo
+  echo
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUPUA_DIR="${SCRIPT_DIR}/.."
 
@@ -187,6 +223,7 @@ fi
 # Mode: --use-TEST (connect to real TEST ES via SSH tunnel)
 # ---------------------------------------------------------------------------
 if [ "$USE_TEST" = true ]; then
+  wopr_intro
   echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
   echo -e "${cyan}║      Starting Kupua (TEST mode)      ║${plain}"
   echo -e "${cyan}╚══════════════════════════════════════╝${plain}"

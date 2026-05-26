@@ -417,6 +417,148 @@ that's the right moment to formalise the type.
 
 ---
 
+## 7. AI search boundary violations (c96c8cb8e, 25 May 2026)
+
+The AI search commit introduced several new violations of principles #1–4.
+Catalogued here for completeness; these are **known, deliberate trade-offs**
+made during rapid prototyping. They should be resolved before the feature
+ships beyond dev.
+
+### 7a. `resortAiBuffer` parses `orderBy` string in the store
+
+| File | Line | Pattern |
+|------|------|---------|
+| `src/stores/search-store.ts` | ~3787 | `orderBy.startsWith("-")` + `orderBy.slice(1)` |
+
+A new (fifth) instance of the `orderBy` string parsing pattern from Item 2.
+The store method splits the `-` prefix and switches on the bare field name
+(`"relevance"`, `"uploadTime"`). This is identical to the pattern in
+`sort-context.ts`, `SearchFilters.tsx`, and `ImageTable.tsx`.
+
+**Worsens Item 2 scope:** the `parseOrderBy` consolidation now has 5
+distinct call sites, not 4.
+
+### 7b. `useUrlSearchSync` adds `AI_SORT = "-relevance"` and module-level `_preSortBeforeAi`
+
+| File | Line | Pattern |
+|------|------|---------|
+| `src/hooks/useUrlSearchSync.ts` | ~61 | `const AI_SORT = "-relevance"` |
+| `src/hooks/useUrlSearchSync.ts` | ~64 | `let _preSortBeforeAi: string \| undefined` |
+| `src/hooks/useUrlSearchSync.ts` | ~410–430 | `merged.orderBy === AI_SORT` / `merged.orderBy !== AI_SORT` |
+
+Another instance of string-equality checks against the `orderBy` convention.
+Also: module-level mutable state managing AI sort transitions, mirroring
+the existing `_preSortBeforeCollection` pattern (Part I appendix item 4).
+Two independent module-level sort-stash variables now exist in the same hook.
+
+**New default location:** `"-relevance"` joins `"-uploadTime"` as a
+hardcoded default — now five places encode sort defaults.
+
+### 7c. DAL imports `getEmbedding` from `lib/bedrock-proxy-client`
+
+| File | Line | Import |
+|------|------|--------|
+| `src/dal/es-adapter.ts` | ~51 | `import { getEmbedding } from "@/lib/bedrock-proxy-client"` |
+
+**Reverse boundary violation.** The DAL adapter imports a browser-side HTTP
+client and calls it directly. Under Alex's principles, the DAL owns ES
+knowledge — not Bedrock/embedding knowledge. This couples the adapter to the
+specific deployment topology (Vite proxy → Bedrock). It also makes
+`searchByAi` untestable without mocking `fetch` at the global level, since
+the effect is buried inside the DAL rather than injected.
+
+When the BFF ships, this import disappears (embeddings are server-side). But
+until then, the DAL has a hard dependency on a non-ES HTTP endpoint.
+
+### 7d. `__aiScore` on `Image` interface — ES `_score` leakage
+
+| File | Line | What |
+|------|------|------|
+| `src/types/image.ts` | ~203 | `__aiScore?: number` on `Image` |
+| `src/dal/es-adapter.ts` | ~1155 | `__aiScore: h._score` — attached from ES hit |
+| `src/stores/search-store.ts` | ~3798 | `(a as { __aiScore?: number }).__aiScore` — read for sort |
+
+Alex's Rule 4: "ES response envelope fields — `_score`, `_id`, `sort` — are
+internal to the DAL." `__aiScore` is `_score` with a rename. It crosses the
+DAL boundary on the domain object and is read by the store's client-side sort
+logic. The type cast in `resortAiBuffer` further signals this is a boundary
+leak — the store doesn't trust the type it receives.
+
+**What the principle says:** The DAL should return images pre-sorted by
+relevance (which it does). If the UI needs to re-sort client-side, the sort
+key should be a domain-named field (e.g. `relevanceRank: number`) rather
+than a raw ES score value whose semantics (`(1 + cosine_similarity) / 2`)
+are ES-internal.
+
+### 7e. Synthetic `sortValues` manufactured by the DAL
+
+| File | Line | What |
+|------|------|------|
+| `src/dal/es-adapter.ts` | ~1163 | `const sortValues: SortValues[] = images.map((img, i) => [k - i, img.id])` |
+
+`searchByAi()` constructs fake `SortValues` arrays to satisfy the
+`SearchAfterResult` contract. These cursors are never used for pagination
+(total === hits.length prevents extend/seek), but they cross the boundary
+and are stored in the store as `startCursor` / `endCursor`. The DAL is
+manufacturing ES artifacts to fit a contract designed for a different
+data path.
+
+This is the opposite of opacity — the DAL is *adding* ES-shaped data that
+doesn't exist, rather than hiding ES-shaped data that does.
+
+### 7f. `decorateParamsForAggregations` in `lib/` — orchestration outside DAL
+
+| File | Line | What |
+|------|------|------|
+| `src/lib/ai-search-params.ts` | 17–25 | Constructs `params.ids` to scope ES aggregation |
+| `src/stores/search-store.ts` | ~1946, ~3839, ~3899 | Three call sites in the store |
+
+This helper understands that setting `params.ids` makes the ES adapter add
+an `ids` filter to scope aggregations to specific documents. That's ES query
+construction knowledge living in a `lib/` helper — an orchestration pattern
+that Alex's principle #3 places inside the DAL.
+
+Under the correct boundary, the DAL method `getAggregations` would accept an
+optional `scopeToIds: string[]` parameter and handle the scoping internally.
+
+### 7g. Store imports `addToast` for error presentation
+
+| File | Line | What |
+|------|------|------|
+| `src/stores/search-store.ts` | ~50 | `import { addToast } from "@/stores/toast-store"` |
+| `src/stores/search-store.ts` | ~1956 | `addToast({ category: "error", ... })` |
+
+The search store now directly invokes a UI presentation concern (toast) from
+within the AI error handler. Previously, the store set `error` state and the
+UI layer decided how to present it. This creates a coupling direction from
+data layer → presentation layer.
+
+### Risk note (all 7a–7g)
+
+These violations are **known debt from a rapid prototype**. The commit
+message explicitly calls it "Phase 1" and the feature is dev-only (gated on
+`bedrockAvailable` health check). The violations don't affect the existing
+search path — the AI code is a branch entered only when `params.aiQuery` is
+truthy. Fixing them is prerequisite for shipping AI search to users but not
+for the planned boundary-tightening PRs (Items 2, 3, C4, C5, C8, C9), which
+don't touch the AI code path.
+
+### Effort: M (collectively)
+
+Fixing 7a is folded into Item 2's `parseOrderBy` consolidation. 7b folds
+into that plus a broader sort-stash refactor. 7c requires injecting the
+embedding function into the DAL (or moving `searchByAi` out of the ES
+adapter). 7d is a rename + type narrowing. 7e requires a different return
+type for AI results (not `SearchAfterResult`). 7f is a one-method signature
+change. 7g is a 2-line move (set error state, let UI handle presentation).
+
+### Verdict: FIX-BEFORE-SHIP
+
+Not blocking the current boundary-tightening work (Items A–E in the response
+doc). Must be resolved before AI search leaves dev-only status.
+
+---
+
 ## Recommended bundle
 
 ### PR A — Mechanical, zero-risk, no test updates needed
@@ -429,18 +571,27 @@ File overlap: `dal/index.ts`, `search-store.ts`, `sort-context.ts`, `SearchFilte
 should still pass unchanged; run unit + e2e after.
 
 Estimated session: 1 day (Item 3 is an hour; Item 2 requires careful extraction to
-ensure the four parsers are genuinely equivalent before collapsing them).
+ensure the five parsers — now including `resortAiBuffer` — are genuinely equivalent
+before collapsing them).
 
 ### PR B — Only if explicitly requested
 
 **Item 1 partial**: redirect the two direct `@/dal/types` imports to go through `@/dal`
 instead. 2-line change. Not worth its own PR; fold into PR A if convenient.
 
+### PR C — AI search boundary cleanup (before AI ships)
+
+**Items 7a–7g** collectively. Depends on PR A landing first (7a folds into
+`parseOrderBy`; 7f's aggregation scoping is cleaner once barrel imports are
+fixed). Should ship as part of the AI search maturation, not the current
+boundary-tightening round.
+
 ### Do not bundle
 
 - **Items 4, 5, 6** — Item 4 is a deliberate feature (skip); Item 5 needs design
   judgement about store vs route ownership; Item 6 is defer-to-BFF. None share files
   with PR A's scope.
+- **Item 7** — AI search debt; separate timeline from the existing boundary plan.
 
 ---
 
@@ -455,7 +606,14 @@ instead. 2-line change. Not worth its own PR; fold into PR A if convenient.
    a good candidate to become a union type discriminant.
 4. `useUrlSearchSync.ts` collection auto-sort logic (`COLLECTION_CHIP_RE`,
    `COLLECTION_SORT`) is module-level state in a hook file — sits oddly outside
-   the store.
+   the store. **Update (c96c8cb8e):** AI sort adds a second instance of the same
+   pattern (`AI_SORT`, `_preSortBeforeAi`) in the same file.
 5. `src/stores/search-store-extended.test.ts:19` imports from
    `@/dal/adapters/elasticsearch/sort-builders` directly (bypasses barrel), which
    makes the test adapter-coupled.
+6. `src/lib/grid-config.ts` now has a hand-rolled pub-sub (`subscribeBedrockAvailable`,
+   `setBedrockAvailable`) for a single boolean runtime flag. Minor debt — works, but
+   an odd pattern alongside the reactive Zustand stores used elsewhere.
+7. `src/dal/es-adapter.ts:searchByAi` returns `pitId: null` in its result — the DAL
+   method explicitly manufactures a null PIT token to fit the `SearchAfterResult` shape.
+   This is the shape mismatch from Item 7e manifesting at the contract level.

@@ -6,6 +6,49 @@
 > This doc explains what we plan to do **now**, what needs **design first**, and
 > what we plan to **not do** — with reasons.
 
+---
+
+## Preface — why this plan is on hold (26 May 2026)
+
+**From the project owner (non-engineer):**
+
+> I am not an engineer. This app grew "organically" by me asking Claude agents
+> for ever more functionality. I never looked at the code. I don't understand
+> system design. When I try to read the plan it SOUNDS like it makes sense.
+> But present me with a competently written plan proposing complete architectural
+> madness — and it will SOUND the same to me. I cannot judge if it's good. I
+> can't oversee implementation meaningfully. I can't judge its complexity or time.
+> From my perspective it can only break things. Or make them slower.
+
+**Honest assessment from the agent that wrote the plan:**
+
+This refactoring delivers value to engineers who don't exist yet. The boundary-
+tightening makes the system easier for a *human engineer* to reason about —
+"I know ES concerns stop here." But the project owner isn't reasoning at that
+level, and AI agents don't care whether `parseCql` comes from the barrel or a
+direct import. The code works identically either way.
+
+Risk is asymmetric: the best outcome is "nothing changed from user perspective."
+The worst is broken scroll/seek/pagination in subtle ways (works for 50 results,
+breaks for 5000) that the owner can't diagnose. A refactoring PR that passes
+all tests but introduces a race condition in PIT lifecycle? Undetectable without
+an engineer reviewing. An agent "fixing" a failing test by weakening it?
+Indistinguishable from a correct fix to a non-engineer.
+
+**Recommendation: don't implement this plan without a human engineer to review.**
+
+- Keep building features. The architecture serves current needs.
+- If/when a real engineer joins, hand them this doc and let them decide under
+  their supervision.
+- The AI search violations (Item 7) — fix when AI search ships to real users.
+- `parseOrderBy` consolidation (Item A) — the one item closest to "prevents a
+  real bug" (five parsers could diverge). Still optional until it actually does.
+
+The plan is intellectually honest work. It's just work that has no safe executor
+right now.
+
+---
+
 ## Framing
 
 Alex's doc describes an end-state. Most of it is unlocked by the BFF: "the
@@ -72,16 +115,18 @@ below were chosen because they **don't hit any of these blockers**.
 
 ### A. `parseOrderBy` consolidation *(Part I)*
 
-`orderBy` is parsed by three distinct implementations outside the DAL
+`orderBy` is parsed by five distinct implementations outside the DAL
 (`sort-context.ts` four variants; `SearchFilters.tsx` local parsers;
-`ImageTable.tsx` inline split), plus the `"-uploadTime"` default
-duplicated across four files. Zod treats it as opaque `string`, so a
-malformed value would reach all three and diverge.
+`ImageTable.tsx` inline split; `search-store.ts:resortAiBuffer`;
+`useUrlSearchSync.ts` AI sort logic), plus the `"-uploadTime"` default
+duplicated across four files and a new `"-relevance"` default in a fifth.
+Zod treats it as opaque `string`, so a malformed value would reach all
+five and diverge.
 
-**Fix.** One `parseOrderBy(orderBy: string): SortOrder` util. Three call
+**Fix.** One `parseOrderBy(orderBy: string): SortOrder` util. Five call
 sites collapse to it. Optionally validate at the URL boundary.
 
-**Risk.** Low — equivalence of the three parsers needs verifying before
+**Risk.** Low — equivalence of the five parsers needs verifying before
 collapse. Survives BFF unchanged.
 
 ### B. Barrel discipline for DAL imports *(Part I)*
@@ -272,6 +317,77 @@ Both worth tracking but neither in scope for this round.
 
 ---
 
+## Post-plan update: AI search (c96c8cb8e, 25 May 2026)
+
+The AI search commit landed after this plan was written. It introduces seven
+new boundary violations (catalogued as Item 7a–7g in the Part I inventory).
+They fall into three categories:
+
+### New `orderBy` parsing instances (7a, 7b)
+
+`resortAiBuffer` in search-store.ts and `useUrlSearchSync`'s AI sort logic
+both parse `orderBy` strings inline (`startsWith("-")`, `.slice(1)`,
+equality checks against `"-relevance"`). This **widens Item 2's scope** from
+"three implementations to consolidate" to five. The `parseOrderBy`
+consolidation in PR A now covers more call sites but the fix is identical.
+
+**Impact on plan:** PR A's scope increases slightly (two more call sites to
+update when `parseOrderBy` lands). No design change needed.
+
+### Reverse boundary violation: DAL imports lib/ (7c)
+
+`es-adapter.ts` imports `getEmbedding` from `@/lib/bedrock-proxy-client` —
+the DAL adapter directly depends on a browser HTTP client for a non-ES
+service. This inverts the dependency direction (normally: store/lib → DAL,
+not DAL → lib).
+
+**Why it exists:** Pragmatic — the DAL method needs an embedding vector
+before it can build the KNN query. The alternative (inject the embedding
+function, or have the store fetch the embedding and pass it in) was deemed
+over-engineering for a dev-only prototype.
+
+**When to fix:** Before AI search ships. The correct shape is either:
+(a) `searchByAi(params, embedding, signal)` — store/hook fetches the
+embedding and passes it to the DAL method, or (b) the embedding client is
+injected into the data source constructor alongside the ES URL.
+
+### ES envelope field leakage: `__aiScore` and synthetic cursors (7d, 7e)
+
+`_score` from the ES KNN response crosses the DAL boundary renamed as
+`__aiScore` on the `Image` type. The store reads it for client-side re-sort.
+Additionally, `searchByAi` manufactures fake `SortValues` arrays to fit the
+`SearchAfterResult` contract — cursors that are never used for pagination.
+
+**Why it exists:** AI results need re-sorting without an ES round-trip
+(re-running KNN with a different sort makes no sense — the result set is
+fixed). The score is the sort key for "relevance" order. Synthetic cursors
+prevent null-reference errors in store code that assumes cursors exist.
+
+**When to fix:** The correct fix is a separate return type for AI results
+(`AiSearchResult`) that carries `relevanceRank: number` as a domain field
+and doesn't pretend to have cursors. The store's AI branch already skips
+all cursor-dependent paths (extend, seek, PIT), so a different type is
+honest about what the data actually is.
+
+### Orchestration outside DAL: `decorateParamsForAggregations` (7f)
+
+A `lib/` helper constructs `params.ids` to scope ES aggregations to the
+AI result set. This is query-construction knowledge living outside `dal/`.
+
+**When to fix:** When the aggregation path is refactored (related to
+Item G / cluster C7). The DAL's `getAggregations` should accept an optional
+`scopeToIds: string[]` parameter. This is a one-method signature change.
+
+### Verdict
+
+None of these block the planned PRs (A through E). The AI code path is
+a branch entered only when `params.aiQuery` is truthy — the existing
+search/scroll/seek paths are untouched. These violations are
+**fix-before-ship** debt, tracked in the inventory, and should be resolved
+as part of AI search maturation before the feature leaves dev-only status.
+
+---
+
 ## What "done" looks like for this round
 
 - Two PRs land: A+B+E first, then C+D.
@@ -311,10 +427,13 @@ so they're visible, not so they're answered here.
    secondary? Where does the type live (`lib/sort-order.ts`,
    `dal/types.ts`, somewhere else)? Where does the default `-uploadTime`
    live — in the type, the parser, or the URL Zod boundary? Three places
-   encode that default inconsistently today.
-2. **Equivalence proof for the three current parsers.**
-   `sort-context.ts`'s four variants, `SearchFilters.tsx`'s locals, and
-   `ImageTable.tsx`'s inline split need to be tabulated input-by-input
+   encode that default inconsistently today. **Update:** a fourth
+   (`-relevance`) now exists for AI mode; does `SortField` include
+   `"relevance"` or is it handled separately?
+2. **Equivalence proof for the five current parsers.**
+   `sort-context.ts`'s four variants, `SearchFilters.tsx`'s locals,
+   `ImageTable.tsx`'s inline split, `resortAiBuffer`'s prefix strip, and
+   `useUrlSearchSync`'s AI sort checks need to be tabulated input-by-input
    and confirmed equivalent before collapse. This is a read-and-prove
    task, not a refactor.
 3. **`fetchSortDistribution` result shape after E.** Two store fields
