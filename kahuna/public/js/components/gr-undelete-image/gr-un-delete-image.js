@@ -23,6 +23,7 @@ undeleteImage.controller('grUnDeleteImageCtrl', [
             apiPoll(findImage);
         }
 
+        // TODO remove "unusable" banner and recognise that the image is now archived
         ctrl.unDeleteImage = function (image) {
             return mediaApi.undelete(image.data.id)
                 .then(() => pollDeleted(image))
