@@ -78,7 +78,8 @@ Global / concurrentRestrictions := Seq(
 
 val awsSdkVersion = "1.12.470"
 val awsSdkV2Version = "2.42.25"
-val elastic4sVersion = "8.18.2"
+val elastic4sVersion = "8.19.1"
+val awsKclVersion = "3.4.3"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -177,8 +178,7 @@ lazy val thrall = playProject("thrall", 9002)
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-      // TODO upgrading kcl to v3? check if you can remove avro override below
-      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+      "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
@@ -186,10 +186,7 @@ lazy val thrall = playProject("thrall", 9002)
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
-    // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
-    // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html
     dependencyOverrides ++= Seq(
-      "org.apache.avro" % "avro" % "1.11.4",
       "org.apache.pekko" %% "pekko-stream" % "1.0.3"
     )
   )
@@ -199,17 +196,12 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-default" % "32.0.0",
     "com.gu" %% "content-api-client-aws" % "0.7.6",
     "io.reactivex" %% "rxscala" % "0.27.0",
-    // amazon-kinesis-client brings in a critical vulnerability warning through apache avro, resolved in versions 1.11.4 and 1.12.0.
-    // updating amazon-kinesis-client? check if the override below can be removed
-    "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
+    "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
     "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
-  dependencyOverrides ++= Seq(
-    "org.apache.avro" % "avro" % "1.11.4",
-  )
 )
 
 lazy val scripts = project("scripts")

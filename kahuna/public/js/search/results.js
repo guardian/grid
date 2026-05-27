@@ -578,6 +578,7 @@ results.controller('SearchResultsCtrl', [
                 length:     length,
                 orderBy:    orderBy,
                 useAISearch: $stateParams.useAISearch,
+                vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
