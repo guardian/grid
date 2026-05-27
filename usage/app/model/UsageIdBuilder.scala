@@ -38,4 +38,12 @@ object UsageIdBuilder {
     Some(downloadUsageRequest.metadata.downloadedBy),
     Some(downloadUsageRequest.status)
   ))
+
+  def build(childUsageRequest: ChildUsageRequest) = buildId(List(
+    Some(childUsageRequest.mediaId),
+    Some(childUsageRequest.childMediaId),
+    Some(childUsageRequest.metadata.addedBy),
+    Some(childUsageRequest.dateAdded.getMillis.toString),
+    Some(childUsageRequest.status)
+  ))
 }

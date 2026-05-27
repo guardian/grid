@@ -15,6 +15,7 @@ import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 import '../util/storage';
 import {overwrite} from "../util/constants/editOptions";
+import {getDeletedState} from "../util/get-deleted-state";
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
@@ -27,7 +28,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     rememberScrollTop.name,
     leases.name,
     metadataTemplates.name,
-    'util.storage'
+    'util.storage',
+    getDeletedState.name
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
@@ -42,6 +44,7 @@ imageEditor.controller('ImageEditorCtrl', [
     'collections',
     'mediaApi',
     'storage',
+    'getDeletedState',
 
     function($rootScope,
              $scope,
@@ -53,7 +56,8 @@ imageEditor.controller('ImageEditorCtrl', [
              imageAccessor,
              collections,
              mediaApi,
-             storage) {
+             storage,
+             getDeletedState) {
 
   var ctrl = this;
   ctrl.canUndelete = false;
@@ -62,10 +66,7 @@ imageEditor.controller('ImageEditorCtrl', [
   ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
 
   ctrl.$onInit = () => {
-    mediaApi.getSession().then(session => {
-        if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
-        if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
-    });
+    getDeletedState(ctrl);
 
     editsService.canUserEdit(ctrl.image).then(editable => {
         ctrl.userCanEdit = editable;

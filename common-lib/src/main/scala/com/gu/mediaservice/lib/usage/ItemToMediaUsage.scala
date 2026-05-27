@@ -29,6 +29,8 @@ object ItemToMediaUsage {
         .map(_.asScala.toMap).flatMap(buildFront),
       Option(item.getMap[Any]("download_metadata"))
         .map(_.asScala.toMap).flatMap(buildDownload),
+      Option(item.getMap[Any]("child_metadata"))
+        .map(_.asScala.toMap).flatMap(buildChild),
       new DateTime(item.getLong("last_modified")),
       Try {
         item.getLong("date_added")
@@ -96,6 +98,15 @@ object ItemToMediaUsage {
     Try {
       DownloadUsageMetadata(
         metadataMap("downloadedBy").asInstanceOf[String]
+      )
+    }.toOption
+  }
+
+  private def buildChild(metadataMap: Map[String, Any]): Option[ChildUsageMetadata] = {
+    Try {
+      ChildUsageMetadata(
+        metadataMap("addedBy").asInstanceOf[String],
+        metadataMap("childMediaId").asInstanceOf[String],
       )
     }.toOption
   }

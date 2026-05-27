@@ -1,14 +1,13 @@
 package controllers
 
-import org.apache.pekko.stream.scaladsl.StreamConverters
+import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import com.google.common.net.HttpHeaders
-import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
-import com.gu.mediaservice.lib.auth.Authentication.{Request, _}
+import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ContentDisposition, Embedder, ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -16,9 +15,11 @@ import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
+import com.gu.mediaservice.{GridClient, JsonDiff}
 import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
+import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.http.HttpEntity
@@ -26,10 +27,9 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse}
-import scala.jdk.CollectionConverters._
 
 import java.net.URI
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -41,7 +41,7 @@ class MediaApi(
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
+                s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation,
@@ -50,6 +50,15 @@ class MediaApi(
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
+
+  // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
+  // concurrent requests for the same query share a single in-flight Bedrock call, and
+  // subsequent requests within the TTL window skip Bedrock entirely.
+  private val embeddingCache: AsyncLoadingCache[String, List[Float]] = Scaffeine()
+    .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
+    .buildAsyncFuture((normQuery: String) =>
+      embedder.createQueryEmbedding(normQuery)(MarkerMap())
+    )
 
   private val searchParamList = List(
     "q",
@@ -79,7 +88,8 @@ class MediaApi(
     "syndicationStatus",
     "countAll",
     "persisted",
-    "useAISearch"
+    "useAISearch",
+    "vecWeight"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -138,7 +148,13 @@ class MediaApi(
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
-  private def hasPermission(principal: Principal, image: Image): Boolean = principal.accessor.tier match {
+  // Syndication tier accessors should only be able to see/fetch details of images which
+  // are available for syndication (according to their syndication rights status).
+  // Any attempt to view/interact with other images should return a 404.
+  // Other accessors should be able to view all images, though they may not be permitted
+  // to make modifications, so other permission checks must be done and potentially result
+  // in 403 Forbidden errors or equivalent.
+  private def isVisibleToAccessor(principal: Principal, image: Image): Boolean = principal.accessor.tier match {
     case Syndication => isAvailableForSyndication(image)
     case _ => true
   }
@@ -220,7 +236,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
@@ -237,7 +253,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
@@ -255,7 +271,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
-      case Some(source) if hasPermission(request.user, source) =>
+      case Some(source) if isVisibleToAccessor(request.user, source) =>
         val exportOption = source.exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
       case _ => ImageNotFound(imageId)
@@ -288,7 +304,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(imageId) map {
-      case Some(source) if hasPermission(request.user, source) =>
+      case Some(source) if isVisibleToAccessor(request.user, source) =>
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
@@ -315,7 +331,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
 
         if (imageCanBeDeleted) {
@@ -344,7 +360,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
@@ -381,24 +397,25 @@ class MediaApi(
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request.user, image) =>
-        val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
-        if(canDelete){
-          softDeletedMetadataTable.updateStatus(id, false)
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image)
+        if isVisibleToAccessor(request.user, image)
+          && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
+        logger.info(logMarker, s"undeleting image $id")
+
+        softDeletedMetadataTable.updateStatus(id, isDeleted = false)
           .map { _ =>
             messageSender.publish(
               UpdateMessage(
                 subject = UnSoftDeleteImage,
                 id = Some(id)
               )
-             )
-          }
-          Accepted
-        } else {
-          ImageDeleteForbidden
-        }
-      case _ => ImageNotFound(id)
+            )
+          }.map { _ => Accepted }
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
+        Future.successful(ImageDeleteForbidden)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
@@ -410,7 +427,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
@@ -440,7 +457,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         logger.info(logMarker, s"Syndicate image: $id from user: ${Authentication.getIdentity(request.user)}")
 
         postToUsages(config.usageUri + "/usages/syndication", auth.getOnBehalfOfPrincipal(request.user), id,
@@ -461,7 +478,7 @@ class MediaApi(
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request.user, image) => {
+      case Some(image) if isVisibleToAccessor(request.user, image) => {
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
@@ -542,7 +559,7 @@ class MediaApi(
     }
 
     def performSearchAndRespond(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, maybeOrgOwnedCount) <- elasticSearch.search(
+      SearchResults(hits, totalCount, extraCounts) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
@@ -551,51 +568,117 @@ class MediaApi(
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), maybeOrgOwnedCount, links)
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), extraCounts, links)
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
-    if (_searchParams.useAISearch.contains(true)) {
+    sealed trait AiSearchMode
+    case class TextSearch(query: String) extends AiSearchMode
+    case class SimilarSearch(imageId: String) extends AiSearchMode
 
-      val searchTerm = _searchParams.query match {
-        case Some(q) => q
-        case None => ""
-      }
+    def parseAiSearchMode(query: String): AiSearchMode = {
+      query
+        .split("\\s+")
+        .find(_.startsWith("similar:"))
+        .flatMap(_.split(":", 2).lift(1).filter(_.nonEmpty))
+        .map(SimilarSearch)
+        .getOrElse(TextSearch(query))
+    }
 
-      val semanticSearchResult: Future[QueryVectorsResponse] = embedder.createEmbeddingAndSearch(searchTerm)
+    def emptyAiSearchResponse =
+      Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
-      val imageIds = semanticSearchResult.map { result =>
-        val results: java.util.List[QueryOutputVector] = result.vectors()
-        results.asScala.map(_.key()).toList
-      }
+    def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
+      val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
+      respondCollection(
+        data = imageEntities,
+        offset = Some(0),
+        total = Some(searchResults.total),
+        maybeExtraCounts = None,
+        links = Nil
+      )
+    }
 
-      imageIds.flatMap { ids =>
-        SearchParams(
-          query = _searchParams.query,
-          ids = Some(ids),
-          tier = request.user.accessor.tier,
-        )
-
-        for {
-          SearchResults(hits, totalCount, _) <- elasticSearch.lookupIds(ids, offset = _searchParams.offset, length = _searchParams.length)
-          imageEntities = hits map (hitToImageEntity _).tupled
-          links = List()
-        } yield {
-          respondCollection(imageEntities, Some(_searchParams.offset), Some(totalCount), None, links)
+    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+      for {
+        maybeImage <- elasticSearch.getImageById(imageId)
+        maybeEmbedding = maybeImage
+          .filter(image => isVisibleToAccessor(request.user, image))
+          .flatMap(_.embedding)
+          .flatMap(_.cohereEmbedV4)
+          .map(_.image.map(_.toFloat))
+        searchResults <- maybeEmbedding match {
+          // If we have an embedding, perform the KNN search. If not, return an empty result set.
+          case Some(embedding) =>
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+          case None =>
+            Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
+      } yield searchResults
+    }
+
+    def semanticSearchByText(query: String, k: Int, vecWeight: Option[Double]): Future[SearchResults] = {
+      // Normalise key so that "Dogs" and "dogs " share a cache entry.
+      val cacheKey = query.trim.toLowerCase
+
+      val markers = logMarker ++ Map("query" -> query)
+
+      if (embeddingCache.getIfPresent(cacheKey).isDefined) {
+        logger.info(markers, s"AI search embedding cache hit query=$query")
+      } else {
+        logger.info(markers, s"AI search embedding cache miss query=$query")
       }
 
+      val weight = vecWeight.getOrElse(1.0)
+
+      // cache.get(key) is atomic: if two requests race on the same key, only one
+      // load fires and both callers receive the same Future.
+      val embeddingFuture = embeddingCache.get(cacheKey)
+
+      logger.info(markers, s"vecWeight for query '$query' is $weight")
+      for {
+        embedding <- embeddingFuture
+        searchResults <- elasticSearch.hybridSearch(
+          query = query,
+          queryEmbedding = embedding,
+          k = k,
+          numCandidates = Math.max(k * 2, 100),
+          vecWeight = weight,
+        )
+      } yield searchResults
+    }
+
+    def performAiSearchAndRespond(query: String, vecWeight: Option[Double]): Future[Result] = {
+      val k = config.aiSearchResultLimit
+      val searchResultsFuture = parseAiSearchMode(query) match {
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, vecWeight)
+      }
+
+      searchResultsFuture.map(aiSearchResponseFromResults)
+    }
+
+    if (_searchParams.useAISearch.contains(true)) {
+      _searchParams.query match {
+        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
+        case _ if _searchParams.length == 0 =>
+          emptyAiSearchResponse
+        case Some(q) if !q.isBlank =>
+          performAiSearchAndRespond(q, _searchParams.vecWeight)
+        // Empty queries do not make sense for AI search as we can
+        // only rank results once we have a meaningful vector to compare with.
+        // So return 0 results if the query was empty.
+        case _ =>
+          emptyAiSearchResponse
+      }
     } else {
-
-      val searchParams = if(canViewDeletedImages) {
+      val searchParams = if (canViewDeletedImages) {
         _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      }
-      else {
+      } else {
         _searchParams
       }
-
       SearchParams.validate(searchParams).fold(
         // TODO: respondErrorCollection?
         errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
@@ -604,8 +687,6 @@ class MediaApi(
         params => performSearchAndRespond(params)
       )
     }
-
-
   }
 
   private def getImageResponseFromES(
@@ -614,7 +695,7 @@ class MediaApi(
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageWithSourceById(id) map {
-      case Some(source) if hasPermission(request.user, source.instance) =>
+      case Some(source) if isVisibleToAccessor(request.user, source.instance) =>
         val writePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, EditMetadata)
         val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)

@@ -1,20 +1,16 @@
 package model.upload
 
-import java.io.File
-
-import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
-import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
+import com.gu.mediaservice.lib.ImageWrapper
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap, Stopwatch}
 import com.gu.mediaservice.model.{FileMetadata, MimeType, Png, Tiff}
-import com.gu.mediaservice.lib.logging.MarkerMap
 
+import java.io.File
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
-import scala.jdk.CollectionConverters._
 
 trait OptimiseOps {
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)
                      (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)]
-  def isTransformedFilePath(filePath: String): Boolean
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
   def optimiseMimeType: MimeType
 }
@@ -44,8 +40,6 @@ object OptimiseWithPngQuant extends OptimiseOps {
       throw new Exception(s"Attempted to optimise PNG file ${optimisedFile.getPath}")
     }
   }
-
-  def isTransformedFilePath(filePath: String): Boolean = filePath.contains("transformed-")
 
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
     mimeType match {

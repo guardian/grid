@@ -253,6 +253,13 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
+  def postUsage(usageType: String, data: JsObject, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
+    val url = new URL(s"${services.usageBaseUri}/usages/$usageType")
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    authorisedRequest.post(Json.obj("data" -> data)).map { response => validateResponse(response, url)}
+  }
+
 }
 
 class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {

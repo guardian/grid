@@ -36,6 +36,7 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
       thumbnail = None,
       metadata = ImageMetadata(),
       usageRights = Handout(None),
+      embedding = None,
     )
     val json = Json.toJson(image)
     inside(json) {
@@ -44,23 +45,23 @@ class JsonOrderingTest extends AnyFreeSpec with Matchers {
          * presumably this is done somewhere inside Play which was causing the mis-ordering */
         val newJso = jso + ("extraField" -> JsString("value"))
         newJso.fields.map(_._1) shouldBe Seq(
-        "id",
-        "uploadTime",
-        "uploadedBy",
-        "identifiers",
-        "uploadInfo",
-        "source",
-        "fileMetadata",
-        "metadata",
-        "originalMetadata",
-        "usageRights",
-        "originalUsageRights",
-        "exports",
-        "usages",
-        "leases",
-        "collections",
-        "extraField"
-      )
+          "id",
+          "uploadTime",
+          "uploadedBy",
+          "identifiers",
+          "uploadInfo",
+          "source",
+          "fileMetadata",
+          "metadata",
+          "originalMetadata",
+          "usageRights",
+          "originalUsageRights",
+          "exports",
+          "usages",
+          "leases",
+          "collections",
+          "extraField"
+        )
     }
   }
 

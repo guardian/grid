@@ -5,6 +5,7 @@ import com.gu.mediaservice.model.UsageRightsSpec
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import play.api.{ConfigLoader, Configuration}
+import scalaz.NonEmptyList
 
 import java.net.URI
 import java.util.UUID
@@ -213,6 +214,10 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
    */
   val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
   val stdUserExcludedUsageRights = getStringSet("usageRights.stdUserExcluded")
+
+  val agencyPicksIngredients: Option[Map[String, Seq[String]]] =
+    configuration.getOptional[Map[String, Seq[String]]]("agencyPicks.ingredients")
+  val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 

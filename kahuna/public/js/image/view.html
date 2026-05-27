@@ -13,6 +13,10 @@
             <gr-icon-label gr-icon="share">Share with URL</gr-icon-label>
         </a>
 
+        <gr-more-like-this class="top-bar-item clickable"
+                           image="ctrl.image">
+        </gr-more-like-this>
+
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
@@ -169,6 +173,11 @@
 
 <div class="image-holder" role="main" aria-label="Image view">
     <div class="easel">
+        <div class="warning" ng-if="ctrl.maybeReplacedByMediaIds.length > 0">
+            This image has been <strong>replaced</strong> by <span ng-repeat="mediaId in ctrl.maybeReplacedByMediaIds">
+                <a href="{{mediaId}}">{{mediaId}}</a>&nbsp;
+            </span>
+        </div>
         <div class="easel__canvas"
              ng-if="!ctrl.crop"
              draggable="true"

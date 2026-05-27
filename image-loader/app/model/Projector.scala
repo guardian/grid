@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, S3Ops}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -16,7 +16,7 @@ import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
-import org.apache.tika.io.IOUtils
+import org.apache.commons.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.ws.WSRequest
 import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
@@ -175,19 +175,10 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       projectThumbnailFileAsS3Model,
       projectOptimisedPNGFileAsS3Model,
       tryFetchThumbFile = fetchThumbFile,
-      tryFetchOptimisedFile = fetchOptimisedFile,
-      createEmbeddingAndStore = createEmbeddingAndStore,
+      tryFetchOptimisedFile = fetchOptimisedFile
     )
 
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
-  }
-
-  private def createEmbeddingAndStore(fileType: MimeType, imageFilePath: Path, imageId: String)(implicit logMarker: LogMarker): Future[Unit] = {
-    maybeEmbedder match {
-      case Some(embedder) =>
-        embedder.createEmbeddingAndStore(fileType, imageFilePath, imageId)
-      case None => Future.successful(None)
-    }
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =

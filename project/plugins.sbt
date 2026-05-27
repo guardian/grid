@@ -1,6 +1,6 @@
 libraryDependencies += "org.vafer" % "jdeb" % "1.3" artifacts (Artifact("jdeb", "jar", "jar"))
 
-addSbtPlugin("org.playframework" % "sbt-plugin" % "3.0.5")
+addSbtPlugin("org.playframework" % "sbt-plugin" % "3.0.10")
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.9.0")
 
@@ -23,3 +23,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-gzip" % "1.0.2")
     versions of `scala-xml`).
  */
 libraryDependencySchemes += "org.scala-lang.modules" %% "scala-xml" % VersionScheme.Always
+
+addDependencyTreePlugin

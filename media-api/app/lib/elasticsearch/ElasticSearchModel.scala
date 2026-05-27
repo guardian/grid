@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.argo.model.ExtraCounts
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
@@ -8,14 +9,11 @@ import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
-import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
-import scalaz.syntax.validation._
-import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
-case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, maybeOrgOwnedCount: Option[Long])
+case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, extraCounts: Option[ExtraCounts])
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 
@@ -88,6 +86,7 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
+  vecWeight: Option[Double] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -117,12 +116,15 @@ object SearchParams {
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseBoundedDoubleFromQuery(s: String): Option[Double] =
+    Try(s.toDouble).toOption.filter(d => !d.isNaN && !d.isInfinity && d >= 0.0 && d <= 1.0)
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
   def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
 
   private def readOrderBy(orderByRaw: String): String = {
     if (orderByRaw == "oldest") "uploadTime"
+    else if (orderByRaw == "newest") "-uploadTime"
     else orderByRaw
   }
 
@@ -176,6 +178,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
+      request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
     )
   }
 

@@ -82,8 +82,10 @@ query.controller('SearchQueryCtrl', [
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
+      ctrl.vecWeight = undefined;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+      ctrl.vecWeight = $stateParams.vecWeight;
     }
 
     //--react - angular interop events--
@@ -286,7 +288,7 @@ query.controller('SearchQueryCtrl', [
       }
       ctrl.filter.nonFree = nonFreeCheck;
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
@@ -319,7 +321,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.sortProps = {
       onSortSelect: updateSortChips,
-      query: $stateParams.query,
+      query: ctrl.filter.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
     //-end sort control-
@@ -387,6 +389,8 @@ query.controller('SearchQueryCtrl', [
     Object.keys($stateParams).
         // Exclude date-related filters, managed separately in dateFilter
         filter(key => dateFilterParams.indexOf(key) === -1).
+        // Exclude useAISearch, managed separately by its own dedicated watcher
+        filter(key => key !== 'useAISearch').
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -453,10 +457,11 @@ query.controller('SearchQueryCtrl', [
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
-          useAISearch: true
+          useAISearch: true,
+          vecWeight: ctrl.vecWeight
         });
       } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: undefined});
+          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
       }
     });
 
@@ -524,7 +529,7 @@ query.controller('SearchQueryCtrl', [
 
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
 }]);
 
 query.directive('searchQuery', [function() {

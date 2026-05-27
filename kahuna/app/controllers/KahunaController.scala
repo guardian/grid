@@ -64,6 +64,7 @@ class KahunaController(
       else
         Html("undefined")
     val imageTypes = Json.toJson(config.imageTypes).toString()
+    val agencyPicksIngredients = Json.toJson(config.agencyPicksIngredients).toString()
 
     Ok(views.html.main(
       s"${config.authUri}/login?redirectUri=$returnUri",
@@ -79,7 +80,8 @@ class KahunaController(
       maybeOrgOwnedValue,
       config,
       featureSwitchesJson,
-      imageTypes
+      imageTypes,
+      agencyPicksIngredients
     ))
   }
 

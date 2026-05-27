@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
@@ -10,6 +11,7 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.common.Operator.And
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
@@ -17,6 +19,10 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.knn.Knn
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -27,6 +33,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
+import scala.collection.immutable.ListMap
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +45,30 @@ class ElasticSearch(
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
 
-  private val orgOwnedAggName = "org-owned"
+  private val maybeOrgOwnedExtraCount: Option[(String, ExtraCountConfig)] =
+    if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
+      Some(s"${config.staffPhotographerOrganisation}-owned" -> ExtraCountConfig(
+        searchClause = s"is:${config.staffPhotographerOrganisation}-owned",
+        backgroundColour = "#005689"
+      ))
+    else
+      None
+
+  private val maybeAgencyPicksExtraCount: Option[(String, ExtraCountConfig)] =
+    config.maybeAgencyPickQuery.map(_ =>
+      "agency picks" -> ExtraCountConfig(
+        searchClause = "is:agency-pick",
+        backgroundColour = config.agencyPicksColour,
+        maybeSubAggregation = Some(
+          termsAgg(name = "byAgency", field = "usageRights.supplier").size(9)
+        )
+      )
+    )
+
+  private val aggregationsNameToSearchClauseMap: Map[String, ExtraCountConfig] = List(
+    maybeOrgOwnedExtraCount,
+    maybeAgencyPicksExtraCount
+  ).flatten.toMap
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -120,7 +150,6 @@ class ElasticSearch(
 
   private val isPotentiallyGraphicFieldName = "isPotentiallyGraphic"
 
-
   private def resolveHit(hit: SearchHit) = mapImageFrom(
     hit.sourceAsString,
     hit.id,
@@ -145,8 +174,108 @@ class ElasticSearch(
     executeAndLog(searchRequest, "ids lookup")
       .map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = r.result.totalHits, maybeOrgOwnedCount = None)
+        SearchResults(hits = imageHits, total = r.result.totalHits, extraCounts = None)
       }
+  }
+
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+               (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val knn = Knn("embedding.cohereEmbedV4.image")
+        .queryVector(queryEmbedding.map(_.toDouble))
+        .k(k)
+        .numCandidates(numCandidates)
+
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .knn(knn)
+      .size(k)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+    }
+  }
+
+  private def createMultiMatchQuery(query: String, boost: Option[Double] = None): MultiMatchQuery =
+    MultiMatchQuery(
+      text = query,
+      fields = matchFields.map(field => FieldWithOptionalBoost(field, None)),
+      `type` = Some(BEST_FIELDS),
+      fuzziness = Some("AUTO"),
+      maxExpansions = Some(50),
+      operator = Some(And),
+      prefixLength = Some(1),
+      boost = boost
+    )
+
+  // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
+  // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
+  // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
+  // and can be effectively combined in a hybrid query.
+  private def fetchMaxBm25Score(query: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+    val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(createMultiMatchQuery(query))
+
+    executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
+      logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
+      if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
+    }
+  }
+
+  private def makeHybridSearchRequest(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    maxScore: Double
+  )(implicit logMarker: LogMarker): SearchRequest = {
+    val knn = Knn("embedding.cohereEmbedV4.image")
+      .queryVector(queryEmbedding)
+      .k(k)
+      .numCandidates(numCandidates)
+      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
+
+    val lexicalWeight = 1.0 - vecWeight
+
+    // KNN results are in [0,1], but BM25 scores are unbounded and typically much
+    // larger than cosine similarity, so we need to apply a scaling factor to the
+    // BM25 score to bring it to the same range as the cosine similarity.
+    val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
+
+    //    We want to apply only one boost if we can help it, so we scale the
+    //    multi_match boost to be in line with the max_score and the desired
+    //    lexical_weight/vec_weight balance
+    val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
+
+    logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
+
+    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
+
+    ElasticDsl.search(imagesCurrentAlias)
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+      .size(k)
+  }
+
+  def hybridSearch(
+    query: String,
+    queryEmbedding: List[Float],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+  )(
+    implicit ex: ExecutionContext,
+    logMarker: LogMarker
+  ): Future[SearchResults] = {
+    val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
+
+    for {
+      maxScore <- fetchMaxBm25Score(query)
+      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore)
+      result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
+    } yield {
+      val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+    }
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
@@ -270,10 +399,10 @@ class ElasticSearch(
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
-      .aggregations(if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox) List(filterAgg(
-        orgOwnedAggName,
-        queryBuilder.makeQuery(Parser.run(s"is:${config.staffPhotographerOrganisation}-owned"))
-      )) else Nil)
+      .aggregations(aggregationsNameToSearchClauseMap.map {
+        case (name, ExtraCountConfig(searchClause, _, maybeSubAggregation)) =>
+          filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))).subAggregations(maybeSubAggregation)
+      })
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -287,11 +416,23 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        maybeOrgOwnedCount =
-          if (config.shouldDisplayOrgOwnedCountAndFilterCheckbox)
-            Some(r.result.aggregations.filter(orgOwnedAggName).docCount)
-          else
-            None
+        extraCounts = Some(ExtraCounts(
+          tickerCounts = aggregationsNameToSearchClauseMap.map {
+            case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubAggregation)) =>
+              val aggResult = r.result.aggregations.filter(name)
+              val maybeSubAggResult = maybeSubAggregation.map(_.name).map(aggResult.result[Terms])
+              name -> ExtraCount(
+                value = aggResult.docCount,
+                searchClause,
+                backgroundColour,
+                subCounts = maybeSubAggResult.map { termsAgg =>
+                  ListMap(termsAgg.buckets.sortBy(_.docCount).reverse.map { bucket =>
+                    (bucket.key, bucket.docCount)
+                  }: _*) + ("other" -> termsAgg.otherDocCount)
+                }.filter(_.exists { case (_, count) => count > 0 })
+              )
+          }
+        ))
       )
     }
   }

@@ -7,6 +7,7 @@ The [`setup.sh`](../../dev/script/setup.sh) script will do all the hard work!
 In this doc, we describe the configuration options available.
 
 ## `DOMAIN`
+
 **Default** `local.dev-gutools.co.uk`
 
 By default, once setup and running, Grid's UI will be accessible on `media.local.dev-gutools.co.uk`.
@@ -22,9 +23,9 @@ You'll need to add each subdomain Grid uses.
 DOMAIN=example.com
 
 SUBDOMAINS=(
+  'media'
   'api.media'
   'loader.media'
-  'media'
   'cropper.media'
   'media-metadata'
   'media-imgops'
@@ -45,6 +46,7 @@ done
 ```
 
 ## `EMAIL_DOMAIN`
+
 **Default** `guardian.co.uk`
 
 Grid uses [pan-domain-authentication](https://github.com/guardian/pan-domain-authentication) to authenticate users.

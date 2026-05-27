@@ -3,11 +3,15 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3vectors._
-import software.amazon.awssdk.services.s3vectors.model._
+import software.amazon.awssdk.services.s3vectors.model.{
+  DeleteVectorsRequest, DeleteVectorsResponse, GetOutputVector, GetVectorsRequest, PutInputVector, PutVectorsRequest,
+  PutVectorsResponse, VectorData, QueryVectorsRequest, QueryVectorsResponse
+}
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 
 object S3Vectors {
@@ -25,6 +29,7 @@ object S3Vectors {
 
 class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   extends AwsClientV2BuilderUtils {
+
   import S3Vectors.DeletionStatus
 
   // TODO: figure out what the more usual pattern for turning off localstack behaviour is
@@ -67,76 +72,6 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
       .build()
 
     client.deleteVectors(request)
-  }
-
-  private def convertEmbeddingToVectorData(embedding: List[Float]): VectorData = {
-    VectorData
-      .builder()
-      .float32(embedding.map(float2Float).asJava)
-      .build()
-  }
-
-  private def putVector(vector: List[Float], key: String): PutVectorsResponse = {
-    val vectorData: VectorData = convertEmbeddingToVectorData(vector)
-
-    val inputVector: PutInputVector = PutInputVector
-      .builder()
-      .data(vectorData)
-      .key(key)
-      .build()
-
-    val request: PutVectorsRequest = PutVectorsRequest
-      .builder()
-      .indexName(indexName)
-      .vectorBucketName(vectorBucketName)
-      .vectors(inputVector)
-      .build()
-
-    client.putVectors(request)
-  }
-
-  def storeEmbedding(embedding: List[Float], imageId: String)(implicit logMarker: LogMarker): Future[Unit] = Future {
-    try {
-      val response = putVector(embedding, imageId)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to store image embedding completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-    } catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during S3 Vector Store API call to store image embedding for $imageId", e)
-        throw e
-    }
-  }
-
-  private def queryVectors(embedding: List[Float]): QueryVectorsResponse = {
-    val queryVector: VectorData = convertEmbeddingToVectorData(embedding: List[Float])
-
-    val request: QueryVectorsRequest = QueryVectorsRequest
-      .builder()
-      .indexName(indexName)
-      .vectorBucketName(vectorBucketName)
-      .topK(30)
-      .queryVector(queryVector)
-      .build()
-
-    client.queryVectors(request)
-  }
-
-  def searchVectorStore(queryEmbedding: List[Float], query: String)(implicit logMarker: LogMarker): Future[QueryVectorsResponse] = Future {
-    try {
-      val response = queryVectors(queryEmbedding)
-      logger.info(
-        logMarker,
-        s"S3 Vector Store API call to search image embeddings completed with status: ${response.sdkHttpResponse().statusCode()}"
-      )
-      logger.info(logMarker, s"${response}")
-      response
-    } catch {
-      case e: Exception =>
-        logger.error(logMarker, s"Exception during S3 Vector Store API call for query ${query}", e)
-        throw e
-    }
   }
 
   private def getExistingVectorKeys(keys: Set[String]): Set[String] =

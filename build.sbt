@@ -20,8 +20,22 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
+lazy val jacksonVersion = "2.21.1"
+lazy val jacksonAnnotationsVersion = "2.21"
+lazy val jacksonOverrides = Seq(
+  "com.fasterxml.jackson.core" % "jackson-core",
+  "com.fasterxml.jackson.core" % "jackson-databind",
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-cbor",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jdk8",
+  "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310",
+  "com.fasterxml.jackson.module" % "jackson-module-parameter-names",
+  "com.fasterxml.jackson.module" %% "jackson-module-scala"
+).map(_ % jacksonVersion) ++ Seq(
+  "com.fasterxml.jackson.core" % "jackson-annotations" % jacksonAnnotationsVersion
+)
+
 val commonSettings = Seq(
-  scalaVersion := "2.13.16",
+  scalaVersion := "2.13.18",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -40,7 +54,7 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides += "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.19.0",
+  dependencyOverrides ++= jacksonOverrides,
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -63,8 +77,9 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.470"
-val awsSdkV2Version = "2.32.33"
-val elastic4sVersion = "8.18.2"
+val awsSdkV2Version = "2.42.25"
+val elastic4sVersion = "8.19.1"
+val awsKclVersion = "3.4.3"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -77,17 +92,16 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "4.0.0",
-    "com.gu" %% "pan-domain-auth-play_3-0" % "9.0.0",
+    "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-cloudwatch" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
+    "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
@@ -107,11 +121,13 @@ lazy val commonLib = project("common-lib").settings(
     "org.scanamo" %% "scanamo" % "2.0.0",
     // declare explicit dependency on desired version of aws sdk v2 dynamo
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
+    "software.amazon.awssdk" % "dynamodb-enhanced" % awsSdkV2Version,
+    "software.amazon.awssdk" % "cloudwatch" % awsSdkV2Version,
     // declare explicit dependency on desired version of aws sdk v2 bedrock runtime
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
-    "org.testcontainers" % "elasticsearch" % "1.19.2" % Test
+    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
@@ -132,7 +148,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "org.apache.tika" % "tika-core" % "1.28.5",
+    "org.apache.tika" % "tika-core" % "3.2.3",
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
   )
 }
@@ -150,6 +166,7 @@ lazy val mediaApi = playProject("media-api", 9001)
       "org.apache.commons" % "commons-email" % "1.5",
       "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
+      "com.github.blemale" %% "scaffeine" % "5.3.0"
     )
   )
 
@@ -161,19 +178,15 @@ lazy val thrall = playProject("thrall", 9002)
     pipelineStages := Seq(digest, gzip),
     libraryDependencies ++= Seq(
       "org.codehaus.groovy" % "groovy-json" % "3.0.7",
-      // TODO upgrading kcl to v3? check if you can remove avro override below
-      "software.amazon.kinesis" % "amazon-kinesis-client" % "2.6.1",
+      "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "com.gu" %% "kcl-pekko-stream" % "0.1.0",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.2",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
-    // amazon-kinesis-client 2.6.0 brings in a critically vulnerable version of apache avro,
-    // but we cannot upgrade amazon-kinesis-client further without performing the v2->v3 upgrade https://docs.aws.amazon.com/streams/latest/dev/kcl-migration-from-2-3.html
     dependencyOverrides ++= Seq(
-      "org.apache.avro" % "avro" % "1.11.4",
       "org.apache.pekko" %% "pekko-stream" % "1.0.3"
     )
   )
@@ -183,17 +196,12 @@ lazy val usage = playProject("usage", 9009).settings(
     "com.gu" %% "content-api-client-default" % "32.0.0",
     "com.gu" %% "content-api-client-aws" % "0.7.6",
     "io.reactivex" %% "rxscala" % "0.27.0",
-    // amazon-kinesis-client brings in a critical vulnerability warning through apache avro, resolved in versions 1.11.4 and 1.12.0.
-    // updating amazon-kinesis-client? check if the override below can be removed
-    "software.amazon.kinesis" % "amazon-kinesis-client" % "3.0.2",
+    "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
     "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
-  dependencyOverrides ++= Seq(
-    "org.apache.avro" % "avro" % "1.11.4",
-  )
 )
 
 lazy val scripts = project("scripts")

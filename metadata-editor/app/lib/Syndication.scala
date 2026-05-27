@@ -58,8 +58,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
                              (implicit ec: ExecutionContext): Future[Photoshoot] = {
     publishChangedSyndicationRightsForPhotoshoot[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
       for {
-        editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
-        _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
+        editsAsJsonResponse <- editsStore.jsonAddV2(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
+        _ <- editsStore.stringSetV2(id, Edits.PhotoshootTitle, newPhotoshoot.title) // store - don't care about return
         _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
@@ -68,7 +68,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
-      syndicationStore.deleteItem(id)
+      syndicationStore.deleteItemV2(id)
       // Always publish, in case there is no photoshoot
       publish(Map(id -> None), UpdateImageSyndicationMetadata)
     }
@@ -77,7 +77,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
     publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
-      val result = syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
+      val result = syndicationStore.jsonAddV2(id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
       // Always publish, in case there is no photoshoot
       publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
       result
@@ -85,7 +85,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getSyndicationForImage(id: String)
                             (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] = {
-    syndicationStore.jsonGet(id, syndicationRightsFieldName)
+    syndicationStore.getV2(id)
       // It's OK for the image to _not_ exist in the syndication store, so this needs to be recovered
       .recover { case NoItemFound => JsNull }
       .flatMap(dynamoEntry => (dynamoEntry \ syndicationRightsFieldName).toOption match {
@@ -156,7 +156,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getPhotoshootForImage(id: String)
                            (implicit ec: ExecutionContext): Future[Option[Photoshoot]] =
-    editsStore.jsonGet(id, Edits.Photoshoot)
+    editsStore.getV2(id)
       .map(dynamoEntry => (dynamoEntry \ Edits.Photoshoot).toOption map {
         photoshootJson => photoshootJson.as[Photoshoot]
       })

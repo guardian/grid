@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.services.s3.model._
+import com.amazonaws.services.s3.model.{Region => _, _}
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
 import com.amazonaws.util.IOUtils
 import com.amazonaws.{AmazonServiceException, ClientConfiguration}
@@ -8,6 +8,8 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
 
 import java.io.File
 import java.net.URI
@@ -50,7 +52,7 @@ object S3Metadata {
     S3Metadata(
       meta.getUserMetadata.asScala.toMap,
       S3ObjectMetadata(
-        contentType = Option(meta.getContentType).map(MimeType.apply),
+        contentType = Option(meta.getContentType).filterNot(_.toLowerCase == "application/octet-stream").map(MimeType.apply),
         cacheControl = Option(meta.getCacheControl),
         lastModified = Option(meta.getLastModified).map(new DateTime(_))
       )
@@ -66,8 +68,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type UserMetadata = Map[String, String]
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
-  // also create a legacy client that uses v2 signatures for URL signing
-  private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
 
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
@@ -78,7 +78,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
-    legacySigningClient.generatePresignedUrl(request).toExternalForm
+    client.generatePresignedUrl(request).toExternalForm
   }
 
   def getObject(bucket: Bucket, url: URI): model.S3Object = {
@@ -176,24 +176,26 @@ object S3Ops {
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
-
-    val clientConfig = new ClientConfiguration()
-    // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
-    // which proxies direct to S3, passing the AWS security signature as query parameters. This does not work with
-    // AWS v4 signatures, presumably because the signature includes the host
-    if (forceV2Sigs) clientConfig.setSignerOverride("S3SignerType")
-
+  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
     val builder = config.awsLocalEndpoint match {
-      case Some(_) if config.isDev => {
+      case Some(_) if config.isDev =>
         // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
         //  `withPathStyleAccessEnabled` for localstack
         //  see https://github.com/localstack/localstack/issues/1512
         AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
-      }
-      case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+      case _ => AmazonS3ClientBuilder.standard()
     }
 
     config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
+  }
+
+  def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
+    val builder = config.awsLocalEndpoint match {
+      case Some(_) if config.isDev =>
+        S3Client.builder().forcePathStyle(true)
+      case _ => S3Client.builder()
+    }
+
+    config.withAWSCredentialsV2(builder, localstackAware, maybeRegionOverride).build()
   }
 }
