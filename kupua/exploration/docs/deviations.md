@@ -1688,3 +1688,55 @@ OS/browser swipe navigation in system preferences — this is arguably a feature
 deliberately disabled swipe navigation.
 
 Reference: `usePinchZoom.ts` (`onWheel` handler, swipe state variables).
+
+### Chrome scroll-latch on grid — no deviation, options rejected
+
+**Context:** Chromium has a long-standing cross-axis scroll-latch bug
+([upstream issue 40717572](https://issues.chromium.org/issues/40717572),
+open P2, no proposal in flight). A horizontal-leaning wheel gesture over our
+image grid escapes the grid and latches the viewport; subsequent vertical
+delta in the same gesture is delivered to the viewport (which has nothing to
+scroll) and the grid appears frozen until the user starts a new gesture. Full
+mechanism with Chromium source citations is in
+`exploration/docs/zz Archive/chromium-scroll-latch-issue/`.
+
+**Current state:** the grid scroll container uses the conventional
+`overflow-y: auto; overflow-x: hidden; overscroll-y-contain` — no deviation
+from library defaults. The latch bug is unfixed; we accept it.
+
+**Options considered and rejected (so this isn't re-tried blindly):**
+
+1. **`overscroll-behavior: contain`** on the container — tried in
+   `a4fa028e6`, reverted. Did kill the latch but also disables horizontal
+   swipe history navigation (documented MDN behaviour). Net regression.
+2. **`overflow-x: clip`** instead of `hidden` — tried in `8d021c4d2`,
+   reverted. No effect on the latch: `SingleAxisScrollContainers` is a Blink
+   runtime feature that is off by default in shipping Chromium, so
+   mixed-axis `overflow-x: clip` is rewritten to `hidden` before populating
+   cc scroll-node flags (see `style_resolver_test.cc:727`). Even with the
+   feature on, zero horizontal scroll range still kills `CanConsumeDelta`
+   for the x axis, so the chain walk escapes either way. The earlier
+   ImageDetail success (`6ab3d72f2`) that motivated this swap remains
+   unexplained by current evidence.
+3. **1px horizontal scroll range hack** — would force the grid to win
+   `CanConsumeDelta`. Visibly twitches by 1px on every horizontal-leaning
+   gesture (i.e. on every gesture that currently triggers the bug). Ugly.
+   Didn't pursue.
+4. **`overscroll-behavior-x: contain` only** — tested empirically
+   28 May 2026 on a throwaway branch. Fixes the latch but breaks horizontal
+   swipe history navigation over the grid (history nav still works over
+   app chrome, just not when the cursor is over the grid). Same trade-off
+   as full `contain`, just narrower in scope. Rejected.
+5. **JS wheel interception** — the VS Code-style fix
+   ([`scrollableElement.ts` `scrollPredominantAxis`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/scrollbar/scrollableElement.ts),
+   [PR #70047](https://github.com/microsoft/vscode/pull/70047), shipped
+   Feb 2020, default on). Non-passive `wheel` listener zeroes the
+   smaller-magnitude axis and `preventDefault`s, so cc never runs
+   `FindNodeToLatch`. Six years in production in VS Code. Trade-off:
+   moves grid scroll from compositor thread to main thread (jank risk
+   if main thread is busy). Only known viable fix; not yet prototyped
+   in kupua.
+
+Reference: `ImageGrid.tsx` (scroll container className), commit
+`a4fa028e6`-amends lineage.
+

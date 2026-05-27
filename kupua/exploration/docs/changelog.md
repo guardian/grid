@@ -14,6 +14,120 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 28 May 2026 — Chrome scroll-latch: third-pass research, VS Code workaround identified
+
+Third internet trawl after we understood the Chromium mechanism (so we
+could search by function names rather than symptoms). One actionable
+finding: **VS Code has shipped a JS wheel-interception workaround since
+Feb 2020** ([PR #70047](https://github.com/microsoft/vscode/pull/70047),
+[`scrollableElement.ts` `scrollPredominantAxis`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/scrollbar/scrollableElement.ts),
+default on). They zero the smaller-magnitude axis in a non-passive wheel
+handler then `preventDefault`, so cc never runs `FindNodeToLatch`. They
+framed it as matching macOS NSScrollView; the cross-axis latch is killed
+as a side effect. Six years in production.
+
+Notable absences from the corpus: virtualizer libraries (TanStack
+Virtual, react-window, react-virtualized, react-virtuoso, virtua) ship
+no workaround. Chromium gerrit has zero CLs touching
+`FindNodeToLatch`/`ScrollLatchedScroller`/`CanConsumeDelta` since 2020.
+`blink-dev`/`input-dev`/`paint-dev` archives have zero hits for those
+function names. Conclusion: VS Code solved this for themselves; everyone
+else lives with the bug. No upstream fix coming.
+
+Archived doc and `deviations.md` updated to record the workaround and
+the negative findings. No code change in kupua yet.
+
+### 28 May 2026 — Chrome scroll-latch: `overscroll-behavior-x: contain` empirically rejected
+
+Throwaway-branch test on `mk-scroll-latch-overscroll-x-experiment` (branch
+deleted, not committed): adding `overscroll-x-contain` to the grid scroll
+container fixes the latch but kills horizontal swipe history navigation
+over the grid (history nav still works over app chrome — just not when the
+cursor is over the grid). Same trade-off as full `overscroll-contain`,
+just narrower in scope. Rejected. `deviations.md` and the archived
+write-up updated to record the empirical result so a future agent doesn't
+re-test it.
+
+### 28 May 2026 — Chrome scroll-latch on grid: revert overscroll-contain, mechanism understood, no fix landed
+
+**Symptom:** On Chrome (macOS), starting a horizontal-leaning scroll gesture
+over the image grid suppresses vertical scroll delivery to the grid for the
+rest of the gesture. Reproducible on a plain MacBook trackpad whenever the
+gesture leans toward a direction where browser swipe-nav is *not* available
+(e.g. forward on a fresh tab). Safari and Firefox do not exhibit this.
+
+**What this commit does (after multiple amends — only the final state matters):**
+- Reverts the original `overscroll-contain` swap (which had killed browser
+  history-swipe nav) on the grid scroll container in `ImageGrid.tsx`. Class
+  string is now `overflow-y-auto overflow-x-hidden hide-scrollbar pt-1
+  overscroll-y-contain` — i.e. the pre-`a4fa028e6` baseline.
+- Adds archived investigation:
+  `exploration/docs/zz Archive/chromium-scroll-latch-issue/` with a
+  cross-engine code-citation-backed write-up, a standalone repro HTML with
+  live per-event diagnostics, and a draft comment for upstream issue
+  40717572 (not posted).
+
+**No fix is landed.** The latch reappears as it did before `a4fa028e6`. We
+accept it for now. The original `overscroll-contain` "fix" was net-negative
+because it broke history-swipe nav (documented MDN behaviour of
+`overscroll-behavior: contain`). A speculative `overflow-x: clip` swap was
+tried in one of the intermediate amends; subsequent code research showed
+it's a no-op in stock Chromium (the `SingleAxisScrollContainers` Blink
+runtime feature is off by default; mixed-axis `overflow-x: clip` is
+rewritten to `hidden` before populating cc scroll-node flags — see
+`style_resolver_test.cc:727`). Reverted.
+
+**Mechanism (newly verified against Chromium source on main):** the latch
+is established at `ScrollBegin` by `FindNodeToLatch` in
+`cc/input/input_handler.cc:2328`. The walk picks the first ancestor where
+`CanConsumeDelta` returns true (axis-aware via `UserScrollableDelta` +
+scroll-range clamp in `ComputeScrollDelta`). Our grid fails the leading-axis
+check (zero x range), the walk continues, reaches the viewport, and the
+viewport special case at `:2334` terminates the walk and latches the
+viewport unconditionally. Subsequent `ScrollUpdate` calls (`:341`) use the
+latched node directly via `ScrollLatchedScroller` (`:2524`) without
+re-running `FindNodeToLatch`, so the gesture's vertical delta routes to the
+viewport (which has no vertical content to scroll). Result: dead grid until
+the user pauses and starts a new gesture.
+
+WebKit avoids this by deferring latching and re-evaluating cumulative delta
+per continuation event (`ScrollLatchingController::shouldLatchToScrollableArea`).
+Gecko avoids it by resolving per-axis targets at `WheelTransaction` start.
+Chromium's 2016 single-element latch (bug 41198470) imported Safari's
+single-target model but neither of those mitigations.
+
+**Mitigation options considered, none implemented:**
+1. Give the grid a 1px horizontal scroll range so `CanConsumeDelta` for x
+   returns true and the latch binds to it. Hacky, affects layout, ugly.
+2. `overscroll-behavior-x: contain` only (axis-specific). Unclear if it
+   preserves history nav; cheap to verify but not done.
+3. JS wheel interception (apply deltaY to `scrollTop` ourselves,
+   `preventDefault`). Highest cost and risk; fights cc's animation/momentum;
+   can interfere with focus and pinch-zoom paths.
+4. Live with the bug. Current state.
+
+**Upstream:** issue 40717572 (open, P2, hotlist `Rendering Core 2026 Fixit`).
+Diagnosed by flackr in 2020 for the iframe pull-to-refresh surface but no
+generalised diagnosis, no design doc, no patch, no owner, no activity since
+2023. Our archived comment draft proposes adding the cross-engine code
+citations and the viewport-fall-through mechanism — if we post, comment goes
+through user review first.
+
+Commit lineage (all on this branch, repeated amends):
+- `a4fa028e6` — original push: `overscroll-contain` (broke history-swipe nav).
+- `8d021c4d2` — first amend: reverted `overscroll-contain`; swapped
+  `overflow-x-hidden` → `overflow-x-[clip]` speculatively.
+- (this amend) — reverted `[clip]` back to `hidden`; rewrote the archived
+  doc and comment draft against real Chromium source.
+
+Files changed in this commit vs `a4fa028e6`:
+- `src/components/ImageGrid.tsx` — `overscroll-contain` → `overscroll-y-contain`
+  (revert). `overflow-x` stays `hidden`.
+- `exploration/docs/zz Archive/chromium-scroll-latch-issue/` — new doc,
+  repro HTML, comment draft.
+
+
+
 ### 25 May 2026 — vecWeight hybrid blending (URL-only, no UI)
 
 Added `vecWeight` URL parameter to control hybrid search blending, matching
