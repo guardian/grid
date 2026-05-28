@@ -105,7 +105,7 @@ lazy val commonLib = project("common-lib").settings(
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
-    "com.gu" %% "thrift-serializer" % "5.0.2",
+    "com.gu" %% "thrift-serializer" % "5.0.8-PREVIEW.anlibthrift-0230.2026-05-28T1048.c3fc8fcf",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.4",
@@ -130,7 +130,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test,
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.23.0",
 )
 
 lazy val restLib = project("rest-lib").settings(
