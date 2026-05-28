@@ -2,7 +2,7 @@
 import { findAccountFunc } from "./find-account.js";
 import { makeProvider } from "./make-provider.js";
 // relative path to the users file within the localstack box ( to /etc/grid/users.json)
-import USER_JSON from "../../../etc/grid/users.json" assert { type: "json" };
+import USER_JSON from "../../../etc/grid/users.json" with { type: "json" };
 
 const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } =
   process.env;
