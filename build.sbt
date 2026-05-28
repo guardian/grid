@@ -129,7 +129,8 @@ lazy val commonLib = project("common-lib").settings(
     ws,
     "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
   ),
-  dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
+  dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test,
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.23.0",
 )
 
 lazy val restLib = project("rest-lib").settings(
