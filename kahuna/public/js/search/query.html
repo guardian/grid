@@ -1,4 +1,13 @@
 <form class="search">
+    <span id="ai-search-checkbox" class="search__modifier-item search__modifier-checkbox"
+          ng-if="searchQuery.shouldDisplayAISearchOption">
+        <label title="Search using AI vector similarity">
+            <input type="checkbox"
+                   ng-model="searchQuery.useAISearch"/>
+            Use AI search
+        </label>
+    </span>
+
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
@@ -14,8 +23,9 @@
         </button>
     </span>
 
+    <!-- Manual mode only: a second, dedicated AI/KNN box. The lexical box above is used as a filter. -->
     <span class="search-query search-query--ai"
-          ng-if="searchQuery.shouldDisplayAISearchOption"
+          ng-if="searchQuery.useAISearch && searchQuery.aiMode === 'manual'"
           title="Rank by AI/vector similarity. Combine with the metadata search to filter and re-rank.">
         <gr-icon class="search-query__magnifier search-query__icon">auto_awesome</gr-icon>
         <input class="search-query__query search-query__query--ai"
@@ -34,6 +44,39 @@
         </button>
     </span>
 
+    <!-- AI search controls: mode toggle + (hybrid) optional vector/lexical weight slider. -->
+    <span class="search__ai-controls" ng-if="searchQuery.useAISearch">
+        <span class="search__ai-mode-toggle"
+              gr-tooltip="Switch between automatic hybrid ranking and manual KNN+filter ranking">
+            <label>
+                <input type="radio" ng-model="searchQuery.aiMode" value="hybrid"/>
+                Hybrid
+            </label>
+            <label>
+                <input type="radio" ng-model="searchQuery.aiMode" value="manual"/>
+                Manual
+            </label>
+        </span>
+
+        <span ng-if="searchQuery.aiMode === 'hybrid'" class="search__ai-weight">
+            <button type="button"
+                    class="search__ai-weight-toggle"
+                    ng-click="searchQuery.showWeightSlider = !searchQuery.showWeightSlider"
+                    gr-tooltip="Show/hide the vector vs lexical mix slider">
+                <gr-icon>tune</gr-icon>
+            </button>
+            <span ng-if="searchQuery.showWeightSlider" class="search__ai-weight-slider">
+                <span class="search__ai-weight-label">lexical</span>
+                <input type="range" min="0" max="1" step="0.05"
+                       ng-model="searchQuery.vecWeightModel"
+                       ng-model-options="{ debounce: 200, getterSetter: true }"
+                       aria-label="Vector weight"/>
+                <span class="search__ai-weight-label">vector</span>
+                <span class="search__ai-weight-value">{{ searchQuery.vecWeight | number:2 }}</span>
+            </span>
+        </span>
+    </span>
+
     <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
@@ -42,7 +85,7 @@
         <gr-icon>info_outline</gr-icon>
     </button>
 
-    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter && !(searchQuery.useAISearch && searchQuery.aiMode === 'hybrid')" class="search__modifier-container">
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -104,7 +147,7 @@
         </ul>
     </div>
 
-    <div ng-if="!searchQuery.usePermissionsFilter" class="search__modifier-container">
+    <div ng-if="!searchQuery.usePermissionsFilter && !(searchQuery.useAISearch && searchQuery.aiMode === 'hybrid')" class="search__modifier-container">
         <div class="search__modifier-sort">
             <sort-control class="sort-control" props="searchQuery.sortProps"></sort-control>
         </div>

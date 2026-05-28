@@ -303,8 +303,8 @@ results.controller('SearchResultsCtrl', [
           // (i.e. the uploadTime of the newest result in the set)
 
           // TODO: avoid this initial search (two API calls to init!)
-          // AI/KNN search activates when an aiQuery is present.
-          const isAiSearch = !!($stateParams.aiQuery && $stateParams.aiQuery.trim());
+          // AI/KNN search activates when the useAISearch flag is set.
+          const isAiSearch = !!$stateParams.useAISearch && $stateParams.useAISearch !== 'false';
           const initialSearchParams = isAiSearch
             ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
             : {length: 1, orderBy: 'newest'};
@@ -319,7 +319,7 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
-            if ($stateParams.aiQuery && $stateParams.aiQuery.trim()) {
+            if (!!$stateParams.useAISearch && $stateParams.useAISearch !== 'false') {
               return;
             }
 
@@ -425,7 +425,7 @@ results.controller('SearchResultsCtrl', [
         function checkForNewImages() {
             // Polling for new images is meaningless for AI search — results are
             // ranked by vector similarity, not upload time.
-            if ($stateParams.aiQuery && $stateParams.aiQuery.trim()) { return; }
+            if (!!$stateParams.useAISearch && $stateParams.useAISearch !== 'false') { return; }
 
             $timeout(() => {
                 // Use explicit `until`, or blank it to find new images
@@ -578,7 +578,9 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
+                useAISearch: $stateParams.useAISearch,
                 aiQuery:    $stateParams.aiQuery,
+                vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,

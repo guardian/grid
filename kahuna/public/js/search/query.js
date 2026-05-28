@@ -80,6 +80,28 @@ query.controller('SearchQueryCtrl', [
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    if (!ctrl.shouldDisplayAISearchOption) {
+      ctrl.useAISearch = false;
+      ctrl.vecWeight = undefined;
+      ctrl.aiMode = 'hybrid';
+    } else {
+      ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+      // vecWeight defaults to 1.0 (fully vector) when in hybrid mode.
+      const parsedWeight = parseFloat($stateParams.vecWeight);
+      ctrl.vecWeight = Number.isFinite(parsedWeight) ? parsedWeight : 1.0;
+      // Manual mode is implied by an existing aiQuery in the URL; otherwise default to hybrid.
+      ctrl.aiMode = ($stateParams.aiQuery && $stateParams.aiQuery.trim()) ? 'manual' : 'hybrid';
+    }
+    ctrl.showWeightSlider = false;
+
+    // Bridge for the range input so two-way binding can debounce numerically.
+    ctrl.vecWeightModel = function (newValue) {
+      if (arguments.length) {
+        const n = parseFloat(newValue);
+        ctrl.vecWeight = Number.isFinite(n) ? n : 1.0;
+      }
+      return ctrl.vecWeight;
+    };
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -441,6 +463,45 @@ query.controller('SearchQueryCtrl', [
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
+    }));
+
+    $scope.$watch(() => ctrl.useAISearch, () => {
+      // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      if (ctrl.useAISearch) {
+        // When entering AI mode, include the current mode/weight in the URL but DON'T inject an
+        // aiQuery unless we're already in manual mode with one set.
+        $state.go('search.results', {
+          ...ctrl.filter,
+          useAISearch: true,
+          vecWeight: ctrl.aiMode === 'hybrid' ? ctrl.vecWeight : null,
+          aiQuery: ctrl.aiMode === 'manual' ? ctrl.filter.aiQuery : null
+        });
+      } else {
+          // When leaving AI mode, clear all AI-specific params so we don't carry stale state.
+          $state.go('search.results', {...ctrl.filter, useAISearch: null, vecWeight: null, aiQuery: null});
+      }
+    });
+
+    // Toggling between hybrid and manual AI modes adjusts which URL params are live.
+    $scope.$watch(() => ctrl.aiMode, onValChange((newMode) => {
+      if (!ctrl.useAISearch) { return; }
+      if (newMode === 'hybrid') {
+        // Hybrid: clear the manual aiQuery so the backend takes the hybrid path.
+        ctrl.filter.aiQuery = '';
+        $state.go('search.results', {...ctrl.filter, aiQuery: null, vecWeight: ctrl.vecWeight});
+      } else {
+        // Manual: stop sending vecWeight (it's a hybrid-only knob).
+        $state.go('search.results', {...ctrl.filter, vecWeight: null});
+      }
+    }));
+
+    // Hybrid mode slider for the vector/lexical weight (only meaningful while useAISearch is on
+    // and the manual aiQuery dual-box is not in use).
+    $scope.$watch(() => ctrl.vecWeight, onValChange((newVal) => {
+      if (ctrl.useAISearch && ctrl.aiMode === 'hybrid') {
+        $state.go('search.results', {...ctrl.filter, vecWeight: newVal});
+      }
     }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {

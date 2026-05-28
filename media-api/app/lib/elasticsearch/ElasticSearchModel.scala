@@ -87,6 +87,7 @@ case class SearchParams(
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
   aiQuery: Option[String] = None,
+  vecWeight: Option[Double] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -116,6 +117,8 @@ object SearchParams {
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseBoundedDoubleFromQuery(s: String): Option[Double] =
+    Try(s.toDouble).toOption.filter(d => !d.isNaN && !d.isInfinity && d >= 0.0 && d <= 1.0)
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
   def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
@@ -177,6 +180,7 @@ object SearchParams {
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
       request.getQueryString("aiQuery").filter(_.trim.nonEmpty),
+      request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
     )
   }
 
@@ -206,7 +210,9 @@ object SearchParams {
       "persisted"         -> searchParams.persisted.map(_.toString),
       "usageStatus"       -> listToCommas(searchParams.usageStatus.map(_.toString)),
       "usagePlatform"     -> listToCommas(searchParams.usagePlatform),
-      "aiQuery"           -> searchParams.aiQuery
+      "useAISearch"       -> searchParams.useAISearch.map(_.toString),
+      "aiQuery"           -> searchParams.aiQuery,
+      "vecWeight"         -> searchParams.vecWeight.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc
