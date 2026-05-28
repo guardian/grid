@@ -50,11 +50,11 @@
               ng-if="searchQuery.shouldDisplayAIManualModeOption"
               gr-tooltip="Switch between automatic hybrid ranking and manual KNN+filter ranking">
             <label>
-                <input type="radio" ng-model="searchQuery.aiMode" value="hybrid"/>
+                <input type="radio" name="aiMode" ng-model="searchQuery.aiMode" value="hybrid"/>
                 Hybrid
             </label>
             <label>
-                <input type="radio" ng-model="searchQuery.aiMode" value="manual"/>
+                <input type="radio" name="aiMode" ng-model="searchQuery.aiMode" value="manual"/>
                 Manual
             </label>
         </span>
