@@ -22,6 +22,12 @@ object EnableAISearch extends FeatureSwitch(
   default = false
 )
 
+object EnableAISearchManualMode extends FeatureSwitch(
+  key = "enable-ai-search-manual-mode",
+  title = "Expose the AI search manual/hybrid toggle (off = always hybrid)",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".

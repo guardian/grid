@@ -80,6 +80,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAIManualModeOption = getFeatureSwitchActive("enable-ai-search-manual-mode");
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
@@ -90,7 +91,8 @@ query.controller('SearchQueryCtrl', [
       const parsedWeight = parseFloat($stateParams.vecWeight);
       ctrl.vecWeight = Number.isFinite(parsedWeight) ? parsedWeight : 1.0;
       // Manual mode is implied by an existing aiQuery in the URL; otherwise default to hybrid.
-      ctrl.aiMode = ($stateParams.aiQuery && $stateParams.aiQuery.trim()) ? 'manual' : 'hybrid';
+      // When the manual-mode feature switch is off, force hybrid regardless of URL params.
+      ctrl.aiMode = (ctrl.shouldDisplayAIManualModeOption && $stateParams.aiQuery && $stateParams.aiQuery.trim()) ? 'manual' : 'hybrid';
     }
     ctrl.showWeightSlider = false;
 

@@ -47,6 +47,7 @@
     <!-- AI search controls: mode toggle + (hybrid) optional vector/lexical weight slider. -->
     <span class="search__ai-controls" ng-if="searchQuery.useAISearch">
         <span class="search__ai-mode-toggle"
+              ng-if="searchQuery.shouldDisplayAIManualModeOption"
               gr-tooltip="Switch between automatic hybrid ranking and manual KNN+filter ranking">
             <label>
                 <input type="radio" ng-model="searchQuery.aiMode" value="hybrid"/>
