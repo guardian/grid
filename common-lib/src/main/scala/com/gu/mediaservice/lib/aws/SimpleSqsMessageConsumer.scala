@@ -16,7 +16,7 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
       new ReceiveMessageRequest(queueUrl)
         .withWaitTimeSeconds(20) // Wait for maximum duration (20s) as per doc recommendation: http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
         .withMaxNumberOfMessages(1) // Pull 1 message at a time to avoid starvation
-        .withAttributeNames(attributeNames: _*)
+        .withMessageSystemAttributeNames(attributeNames: _*)
     ).getMessages.asScala.headOption
 
   def deleteMessage(message: SQSMessage): Unit =
