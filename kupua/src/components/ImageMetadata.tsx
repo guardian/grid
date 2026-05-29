@@ -142,6 +142,43 @@ function formatLeaseCreatedAt(iso: string | undefined): string | null {
   }
 }
 
+/**
+ * Format a deletion timestamp as relative time with varying granularity.
+ * Returns { relative, absolute } where absolute is used as a tooltip title.
+ * Granularity: just now → minutes → hours → yesterday → days → months → years.
+ */
+function formatDeletedTime(iso: string): { relative: string; absolute: string } | null {
+  try {
+    const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const absolute = formatLeaseCreatedAt(iso) ?? iso;
+    let relative: string;
+    if (diffMs < 60_000) {
+      relative = "just now";
+    } else if (diffMs < 3_600_000) {
+      const mins = Math.round(diffMs / 60_000);
+      relative = `${mins} minute${mins !== 1 ? "s" : ""} ago`;
+    } else if (diffMs < 86_400_000) {
+      const hrs = Math.round(diffMs / 3_600_000);
+      relative = `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
+    } else if (diffMs < 2 * 86_400_000) {
+      relative = "yesterday";
+    } else if (diffMs < 30 * 86_400_000) {
+      const days = Math.round(diffMs / 86_400_000);
+      relative = `${days} days ago`;
+    } else if (diffMs < 365 * 86_400_000) {
+      const months = Math.round(diffMs / (30 * 86_400_000));
+      relative = `${months} month${months !== 1 ? "s" : ""} ago`;
+    } else {
+      const years = Math.round(diffMs / (365 * 86_400_000));
+      relative = `${years} year${years !== 1 ? "s" : ""} ago`;
+    }
+    return { relative, absolute };
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // ImageMetadata — the full metadata display, driven by the field registry
 // ---------------------------------------------------------------------------
@@ -196,13 +233,41 @@ export function ImageMetadata({ image }: ImageMetadataProps) {
   const hasSyndicationRightsInfo = syndicationRights != null;
   const hasRightsAcquired = hasSyndicationRightsInfo && (syndicationRights.rights?.some((r) => r.acquired === true) ?? false);
 
+  // Soft deletion state — field only present when softDeletedMetadata is in SOURCE_INCLUDES
+  // and the image has been soft-deleted. Deletion trumps all other invalidity reasons.
+  const isDeleted = !!image.softDeletedMetadata;
+  const wasReaped = image.softDeletedMetadata?.deletedBy === "reaper";
+  const deletedByDisplay = wasReaped ? "Reaped automatically" : (image.softDeletedMetadata?.deletedBy ?? "");
+  const deleteTimeDisplay = image.softDeletedMetadata?.deleteTime
+    ? formatDeletedTime(image.softDeletedMetadata.deleteTime)
+    : null;
+
   return (
     <dl>
+      {/* Deleted image banner — shown when the image has been soft-deleted.
+          Trumps all other invalidity reasons; validity and restrictions banners are
+          suppressed when this is shown. Shows who deleted it and when (relative
+          time with absolute date on hover). */}
+      {isDeleted && (
+        <div className={`-mx-3 -mt-3 px-3 py-2 text-xs text-white text-center bg-[red] ${restrictions ? "mb-px" : "mb-2"}`}>
+          <strong>Deleted image</strong>
+          <ul className="mt-1 list-none">
+            <li className="break-all">
+              by {deletedByDisplay}
+              {deleteTimeDisplay && (
+                <> · <span title={deleteTimeDisplay.absolute}>{deleteTimeDisplay.relative}</span></>
+              )}
+            </li>
+          </ul>
+        </div>
+      )}
+
       {/* Validity banner — full-width colored banner at the very top.
           Three visual states: red (can't use), amber (warnings), teal (leased override).
           Only shown when there are actual invalid reasons — free images get no banner.
-          Negative margins break out of parent aside padding to span full width. */}
-      {showValidityBanner && (
+          Negative margins break out of parent aside padding to span full width.
+          Suppressed for deleted images — deletion banner takes precedence. */}
+      {showValidityBanner && !isDeleted && (
         <div
           className={`-mx-3 -mt-3 px-3 py-2 text-xs text-white text-center ${
             isStrongWarning
@@ -210,7 +275,7 @@ export function ImageMetadata({ image }: ImageMetadataProps) {
               : hasActiveAllowLease
                 ? "bg-[teal]"
                 : "bg-[orange]"
-          } ${restrictions ? "" : "mb-2"}`}
+          } ${restrictions ? "mb-px" : "mb-2"}`}
         >
           <strong>
             {isOverridden
@@ -231,9 +296,10 @@ export function ImageMetadata({ image }: ImageMetadataProps) {
       )}
 
       {/* Restrictions banner — orange, shows the actual restriction text.
-          Can appear alongside the validity banner (both visible simultaneously). */}
+          Can appear alongside the validity banner and the deleted banner simultaneously.
+          Restrictions are an independent fact — not suppressed by deletion (Kahuna parity). */}
       {restrictions && (
-        <div className={`-mx-3 px-3 py-2 text-xs text-white text-center bg-[orange] mb-2 ${showValidityBanner ? "" : "-mt-3"}`}>
+        <div className={`-mx-3 px-3 py-2 text-xs text-white text-center bg-[orange] mb-2 ${(isDeleted || showValidityBanner) ? "" : "-mt-3"}`}>
           <strong>Restricted use:</strong> {restrictions}
         </div>
       )}
@@ -241,7 +307,7 @@ export function ImageMetadata({ image }: ImageMetadataProps) {
       {/* Deny-syndication warning — amber standalone banner (only when no validity issues).
           When validity issues exist, the deny-syndication message is appended as a <li>
           inside the validity banner instead (Kahuna behaviour). */}
-      {showDenySyndicationBanner && !showValidityBanner && (
+      {showDenySyndicationBanner && !showValidityBanner && !isDeleted && (
         <div className={`-mx-3 px-3 py-2 text-xs text-white text-center bg-[orange] mb-2 ${(!restrictions) ? "-mt-3" : ""}`}>
           <strong>This image can be used, but has warnings:</strong>
           <ul className="mt-1 list-none">

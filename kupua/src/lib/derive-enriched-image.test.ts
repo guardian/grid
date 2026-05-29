@@ -61,10 +61,10 @@ describe("deriveImage", () => {
       expect(Object.keys(enriched.invalidReasons)).toHaveLength(0);
     });
 
-    it("flags no_rights as invalid", () => {
+    it("flags no_rights as invalid but valid=true (shouldOverride=true — write perm assumed ON)", () => {
       const img = makeImage({ usageRights: { category: "" } });
       const enriched = deriveImage(img, undefined);
-      expect(enriched.valid).toBe(false);
+      expect(enriched.valid).toBe(true); // overridden — warning, not blocker
       expect(enriched.invalidReasons).toHaveProperty("no_rights");
     });
 

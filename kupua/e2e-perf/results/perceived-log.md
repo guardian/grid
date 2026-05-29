@@ -641,3 +641,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 63 | 290 | 954 | 954 | 674 |
 | JB4 | scrubber-scroll | — | — | — | 29 | — |
 | JB5 | fullscreen-exit | — | — | — | 62 | — |
+
+---
+
+## [short] After soft delete (a6727d20e (dirty), 2026-05-29)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 313 | 313 | — |
+| PP2 | sort-no-focus | 66 | — | 253 | 253 | — |
+| PP3 | sort-around-focus | 66 | 260 | 567 | 567 | 309 |
+| PP4 | sort-around-focus | 67 | 267 | 568 | 568 | 301 |
+| PP5 | filter-toggle | 64 | 380 | — | 599 | 218 |
+| PP6 | density-swap | — | — | — | 223 | — |
+| PP7 | scrubber-seek | 1 | — | 764 | 764 | — |
+| PP7b | scrubber-seek | 1 | — | 730 | 730 | — |
+| PP7c | scrubber-scroll | — | — | — | 129 | — |
+| PP8 | search | 0 | 250 | 772 | 772 | 529 |
+| PP9 | search | 0 | — | 275 | 275 | — |
+| PP10 | position-map | — | — | — | 2768 | — |
+| PP6b | density-swap | — | — | — | 420 | — |
+| PP6c | density-swap | — | — | — | 371 | — |
+
+---
+
+## [long] After soft delete (a6727d20e (dirty), 2026-05-29)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 243 | 243 | — |
+| JA2 | open-detail | — | — | — | 117 | — |
+| JA3 | metadata-click | 63 | 521 | 824 | 824 | 311 |
+| JB1 | search | 0 | — | 277 | 277 | — |
+| JB2 | facet-click | 70 | — | 727 | 727 | — |
+| JB3 | facet-click | 63 | 301 | 359 | 359 | 921 |
+| JB4 | scrubber-scroll | — | — | — | 30 | — |
+| JB5 | fullscreen-exit | — | — | — | 61 | — |

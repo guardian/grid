@@ -11,7 +11,10 @@
  * IMPORTANT differences from the Scala version:
  *   - "over_quota": derived from quota-store (populated once at app startup).
  *     Empty quota map (dev, network failure) → no over_quota reason added.
- *   - "has_write_permission": always false in standalone mode (no auth context).
+ *   - "has_write_permission": always assumed ON. Kupua has no auth context but
+ *     all users are authenticated Guardian editorial staff with implicit EditMetadata
+ *     access. shouldOverride is therefore hardcoded true (same as is:deleted gate
+ *     in es-adapter.ts). See deviations.md permissions table.
  *   - "current_allow_lease": derived from the ES leases[] array.
  *     Active lease detection: date-based via isLeaseActive() — does NOT trust
  *     the stale ES `active` snapshot. See 07-syndication-and-leases.md §3.2.1.
@@ -22,6 +25,11 @@
 import type { Image } from "@/types/image";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { isSupplierOverQuota } from "./quota-store";
+import { calculateCost } from "./calculate-cost";
+import guardianConfig from "./guardian-config.json";
+import type { GuardianCostConfig } from "./types";
+
+const GUARDIAN_COST_CONFIG = guardianConfig as GuardianCostConfig;
 
 export interface ValidityCheck {
   invalid: boolean;
@@ -65,7 +73,14 @@ export function buildValidityMap(image: Image): ValidityMap {
   const hasCurrentDenyLease = leases.some(
     (l) => l.access === "deny-use" && isLeaseActive(l, nowMs),
   );
-  const shouldOverride = hasCurrentAllowLease;
+  // SIMULATED PERMISSION — replace this one line when auth is wired:
+  // const hasWritePermission = currentUser.hasPermission("EditMetadata");
+  const hasWritePermission = true;
+  // shouldOverride mirrors Scala: (hasCurrentAllowLease || hasWritePermission).
+  // Full logic is here; only hasWritePermission above is simulated.
+  // Note: banner colour (teal vs orange) is driven separately by hasActiveAllowLease
+  // in ImageMetadata.tsx — unaffected by shouldOverride.
+  const shouldOverride = hasCurrentAllowLease || hasWritePermission;
 
   function createCheck(invalid: boolean, overrideable = true): ValidityCheck {
     return { invalid, overrideable, shouldOverride };
@@ -88,8 +103,11 @@ export function buildValidityMap(image: Image): ValidityMap {
       "ITAR-TASS News Agency";
 
   return {
-    paid_image: createCheck(false), // Requires calculateCost — omit from pure map; UI derives
-    conditional_paid: createCheck(false), // Same — derived by caller from calculateCost result
+    // paid_image: true when cost=pay (mirrors Scala's cost.isPay check).
+    paid_image: createCheck(calculateCost(usageRights, GUARDIAN_COST_CONFIG) === "pay"),
+    // conditional_paid: true when usageRights.restrictions is non-empty (mirrors
+    // Scala's cost.isConditional check). Uses shared shouldOverride like all other checks.
+    conditional_paid: createCheck(!!usageRights?.restrictions),
     no_rights: createCheck(!hasRights, true),
     current_deny_lease: createCheck(hasCurrentDenyLease, true),
     missing_credit: createCheck(!hasCredit, false),

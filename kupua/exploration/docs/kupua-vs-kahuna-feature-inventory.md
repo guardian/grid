@@ -340,6 +340,26 @@ Two small UI polish differences, grouped here.
 
 ---
 
+### 3.6 Soft-deleted images suppressed from default search; `is:deleted` opt-in
+**Score (a/b/c):** 3/0/3 = **6** | **Audience:** both | **Demo:** none
+
+**What Kahuna does today:** `Parser.scala` appends ` -is:deleted` to every query string before it is parsed, unless the query already contains `is:deleted`. Default searches never return deleted images; users with delete permission can opt in by typing `is:deleted`.
+
+**What Kupua does (as of 29 May 2026):** `buildQuery()` in `es-adapter.ts` pushes `{ exists: { field: "softDeletedMetadata" } }` onto `mustNot` for every search where the query string does not contain `"is:deleted"`. Typing `is:deleted` opts in. The `parseCql` translation of `is:deleted` was already correct (verified in `cql.test.ts`); this was a missing default-suppression gate. Before this fix, soft-deleted images appeared in all Kupua searches.
+
+**Evidence — Kupua:**
+- `kupua/src/dal/es-adapter.ts` (`buildQuery()` — suppression block after CQL parsing)
+- `kupua/src/dal/adapters/elasticsearch/cql.test.ts:14–16` (`is:deleted` → `exists` translation)
+- `kupua/exploration/docs/deviations.md §26` (permission gap: `is:deleted` shows all users' deleted images)
+- `kupua/exploration/docs/01 Research/soft-deletions-findings.md §Q2`
+
+**Evidence — Kahuna:**
+- `common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/queries/Parser.scala:5–17` (`thingsToHideByDefault`)
+
+**Confidence:** `kahuna-code-confirmed-partial`
+
+---
+
 ## 4. Selections (Multi-Image)
 
 ### 4.1 Range selection that works across off-screen images
@@ -821,6 +841,29 @@ Additionally, the Zod schema applies `.catch(undefined)` to every field, so any 
 - `kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html:738–780` (Additional Metadata `ng-repeat` section; `bylineTitle`, `source`, `suppliersReference` absent from explicit `dt` list, confirmed falling through)
 
 **Confidence:** `kahuna-code-confirmed`
+
+---
+
+### 12.4 Deleted image banner with who deleted it and when
+**Score (a/b/c):** 2/1/2 = **5** | **Audience:** both | **Demo:** screenshot
+
+**What Kahuna does today:** When an image is soft-deleted, `gr-metadata-validity.html` shows a red banner using the generic `unusableTextHeader` config string (e.g. "This image can't be used") plus a help icon tooltip. The `deletedBy` and `deleteTime` fields are read only for internal permission logic (`get-deleted-state.js`) and are never rendered in any template.
+
+**What Kupua does (as of 29 May 2026):** A dedicated "Deleted image" banner appears above all other validity banners. It shows `by <who>` ("Reaped automatically" when `deletedBy === "reaper"`) and a relative timestamp with varying granularity (just now → minutes → hours → yesterday → days → months → years), with the absolute date on hover. Other invalidity-reason bullets are suppressed (deletion trumps them), but the Restrictions banner still appears underneath when present — matching Kahuna behaviour for restrictions.
+
+**Why it's better:** Users immediately see who deleted the image and roughly when, without any additional clicks or knowledge of the Grid API. Kahuna provides no temporal information for deletions.
+
+**Evidence — Kupua:**
+- `kupua/src/components/ImageMetadata.tsx` (`isDeleted`, `deletedByDisplay`, `formatDeletedTime`, deleted banner JSX)
+- `kupua/src/dal/es-config.ts` (`"softDeletedMetadata"` in `SOURCE_INCLUDES`)
+- `kupua/exploration/docs/deviations.md §26`
+- `kupua/exploration/docs/01 Research/soft-deletions-findings.md §Q10`
+
+**Evidence — Kahuna:**
+- `kahuna/public/js/components/gr-metadata-validity/gr-metadata-validity.html:13–18` (generic header, no who/when)
+- `kahuna/public/js/util/get-deleted-state.js:15` (`deletedBy` read for permission logic only, never rendered)
+
+**Confidence:** `kahuna-code-confirmed-partial`
 
 ---
 

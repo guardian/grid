@@ -41,12 +41,29 @@ plain='\033[0m'
 # ---------------------------------------------------------------------------
 # WOPR-style typing effect (WarGames, 1983)
 # ---------------------------------------------------------------------------
+WOPR_SKIP=false
+
+# Wait for `delay` seconds, or return immediately if a key is pressed.
+# Sets WOPR_SKIP=true on keypress so all subsequent waits are instant.
+_wopr_wait() {
+  local delay="$1"
+  [ "$WOPR_SKIP" = true ] && return
+  if [ -t 0 ]; then
+    local _key
+    if read -r -s -n 1 -t "$delay" _key 2>/dev/null; then
+      WOPR_SKIP=true
+    fi
+  else
+    sleep "$delay"
+  fi
+}
+
 wopr_type() {
   local text="$1"
   local delay="${2:-0.04}"
   for (( i=0; i<${#text}; i++ )); do
     printf "%s" "${text:$i:1}"
-    sleep "$delay"
+    _wopr_wait "$delay"
   done
   printf "\n"
 }
@@ -56,20 +73,20 @@ wopr_intro() {
   echo
   printf "  ${green}"
   wopr_type "GREETINGS PROFESSOR FALKEN." 0.03
-  sleep 0.3
+  _wopr_wait 0.3
   echo
   printf "  "
   wopr_type "SHALL WE PLAY A GAME?" 0.03
-  sleep 0.3
+  _wopr_wait 0.3
   echo
   printf "  "
   wopr_type "GLOBAL THERMONUCLEAR WAR?" 0.025
-  sleep 0.3
+  _wopr_wait 0.3
   echo
   printf "  "
   wopr_type "FINE!" 0.08
   printf "${plain}"
-  sleep 1.0
+  _wopr_wait 1.0
   echo
   echo
 }

@@ -14,6 +14,86 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 May 2026 — Validity/permissions: full logic restored with simulated permissions
+
+**Context:** `buildValidityMap` had `shouldOverride = hasCurrentAllowLease` before today's
+work, meaning only an active allow-use lease could override validity warnings. Write
+permission (`EditMetadata`) was silently absent — no_rights, over_quota, current_deny_lease,
+paid_image, and conditional_paid all showed as red "Unusable image" blockers for all users
+instead of the correct orange "can be used, but has warnings".
+
+**Changes:**
+
+- `paid_image` wired to `calculateCost(usageRights) === "pay"` (was hardcoded `false`)
+- `conditional_paid` wired to `!!usageRights?.restrictions` (was hardcoded `false`)
+- `hasCurrentAllowLease` restored to the full date-based computation
+- `shouldOverride` now correctly mirrors Scala: `hasCurrentAllowLease || hasWritePermission`
+- `const hasWritePermission = true` is the single labelled simulation — one line to replace
+  when auth is wired; all surrounding logic is already complete and correct
+- All checks use `createCheck()` with the shared `shouldOverride`, matching Scala exactly.
+  Exception: `tass_agency_image` keeps its own `shouldOverride: true` — intentional,
+  Scala does the same (always a warning, never permission-gated)
+
+**Permissions table** added to `deviations.md` (after §26) documenting all six permission
+assumptions in Kupua with their Kahuna reality and exact one-line migration steps.
+
+868/868 unit tests passing.
+
+### 29 May 2026 — Fix: conditional_paid validity check wired up
+
+**Problem:** `buildValidityMap` had `conditional_paid: createCheck(false)` — a dead
+stub. Restricted-use images (any image with `usageRights.restrictions` non-empty) never
+showed the "This image is restricted use" validity warning in the metadata panel.
+
+**Fix:** `conditional_paid` in `validity-map.ts` is now wired to
+`!!usageRights?.restrictions`, mirroring what Scala's `cost.isConditional()` does.
+
+**Permissions situation (for future travellers):** In Kahuna, `conditional_paid` is
+overridden (shown as a warning, not a blocker) when the user has `EditMetadata` write
+permission OR an active allow-use lease. Kupua has no auth context. Rather than
+implement permission detection, `shouldOverride` is hardcoded `true` for this check —
+all Kupua users are authenticated Guardian editorial staff with implicit write access.
+This means the banner says "**This image can be used, but has warnings**" (orange) rather
+than "**Unusable image**" (red). This is the correct real-world behaviour, just arrived
+at by assumption rather than gate. Same pattern as the `is:deleted` permission hardcode
+in `es-adapter.ts`. Both are documented in `deviations.md §26`.
+
+### 29 May 2026 — Soft deletion Phase 1 & 2
+
+Research doc: `exploration/docs/01 Research/soft-deletions-findings.md` (moved
+from docs root; produced in a prior session).
+
+**Phase 1 — read-only display (three code changes):**
+
+- `es-config.ts`: added `"softDeletedMetadata"` to `SOURCE_INCLUDES`. Previously
+  excluded entirely (noted in the comment, never in the whitelist). Parent-path
+  fetch returns both `deleteTime` and `deletedBy` subfields atomically.
+
+- `es-adapter.ts` `buildQuery()`: added default deletion suppression —
+  `mustNot.push({ exists: { field: "softDeletedMetadata" } })` after CQL
+  parsing, gated on `!queryStr.includes("is:deleted")`. Mirrors Kahuna's
+  `Parser.scala` `thingsToHideByDefault`. `getById()` bypasses `buildQuery()`
+  so deleted images remain accessible via direct URL/detail panel.
+
+- `ImageMetadata.tsx`: new `formatDeletedTime()` helper with granularity
+  (just now → minutes → hours → yesterday → days → months → years; absolute
+  date on hover). "Deleted image" banner renders above all other validity
+  banners: `by <who>` ("Reaped automatically" when `deletedBy === "reaper"`)
+  + relative delete time. Invalidity-reason bullets suppressed for deleted
+  images; Restrictions banner still shows (Kahuna parity). Spacing follows the
+  existing touching-banner pattern (`mb-2` omitted when restrictions follows).
+
+**Phase 2 — `is:deleted` search:** no code change needed. `parseCql("is:deleted")`
+already produced the correct ES clause (verified by `cql.test.ts:14–16`).
+
+**Documentation:**
+- `deviations.md §26`: `is:deleted` bypasses media-api `canViewDeletedImages`
+  per-user restriction (development-phase deviation; migration path noted).
+- `kupua-vs-kahuna-feature-inventory.md §3.6, §12.4`: suppression parity and
+  who/when banner improvement documented.
+
+868/868 unit tests passing.
+
 ### 28 May 2026 — Chrome scroll-latch: third-pass research, VS Code workaround identified
 
 Third internet trawl after we understood the Chromium mechanism (so we

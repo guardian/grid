@@ -574,6 +574,46 @@ metadata/XMP). Kahuna has the same false-negative risk — the server field reli
 on the same keyword scan. The XMP flag path reduces false-negatives for images
 with the proper metadata flag set at ingest time.
 
+### 26. `is:deleted` search bypasses per-user deletion permission restriction
+
+**What:** When a user searches `is:deleted` in Kupua, all soft-deleted images are
+returned regardless of who deleted them or whether the user has `DeleteImagePermission`.
+
+**Kahuna/media-api behaviour:** `MediaApi.scala` applies a `canViewDeletedImages`
+restriction: users without `DeleteImagePermission` have `uploadedBy` forced to their
+own identity, so they only see images they personally deleted. Users with
+`DeleteImagePermission` see all deleted images.
+
+**Kupua:** Queries ES directly. The `buildQuery()` function has no concept of the
+current user's identity or roles. The `is:deleted` CQL clause translates correctly to
+`{ exists: { field: "softDeletedMetadata" } }` (verified in `cql.test.ts`) and
+returns all deleted images from all uploaders.
+
+**Why acceptable for now:** Kupua is not yet user-facing. All dev and test access is
+unrestricted by design.
+
+**Migration path:** When Kupua serves real users, the `/api` proxy (media-api) can
+enforce the same `uploadedBy` gate server-side before queries reach ES. No code
+change to `buildQuery()` needed — the restriction is purely an API-layer concern.
+
+---
+
+### Permission assumptions — consolidated reference
+
+Kupua has no auth context (direct-to-ES, no current-user identity). All permission
+gates are hardcoded to assume the most permissive state matching the real-world
+audience (authenticated Guardian editorial staff). The table below documents each
+assumption for when permissions are wired up.
+
+| Location | Permission / check | Assumed | Kahuna reality | Migration note |
+|---|---|---|---|---|
+| `es-adapter.ts` `buildQuery()` | `canViewDeletedImages` (`is:deleted` results) | **ON** — all users see all deleted images | OFF unless `DeleteImagePermission` or `uploadedBy == self` | Add `uploadedBy` filter from current-user identity, or delegate to `/api` proxy |
+| `validity-map.ts` `hasWritePermission` | `has_write_permission` (overrides paid_image, no_rights, over_quota, current_deny_lease, conditional_paid) | **ON** — all checks show as warnings not blockers | ON only for `EditMetadata` users | Replace `const hasWritePermission = true` with `currentUser.hasPermission("EditMetadata")` — full `shouldOverride` logic is already in place |
+| `validity-map.ts` `tass_agency_image` | N/A — always `shouldOverride: true` in Scala too | Matches Scala — not a Kupua deviation | Same | No change needed |
+| `validity-map.ts` `paid_image` | Whether pay-image warning is shown | **ON** — wired to `calculateCost() === "pay"` | Same in Kahuna | No change needed once write-perm is wired (warning not blocker) |
+| `grid-config.ts` `showDenySyndicationWarning` | Whether deny-syndication banner shows | **ON** | Operator config flag | Read from runtime config endpoint |
+| `grid-config.ts` `syndicationStartDate` | Syndication review queue cutoff | **null** (TEST/CODE behaviour) | PROD has a date cutoff | Read from runtime config endpoint |
+
 ---
 
 ## From library defaults / conventions

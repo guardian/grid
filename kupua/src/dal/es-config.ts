@@ -37,7 +37,7 @@ export const SOURCE_EXCLUDES: string[] = [];
  * Only these fields are returned from ES. Everything else — the bulk of
  * fileMetadata (EXIF, XMP sub-fields, Getty), embedding (1024-dim vector),
  * usages, exports, leases, originalMetadata, originalUsageRights,
- * collections, softDeletedMetadata, identifiers, userMetadata — is
+ * collections, identifiers, userMetadata — is
  * excluded implicitly.
  *
  * Reduces response payload from ~1.5MB to ~250KB raw (~65KB gzip) for 200
@@ -138,6 +138,9 @@ export const SOURCE_INCLUDES = [
   "collections.description",
   "collections.actionData.date",
   "collections.path",
+  // Soft deletion — parent path fetch returns both deleteTime and deletedBy subfields.
+  // Field is absent when the image is not deleted; present when soft-deleted or reaped.
+  "softDeletedMetadata",
 ];
 
 /**

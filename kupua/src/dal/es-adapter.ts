@@ -466,6 +466,17 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
     mustNot.push(...cql.mustNot);
   }
 
+  // Suppress soft-deleted images by default — mirrors Kahuna's Parser.scala behaviour
+  // (appends -is:deleted to every query string). Applied at query-assembly here rather
+  // than as string injection so the user's raw CQL flows into parseCql unmodified.
+  // Exception: query contains "is:deleted" — user opted in to see deleted images.
+  // Note: Kahuna gates `is:deleted` results behind a per-user `canViewDeletedImages`
+  // permission check (uploadedBy match). Kupua has no auth context — all authenticated
+  // users can see all deleted images. See deviations.md §26.
+  if (!queryStr.includes("is:deleted")) {
+    mustNot.push({ exists: { field: "softDeletedMetadata" } });
+  }
+
   // IDs filter (comma-separated)
   if (params.ids) {
     const idList = params.ids.split(",").map((s) => s.trim());
