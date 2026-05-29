@@ -83,6 +83,14 @@ interface PerceivedMetrics {
   status_total_ms: number | null;
   /** raw trace entries for debugging */
   raw: TraceEntry[];
+  /** Store-reported ES timing — harvested after settle via page.evaluate(). */
+  took?: number | null;
+  fetchDuration?: number | null;
+  seekTime?: number | null;
+  aggTook?: number | null;
+  aggFetchDuration?: number | null;
+  /** seek:* performance.measure entries — only present for PP7/PP7b/PP7c. */
+  seekMeasures?: Array<{ name: string; duration: number }>;
 }
 
 function computeMetrics(
@@ -159,6 +167,30 @@ async function readTrace(kupua: any): Promise<TraceEntry[]> {
   });
 }
 
+/** Read timing fields from the search store for diagnostic enrichment. */
+async function readStoreTiming(kupua: any) {
+  return kupua.page.evaluate(() => {
+    const s = (window as any).__kupua_store__?.getState?.();
+    if (!s) return null;
+    return {
+      took: s.took ?? null,
+      fetchDuration: s.fetchDuration ?? null,
+      seekTime: s.seekTime ?? null,
+      aggTook: s.aggTook ?? null,
+      aggFetchDuration: s.aggFetchDuration ?? null,
+    };
+  });
+}
+
+/** Read seek:* performance.measure entries — only present after a seek. */
+async function readSeekMeasures(kupua: any): Promise<Array<{ name: string; duration: number }>> {
+  return kupua.page.evaluate(() =>
+    performance.getEntriesByType("measure")
+      .filter((m: PerformanceEntry) => m.name.startsWith("seek:"))
+      .map((m: PerformanceEntry) => ({ name: m.name, duration: Math.round(m.duration) })),
+  );
+}
+
 /**
  * Wait until the store is fully settled:
  * - loading === false
@@ -228,6 +260,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP1", "home-logo click", entries, "home-logo");
     console.log(`PP1 home-logo: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing1 = await readStoreTiming(kupua);
+    if (timing1) Object.assign(metrics, timing1);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -260,6 +294,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP2", "sort-no-focus (uploadTime→fileSize)", entries, "sort-no-focus");
     console.log(`PP2 sort-no-focus: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing2 = await readStoreTiming(kupua);
+    if (timing2) Object.assign(metrics, timing2);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -295,6 +331,8 @@ test.describe("Perceived Performance Suite", () => {
       `PP3 sort-around-focus: ack=${metrics.dt_ack_ms}ms status=${metrics.dt_status_ms}ms ` +
       `settled=${metrics.dt_settled_ms}ms banner=${metrics.status_total_ms}ms`,
     );
+    const timing3 = await readStoreTiming(kupua);
+    if (timing3) Object.assign(metrics, timing3);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -321,6 +359,8 @@ test.describe("Perceived Performance Suite", () => {
     console.log(
       `PP4 sort-dir-focused: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms banner=${metrics.status_total_ms}ms`,
     );
+    const timing4 = await readStoreTiming(kupua);
+    if (timing4) Object.assign(metrics, timing4);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -340,6 +380,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP5", "filter-toggle (free-to-use checkbox)", entries, "filter-toggle");
     console.log(`PP5 filter-toggle: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing5 = await readStoreTiming(kupua);
+    if (timing5) Object.assign(metrics, timing5);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -360,6 +402,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP6", "density-swap (grid→table)", entries, "density-swap");
     console.log(`PP6 density-swap: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing6 = await readStoreTiming(kupua);
+    if (timing6) Object.assign(metrics, timing6);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -393,6 +437,10 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP7", "scrubber-seek (click 50%)", entries, "scrubber-seek");
     console.log(`PP7 scrubber-seek: ack=${metrics.dt_ack_ms}ms first_pixel=${metrics.dt_first_pixel_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing7 = await readStoreTiming(kupua);
+    if (timing7) Object.assign(metrics, timing7);
+    const seekMeasures7 = await readSeekMeasures(kupua);
+    if (seekMeasures7.length > 0) metrics.seekMeasures = seekMeasures7;
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -438,6 +486,10 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP7b", "scrubber-drag (seek mode)", entries, "scrubber-seek");
     console.log(`PP7b scrubber-drag: ack=${metrics.dt_ack_ms}ms first_pixel=${metrics.dt_first_pixel_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing7b = await readStoreTiming(kupua);
+    if (timing7b) Object.assign(metrics, timing7b);
+    const seekMeasures7b = await readSeekMeasures(kupua);
+    if (seekMeasures7b.length > 0) metrics.seekMeasures = seekMeasures7b;
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0" && e.action === "scrubber-seek")).toBe(true);
   });
@@ -493,6 +545,10 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP7c", "scrubber-buffer (click, DOM scroll)", entries, "scrubber-scroll");
     console.log(`PP7c scrubber-buffer: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing7c = await readStoreTiming(kupua);
+    if (timing7c) Object.assign(metrics, timing7c);
+    const seekMeasures7c = await readSeekMeasures(kupua);
+    if (seekMeasures7c.length > 0) metrics.seekMeasures = seekMeasures7c;
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0" && e.action === "scrubber-scroll")).toBe(true);
   });
@@ -535,6 +591,8 @@ test.describe("Perceived Performance Suite", () => {
     console.log(
       `PP8 search-submit: ack=${metrics.dt_ack_ms}ms first_pixel=${metrics.dt_first_pixel_ms}ms settled=${metrics.dt_settled_ms}ms`,
     );
+    const timing8 = await readStoreTiming(kupua);
+    if (timing8) Object.assign(metrics, timing8);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0" && e.action === "search")).toBe(true);
   });
@@ -574,6 +632,8 @@ test.describe("Perceived Performance Suite", () => {
     console.log(
       `PP9 cql-chip-remove: ack=${metrics.dt_ack_ms}ms first_pixel=${metrics.dt_first_pixel_ms}ms settled=${metrics.dt_settled_ms}ms`,
     );
+    const timing9 = await readStoreTiming(kupua);
+    if (timing9) Object.assign(metrics, timing9);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0" && e.action === "search")).toBe(true);
   });
@@ -611,6 +671,8 @@ test.describe("Perceived Performance Suite", () => {
     console.log(
       `PP10 position-map: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`,
     );
+    const timing10 = await readStoreTiming(kupua);
+    if (timing10) Object.assign(metrics, timing10);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0" && e.action === "position-map")).toBe(true);
     expect(entries.some((e) => e.phase === "t_settled" && e.action === "position-map")).toBe(true);
@@ -641,6 +703,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP6b", "density-swap-mid (grid→table, mid-buffer)", entries, "density-swap");
     console.log(`PP6b density-swap-mid: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing6b = await readStoreTiming(kupua);
+    if (timing6b) Object.assign(metrics, timing6b);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });
@@ -673,6 +737,8 @@ test.describe("Perceived Performance Suite", () => {
     const entries = await readTrace(kupua);
     const metrics = computeMetrics("PP6c", "density-swap-deep (grid→table, deep-buffer)", entries, "density-swap");
     console.log(`PP6c density-swap-deep: ack=${metrics.dt_ack_ms}ms settled=${metrics.dt_settled_ms}ms`);
+    const timing6c = await readStoreTiming(kupua);
+    if (timing6c) Object.assign(metrics, timing6c);
     emitMetrics(metrics);
     expect(entries.some((e) => e.phase === "t_0")).toBe(true);
   });

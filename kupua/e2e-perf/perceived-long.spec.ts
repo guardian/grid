@@ -86,6 +86,12 @@ interface PerceivedMetrics {
   dt_settled_ms: number | null;
   status_total_ms: number | null;
   raw: TraceEntry[];
+  /** Store-reported ES timing — harvested after settle via page.evaluate(). */
+  took?: number | null;
+  fetchDuration?: number | null;
+  seekTime?: number | null;
+  aggTook?: number | null;
+  aggFetchDuration?: number | null;
 }
 
 function computeMetrics(
@@ -139,6 +145,21 @@ function emitMetrics(metrics: PerceivedMetrics) {
   const { raw: _raw, ...rest } = metrics;
   const line = JSON.stringify(rest) + "\n";
   try { appendFileSync(METRICS_FILE, line); } catch { /* ok outside harness */ }
+}
+
+/** Read timing fields from the search store for diagnostic enrichment. */
+async function readStoreTiming(kupua: any) {
+  return kupua.page.evaluate(() => {
+    const s = (window as any).__kupua_store__?.getState?.();
+    if (!s) return null;
+    return {
+      took: s.took ?? null,
+      fetchDuration: s.fetchDuration ?? null,
+      seekTime: s.seekTime ?? null,
+      aggTook: s.aggTook ?? null,
+      aggFetchDuration: s.aggFetchDuration ?? null,
+    };
+  });
 }
 
 async function enablePerceivedTrace(kupua: any) {
@@ -288,6 +309,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JA1", "search David Young (~538)", entries, "search");
       logStep("JA1", m);
+      const timingJA1 = await readStoreTiming(kupua);
+      if (timingJA1) Object.assign(m, timingJA1);
       emitMetrics(m);
       expect(entries.length).toBeGreaterThan(0);
     }
@@ -307,6 +330,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JA2", "image-dblclick (open detail)", entries, "open-detail");
       logStep("JA2", m);
+      const timingJA2 = await readStoreTiming(kupua);
+      if (timingJA2) Object.assign(m, timingJA2);
       emitMetrics(m);
     }
 
@@ -346,6 +371,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JA3", "metadata-click colourModel:\"RGB\"", entries, "metadata-click");
       logStep("JA3", m);
+      const timingJA3 = await readStoreTiming(kupua);
+      if (timingJA3) Object.assign(m, timingJA3);
       emitMetrics(m);
       expect(entries.some((e) => e.phase === "t_0" && e.action === "metadata-click")).toBe(true);
       // Sanity: plain metadata click *replaces* the query (so result count
@@ -379,6 +406,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JB1", "search avalonred (~21628)", entries, "search");
       logStep("JB1", m);
+      const timingJB1 = await readStoreTiming(kupua);
+      if (timingJB1) Object.assign(m, timingJB1);
       emitMetrics(m);
       expect(entries.length).toBeGreaterThan(0);
     }
@@ -409,6 +438,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JB2", "facet-click subject:sport", entries, "facet-click");
       logStep("JB2", m);
+      const timingJB2 = await readStoreTiming(kupua);
+      if (timingJB2) Object.assign(m, timingJB2);
       emitMetrics(m);
       expect(entries.some((e) => e.phase === "t_0" && e.action === "facet-click")).toBe(true);
     }
@@ -447,6 +478,8 @@ test.describe("Journey Tests", () => {
       // downstream search; whichever t_0 fires first wins (commonly facet-click).
       const m = computeMetrics("JB3", `facet-exclude -subject:${excludeKey}`, entries);
       logStep("JB3", m);
+      const timingJB3 = await readStoreTiming(kupua);
+      if (timingJB3) Object.assign(m, timingJB3);
       emitMetrics(m);
       // The trace may capture the resulting search action rather than facet-click
       // if timing races with a prior search; just require some t_0 entry.
@@ -470,6 +503,8 @@ test.describe("Journey Tests", () => {
       // don't pin expectedAction so whichever fired wins.
       const m = computeMetrics("JB4", "scrubber-seek ~50%", entries);
       logStep("JB4", m);
+      const timingJB4 = await readStoreTiming(kupua);
+      if (timingJB4) Object.assign(m, timingJB4);
       emitMetrics(m);
     }
 
@@ -517,6 +552,8 @@ test.describe("Journey Tests", () => {
       const entries = await readTrace(kupua);
       const m = computeMetrics("JB5", "fullscreen-exit (20 traversals)", entries, "fullscreen-exit");
       logStep("JB5", m);
+      const timingJB5 = await readStoreTiming(kupua);
+      if (timingJB5) Object.assign(m, timingJB5);
       emitMetrics(m);
       expect(entries.some((e) => e.phase === "t_0" && e.action === "fullscreen-exit")).toBe(true);
     }

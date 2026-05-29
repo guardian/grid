@@ -681,3 +681,43 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 63 | 301 | 359 | 359 | 921 |
 | JB4 | scrubber-scroll | — | — | — | 30 | — |
 | JB5 | fullscreen-exit | — | — | — | 61 | — |
+
+---
+
+## [short] After local metrics refresh (8a9601478 (dirty), 2026-05-29)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 5
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 273 | 273 | — |
+| PP2 | sort-no-focus | 66 | — | 266 | 266 | — |
+| PP3 | sort-around-focus | 67 | 276 | 583 | 583 | 307 |
+| PP4 | sort-around-focus | 68 | 289 | 567 | 567 | 304 |
+| PP5 | filter-toggle | 65 | 367 | — | 586 | 220 |
+| PP6 | density-swap | — | — | — | 207 | — |
+| PP7 | scrubber-seek | 1 | — | 682 | 682 | — |
+| PP7b | scrubber-seek | 1 | — | 620 | 620 | — |
+| PP7c | scrubber-scroll | — | — | — | 140 | — |
+| PP8 | search | 0 | 243 | 776 | 776 | 532 |
+| PP9 | search | 0 | — | 255 | 255 | — |
+| PP10 | position-map | — | — | — | 2461 | — |
+| PP6b | density-swap | — | — | — | 379 | — |
+| PP6c | density-swap | — | — | — | 365 | — |
+
+---
+
+## [long] After local metrics refresh (8a9601478 (dirty), 2026-05-29)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 5
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 253 | 253 | — |
+| JA2 | open-detail | — | — | — | 124 | — |
+| JA3 | metadata-click | 63 | 543 | 863 | 863 | 320 |
+| JB1 | search | 0 | — | 295 | 295 | — |
+| JB2 | facet-click | 71 | — | 329 | 329 | — |
+| JB3 | facet-click | 63 | 304 | 339 | 339 | 699 |
+| JB4 | scrubber-scroll | — | — | — | 17 | — |
+| JB5 | fullscreen-exit | — | — | — | 65 | — |

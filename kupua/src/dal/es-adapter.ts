@@ -690,7 +690,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
     this.searchAbortController = new AbortController();
     const { signal } = this.searchAbortController;
 
-    return this._doSearch(params, signal, /* includeTickers */ true);
+    const t0 = Date.now();
+    const result = await this._doSearch(params, signal, /* includeTickers */ true);
+    return { ...result, fetchDuration: Date.now() - t0 };
   }
 
   /**
@@ -869,6 +871,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       aggs,
     };
 
+    const t0 = Date.now();
     const result = (await this.esRequest("_search", body, signal)) as {
       took?: number;
       aggregations: Record<
@@ -877,6 +880,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       >;
       hits: { total: { value: number } };
     };
+    const fetchDuration = Date.now() - t0;
 
     const out: Record<string, AggregationResult> = {};
     for (const { field } of fields) {
@@ -889,7 +893,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       };
     }
 
-    return { fields: out, took: result.took };
+    return { fields: out, took: result.took, fetchDuration };
   }
 
   async getFilterAggregations(
@@ -1004,6 +1008,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       body.pit = { id: pitId, keep_alive: "1m" };
     }
 
+    const t0 = Date.now();
     try {
       // PIT-based searches go to /_search (no index prefix) — the PIT
       // already binds the request to the index.
@@ -1037,6 +1042,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
         // hits.total is absent when track_total_hits: false — safe default to 0.
         total: result.hits.total?.value ?? 0,
         took: result.took,
+        fetchDuration: Date.now() - t0,
         sortValues: orderedHits.map((hit) =>
           sanitizeSortValues(
             hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
@@ -1079,6 +1085,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
             hits: orderedHits.map((hit) => hit._source),
             total: fallbackResult.hits.total?.value ?? 0,
             took: fallbackResult.took,
+            fetchDuration: Date.now() - t0,
             sortValues: orderedHits.map((hit) =>
               sanitizeSortValues(
                 // Belt-and-braces: match the main return path's slice so stored
@@ -2113,6 +2120,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // sortValues without needing _source.
     const idIdx = sortClause.findIndex((c) => Object.keys(c)[0] === "id");
 
+    const t0 = Date.now();
     // eslint-disable-next-line no-constant-condition
     while (true) {
       if (signal?.aborted) break;
@@ -2149,7 +2157,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         // Stop as soon as a hit sorts strictly past toCursor
         if (sortValuesStrictlyAfter(sv, toCursor, sortClause)) {
-          return { ids: collectedIds, truncated: false, walked };
+          return { ids: collectedIds, truncated: false, walked, fetchDuration: Date.now() - t0 };
         }
 
         const docId = sv[idIdx] as string;
@@ -2157,7 +2165,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         if (collectedIds.length >= hardCapPlusOne) {
           truncated = true;
-          return { ids: collectedIds.slice(0, hardCap), truncated, walked };
+          return { ids: collectedIds.slice(0, hardCap), truncated, walked, fetchDuration: Date.now() - t0 };
         }
       }
 
@@ -2177,7 +2185,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       }
     }
 
-    return { ids: collectedIds, truncated, walked };
+    return { ids: collectedIds, truncated, walked, fetchDuration: Date.now() - t0 };
   }
 }
 

@@ -678,6 +678,202 @@ function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unkno
 }
 
 // ---------------------------------------------------------------------------
+// Per-image render timing during traversal (migrated from experiments.spec.ts)
+//
+// Measures whether each image renders before the user moves to the next one,
+// and THE most important metric: how long the landing image takes to appear
+// after the user stops traversing.
+// ---------------------------------------------------------------------------
+
+interface ImageRenderTiming {
+  index: number;
+  direction: "forward" | "backward";
+  srcChanged: boolean;
+  srcChangeMs: number;
+  rendered: boolean;
+  renderMs: number;
+}
+
+interface LandingImageTiming {
+  alreadyRendered: boolean;
+  renderMs: number;
+  networkMs: number;
+  rendered: boolean;
+  cacheHit: boolean;
+}
+
+/**
+ * Press an arrow key and measure how long until the detail-view image renders.
+ * Returns once the image renders OR maxWaitMs elapses (whichever is first).
+ * Total wall-clock time per call ≈ maxWaitMs (matches the old waitForTimeout).
+ */
+async function traverseAndMeasure(
+  page: any,
+  direction: "forward" | "backward",
+  index: number,
+  maxWaitMs: number,
+): Promise<ImageRenderTiming> {
+  const srcBefore = await page.evaluate(() => {
+    const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
+    return img?.src ?? "";
+  });
+
+  const key = direction === "forward" ? "ArrowRight" : "ArrowLeft";
+  const t0 = Date.now();
+  await page.keyboard.press(key);
+
+  let srcChanged = false;
+  let srcChangeMs = 0;
+  let rendered = false;
+  let renderMs = 0;
+
+  const pollInterval = 30;
+  const deadline = t0 + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    const status = await page.evaluate((prevSrc: string) => {
+      const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
+      if (!img) return { src: "", changed: false, complete: false, hasSize: false };
+      return {
+        src: img.src,
+        changed: img.src !== prevSrc,
+        complete: img.complete,
+        hasSize: img.naturalWidth > 0 && img.naturalHeight > 0,
+      };
+    }, srcBefore);
+
+    const elapsed = Date.now() - t0;
+
+    if (status.changed && !srcChanged) {
+      srcChanged = true;
+      srcChangeMs = elapsed;
+    }
+
+    if (status.changed && status.complete && status.hasSize && !rendered) {
+      rendered = true;
+      renderMs = elapsed;
+      break;
+    }
+
+    await page.waitForTimeout(pollInterval);
+  }
+
+  // Capture final state if timed out
+  if (!rendered) {
+    const finalStatus = await page.evaluate((prevSrc: string) => {
+      const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
+      return {
+        changed: img?.src !== prevSrc,
+        complete: img?.complete ?? false,
+        hasSize: (img?.naturalWidth ?? 0) > 0,
+      };
+    }, srcBefore);
+    if (finalStatus.changed && !srcChanged) {
+      srcChanged = true;
+      srcChangeMs = Date.now() - t0;
+    }
+    if (finalStatus.changed && finalStatus.complete && finalStatus.hasSize) {
+      rendered = true;
+      renderMs = Date.now() - t0;
+    }
+  }
+
+  // Wait remaining interval so total time ≈ maxWaitMs (preserves timing fidelity)
+  const elapsed = Date.now() - t0;
+  const remaining = maxWaitMs - elapsed;
+  if (remaining > 10) await page.waitForTimeout(remaining);
+
+  return { index, direction, srcChanged, srcChangeMs, rendered, renderMs };
+}
+
+/**
+ * After traversal stops, measure how long until the current image renders.
+ * Also captures network timing from PerformanceResourceTiming.
+ */
+async function waitForLandingImage(
+  page: any,
+  maxWaitMs = 5000,
+): Promise<LandingImageTiming> {
+  const t0 = Date.now();
+  const pollInterval = 20;
+
+  const initial = await page.evaluate(() => {
+    const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
+    if (!img) return { complete: false, hasSize: false, src: "" };
+    return { complete: img.complete, hasSize: img.naturalWidth > 0 && img.naturalHeight > 0, src: img.src ?? "" };
+  });
+
+  if (initial.complete && initial.hasSize) {
+    return { alreadyRendered: true, renderMs: 0, networkMs: 0, rendered: true, cacheHit: true };
+  }
+
+  let landingSrc = initial.src;
+  const deadline = t0 + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(pollInterval);
+    const status = await page.evaluate(() => {
+      const img = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
+      if (!img) return { complete: false, hasSize: false, src: "" };
+      return { complete: img.complete, hasSize: img.naturalWidth > 0 && img.naturalHeight > 0, src: img.src ?? "" };
+    });
+    landingSrc = status.src;
+    if (status.complete && status.hasSize) {
+      const renderMs = Date.now() - t0;
+      const netInfo = await getImageNetworkTiming(page, landingSrc, t0);
+      return { alreadyRendered: false, renderMs, networkMs: netInfo.networkMs, rendered: true, cacheHit: netInfo.cacheHit };
+    }
+  }
+
+  return { alreadyRendered: false, renderMs: maxWaitMs, networkMs: 0, rendered: false, cacheHit: false };
+}
+
+async function getImageNetworkTiming(page: any, imgSrc: string, t0: number): Promise<{ networkMs: number; cacheHit: boolean }> {
+  return page.evaluate(({ src, originTime }: { src: string; originTime: number }) => {
+    const entries = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+    const matching = entries.filter(e => src.includes(e.name) || e.name.includes(src.split("?")[0]));
+    if (matching.length === 0) return { networkMs: 0, cacheHit: false };
+    const latest = matching[matching.length - 1];
+    const responseAbsoluteMs = performance.timeOrigin + latest.responseEnd;
+    const relativeMs = responseAbsoluteMs - originTime;
+    const cacheHit = (latest.transferSize ?? -1) === 0;
+    return { networkMs: Math.max(0, Math.round(relativeMs)), cacheHit };
+  }, { src: imgSrc, originTime: t0 });
+}
+
+function summariseTraversal(timings: ImageRenderTiming[], landing: LandingImageTiming) {
+  const rendered = timings.filter(t => t.rendered);
+  return {
+    renderedCount: rendered.length,
+    renderedTotal: timings.length,
+    avgRenderMs: rendered.length > 0 ? Math.round(rendered.reduce((s, t) => s + t.renderMs, 0) / rendered.length) : 0,
+    maxRenderMs: rendered.length > 0 ? Math.round(Math.max(...rendered.map(t => t.renderMs))) : 0,
+    swappedNotRendered: timings.filter(t => t.srcChanged && !t.rendered).length,
+    landingAlreadyRendered: landing.alreadyRendered,
+    landingRenderMs: Math.round(landing.renderMs),
+    landingNetworkMs: Math.round(landing.networkMs),
+    landingCacheHit: landing.cacheHit,
+    landingRendered: landing.rendered,
+  };
+}
+
+function logTraversalSummary(id: string, timings: ImageRenderTiming[], landing: LandingImageTiming) {
+  const rendered = timings.filter(t => t.rendered);
+  const swapped = timings.filter(t => t.srcChanged && !t.rendered);
+  const landingStr = landing.alreadyRendered
+    ? "already rendered [prefetch hit]"
+    : landing.rendered
+      ? `${landing.renderMs}ms (network: ${landing.networkMs}ms${landing.cacheHit ? ", cache hit" : ""})`
+      : "NOT rendered (5s timeout)";
+  console.log(`  [${id}] Images: ${rendered.length}/${timings.length} rendered, ${swapped.length} swapped-not-rendered`);
+  if (rendered.length > 0) {
+    const avg = Math.round(rendered.reduce((s, t) => s + t.renderMs, 0) / rendered.length);
+    console.log(`  [${id}] Render timing: avg=${avg}ms, max=${Math.max(...rendered.map(t => t.renderMs))}ms`);
+  }
+  console.log(`  [${id}] ★ Landing image: ${landingStr}`);
+}
+
+// ---------------------------------------------------------------------------
 // Smoke tests
 // ---------------------------------------------------------------------------
 
@@ -1423,6 +1619,11 @@ test.describe("Rendering Performance Smoke", () => {
   // The settle period is the critical measurement: CLS and jank during
   // the 3s after stopping reveal whether the app is thrashing on stale
   // prefetch results or cleanly loading only the landed-on image.
+  //
+  // Per-image render timing (migrated from experiments.spec.ts E4/E5):
+  //   Each step polls whether the image rendered before we moved on.
+  //   After each burst stops, `waitForLandingImage()` measures THE most
+  //   important number: how long until the user sees the landed-on image.
   test("P14: image traversal — normal, fast+settle, reverse fast+settle", async ({ kupua }) => {
     await gotoPerfSearch(kupua);
     
@@ -1445,60 +1646,84 @@ test.describe("Rendering Performance Smoke", () => {
     await resetPerfProbes(kupua);
 
     console.log(`  [P14a] Normal browsing: 10 images forward at ~2/s...`);
+    const timingsA: ImageRenderTiming[] = [];
     for (let i = 0; i < 10; i++) {
-      await kupua.page.keyboard.press("ArrowRight");
-      await kupua.page.waitForTimeout(500);
+      const t = await traverseAndMeasure(kupua.page, "forward", i, 500);
+      timingsA.push(t);
     }
+    const landingA = await waitForLandingImage(kupua.page);
+    logTraversalSummary("P14a", timingsA, landingA);
 
     const snapNormal = await collectPerfSnapshot(kupua, "P14a: Normal speed");
     logPerfReport("P14a: Normal Browsing (10 fwd @ 2/s)", snapNormal);
-    emitMetric("P14a", snapNormal, { traversals: 10, speed: "normal", direction: "forward" });
+    emitMetric("P14a", snapNormal, {
+      traversals: 10, speed: "normal", direction: "forward",
+      ...summariseTraversal(timingsA, landingA),
+    });
 
     // ── P14b: Fast burst forward — 15 at ~5/s, then settle 3s ───────
     await resetPerfProbes(kupua);
 
     console.log(`  [P14b] Fast burst: 15 images forward at ~5/s, then settle...`);
+    const timingsB: ImageRenderTiming[] = [];
     for (let i = 0; i < 15; i++) {
-      await kupua.page.keyboard.press("ArrowRight");
-      await kupua.page.waitForTimeout(200);
+      const t = await traverseAndMeasure(kupua.page, "forward", i, 200);
+      timingsB.push(t);
     }
     // Settle — the app should load only the final image, not the 14 skipped
     console.log(`  [P14b] Stopped. Waiting 3s for settle...`);
     await kupua.page.waitForTimeout(3000);
+    const landingB = await waitForLandingImage(kupua.page);
+    logTraversalSummary("P14b", timingsB, landingB);
 
     const snapFastFwd = await collectPerfSnapshot(kupua, "P14b: Fast forward + settle");
     logPerfReport("P14b: Fast Forward + Settle (15 fwd @ 5/s + 3s)", snapFastFwd);
-    emitMetric("P14b", snapFastFwd, { traversals: 15, speed: "fast", direction: "forward" });
+    emitMetric("P14b", snapFastFwd, {
+      traversals: 15, speed: "fast", direction: "forward",
+      ...summariseTraversal(timingsB, landingB),
+    });
 
     // ── P14c: Fast burst backward — 10 at ~5/s, then settle 3s ──────
     await resetPerfProbes(kupua);
 
     console.log(`  [P14c] Fast burst backward: 10 images at ~5/s, then settle...`);
+    const timingsC: ImageRenderTiming[] = [];
     for (let i = 0; i < 10; i++) {
-      await kupua.page.keyboard.press("ArrowLeft");
-      await kupua.page.waitForTimeout(200);
+      const t = await traverseAndMeasure(kupua.page, "backward", i, 200);
+      timingsC.push(t);
     }
     console.log(`  [P14c] Stopped. Waiting 3s for settle...`);
     await kupua.page.waitForTimeout(3000);
+    const landingC = await waitForLandingImage(kupua.page);
+    logTraversalSummary("P14c", timingsC, landingC);
 
     const snapFastBack = await collectPerfSnapshot(kupua, "P14c: Fast backward + settle");
     logPerfReport("P14c: Fast Backward + Settle (10 back @ 5/s + 3s)", snapFastBack);
-    emitMetric("P14c", snapFastBack, { traversals: 10, speed: "fast", direction: "backward" });
+    emitMetric("P14c", snapFastBack, {
+      traversals: 10, speed: "fast", direction: "backward",
+      ...summariseTraversal(timingsC, landingC),
+    });
 
     // ── P14d: Rapid burst — 20 at ~12/s (held arrow key), then settle 3s ──
     await resetPerfProbes(kupua);
 
     console.log(`  [P14d] Rapid burst: 20 images forward at ~12/s (held key), then settle...`);
+    const timingsD: ImageRenderTiming[] = [];
     for (let i = 0; i < 20; i++) {
-      await kupua.page.keyboard.press("ArrowRight");
-      await kupua.page.waitForTimeout(80);
+      const t = await traverseAndMeasure(kupua.page, "forward", i, 80);
+      timingsD.push(t);
     }
     console.log(`  [P14d] Stopped. Waiting 3s for settle...`);
     await kupua.page.waitForTimeout(3000);
+    const landingD = await waitForLandingImage(kupua.page);
+    logTraversalSummary("P14d", timingsD, landingD);
 
     const snapRapid = await collectPerfSnapshot(kupua, "P14d: Rapid + settle");
     logPerfReport("P14d: Rapid Forward + Settle (20 fwd @ 12/s + 3s)", snapRapid);
-    emitMetric("P14d", snapRapid, { traversals: 20, speed: "rapid", direction: "forward" });
+    emitMetric("P14d", snapRapid, {
+      traversals: 20, speed: "rapid", direction: "forward",
+      ...summariseTraversal(timingsD, landingD),
+    });
 
     // Exit
     await kupua.page.keyboard.press("Backspace");

@@ -54,6 +54,7 @@
 <header>
   <h1>Kupua rendering perf — all audited runs</h1>
   <div class="sub" id="sub">Loading…</div>
+  <div style="margin-top:6px;font-size:11px;color:var(--muted);">Tip: use ← → arrow keys to cycle metrics</div>
 </header>
 
 <div id="picker" class="picker" hidden>
@@ -123,9 +124,18 @@ const KNOWN_METRICS = {
   focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
   focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
   focusVisible:      { label: "focusVisible (1 = on screen)",   lowerIsBetter: false, defaultShow: true  },
+  // Traversal image-render metrics (P14a–d — per-image load timing).
+  landingRenderMs:   { label: "Landing image render (ms; 0 = prefetch hit)", lowerIsBetter: true, defaultShow: true },
+  landingNetworkMs:  { label: "Landing image network (ms)",     lowerIsBetter: true,  defaultShow: false },
+  renderedCount:     { label: "Images rendered in time",        lowerIsBetter: false, defaultShow: true  },
+  renderedTotal:     { label: "Images total (denominator for renderedCount)", lowerIsBetter: null, defaultShow: false },
+  swappedNotRendered:{ label: "Images swapped but not rendered",lowerIsBetter: true,  defaultShow: true  },
+  landingAlreadyRendered: { label: "Landing already rendered (1 = yes; prefetch hit)", lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
+  landingCacheHit:   { label: "Landing cache hit (1 = yes; browser cache)",    lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
+  "baseline_rtt_ms",
 ]);
 const KNOWN_METRIC_META_KEYS = new Set(["report"]);
 
@@ -380,7 +390,8 @@ function onData(entries) {
   runlist.innerHTML = "";
   entries.forEach((e) => {
     const li = document.createElement("li");
-    li.textContent = `${e.label}  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)`;
+    const rtt = e.baseline_rtt_ms != null ? `  · RTT ${e.baseline_rtt_ms}ms` : "";
+    li.textContent = `${e.label}  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
     runlist.appendChild(li);
   });
 
@@ -394,6 +405,21 @@ metricSel.addEventListener("change", buildCharts);
 document.getElementById("yscale").addEventListener("change", buildCharts);
 document.getElementById("hideQuiet").addEventListener("change", buildCharts);
 document.getElementById("showLabels").addEventListener("change", buildCharts);
+
+// Arrow key navigation: left/right cycles through metrics without touching the dropdown.
+// Charts update in-place (same card positions) so scroll position stays stable.
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    const dir = e.key === "ArrowLeft" ? -1 : 1;
+    metricSel.selectedIndex = Math.max(0, Math.min(metricSel.options.length - 1, metricSel.selectedIndex + dir));
+    // Preserve scroll position across rebuild (hide-quiet may change card count)
+    const scrollY = window.scrollY;
+    buildCharts();
+    window.scrollTo(0, scrollY);
+  }
+});
 
 (async () => {
   // 1) Sibling JS file injected a global — works on file:// too. This is the

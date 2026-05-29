@@ -200,6 +200,9 @@ interface SearchState {
   took: number | null;
   /** Wall-clock time in ms of the most recent seek operation (null if no seek yet). */
   seekTime: number | null;
+  /** Wall-clock ms from the start of the primary search() call to result return.
+   *  Equals `took` + network + proxy + JSON.parse. Null until first search. */
+  fetchDuration: number | null;
 
   // O(1) image ID → global index lookup, maintained incrementally.
   imagePositions: Map<string, number>;
@@ -350,6 +353,8 @@ interface SearchState {
   // --- Aggregation state (unchanged from before) ---
   aggregations: AggregationsResult | null;
   aggTook: number | null;
+  /** Wall-clock ms from getAggregations() call to result return. */
+  aggFetchDuration: number | null;
   aggLoading: boolean;
   aggCircuitOpen: boolean;
   _aggCacheKey: string | null;
@@ -1670,6 +1675,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   error: null,
   took: null,
   seekTime: null,
+  fetchDuration: null,
 
   imagePositions: new Map(),
 
@@ -1708,6 +1714,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // Aggregation state
   aggregations: null,
   aggTook: null,
+  aggFetchDuration: null,
   aggLoading: false,
   aggCircuitOpen: false,
   _aggCacheKey: null,
@@ -2033,6 +2040,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // the virtualizer to re-render with a mismatched total/buffer,
           // triggering scroll-clamp → scroll-seek → flash of wrong content.
           took: result.took ?? null,
+          fetchDuration: result.fetchDuration ?? null,
           seekTime: null,
           params: { ...params, offset: 0 },
           pitId: result.pitId ?? newPitId,
@@ -2097,6 +2105,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           total: result.total,
           loading: false,
           took: result.took ?? null,
+          fetchDuration: result.fetchDuration ?? null,
           seekTime: null,
           params: { ...params, offset: 0 },
           imagePositions: buildPositions(result.hits, 0),
@@ -3865,6 +3874,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         aggregations: result,
         aggTook: result.took ?? null,
+        aggFetchDuration: result.fetchDuration ?? null,
         aggLoading: false,
         _aggCacheKey: aggCacheKey(callParams),
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,

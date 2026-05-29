@@ -26,6 +26,7 @@ export function SearchBar() {
   const updateSearch = useUpdateSearchParams();
   const navigate = useNavigate();
   const took = useSearchStore((s) => s.took);
+  const fetchDuration = useSearchStore((s) => s.fetchDuration);
   const seekTime = useSearchStore((s) => s.seekTime);
   const aggTook = useSearchStore((s) => s.aggTook);
   const aggLoading = useSearchStore((s) => s.aggLoading);
@@ -221,8 +222,12 @@ export function SearchBar() {
       {/* ES timing — far right. Hidden below lg. Always rendered to avoid layout shift. */}
       <span className="hidden lg:block text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
         {took != null && (
-          <span title="Elasticsearch query time (last search)">
-            {took}ms
+          <span title={
+            fetchDuration != null && fetchDuration - took > 20
+              ? "ES query time / total fetch duration (includes network + proxy)"
+              : "Elasticsearch query time (last search)"
+          }>
+            {took}ms{fetchDuration != null && fetchDuration - took > 20 ? ` / ${fetchDuration}ms` : ""}
           </span>
         )}
         {seekTime != null && (

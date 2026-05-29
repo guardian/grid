@@ -1,5 +1,7 @@
 # Media-API Gap Closure — Work Notes
 
+> **Perf note:** When writing the new grid-api adapter, replicate the `Date.now()` wrapping that `es-adapter.ts` does on its 4 public methods — the types (`fetchDuration?: number`), store, UI, and harness all consume it generically and will Just Work.
+
 **Date:** 28–29 May 2026  
 **Source:** Planning conversation (mk + Opus 4.6)  
 **Companion doc:** `media-api-gap-closure-feasibility.md`

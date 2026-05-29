@@ -14,6 +14,84 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 May 2026 — Perf harness metrics refresh (items 1–6 of metrics-refresh.md)
+
+**Context:** The e2e-perf harness could measure perceived latency and jank but had no
+layer attribution — when a number moved it was impossible to say whether ES, the network,
+or the browser was responsible. This work adds the instrumentation needed before the
+staged media-api migration begins, so baseline numbers with full layer-split exist.
+
+**Item 1 — Harvest store timings into e2e-perf:**
+- Extended `PerceivedMetrics` interface in both `perceived-short.spec.ts` and
+  `perceived-long.spec.ts` with optional fields: `took`, `fetchDuration`, `seekTime`,
+  `aggTook`, `aggFetchDuration`, `seekMeasures`.
+- Added `readStoreTiming(kupua)` async helper in both files: reads `__kupua_store__.getState()`
+  via `page.evaluate()` and returns the five timing fields.
+- All 14 short-suite tests (PP1–PP10, PP6b/c, PP7b/c) and all 8 long-journey steps
+  (JA1–JA3, JB1–JB5) now call `readStoreTiming` after `computeMetrics` and
+  `Object.assign(m, timing)` before `emitMetrics` — every perceived JSONL line now
+  carries store timing data when present.
+- `aggregatePerceivedMetrics()` in `run-audit.mjs` now conditionally aggregates all
+  five timing fields (median, same pattern as existing FIELDS loop) and aggregates
+  `seekMeasures` by name (median duration per `seek:*` entry across runs).
+
+**Item 2 — `fetchDuration` at the DAL public boundary:**
+- Added `fetchDuration?: number` to `SearchResult`, `SearchAfterResult`,
+  `AggregationsResult`, and `IdRangeResult` in `src/dal/types.ts` with JSDoc explaining
+  it equals `took + network + proxy + JSON.parse + scheduler.yield()`.
+- Wrapped `search()`, `searchAfter()` (both normal and PIT-fallback return paths),
+  `getAggregations()`, and `getIdRange()` (all three return paths) in `es-adapter.ts`
+  with `const t0 = Date.now()` / `fetchDuration: Date.now() - t0`. Abort paths
+  intentionally excluded — timing is meaningless for aborted requests.
+- `getByIds()` skipped: it returns `Image[]` not a result struct, and the ripple into
+  `MockDataSource` and all consumers outweighs the value.
+- Added `fetchDuration: number | null` and `aggFetchDuration: number | null` state
+  fields to `search-store.ts` (type, initialisation, and all three `set()` call sites:
+  sort-around-focus branch, normal completion branch, aggregation branch).
+
+**Item 3 — Blue dot enhancement:**
+- `SearchBar.tsx` reads `fetchDuration` from the store alongside `took`.
+- When `fetchDuration != null && fetchDuration - took > 20`, the timing display shows
+  `{took}ms / {fetchDuration}ms` with tooltip "ES query time / total fetch duration
+  (includes network + proxy)". Otherwise shows just `{took}ms` as before.
+- Threshold of 20ms prevents scheduler-jitter noise from cluttering the display.
+
+**Item 4 — RTT probe in run-audit.mjs:**
+- Added `ES_DIRECT_URL` const (`process.env.KUPUA_ES_URL ?? "http://localhost:9220"`).
+- Added `probeRtt()` async function: 5 `GET` fetches to `${ES_DIRECT_URL}/_cat/aliases`
+  (lightest endpoint allowed through the Vite proxy guard), returns median ms.
+- `main()` calls `probeRtt()` after `enforceClusterGate()` and logs the result.
+- `baseline_rtt_ms` included in both the jank entry object and each perceived entry
+  (via `runPerceivedKind(kind, git, baselineRttMs)` signature update).
+- `audit-graphs.html` `KNOWN_ENTRY_KEYS` updated to include `"baseline_rtt_ms"`.
+
+**Item 5 — Harvest seek `performance.measure` entries:**
+- Added `readSeekMeasures(kupua)` helper in `perceived-short.spec.ts`: calls
+  `performance.getEntriesByType("measure")` filtered to `name.startsWith("seek:")`,
+  returns `Array<{ name: string; duration: number }>` or empty array.
+- PP7, PP7b, PP7c additionally call `readSeekMeasures` and assign to `metrics.seekMeasures`
+  when non-empty. PP7c is buffer-mode (DOM scroll, no ES seek) — the guard means nothing
+  is written in practice for that test.
+- `seekMeasures` added to `NON_METRIC_FIELDS` in `perceived-graphs.html` (array-valued,
+  not plottable as a sparkline). `aggregatePerceivedMetrics()` aggregates by name.
+
+**Item 6 — Migrate per-image render timing from experiments into P14:**
+(Done in a prior session.) `perf.spec.ts` P14a–d measures per-image render
+success/failure rates, landing image render+network timing, and prefetch hit detection.
+Emitted into `audit-log.json` and graphed on `audit-graphs.html`.
+
+**Dashboard wiring (items 1–5):**
+- `perceived-graphs.html`: five new entries in `KNOWN_METRICS` (`took`, `fetchDuration`,
+  `seekTime`, `aggTook`, `aggFetchDuration`), matching `METRIC_LABELS` entries, an
+  `<optgroup label="Store timing (post-settle)">` with five `<option>` elements in the
+  metric selector, and `"seekMeasures"` added to `NON_METRIC_FIELDS`.
+- `audit-graphs.html`: `"baseline_rtt_ms"` added to `KNOWN_ENTRY_KEYS`.
+- `e2e-perf/README.md`: `baseline_rtt_ms` mentioned in the overview paragraph; new
+  section "Perceived-suite diagnostic fields (store timing)" added with a table
+  describing all five fields, `seekMeasures`, and `baseline_rtt_ms`.
+
+**Tests:** 871/871 unit tests passing after all changes.
+
 ### 29 May 2026 — Validity/permissions: full logic restored with simulated permissions
 
 **Context:** `buildValidityMap` had `shouldOverride = hasCurrentAllowLease` before today's

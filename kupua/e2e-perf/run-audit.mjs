@@ -185,6 +185,25 @@ function clearMetricsFile() {
 }
 
 // ---------------------------------------------------------------------------
+// ES RTT probe — 5 lightweight pings before any suite, median = baseline_rtt_ms.
+// Fires directly against ES (bypassing Vite proxy) so it measures true network
+// overhead, not Vite middleware time. Uses KUPUA_ES_URL, same as Vite proxy.
+// ---------------------------------------------------------------------------
+
+const ES_DIRECT_URL = process.env.KUPUA_ES_URL ?? "http://localhost:9220";
+
+async function probeRtt() {
+  const timings = [];
+  for (let i = 0; i < 5; i++) {
+    const t0 = Date.now();
+    try { await fetch(`${ES_DIRECT_URL}/_cat/aliases`); } catch { /* ignore */ }
+    timings.push(Date.now() - t0);
+  }
+  const sorted = [...timings].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+// ---------------------------------------------------------------------------
 // Cluster probe — global gate for both jank and perceived suites.
 //
 // Replaces the per-test requireRealData() helper that used to live in every
@@ -323,6 +342,29 @@ function aggregatePerceivedMetrics(allRunMetrics) {
         agg[f.replace("_ms", "_p95_ms")] = sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)];
       }
     }
+    // Store timing fields — only aggregate when present (not all scenarios hit ES).
+    for (const f of ["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]) {
+      const values = entries.map((e) => e[f]).filter((v) => v != null);
+      if (values.length > 0) {
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        agg[f] = sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
+      }
+    }
+    // seekMeasures — aggregate by name, median duration across runs.
+    const allSeekMeasures = entries.flatMap((e) => e.seekMeasures ?? []);
+    if (allSeekMeasures.length > 0) {
+      const byName = new Map();
+      for (const m of allSeekMeasures) {
+        if (!byName.has(m.name)) byName.set(m.name, []);
+        byName.get(m.name).push(m.duration);
+      }
+      agg.seekMeasures = [...byName.entries()].map(([name, durations]) => {
+        const sorted = [...durations].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return { name, duration: sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid] };
+      });
+    }
     result[id] = agg;
   }
   return result;
@@ -376,7 +418,7 @@ function appendPerceivedToMarkdown(entry) {
  *
  * Side effects: appends to perceived-log.{json,js,md} unless `dryRun`.
  */
-async function runPerceivedKind(kind, git) {
+async function runPerceivedKind(kind, git, baselineRttMs) {
   const { label: kindLabel } = PERCEIVED_KINDS[kind];
 
   console.log();
@@ -420,6 +462,7 @@ async function runPerceivedKind(kind, git) {
     timestamp: new Date().toISOString(),
     stableUntil: STABLE_UNTIL,
     runs,
+    baseline_rtt_ms: baselineRttMs,
     perceived: aggregated,
   };
 
@@ -567,6 +610,21 @@ function aggregateMetrics(allRunMetrics) {
     if (ratioValues.length > 0) agg.focusDriftRatio = Math.round(median(ratioValues) * 1000) / 1000;
     const visValues = entries.map((e) => e.focusVisible).filter((v) => v != null);
     if (visValues.length > 0) agg.focusVisible = visValues.filter(Boolean).length >= visValues.length / 2;
+    // Traversal image-render fields (P14a–d) — only aggregate when present.
+    const landingRenderValues = entries.map((e) => e.landingRenderMs).filter((v) => v != null);
+    if (landingRenderValues.length > 0) agg.landingRenderMs = Math.round(median(landingRenderValues));
+    const landingNetworkValues = entries.map((e) => e.landingNetworkMs).filter((v) => v != null);
+    if (landingNetworkValues.length > 0) agg.landingNetworkMs = Math.round(median(landingNetworkValues));
+    const renderedCountValues = entries.map((e) => e.renderedCount).filter((v) => v != null);
+    if (renderedCountValues.length > 0) agg.renderedCount = Math.round(median(renderedCountValues));
+    const renderedTotalValues = entries.map((e) => e.renderedTotal).filter((v) => v != null);
+    if (renderedTotalValues.length > 0) agg.renderedTotal = Math.round(median(renderedTotalValues));
+    const swappedValues = entries.map((e) => e.swappedNotRendered).filter((v) => v != null);
+    if (swappedValues.length > 0) agg.swappedNotRendered = Math.round(median(swappedValues));
+    const landingAlreadyValues = entries.map((e) => e.landingAlreadyRendered).filter((v) => v != null);
+    if (landingAlreadyValues.length > 0) agg.landingAlreadyRendered = landingAlreadyValues.filter(Boolean).length >= landingAlreadyValues.length / 2;
+    const landingCacheValues = entries.map((e) => e.landingCacheHit).filter((v) => v != null);
+    if (landingCacheValues.length > 0) agg.landingCacheHit = landingCacheValues.filter(Boolean).length >= landingCacheValues.length / 2;
     result[id] = agg;
   }
   return result;
@@ -758,6 +816,10 @@ async function main() {
   // Cluster gate: ensures we're on real ES with a pinned corpus before
   // running any spec. Replaces the old per-test requireRealData() guards.
   await enforceClusterGate();
+
+  // RTT probe: 5 pings to ES before any suite to establish network baseline.
+  const baselineRttMs = await probeRtt();
+  console.log(`  Baseline RTT: ${baselineRttMs}ms (median of 5 pings to ${ES_DIRECT_URL}/_cat/aliases)`);
   console.log();
 
   const allRunMetrics = [];
@@ -797,6 +859,7 @@ async function main() {
     timestamp: new Date().toISOString(),
     stableUntil: STABLE_UNTIL,
     runs,
+    baseline_rtt_ms: baselineRttMs,
     metrics: aggregated,
   };
 
@@ -847,8 +910,8 @@ async function main() {
   // Perceived suites (short + long)
   // ---------------------------------------------------------------------------
 
-  if (runShort) await runPerceivedKind("short", git);
-  if (runLong)  await runPerceivedKind("long", git);
+  if (runShort) await runPerceivedKind("short", git, baselineRttMs);
+  if (runLong)  await runPerceivedKind("long", git, baselineRttMs);
 }
 
 main().catch((err) => {

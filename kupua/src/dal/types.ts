@@ -88,6 +88,10 @@ export interface SearchResult {
   total: number;
   /** ES query time in milliseconds (from the `took` field in ES response). */
   took?: number;
+  /** Wall-clock ms from the start of the public search() call to result return.
+   *  Equals `took` + network latency + proxy + JSON.parse + scheduler.yield() overhead.
+   *  Subtract `took` to isolate non-ES overhead. */
+  fetchDuration?: number;
   /**
    * Per-hit sort values from ES — parallel array to `hits`.
    * Present when the search included a sort clause (always, in practice).
@@ -134,6 +138,8 @@ export interface SearchAfterResult {
   hits: Image[];
   total: number;
   took?: number;
+  /** Wall-clock ms from the start of searchAfter() to result return. */
+  fetchDuration?: number;
   /** Per-hit sort values — always present. */
   sortValues: SortValues[];
   /** The PIT ID returned by ES (may differ from the one sent if ES refreshed it).
@@ -177,6 +183,8 @@ export interface AggregationsResult {
   fields: Record<string, AggregationResult>;
   /** ES query time in milliseconds. */
   took?: number;
+  /** Wall-clock ms from the start of getAggregations() to result return. */
+  fetchDuration?: number;
 }
 
 /**
@@ -221,6 +229,8 @@ export interface IdRangeResult {
    * errored mid-way). Useful for telemetry.
    */
   walked: number;
+  /** Wall-clock ms for the entire multi-page walk (all searchAfter calls combined). */
+  fetchDuration?: number;
 }
 
 export interface ImageDataSource {

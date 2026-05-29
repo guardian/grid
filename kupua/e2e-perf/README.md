@@ -82,7 +82,10 @@ also add it to `KNOWN_METRICS`.
 `perceived-graphs.html` shows one sparkline per scenario across
 every `perceived-log.json` entry, with checkboxes to filter by kind
 (short / long) and a metric selector (`dt_ack_ms` / `dt_first_pixel_ms` /
-`dt_settled_ms` / `status_total_ms`).
+`dt_settled_ms` / `status_total_ms` / store timing fields — see below).
+
+Each run entry includes `baseline_rtt_ms`: median of 5 pings to ES before
+the suite. Useful for attributing slow runs to network vs. app code.
 
 ---
 
@@ -144,10 +147,10 @@ number worth graphing) — inspect the test output, not the dashboard.
 | **P11b** | Same, keyword sort variant | ~15s | CLS comparison across sort types. |
 | **P12** | 8 density switches after deep scroll | ~60s | Per-cycle drift (console), domChurn, severe. Accumulating error. |
 | **P13a/b** | Image detail enter/exit | ~5s | CLS, maxFrame. Overlay transition quality. Scroll restoration. |
-| **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe. Browsing-pace image swap smoothness. |
-| **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle. Does the app load only the final image? |
+| **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe, **landingRenderMs**, **renderedCount**. Browsing-pace image swap smoothness. |
+| **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle, **landingRenderMs**, **swappedNotRendered**. Does the app load only the final image? |
 | **P14c** | Image traversal, fast backward (10 back @ 5/s + 3s settle) | ~6s | Same as P14b, reverse direction. Prefetch-behind effectiveness. |
-| **P14d** | Image traversal, rapid burst (20 fwd @ 12/s + 3s settle) | ~5s | Cancellation stress test. Held arrow key — most images won't render. |
+| **P14d** | Image traversal, rapid burst (20 fwd @ 12/s + 3s settle) | ~5s | Cancellation stress test. Held arrow key — most images won't render. **landingRenderMs** = THE number. |
 | **P15a/b/c** | Fullscreen enter/traverse/exit | ~4s | maxFrame. Should be near-zero (Fullscreen API is cheap). |
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
 
@@ -163,6 +166,10 @@ number worth graphing) — inspect the test output, not the dashboard.
 | loafBlocking | ms | Total Long Animation Frame blocking time | < 50 | > 500 |
 | focusDriftPx | px | Focus position change across transition | 0 | > viewportHeight |
 | focusDriftRatio | ratio | Focus position change as fraction of viewport | 0.0 | > 0.5 |
+| landingRenderMs | ms | Time from traversal-stop until landed image renders (0 = prefetch hit) | 0 | > 2000 |
+| landingNetworkMs | ms | imgproxy network time for the landing image | < 200 | > 1000 |
+| renderedCount | count | Images that rendered before user moved on (P14 traversal) | N at slow | — |
+| swappedNotRendered | count | Images where src changed but never decoded in time | 0 | > N/2 |
 
 ---
 
@@ -258,6 +265,29 @@ touching:
 The agent should **suggest** running the suite to the user — never run it
 autonomously (real ES required, per-session permission).
 
+### Perceived-suite diagnostic fields (store timing)
+
+Every perceived scenario (short + long) also harvests these fields from the
+store after settle and writes them into the per-scenario JSON. They appear in
+the `perceived-graphs.html` metric selector under "Store timing (post-settle)".
+
+| Field | Unit | Source | What it means |
+|-------|------|--------|---------------|
+| `took` | ms | `SearchResult.took` (ES response) | ES self-reported query time for the last primary search. Excludes network. |
+| `fetchDuration` | ms | `Date.now()` wrapper around `search()` | Full wall-clock from store calling `search()` to result return. `fetchDuration - took` = network + proxy + JSON.parse overhead. |
+| `seekTime` | ms | `search-store.ts` seek path | Wall-clock of the most recent scrubber seek (all ES round-trips combined). |
+| `aggTook` | ms | `AggregationsResult.took` (ES response) | ES self-reported time for the filter-aggregation query. |
+| `aggFetchDuration` | ms | `Date.now()` wrapper around `getAggregations()` | Full wall-clock for the agg query. `aggFetchDuration - aggTook` = network overhead for aggs. |
+
+PP7/PP7b/PP7c also capture `seekMeasures`: the `seek:*` `performance.measure`
+entries the app emits during a seek, giving sub-seek breakdown (forward fetch /
+backward fetch / compute+set / render+paint). Not plottable as a sparkline
+(array-valued); inspect `perceived-log.json` directly.
+
+`baseline_rtt_ms` is written at the entry level (not per-scenario): it's the
+median of 5 `GET /_cat/aliases` pings fired directly against ES (bypassing
+the Vite proxy) before any test runs.
+
 ### Targets (Phase 1, from `exploration/docs/perceived-perf-audit.md`)
 
 | Action | Target median | Hard ceiling p95 |
@@ -286,3 +316,21 @@ Or read historical results directly:
 cat e2e-perf/results/perceived-log.md   # human-readable, both kinds
 cat e2e-perf/results/perceived-log.json # machine-readable
 ```
+
+---
+
+## Experiments suite (archived, not routinely run)
+
+`experiments.spec.ts` + `playwright.experiments.config.ts` is an agent-driven
+A/B testing harness for tuning knob experiments (overscan, PAGE_SIZE, scroll
+speeds, image format comparisons). It requires a headed browser and manual
+supervision.
+
+**Not part of the regular test surface.** Useful reference for:
+- Per-image render timing methodology (now migrated into P14)
+- Smooth autoscroll (rAF-loop scroll, not wheel events)
+- Named scroll/traversal speed tier calibration values
+- Knob experiment workflow (modify source → run → revert → compare JSON)
+
+Results live in `results/experiments/`. See `results/experiments/README.md`
+for the full signals glossary and JSON schema.
