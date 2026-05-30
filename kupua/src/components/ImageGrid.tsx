@@ -730,6 +730,19 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       const inMode = useSelectionStore.getState().selectedIds.size > 0;
       if (e.shiftKey && !inMode) return; // shift outside selection mode: no-op in grid
 
+      // Click-to-toggle: clicking the already-focused image clears focus.
+      // Only in explicit mode (phantom has no focus ring — click opens detail).
+      // Not in selection mode (click should toggle selection there, not focus).
+      if (
+        !e.shiftKey &&
+        !inMode &&
+        getEffectiveFocusMode() !== "phantom" &&
+        imageId === useSearchStore.getState().focusedImageId
+      ) {
+        setFocusedImageId(null);
+        return;
+      }
+
       const modifier: Modifier =
         e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
       const effects = interpretClick({
@@ -791,7 +804,10 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       requestAnimationFrame(() => enterFullscreenPreview());
     };
     const onMiddleDown = (e: MouseEvent) => {
-      if (e.button === 1) e.preventDefault();
+      if (e.button !== 1) return;
+      // Only suppress Firefox autoscroll when clicking on a cell — gap clicks
+      // should let Firefox start its autoscroll indicator normally.
+      if ((e.target as Element).closest("[data-image-id]")) e.preventDefault();
     };
     el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);

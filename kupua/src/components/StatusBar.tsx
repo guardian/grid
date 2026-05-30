@@ -178,58 +178,66 @@ export function StatusBar() {
         </span>
       )}
 
-      {/* New images ticker — seeded from sessionStorage across reload */}
-      {displayNewCount > 0 && (
-        <button
-          onClick={() => {
-            resetScrollAndFocusSearch();
-            // S6: clear selection before reSearch so the multi-panel doesn't
-            // briefly flash old reconciled state against the new results.
-            if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
-              clearSelection();
-            }
-            reSearch();
-          }}
-          className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap"
-          title={`${displayNewCount.toLocaleString()} new images since ${
-            newCountSince
-              ? formatDistanceToNow(new Date(newCountSince), {
-                  addSuffix: true,
-                })
-              : "last search"
-          }`}
-        >
-          {displayNewCount.toLocaleString()} new
-        </button>
-      )}
+      {/* Ticker group — all tickers in one flex row so gap-[5px] spaces them
+          uniformly and mr-[5px] adds trailing space before the spacer.
+          empty:hidden collapses the wrapper entirely when no tickers render,
+          so no phantom margin appears when the count is zero. */}
+      <div className="flex items-center gap-[5px] mr-[5px] shrink-0 empty:hidden">
 
-      {/* Category ticker badges — one per tickerDefinition with a non-zero,
-          non-total count. Click applies the corresponding is: filter.
-          Mirrors Kahuna's ng-repeat tickerCounts badges in results.html. */}
-      {tickerCounts && gridConfig.tickerDefinitions.map((def) => {
-        const ticker = tickerCounts[def.name];
-        if (!ticker || ticker.value === 0 || ticker.value === total) return null;
-
-        // Extract the is: value from the searchClause (e.g. "is:GNM-owned" → "GNM-owned")
-        const isValue = def.searchClause.startsWith("is:") ? def.searchClause.slice(3) : def.searchClause;
-        const isActive = !!findFieldTerm(currentQuery, "is", isValue);
-
-        return (
+        {/* New images ticker — seeded from sessionStorage across reload */}
+        {displayNewCount > 0 && (
           <button
-            key={def.name}
             onClick={() => {
-              const newQuery = upsertFieldTerm(currentQuery, "is", isValue, false);
-              updateSearch({ query: newQuery || undefined });
+              resetScrollAndFocusSearch();
+              // S6: clear selection before reSearch so the multi-panel doesn't
+              // briefly flash old reconciled state against the new results.
+              if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
+                clearSelection();
+              }
+              reSearch();
             }}
-            className={`px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center self-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
-            style={{ backgroundColor: def.backgroundColour, color: "white" }}
-            title={buildTickerTooltip(ticker, tickersLastUpdated)}
-            aria-pressed={isActive}
+            className="bg-grid-accent hover:bg-grid-accent-hover text-white px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap"
+            title={`${displayNewCount.toLocaleString()} new images since ${
+              newCountSince
+                ? formatDistanceToNow(new Date(newCountSince), {
+                    addSuffix: true,
+                  })
+                : "last search"
+            }`}
           >
-            {ticker.value.toLocaleString()} {def.name}
+            {displayNewCount.toLocaleString()} new
           </button>
-        );
-      })}
+        )}
+
+        {/* Category ticker badges — one per tickerDefinition with a non-zero,
+            non-total count. Click applies the corresponding is: filter.
+            Mirrors Kahuna's ng-repeat tickerCounts badges in results.html. */}
+        {tickerCounts && gridConfig.tickerDefinitions.map((def) => {
+          const ticker = tickerCounts[def.name];
+          if (!ticker || ticker.value === 0 || ticker.value === total) return null;
+
+          // Extract the is: value from the searchClause (e.g. "is:GNM-owned" → "GNM-owned")
+          const isValue = def.searchClause.startsWith("is:") ? def.searchClause.slice(3) : def.searchClause;
+          const isActive = !!findFieldTerm(currentQuery, "is", isValue);
+
+          return (
+            <button
+              key={def.name}
+              onClick={() => {
+                const newQuery = upsertFieldTerm(currentQuery, "is", isValue, false);
+                updateSearch({ query: newQuery || undefined });
+              }}
+              className={`px-1.5 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
+              style={{ backgroundColor: def.backgroundColour, color: "white" }}
+              title={buildTickerTooltip(ticker, tickersLastUpdated)}
+              aria-pressed={isActive}
+            >
+              {ticker.value.toLocaleString()} {def.name}
+            </button>
+          );
+        })}
+
+      </div>
 
       {/* Spacer */}
       <span className="flex-1" />

@@ -14,6 +14,68 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 30 May 2026 — Research docs: media-api conventions + test gap audit
+
+Five new documents added in preparation for potential media-api work and test coverage work.
+No code was changed.
+
+**media-api docs** (`kupua/exploration/docs/03 Ce n'est pas une pipe dream/`):
+
+- `media-api-conventions.md` — comprehensive reference covering controller anatomy,
+  route conventions, Argo response patterns, elastic4s usage, auth/permissions, error
+  handling, test conventions, logging, imports, naming, and anti-patterns. Produced
+  by codebase read (media-api + common-lib) cross-referenced against PRs #4122 #4145
+  #4201 #4334. Includes Appendix A on GET vs POST trade-offs for cursor-carrying
+  endpoints, which is an open team decision.
+
+- `media-api-instructions-for-agents.md` — condensed agent-facing checklist derived
+  from `media-api-conventions.md`. Meant to be pasted into implementation prompts so
+  agents don't have to re-derive conventions from the codebase.
+
+- `media-api-conventions-POST-research.md` (archived to `zz Archive/`) — raw audit
+  of all Grid services for POST body parsing usage. Found ~25 endpoints across 6
+  services using `auth.async(parse.json)`, confirming POST+body is not untested
+  territory for the team; media-api is the outlier. Referenced by Appendix A of
+  `media-api-conventions.md`.
+
+- `media-api-conventions-research-handoff.md` (archived to `zz Archive/`) — the
+  original research handoff prompt that produced the conventions doc.
+
+**Test gap audit** (`kupua/exploration/docs/test-gap-findings.md`):
+
+- Audit of Tier 1 orchestration/hook files with no Vitest coverage. Lists specific
+  untested behaviours with suggested test descriptions. Not yet actioned.
+
+### 30 May 2026 — Three small fixes: Firefox autoscroll, click-to-toggle focus, ticker gaps
+
+**1. Restore Firefox autoscroll in grid gaps (`ImageGrid.tsx`)**
+
+The middle-click fullscreen feature (commit `7b37c5c8d`) added an unconditional
+`preventDefault()` on every `mousedown` with button=1 in the grid container. This
+suppressed Firefox's autoscroll indicator everywhere — including the gaps between
+cells where no fullscreen action takes place. Fix: guard `preventDefault()` with
+`.closest("[data-image-id]")` so it only fires when clicking on a cell. Gap clicks
+now let Firefox start its autoscroll normally. Table is unaffected (no gaps exist
+between rows, so the existing unconditional guard there is correct).
+
+**2. Click-to-toggle focus in grid and table (`ImageGrid.tsx`, `ImageTable.tsx`)**
+
+Previously the only way to clear `focusedImageId` was to click a gap in the grid;
+the table had no mechanism at all. Fix: clicking the already-focused cell/row now
+calls `setFocusedImageId(null)` instead of re-setting the same id. Guards in place:
+phantom mode (no focus ring, click opens detail — unchanged), selection mode
+(click should toggle selection, not focus — unchanged). Added `focusedImageId` to
+`handleRowClick`'s `useCallback` deps array in `ImageTable.tsx`.
+
+**3. 5px gaps between status-bar tickers (`StatusBar.tsx`)**
+
+The "new images", "GNM-owned", and "agency picks" ticker buttons sat flush against
+each other and against the separator to their right. Fix: wrap all tickers in a
+single `flex items-center gap-[5px] mr-[5px] shrink-0 empty:hidden` div. `gap`
+spaces tickers apart, `mr` adds trailing space before the spacer, `empty:hidden`
+collapses the wrapper (and its margin) entirely when no tickers are visible. Any
+future ticker added to `gridConfig.tickerDefinitions` gets correct spacing for free.
+
 ### 30 May 2026 — fix(detail): stale image after browser Back into image detail
 
 **Bug:** After opening image detail → clicking a metadata value (search-by-title,

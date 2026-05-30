@@ -638,9 +638,11 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         handleRowDoubleClick(imageId);
         return;
       }
-      setFocusedImageId(imageId);
+      // Click-to-toggle: clicking the already-focused row clears focus.
+      // Phantom guard above means we're in explicit mode here.
+      setFocusedImageId(imageId === focusedImageId ? null : imageId);
     },
-    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange],
+    [setFocusedImageId, handleRowDoubleClick, findImageIndex, getImage, handleRange, focusedImageId],
   );
 
   /**
