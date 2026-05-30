@@ -10,7 +10,7 @@ class PandaAuthenticationProviderTest extends AnyFunSuite with Matchers {
   import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider.validateUser
 
   val user: AuthenticatedUser = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@guardian.co.uk", None),
-    "media-service", Set("media-service"), Instant.now().plusSeconds(100).toEpochMilli, multiFactor = true)
+    "media-service", Set("media-service"), Instant.now().plusSeconds(100), multiFactor = true)
 
   test("user fails email domain validation") {
     validateUser(user, "chucklevision.biz", None) must be(false)
