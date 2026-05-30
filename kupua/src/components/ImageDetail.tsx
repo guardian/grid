@@ -169,11 +169,14 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
   const { cursorHidden, navMouseEnter, navMouseLeave } = useCursorAutoHide(isFullscreen);
 
-  // Find the current image in search results (handles sparse array)
-  const currentIndex = useMemo(
-    () => findImageIndex(imageId),
-    [findImageIndex, imageId],
-  );
+  // Find the current image in search results (handles sparse array).
+  // NOT memoized: findImageIndex is stable ([] deps, reads getState()
+  // imperatively), so a useMemo on [findImageIndex, imageId] would never
+  // recompute when the buffer changes — causing a stale index after
+  // popstate-triggered search() replaces the results array.
+  // This is O(1) (Map.get) and ImageDetail renders for one image, so
+  // computing on every render is negligible.
+  const currentIndex = findImageIndex(imageId);
   const imageFromResults = currentIndex >= 0 ? getImage(currentIndex) : undefined;
 
   // ── Restore search context from cached cursor ──────────────────────
@@ -651,7 +654,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const displayImage = image!;
 
   return (
-    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg">
+    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage.id}>
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
         <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">

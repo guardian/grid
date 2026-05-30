@@ -41,6 +41,8 @@ test.describe("Image detail — opening", () => {
     const urlImageParam = await kupua.getDetailImageId();
     expect(urlImageParam).toBe(targetImage);
     expect(imageId).toBe(targetImage);
+    // The rendered image must also match (not just the URL param)
+    expect(await kupua.getRenderedDetailImageId()).toBe(targetImage);
 
     // The "Back to search" button should be visible
     const backButton = kupua.page.locator("button", { hasText: "Back to search" });
@@ -65,6 +67,8 @@ test.describe("Image detail — opening", () => {
     const urlImageParam = await kupua.getDetailImageId();
     expect(urlImageParam).toBe(targetImage);
     expect(imageId).toBe(targetImage);
+    // The rendered image must also match (not just the URL param)
+    expect(await kupua.getRenderedDetailImageId()).toBe(targetImage);
 
     // The "Back to search" button should be visible
     const backButton = kupua.page.locator("button", { hasText: "Back to search" });
@@ -151,21 +155,25 @@ test.describe("Image detail — navigation", () => {
     // Note the starting image
     const firstImageId = await kupua.getDetailImageId();
     expect(firstImageId).not.toBeNull();
+    expect(await kupua.getRenderedDetailImageId()).toBe(firstImageId);
 
     // ArrowRight → next image
     await kupua.detailNextAndWait();
     const secondImageId = await kupua.getDetailImageId();
     expect(secondImageId).not.toBe(firstImageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(secondImageId);
 
     // ArrowRight again → third image
     await kupua.detailNextAndWait();
     const thirdImageId = await kupua.getDetailImageId();
     expect(thirdImageId).not.toBe(secondImageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(thirdImageId);
 
     // ArrowLeft → back to second image
     await kupua.detailPrevAndWait();
     const backToSecond = await kupua.getDetailImageId();
     expect(backToSecond).toBe(secondImageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(backToSecond);
   });
 });
 
@@ -192,6 +200,7 @@ test.describe("Keyboard — Enter", () => {
     // The detail view should show the focused image
     const detailImageId = await kupua.getDetailImageId();
     expect(detailImageId).toBe(focusedId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(focusedId);
 
     // "Back to search" should be visible
     const backButton = kupua.page.locator("button", { hasText: "Back to search" });
@@ -742,6 +751,7 @@ test.describe("Stability — image detail reload", () => {
     // The page should still be functional — image detail should show the image
     const postReloadImageId = await kupua.getDetailImageId();
     expect(postReloadImageId).toBe(detailImageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(detailImageId);
 
     // Verify no error in the store
     const finalState = await kupua.getStoreState();

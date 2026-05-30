@@ -300,6 +300,7 @@ test.describe("Browser back/forward — image detail", () => {
       () => new URL(window.location.href).searchParams.get("image"),
     );
     expect(imageAfterForward).toBe(imageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
   });
 
   test("Backspace close then forward re-opens detail", async ({ kupua }) => {
@@ -345,6 +346,7 @@ test.describe("Browser back/forward — image detail", () => {
       () => new URL(window.location.href).searchParams.get("image"),
     );
     expect(imageAfterForward).toBe(imageId);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
   });
 
   test("SPA open-close cycle does not accumulate phantom history entries", async ({ kupua }) => {
@@ -562,6 +564,13 @@ test.describe("Browser back/forward — deep-link synthesis", () => {
       () => new URL(window.location.href).searchParams.get("image"),
     );
     expect(imageAfterForward).toBe(secondImage);
+    const renderedAfterForward = await freshPage.evaluate(
+      () =>
+        document
+          .querySelector("[data-detail-image-id]")
+          ?.getAttribute("data-detail-image-id") ?? null,
+    );
+    expect(renderedAfterForward).toBe(secondImage);
 
     // History length should NOT have grown — no phantom entry inserted.
     // With the bug, re-synthesis does replaceState + pushState, growing
@@ -722,6 +731,71 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
       () => new URL(window.location.href).searchParams.get("image"),
     );
     expect(imageAfterBack).toBe(imageId);
+    // Wait for the original search results to load before checking the rendered image
+    // (popstate triggers search() which replaces the buffer asynchronously)
+    await waitForSearchSettled(kupua.page);
+    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
+  });
+
+  test("back from metadata-search renders the correct image (not stale buffer index)", async ({ kupua }) => {
+    // Regression test: after pressing Back into image detail following a
+    // metadata click-to-search, the detail view briefly showed the correct
+    // image, then switched to a wrong image (typically results[0] from the
+    // new buffer) because the useMemo for currentIndex had stale deps.
+    // The URL and counter stayed correct — only the rendered image was wrong.
+    await kupua.goto();
+
+    // Open detail for a NON-FIRST image (must not be index 0, otherwise
+    // the stale index 0 would accidentally resolve to the correct image).
+    const imageId = await kupua.openDetailForNthItem(3);
+    expect(imageId).toBeTruthy();
+
+    // Wait for metadata to render — find a clickable metadata ValueLink.
+    const metadataLink = kupua.page.locator('aside button.underline').first();
+    if (await metadataLink.count() === 0) {
+      test.skip();
+      return;
+    }
+
+    // Click the metadata link — this closes detail and fires a new search
+    await metadataLink.click();
+    await waitForSearchSettled(kupua.page);
+
+    // Verify we're on the search results (no image detail)
+    expect(await kupua.page.evaluate(
+      () => new URL(window.location.href).searchParams.has("image"),
+    )).toBe(false);
+
+    // Press Back — should return to detail for imageId
+    await kupua.page.goBack();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+
+    // Wait for the original search to settle (buffer replacement is when
+    // the bug manifests — the new first-page replaces the old 2-result buffer)
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return !s.loading && s.results.length > 0;
+      },
+      { timeout: 15_000 },
+    );
+    // Extra wait to ensure any stale re-render from buffer replacement has fired
+    await kupua.page.waitForTimeout(500);
+
+    // THE KEY ASSERTION: the image that ImageDetail actually renders must
+    // match the imageId in the URL. The bug causes it to display a different
+    // image (whatever sits at the stale buffer-local index after search()).
+    const renderedImageId = await kupua.page.evaluate(() => {
+      const el = document.querySelector('[data-detail-image-id]');
+      return el?.getAttribute('data-detail-image-id') ?? null;
+    });
+    expect(renderedImageId).not.toBeNull();
+    expect(renderedImageId).toBe(imageId);
   });
 });
 

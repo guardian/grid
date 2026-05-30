@@ -14,6 +14,79 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 30 May 2026 — fix(detail): stale image after browser Back into image detail
+
+**Bug:** After opening image detail → clicking a metadata value (search-by-title,
+search-by-credit, etc.) → pressing browser Back, the detail view briefly showed
+the correct image then switched to a completely different image (~1s later). The URL
+and counter ("5 of 10,000") remained correct — only the rendered image and metadata
+were wrong. The wrong image was typically whatever sat at the old buffer-local index
+in the new results (often position 0 or near the buffer start).
+
+**Root cause:** `ImageDetail.tsx` had:
+```tsx
+const currentIndex = useMemo(
+  () => findImageIndex(imageId),
+  [findImageIndex, imageId],
+);
+```
+`findImageIndex` was made stable (empty deps, reads `getState()` imperatively) in
+commit `21475516a` (2026-05-23, "perf: stable findImageIndex") to fix a performance
+issue where the sort-around-focus `useLayoutEffect` in `useScrollEffects` re-fired
+on every buffer extend. That perf fix was correct for grid/table (which call
+`findImageIndex` imperatively on user gestures), but broke ImageDetail's `useMemo` —
+whose deps `[findImageIndex, imageId]` never change when the buffer is replaced by
+a new search, so it returns a stale local index into the new buffer.
+
+**Sequence:** Back → mounts ImageDetail (store still has old 2-result buffer) → memo
+fires correctly (index 0 → image A) → popstate effect fires `search()` → ~1s later
+buffer replaced with first page of 10k results → re-render but memo deps unchanged →
+stale index 0 → `getImage(0)` returns results[0] from the NEW buffer → wrong image.
+Counter was correct because `useImageTraversal` uses `globalIndexOf()` (non-memoized,
+reads fresh state every render).
+
+**Fix:** Removed the `useMemo` entirely — `findImageIndex(imageId)` is now called
+directly on every render. It's O(1) (Map.get + subtraction) and ImageDetail renders
+for a single image (not in a list), so the cost is negligible. This matches the
+pattern already used by `useImageTraversal.globalIndexOf`. The perf optimisation in
+`useScrollEffects` is unaffected because it depends on the `findImageIndex` reference
+being stable (which it still is) — the fix is purely in how ImageDetail consumes it.
+
+**Regression test:** Added E2E test "back from metadata-search renders the correct
+image (not stale buffer index)" in `browser-history.spec.ts`. It opens detail for
+image #3, clicks a metadata value (fires a new search), presses Back, waits for the
+buffer replacement to settle, then asserts that `data-detail-image-id` on the detail
+wrapper matches the expected imageId. The `data-detail-image-id` attribute was added
+to ImageDetail's outermost div — it exposes `displayImage.id` (the resolved image
+object) for test assertions without any visual impact.
+
+The existing test "metadata click pushes exactly one entry; back returns to detail"
+only asserted the URL param — which was always correct. It would not have caught this
+bug. The new test asserts what the component actually renders.
+
+**Follow-up — test audit (same session):** After landing the fix, audited all E2E tests
+that open image detail and assert on it. Found 9 tests across `ui-features.spec.ts` and
+`browser-history.spec.ts` that asserted the URL param only (`getDetailImageId()`), while
+their purpose was to verify *which image the user sees*. Added a
+`getRenderedDetailImageId()` helper to `KupuaFixture` in `e2e/shared/helpers.ts` that
+reads `data-detail-image-id` from the DOM. All 9 tests now assert both URL and rendered
+image. The full 240-test suite passed without modification.
+
+Tests tightened:
+- `ui-features.spec.ts` — double-click grid/table opens correct image (×2), arrow-key
+  navigation at each step (×4), Enter-to-open, reload-stability post-reload check
+- `browser-history.spec.ts` — forward after close-button, forward after Backspace,
+  cold-load → traverse → forward (on freshPage), metadata-click back returns to detail
+
+Tests intentionally left URL-only: null checks (detail closed), history-length tests,
+focus-preservation tests, deep-link synthesis tests.
+
+**Files changed:**
+- `src/components/ImageDetail.tsx` — removed stale `useMemo`, added `data-detail-image-id`
+- `e2e/shared/helpers.ts` — added `getRenderedDetailImageId()` helper
+- `e2e/local/browser-history.spec.ts` — regression test + 4 tightened assertions
+- `e2e/local/ui-features.spec.ts` — 5 tightened assertions
+
 ### 29 May 2026 — Perf harness metrics refresh (items 1–6 of metrics-refresh.md)
 
 **Context:** The e2e-perf harness could measure perceived latency and jank but had no

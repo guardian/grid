@@ -988,6 +988,21 @@ export class KupuaHelpers {
   }
 
   /**
+   * Get the image ID actually rendered by the ImageDetail component.
+   * Reads the data-detail-image-id attribute set on ImageDetail's root element,
+   * which reflects what the component resolved from the buffer — not just the URL.
+   * Returns null if no detail overlay is present.
+   */
+  async getRenderedDetailImageId(): Promise<string | null> {
+    return this.page.evaluate(
+      () =>
+        document
+          .querySelector("[data-detail-image-id]")
+          ?.getAttribute("data-detail-image-id") ?? null,
+    );
+  }
+
+  /**
    * Navigate to previous image in detail via ArrowLeft.
    * Does NOT wait for image to load — use for rapid traversal.
    */
