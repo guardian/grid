@@ -167,6 +167,33 @@ Kupua is fully isolated from the main Grid application:
 - **Independent start** – `start.sh` does not interfere with Grid's `dev/script/start.sh`
 - **Separate npm** – own `package.json`, own `node_modules`
 
+## Developing with local media-api
+
+To develop features that talk to Grid's media-api (e.g. the media-api gap closure work),
+you need Grid running locally alongside Kupua. The Vite dev server proxies `/api/...`
+to `https://api.media.local.dev-gutools.co.uk` automatically — no Kupua config change needed.
+
+**One-time setup:** `dev/nginx-mappings.yml.template` in the Grid repo needs a Kupua entry.
+Add the following to the mappings list (it is **not** in the committed version):
+
+```yaml
+- prefix: kupua.media
+  port: 3000
+```
+
+Then run `dev-nginx setup-app dev/nginx-mappings.yml.template` from the Grid root (or re-run
+`dev/script/setup.sh`) to apply it. Kupua will then also be available at
+`https://kupua.media.local.dev-gutools.co.uk`.
+
+**Authentication:** Visit `https://media.test.dev-gutools.co.uk` to get the cookie needed for eg. Collections tree.
+
+**To run the minimum Grid services needed** (from Grid repo root):
+
+```bash
+dev/script/setup.sh                  # provisions Docker, localstack, nginx, config
+dev/script/start.sh --use-TEST       # starts auth + media-api with TEST domain config
+```
+
 ## Key Documentation
 
 - **[AGENTS.md](AGENTS.md)** – agent context: system summary, architecture decisions, context routing, current phase
