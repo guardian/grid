@@ -144,8 +144,8 @@ export function usePinchZoom({
 
   useEffect(() => {
     if (!enabled) return;
-    const container = containerRef.current;
-    const img = imageRef.current;
+    const container = containerRef.current!;
+    const img = imageRef.current!;
     if (!container || !img) return;
 
     // Current transform state

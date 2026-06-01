@@ -31,20 +31,6 @@ const state = () => useSearchStore.getState();
 const actions = () => useSearchStore.getState();
 const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
 
-async function waitFor(
-  predicate: () => boolean,
-  timeoutMs = 3000,
-  label = "condition",
-): Promise<void> {
-  const start = Date.now();
-  while (!predicate()) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error(`waitFor("${label}") timed out after ${timeoutMs}ms`);
-    }
-    await new Promise((r) => setTimeout(r, 10));
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------

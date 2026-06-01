@@ -10,8 +10,9 @@ Start there. Do not start anywhere else.
 
 | Prefix | What it is |
 |--------|------------|
-| `phase-3-b1-*` | Workplan for B-bucket leak elimination. Execute first. |
-| `phase-3-b2-*` | Workplan for B-bucket method fusions. Execute after B1. |
+| `phase-3-b1-*` | Workplan for B-bucket leak elimination. **COMPLETE.** |
+| `phase-3-b2-*` | Workplan for B-bucket method fusions. **COMPLETE.** |
+| `phase-3-d3-*` | Workplan for D3: `searchAfter` endpoint. **Execute next.** Gap 10 (null-zone) is mandatory — supersedes the old `ref--media-api-gap-01-searchAfter-workplan.md`. |
 | `phase-3-minimal-gap-derivation-*` | The plan + the handoff that produced it. |
 | `phase-2.5-b2-hunt-*` | Research half-phase that found the B2 fusion opportunities. |
 | `phase-2-*` | Research phase: kupua DAL needs audit. |

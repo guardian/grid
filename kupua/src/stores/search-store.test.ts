@@ -1852,7 +1852,7 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
       metadata: { description: `AI image ${i}` },
       uploadTime: new Date(Date.now() - i * 1000).toISOString(),
       __aiScore: 1 - i * 0.01,
-    })) as import("@/types/image").Image[];
+    })) as unknown as import("@/types/image").Image[];
 
     const k = hits.length;
     const sortValues = hits.map((_, i) => [k - i, hits[i].id] as import("@/dal").SortValues);

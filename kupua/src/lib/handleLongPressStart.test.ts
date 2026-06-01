@@ -14,6 +14,8 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
+import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
+import type { Image } from "@/types/image";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
 
@@ -65,7 +67,7 @@ function makeSearchState(positions: Record<string, number> = {}) {
 
 function makeCtx(overrides: {
   cellId?: string;
-  handleRange?: ReturnType<typeof vi.fn>;
+  handleRange?: ((effect: AddRangeEffect) => void) | undefined;
   anchorId?: string | null;
   selectedIds?: Set<string>;
   metadataCache?: Map<string, object>;
@@ -87,7 +89,7 @@ function makeCtx(overrides: {
       cellId: overrides.cellId ?? "img-1",
       handleRange: overrides.handleRange,
       findImageIndex: vi.fn(() => 0),
-      getImage: vi.fn(() => ({ id: overrides.cellId ?? "img-1" })),
+      getImage: vi.fn(() => ({ id: overrides.cellId ?? "img-1" } as unknown as Image)),
       orderBy: undefined as string | undefined,
     },
   };

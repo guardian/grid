@@ -385,7 +385,7 @@ describe("persist partialize / merge", () => {
     vi.advanceTimersByTime(300);
 
     // Check what was written to sessionStorage.
-    const stored = sessionStorageMock["kupua-selection"];
+    const stored = mockSessionStorage["kupua-selection"];
     if (stored) {
       const parsed = JSON.parse(stored) as {
         state: { selectedIds: string[]; anchorId: string };

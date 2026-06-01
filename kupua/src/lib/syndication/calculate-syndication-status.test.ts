@@ -25,7 +25,7 @@ function makeImage(
 const RIGHTS_ACQUIRED = { rights: [{ acquired: true }] };
 const RIGHTS_NOT_ACQUIRED = { rights: [{ acquired: false }] };
 
-function allowSyndicationLease(overrides?: Partial<Image["leases"]>["leases"] extends (infer L)[] | undefined ? Partial<L> : never) {
+function allowSyndicationLease(overrides?: NonNullable<Image["leases"]>["leases"] extends (infer L)[] | undefined ? Partial<L> : never) {
   return {
     id: "l1",
     access: "allow-syndication" as const,
@@ -33,7 +33,7 @@ function allowSyndicationLease(overrides?: Partial<Image["leases"]>["leases"] ex
   };
 }
 
-function denySyndicationLease(overrides?: Partial<Image["leases"]>["leases"] extends (infer L)[] | undefined ? Partial<L> : never) {
+function denySyndicationLease(overrides?: NonNullable<Image["leases"]>["leases"] extends (infer L)[] | undefined ? Partial<L> : never) {
   return {
     id: "l2",
     access: "deny-syndication" as const,

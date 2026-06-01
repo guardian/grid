@@ -139,6 +139,13 @@ export const gridConfig = {
     },
   ] as TickerDefinition[],
 
+  /**
+   * Optional image type vocabulary (e.g. "Handout", "Illustration").
+   * When non-empty, the imageType field is visible in the metadata panel.
+   * Mirrors `imageTypes` from Guardian config (Kahuna parity — decided 2026-05-02).
+   */
+  imageTypes: [] as string[],
+
   /** Field aliases from config — drives additional search fields + typeahead */
   fieldAliases: [
     {

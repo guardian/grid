@@ -15,7 +15,7 @@
 import { useSelectionStore } from "@/stores/selection-store";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import type { FieldDefinition } from "@/lib/field-registry";
-import type { FieldReconciliation } from "@/lib/reconcile";
+import type { FieldReconciliation, ReconciledView } from "@/lib/reconcile";
 import {
   groupFieldsIntoSections,
   MetadataSection,
@@ -93,14 +93,14 @@ function renderLocationGroup(
       parts.push(<Dash key={field.id} />);
       continue;
     }
-    if (kind === "all-same" && rec.kind === "all-same") {
+    if (rec?.kind === "all-same") {
       const v = typeof rec.value === "string" ? rec.value : String(rec.value);
       parts.push(
         <ValueLink key={field.id} cqlKey={field.cqlKey!} value={v} onSearch={onSearch} />,
       );
       continue;
     }
-    if (kind === "mixed" && rec.kind === "mixed") {
+    if (rec?.kind === "mixed") {
       // MultiValue renders "(Multiple cities)" for detailHidden location fields.
       parts.push(<MultiValue key={field.id} field={field} topValues={rec.topValues} total={total} />);
       continue;
@@ -134,7 +134,7 @@ function renderScalarAllSame(
 ): React.ReactNode {
   const displayStr =
     field.formatter
-      ? field.formatter(value)
+      ? field.formatter(value as string)
       : typeof value === "string"
         ? value
         : value == null
@@ -197,7 +197,7 @@ function renderField(
         </MetadataRow>
       );
     }
-    if (kind !== "chip-array" || rec.chips.length === 0) return null;
+    if (!rec || rec.kind !== "chip-array" || rec.chips.length === 0) return null;
     return (
       <MetadataRow key={field.id} label={field.label}>
         <div className="flex flex-wrap gap-1 pt-0.5">
@@ -230,7 +230,7 @@ function renderField(
         </MetadataRow>
       );
     }
-    if (kind !== "summary") return null;
+    if (!rec || rec.kind !== "summary") return null;
     return (
       <MetadataRow key={field.id} label={field.label}>
         {rec.line}
@@ -256,7 +256,7 @@ function renderField(
     );
   }
 
-  if (kind === "mixed") {
+  if (rec?.kind === "mixed") {
     return (
       <Wrapper key={field.id} label={field.label}>
         <MultiValue field={field} topValues={rec.topValues} total={total} />
@@ -264,7 +264,7 @@ function renderField(
     );
   }
 
-  if (kind === "all-same") {
+  if (rec?.kind === "all-same") {
     const content = renderScalarAllSame(field, rec.value, onSearch);
     if (!content) return null;
     return (

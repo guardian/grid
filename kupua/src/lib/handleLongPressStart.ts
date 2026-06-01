@@ -52,10 +52,9 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
         ? extractSortValues(anchorImg, ctx.orderBy)
         : null,
       targetId: ctx.cellId,
-      targetGlobalIndex: searchState.imagePositions.get(ctx.cellId),
-      targetSortValues: image
-        ? extractSortValues(image, ctx.orderBy)
-        : null,
+      targetGlobalIndex: searchState.imagePositions.get(ctx.cellId) ?? 0,
+      targetSortValues: (image ? extractSortValues(image, ctx.orderBy) : null) ?? [],
+
     });
     selState.setAnchor(ctx.cellId);
   } else if (!selState.selectedIds.has(ctx.cellId)) {

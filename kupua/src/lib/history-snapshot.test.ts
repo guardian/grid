@@ -14,6 +14,7 @@ function makeSnap(overrides?: Partial<HistorySnapshot>): HistorySnapshot {
     anchorCursor: ["2026-03-20T14:30:00.000Z", "img-001"],
     anchorOffset: 42,
     viewportRatio: 0.35,
+    newCountSince: null,
     ...overrides,
   };
 }

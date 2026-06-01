@@ -48,6 +48,7 @@ import {
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { VALIDITY_DESCRIPTIONS } from "@/lib/cost/validity-map";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
+import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
 import { categoryLabel } from "@/lib/category-labels";
 
@@ -118,7 +119,7 @@ function leaseSortKey(lease: { access: string; startDate?: string; endDate?: str
   // Sub-group: deny=0, allow=1
   const deny = lease.access.includes("deny") ? "0" : "1";
   // State: active=0, pending=1, expired=2
-  const active = isLeaseActive(lease as { startDate?: string; endDate?: string }, nowMs);
+  const active = isLeaseActive(lease as unknown as Lease, nowMs);
   const pending = isLeasePending(lease, nowMs);
   const state = active ? "0" : pending ? "1" : "2";
   // Creation date for stable sub-sort

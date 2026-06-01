@@ -88,8 +88,8 @@ export function useSwipeDismiss({
 
   useEffect(() => {
     if (!enabled) return;
-    const container = containerRef.current;
-    const wrapper = wrapperRef.current;
+    const container = containerRef.current!;
+    const wrapper = wrapperRef.current!;
     if (!container || !wrapper) return;
     const backdrop = backdropRef?.current;
     const dragTarget = dragTargetRef?.current; // fullscreen: animate image directly

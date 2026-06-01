@@ -43,7 +43,7 @@ interface ImageMetadata {
   imageType?: string;
 }
 
-interface UsageRights {
+export interface UsageRights {
   category?: string;
   photographer?: string;
   supplier?: string;
@@ -72,7 +72,7 @@ interface SyndicationRights {
 
 export type LeaseAccess = "allow-use" | "deny-use" | "allow-syndication" | "deny-syndication";
 
-interface Lease {
+export interface Lease {
   id: string;
   access: LeaseAccess;
   leasedBy?: string;

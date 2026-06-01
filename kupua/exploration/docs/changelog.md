@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 June 2026 — TypeScript strict-mode error sweep (Groups A–H)
+
+Fixed all 60+ pre-existing TypeScript errors catalogued in `TS-errors-to-fix.md`
+(now archived as `zz Archive/TS-errors-fixed-1-Jun'26.md`). Final state: 0 TS errors,
+871/871 unit tests, 240/240 e2e tests.
+
+**Key fixes by group:**
+- **A** (B2 regressions): missing `FilterAggRequest` import; `countWithTickers` extra arg dropped.
+- **B** (`handleLongPressStart`): widened `AddRangeEffect` fields to `number | undefined` / `SortValues | null`; test mock cast via `unknown as Image`.
+- **C–F** (test files): removed unused imports; fixed fixture types (`newCountSince`, `SyndicationInfo`, `Image` shape); added `readonly` to `FieldDefinition[]` params in selection-store.
+- **G** (gesture hooks — 4 files, ~70 errors): pattern `const el = ref.current!` with runtime guard kept. TS cannot narrow `const T | null` across closure boundaries; the `!` assertion is safe because the guard runs synchronously before any closure fires.
+- **H** (components/libs): exported `Lease` + `UsageRights` from `@/types/image`; fixed `MultiImageMetadata` discriminated-union narrowing (was keying off a separate `kind` variable — TS can't narrow `rec` from that; switched to `rec?.kind === "X"` inline checks); added `imageTypes: []` to `gridConfig`; cast `overlay?.usages` incompatibility (`digitalUsageMetadata: unknown` vs typed object) via `as Image["usages"]` — safe because the field is pass-through only.
+
+**Residual latent issues noted** (not fixed here — would require broader type redesign):
+- Two structurally incompatible `Usage` types (`@/types/image` vs `@/dal/grid-api/types`) diverge on `digitalUsageMetadata` and `platform`.
+- Two incompatible `UsageRights` types (`category?: string` vs `category: string`).
+- `gridConfig.imageTypes` placeholder — unknown intended content.
+
 ### 1 June 2026 — B2 Refactor: DAL Method Fusions (F1–F4)
 
 Collapsed 4 paired DAL methods into 2 via fusions, reducing `ImageDataSource` surface

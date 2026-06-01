@@ -80,7 +80,7 @@ export interface EnrichedImage extends Image, ComputedBaseline {
    */
   syndicationStatus: SyndicationStatus;
   /** Usage list for print/digital icons — API preferred, ES fallback on Image.usages. */
-  enrichedUsages?: EnrichmentFields["usages"];
+  enrichedUsages?: Image["usages"];
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +131,6 @@ export function deriveImage(
     actions: overlay?.actions,
     isPotentiallyGraphic: overlay?.isPotentiallyGraphic,
     syndicationStatus: overlay?.syndicationStatus ?? baselineSyndicationStatus,
-    enrichedUsages: overlay?.usages ?? image.usages,
+    enrichedUsages: (overlay?.usages ?? image.usages) as Image["usages"],
   };
 }

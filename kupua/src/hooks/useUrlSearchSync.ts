@@ -341,7 +341,7 @@ export function useUrlSearchSync() {
     // AI mode sort-only: re-sort the in-memory buffer client-side.
     // No ES round-trip or Bedrock call needed — all ≤200 results are already in memory.
     if (isSortOnly && !!searchOnly.aiQuery) {
-      useSearchStore.getState().resortAiBuffer(searchOnly.orderBy ?? "-relevance");
+      useSearchStore.getState().resortAiBuffer(searchParams.orderBy ?? "-relevance");
       setExternalQuery(null);
       return;
     }

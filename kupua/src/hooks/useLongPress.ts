@@ -64,7 +64,7 @@ export function useLongPress({
   startRef.current = onLongPressStart;
 
   useEffect(() => {
-    const el = containerRef.current;
+    const el = containerRef.current!;
     if (!el) return;
 
     // Mutable gesture state -- reset on each pointerdown.

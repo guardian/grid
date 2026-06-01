@@ -71,7 +71,7 @@ export function MultiValue({ field, topValues, total }: MultiValueProps) {
       const display = entry.value === null || entry.value === undefined
         ? ""
         : field.formatter
-          ? field.formatter(entry.value)
+          ? field.formatter(entry.value as string)
           : String(entry.value);
       return `${display} (${entry.count.toLocaleString()}/${total.toLocaleString()})`;
     }).filter(Boolean);

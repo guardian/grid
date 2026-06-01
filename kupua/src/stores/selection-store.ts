@@ -757,7 +757,7 @@ export const useSelectionStore = create<SelectionState>()(
  */
 function markPending(
   prevView: ReconciledView | null,
-  fields: FieldDefinition[],
+  fields: readonly FieldDefinition[],
 ): ReconciledView {
   const next: ReconciledView = new Map(prevView ?? undefined);
   for (const field of fields) {

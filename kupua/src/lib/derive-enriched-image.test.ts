@@ -149,14 +149,14 @@ describe("deriveImage", () => {
     it("passes through API-only fields from overlay", () => {
       const img = makeImage({ usageRights: { category: "staff-photographer" } });
       const overlay: EnrichmentFields = {
-        leasesSummary: { currentCount: 2, inactiveCount: 1 },
+        leasesSummary: { currentCount: 2, inactiveCount: 1, hasActiveAllowLease: false },
         persisted: { value: true, reasons: ["archived"] },
         actions: [],
         isPotentiallyGraphic: true,
         syndicationStatus: "sent",
       };
       const enriched = deriveImage(img, overlay);
-      expect(enriched.leasesSummary).toEqual({ currentCount: 2, inactiveCount: 1 });
+      expect(enriched.leasesSummary).toEqual({ currentCount: 2, inactiveCount: 1, hasActiveAllowLease: false });
       expect(enriched.persisted).toEqual({ value: true, reasons: ["archived"] });
       expect(enriched.actions).toEqual([]);
       expect(enriched.isPotentiallyGraphic).toBe(true);

@@ -295,7 +295,7 @@ function applyRemove(
  */
 export function recomputeAll(
   images: Image[],
-  fields: FieldDefinition[],
+  fields: readonly FieldDefinition[],
 ): ReconciledView {
   const view: ReconciledView = new Map();
 
@@ -371,7 +371,7 @@ export function recomputeAll(
 export function reconcileAdd(
   image: Image,
   prevView: ReconciledView | null,
-  fields: FieldDefinition[],
+  fields: readonly FieldDefinition[],
 ): ReconciledView {
   const next: ReconciledView = new Map(prevView ?? undefined);
 
@@ -419,7 +419,7 @@ export function reconcileAdd(
 export function reconcileRemove(
   image: Image,
   prevView: ReconciledView | null,
-  fields: FieldDefinition[],
+  fields: readonly FieldDefinition[],
 ): ReconciledView {
   const next: ReconciledView = new Map(prevView ?? undefined);
 

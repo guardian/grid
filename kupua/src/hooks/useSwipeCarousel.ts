@@ -152,8 +152,8 @@ export function useSwipeCarousel({
 
   useEffect(() => {
     if (!enabled) return;
-    const container = containerRef.current;
-    const strip = stripRef.current;
+    const container = containerRef.current!;
+    const strip = stripRef.current!;
     if (!container || !strip) return;
 
     let startX = 0;

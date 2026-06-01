@@ -205,7 +205,7 @@ export interface UsageReference {
 
 export interface Usage {
   id: string;
-  references: UsageReference[];
+  references?: UsageReference[];
   platform: UsageType;
   media: string;
   status: UsageStatus;
