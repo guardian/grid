@@ -18,6 +18,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import com.gu.mediaservice.{GridClient, JsonDiff}
 import lib._
 import lib.elasticsearch._
+import lib.querysyntax.{AnyField, Match, Parser, Phrase, Words}
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -587,6 +588,15 @@ class MediaApi(
         .getOrElse(TextSearch(query))
     }
 
+    def extractSemanticText(params: SearchParams): Option[String] = {
+     val queries = params.structuredQuery.collect {
+        case Match(AnyField, Words(value)) => value
+        case Match(AnyField, Phrase(value)) => value
+      }
+      logger.info(logMarker, s"Extracted semantic query from structured query: ${queries.mkString(" ")}")
+      if (queries.nonEmpty) Some(queries.mkString(" ")) else None
+    }
+
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
@@ -619,42 +629,49 @@ class MediaApi(
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int, vecWeight: Option[Double]): Future[SearchResults] = {
-      // Normalise key so that "Dogs" and "dogs " share a cache entry.
-      val cacheKey = query.trim.toLowerCase
+    def semanticSearchByText(query: String, k: Int, params: SearchParams): Future[SearchResults] = {
+      // Separate the chips from the main query text
+      // So that we can embed just the query text
+      val semanticQuery = extractSemanticText(params: SearchParams)
+        .getOrElse {
+          logger.info(logMarker, s"No semantic query found in structured query, falling back to embedding the full query text: $query")
+          query
+        }
 
-      val markers = logMarker ++ Map("query" -> query)
+      // Normalise key so that "Dogs" and "dogs " share a cache entry.
+      val cacheKey = semanticQuery.trim.toLowerCase
+      val markers = logMarker ++ Map("query" -> semanticQuery)
 
       if (embeddingCache.getIfPresent(cacheKey).isDefined) {
-        logger.info(markers, s"AI search embedding cache hit query=$query")
+        logger.info(markers, s"AI search embedding cache hit query=$semanticQuery")
       } else {
-        logger.info(markers, s"AI search embedding cache miss query=$query")
+        logger.info(markers, s"AI search embedding cache miss query=$semanticQuery")
       }
 
-      val weight = vecWeight.getOrElse(1.0)
+      val weight = params.vecWeight.getOrElse(1.0)
 
       // cache.get(key) is atomic: if two requests race on the same key, only one
       // load fires and both callers receive the same Future.
       val embeddingFuture = embeddingCache.get(cacheKey)
 
-      logger.info(markers, s"vecWeight for query '$query' is $weight")
+      logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
       for {
         embedding <- embeddingFuture
         searchResults <- elasticSearch.hybridSearch(
-          query = query,
+          query = semanticQuery,
           queryEmbedding = embedding,
           k = k,
           numCandidates = Math.max(k * 2, 100),
-          vecWeight = weight,
+          vecWeight = weight
         )
       } yield searchResults
     }
 
-    def performAiSearchAndRespond(query: String, vecWeight: Option[Double]): Future[Result] = {
+    def performAiSearchAndRespond(query: String,  params: SearchParams): Future[Result] = {
       val k = config.aiSearchResultLimit
       val searchResultsFuture = parseAiSearchMode(query) match {
         case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, vecWeight)
+        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, params)
       }
 
       searchResultsFuture.map(aiSearchResponseFromResults)
@@ -666,7 +683,7 @@ class MediaApi(
         case _ if _searchParams.length == 0 =>
           emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(q, _searchParams.vecWeight)
+          performAiSearchAndRespond(q, _searchParams)
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
