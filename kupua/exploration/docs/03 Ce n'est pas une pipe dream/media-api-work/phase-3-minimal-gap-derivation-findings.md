@@ -735,6 +735,8 @@ The capability gap is stated. Endpoint design (request/response schema, paramete
 
 ## Section 4a — Bucket-B1 Catalogue (Shape-leak Elimination)
 
+**✅ All 7 items DONE — 2026-06-01 — commit `bcde65a58`**
+
 All items are fixable client-side alone unless noted. Sources: Phase 2 §4.
 
 | # | Leak | Methods affected | ES shape eliminated | Fixable client-side only? |

@@ -26,7 +26,6 @@ import { useCollectionStore, type CollectionNode } from "@/stores/collection-sto
 import {
   PHOTOGRAPHER_CATEGORIES,
   ILLUSTRATOR_CATEGORIES,
-  parseCql,
 } from "@/dal/adapters/elasticsearch/cql";
 import type { TickerCountResult } from "@/dal";
 import { categoryLabel } from "./category-labels";
@@ -368,10 +367,10 @@ export function buildTypeaheadFields(
             const params = getParams?.();
             if (params) {
               const filterRequests: FilterAggRequest[] = [
-                { name: "deleted", query: parseCql("is:deleted").must[0] },
-                { name: "under-quota", query: parseCql("is:under-quota").must[0] },
-                { name: `${org}-owned-photo`, query: parseCql(`is:${org}-owned-photo`).must[0] },
-                { name: `${org}-owned-illustration`, query: parseCql(`is:${org}-owned-illustration`).must[0] },
+                { name: "deleted", isFilter: "deleted" },
+                { name: "under-quota", isFilter: "under-quota" },
+                { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
+                { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
               ];
               const counts = await dataSource.getFilterAggregations(params, filterRequests);
               for (const [k, v] of Object.entries(counts)) countMap.set(k, v);

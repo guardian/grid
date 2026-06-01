@@ -14,6 +14,36 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 June 2026 — B1 Refactor: Eliminate ES-Shape Leaks (phase-3-b1)
+
+Removed 7 raw ES DSL objects (`Record<string, unknown>`) from the `ImageDataSource`
+public interface by encapsulating ES-specific logic inside the adapter.
+
+**Interface changes (`dal/types.ts`)**:
+- `searchAfter`: removed `sortOverride`, `extraFilter`, `noSource`; renamed
+  `missingFirst` → `seekToEnd`; down from 9 params to 6
+- `countBefore`: removed `sortClause`; down from 4 params to 3
+- `FilterAggRequest`: `query: Record<string,unknown>` → `isFilter: string`
+- `getDateDistribution?`: `extraFilter?: Record<string,unknown>` → `missingField?: string`
+
+**Adapter changes (`es-adapter.ts`)**:
+- Old `searchAfter` body became private `_searchAfterImpl(... noSource: boolean)`;
+  null-zone detection (via `detectNullZoneCursor`) and sort-value remapping
+  (via `remapNullZoneSortValues`) moved inside
+- Public `searchAfter` delegates to `_searchAfterImpl(noSource=false)`
+- `countBefore`, `getFilterAggregations`, `getDateDistribution` each derive their
+  previously-leaked values internally
+
+**Store / CQL changes (`search-store.ts`, `typeahead-fields.ts`)**:
+- All 23 `searchAfter` call sites updated: null-zone groups pass full `[null, ...]`
+  cursors; remap blocks and `nz` detection removed
+- All 8 `countBefore` call sites: `sortClause` argument removed
+- `FilterAggRequest` entries use `isFilter` strings; `parseCql` import removed
+  from both `search-store.ts` and `typeahead-fields.ts`
+
+**Result:** no raw ES DSL remains in `ImageDataSource` method signatures.
+Unit: 871/871. E2E: 240/240. Committed as `bcde65a58`.
+
 ### 30 May 2026 — Research docs: media-api conventions + test gap audit
 
 Five new documents added in preparation for potential media-api work and test coverage work.

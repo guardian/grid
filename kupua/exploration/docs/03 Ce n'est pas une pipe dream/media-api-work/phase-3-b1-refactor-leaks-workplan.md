@@ -1,5 +1,7 @@
 # Phase 3 — B1 Refactor: Eliminate ES-Shape Leaks
 
+**Status: ✅ DONE — 2026-06-01 — commit `bcde65a58`**
+
 ## What this session does
 
 Eliminate 7 ES-shape leaks from the `ImageDataSource` interface. These are
@@ -251,17 +253,17 @@ do not (mechanical signature changes, no scroll semantics altered).
 
 ## What "done" looks like
 
-- [ ] `searchAfter` signature has 6 params (not 9)
-- [ ] `countBefore` signature has 3 params (not 4)
-- [ ] `FilterAggRequest` has `isFilter: string` (not `query: Record<...>`)
-- [ ] `getDateDistribution` has `missingField?: string` (not `extraFilter?`)
-- [ ] No raw ES DSL (`Record<string, unknown>`) remains in `types.ts`
+- [x] `searchAfter` signature has 6 params (not 9)
+- [x] `countBefore` signature has 3 params (not 4)
+- [x] `FilterAggRequest` has `isFilter: string` (not `query: Record<...>`)
+- [x] `getDateDistribution` has `missingField?: string` (not `extraFilter?`)
+- [x] No raw ES DSL (`Record<string, unknown>`) remains in `types.ts`
       method signatures (check with grep)
-- [ ] `getIdRange` does not call the public `searchAfter` (or if it does,
+- [x] `getIdRange` does not call the public `searchAfter` (or if it does,
       it doesn't pass `noSource`)
-- [ ] All unit tests pass
-- [ ] E2E tests pass (after Group A)
-- [ ] No new test failures introduced
+- [x] All unit tests pass
+- [x] E2E tests pass (after Group A)
+- [x] No new test failures introduced
 
 ## Push-back rules
 

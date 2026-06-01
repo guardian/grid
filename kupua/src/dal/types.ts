@@ -166,15 +166,14 @@ export interface AggregationRequest {
 }
 
 /**
- * A named filter aggregation — wraps an ES query and returns a doc count.
- * Used for `is:` value counts (deleted, under-quota) which are composite
- * queries, not simple terms fields.
+ * A named filter aggregation — returns a doc count for a named `is:` filter.
+ * The adapter compiles the filter from the name internally.
  */
 export interface FilterAggRequest {
   /** Agg name used as the key in the response map. */
   name: string;
-  /** ES query object for the filter agg. */
-  query: Record<string, unknown>;
+  /** The `is:` filter value (e.g. "deleted", "under-quota"). Adapter compiles internally. */
+  isFilter: string;
 }
 
 /** Result of a batched aggregation — keyed by field path, with timing. */
@@ -328,12 +327,16 @@ export interface ImageDataSource {
    * @param signal — optional AbortSignal for cancellation.
    * @param reverse — if true, reverses the sort clause and reverses the
    *   returned hits/sortValues. Used for backward `search_after` pagination.
-   * @param noSource — if true, sets _source: false (only sort values returned).
-   * @param missingFirst — if true (typically with reverse), sets `missing: "_first"`
+   * @param seekToEnd — if true (typically with reverse), sets `missing: "_first"`
    *   on the primary sort field. Needed when seeking to the end of a keyword-sorted
    *   result set where null-value docs sit at the tail — without this, ES default
    *   `missing: "_last"` puts nulls last in BOTH asc and desc, so a naive reverse
    *   search returns high-value docs instead of the true last docs.
+   *
+   *   Null-zone cursors (`searchAfterValues[0] === null`) are handled transparently
+   *   by the adapter: it detects the null prefix, strips it, applies the necessary
+   *   sort/filter overrides internally, and remaps returned sort values to full shape
+   *   before returning. Callers pass and receive full null-prefixed cursors unchanged.
    */
   searchAfter(
     params: SearchParams,
@@ -341,12 +344,7 @@ export interface ImageDataSource {
     pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
-    noSource?: boolean,
-    missingFirst?: boolean,
-    /** Override the sort clause (instead of deriving from params.orderBy). */
-    sortOverride?: Record<string, unknown>[],
-    /** Extra ES filter clause appended to the query (e.g. must_not:exists). */
-    extraFilter?: Record<string, unknown>,
+    seekToEnd?: boolean,
   ): Promise<SearchAfterResult>;
 
   /**
@@ -358,12 +356,10 @@ export interface ImageDataSource {
    *
    * @param params — search params (query, filters — same as current search).
    * @param sortValues — the target document's sort values.
-   * @param sortClause — the sort clause in use (needed to build the range query).
    */
   countBefore(
     params: SearchParams,
     sortValues: SortValues,
-    sortClause: Record<string, unknown>[],
     signal?: AbortSignal,
   ): Promise<number>;
 
@@ -449,7 +445,8 @@ export interface ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
-    extraFilter?: Record<string, unknown>,
+    /** Field name whose absence defines the null zone (builds must_not:exists filter internally). */
+    missingField?: string,
   ): Promise<SortDistribution | null>;
 
   /**

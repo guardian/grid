@@ -33,6 +33,7 @@ import type {
 } from "./types";
 import type { PositionMap } from "./position-map";
 import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
+import { detectNullZoneCursor, remapNullZoneSortValues } from "./null-zone";
 
 // ---------------------------------------------------------------------------
 // Synthetic data generation
@@ -373,26 +374,29 @@ export class MockDataSource implements ImageDataSource {
     _pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
-    _noSource?: boolean,
-    _missingFirst?: boolean,
-    _sortOverride?: Record<string, unknown>[],
-    _extraFilter?: Record<string, unknown>,
+    _seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
     this.requestCount++;
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
     const length = params.length ?? 20;
-    const sortClause = _sortOverride ?? buildSortClause(params.orderBy);
+    // Null-zone detection — same internal logic as es-adapter.
+    const nz = searchAfterValues ? detectNullZoneCursor(searchAfterValues, params.orderBy) : null;
+    const effectiveCursor = nz ? nz.strippedCursor : searchAfterValues;
+    const sortClause = nz ? nz.sortOverride : buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = (!isDefaultSort || _sortOverride) && this.sparseFields?.length;
+    const needsCustomSort = (!isDefaultSort || nz) && this.sparseFields?.length;
 
-    // When extraFilter is provided (null-zone queries), use filtered+sorted indices.
+    // When null-zone cursor is detected, use filtered+sorted indices.
     // This simulates ES's `must_not: { exists: { field } }` narrowing.
-    const sortedIndices = _extraFilter && needsCustomSort
-      ? this.getFilteredSortedIndices(sortClause, _extraFilter)
+    const sortedIndices = nz && needsCustomSort
+      ? this.getFilteredSortedIndices(sortClause, nz.extraFilter)
       : needsCustomSort
         ? this.getSortedIndices(sortClause)
         : null;
+
+    const maybeRemap = (svs: SortValues[]): SortValues[] =>
+      nz ? remapNullZoneSortValues(svs, nz.sortClause, nz.primaryField) : svs;
 
     const effectiveTotal = sortedIndices ? sortedIndices.length : this.totalImages;
 
@@ -408,11 +412,11 @@ export class MockDataSource implements ImageDataSource {
           sortVals.push(sortValuesForImage(img, sortClause));
         }
       }
-      return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
+      return this._filterRemoved({ hits, total: this.totalImages, sortValues: maybeRemap(sortVals) });
     }
 
     // If from/size (no cursor), return from offset
-    if (!searchAfterValues) {
+    if (!effectiveCursor) {
       const offset = params.offset ?? 0;
       const hits: Image[] = [];
       const sortVals: SortValues[] = [];
@@ -436,20 +440,20 @@ export class MockDataSource implements ImageDataSource {
         }
       }
 
-      return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
+      return this._filterRemoved({ hits, total: this.totalImages, sortValues: maybeRemap(sortVals) });
     }
 
     // search_after with cursor — find the position of the cursor.
     // For filtered queries, the cursor ID may be "" (estimated cursor from
     // null-zone seek). In that case, use timestamp-based position estimation.
-    const cursorId = searchAfterValues[searchAfterValues.length - 1] as string;
+    const cursorId = effectiveCursor[effectiveCursor.length - 1] as string;
 
     let cursorSortedPos: number;
 
-    if (cursorId === "" && searchAfterValues.length >= 1) {
+    if (cursorId === "" && effectiveCursor.length >= 1) {
       // Estimated cursor (no ID) — find position by timestamp.
-      // The first element of searchAfterValues is the uploadTime estimate.
-      const targetTs = searchAfterValues[0] as number;
+      // The first element of effectiveCursor is the uploadTime estimate.
+      const targetTs = effectiveCursor[0] as number;
       if (sortedIndices) {
         // Binary-ish search: find the position where uploadTime crosses targetTs
         cursorSortedPos = -1; // will be set below
@@ -515,13 +519,12 @@ export class MockDataSource implements ImageDataSource {
       }
     }
 
-    return this._filterRemoved({ hits, total: this.totalImages, sortValues: sortVals });
+    return this._filterRemoved({ hits, total: this.totalImages, sortValues: maybeRemap(sortVals) });
   }
 
   async countBefore(
     params: SearchParams,
     sortValues: SortValues,
-    sortClause: Record<string, unknown>[],
     signal?: AbortSignal,
   ): Promise<number> {
     this.requestCount++;
@@ -538,6 +541,7 @@ export class MockDataSource implements ImageDataSource {
     }
 
     // Sort-aware path: find the target's position in the sorted order
+    const sortClause = buildSortClause(params.orderBy);
     const sortedIndices = this.getSortedIndices(sortClause);
     const id = sortValues[sortValues.length - 1] as string;
     const [, origIdx] = this.findById(id);
@@ -576,7 +580,7 @@ export class MockDataSource implements ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     _signal?: AbortSignal,
-    _extraFilter?: Record<string, unknown>,
+    _missingField?: string,
   ): Promise<SortDistribution | null> {
     this.requestCount++;
 

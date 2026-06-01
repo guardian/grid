@@ -34,9 +34,7 @@ import type {
 import type { PositionMap } from "@/dal/position-map";
 import { cursorForPosition } from "@/dal/position-map";
 import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
-import { detectNullZoneCursor, remapNullZoneSortValues } from "@/dal/null-zone";
 import { IS_LOCAL_ES } from "@/dal/es-config";
-import { parseCql } from "@/dal/adapters/elasticsearch/cql";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
@@ -906,19 +904,11 @@ async function _fillBufferForScrollMode(
     const chunkSize = Math.min(PAGE_SIZE, remaining);
 
     try {
-      // Detect null-zone cursor — same logic as extend paths.
-      const nz = detectNullZoneCursor(currentCursor, frozenP.orderBy);
-
       const result = await dataSource.searchAfter(
         { ...frozenP, length: chunkSize },
-        nz ? nz.strippedCursor : currentCursor,
+        currentCursor,
         pitId,
         signal,
-        false, // reverse
-        false, // noSource
-        false, // missingFirst
-        nz?.sortOverride,
-        nz?.extraFilter,
       );
 
       if (signal.aborted) {
@@ -926,13 +916,6 @@ async function _fillBufferForScrollMode(
         return;
       }
       if (result.hits.length === 0) break;
-
-      // Remap sort values from null-zone shape back to full sort clause shape
-      if (nz && result.sortValues.length > 0) {
-        result.sortValues = remapNullZoneSortValues(
-          result.sortValues, nz.sortClause, nz.primaryField,
-        );
-      }
 
       // Update cursor for next iteration
       const newEndCursor = result.sortValues.length > 0
@@ -1079,51 +1062,24 @@ async function _loadBufferAroundImage(
   signal: AbortSignal,
   dataSource: SearchState["dataSource"],
 ): Promise<BufferAroundImage | null> {
-  // Detect null-zone cursor — same logic as extend paths.
-  const nz = detectNullZoneCursor(sortValues, params.orderBy);
-  const effectiveCursor = nz ? nz.strippedCursor : sortValues;
-
   // Forward + backward pages are independent ES requests against the same
   // cursor/PIT — run in parallel (same pattern as seek() position-map path).
   const [forwardResult, backwardResult] = await Promise.all([
     dataSource.searchAfter(
       { ...params, length: Math.floor(PAGE_SIZE / 2) },
-      effectiveCursor,
+      sortValues,
       pitId,
       signal,
-      false, // reverse
-      false, // noSource
-      false, // missingFirst
-      nz?.sortOverride,
-      nz?.extraFilter,
     ),
     dataSource.searchAfter(
       { ...params, length: Math.floor(PAGE_SIZE / 2) },
-      effectiveCursor,
+      sortValues,
       pitId,
       signal,
       true, // reverse
-      false, // noSource
-      false, // missingFirst
-      nz?.sortOverride,
-      nz?.extraFilter,
     ),
   ]);
   if (signal.aborted) return null;
-
-  // Remap sort values from null-zone shape back to full sort clause shape
-  if (nz) {
-    if (forwardResult.sortValues.length > 0) {
-      forwardResult.sortValues = remapNullZoneSortValues(
-        forwardResult.sortValues, nz.sortClause, nz.primaryField,
-      );
-    }
-    if (backwardResult.sortValues.length > 0) {
-      backwardResult.sortValues = remapNullZoneSortValues(
-        backwardResult.sortValues, nz.sortClause, nz.primaryField,
-      );
-    }
-  }
 
   // Column-align: trim backward hits so bufferStart is a multiple of
   // columns. Without this, the target image lands at column
@@ -1282,7 +1238,6 @@ async function _findAndFocusImage(
     // Step 1: Search for this specific image with the current sort to get
     // both the image and its sort[] values in one request.
     if (combinedSignal.aborted) return;
-    const sortClause = buildSortClause(fp.orderBy);
     const sortResult = await dataSource.searchAfter(
       { ...fp, ids: imageId, length: 1 },
       null,
@@ -1414,7 +1369,6 @@ async function _findAndFocusImage(
         offset = await dataSource.countBefore(
           fp,
           imageSortValues,
-          sortClause,
           combinedSignal,
         );
         devLog(
@@ -1434,7 +1388,6 @@ async function _findAndFocusImage(
       offset = await dataSource.countBefore(
         fp,
         imageSortValues,
-        sortClause,
         combinedSignal,
       );
       devLog(
@@ -1589,7 +1542,7 @@ async function _findAndFocusImage(
       // imagePositions when it resolves. Uses the same combinedSignal
       // so it's cancelled if a new search starts.
       if (offsetIsEstimate) {
-        dataSource.countBefore(fp, imageSortValues, sortClause, combinedSignal)
+        dataSource.countBefore(fp, imageSortValues, combinedSignal)
           .then((exactOffset) => {
             if (combinedSignal.aborted) return;
             const state = get();
@@ -2237,34 +2190,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ _extendForwardInFlight: true });
 
     try {
-      // Detect null-zone cursor — if the primary sort value is null,
-      // we need the same sortOverride + extraFilter + cursor stripping
-      // that the null-zone seek uses. Without this, ES receives
-      // search_after: [null, ...] and returns 500.
-      const nz = detectNullZoneCursor(endCursor, params.orderBy);
-
       // If search() opened a new PIT since we captured ours, skip the
       // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
       const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
       const result = await dataSource.searchAfter(
         { ...params, length: PAGE_SIZE },
-        nz ? nz.strippedCursor : endCursor,
+        endCursor,
         effectivePitId,
         _rangeAbortController.signal,
-        false, // reverse
-        false, // noSource
-        false, // missingFirst
-        nz?.sortOverride,
-        nz?.extraFilter,
       );
-
-      // Remap sort values from null-zone shape back to full sort clause shape
-      if (nz && result.sortValues.length > 0) {
-        result.sortValues = remapNullZoneSortValues(
-          result.sortValues, nz.sortClause, nz.primaryField,
-        );
-      }
 
       if (result.hits.length === 0) {
         set({ _extendForwardInFlight: false });
@@ -2386,9 +2321,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Reverse search_after: flip sort, use startCursor as anchor,
       // results come back in reversed order (adapter reverses them).
       // Works at any depth — no from/size offset limit.
-      //
-      // Detect null-zone cursor — same logic as extendForward.
-      const nz = detectNullZoneCursor(startCursor, params.orderBy);
 
       // If search() opened a new PIT since we captured ours, skip the
       // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
@@ -2396,22 +2328,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       const result = await dataSource.searchAfter(
         { ...params, length: fetchCount },
-        nz ? nz.strippedCursor : startCursor,
+        startCursor,
         effectivePitId,
         _rangeAbortController.signal,
         true, // reverse
-        false, // noSource
-        false, // missingFirst
-        nz?.sortOverride,
-        nz?.extraFilter,
       );
-
-      // Remap sort values from null-zone shape back to full sort clause shape
-      if (nz && result.sortValues.length > 0) {
-        result.sortValues = remapNullZoneSortValues(
-          result.sortValues, nz.sortClause, nz.primaryField,
-        );
-      }
 
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
@@ -2599,11 +2520,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           null,
           effectivePitId,
           signal,
-          true,  // reverse
-          false, // noSource
-          true,  // missingFirst — nulls come first in reversed order
-          undefined, // sortOverride
-          undefined, // extraFilter
+          true, // reverse
+          true, // seekToEnd — nulls come first in reversed order
         );
         if (result.hits.length > 0) {
           actualOffset = Math.max(0, total - result.hits.length);
@@ -2656,66 +2574,33 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         } else {
           // --- Parallel forward + backward fetch ---
 
-          // Forward: fetch PAGE_SIZE items starting at clampedOffset
-          const fwdNz = detectNullZoneCursor(forwardCursor, params.orderBy);
-
           // Backward: fetch halfBuffer items before clampedOffset.
           // The backward cursor is the entry AT the target position — with
           // reverse: true, search_after returns items strictly before it.
           const skipBackward = clampedOffset < halfBuffer;
-          let backwardPromise: Promise<Awaited<ReturnType<typeof dataSource.searchAfter>> | null> | null = null;
+          let backwardPromise: Promise<SearchAfterResult | null> | null = null;
 
           if (!skipBackward) {
             const backwardCursor = posMap.sortValues[clampedOffset];
             if (backwardCursor) {
-              const bwdNz = detectNullZoneCursor(backwardCursor, params.orderBy);
               backwardPromise = dataSource.searchAfter(
                 { ...params, length: halfBuffer },
-                bwdNz ? bwdNz.strippedCursor : backwardCursor,
+                backwardCursor,
                 effectivePitId,
                 signal,
-                true,  // reverse
-                false, // noSource
-                false, // missingFirst
-                bwdNz?.sortOverride,
-                bwdNz?.extraFilter,
-              ).then(bwdResult => {
-                // Remap backward sort values from null-zone shape
-                if (bwdNz && bwdResult.sortValues.length > 0) {
-                  bwdResult.sortValues = remapNullZoneSortValues(
-                    bwdResult.sortValues, bwdNz.sortClause, bwdNz.primaryField,
-                  );
-                }
-                return bwdResult;
-              });
+                true, // reverse
+              );
             }
           }
 
-          // Forward fetch
-          const forwardPromise = fwdNz
-            ? dataSource.searchAfter(
-                { ...params, length: PAGE_SIZE },
-                fwdNz.strippedCursor,
-                effectivePitId,
-                signal,
-                false, false, false,
-                fwdNz.sortOverride,
-                fwdNz.extraFilter,
-              ).then(fwdResult => {
-                if (fwdResult.sortValues.length > 0) {
-                  fwdResult.sortValues = remapNullZoneSortValues(
-                    fwdResult.sortValues, fwdNz.sortClause, fwdNz.primaryField,
-                  );
-                }
-                usedNullZoneFilter = true;
-                return fwdResult;
-              })
-            : dataSource.searchAfter(
-                { ...params, length: PAGE_SIZE },
-                forwardCursor,
-                effectivePitId,
-                signal,
-              );
+          // Forward fetch — null-zone cursors are handled transparently by the adapter
+          const forwardPromise = dataSource.searchAfter(
+            { ...params, length: PAGE_SIZE },
+            forwardCursor,
+            effectivePitId,
+            signal,
+          );
+          if (forwardCursor[0] === null) usedNullZoneFilter = true;
 
           // Run in parallel
           const [forwardResult, backwardResult] = await Promise.all([
@@ -2920,31 +2805,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               `[seek-diag] NULL ZONE estimate: uploadTime=${uploadTimeEstimate} ` +
               `(${new Date(uploadTimeEstimate).toISOString()})`,
             );
-            // Null zone strategy: filter to docs where the primary field is
-            // missing, sort by [uploadTime dir, id asc] (the fallback sort
-            // that ES actually uses within the null partition), and seek via
-            // search_after with [uploadTimeEstimate, ""].
-            //
-            // We can NOT pass null in search_after — ES rejects it with 500.
-            // Instead, we narrow the query and change the sort so the cursor
-            // only contains concrete values.
-            //
-            // Direction: derived from the sort clause's uploadTime fallback
-            // (set by buildSortClause — date sorts inherit primary direction,
-            // keyword/numeric sorts get desc).
-            let nullZoneUploadDir: "asc" | "desc" = "desc";
-            for (const clause of sortClause) {
-              const { field, direction } = parseSortField(clause);
-              if (field === "uploadTime") { nullZoneUploadDir = direction; break; }
-            }
-            const nullZoneSort: Record<string, unknown>[] = [
-              { uploadTime: nullZoneUploadDir },
-              { id: "asc" },
-            ];
-            const nullZoneFilter: Record<string, unknown> = {
-              bool: { must_not: { exists: { field: primaryField! } } },
-            };
-            const nullZoneCursor: SortValues = [uploadTimeEstimate, ""];
+            // Null zone strategy: pass a null-prefixed cursor so the adapter
+            // applies the correct sort/filter overrides internally.
+            // The adapter detects cursor[0] === null, strips the prefix, narrows
+            // to docs where primaryField is missing, sorts by [uploadTime, id],
+            // and remaps returned sort values back to full shape.
+            const nullZoneCursor: SortValues = [null, uploadTimeEstimate, ""];
 
             usedNullZoneFilter = true;
             result = await dataSource.searchAfter(
@@ -2952,11 +2818,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               nullZoneCursor,
               effectivePitId,
               signal,
-              false, // reverse
-              false, // noSource
-              false, // missingFirst
-              nullZoneSort,
-              nullZoneFilter,
             );
 
             // Find where we actually landed. The countBefore for the null
@@ -2966,26 +2827,22 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             // the landed position" on the uploadTime+id sort.
             if (result.hits.length > 0 && result.sortValues.length > 0) {
               if (signal.aborted) return;
+              // landedSortValues is already full shape: [null, uploadTime, id]
               const landedSortValues = result.sortValues[0];
-              const landedUploadTime = landedSortValues[0]; // first sort value = uploadTime
+              const uploadTimeIdx = sortClause.findIndex((c) => {
+                const { field } = parseSortField(c);
+                return field === "uploadTime";
+              });
+              const landedUploadTime = uploadTimeIdx >= 0 ? landedSortValues[uploadTimeIdx] : null;
               devLog(
                 `[seek-diag] NULL ZONE landed: uploadTime=${landedUploadTime} ` +
                 `(${new Date(landedUploadTime as number).toISOString()}), ` +
                 `firstHitUploadTime=${result.hits[0]?.uploadTime}`,
               );
 
-              // Re-derive the full sort values for countBefore: the first
-              // hit has sort values from the nullZoneSort [uploadTime, id].
-              // We need to express this in the full sort clause terms:
-              // [null (lastModified), uploadTime, id].
-              const fullSortValues = remapNullZoneSortValues(
-                [landedSortValues], sortClause, primaryField!,
-              )[0];
-
               const countBefore = await dataSource.countBefore(
                 params,
-                fullSortValues,
-                sortClause,
+                landedSortValues,
                 signal,
               );
               devLog(
@@ -2994,23 +2851,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 `impliedNullZonePos=${countBefore - coveredCount}, ` +
                 `targetNullZonePos=${posInNullZone}, ` +
                 `drift=${countBefore - clampedOffset}, ` +
-                `fullSortValues=${JSON.stringify(fullSortValues)}`,
+                `fullSortValues=${JSON.stringify(landedSortValues)}`,
               );
               actualOffset = countBefore;
             }
-
-            // Remap sort values from null-zone shape [uploadTime, id] to
-            // full sort clause shape [null, uploadTime, id]. Without this,
-            // startCursor/endCursor would be 2-element arrays that break
-            // subsequent extendForward/extendBackward calls.
-            if (result && result.sortValues.length > 0) {
-              result = {
-                ...result,
-                sortValues: remapNullZoneSortValues(
-                  result.sortValues, sortClause, primaryField!,
-                ),
-              };
-            }
+            // Sort values are already in full shape (adapter remapped them).
           }
           // If uploadTimeEstimate is null, fall through to the keyword/fallback path below.
         }
@@ -3061,7 +2906,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             const countBefore = await dataSource.countBefore(
               params,
               landedSortValues,
-              sortClause,
               signal,
             );
             actualOffset = countBefore;
@@ -3114,7 +2958,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 const countBefore = await dataSource.countBefore(
                   params,
                   landedSortValues,
-                  sortClause,
                   signal,
                 );
                 actualOffset = countBefore;
@@ -3169,7 +3012,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                     const count = await dataSource.countBefore(
                       params,
                       probeCursor,
-                      sortClause,
                       signal,
                     );
 
@@ -3237,7 +3079,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               // Subtlety: ES sorts nulls as `_last` by default for BOTH asc
               // and desc. A naive reverse sort would put nulls last again —
               // returning the highest keyword values, not the true end. We
-              // pass `missingFirst: true` so the reversed sort uses
+              // pass `seekToEnd: true` so the reversed sort uses
               // `missing: "_first"`, putting nulls first in reversed order
               // (= last in original order).
               if (
@@ -3250,9 +3092,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   null,
                   effectivePitId,
                   signal,
-                  true,  // reverse
-                  false, // noSource
-                  true,  // missingFirst — nulls come first in reversed order
+                  true, // reverse
+                  true, // seekToEnd — nulls come first in reversed order
                 );
                 if (reverseResult.hits.length > 0) {
                   result = reverseResult;
@@ -3317,32 +3158,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
         const landedCursor = result.sortValues[0];
 
-        // Detect null-zone cursor — same logic as _loadBufferAroundImage.
-        // If the cursor's primary field is null, we need to strip it and
-        // use the null-zone sort/filter overrides for the backward fetch.
-        const nz = detectNullZoneCursor(landedCursor, params.orderBy);
-        const effectiveCursor = nz ? nz.strippedCursor : landedCursor;
-
+        // Null-zone cursors are handled transparently by the adapter.
         const backwardResult = await dataSource.searchAfter(
           { ...params, length: halfBuffer },
-          effectiveCursor,
+          landedCursor,
           effectivePitId,
           signal,
-          true,  // reverse
-          false, // noSource
-          false, // missingFirst
-          nz?.sortOverride,
-          nz?.extraFilter,
+          true, // reverse
         );
 
         if (signal.aborted) return;
-
-        // Remap backward sort values from null-zone shape back to full shape
-        if (nz && backwardResult.sortValues.length > 0) {
-          backwardResult.sortValues = remapNullZoneSortValues(
-            backwardResult.sortValues, nz.sortClause, nz.primaryField,
-          );
-        }
 
         if (backwardResult.hits.length > 0) {
           // Combine: backward (reversed to restore original order) + forward
@@ -3369,8 +3194,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
           devLog(
             `[seek] bidirectional: prepended ${backwardResult.hits.length} backward items, ` +
-            `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}` +
-            (nz ? ' (null-zone cursor)' : ''),
+            `buffer now ${combinedHits.length} items, bufferOffset=${newBufferStart}`,
           );
         }
       }
@@ -3692,13 +3516,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const sortClause = buildSortClause(params.orderBy);
-
       // Steps 1 + 2 are independent — run in parallel.
       // Step 1: countBefore for exact global offset.
       // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
       const [exactOffset, targetResult] = await Promise.all([
-        dataSource.countBefore(params, cursor, sortClause, signal),
+        dataSource.countBefore(params, cursor, signal),
         dataSource.searchAfter(
           { ...params, ids: imageId, length: 1 },
           null, null, signal,
@@ -3855,12 +3677,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     const startTime = performance.now();
 
-    // Build filter agg requests synchronously — parseCql handles the
-    // under-quota query (calls getOverQuotaSuppliers internally, same as
-    // buildIsQuery in cql.ts). DRYs the query definition to one place.
+    // Build filter agg requests — the adapter compiles "is:<name>" internally.
     const isFilterRequests: FilterAggRequest[] = [
-      { name: "deleted", query: parseCql("is:deleted").must[0] },
-      { name: "under-quota", query: parseCql("is:under-quota").must[0] },
+      { name: "deleted", isFilter: "deleted" },
+      { name: "under-quota", isFilter: "under-quota" },
     ];
 
     try {
@@ -4016,21 +3836,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     try {
       // Fetch the uploadTime distribution for NULL-ZONE DOCS ONLY.
-      // The extra filter narrows to docs where the primary sort field is
-      // missing — exactly the null-zone population. This gives accurate
-      // bucket positions (no scaling needed). Without this filter, the
-      // distribution covers all docs and positions are linearly scaled
-      // by nullZoneSize/total — wildly inaccurate because null-zone docs
-      // have a different uploadTime distribution than non-null docs.
+      // Pass primaryField as missingField — adapter builds the must_not:exists
+      // filter internally, narrowing to docs where the primary sort field is
+      // missing.
       const primaryField = dateInfo?.field ?? kwInfo?.field ?? null;
-      const nullZoneFilter = primaryField
-        ? { bool: { must_not: { exists: { field: primaryField } } } }
-        : undefined;
 
       const dist = await dataSource.getDateDistribution(
         params, "uploadTime", direction,
         _nullZoneDistAbortController.signal,
-        nullZoneFilter,
+        primaryField ?? undefined,
       );
 
       // Guard: params may have changed while awaiting

@@ -903,8 +903,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
   ): Promise<Record<string, number>> {
     if (filters.length === 0) return {};
     const aggs: Record<string, unknown> = {};
-    for (const { name, query } of filters) {
-      aggs[name] = { filter: query };
+    for (const { name, isFilter } of filters) {
+      aggs[name] = { filter: parseCql(`is:${isFilter}`).must[0] };
     }
     const body = { size: 0, query: buildQuery(params), aggs };
     const result = (await this.esRequest("_search", body, signal)) as {
@@ -943,23 +943,50 @@ export class ElasticsearchDataSource implements ImageDataSource {
     }
   }
 
+  /**
+   * Public searchAfter — 6-param interface. Null-zone cursors are handled
+   * transparently: the adapter detects `searchAfterValues[0] === null`,
+   * strips the prefix, applies sort/filter overrides internally, and remaps
+   * the returned sort values back to full null-prefixed shape before returning.
+   */
   async searchAfter(
     params: SearchParams,
     searchAfterValues: SortValues | null,
     pitId?: string | null,
     signal?: AbortSignal,
     reverse?: boolean,
-    noSource?: boolean,
-    missingFirst?: boolean,
-    sortOverride?: Record<string, unknown>[],
-    extraFilter?: Record<string, unknown>,
+    seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
+    return this._searchAfterImpl(params, searchAfterValues, pitId, signal, reverse, false, seekToEnd);
+  }
+
+  /**
+   * Internal searchAfter implementation. Accepts `noSource` for getIdRange
+   * (which needs `_source: false` but should not expose this as a public
+   * interface param). All null-zone logic lives here.
+   */
+  private async _searchAfterImpl(
+    params: SearchParams,
+    searchAfterValues: SortValues | null,
+    pitId?: string | null,
+    signal?: AbortSignal,
+    reverse?: boolean,
+    noSource?: boolean,
+    seekToEnd?: boolean,
+  ): Promise<SearchAfterResult> {
+    // Null-zone detection: if cursor starts with null, apply ES-internal overrides
+    // and remap sort values back to full shape before returning.
+    const nz = searchAfterValues ? detectNullZoneCursor(searchAfterValues, params.orderBy) : null;
+    const effectiveCursor = nz ? nz.strippedCursor : searchAfterValues;
+    const sortOverride = nz?.sortOverride;
+    const extraFilter = nz?.extraFilter;
+
     const sortClause = sortOverride ?? buildSortClause(params.orderBy);
     let effectiveSort = reverse ? reverseSortClause(sortClause) : sortClause;
 
-    // missingFirst: override the primary sort field to use missing: "_first".
+    // seekToEnd: override the primary sort field to use missing: "_first".
     // Needed for reverse-seek-to-end on keyword fields with null values.
-    if (missingFirst && effectiveSort.length > 0) {
+    if (seekToEnd && effectiveSort.length > 0) {
       effectiveSort = effectiveSort.map((clause, idx) => {
         if (idx !== 0) return clause;
         const { field, direction } = parseSortField(clause);
@@ -984,7 +1011,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // from/size offset — used when no cursor is provided (initial search, seek, backward extend).
     // When search_after is present, 'from' must be omitted (ES ignores it but warns).
-    if (!searchAfterValues && params.offset) {
+    if (!effectiveCursor && params.offset) {
       body.from = params.offset;
     }
 
@@ -999,8 +1026,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
     }
 
     // Cursor — omit for the first page
-    if (searchAfterValues) {
-      body.search_after = searchAfterValues;
+    if (effectiveCursor) {
+      body.search_after = effectiveCursor;
     }
 
     // PIT — include for consistent pagination
@@ -1037,17 +1064,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
       // subsequent extend after PIT expiry would send a search_after cursor
       // that's longer than the sort clause, causing ES to return 400.
       const sortLen = effectiveSort.length;
+      const rawSortValues = orderedHits.map((hit) =>
+        sanitizeSortValues(
+          hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
+        ),
+      );
       return {
         hits: orderedHits.map((hit) => hit._source),
         // hits.total is absent when track_total_hits: false — safe default to 0.
         total: result.hits.total?.value ?? 0,
         took: result.took,
         fetchDuration: Date.now() - t0,
-        sortValues: orderedHits.map((hit) =>
-          sanitizeSortValues(
-            hit.sort.length > sortLen ? hit.sort.slice(0, sortLen) : hit.sort,
-          ),
-        ),
+        sortValues: nz
+          ? remapNullZoneSortValues(rawSortValues, nz.sortClause, nz.primaryField)
+          : rawSortValues,
         pitId: result.pit_id,
       };
     } catch (e) {
@@ -1081,21 +1111,24 @@ export class ElasticsearchDataSource implements ImageDataSource {
           };
           const rawHits = fallbackResult.hits.hits;
           const orderedHits = reverse ? [...rawHits].reverse() : rawHits;
+          const fallbackRawSortValues = orderedHits.map((hit) =>
+            sanitizeSortValues(
+              // Belt-and-braces: match the main return path's slice so stored
+              // cursors never grow to length-(N+1) if this path ever evolves
+              // to retain PIT. Currently a no-op (non-PIT ES returns length-N).
+              hit.sort.length > effectiveSort.length
+                ? hit.sort.slice(0, effectiveSort.length)
+                : hit.sort,
+            ),
+          );
           return {
             hits: orderedHits.map((hit) => hit._source),
             total: fallbackResult.hits.total?.value ?? 0,
             took: fallbackResult.took,
             fetchDuration: Date.now() - t0,
-            sortValues: orderedHits.map((hit) =>
-              sanitizeSortValues(
-                // Belt-and-braces: match the main return path's slice so stored
-                // cursors never grow to length-(N+1) if this path ever evolves
-                // to retain PIT. Currently a no-op (non-PIT ES returns length-N).
-                hit.sort.length > effectiveSort.length
-                  ? hit.sort.slice(0, effectiveSort.length)
-                  : hit.sort,
-              ),
-            ),
+            sortValues: nz
+              ? remapNullZoneSortValues(fallbackRawSortValues, nz.sortClause, nz.primaryField)
+              : fallbackRawSortValues,
             // Explicit null signals the store to clear its stale PIT (audit #21).
             // Without this, `result.pitId ?? state.pitId` preserves the expired
             // PIT, causing every subsequent extend to 404 and retry — a cascade.
@@ -1284,9 +1317,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
   async countBefore(
     params: SearchParams,
     sortValues: SortValues,
-    sortClause: Record<string, unknown>[],
     signal?: AbortSignal,
   ): Promise<number> {
+    const sortClause = buildSortClause(params.orderBy);
     // Build a query that counts all documents that sort *before* the
     // target document. For each sort field, a document sorts before if:
     //   - Its value on an earlier sort field is strictly "less" (in the
@@ -1689,13 +1722,16 @@ export class ElasticsearchDataSource implements ImageDataSource {
     field: string,
     direction: "asc" | "desc",
     signal?: AbortSignal,
-    extraFilter?: Record<string, unknown>,
+    missingField?: string,
   ): Promise<SortDistribution | null> {
     const startTime = Date.now();
 
     // First, get the min/max of the field to choose the right interval.
     // stats agg is very cheap on date fields (~5ms).
     const baseQuery = buildQuery(params);
+    const extraFilter = missingField
+      ? { bool: { must_not: { exists: { field: missingField } } } }
+      : undefined;
     const query = extraFilter
       ? { bool: { must: [baseQuery], filter: [extraFilter] } }
       : baseQuery;
@@ -2125,30 +2161,25 @@ export class ElasticsearchDataSource implements ImageDataSource {
     while (true) {
       if (signal?.aborted) break;
 
-      // Detect null-zone cursor — if the primary sort field is null in the
-      // cursor, we must narrow the query and sort to the fallback fields.
-      const nz = detectNullZoneCursor(cursor, params.orderBy);
+      // Detect whether the current cursor is in the null zone, for the
+      // "crossed into null zone" check at the end of the loop.
+      const cursorIsNullZone = cursor.length > 0 && cursor[0] === null;
 
-      const result = await this.searchAfter(
+      const result = await this._searchAfterImpl(
         { ...params, length: RANGE_CHUNK_SIZE },
-        nz ? nz.strippedCursor : cursor,
+        cursor,       // full cursor — _searchAfterImpl handles null-zone internally
         null, // no PIT — getIdRange is a one-shot walk
         signal,
         false, // reverse
         true,  // noSource — only IDs needed
-        false, // missingFirst
-        nz?.sortOverride,
-        nz?.extraFilter,
+        false, // seekToEnd
       );
 
       if (signal?.aborted) break;
       if (result.hits.length === 0) break;
 
-      // Remap sort values from null-zone shape back to full sort clause shape
-      let sortValues = result.sortValues;
-      if (nz && sortValues.length > 0) {
-        sortValues = remapNullZoneSortValues(sortValues, nz.sortClause, nz.primaryField);
-      }
+      // Sort values are already remapped to full shape by _searchAfterImpl.
+      const sortValues = result.sortValues;
 
       // Process hits — check each against toCursor and extract ID from sort values
       for (let i = 0; i < sortValues.length; i++) {
@@ -2175,12 +2206,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
       cursor = lastSv;
 
       // Fewer hits than requested → last page... UNLESS the cursor just
-      // crossed into the null zone. When `nz` was null (no null-zone filter
-      // active) but the new cursor has a null primary field, the populated
-      // zone is exhausted but null-zone docs may still be in range. The next
-      // iteration will detect the null-zone cursor and issue a phase-2 query.
+      // crossed into the null zone. When the previous cursor was not in the
+      // null zone but the new cursor starts with null, the populated zone is
+      // exhausted but null-zone docs may still be in range. The next iteration
+      // will pass the full null-prefixed cursor to _searchAfterImpl, which
+      // handles the null-zone query internally.
       if (result.hits.length < RANGE_CHUNK_SIZE) {
-        const crossedIntoNullZone = !nz && detectNullZoneCursor(cursor, params.orderBy) != null;
+        const crossedIntoNullZone = !cursorIsNullZone && cursor[0] === null;
         if (!crossedIntoNullZone) break;
       }
     }
