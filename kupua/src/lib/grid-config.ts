@@ -16,8 +16,8 @@ interface FieldAlias {
 }
 
 /**
- * A single ticker definition — drives filter aggregations in _doSearch and
- * badge rendering in StatusBar + Filters panel.
+ * A single ticker definition — drives filter aggregations in countWithTickers
+ * and badge rendering in StatusBar + Filters panel.
  */
 export interface TickerDefinition {
   /** Display name shown in the badge (e.g. "GNM-owned", "agency picks"). */
@@ -118,7 +118,7 @@ export const gridConfig = {
   } as Record<string, string[]>,
 
   /**
-   * Ticker definitions — each entry drives a filter aggregation in _doSearch
+   * Ticker definitions — each entry drives a filter aggregation in countWithTickers
    * and a badge in StatusBar + Filters panel.
    * Mirrors the aggregationsNameToSearchClauseMap built in ElasticSearch.scala.
    * Gated by the same feature flags as the underlying `is:` queries.

@@ -178,7 +178,7 @@ export function FacetFilters() {
       {/* "Is" section — all valid is: values, with ticker counts where available.
           Iterates buildIsOptions() (config-gated canonical list) and annotates
           entries that have a corresponding ticker count from the store.
-          No extra fetch — ticker counts come from _doSearch filter aggs. */}
+          No extra fetch — ticker counts come from countWithTickers filter aggs. */}
       <IsSection
         currentQuery={currentQuery}
         tickerCounts={tickerCounts}

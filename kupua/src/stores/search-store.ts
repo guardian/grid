@@ -1893,7 +1893,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           params,
           aiResult.hits.map((h) => h.id),
         );
-        dataSource.countWithTickers(decorated, signal).then((result) => {
+        dataSource.countWithTickers(decorated).then((result) => {
           if (_searchGeneration !== myGeneration) return;
           set({ tickerCounts: result.tickerCounts, tickersLastUpdated: new Date().toISOString() });
         }).catch(() => { /* AbortError or network — tickers are non-critical */ });
@@ -3684,10 +3684,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     ];
 
     try {
-      const [result, isFilterCounts] = await Promise.all([
-        dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal),
-        dataSource.getFilterAggregations(callParams, isFilterRequests, _aggAbortController.signal),
-      ]);
+      const result = await dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests);
 
       const elapsed = performance.now() - startTime;
 
@@ -3700,7 +3697,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
         expandedAggs: {},
         expandedAggsLoading: new Set(),
-        isFilterCounts,
+        isFilterCounts: result.filters ?? null,
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {

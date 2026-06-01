@@ -14,4 +14,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 (none)
 
+<!-- Previous task complete: B2 fusions (F1–F4). Unit 871/871, E2E 240/240. -->
+
 ## Session Log
+
+(cleared — task complete 2026-06-01)

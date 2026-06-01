@@ -20,6 +20,7 @@ import type {
   AggregationResult,
   AggregationRequest,
   AggregationsResult,
+  FilterAggRequest,
   SortDistribution,
   SortDistBucket,
   IdRangeResult,
@@ -368,8 +369,8 @@ export function buildSyndicationStatusFilter(
 }
 
 // ---------------------------------------------------------------------------
-// Ticker aggregation helpers — build filter aggs for _doSearch and
-// countWithTickers. Module-level so they have no class dependency.
+// Ticker aggregation helpers — build filter aggs for countWithTickers.
+// Module-level so they have no class dependency.
 // ---------------------------------------------------------------------------
 
 /**
@@ -572,13 +573,6 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
 }
 
 export class ElasticsearchDataSource implements ImageDataSource {
-  /**
-   * AbortController for the current in-flight search request.
-   * When a new search starts, the previous one is cancelled to prevent
-   * stale results from overwriting fresher ones (request coalescing).
-   */
-  private searchAbortController: AbortController | null = null;
-
   private assertReadOnly(path: string, method: string = "POST"): void {
     if (IS_LOCAL_ES) return; // no restrictions on local docker ES
 
@@ -683,94 +677,23 @@ export class ElasticsearchDataSource implements ImageDataSource {
   }
 
   async search(params: SearchParams): Promise<SearchResult> {
-    // Cancel any in-flight search — only the latest one matters
-    if (this.searchAbortController) {
-      this.searchAbortController.abort();
-    }
-    this.searchAbortController = new AbortController();
-    const { signal } = this.searchAbortController;
-
-    const t0 = Date.now();
-    const result = await this._doSearch(params, signal, /* includeTickers */ true);
-    return { ...result, fetchDuration: Date.now() - t0 };
+    return this.searchAfter(params, null, null);
   }
 
   /**
    * Search without using the shared abort controller.
    * Range loads are additive and shouldn't cancel each other or cancel
    * search. Accepts an optional signal so the caller can abort.
+   * Delegates to searchAfter (first page, no PIT) for the ES implementation;
+   * GridApiDataSource will override this with an offset-based GET /images call.
    */
   async searchRange(params: SearchParams, signal?: AbortSignal): Promise<SearchResult> {
-    // No ticker aggs on range loads — they're additive page-fills that don't
-    // need counts (adding aggs to them wastes work).
-    return this._doSearch(params, signal, /* includeTickers */ false);
-  }
-
-  private async _doSearch(params: SearchParams, signal?: AbortSignal, includeTickers = false): Promise<SearchResult> {
-
-    const body: Record<string, unknown> = {
-      query: buildQuery(params),
-      sort: buildSortClause(params.orderBy),
-      from: params.offset ?? 0,
-      size: params.length ?? 50,
-      track_total_hits: true,
-    };
-
-    // Inject ticker filter aggregations when requested.
-    // Only on initial searches (search()), not on range fills (searchRange()).
-    const tickerAggs = includeTickers ? TICKER_AGGS : null;
-    if (tickerAggs) {
-      body.aggs = tickerAggs;
-    }
-
-    // _source filtering — whitelist fields to reduce response size
-    if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
-      body._source = {
-        ...(SOURCE_INCLUDES.length > 0
-          ? { includes: SOURCE_INCLUDES }
-          : {}),
-        ...(SOURCE_EXCLUDES.length > 0
-          ? { excludes: SOURCE_EXCLUDES }
-          : {}),
-      };
-    }
-
-    try {
-      const result = (await this.esRequest("_search", body, signal)) as {
-        took?: number;
-        hits: {
-          total: { value: number };
-          hits: Array<{ _id: string; _source: Image; sort?: SortValues }>;
-        };
-        aggregations?: Record<string, unknown>;
-      };
-
-      return {
-        hits: result.hits.hits.map((hit) => hit._source),
-        total: result.hits.total.value,
-        took: result.took,
-        sortValues: result.hits.hits.map((hit) =>
-          sanitizeSortValues(hit.sort ?? []),
-        ),
-        ...(tickerAggs && result.aggregations
-          ? { tickerCounts: parseTickerAggs(result.aggregations) }
-          : {}),
-      };
-    } catch (e) {
-      // Don't treat aborted requests as errors — they're intentional
-      if (e instanceof DOMException && e.name === "AbortError") {
-        return { hits: [], total: 0 };
-      }
-      throw e;
-    }
+    return this.searchAfter(params, null, null, signal);
   }
 
   async count(params: SearchParams): Promise<number> {
-    const body = { query: buildQuery(params) };
-    const result = (await this.esRequest("_count", body)) as {
-      count: number;
-    };
-    return result.count;
+    const { count } = await this.countWithTickers(params);
+    return count;
   }
 
   async countWithTickers(params: SearchParams): Promise<CountWithTickersResult> {
@@ -797,20 +720,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
   }
 
   async getById(id: string): Promise<Image | undefined> {
-    const body: Record<string, unknown> = {
-      query: { terms: { id: [id] } },
-      size: 1,
-    };
-    if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
-      body._source = {
-        ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
-        ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
-      };
-    }
-    const result = (await this.esRequest("_search", body)) as {
-      hits: { hits: Array<{ _source: Image }> };
-    };
-    return result.hits.hits[0]?._source;
+    const results = await this.getByIds([id]);
+    return results[0];
   }
 
   async getAggregation(
@@ -857,64 +768,57 @@ export class ElasticsearchDataSource implements ImageDataSource {
     params: SearchParams,
     fields: AggregationRequest[],
     signal?: AbortSignal,
+    isFilters?: FilterAggRequest[],
   ): Promise<AggregationsResult> {
     // Build named aggs — one terms agg per field, keyed by field path
     const aggs: Record<string, unknown> = {};
     for (const { field, size } of fields) {
-      // Use a safe agg name: replace dots with underscores
       aggs[field] = { terms: { field, size: size ?? 10 } };
+    }
+    // Add IS-filter aggs when requested — keyed by filter name
+    if (isFilters?.length) {
+      for (const { name, isFilter } of isFilters) {
+        aggs[name] = { filter: parseCql(`is:${isFilter}`).must[0] };
+      }
     }
 
     const body: Record<string, unknown> = {
-      size: 0, // No hits — aggs only
+      size: 0,
       query: buildQuery(params),
-      aggs,
+      ...(Object.keys(aggs).length > 0 ? { aggs } : {}),
     };
 
     const t0 = Date.now();
     const result = (await this.esRequest("_search", body, signal)) as {
       took?: number;
-      aggregations: Record<
-        string,
-        { buckets: Array<{ key: string; doc_count: number }> }
-      >;
+      aggregations?: Record<string, { buckets?: Array<{ key: string; doc_count: number }>; doc_count?: number }>;
       hits: { total: { value: number } };
     };
     const fetchDuration = Date.now() - t0;
 
-    const out: Record<string, AggregationResult> = {};
+    const outFields: Record<string, AggregationResult> = {};
     for (const { field } of fields) {
-      const agg = result.aggregations[field];
-      out[field] = {
-        buckets: agg
+      const agg = result.aggregations?.[field];
+      outFields[field] = {
+        buckets: agg?.buckets
           ? agg.buckets.map((b) => ({ key: b.key, count: b.doc_count }))
           : [],
         total: result.hits.total.value,
       };
     }
 
-    return { fields: out, took: result.took, fetchDuration };
-  }
+    const outFilters: Record<string, number> | undefined = isFilters?.length
+      ? Object.fromEntries(
+          isFilters.map(({ name }) => [name, result.aggregations?.[name]?.doc_count ?? 0]),
+        )
+      : undefined;
 
-  async getFilterAggregations(
-    params: SearchParams,
-    filters: import("./types").FilterAggRequest[],
-    signal?: AbortSignal,
-  ): Promise<Record<string, number>> {
-    if (filters.length === 0) return {};
-    const aggs: Record<string, unknown> = {};
-    for (const { name, isFilter } of filters) {
-      aggs[name] = { filter: parseCql(`is:${isFilter}`).must[0] };
-    }
-    const body = { size: 0, query: buildQuery(params), aggs };
-    const result = (await this.esRequest("_search", body, signal)) as {
-      aggregations: Record<string, { doc_count: number }>;
+    return {
+      fields: outFields,
+      ...(outFilters !== undefined ? { filters: outFilters } : {}),
+      took: result.took,
+      fetchDuration,
     };
-    const out: Record<string, number> = {};
-    for (const { name } of filters) {
-      out[name] = result.aggregations[name]?.doc_count ?? 0;
-    }
-    return out;
   }
 
   // ---------------------------------------------------------------------------

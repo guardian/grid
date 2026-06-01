@@ -372,8 +372,8 @@ export function buildTypeaheadFields(
                 { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
                 { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
               ];
-              const counts = await dataSource.getFilterAggregations(params, filterRequests);
-              for (const [k, v] of Object.entries(counts)) countMap.set(k, v);
+              const aggResult = await dataSource.getAggregations(params, [], undefined, filterRequests);
+              for (const [k, v] of Object.entries(aggResult.filters ?? {})) countMap.set(k, v);
             }
           } catch { /* non-critical — counts just absent */ }
         }

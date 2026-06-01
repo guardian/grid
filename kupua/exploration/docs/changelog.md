@@ -14,6 +14,51 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 June 2026 — B2 Refactor: DAL Method Fusions (F1–F4)
+
+Collapsed 4 paired DAL methods into 2 via fusions, reducing `ImageDataSource` surface
+and eliminating a redundant parallel ES request on every facet panel load.
+
+**Naming choice (F1):** Rather than introducing a new `getFacetData` name, `getAggregations`
+was kept and its signature extended with an optional 4th parameter
+`isFilters?: FilterAggRequest[]`. `getFilterAggregations` was removed from the interface
+and all implementations. Standalone callers that don't need IS-filter counts pass nothing
+and require zero changes.
+
+**`types.ts`:**
+- `AggregationsResult` gains `filters?: Record<string, number>` (populated when `isFilters` passed)
+- `getAggregations` signature: `(params, fields, signal?, isFilters?) => Promise<AggregationsResult>`
+- `getFilterAggregations` removed from interface
+
+**`es-adapter.ts`:**
+- `getAggregations` now merges terms aggs + IS-filter aggs in one `_search` body;
+  `result.filters` populated from filter agg `doc_count` values
+- `getFilterAggregations` removed
+- `getById` → `this.getByIds([id])[0]` (uses `_mget`, more efficient than `_search terms:{id:[id]}`)
+- `search` → `this.searchAfter(params, null, null)` (eliminates `_doSearch` from+size path);
+  `_doSearch` private method (~60 LOC) subsequently deleted entirely — `searchRange` also
+  delegated to `searchAfter`, making `_doSearch` the sole caller before its removal.
+  Not coming back: `GridApiDataSource` is a separate class and never shared this code.
+- `count` → `this.countWithTickers(params).then(r => r.count)` (eliminates `_count` endpoint)
+- `searchAbortController` field removed (was only used by old `search` implementation)
+- `FilterAggRequest` added to import list (was missing despite being used)
+
+**`mock-data-source.ts`:**
+- `getAggregations` signature updated (4 params); `FilterAggRequest` import added
+- `getFilterAggregations` removed
+
+**`search-store.ts`:**
+- `Promise.all([getAggregations(...), getFilterAggregations(...)])` pair
+  at ss:3687–3689 → single `getAggregations(params, AGG_FIELDS, signal, isFilterRequests)` call
+- `isFilterCounts: result.filters ?? null` in the set() call
+- Spurious 2nd arg dropped from `countWithTickers` call at ss:1896 (AI ticker path)
+
+**`typeahead-fields.ts`:**
+- `getFilterAggregations(params, filterRequests)` → `getAggregations(params, [], undefined, filterRequests)`;
+  counts extracted from `aggResult.filters ?? {}`
+
+**Result:** unit 871/871 ✓ · E2E 240/240 ✓
+
 ### 1 June 2026 — B1 Refactor: Eliminate ES-Shape Leaks (phase-3-b1)
 
 Removed 7 raw ES DSL objects (`Record<string, unknown>`) from the `ImageDataSource`

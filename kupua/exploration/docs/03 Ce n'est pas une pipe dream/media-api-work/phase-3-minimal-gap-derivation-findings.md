@@ -753,7 +753,7 @@ All items are fixable client-side alone unless noted. Sources: Phase 2 §4.
 
 ---
 
-## Section 4b — Bucket-B2 Catalogue (Consolidation / Fusion)
+## Section 4b — Bucket-B2 Catalogue (Consolidation / Fusion) ✅ DONE — 2026-06-01
 
 The four confirmed fusions from b2-hunt-findings.md §1 (F1–F4), restated inline. Source: b2-hunt Sections 1–2.
 

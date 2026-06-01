@@ -99,9 +99,9 @@ export interface SearchResult {
    */
   sortValues?: SortValues[];
   /**
-   * Ticker counts from filter aggregations injected by _doSearch.
+   * Ticker counts from filter aggregations.
    * Keyed by ticker name (e.g. "GNM-owned", "agency picks").
-   * Only present when includeTickers was true in the underlying _doSearch call.
+   * Returned by countWithTickers(); not bundled into searchRange or search.
    */
   tickerCounts?: Record<string, TickerCountResult>;
 }
@@ -180,6 +180,8 @@ export interface FilterAggRequest {
 export interface AggregationsResult {
   /** Per-field aggregation results, keyed by ES field path. */
   fields: Record<string, AggregationResult>;
+  /** IS-filter doc counts — only present when isFilters was passed to getAggregations. Keyed by filter name. */
+  filters?: Record<string, number>;
   /** ES query time in milliseconds. */
   took?: number;
   /** Wall-clock ms from the start of getAggregations() to result return. */
@@ -266,26 +268,19 @@ export interface ImageDataSource {
   ): Promise<AggregationResult>;
 
   /**
-   * Batched terms aggregations — multiple fields in a single ES request.
-   * Used by facet filters. Returns keyed by field path.
-   * The query is derived from SearchParams (same filters as the main search).
+   * Batched aggregations — terms aggs per field and optional IS-filter aggs,
+   * all in a single ES request. Returns field buckets keyed by field path.
+   * When `isFilters` is provided, also returns IS-filter doc counts in
+   * `result.filters` (keyed by filter name).
+   *
+   * Callers that only need field aggs omit `isFilters` — no change required.
    */
   getAggregations(
     params: SearchParams,
     fields: AggregationRequest[],
     signal?: AbortSignal,
+    isFilters?: FilterAggRequest[],
   ): Promise<AggregationsResult>;
-
-  /**
-   * Fire filter aggregations for a set of named ES queries, returning
-   * name → doc_count. Used for `is:` value counts in the filter panel
-   * and typeahead (deleted, under-quota).
-   */
-  getFilterAggregations(
-    params: SearchParams,
-    filters: FilterAggRequest[],
-    signal?: AbortSignal,
-  ): Promise<Record<string, number>>;
 
   // ---------------------------------------------------------------------------
   // search_after + PIT methods (added for windowed scroll)

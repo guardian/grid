@@ -27,6 +27,7 @@ import type {
   AggregationResult,
   AggregationRequest,
   AggregationsResult,
+  FilterAggRequest,
   SortDistribution,
   IdRangeResult,
   CountWithTickersResult,
@@ -354,12 +355,10 @@ export class MockDataSource implements ImageDataSource {
   async getAggregations(
     _params: SearchParams,
     _fields: AggregationRequest[],
+    _signal?: AbortSignal,
+    _isFilters?: FilterAggRequest[],
   ): Promise<AggregationsResult> {
     return { fields: {} };
-  }
-
-  async getFilterAggregations(): Promise<Record<string, number>> {
-    return {};
   }
 
   async openPit(): Promise<string> {
