@@ -178,8 +178,11 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, params: SearchParams)
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+//    TODO add relevant search parameters to the search
+    logger.info(logMarker, s"$params still need to do something with the params here")
+
     val knn = Knn("embedding.cohereEmbedV4.image")
         .queryVector(queryEmbedding.map(_.toDouble))
         .k(k)
@@ -262,6 +265,7 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
+    params: SearchParams
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -281,84 +285,7 @@ class ElasticSearch(
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
-    val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
-    val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
-    // we only inject filters if there are actual date parameters
-    val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list.toList: _*))
-
-    val idsFilter = params.ids.map(filters.ids)
-    val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
-    val costFilter = params.payType match {
-      case Some(PayType.Free) => searchFilters.freeFilter
-      case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
-      case Some(PayType.Pay) => searchFilters.nonFreeFilter
-      case _ => None
-    }
-
-    val printUsageFilter = params.printUsageFilters.map(searchFilters.printUsageFilters)
-
-    val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
-
-    val validityFilter = params.valid.map(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
-
-    val persistFilter = params.persisted map {
-      case true => searchFilters.persistedFilter
-      case false => searchFilters.nonPersistedFilter
-    }
-
-    val usageFilter: Iterable[Query] =
-      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))).toOption ++
-        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _)).toOption
-
-    val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
-
-    // Port of special case code in elastic1 sorts. Using the dateAddedToCollection sort implies an additional filter for reasons unknown
-    val dateAddedToCollectionFilter = {
-      params.orderBy match {
-        case Some("dateAddedToCollection") => {
-          val pathHierarchyOpt = params.structuredQuery.flatMap {
-            case Match(HierarchyField, Phrase(value)) => Some(value)
-            case _ => None
-          }.headOption
-
-          pathHierarchyOpt.map { pathHierarchy =>
-            termQuery("collections.pathHierarchy", pathHierarchy)
-          }
-        }
-        case _ => None
-      }
-    }
-
-    val filterOpt = (
-      metadataFilter.toOption.toList
-        ++ persistFilter
-        ++ labelFilter.toOption
-        ++ archivedFilter
-        ++ uploadedByFilter
-        ++ idsFilter
-        ++ validityFilter
-        ++ simpleCostFilter
-        ++ costFilter
-        ++ hasExports
-        ++ hasIdentifier
-        ++ missingIdentifier
-        ++ dateFilter.toOption
-        ++ usageFilter
-        ++ hasRightsCategory
-        ++ searchFilters.tierFilter(params.tier)
-        ++ syndicationStatusFilter
-        ++ dateAddedToCollectionFilter
-        ++ printUsageFilter
-      ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
+    val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)
 
     val withFilter = filterOpt.map { f =>
       boolQuery() must (query) filter f

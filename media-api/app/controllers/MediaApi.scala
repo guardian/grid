@@ -18,7 +18,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import com.gu.mediaservice.{GridClient, JsonDiff}
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.{AnyField, Match, Parser, Phrase, Words}
+import lib.querysyntax.{AnyField, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -579,16 +579,14 @@ class MediaApi(
     case class TextSearch(query: String) extends AiSearchMode
     case class SimilarSearch(imageId: String) extends AiSearchMode
 
-    def parseAiSearchMode(query: String): AiSearchMode = {
-      query
-        .split("\\s+")
-        .find(_.startsWith("similar:"))
-        .flatMap(_.split(":", 2).lift(1).filter(_.nonEmpty))
-        .map(SimilarSearch)
-        .getOrElse(TextSearch(query))
+    def parseAiSearchMode(query: String, params: SearchParams): AiSearchMode = {
+      params.structuredQuery.collectFirst {
+        case Match(SimilarField, SimilarValue(imageId)) if imageId.nonEmpty => SimilarSearch(imageId)
+      }.getOrElse(TextSearch(query))
     }
 
-    def extractSemanticText(params: SearchParams): Option[String] = {
+    def extractSemanticTextQuery(params: SearchParams): Option[String] = {
+//      logger.info(logMarker, s"Extracting semantic query from structured query: ${params.structuredQuery}")
      val queries = params.structuredQuery.collect {
         case Match(AnyField, Words(value)) => value
         case Match(AnyField, Phrase(value)) => value
@@ -611,7 +609,7 @@ class MediaApi(
       )
     }
 
-    def semanticSearchByImage(imageId: String, k: Int): Future[SearchResults] = {
+    def semanticSearchByImage(imageId: String, k: Int, params: SearchParams): Future[SearchResults] = {
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
         maybeEmbedding = maybeImage
@@ -622,7 +620,7 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100))
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), params)
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
@@ -632,7 +630,8 @@ class MediaApi(
     def semanticSearchByText(query: String, k: Int, params: SearchParams): Future[SearchResults] = {
       // Separate the chips from the main query text
       // So that we can embed just the query text
-      val semanticQuery = extractSemanticText(params: SearchParams)
+      val semanticQuery = extractSemanticTextQuery(params: SearchParams)
+//        TODO remove this getorelse, handle the empty case properly
         .getOrElse {
           logger.info(logMarker, s"No semantic query found in structured query, falling back to embedding the full query text: $query")
           query
@@ -662,15 +661,16 @@ class MediaApi(
           queryEmbedding = embedding,
           k = k,
           numCandidates = Math.max(k * 2, 100),
-          vecWeight = weight
+          vecWeight = weight,
+          params = params
         )
       } yield searchResults
     }
 
     def performAiSearchAndRespond(query: String,  params: SearchParams): Future[Result] = {
       val k = config.aiSearchResultLimit
-      val searchResultsFuture = parseAiSearchMode(query) match {
-        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k)
+      val searchResultsFuture = parseAiSearchMode(query, params) match {
+        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
         case TextSearch(textQuery) => semanticSearchByText(textQuery, k, params)
       }
 
