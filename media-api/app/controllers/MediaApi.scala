@@ -604,6 +604,29 @@ class MediaApi(
       }
     }
 
+    def combineFilters(left: Option[Query], right: Option[Query]): Option[Query] = (left, right) match {
+      case (Some(leftQuery), Some(rightQuery)) => Some(com.gu.mediaservice.lib.elasticsearch.filters.and(leftQuery, rightQuery))
+      case (someLeft @ Some(_), None) => someLeft
+      case (None, someRight @ Some(_)) => someRight
+      case (None, None) => None
+    }
+
+    def buildAiFilter(params: SearchParams): Option[Query] = {
+      val filterConditions = extractFilterConditions(params)
+
+      val chipFilterOpt =
+        if (filterConditions.nonEmpty) Some(elasticSearch.queryBuilder.makeQuery(filterConditions))
+        else None
+
+      val requestFilterOpt = elasticSearch.queryBuilder.buildFilterOpt(
+        params,
+        elasticSearch.searchFilters,
+        elasticSearch.syndicationFilter
+      )
+
+      combineFilters(chipFilterOpt, requestFilterOpt)
+    }
+
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
@@ -619,6 +642,8 @@ class MediaApi(
     }
 
     def semanticSearchByImage(imageId: String, k: Int, params: SearchParams): Future[SearchResults] = {
+      val filterOpt = buildAiFilter(params)
+
       for {
         maybeImage <- elasticSearch.getImageById(imageId)
         maybeEmbedding = maybeImage
@@ -629,7 +654,7 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), params)
+            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filterOpt = filterOpt)
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
@@ -662,10 +687,7 @@ class MediaApi(
       // load fires and both callers receive the same Future.
       val embeddingFuture = embeddingCache.get(cacheKey)
 
-      val filterConditions = extractFilterConditions(params)
-      val chipFilterOpt: Option[Query] =
-        if (filterConditions.nonEmpty) Some(elasticSearch.queryBuilder.makeQuery(filterConditions))
-        else None
+      val filterOpt = buildAiFilter(params)
 
       logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
       for {
@@ -676,7 +698,7 @@ class MediaApi(
           k = k,
           numCandidates = Math.max(k * 2, 100),
           vecWeight = weight,
-//          filterOpt = filterOpt
+          filterOpt = filterOpt
         )
       } yield searchResults
     }

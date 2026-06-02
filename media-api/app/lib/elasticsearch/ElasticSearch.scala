@@ -178,18 +178,18 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, params: SearchParams)
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-//    TODO add relevant search parameters to the search
-    logger.info(logMarker, s"$params still need to do something with the params here")
-
     val knn = Knn("embedding.cohereEmbedV4.image")
         .queryVector(queryEmbedding.map(_.toDouble))
         .k(k)
         .numCandidates(numCandidates)
 
+    val baseQuery = BoolQuery().should(Seq(knn))
+    val filteredQuery = filterOpt.map(filter => BoolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
+
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .knn(knn)
+      .bool(filteredQuery)
       .size(k)
 
     executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
@@ -214,9 +214,12 @@ class ElasticSearch(
   // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
   // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
   // and can be effectively combined in a hybrid query.
-  private def fetchMaxBm25Score(query: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+  private def fetchMaxBm25Score(query: String, filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+    val baseQuery = createMultiMatchQuery(query)
+    val filteredQuery = filterOpt.map(filter => boolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
+
     val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(createMultiMatchQuery(query))
+      .query(filteredQuery)
 
     executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
       logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
@@ -230,7 +233,8 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    maxScore: Double
+    maxScore: Double,
+    filterOpt: Option[Query]
   )(implicit logMarker: LogMarker): SearchRequest = {
     val knn = Knn("embedding.cohereEmbedV4.image")
       .queryVector(queryEmbedding)
@@ -253,9 +257,11 @@ class ElasticSearch(
     logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
     val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
+    val baseQuery = BoolQuery().should(Seq(multiMatchQuery, knn))
+    val filteredQuery = filterOpt.map(filter => BoolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
 
     ElasticDsl.search(imagesCurrentAlias)
-      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+      .bool(filteredQuery)
       .size(k)
   }
 
@@ -265,7 +271,7 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-//    filterOpt: Option[Query]
+    filterOpt: Option[Query]
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -275,8 +281,8 @@ class ElasticSearch(
 
 
     for {
-      maxScore <- fetchMaxBm25Score(query)
-      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore)
+      maxScore <- fetchMaxBm25Score(query, filterOpt)
+      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
       result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
     } yield {
       val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
