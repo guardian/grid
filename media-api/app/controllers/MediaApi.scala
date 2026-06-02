@@ -16,9 +16,10 @@ import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import com.gu.mediaservice.{GridClient, JsonDiff}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.{AnyField, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
+import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -595,6 +596,14 @@ class MediaApi(
       if (queries.nonEmpty) Some(queries.mkString(" ")) else None
     }
 
+    def extractFilterConditions(params: SearchParams): List[Condition] = {
+      params.structuredQuery.filter {
+        case Match(AnyField, _) => false
+        case Match(SimilarField, _) => false
+        case _ => true
+      }
+    }
+
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
@@ -653,6 +662,11 @@ class MediaApi(
       // load fires and both callers receive the same Future.
       val embeddingFuture = embeddingCache.get(cacheKey)
 
+      val filterConditions = extractFilterConditions(params)
+      val chipFilterOpt: Option[Query] =
+        if (filterConditions.nonEmpty) Some(elasticSearch.queryBuilder.makeQuery(filterConditions))
+        else None
+
       logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
       for {
         embedding <- embeddingFuture
@@ -662,7 +676,7 @@ class MediaApi(
           k = k,
           numCandidates = Math.max(k * 2, 100),
           vecWeight = weight,
-          params = params
+//          filterOpt = filterOpt
         )
       } yield searchResults
     }

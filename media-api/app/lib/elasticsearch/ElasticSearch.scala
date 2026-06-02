@@ -265,12 +265,14 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    params: SearchParams
+//    filterOpt: Option[Query]
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
   ): Future[SearchResults] = {
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
+
+
 
     for {
       maxScore <- fetchMaxBm25Score(query)
