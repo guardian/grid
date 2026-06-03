@@ -184,12 +184,10 @@ class ElasticSearch(
         .queryVector(queryEmbedding.map(_.toDouble))
         .k(k)
         .numCandidates(numCandidates)
-
-    val baseQuery = BoolQuery().should(Seq(knn))
-    val filteredQuery = filterOpt.map(filter => BoolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
+        .filter(filterOpt.getOrElse(matchAllQuery()))
 
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .bool(filteredQuery)
+      .knn(knn)
       .size(k)
 
     executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
@@ -241,6 +239,7 @@ class ElasticSearch(
       .k(k)
       .numCandidates(numCandidates)
       .boost(if (vecWeight > 0.0) 1.0 else 0.0)
+      .filter(filterOpt.getOrElse(matchAllQuery()))
 
     val lexicalWeight = 1.0 - vecWeight
 
@@ -249,9 +248,9 @@ class ElasticSearch(
     // BM25 score to bring it to the same range as the cosine similarity.
     val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
 
-    //    We want to apply only one boost if we can help it, so we scale the
-    //    multi_match boost to be in line with the max_score and the desired
-    //    lexical_weight/vec_weight balance
+    // We want to apply only one boost if we can help it, so we scale the
+    // multi_match boost to be in line with the max_score and the desired
+    // lexical_weight/vec_weight balance
     val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
 
     logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
