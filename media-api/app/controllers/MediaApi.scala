@@ -664,43 +664,42 @@ class MediaApi(
     def semanticSearchByText(query: String, k: Int, params: SearchParams): Future[SearchResults] = {
       // Separate the chips from the main query text
       // So that we can embed just the query text
-      val semanticQuery = extractSemanticTextQuery(params: SearchParams)
-//        TODO remove this getorelse, handle the empty case properly
-        .getOrElse {
-          logger.info(logMarker, s"No semantic query found in structured query, falling back to embedding the full query text: $query")
-          query
-        }
+      extractSemanticTextQuery(params: SearchParams) match {
+        case None =>
+          logger.info(logMarker, s"No semantic query found in structured query; returning no AI results")
+          Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+        case Some(semanticQuery) =>
+          // Normalise key so that "Dogs" and "dogs " share a cache entry.
+          val cacheKey = semanticQuery.trim.toLowerCase
+          val markers = logMarker ++ Map("query" -> semanticQuery)
 
-      // Normalise key so that "Dogs" and "dogs " share a cache entry.
-      val cacheKey = semanticQuery.trim.toLowerCase
-      val markers = logMarker ++ Map("query" -> semanticQuery)
+          if (embeddingCache.getIfPresent(cacheKey).isDefined) {
+            logger.info(markers, s"AI search embedding cache hit query=$semanticQuery")
+          } else {
+            logger.info(markers, s"AI search embedding cache miss query=$semanticQuery")
+          }
 
-      if (embeddingCache.getIfPresent(cacheKey).isDefined) {
-        logger.info(markers, s"AI search embedding cache hit query=$semanticQuery")
-      } else {
-        logger.info(markers, s"AI search embedding cache miss query=$semanticQuery")
+          val weight = params.vecWeight.getOrElse(1.0)
+
+          // cache.get(key) is atomic: if two requests race on the same key, only one
+          // load fires and both callers receive the same Future.
+          val embeddingFuture = embeddingCache.get(cacheKey)
+
+          val filterOpt = buildAiFilter(params)
+
+          logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
+          for {
+            embedding <- embeddingFuture
+            searchResults <- elasticSearch.hybridSearch(
+              query = semanticQuery,
+              queryEmbedding = embedding,
+              k = k,
+              numCandidates = Math.max(k * 2, 100),
+              vecWeight = weight,
+              filterOpt = filterOpt
+            )
+          } yield searchResults
       }
-
-      val weight = params.vecWeight.getOrElse(1.0)
-
-      // cache.get(key) is atomic: if two requests race on the same key, only one
-      // load fires and both callers receive the same Future.
-      val embeddingFuture = embeddingCache.get(cacheKey)
-
-      val filterOpt = buildAiFilter(params)
-
-      logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
-      for {
-        embedding <- embeddingFuture
-        searchResults <- elasticSearch.hybridSearch(
-          query = semanticQuery,
-          queryEmbedding = embedding,
-          k = k,
-          numCandidates = Math.max(k * 2, 100),
-          vecWeight = weight,
-          filterOpt = filterOpt
-        )
-      } yield searchResults
     }
 
     def performAiSearchAndRespond(query: String,  params: SearchParams): Future[Result] = {
