@@ -627,6 +627,15 @@ class MediaApi(
       combineFilters(chipFilterOpt, requestFilterOpt)
     }
 
+    def hasSimilarAndSemanticText(params: SearchParams): Boolean = {
+      val hasSimilar = params.structuredQuery.exists {
+        case Match(SimilarField, SimilarValue(imageId)) if imageId.nonEmpty => true
+        case _ => false
+      }
+
+      hasSimilar && extractSemanticTextQuery(params).nonEmpty
+    }
+
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
@@ -703,13 +712,18 @@ class MediaApi(
     }
 
     def performAiSearchAndRespond(query: String,  params: SearchParams): Future[Result] = {
-      val k = config.aiSearchResultLimit
-      val searchResultsFuture = parseAiSearchMode(query, params) match {
-        case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
-        case TextSearch(textQuery) => semanticSearchByText(textQuery, k, params)
-      }
+      if (hasSimilarAndSemanticText(params)) {
+        logger.info(logMarker, s"AI query contains both similar: and positive free text; returning no AI results")
+        emptyAiSearchResponse
+      } else {
+        val k = config.aiSearchResultLimit
+        val searchResultsFuture = parseAiSearchMode(query, params) match {
+          case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
+          case TextSearch(textQuery) => semanticSearchByText(textQuery, k, params)
+        }
 
-      searchResultsFuture.map(aiSearchResponseFromResults)
+        searchResultsFuture.map(aiSearchResponseFromResults)
+      }
     }
 
     if (_searchParams.useAISearch.contains(true)) {

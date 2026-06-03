@@ -61,6 +61,34 @@ export function hasPositiveAiTextQuery(query: string) {
     return false;
 }
 
+export function hasSimilarAndPositiveAiTextQuery(query: string) {
+    return hasValidSimilarQuery(query) && hasPositiveAiTextQuery(query);
+}
+
+function hasValidSimilarQuery(query: string) {
+    let m;
+    if (query === undefined) {
+        return false;
+    }
+
+    parserRe.lastIndex = 0;
+    while ((m = parserRe.exec(query)) !== null) {
+        const field = m[2] || m[3] || m[4];
+        const symbol  = m[5] || m[6];
+        const value = m[7] || m[8] || m[9];
+        const key = {
+            '#': 'label',
+            '~': 'collection'
+        }[symbol] || field;
+
+        if (key === 'similar' && falsyValuesToEmptyString(value).trim()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
 export function structureQuery(query: string) {
