@@ -587,13 +587,13 @@ class MediaApi(
     }
 
     def extractSemanticTextQuery(params: SearchParams): Option[String] = {
-//      logger.info(logMarker, s"Extracting semantic query from structured query: ${params.structuredQuery}")
-     val queries = params.structuredQuery.collect {
+    val queries = params.structuredQuery.collect {
         case Match(AnyField, Words(value)) => value
         case Match(AnyField, Phrase(value)) => value
-      }
-      logger.info(logMarker, s"Extracted semantic query from structured query: ${queries.mkString(" ")}")
-      if (queries.nonEmpty) Some(queries.mkString(" ")) else None
+      }.map(_.trim).filter(_.nonEmpty)
+      val semanticQuery = queries.mkString(" ")
+      logger.info(logMarker, s"Extracted semantic query from structured query: $semanticQuery")
+      Option.when(semanticQuery.nonEmpty)(semanticQuery)
     }
 
     def extractFilterConditions(params: SearchParams): List[Condition] = {
