@@ -98,7 +98,6 @@ export function structureQuery(query: string) {
     if (query === undefined) {
         return struct;
     }
-    parserRe.lastIndex = 0;
     while ((m = parserRe.exec(query)) !== null) {
         const sign  = m[1];
         const field = m[2] || m[3] || m[4];

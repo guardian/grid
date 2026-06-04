@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
@@ -16,6 +16,47 @@ import scala.util.Try
 case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, extraCounts: Option[ExtraCounts])
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
+
+case class AiQueryParts(
+  semanticQuery: Option[String],
+  filterConditions: List[Condition],
+  similarImageId: Option[String]
+) {
+  def hasSimilarAndSemanticText: Boolean = similarImageId.nonEmpty && semanticQuery.nonEmpty
+}
+
+object AiQueryParts {
+  def from(conditions: List[Condition]): AiQueryParts = {
+    val initial = AiQueryParts(
+      semanticQuery = None,
+      filterConditions = List.empty,
+      similarImageId = None,
+    )
+
+    conditions.foldLeft(initial) {
+      case (parts, Match(AnyField, Words(value))) =>
+        appendSemanticText(parts, value)
+      case (parts, Match(AnyField, Phrase(value))) =>
+        appendSemanticText(parts, value)
+      case (parts, Match(SimilarField, SimilarValue(imageId))) if imageId.trim.nonEmpty =>
+        parts.copy(similarImageId = Some(imageId.trim))
+      case (parts, Match(SimilarField, _)) =>
+        parts
+      case (parts, condition) =>
+        parts.copy(filterConditions = parts.filterConditions :+ condition)
+    }
+  }
+
+  private def appendSemanticText(parts: AiQueryParts, value: String): AiQueryParts = {
+    val trimmedValue = value.trim
+
+    if (trimmedValue.isEmpty) parts
+    else {
+      val semanticQuery = parts.semanticQuery.fold(trimmedValue)(existing => s"$existing $trimmedValue")
+      parts.copy(semanticQuery = Some(semanticQuery))
+    }
+  }
+}
 
 case class CompletionSuggestionResult(key: String, score: Float)
 
@@ -87,7 +128,9 @@ case class SearchParams(
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
   vecWeight: Option[Double] = None
-)
+) {
+  lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
+}
 
 case class InvalidUriParams(message: String) extends Throwable
 object InvalidUriParams {

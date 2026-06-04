@@ -19,7 +19,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
+import lib.querysyntax.{Match, Parser, SimilarField, SimilarValue}
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -577,42 +577,14 @@ class MediaApi(
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
     sealed trait AiSearchMode
-    case class TextSearch(query: String) extends AiSearchMode
+    case object TextSearch extends AiSearchMode
     case class SimilarSearch(imageId: String) extends AiSearchMode
 
-    def parseAiSearchMode(query: String, params: SearchParams): AiSearchMode = {
-      params.structuredQuery.collectFirst {
-        case Match(SimilarField, SimilarValue(imageId)) if imageId.nonEmpty => SimilarSearch(imageId)
-      }.getOrElse(TextSearch(query))
-    }
-
-    def extractSemanticTextQuery(params: SearchParams): Option[String] = {
-    val queries = params.structuredQuery.collect {
-        case Match(AnyField, Words(value)) => value
-        case Match(AnyField, Phrase(value)) => value
-      }.map(_.trim).filter(_.nonEmpty)
-      val semanticQuery = queries.mkString(" ")
-      logger.info(logMarker, s"Extracted semantic query from structured query: $semanticQuery")
-      Option.when(semanticQuery.nonEmpty)(semanticQuery)
-    }
-
-    def extractFilterConditions(params: SearchParams): List[Condition] = {
-      params.structuredQuery.filter {
-        case Match(AnyField, _) => false
-        case Match(SimilarField, _) => false
-        case _ => true
-      }
-    }
-
-    def combineFilters(left: Option[Query], right: Option[Query]): Option[Query] = (left, right) match {
-      case (Some(leftQuery), Some(rightQuery)) => Some(com.gu.mediaservice.lib.elasticsearch.filters.and(leftQuery, rightQuery))
-      case (someLeft @ Some(_), None) => someLeft
-      case (None, someRight @ Some(_)) => someRight
-      case (None, None) => None
-    }
+    def parseAiSearchMode(params: SearchParams): AiSearchMode =
+      params.aiQueryParts.similarImageId.map(SimilarSearch).getOrElse(TextSearch)
 
     def buildAiFilter(params: SearchParams): Option[Query] = {
-      val filterConditions = extractFilterConditions(params)
+      val filterConditions = params.aiQueryParts.filterConditions
 
       val chipFilterOpt =
         if (filterConditions.nonEmpty) Some(elasticSearch.queryBuilder.makeQuery(filterConditions))
@@ -624,17 +596,11 @@ class MediaApi(
         elasticSearch.syndicationFilter
       )
 
-      combineFilters(chipFilterOpt, requestFilterOpt)
+      elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt)
     }
 
-    def hasSimilarAndSemanticText(params: SearchParams): Boolean = {
-      val hasSimilar = params.structuredQuery.exists {
-        case Match(SimilarField, SimilarValue(imageId)) if imageId.nonEmpty => true
-        case _ => false
-      }
-
-      hasSimilar && extractSemanticTextQuery(params).nonEmpty
-    }
+    def hasSimilarAndSemanticText(params: SearchParams): Boolean =
+      params.aiQueryParts.hasSimilarAndSemanticText
 
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
@@ -670,10 +636,10 @@ class MediaApi(
       } yield searchResults
     }
 
-    def semanticSearchByText(query: String, k: Int, params: SearchParams): Future[SearchResults] = {
+    def semanticSearchByText(k: Int, params: SearchParams): Future[SearchResults] = {
       // Separate the chips from the main query text
       // So that we can embed just the query text
-      extractSemanticTextQuery(params: SearchParams) match {
+      params.aiQueryParts.semanticQuery match {
         case None =>
           logger.info(logMarker, s"No semantic query found in structured query; returning no AI results")
           Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
@@ -711,15 +677,15 @@ class MediaApi(
       }
     }
 
-    def performAiSearchAndRespond(query: String,  params: SearchParams): Future[Result] = {
+    def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
       if (hasSimilarAndSemanticText(params)) {
         logger.info(logMarker, s"AI query contains both similar: and positive free text; returning no AI results")
         emptyAiSearchResponse
       } else {
         val k = config.aiSearchResultLimit
-        val searchResultsFuture = parseAiSearchMode(query, params) match {
+        val searchResultsFuture = parseAiSearchMode(params) match {
           case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
-          case TextSearch(textQuery) => semanticSearchByText(textQuery, k, params)
+          case TextSearch => semanticSearchByText(k, params)
         }
 
         searchResultsFuture.map(aiSearchResponseFromResults)
@@ -732,7 +698,7 @@ class MediaApi(
         case _ if _searchParams.length == 0 =>
           emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(q, _searchParams)
+          performAiSearchAndRespond(_searchParams)
         // Empty queries do not make sense for AI search as we can
         // only rank results once we have a meaningful vector to compare with.
         // So return 0 results if the query was empty.
