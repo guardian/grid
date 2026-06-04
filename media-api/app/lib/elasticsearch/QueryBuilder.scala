@@ -208,9 +208,6 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         ++ dateAddedToCollectionFilter
         ++ printUsageFilter
       ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
-    //    logger.info(s"Built filters: ${filterOpt.map(_.toString).getOrElse("None")}")
-//    eg Built filters: BoolQuery(None,None,None,None,List(),ArraySeq(BoolQuery(None,None,None,None,List(),List(),List(),ArraySeq(TermsQuery(usageRights.supplier,List(AAP, Alamy, Allstar Picture Library, AP, EPA, Getty Images, PA, Reuters, Rex Features, Ronald Grant Archive, Action Images),None,None,None,None,None), TermsQuery(usageRights.category,List(handout, PR Image, screengrab, social-media, commissioned-agency, Bylines, staff-photographer, contract-photographer, commissioned-photographer, creative-commons, guardian-witness, pool, crown-copyright, obituary, contract-illustrator, commissioned-illustrator, staff-illustrator, composite, public-domain),None,None,None,None,None))), BoolQuery(None,None,None,None,List(),Vector(RangeQuery(uploadTime,None,None,None,None,Some(2026-06-01T10:54:43.652Z),None,None,None,None)),List(),List())),List(),List())
-
     filterOpt
   }
 }

@@ -277,8 +277,6 @@ class ElasticSearch(
   ): Future[SearchResults] = {
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
-
-
     for {
       maxScore <- fetchMaxBm25Score(query, filterOpt)
       searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
