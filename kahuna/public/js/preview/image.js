@@ -66,6 +66,10 @@ image.controller('uiPreviewImageCtrl', [
 
       ctrl.showSendToPhotoSales = () => $window._clientConfig.showSendToPhotoSales;
       ctrl.uploadedByCapture = ctrl.image.data.uploadedBy === "Capture_AutoIngest";
+      ctrl.sentToPhotosalesPublished = () => {
+        const isPublished = ctrl.image.data.metadata.domainMetadata?.archives?.isPublished ?? "True";
+        return isPublished === "True";
+      };
       mediaApi.getSession().then(session => {
         ctrl.showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
       });
