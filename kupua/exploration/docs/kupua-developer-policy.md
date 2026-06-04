@@ -12,13 +12,13 @@ Grid's `sbt runMinimal` (media-api + auth + kahuna) need in `--use-TEST` mode.
 **Safety gains over the broad credential:**
 
 - Cannot tunnel to PROD ES (SSM tag condition restricts to TEST)
-- Cannot SSH/run commands on instances (only port-forwarding document allowed)
+- Cannot write to instances arbitrarily (ssm-scala uses RunShellScript only to install a temp SSH key; no interactive shell)
 - Cannot write to S3 (no PutObject/DeleteObject)
 - Cannot invoke arbitrary Bedrock models (only Cohere Embed V4)
 
 ## Grant ID
 
-`run-kupua-and-media-api-locally`
+`run-grid-locally`
 
 ## Permission summary
 
@@ -28,26 +28,28 @@ Grid's `sbt runMinimal` (media-api + auth + kahuna) need in `--use-TEST` mode.
 | 2 | `s3:GetObject` | ImageBucket/* | Kupua imgproxy + media-api URL signing/downloads |
 | 3 | `s3:GetObject` | `grid-conf/TEST/*` | Grid start.sh config download + runtime config |
 | 4 | `s3:GetObject` | ConfigBucket/* | Media-api quota store (runtime reads) |
-| 5 | `s3:GetObject` | `pan-domain-auth-settings/*` | Media-api panda cookie validation |
+| 5 | `s3:GetObject` | `pan-domain-auth-settings/local.dev-gutools.co.uk.settings`, `.../local.dev-gutools.co.uk.settings.public`, `.../*.p12` | Media-api panda cookie validation (scoped to local dev domain) |
 | 6 | `s3:GetObject` | KeyBucket/* | Media-api API key store |
 | 7 | `s3:ListBucket` | KeyBucket | Media-api list API keys |
 | 8 | `s3:GetObject` | UsageMailBucket/* | Media-api usage quota store |
 | 9 | `s3:ListBucket` | UsageMailBucket | Media-api list usage emails |
-| 10 | `s3:GetObject` | `permissions-cache/TEST/*` | Guardian permissions system |
+| 10 | `s3:GetObject` | `permissions-cache/CODE/*` | Guardian permissions system (hardcoded to CODE stage) |
 | 11 | `ec2:DescribeInstances`, `ec2:DescribeTags` | * | Instance discovery (tunnel target) |
-| 12 | `ssm:StartSession` | TEST ES instances (tag-scoped) | SSH tunnel for ES access |
-| 13 | `bedrock:InvokeModel` | Cohere Embed V4 inference profile | AI search embeddings |
-| 14 | `cloudwatch:PutMetricData` | * | Grid metrics + future kupua metrics |
-| 15 | `dynamodb:GetItem`, `PutItem`, `UpdateItem` | SoftDeletedMetadataTable | Media-api soft-delete status (read + write) |
-| 16 | `kinesis:PutRecord`, `PutRecords` | ThrallMessageQueue | Delete/undelete publishes to Thrall |
-| 17 | `kms:GenerateDataKey` | KmsKeyThrallKinesisStreams | Kinesis stream is KMS-encrypted |
+| 12 | `ec2:CreateTags` | TEST ES instances (tag-scoped) | ssm-scala marks instances as "tainted" |
+| 13 | `ssm:SendCommand` | TEST ES instances (tag-scoped) + `AWS-RunShellScript` doc | ssm-scala installs temp SSH public key |
+| 14 | `ssm:GetCommandInvocation` | * | ssm-scala polls until key install completes |
+| 15 | `ssm:StartSession` | TEST ES instances (tag-scoped) + `AWS-StartSSHSession` + `AWS-StartPortForwardingRemoteHost` docs | SSH tunnel for ES access |
+| 16 | `bedrock:InvokeModel` | Cohere Embed V4 inference profile | AI search embeddings |
+| 17 | `cloudwatch:PutMetricData` | * | Grid metrics + future kupua metrics |
+| 18 | `dynamodb:GetItem` | SoftDeletedMetadataTable | Media-api soft-delete status check on image GET |
 
 ## Stage scoping
 
 - Policy is created only in the TEST stack (`Condition: IsTEST`)
-- SSM StartSession additionally scoped by instance tags:
+- SSM SendCommand/StartSession on instances scoped by tags:
   `App=elasticsearch-data`, `Stack=media-service`, `Stage=TEST`
-- SSM document restricted to `AWS-StartPortForwardingRemoteHost` (no shell)
+- SSM documents allowed: `AWS-RunShellScript` (key install), `AWS-StartSSHSession`, `AWS-StartPortForwardingRemoteHost`
+- EC2 CreateTags scoped to same tag set (ssm-scala tainted marker)
 
 ## Usage
 
@@ -71,8 +73,26 @@ don't touch local media-api at all:
 - **Crops, leases, usages** → same pattern. Browser talks directly to TEST
   cropper/leases/usage services via HATEOAS links.
 - **Image search, detail, downloads, URL signing** → all GET, all work.
-- **Image deletion / undelete** → works. The policy includes Kinesis and
-  DynamoDB write permissions for the soft-delete path.
+- **Image deletion / undelete** → the DELETE returns 202 and the Kinesis message is sent, but TEST Thrall's processing of local-origin messages is unreliable. Treat deletes as best-effort when running locally.
+  If local Thrall is ever fixed, restore these three statements to the policy (removed in ed31839):
+  ```yaml
+  # DynamoDB: soft-delete writes
+  - Effect: Allow
+    Action:
+      - dynamodb:PutItem
+      - dynamodb:UpdateItem
+    Resource: !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${SoftDeletedMetadataTable}'
+  # Kinesis: publish delete/undelete message to Thrall
+  - Effect: Allow
+    Action:
+      - kinesis:PutRecord
+      - kinesis:PutRecords
+    Resource: !GetAtt ThrallMessageQueue.StreamArn
+  # KMS: encrypt Kinesis message (stream is KMS-encrypted)
+  - Effect: Allow
+    Action: kms:GenerateDataKey
+    Resource: !GetAtt KmsKeyThrallKinesisStreams.Arn
+  ```
 
 **Things that won't start (because not in `runMinimal`):**
 - Image upload (image-loader) — not started by `sbt runMinimal`
@@ -81,29 +101,31 @@ don't touch local media-api at all:
 ## CloudFormation location
 
 `editorial-tools-platform/cloudformation/media-service-account/grid/media-service.yaml`
-(resource: `RunKupuaAndMediaApiLocally`)
+(resource: `RunGridLocally`)
 
 ## Janus definition (separate PR)
 
 In `guData/src/main/scala/com/gu/janus/data/DeveloperPolicyGrants.scala`:
 ```scala
-val runKupuaAndMediaApiLocally = DeveloperPolicyGrant(
-  id = "run-kupua-and-media-api-locally",
-  name = "Run kupua and media-api locally (read-only)"
+val mediaServiceGrid = DeveloperPolicyGrant(
+  id = "run-grid-locally",
+  name = "Run Grid locally"
 )
 ```
 
 Grant in `Access.scala` to the relevant user(s).
 
-## Write operations: why this is the complete set
+## Write operations
 
-Delete/undelete is the **only** non-read-only operation media-api performs
-that we can control via this Developer Policy. Specifically:
+This policy is effectively read-only. The only AWS write calls media-api makes
+that touch local code are:
 
-- `DELETE /images/:id` → `SoftDeletedMetadataTable.setStatus` (DynamoDB PutItem) +
-  `ThrallMessageSender.publish` (Kinesis PutRecord, KMS-encrypted)
-- `PUT /images/:id/undelete` → `SoftDeletedMetadataTable.updateStatus` (DynamoDB UpdateItem) +
-  `ThrallMessageSender.publish` (Kinesis PutRecord, KMS-encrypted)
+- `DELETE /images/:id` → DynamoDB PutItem (soft-delete record) + Kinesis PutRecord (Thrall message)
+- `PUT /images/:id/undelete` → DynamoDB UpdateItem + Kinesis PutRecord
+
+These write permissions are **not included** in the policy (Kinesis and DynamoDB writes
+were removed after confirming deletes don't work reliably with `--use-TEST` even with
+full credentials — it's a TEST Thrall issue, not a policy issue).
 
 All other writes in Grid (metadata edits, crops, leases, collections, usage)
 are performed by their respective services running on TEST — the browser
