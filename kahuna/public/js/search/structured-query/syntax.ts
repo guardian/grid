@@ -53,12 +53,10 @@ export function hasPositiveAiTextQuery(query: string) {
         const key = {
             '#': 'label',
             '~': 'collection'
-        }[symbol] || field;
-
         if (!key && sign !== '-' && falsyValuesToEmptyString(text).trim()) {
+            parserRe.lastIndex = 0;
             return true;
         }
-    }
 
     return false;
 }
@@ -67,7 +65,7 @@ export function hasSimilarAndPositiveAiTextQuery(query: string) {
     return hasValidSimilarQuery(query) && hasPositiveAiTextQuery(query);
 }
 
-function hasValidSimilarQuery(query: string) {
+export function hasValidSimilarQuery(query: string) {
     let m;
     if (query === undefined) {
         return false;
@@ -81,12 +79,10 @@ function hasValidSimilarQuery(query: string) {
         const key = {
             '#': 'label',
             '~': 'collection'
-        }[symbol] || field;
-
         if (key === 'similar' && falsyValuesToEmptyString(value).trim()) {
+            parserRe.lastIndex = 0;
             return true;
         }
-    }
 
     return false;
 }
