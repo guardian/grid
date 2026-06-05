@@ -36,6 +36,8 @@ export type StructuredQuery = (StructuredQueryFilter | StructuredQueryText)[];
 // between positive free text and negated-only text. AI search needs that
 // distinction so the frontend matches the backend rule: only positive unfielded
 // text counts as a valid semantic query.
+// i.e. `fileType:jpeg -hello` = not valid AI query
+// but `cats fileType:jpeg -hello` is!
 export function hasPositiveAiTextQuery(query: string) {
     let m;
     if (query === undefined) {
