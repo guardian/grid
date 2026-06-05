@@ -46,18 +46,19 @@ export function hasPositiveAiTextQuery(query: string) {
 
     parserRe.lastIndex = 0;
     while ((m = parserRe.exec(query)) !== null) {
-        const sign  = m[1];
+        const sign = m[1];
         const field = m[2] || m[3] || m[4];
-        const symbol  = m[5] || m[6];
-        const text  = m[10] || m[11] || m[12];
+        const symbol = m[5] || m[6];
+        const text = m[10] || m[11] || m[12];
         const key = {
             '#': 'label',
             '~': 'collection'
+        }[symbol] || field;
         if (!key && sign !== '-' && falsyValuesToEmptyString(text).trim()) {
             parserRe.lastIndex = 0;
             return true;
         }
-
+    }
     return false;
 }
 
@@ -74,16 +75,17 @@ export function hasValidSimilarQuery(query: string) {
     parserRe.lastIndex = 0;
     while ((m = parserRe.exec(query)) !== null) {
         const field = m[2] || m[3] || m[4];
-        const symbol  = m[5] || m[6];
+        const symbol = m[5] || m[6];
         const value = m[7] || m[8] || m[9];
         const key = {
             '#': 'label',
             '~': 'collection'
+        }[symbol] || field;
         if (key === 'similar' && falsyValuesToEmptyString(value).trim()) {
             parserRe.lastIndex = 0;
             return true;
         }
-
+    }
     return false;
 }
 

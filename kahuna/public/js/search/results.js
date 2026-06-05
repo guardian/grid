@@ -1,8 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 import moment from 'moment';
-import {hasPositiveAiTextQuery, hasValidSimilarQuery} from './structured-query/syntax';
-
+import {hasPositiveAiTextQuery, hasSimilarAndPositiveAiTextQuery} from './structured-query/syntax';
 import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
