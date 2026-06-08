@@ -180,11 +180,10 @@ class ElasticSearch(
 
   def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    val knn = Knn("embedding.cohereEmbedV4.image")
-        .queryVector(queryEmbedding.map(_.toDouble))
-        .k(k)
-        .numCandidates(numCandidates)
-        .filter(filterOpt.getOrElse(matchAllQuery()))
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+      .queryVector(queryEmbedding.map(_.toDouble))
+      .k(k)
+      .numCandidates(numCandidates)
 
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
       .knn(knn)
@@ -234,12 +233,11 @@ class ElasticSearch(
     maxScore: Double,
     filterOpt: Option[Query]
   )(implicit logMarker: LogMarker): SearchRequest = {
-    val knn = Knn("embedding.cohereEmbedV4.image")
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
       .queryVector(queryEmbedding)
       .k(k)
       .numCandidates(numCandidates)
       .boost(if (vecWeight > 0.0) 1.0 else 0.0)
-      .filter(filterOpt.getOrElse(matchAllQuery()))
 
     val lexicalWeight = 1.0 - vecWeight
 
@@ -256,11 +254,9 @@ class ElasticSearch(
     logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
 
     val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
-    val baseQuery = BoolQuery().should(Seq(multiMatchQuery, knn))
-    val filteredQuery = filterOpt.map(filter => BoolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
 
     ElasticDsl.search(imagesCurrentAlias)
-      .bool(filteredQuery)
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)).filter(filterOpt))
       .size(k)
   }
 
