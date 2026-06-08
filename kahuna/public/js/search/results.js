@@ -204,7 +204,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.newImagesCount = 0;
         ctrl.newImagesLastCheckedMoment = moment();
 
-        ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
+        ctrl.needsQuery = false;
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;
@@ -303,7 +303,8 @@ results.controller('SearchResultsCtrl', [
           // (i.e. the uploadTime of the newest result in the set)
 
           // TODO: avoid this initial search (two API calls to init!)
-          const isAiSearch = !!$stateParams.useAISearch;
+          // AI/KNN search activates when the useAISearch flag is set.
+          const isAiSearch = !!$stateParams.useAISearch && $stateParams.useAISearch !== 'false';
           const initialSearchParams = isAiSearch
             ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
             : {length: 1, orderBy: 'newest'};
@@ -318,7 +319,7 @@ results.controller('SearchResultsCtrl', [
         });
 
         ctrl.loadRange = function(start, end) {
-            if ($stateParams.useAISearch) {
+            if (!!$stateParams.useAISearch && $stateParams.useAISearch !== 'false') {
               return;
             }
 
@@ -424,7 +425,7 @@ results.controller('SearchResultsCtrl', [
         function checkForNewImages() {
             // Polling for new images is meaningless for AI search — results are
             // ranked by vector similarity, not upload time.
-            if ($stateParams.useAISearch) { return; }
+            if (!!$stateParams.useAISearch && $stateParams.useAISearch !== 'false') { return; }
 
             $timeout(() => {
                 // Use explicit `until`, or blank it to find new images
@@ -578,6 +579,7 @@ results.controller('SearchResultsCtrl', [
                 length:     length,
                 orderBy:    orderBy,
                 useAISearch: $stateParams.useAISearch,
+                aiQuery:    $stateParams.aiQuery,
                 vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,

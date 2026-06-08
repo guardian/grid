@@ -957,7 +957,86 @@ textarea.ng-invalid {
     box-sizing: border-box;
 
     min-width: 300px;
-    flex-grow: 1;
+    flex: 1 1 0;
+    /* allow the child input/structured-query to shrink instead of pushing siblings around */
+    min-width: 0;
+}
+
+.search-query + .search-query {
+    margin-left: 8px;
+}
+
+.search-query--ai .search-query__query--ai {
+    /* The AI box uses a native <input>; match the structured-query styling rather than .text-input */
+    background-color: transparent;
+    color: inherit;
+    border: none;
+    outline: none;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    min-width: 0;
+    font: inherit;
+}
+
+.search__ai-controls {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    gap: 8px;
+    flex-shrink: 0;
+    color: #ccc;
+}
+
+.search__ai-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search__ai-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+}
+
+.search__ai-weight {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search__ai-weight-toggle {
+    background: none;
+    border: 1px solid #666;
+    color: #ccc;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.search__ai-weight-toggle:hover {
+    border-color: #999;
+}
+
+.search__ai-weight-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.search__ai-weight-slider input[type="range"] {
+    width: 100px;
+}
+
+.search__ai-weight-value {
+    min-width: 2.6em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .search {

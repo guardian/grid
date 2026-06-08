@@ -178,16 +178,21 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filter: Option[Query] = None)
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    val knn = Knn("embedding.cohereEmbedV4.image")
+    val baseKnn = Knn("embedding.cohereEmbedV4.image")
         .queryVector(queryEmbedding.map(_.toDouble))
         .k(k)
         .numCandidates(numCandidates)
 
+    val knn = filter.fold(baseKnn)(baseKnn.filter)
+
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
       .knn(knn)
       .size(k)
+
+    // Print the exact ES request body to stdout so it's visible in the sbt console.
+    println(s"[ES knn search] POST ${imagesCurrentAlias}/_search\n${prettyEsRequest(searchRequest)}")
 
     executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
@@ -278,7 +283,13 @@ class ElasticSearch(
     }
   }
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
+  /**
+    * Build the combined Elasticsearch query (structured/BM25 query + metadata filters)
+    * for the given SearchParams. Used by `search` for full ranking, and exposed so that
+    * `knnSearch` callers can pass it as a KNN filter (e.g. for hybrid "filter by metadata,
+    * rank by vector" searches).
+    */
+  def buildSearchQuery(params: SearchParams): Query = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
     val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
@@ -360,9 +371,14 @@ class ElasticSearch(
         ++ printUsageFilter
       ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
 
-    val withFilter = filterOpt.map { f =>
+    filterOpt.map { f =>
       boolQuery() must (query) filter f
     }.getOrElse(query)
+  }
+
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
+    val withFilter: Query = buildSearchQuery(params)
+
 
     val sort = params.orderBy match {
       case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
@@ -406,6 +422,9 @@ class ElasticSearch(
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
+
+    // Print the exact ES request body to stdout so it's visible in the sbt console.
+    println(s"[ES image search] POST ${imagesCurrentAlias}/_search\n${prettyEsRequest(searchRequest)}")
 
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
@@ -557,5 +576,20 @@ class ElasticSearch(
 
   private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
     if (res.isTimedOut) logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
+
+  /** Pretty-print an ES request body, eliding any `query_vector` arrays so the output stays readable.
+    * `req.show` produces something like `POST /index/_search\n{...body...}`; we keep the request line
+    * but re-indent the JSON body underneath it.
+    */
+  private def prettyEsRequest(req: SearchRequest): String = {
+    val raw = req.show
+    val firstBrace = raw.indexOf('{')
+    val (prefix, body) =
+      if (firstBrace >= 0) (raw.substring(0, firstBrace), raw.substring(firstBrace))
+      else ("", raw)
+    val elided = body.replaceAll("\"query_vector\"\\s*:\\s*\\[[^\\]]*\\]", "\"query_vector\":\"<elided>\"")
+    val prettyBody = scala.util.Try(Json.prettyPrint(Json.parse(elided))).getOrElse(elided)
+    prefix + prettyBody
+  }
 
 }

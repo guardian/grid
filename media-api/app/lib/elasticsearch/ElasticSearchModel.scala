@@ -86,6 +86,7 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
+  aiQuery: Option[String] = None,
   vecWeight: Option[Double] = None
 )
 
@@ -178,6 +179,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
+      request.getQueryString("aiQuery").filter(_.trim.nonEmpty),
       request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
     )
   }
@@ -207,7 +209,10 @@ object SearchParams {
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
       "persisted"         -> searchParams.persisted.map(_.toString),
       "usageStatus"       -> listToCommas(searchParams.usageStatus.map(_.toString)),
-      "usagePlatform"     -> listToCommas(searchParams.usagePlatform)
+      "usagePlatform"     -> listToCommas(searchParams.usagePlatform),
+      "useAISearch"       -> searchParams.useAISearch.map(_.toString),
+      "aiQuery"           -> searchParams.aiQuery,
+      "vecWeight"         -> searchParams.vecWeight.map(_.toString)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
       case (acc, (_,   None))        => acc

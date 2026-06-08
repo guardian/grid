@@ -42,7 +42,7 @@ mediaApi.factory('mediaApi',
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
-                                 syndicationStatus, countAll, persisted, useAISearch, vecWeight} = {}) {
+                                 syndicationStatus, countAll, persisted, useAISearch, aiQuery, vecWeight} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -66,6 +66,7 @@ mediaApi.factory('mediaApi',
             countAll,
             persisted,
             useAISearch: maybeStringToBoolean(useAISearch),
+            aiQuery: aiQuery || undefined,
             vecWeight: vecWeight
         }).get();
     }
