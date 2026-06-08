@@ -1,7 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
 import moment from 'moment';
-import {hasPositiveAiTextQuery, hasSimilarAndPositiveAiTextQuery} from './structured-query/syntax';
 import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
@@ -204,10 +203,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.newImagesCount = 0;
         ctrl.newImagesLastCheckedMoment = moment();
 
-        ctrl.needsQuery = $stateParams.useAISearch && (
-          !hasPositiveAiTextQuery($stateParams.query) ||
-          hasSimilarAndPositiveAiTextQuery($stateParams.query)
-        );
+        ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;
