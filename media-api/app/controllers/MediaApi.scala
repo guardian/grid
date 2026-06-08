@@ -598,9 +598,6 @@ class MediaApi(
       elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt)
     }
 
-    def hasSimilarAndSemanticText(params: SearchParams): Boolean =
-      params.aiQueryParts.hasSimilarAndSemanticText
-
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
@@ -677,17 +674,18 @@ class MediaApi(
     }
 
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
-      if (hasSimilarAndSemanticText(params)) {
-        logger.info(logMarker, s"AI query contains both similar: and positive free text; returning no AI results")
-        emptyAiSearchResponse
-      } else {
-        val k = config.aiSearchResultLimit
-        val searchResultsFuture = parseAiSearchMode(params) match {
-          case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
-          case TextSearch => semanticSearchByText(k, params)
-        }
+      params.aiQueryParts.validationError match {
+        case Some(errorMessage) =>
+          logger.info(logMarker, s"Invalid AI search query: $errorMessage")
+          Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
+        case None =>
+          val k = config.aiSearchResultLimit
+          val searchResultsFuture = parseAiSearchMode(params) match {
+            case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
+            case TextSearch => semanticSearchByText(k, params)
+          }
 
-        searchResultsFuture.map(aiSearchResponseFromResults)
+          searchResultsFuture.map(aiSearchResponseFromResults)
       }
     }
 
