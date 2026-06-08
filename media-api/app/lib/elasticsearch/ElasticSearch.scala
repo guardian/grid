@@ -75,6 +75,7 @@ class ElasticSearch(
   lazy val url = elasticConfig.url
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
+  lazy val includeDenseVectorMappings = elasticConfig.includeDenseVectorMappings
 
   private val SearchQueryTimeout = FiniteDuration(10, TimeUnit.SECONDS)
   // there is 15 seconds timeout set on cluster level as well

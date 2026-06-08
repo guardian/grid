@@ -205,7 +205,7 @@ object UpdateMapping extends EsScript {
 
         val result = client.execute {
           putMapping(Indexes(index)) as {
-            Mappings.imageMapping.properties
+            Mappings.imageMapping().properties
           }
         }.await
 
@@ -422,7 +422,7 @@ abstract class EsScript {
     run(esUrl, extraArgs)
   }
 
-  class EsClient(val url: String) extends ElasticSearchClient {
+  class EsClient(val url: String, val includeDenseVectorMappings: Boolean = true) extends ElasticSearchClient {
     override def imagesCurrentAlias = esImagesAlias
     override def shards = esShards
     override def replicas = esReplicas
