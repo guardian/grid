@@ -221,7 +221,7 @@ class ElasticSearch(
 
     if (!includeDenseVectorMappings) {
       logger.info(s"Skipping embedding update for image $id: dense vector mappings are disabled")
-      return List(Future.successful(ElasticSearchUpdateResponse()))
+      List(Future.successful(ElasticSearchUpdateResponse()))
     }
 
     val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"

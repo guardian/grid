@@ -183,7 +183,7 @@ class ElasticSearch(
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     if (!includeDenseVectorMappings) {
       logger.warn(logMarker, "knnSearch called but includeDenseVectorMappings=false, returning empty results")
-      return Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     }
     val knn = Knn("embedding.cohereEmbedV4.image")
         .queryVector(queryEmbedding.map(_.toDouble))
@@ -273,7 +273,7 @@ class ElasticSearch(
   ): Future[SearchResults] = {
     if (!includeDenseVectorMappings) {
       logger.warn(logMarker, "hybridSearch called but includeDenseVectorMappings=false, returning empty results")
-      return Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     }
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
