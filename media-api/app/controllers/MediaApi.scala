@@ -678,7 +678,7 @@ class MediaApi(
         case Left(errorMessage) =>
           logger.info(logMarker, s"Invalid AI search query: $errorMessage")
           Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
-        case Right(_) =>
+        case scala.util.Right(_) =>
           val k = config.aiSearchResultLimit
           val searchResultsFuture = parseAiSearchMode(params) match {
             case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
