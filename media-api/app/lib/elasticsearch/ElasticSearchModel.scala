@@ -28,20 +28,20 @@ case class AiQueryParts(
   // a text query (text KNN) or a similar image (image KNN) to be valid.
   def hasKnn: Boolean = similarImageId.nonEmpty || semanticQuery.nonEmpty
 
-  // Returns a user-facing error message if the AI query cannot be satisfied, otherwise None.
-  def validationError: Option[String] = {
+  // Returns Left(error message) if the AI query cannot be satisfied, otherwise Right(()).
+  def validationError: Either[String, Unit] = {
     if (hasSimilarAndSemanticText)
-      Some(
+      Left(
         "AI search can't combine a similar image search with a text query because the two rankings can't be merged. " +
           "Please use either a text query or a similar image, not both."
       )
     else if (!hasKnn)
-      Some(
+      Left(
         "AI search needs something to rank by. " +
           "Add a text query or a similar image alongside your filters."
       )
     else
-      None
+      Right(())
   }
 }
 
