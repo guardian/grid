@@ -21,6 +21,7 @@ import type {
   AggregationRequest,
   AggregationsResult,
   FilterAggRequest,
+  UsageFilterAggRequest,
   SortDistribution,
   SortDistBucket,
   IdRangeResult,
@@ -39,6 +40,7 @@ import {
   buildSortClause,
   reverseSortClause,
   parseSortField,
+  NESTED_SORT_FIELDS,
 } from "./adapters/elasticsearch/sort-builders";
 import { detectNullZoneCursor, remapNullZoneSortValues } from "./null-zone";
 import {
@@ -478,6 +480,13 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
     mustNot.push({ exists: { field: "softDeletedMetadata" } });
   }
 
+  // Suppress images with "replaced" usages by default — mirrors Kahuna's
+  // Parser.scala thingsToHideByDefault: "-usages@status:replaced".
+  // User can opt in to see replaced images by typing usages@status:replaced explicitly.
+  if (!queryStr.includes("usages@status:replaced")) {
+    mustNot.push({ nested: { path: "usages", query: { term: { "usages.status": "replaced" } } } });
+  }
+
   // IDs filter (comma-separated)
   if (params.ids) {
     const idList = params.ids.split(",").map((s) => s.trim());
@@ -769,6 +778,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     fields: AggregationRequest[],
     signal?: AbortSignal,
     isFilters?: FilterAggRequest[],
+    usageFilters?: UsageFilterAggRequest[],
   ): Promise<AggregationsResult> {
     // Build named aggs — one terms agg per field, keyed by field path
     const aggs: Record<string, unknown> = {};
@@ -781,6 +791,32 @@ export class ElasticsearchDataSource implements ImageDataSource {
         aggs[name] = { filter: parseCql(`is:${isFilter}`).must[0] };
       }
     }
+    // Add usage nested-filter aggs — consolidated into ONE nested agg with terms
+    // sub-aggs (by_platform + by_status), each with reverse_nested to count parent
+    // images. One traversal covers all requested values — 7× cheaper than one nested
+    // agg per value. size:20 safely covers all known platform/status values
+    // (~6 platforms, ~8 statuses).
+    if (usageFilters?.length) {
+      const hasPlatform = usageFilters.some((r) => r.subField === "platform");
+      const hasStatus = usageFilters.some((r) => r.subField === "status");
+      aggs["_usages"] = {
+        nested: { path: "usages" },
+        aggs: {
+          ...(hasPlatform ? {
+            by_platform: {
+              terms: { field: "usages.platform", size: 20 },
+              aggs: { image_count: { reverse_nested: {} } },
+            },
+          } : {}),
+          ...(hasStatus ? {
+            by_status: {
+              terms: { field: "usages.status", size: 20 },
+              aggs: { image_count: { reverse_nested: {} } },
+            },
+          } : {}),
+        },
+      };
+    }
 
     const body: Record<string, unknown> = {
       size: 0,
@@ -791,7 +827,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
     const t0 = Date.now();
     const result = (await this.esRequest("_search", body, signal)) as {
       took?: number;
-      aggregations?: Record<string, { buckets?: Array<{ key: string; doc_count: number }>; doc_count?: number }>;
+      aggregations?: Record<string, {
+        buckets?: Array<{ key: string; doc_count: number }>;
+        doc_count?: number;
+        filtered?: { doc_count: number; image_count: { doc_count: number } };
+        by_platform?: { buckets: Array<{ key: string; image_count: { doc_count: number } }> };
+        by_status?: { buckets: Array<{ key: string; image_count: { doc_count: number } }> };
+      }>;
       hits: { total: { value: number } };
     };
     const fetchDuration = Date.now() - t0;
@@ -813,9 +855,28 @@ export class ElasticsearchDataSource implements ImageDataSource {
         )
       : undefined;
 
+    const outUsageFilters: Record<string, number> | undefined = usageFilters?.length
+      ? (() => {
+          const usagesAgg = result.aggregations?.["_usages"];
+          const platformBuckets = new Map(
+            (usagesAgg?.by_platform?.buckets ?? []).map((b) => [b.key, b.image_count.doc_count]),
+          );
+          const statusBuckets = new Map(
+            (usagesAgg?.by_status?.buckets ?? []).map((b) => [b.key, b.image_count.doc_count]),
+          );
+          return Object.fromEntries(
+            usageFilters.map(({ name, subField, value }) => [
+              name,
+              (subField === "platform" ? platformBuckets : statusBuckets).get(value) ?? 0,
+            ]),
+          );
+        })()
+      : undefined;
+
     return {
       fields: outFields,
       ...(outFilters !== undefined ? { filters: outFilters } : {}),
+      ...(outUsageFilters !== undefined ? { usageFilters: outUsageFilters } : {}),
       took: result.took,
       fetchDuration,
     };
@@ -1224,28 +1285,19 @@ export class ElasticsearchDataSource implements ImageDataSource {
     signal?: AbortSignal,
   ): Promise<number> {
     const sortClause = buildSortClause(params.orderBy);
-    // Build a query that counts all documents that sort *before* the
-    // target document. For each sort field, a document sorts before if:
-    //   - Its value on an earlier sort field is strictly "less" (in the
-    //     field's sort direction), OR
-    //   - All earlier fields are equal AND this field is strictly "less".
-    //
-    // For a sort clause [{uploadTime: "desc"}, {id: "asc"}] with values
-    // [T, I], a document sorts before if:
-    //   uploadTime > T  (desc → "before" means greater)
-    //   OR (uploadTime == T AND id < I)  (asc → "before" means less)
-    //
-    // This generalises to N sort fields via nested should clauses.
-    //
-    // NULL HANDLING (missing: "_last"):
-    // ES puts docs with missing values at the END of the sort (both asc
-    // and desc). So for desc sort:
-    //   - Non-null values come first (sorted descending)
-    //   - Null values come last
-    // A doc with null sorts AFTER all non-null docs. So "before" a null
-    // doc means: all non-null docs (exists), plus null docs whose
-    // subsequent sort values are "less". For equality on null fields,
-    // we use must_not:exists (both are null → "equal").
+
+    /**
+     * Wrap a leaf query in a nested block if the field lives inside an ES
+     * nested type (e.g. usages.dateAdded → path "usages"). Plain object arrays
+     * (e.g. collections.actionData.date) are NOT in NESTED_SORT_FIELDS and are
+     * returned unchanged. Without wrapping, ES silently returns 0 for range/
+     * exists queries against nested fields.
+     */
+    function wrapIfNested(field: string, query: Record<string, unknown>): Record<string, unknown> {
+      const nestedPath = NESTED_SORT_FIELDS[field];
+      if (!nestedPath) return query;
+      return { nested: { path: nestedPath, query } };
+    }
 
     const baseQuery = buildQuery(params);
     const should: Record<string, unknown>[] = [];
@@ -1268,32 +1320,29 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         if (prevValue == null) {
           // Previous field is null → "equal" means the other doc also has
-          // null for this field → must_not exists
+          // null for this field → must_not exists (wrapped if nested)
           equalityConditions.push({
-            bool: { must_not: { exists: { field: prev.field } } },
+            bool: { must_not: wrapIfNested(prev.field, { exists: { field: prev.field } }) },
           });
         } else {
-          equalityConditions.push({
-            range: { [prev.field]: { gte: prevValue, lte: prevValue } },
-          });
+          // For plain fields this is exact equality. For nested max-mode sorts
+          // (e.g. usages.dateAdded with mode:max), this checks "any usage has
+          // dateAdded == prevValue" rather than "max(dateAdded) == prevValue".
+          // The looser check is still correct: an image with max < prevValue can
+          // have no usage at prevValue (all usages are smaller), so there are no
+          // false negatives. An image with max > prevValue may also have a usage
+          // at prevValue, but it is already captured by the strict-before clause
+          // (range gt prevValue) and the OR semantics mean the count is unaffected.
+          equalityConditions.push(
+            wrapIfNested(prev.field, { range: { [prev.field]: { gte: prevValue, lte: prevValue } } }),
+          );
         }
       }
 
       if (value == null) {
-        // Current field is null. With missing: "_last", ALL docs that have
-        // a value for this field sort before any null doc — regardless of
-        // the sort direction. So "strictly before" = field exists.
-        //
-        // But only within the partition defined by preceding equalities.
-        // E.g. for sort [lastModified desc, uploadTime desc, id asc]:
-        //   Level 0 (lastModified=null): all docs with lastModified exists
-        //   Level 1 (uploadTime=X, given lastModified=null): impossible —
-        //     if we're at level 1, lastModified equality already narrowed
-        //     to null docs, and uploadTime is non-null (value != null
-        //     would be the next iteration).
-        const existsCondition: Record<string, unknown> = {
-          exists: { field },
-        };
+        // Current field is null → all docs that have a value for this field
+        // sort before any null doc (missing: "_last"). "Strictly before" = field exists.
+        const existsCondition = wrapIfNested(field, { exists: { field } });
 
         if (equalityConditions.length === 0) {
           should.push(existsCondition);
@@ -1308,9 +1357,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
         // Non-null value: standard range comparison
         // "Before" in desc order means >, in asc order means <
         const rangeOp = direction === "desc" ? "gt" : "lt";
-        const rangeCondition = {
-          range: { [field]: { [rangeOp]: value } },
-        };
+        const rangeCondition = wrapIfNested(field, { range: { [field]: { [rangeOp]: value } } });
 
         if (equalityConditions.length === 0) {
           should.push(rangeCondition);
@@ -1355,32 +1402,35 @@ export class ElasticsearchDataSource implements ImageDataSource {
     percentile: number,
     signal?: AbortSignal,
   ): Promise<number | null> {
-    const body: Record<string, unknown> = {
-      size: 0, // No hits — agg only
-      query: buildQuery(params),
-      aggs: {
-        pct: {
-          percentiles: {
-            field,
-            percents: [percentile],
-            // TDigest with higher compression for better accuracy at extremes
-            tdigest: { compression: 200 },
-          },
-        },
+    const nestedPath = NESTED_SORT_FIELDS[field];
+    const percentilesAgg = {
+      percentiles: {
+        field,
+        percents: [percentile],
+        tdigest: { compression: 200 },
       },
+    };
+    const body: Record<string, unknown> = {
+      size: 0,
+      query: buildQuery(params),
+      aggs: nestedPath
+        ? { nested_agg: { nested: { path: nestedPath }, aggs: { pct: percentilesAgg } } }
+        : { pct: percentilesAgg },
     };
 
     try {
       const result = (await this.esRequest("_search", body, signal)) as {
         aggregations?: {
           pct?: { values?: Record<string, number | null> };
+          nested_agg?: { pct?: { values?: Record<string, number | null> } };
         };
       };
 
-      const values = result.aggregations?.pct?.values;
+      const values = nestedPath
+        ? result.aggregations?.nested_agg?.pct?.values
+        : result.aggregations?.pct?.values;
       if (!values) return null;
 
-      // ES returns percentile keys as strings like "50.0"
       const key = Object.keys(values)[0];
       if (!key) return null;
 
@@ -1630,19 +1680,34 @@ export class ElasticsearchDataSource implements ImageDataSource {
   ): Promise<SortDistribution | null> {
     const startTime = Date.now();
 
-    // First, get the min/max of the field to choose the right interval.
-    // stats agg is very cheap on date fields (~5ms).
-    const baseQuery = buildQuery(params);
+    // Nested-field detection: usages.dateAdded lives inside the nested `usages` type.
+    // Aggregations on nested fields must be wrapped in a `nested` agg; reverse_nested
+    // is used inside the histogram to count parent images (not usage-level docs).
+    const nestedPath = NESTED_SORT_FIELDS[field];
+
+    // missingField may also be a nested field (e.g. "usages.dateAdded" as the
+    // primary field whose absence defines the null zone). Use a nested query for
+    // the exists check so ES evaluates it correctly inside the nested type.
+    const missingNestedPath = missingField ? NESTED_SORT_FIELDS[missingField] : undefined;
     const extraFilter = missingField
-      ? { bool: { must_not: { exists: { field: missingField } } } }
+      ? missingNestedPath
+        ? { bool: { must_not: { nested: { path: missingNestedPath, query: { exists: { field: missingField } } } } } }
+        : { bool: { must_not: { exists: { field: missingField } } } }
       : undefined;
+
+    const baseQuery = buildQuery(params);
     const query = extraFilter
       ? { bool: { must: [baseQuery], filter: [extraFilter] } }
       : baseQuery;
+
+    // Stats agg — get min/max to choose histogram interval.
+    const statsAgg = { stats: { field } };
     const statsBody: Record<string, unknown> = {
       size: 0,
       query,
-      aggs: { range: { stats: { field } } },
+      aggs: nestedPath
+        ? { nested_agg: { nested: { path: nestedPath }, aggs: { range: statsAgg } } }
+        : { range: statsAgg },
       track_total_hits: false,
     };
 
@@ -1651,27 +1716,32 @@ export class ElasticsearchDataSource implements ImageDataSource {
     let statsTimeMs: number;
     try {
       const statsResult = (await this.esRequest("_search", statsBody, signal)) as {
-        aggregations?: { range?: { min: number; max: number; count: number } };
+        aggregations?: {
+          range?: { min: number; max: number; count: number };
+          nested_agg?: { range?: { min: number; max: number; count: number } };
+        };
       };
       statsTimeMs = Date.now() - startTime;
-      const stats = statsResult.aggregations?.range;
+      const stats = nestedPath
+        ? statsResult.aggregations?.nested_agg?.range
+        : statsResult.aggregations?.range;
       if (!stats) return null;
       if (stats.count === 0) return { buckets: [], coveredCount: 0 };
 
       spanMs = Math.abs(stats.max - stats.min);
       const MS_PER_DAY = 86_400_000;
       if (spanMs > 2 * 365 * MS_PER_DAY) {
-        interval = "month";          // ~180 buckets for 15 years
+        interval = "month";
       } else if (spanMs > 2 * MS_PER_DAY) {
-        interval = "day";            // ~60 buckets for 2 months
+        interval = "day";
       } else if (spanMs > 25 * 3600_000) {
-        interval = "hour";           // ~48 buckets for 2 days
+        interval = "hour";
       } else if (spanMs > 12 * 3600_000) {
-        interval = "30m";            // ~48 buckets for 24 hours
+        interval = "30m";
       } else if (spanMs > 3 * 3600_000) {
-        interval = "10m";            // ~72 buckets for 12 hours
+        interval = "10m";
       } else {
-        interval = "5m";             // ~36 buckets for 3 hours
+        interval = "5m";
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;
@@ -1679,13 +1749,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
       return null;
     }
 
-    // Now fetch the histogram.
-    // calendar_interval for month/day/hour (variable-length);
-    // fixed_interval for sub-hour (30m, 10m, 5m — calendar_interval doesn't support these).
     const isCalendar = ["month", "day", "hour"].includes(interval);
     const histogramConfig: Record<string, unknown> = {
       field,
-      min_doc_count: 1, // skip empty buckets
+      min_doc_count: 1,
       order: { _key: direction },
     };
     if (isCalendar) {
@@ -1693,42 +1760,66 @@ export class ElasticsearchDataSource implements ImageDataSource {
     } else {
       histogramConfig.fixed_interval = interval;
     }
+
+    // For nested fields, wrap histogram in a nested agg and add reverse_nested
+    // to count parent images (not nested usage-level docs).
     const body: Record<string, unknown> = {
       size: 0,
       query,
-      aggs: {
-        timeline: {
-          date_histogram: histogramConfig,
-        },
-      },
+      aggs: nestedPath
+        ? {
+          nested_agg: {
+            nested: { path: nestedPath },
+            aggs: {
+              timeline: {
+                date_histogram: histogramConfig,
+                aggs: { image_count: { reverse_nested: {} } },
+              },
+            },
+          },
+        }
+        : { timeline: { date_histogram: histogramConfig } },
       track_total_hits: false,
     };
 
     try {
       const result = (await this.esRequest("_search", body, signal)) as {
         aggregations?: {
-          timeline?: {
-            buckets?: Array<{ key_as_string: string; doc_count: number }>;
+          timeline?: { buckets?: Array<{ key_as_string: string; doc_count: number }> };
+          nested_agg?: {
+            timeline?: {
+              buckets?: Array<{
+                key_as_string: string;
+                doc_count: number;
+                image_count: { doc_count: number };
+              }>;
+            };
           };
         };
       };
 
-      const esBuckets = result.aggregations?.timeline?.buckets;
+      const esBuckets = nestedPath
+        ? result.aggregations?.nested_agg?.timeline?.buckets
+        : result.aggregations?.timeline?.buckets;
       if (!esBuckets || esBuckets.length === 0) return null;
 
       const buckets: SortDistBucket[] = [];
       let cumulative = 0;
       for (const b of esBuckets) {
+        // For nested fields, use the reverse_nested image count (not usage count).
+        const count = nestedPath
+          ? (b as { image_count: { doc_count: number } }).image_count.doc_count
+          : b.doc_count;
+        if (count === 0) continue; // skip empty buckets after reverse_nested
         buckets.push({
           key: b.key_as_string,
-          count: b.doc_count,
+          count,
           startPosition: cumulative,
         });
-        cumulative += b.doc_count;
+        cumulative += count;
       }
 
       const histTimeMs = Date.now() - startTime - statsTimeMs;
-      // Rough payload estimate: ~60 bytes per bucket (key_as_string + doc_count JSON)
       const payloadEstKB = Math.round(esBuckets.length * 60 / 1024);
       const spanDesc = spanMs > 86_400_000
         ? `${(spanMs / 86_400_000).toFixed(1)}d`

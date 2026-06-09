@@ -32,6 +32,7 @@ import { CollectionTree } from "@/components/CollectionTree";
 import { useCollectionStore } from "@/stores/collection-store";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { MultiImageMetadata } from "@/components/MultiImageMetadata";
+import { UsagesSection, MultiUsagesSummary } from "@/components/UsagesSection";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -229,9 +230,14 @@ function SearchPage() {
             </>
           }
           rightPanel={
-            <AccordionSection sectionId="right-metadata" title="Details">
-              <FocusedImageMetadata />
-            </AccordionSection>
+            <>
+              <AccordionSection sectionId="right-metadata" title="Details">
+                <FocusedImageMetadata />
+              </AccordionSection>
+              <AccordionSection sectionId="right-usages" title="Usages">
+                <FocusedUsages />
+              </AccordionSection>
+            </>
           }
           scrubber={scrubberElement}
         >
@@ -319,5 +325,57 @@ function FocusedImageMetadata() {
       <ImageMetadata image={image} />
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// FocusedUsages — right panel usages section for the focused/selected image.
+// Mirrors the image-resolution logic in FocusedImageMetadata.
+// Multi-selection: shows aggregate summary. Single/focused: shows UsagesSection.
+// ---------------------------------------------------------------------------
+
+function FocusedUsages() {
+  const focusedImageId = useSearchStore((s) => s.focusedImageId);
+  const imagePositions = useSearchStore((s) => s.imagePositions);
+  const bufferOffset = useSearchStore((s) => s.bufferOffset);
+  const results = useSearchStore((s) => s.results);
+  const effectiveMode = useEffectiveFocusMode();
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
+  const metadataCache = useSelectionStore((s) => s.metadataCache);
+  const selectedCount = selectedIds.size;
+  const isMultiSelection = selectedCount > 1;
+  const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
+
+  const image = (() => {
+    if (isMultiSelection) return null;
+    const resolvedId =
+      singleSelectedId ??
+      (effectiveMode === "phantom" ? null : focusedImageId);
+    if (!resolvedId) return null;
+    const globalIdx = imagePositions.get(resolvedId);
+    if (globalIdx != null) {
+      const localIdx = globalIdx - bufferOffset;
+      if (localIdx >= 0 && localIdx < results.length) {
+        return results[localIdx] ?? null;
+      }
+    }
+    if (resolvedId === singleSelectedId) {
+      return metadataCache.get(resolvedId) ?? null;
+    }
+    return null;
+  })();
+
+  if (isMultiSelection) {
+    return <MultiUsagesSummary />;
+  }
+
+  if (!image) {
+    return (
+      <div className="px-3 py-4 text-xs text-grid-text-dim">
+        Focus an image to see its usages.
+      </div>
+    );
+  }
+
+  return <UsagesSection usages={image.usages} />;
 }
 

@@ -225,6 +225,68 @@ function strToClause(str: CqlStr, negated: boolean): QueryClause {
   };
 }
 
+/**
+ * Build an ES nested query for a usages@ sub-field.
+ * Called when key.startsWith("usages@").
+ */
+function buildNestedUsagesQuery(subField: string, value: string, negated: boolean): QueryClause {
+  let innerQuery: EsQuery;
+
+  switch (subField) {
+    case "platform":
+      innerQuery = { term: { "usages.platform": value } };
+      break;
+    case "status":
+      innerQuery = { term: { "usages.status": value } };
+      break;
+    case "reference":
+      innerQuery = {
+        multi_match: {
+          query: value,
+          fields: ["usages.references.uri", "usages.references.name"],
+          type: "best_fields",
+          operator: "and",
+        },
+      };
+      break;
+    case "section":
+      innerQuery = {
+        multi_match: {
+          query: value,
+          fields: ["usages.printUsageMetadata.sectionId", "usages.printUsageMetadata.sectionCode"],
+          type: "best_fields",
+          operator: "and",
+        },
+      };
+      break;
+    case "publication":
+      innerQuery = {
+        multi_match: {
+          query: value,
+          fields: ["usages.printUsageMetadata.publicationName", "usages.printUsageMetadata.publicationCode"],
+          type: "best_fields",
+          operator: "and",
+        },
+      };
+      break;
+    case "orderedBy":
+      innerQuery = {
+        match: { "usages.printUsageMetadata.orderedBy": { query: value, operator: "and" } },
+      };
+      break;
+    case "<added":
+      innerQuery = { range: { "usages.dateAdded": { lte: value } } };
+      break;
+    case ">added":
+      innerQuery = { range: { "usages.dateAdded": { gte: value } } };
+      break;
+    default:
+      innerQuery = { match_none: {} };
+  }
+
+  return { query: { nested: { path: "usages", query: innerQuery } }, negated };
+}
+
 function fieldToClause(field: CqlField, negated: boolean): QueryClause {
   const key = field.key.literal ?? field.key.lexeme;
   const value = field.value?.literal ?? field.value?.lexeme ?? "";
@@ -243,6 +305,11 @@ function fieldToClause(field: CqlField, negated: boolean): QueryClause {
 
   if (key === "is") {
     return buildIsQuery(value, negated);
+  }
+
+  // usages@ nested query — e.g. usages@platform:print, usages@status:published
+  if (key.startsWith("usages@")) {
+    return buildNestedUsagesQuery(key.slice("usages@".length), value, negated);
   }
 
   if (key === "collection") {
@@ -454,6 +521,50 @@ function isMultiMatchCrossFields(q: EsQuery): boolean {
   return mm?.type === "cross_fields";
 }
 
+/**
+ * Merge all usages@ nested clauses into single nested queries grouped by
+ * polarity, mirroring Kahuna QueryBuilder.scala listOfNestedToQueries.
+ *
+ * Multiple positive usages@ chips (e.g. usages@platform:print + usages@status:published)
+ * combine into one nested query with bool.must inside — meaning "a single usage record
+ * that is BOTH print AND published" (same-record AND semantics, not cross-record).
+ *
+ * Negative usages@ chips are merged the same way, then placed in must_not by
+ * clausesToQuery.
+ */
+function mergeUsagesNestedClauses(clauses: QueryClause[]): QueryClause[] {
+  const positiveInners: EsQuery[] = [];
+  const negativeInners: EsQuery[] = [];
+  const rest: QueryClause[] = [];
+
+  for (const clause of clauses) {
+    const nested = (clause.query as { nested?: { path: string; query: EsQuery } }).nested;
+    if (nested?.path === "usages") {
+      if (clause.negated) {
+        negativeInners.push(nested.query);
+      } else {
+        positiveInners.push(nested.query);
+      }
+    } else {
+      rest.push(clause);
+    }
+  }
+
+  if (positiveInners.length === 1) {
+    rest.push({ query: { nested: { path: "usages", query: positiveInners[0] } }, negated: false });
+  } else if (positiveInners.length > 1) {
+    rest.push({ query: { nested: { path: "usages", query: { bool: { must: positiveInners } } } }, negated: false });
+  }
+
+  if (negativeInners.length === 1) {
+    rest.push({ query: { nested: { path: "usages", query: negativeInners[0] } }, negated: true });
+  } else if (negativeInners.length > 1) {
+    rest.push({ query: { nested: { path: "usages", query: { bool: { must: negativeInners } } } }, negated: true });
+  }
+
+  return rest;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -483,7 +594,11 @@ export function parseCql(queryStr: string): CqlParseResult {
   }
 
   const rawClauses = binaryToClauses(result.queryAst.content);
-  const clauses = mergeClauses(rawClauses);
+  // mergeClauses merges consecutive free-text cross_fields queries.
+  // mergeUsagesNestedClauses then groups all usages@ nested clauses by polarity
+  // so that e.g. usages@platform:print + usages@status:published become a single
+  // nested query with bool.must inside (same-record AND, mirroring Kahuna).
+  const clauses = mergeUsagesNestedClauses(mergeClauses(rawClauses));
 
   const must: EsQuery[] = [];
   const mustNot: EsQuery[] = [];

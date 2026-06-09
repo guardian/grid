@@ -61,6 +61,8 @@ import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-k
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
+import { AccordionSection } from "@/components/PanelLayout";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { trace } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
@@ -854,8 +856,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             Desktop: fixed-width right column, scrolls independently.
             Mobile: flows below the image in the single scroll container. */}
         {!isFullscreen && (
-          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip p-3">
-            <ImageMetadata image={displayImage} />
+          <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip">
+            <AccordionSection sectionId="detail-metadata" title="Details">
+              <div className="p-3">
+                <ImageMetadata image={displayImage} />
+              </div>
+            </AccordionSection>
+            <AccordionSection
+              sectionId="detail-usages"
+              title={`Usages${countDisplayUsages(displayImage.usages) > 0 ? ` (${countDisplayUsages(displayImage.usages)})` : ""}`}
+            >
+              <UsagesSection usages={displayImage.usages} />
+            </AccordionSection>
           </aside>
         )}
       </div>

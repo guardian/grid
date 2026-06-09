@@ -28,6 +28,7 @@ import type {
   AggregationRequest,
   AggregationsResult,
   FilterAggRequest,
+  UsageFilterAggRequest,
   SortDistribution,
   IdRangeResult,
   CountWithTickersResult,
@@ -357,6 +358,7 @@ export class MockDataSource implements ImageDataSource {
     _fields: AggregationRequest[],
     _signal?: AbortSignal,
     _isFilters?: FilterAggRequest[],
+    _usageFilters?: UsageFilterAggRequest[],
   ): Promise<AggregationsResult> {
     return { fields: {} };
   }

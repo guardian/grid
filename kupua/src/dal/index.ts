@@ -12,11 +12,12 @@ export type {
   AggregationBucket,
   AggregationsResult,
   FilterAggRequest,
+  UsageFilterAggRequest,
   SortDistribution,
   TickerCountResult,
   CountWithTickersResult,
 } from "./types";
 
 export { ElasticsearchDataSource } from "./es-adapter";
-export { buildSortClause, parseSortField, DATE_SORT_FIELDS } from "./adapters/elasticsearch/sort-builders";
+export { buildSortClause, parseSortField, DATE_SORT_FIELDS, NESTED_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "./adapters/elasticsearch/sort-builders";
 

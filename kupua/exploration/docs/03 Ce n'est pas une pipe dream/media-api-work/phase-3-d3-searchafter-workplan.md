@@ -1,6 +1,8 @@
 # Phase 3 — D3: `searchAfter` Cursor Pagination — Workplan
 
-**Status:** Ready to implement. B1 and B2 refactors are complete.
+**Status:** BLOCKED — waiting on PR [guardian/grid#4752](https://github.com/guardian/grid/pull/4752) to merge. That PR touches `ElasticSearch.scala` (moves filter construction into `QueryBuilder`), `ElasticSearchModel.scala` (adds `AiQueryParts`/`aiQueryParts`), and `MediaApi.scala`. Implement only after it merges — re-read those three files before starting, as the code shape may differ from what this workplan assumes. Full context in `phase-3-d3-searchafter-worklog.md`.
+
+**Pre-block status:** Ready to implement. B1 and B2 refactors are complete.
 **Supersedes:** `ref--media-api-gap-01-searchAfter-workplan.md`
 **Key difference from the old plan:** Gap 10 (null-zone) is now **mandatory**,
 not out-of-scope. B1 moved null-zone handling into the ES adapter; the store
@@ -18,9 +20,14 @@ Cookie: <panda>
 
 {
   "q": "cats",
-  "orderBy": "-uploadTime",
+  "orderBy": "-dateAddedToCollection",              // see “Sorts” note below
+  "sort": [                                         // see “Sorts” note below
+    { "collections.actionData.date": { "order": "desc", "missing": "_last" } },
+    { "uploadTime": "desc" },
+    { "id": "asc" }
+  ],
   "length": 50,
-  "sortValues": [1716000000000, "abc123def456"],   // omit for first page
+  "sortValues": [1716000000000, 1716000000000, "abc123def456"], // omit for first page
   "pitId": "abc...",                                // optional
   "reverse": false,                                 // optional, default false
   "seekToEnd": false,                               // optional, default false
@@ -41,6 +48,28 @@ Cookie: <panda>
 }
 ```
 
+**Sorts — the `sort` clause is authoritative (Option B).** The client sends the
+**fully-resolved ES sort clause** in `sort`; the server applies it verbatim and
+does **not** build the clause from `orderBy`. This is the deliberate “Option B”
+shape: kupua already owns a single, tested clause builder (`buildSortClause` in
+`sort-builders.ts`) that resolves every alias, appends the `uploadTime` fallback
+and the `id` tiebreaker, and expresses both nested sorts (`dateAddedToCollection`,
+`usagesDateAdded`) in both orders. Re-deriving that clause server-side would create
+a second source of truth that must stay byte-identical forever (the cursor shape is
+derived from this exact clause — see validation note). The full rationale, the
+breakage analysis for the “server builds the clause” alternative, the longer-term
+**Option A** (server owns a *semantic* `orderBy`), and the production-Kahuna safety
+constraints live in the companion: `phase-3-d3-searchafter-sort-companion-workplan.md`.
+**Build the companion's Option B changes in the SAME Scala and TS commits as this
+endpoint — never land this endpoint with `orderBy`-driven sorting.**
+
+**`orderBy` is still sent, but read for ONE thing only:** the
+`dateAddedToCollection` companion `collections.pathHierarchy` filter (the
+“for reasons unknown” scoping filter in `search()`). The server inspects `orderBy`
+(both `dateAddedToCollection` and `-dateAddedToCollection`) solely to decide whether
+to add that filter — it never builds the sort clause from it. `orderBy` does **not**
+drive sorting on this endpoint.
+
 **`seekToEnd`** (renamed from old `missingFirst`): sets `missing: "_first"` on
 the primary sort field. Needed for reverse-seek-to-end on keyword fields.
 
@@ -50,16 +79,35 @@ the client sends back unchanged. One exception: **null-zone cursors** — see
 mandatory Gap 10 section below.
 
 **Validation:** `sortValues.length == effectiveSortClause.length` → 422.
-Note: when null-zone is detected, `effectiveSortClause` is the stripped clause
-(no primary field), so `sortValues` must equal the full clause length minus 1.
-Simplest approach: validate AFTER null-zone stripping, against the effective
-(possibly stripped) sort clause.
+The `effectiveSortClause` here is the client-sent `sort` array (after any
+null-zone stripping), NOT a server-derived clause — this is exactly why Option B
+is safe: the cursor and the clause come from the same builder on the client, so
+their lengths agree by construction. Note: when null-zone is detected,
+`effectiveSortClause` is the stripped clause (no primary field), so `sortValues`
+must equal the full clause length minus 1. Simplest approach: validate AFTER
+null-zone stripping, against the effective (possibly stripped) sort clause.
 
 **`countAll`:** default `true`. Send `false` on pages after the first.
 
 ---
 
 ## Leg A — media-api (Scala)
+
+### Production-Kahuna safety (read first)
+
+media-api currently serves **production Kahuna**. This endpoint is **purely
+additive** and MUST NOT alter anything Kahuna depends on:
+
+- **Do NOT touch `sorts.createSort`, `sorts.dateAddedToCollectionDescending`, or
+  the `dateAddedToCollectionFilter` / `collections.pathHierarchy` logic in
+  `search()`.** Under Option B the new endpoint does not call `createSort` at all
+  (the client sends the resolved clause), so there is no reason to modify it. The
+  shared sort code stays exactly as-is, still serving Kahuna's `GET /images`.
+- The new endpoint may **read** the existing companion-filter logic (lift-and-reuse,
+  behaviour-preserving) but must not change its behaviour for `search()`.
+- The two extractions below (`buildFilteredQuery`, `hitToImageEntity` lift) DO
+  modify Kahuna-serving code. They MUST be **strictly behaviour-preserving** and
+  the existing `search()` / `imageSearch()` tests MUST stay green unchanged.
 
 ### Refactoring extractions (same as old plan — still valid)
 
@@ -68,7 +116,11 @@ Simplest approach: validate AFTER null-zone stripping, against the effective
 | `buildFilteredQuery(params: SearchParams): Query` | ~80 lines inlined in `ElasticSearch.search()` — needed by 9+ endpoints |
 | Lift `hitToImageEntity` to private method on `MediaApi` | Currently a closure inside `imageSearch()`; needed by this endpoint and Gap 12/8 |
 | `SearchParamsBody.fromJson(body: JsValue, tier: Tier)` | All POST endpoints need body→SearchParams; write once |
-| `sorts.appendTiebreaker(sorts: Seq[Sort])` | Deterministic pagination requires `_id` tiebreaker — cannot be forgotten per-endpoint |
+
+> **Note (Option B):** the old plan's `sorts.appendTiebreaker` extraction is **not**
+> needed for this endpoint. Under Option B the client's `buildSortClause` already
+> appends the `id` tiebreaker, so the server applies the clause verbatim. Keep this
+> extraction out of D3 to avoid touching shared sort code (see Kahuna-safety note).
 
 ### Files to touch
 
@@ -77,7 +129,7 @@ Simplest approach: validate AFTER null-zone stripping, against the effective
 | `media-api/conf/routes` | Add `POST /images/search-after` before `GET /images/:id` |
 | `media-api/app/lib/elasticsearch/ElasticSearchModel.scala` | New `SearchAfterParams`, `SearchAfterRawResults`, `SearchParamsBody.fromJson` |
 | `media-api/app/lib/elasticsearch/ElasticSearch.scala` | Extract `buildFilteredQuery`; new `searchAfter()` method with null-zone detection |
-| `media-api/app/lib/elasticsearch/sorts.scala` | Add `reverseSorts()`, `appendTiebreaker()` |
+| `media-api/app/lib/elasticsearch/sorts.scala` | Add `reverseSorts()` only (used by reverse pagination). **No `createSort` changes** — Option B applies the client clause verbatim. |
 | `media-api/app/controllers/MediaApi.scala` | Lift `hitToImageEntity`; new `searchAfterImages()` handler |
 | `media-api/test/lib/elasticsearch/ElasticSearchTest.scala` | Integration tests |
 
@@ -95,6 +147,18 @@ private def buildFilteredQuery(params: SearchParams): Query = {
 ```
 
 `search()` becomes a one-line call. All new endpoints call the same method.
+
+> **Companion `pathHierarchy` filter — both orders.** The extracted
+> `buildFilteredQuery` retains the existing `dateAddedToCollectionFilter` block.
+> Today it matches `Some("dateAddedToCollection")` only. kupua sends BOTH
+> `dateAddedToCollection` (asc) and `-dateAddedToCollection` (desc), so the new
+> endpoint needs the filter to fire for **both**. **Do not change the existing
+> `search()` match** (Kahuna only ever sends the DESC token) — instead match both
+> tokens inside `buildFilteredQuery` so the shared extraction covers Kahuna's one
+> case and the endpoint's two cases. Verify this is behaviour-preserving for
+> Kahuna: adding the asc token to the match cannot change Kahuna behaviour because
+> Kahuna never sends it. The sort clause itself is unaffected — it comes from the
+> client `sort` array, not from `orderBy`.
 
 #### 2. `hitToImageEntity` lift
 
@@ -135,30 +199,66 @@ object SearchParamsBody {
 }
 ```
 
-#### 4. `sorts.scala` additions
+#### 4. `sorts.scala` additions + client-clause parsing
+
+**Option B: the server does not build the sort clause.** It deserialises the
+client-sent `sort` array into elastic4s `Sort` objects and applies them. Two
+helpers:
 
 ```scala
+// Reverse pagination: flip asc<->desc on every sort entry.
 def reverseSorts(sorts: Seq[Sort]): Seq[Sort] = sorts.map {
   case fs: FieldSort =>
     fs.order(if (fs.order == SortOrder.ASC) SortOrder.DESC else SortOrder.ASC)
   case other => other
 }
-
-def appendTiebreaker(sorts: Seq[Sort]): Seq[Sort] = {
-  val hasTiebreaker = sorts.exists {
-    case fs: FieldSort => fs.field == "_id" || fs.field == "id"
-    case _ => false
-  }
-  if (hasTiebreaker) sorts
-  else sorts :+ fieldSort("_id").order(SortOrder.ASC)
-}
 ```
+
+**Clause deserialisation (`jsonToSort`).** Each entry in the client `sort` array is
+either a flat `{ field: "asc"|"desc" }` or a nested-object
+`{ field: { order, missing?, mode?, nested?: { path } } }`. Map both to `FieldSort`:
+
+```scala
+// In sorts.scala (or a small private helper near searchAfter()).
+// Mirrors the shapes produced by kupua buildSortClause:
+//   { "uploadTime": "desc" }
+//   { "id": "asc" }
+//   { "collections.actionData.date": { order, missing } }
+//   { "usages.dateAdded": { order, mode, nested: { path }, missing } }
+def jsonToSort(entry: JsObject): Sort = {
+  val (field, spec) = entry.fields.head
+  spec match {
+    case JsString(dir) =>
+      fieldSort(field).order(orderOf(dir))
+    case obj: JsObject =>
+      val base = fieldSort(field).order(orderOf((obj \ "order").as[String]))
+      val withMissing = (obj \ "missing").asOpt[String].fold(base)(base.missing)
+      val withMode    = (obj \ "mode").asOpt[String]
+        .flatMap(sortModeOf).fold(withMissing)(withMissing.mode)
+      val withNested  = (obj \ "nested" \ "path").asOpt[String]
+        .fold(withMode)(p => withMode.nested(p))
+      withNested
+    case _ => throw new InvalidUriParams(s"unrecognised sort spec for field $field")
+  }
+}
+private def orderOf(s: String): SortOrder =
+  if (s == "desc") SortOrder.DESC else SortOrder.ASC
+```
+
+> Note: `_id` vs `id` — kupua sends `id` (the document id field). Keep it as `id`
+> unless an integration test shows the alias does not resolve as a sort field, in
+> which case map `id` → `_id` at this boundary only. Do NOT change Kahuna's tiebreaker.
+
+> Note: elastic4s `FieldSort.nested(path)`/`.mode(...)` signatures — confirm exact
+> method names against 8.19.1 when unblocked (see References). The shape above is
+> the intent; the DSL spelling may differ slightly.
 
 #### 5. Data types
 
 ```scala
 case class SearchAfterParams(
   searchParams: SearchParams,
+  sort:         Seq[JsObject],         // client-resolved ES sort clause (Option B)
   sortValues:   Option[Seq[JsValue]],  // null-prefixed cursors allowed: JsNull at [0]
   pitId:        Option[String],
   reverse:      Boolean = false,
@@ -218,7 +318,13 @@ def searchAfter(params: SearchAfterParams)
 
   val query = buildFilteredQuery(params.searchParams)
 
-  val baseSorts    = sorts.appendTiebreaker(sorts.createSort(params.searchParams.orderBy))
+  // --- Sorts (Option B): apply the client-resolved clause verbatim ---
+  // The client (kupua buildSortClause) has already resolved aliases, appended
+  // the uploadTime fallback + the id tiebreaker, and expressed any nested sort
+  // (dateAddedToCollection / usagesDateAdded). The server NEVER calls createSort
+  // here — see Production-Kahuna safety note. orderBy is read only for the
+  // companion pathHierarchy filter below.
+  val baseSorts    = params.sort.map(sorts.jsonToSort)
   val withReverse  = if (params.reverse) sorts.reverseSorts(baseSorts) else baseSorts
   val withSeekToEnd = if (params.seekToEnd) {
     withReverse.headOption match {
@@ -354,6 +460,7 @@ def searchAfterImages() = auth.async(parse.json) { request =>
     case Right(searchParams) =>
       val params = SearchAfterParams(
         searchParams = searchParams,
+        sort         = (request.body \ "sort").asOpt[Seq[JsObject]].getOrElse(Nil),
         sortValues   = (request.body \ "sortValues").asOpt[Seq[JsValue]],
         pitId        = (request.body \ "pitId").asOpt[String],
         reverse      = (request.body \ "reverse").asOpt[Boolean].getOrElse(false),
@@ -419,6 +526,7 @@ const READ_VIA_POST_PATHS = ["/api/images/search-after"];
 ```typescript
 import type { SearchAfterResult, SearchParams, SortValues } from "./types";
 import { unwrapArgoSearchResult } from "./grid-api/argo";
+import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 
 export async function apiSearchAfter(
   params: SearchParams,
@@ -431,7 +539,9 @@ export async function apiSearchAfter(
   const t0 = Date.now();
   const body = {
     q: params.query,
-    orderBy: params.orderBy,
+    orderBy: params.orderBy,                         // server reads only for the
+                                                     // dateAddedToCollection filter
+    sort: buildSortClause(params.orderBy),           // authoritative ES sort clause
     length: params.length ?? 200,
     ...(searchAfterValues ? { sortValues: searchAfterValues } : {}),
     ...(pitId ? { pitId } : {}),
@@ -515,8 +625,23 @@ Integration tests in `ElasticSearchTest.scala`:
 - Basic pagination: insert 5 images, fetch page of 2, verify hits + nextSortValues, fetch next page using cursor
 - Reverse: `reverse=true` returns hits in opposite order
 - `seekToEnd=true`: cursor stops at docs without the primary sort field
-- **Null-zone**: insert images where `metadata.dateTaken` is absent, use `orderBy="-taken"`, verify null-zone cursor `[null, uploadTime, id]` round-trips correctly and returns the right images
-- Validation: `sortValues` wrong length → 422
+- **Null-zone**: insert images where `metadata.dateTaken` is absent, use a keyword/date
+  sort whose primary field is missing, verify the null-zone cursor `[null, uploadTime, id]`
+  round-trips correctly and returns the right images
+- **Sort coverage (Option B)**: the server applies the client `sort` clause verbatim.
+  Cover the clause shapes kupua emits:
+  - flat clause `[{uploadTime:desc},{id:asc}]` paginates correctly
+  - keyword-alias clause `[{metadata.credit:asc},{uploadTime:desc},{id:asc}]`
+    paginates correctly (proves alias resolution is honoured — server does NOT
+    re-resolve)
+  - nested clause `dateAddedToCollection` **both orders**:
+    `[{collections.actionData.date:{order,missing:_last}},{uploadTime:order},{id:asc}]`
+    — and assert the companion `collections.pathHierarchy` filter fires for BOTH
+    `orderBy=dateAddedToCollection` and `orderBy=-dateAddedToCollection`
+  - nested clause `usagesDateAdded` **both orders**:
+    `[{usages.dateAdded:{order,mode:max,nested:{path:usages},missing:_last}},...]`
+    paginates correctly (no companion filter)
+- Validation: `sortValues` wrong length vs the client `sort` clause → 422
 
 ### Leg B (kupua)
 
@@ -536,10 +661,16 @@ Integration tests in `ElasticSearchTest.scala`:
 - [ ] `POST /images/search-after` responds on local media-api (verify with curl)
 - [ ] Kupua scrolls correctly with `VITE_USE_MEDIA_API=true`
 - [ ] Kupua scrolls correctly with `VITE_USE_MEDIA_API=false` (no regression)
+- [ ] **All kupua sorts** work via the API path (Option B — client `sort` clause):
+      `uploadTime` (both), `taken` (both), every keyword/numeric alias,
+      `dateAddedToCollection` (both orders), `usagesDateAdded` (both orders, once
+      it ships). See companion `phase-3-d3-searchafter-sort-companion-workplan.md`.
 - [ ] Null-zone cursors round-trip correctly (keyword sort, images missing primary field)
 - [ ] `reverse=true` works through API path
 - [ ] `seekToEnd=true` works through API path
 - [ ] PIT passthrough works (open PIT via ES, pass to API, get consistent results)
+- [ ] `createSort` / `dateAddedToCollectionDescending` / Kahuna's `search()` sort
+      behaviour are **unchanged** (existing tests green)
 - [ ] Leg A integration tests pass
 - [ ] Leg B unit tests pass
 - [ ] Existing e2e tests pass (default ES mode)
@@ -556,6 +687,12 @@ Integration tests in `ElasticSearchTest.scala`:
 - **`sortOverride` / `extraFilter` params:** Eliminated by B1. Server handles null-zone
   transparently. These params no longer exist in the kupua DAL interface.
 - **Streaming:** Response is a single JSON payload. Fine for length ≤ 200.
+- **Server-owned semantic sorting (Option A):** Deferred. This endpoint uses
+  Option B (client sends the resolved `sort` clause). The rationale, the breakage
+  analysis, the Option A general shape, and the migration trigger live in
+  `phase-3-d3-searchafter-sort-companion-workplan.md`. The Option B *build steps*
+  are in THIS doc — they are not out of scope; they are the buildable core that
+  makes the keyword/nested sort acceptance criteria pass.
 
 ---
 
@@ -575,10 +712,16 @@ These contain verified Scala implementation details. Hand to the implementing ag
 
 ---
 
-## Commit strategy
+## Commit strategy (commits wait until testing confirmed by user)
 
-- **Commit A:** media-api files only. PR branch: `media-api/search-after`.
+- **Commit A:** media-api files only. Branch: `mk-next-next-next`.
 - **Commit B:** kupua files only (`vite.config.ts`, `src/dal/`). Branch: `mk-next-next-next`.
+
+**Sort work lands in these same two commits.** The Option B sort handling is part
+of this endpoint, not a follow-up: the Scala clause-deserialisation goes in Commit A,
+the kupua `sort: buildSortClause(...)` goes in Commit B. **Never land this endpoint
+with `orderBy`-driven server sorting** — doing so ships a build where most of the
+sort dropdown is silently corrupt or 422s (see companion's breakage table).
 
 ---
 
@@ -609,12 +752,13 @@ hit-to-Argo-entity mapping. A nested closure isn't callable from other methods.
 Six planned endpoints accept filters via POST body. Each would need the same
 20-field JSON→SearchParams parsing. Writing it once, tested once, wrong once max.
 
-**4. `sorts.appendTiebreaker(sorts: Seq[Sort])`** (~5 LOC)
+**4. ~~`sorts.appendTiebreaker(sorts: Seq[Sort])`~~ — dropped under Option B**
 
-`search_after` requires a unique tiebreaker for deterministic pagination. Five
-endpoints need this guarantee. Without the helper, each endpoint must remember to
-append `_id` manually — a correctness hazard (silent data loss on page boundaries
-if forgotten, invisible in testing with small datasets).
+`search_after` requires a unique tiebreaker for deterministic pagination. Under
+Option B the client's `buildSortClause` already appends the `id` tiebreaker, so the
+server applies it as part of the verbatim clause — no server-side helper is needed,
+and keeping it out avoids touching shared sort code (see Production-Kahuna safety).
+If a future endpoint builds sorts server-side (e.g. Option A), revisit this then.
 
 ### What was deliberately NOT extracted
 

@@ -235,7 +235,9 @@ export function CqlSearchInput({
         // chips reliably.  Matches kahuna's renderQuery .filter(item => item.value).
         const effective = detail.queryStr
           // Strip incomplete chip expressions (key: with no value)
-          .replace(/[+\-]?[\w#~]*:(?=\s|$)/g, "")
+          // [\w#~@]* covers plain fields (credit), shortcuts (#label, ~collection),
+          // and nested fields (usages@platform, usages@status, etc.)
+          .replace(/[+\-]?[\w#~@]*:(?=\s|$)/g, "")
           // CQL wraps text in quotes when it contains whitespace. A trailing
           // space alone (e.g. user typed "climate ") triggers quoting that
           // adds no search meaning.  Strip these — keep only quotes around

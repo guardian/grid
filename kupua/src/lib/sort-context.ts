@@ -57,6 +57,17 @@ const SORT_LABEL_MAP: Record<
     },
     type: "date",
   },
+  usagesDateAdded: {
+    // ES sorts by max usages.dateAdded across all usages (mode:max nested sort).
+    accessor: (img) => {
+      const dates = img.usages
+        ?.map((u) => u.dateAdded)
+        .filter((d): d is string => !!d)
+        .sort();
+      return dates?.at(-1);
+    },
+    type: "date",
+  },
   credit: {
     accessor: (img) => img.metadata?.credit,
     type: "keyword",
@@ -113,6 +124,7 @@ const NULL_ZONE_LABEL_OVERRIDES: Record<string, string> = {
   lastModified: "modified",
   taken: "date taken",
   dateAddedToCollection: "collection date",
+  usagesDateAdded: "usage date",
 };
 
 function getSortFieldDisplayName(sortKey: string): string {
@@ -307,6 +319,7 @@ const DATE_SORT_ES_FIELDS: Record<string, string> = {
   taken: "metadata.dateTaken",
   lastModified: "lastModified",
   dateAddedToCollection: "collections.actionData.date",
+  usagesDateAdded: "usages.dateAdded",
 };
 
 /**

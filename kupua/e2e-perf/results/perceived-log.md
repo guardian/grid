@@ -761,3 +761,59 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 63 | 294 | 957 | 957 | 667 |
 | JB4 | scrubber-scroll | — | — | — | 28 | — |
 | JB5 | fullscreen-exit | — | — | — | 64 | — |
+
+---
+
+## [short] After Usages (f9e58b773 (dirty), 2026-06-09)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 315 | 315 | — |
+| PP2 | sort-no-focus | 66 | — | 276 | 276 | — |
+| PP3 | sort-around-focus | 67 | 256 | 567 | 567 | 311 |
+| PP4 | sort-around-focus | 67 | 263 | 543 | 543 | 280 |
+| PP5 | filter-toggle | 64 | 354 | — | 559 | 206 |
+| PP6 | density-swap | — | — | — | 214 | — |
+| PP7 | scrubber-seek | 1 | — | 773 | 773 | — |
+| PP7b | scrubber-seek | 1 | — | 596 | 596 | — |
+| PP7c | scrubber-scroll | — | — | — | 131 | — |
+| PP8 | search | 0 | 239 | 755 | 755 | 511 |
+| PP9 | search | 0 | — | 252 | 252 | — |
+| PP10 | position-map | — | — | — | 2669 | — |
+| PP6b | density-swap | — | — | — | 403 | — |
+| PP6c | density-swap | — | — | — | 367 | — |
+
+---
+
+## [long] After Usages (f9e58b773 (dirty), 2026-06-09)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 240 | 240 | — |
+| JA2 | open-detail | — | — | — | 130 | — |
+| JB1 | search | 0 | — | 265 | 265 | — |
+| JB2 | facet-click | 70 | — | 747 | 747 | — |
+| JB3 | facet-click | 62 | 290 | 981 | 981 | 691 |
+| JB4 | scrubber-scroll | — | — | — | 29 | — |
+| JB5 | fullscreen-exit | — | — | — | 65 | — |
+
+---
+
+## [long] After Usages (f9e58b773 (dirty), 2026-06-09)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 231 | 231 | — |
+| JA2 | open-detail | — | — | — | 138 | — |
+| JA3 | metadata-click | 49 | 433 | 755 | 755 | 371 |
+| JB1 | search | 0 | — | 271 | 271 | — |
+| JB2 | facet-click | 73 | — | 744 | 744 | — |
+| JB3 | facet-click | 63 | 290 | 991 | 991 | 755 |
+| JB4 | scrubber-scroll | — | — | — | 31 | — |
+| JB5 | fullscreen-exit | — | — | — | 70 | — |

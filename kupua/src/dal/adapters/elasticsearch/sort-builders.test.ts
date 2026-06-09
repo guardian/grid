@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildSortClause } from "./sort-builders";
+import { buildSortClause, SORT_FIELD_EXTRACTORS } from "./sort-builders";
 
 describe("buildSortClause", () => {
   // -----------------------------------------------------------------------
@@ -230,5 +230,144 @@ describe("buildSortClause", () => {
       const hasUploadTime = result.some((c) => "uploadTime" in c);
       expect(hasUploadTime).toBe(true);
     }
+  });
+
+  // -----------------------------------------------------------------------
+  // Special array-field sorts: dateAddedToCollection and usagesDateAdded
+  // -----------------------------------------------------------------------
+
+  it("-dateAddedToCollection produces nested sort on collections.actionData.date desc", () => {
+    const result = buildSortClause("-dateAddedToCollection");
+    expect(result).toEqual([
+      { "collections.actionData.date": { order: "desc", missing: "_last" } },
+      { uploadTime: "desc" },
+      { id: "asc" },
+    ]);
+  });
+
+  it("dateAddedToCollection produces nested sort on collections.actionData.date asc", () => {
+    const result = buildSortClause("dateAddedToCollection");
+    expect(result).toEqual([
+      { "collections.actionData.date": { order: "asc", missing: "_last" } },
+      { uploadTime: "asc" },
+      { id: "asc" },
+    ]);
+  });
+
+  it("-usagesDateAdded produces nested sort on usages.dateAdded desc with mode:max", () => {
+    const result = buildSortClause("-usagesDateAdded");
+    expect(result).toEqual([
+      { "usages.dateAdded": { order: "desc", mode: "max", nested: { path: "usages" }, missing: "_last" } },
+      { uploadTime: "desc" },
+      { id: "asc" },
+    ]);
+  });
+
+  it("usagesDateAdded (asc) produces nested sort on usages.dateAdded asc with mode:max", () => {
+    const result = buildSortClause("usagesDateAdded");
+    expect(result).toEqual([
+      { "usages.dateAdded": { order: "asc", mode: "max", nested: { path: "usages" }, missing: "_last" } },
+      { uploadTime: "asc" },
+      { id: "asc" },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SORT_FIELD_EXTRACTORS — array-max extractor functions
+// These extractors mirror the ES mode:"max" nested sort semantics so that
+// cursor values computed client-side match what ES stores as sort values.
+// ---------------------------------------------------------------------------
+
+const MINIMAL_IMAGE = {
+  id: "img-test",
+  uploadTime: "2026-01-01T00:00:00Z",
+  uploadedBy: "test",
+  source: { mimeType: "image/jpeg" as const, dimensions: { width: 100, height: 100 } },
+  metadata: {},
+};
+
+describe("SORT_FIELD_EXTRACTORS", () => {
+  describe("usages.dateAdded", () => {
+    const extract = SORT_FIELD_EXTRACTORS["usages.dateAdded"];
+
+    it("returns null when usages is undefined", () => {
+      expect(extract({ ...MINIMAL_IMAGE })).toBeNull();
+    });
+
+    it("returns null when usages array is empty", () => {
+      expect(extract({ ...MINIMAL_IMAGE, usages: [] })).toBeNull();
+    });
+
+    it("returns null when no usage has a dateAdded", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        usages: [{ id: "u1", platform: "digital" as const, status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z" }],
+      };
+      expect(extract(img)).toBeNull();
+    });
+
+    it("returns the single dateAdded when only one usage", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        usages: [{ id: "u1", platform: "digital" as const, status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-03-15T12:00:00Z" }],
+      };
+      expect(extract(img)).toBe("2026-03-15T12:00:00Z");
+    });
+
+    it("returns the maximum dateAdded across multiple usages", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        usages: [
+          { id: "u1", platform: "digital" as const, status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-01-01T00:00:00Z" },
+          { id: "u2", platform: "print" as const,   status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-03-20T08:00:00Z" },
+          { id: "u3", platform: "digital" as const, status: "removed" as const,   media: "image", lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-02-10T00:00:00Z" },
+        ],
+      };
+      // "2026-03-20" is the latest — lexicographic ISO comparison is correct for dates
+      expect(extract(img)).toBe("2026-03-20T08:00:00Z");
+    });
+
+    it("ignores usages without dateAdded when computing the max", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        usages: [
+          { id: "u1", platform: "digital" as const, status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-02-01T00:00:00Z" },
+          { id: "u2", platform: "print" as const,   status: "published" as const, media: "image", lastModified: "2026-01-01T00:00:00Z" },
+        ],
+      };
+      expect(extract(img)).toBe("2026-02-01T00:00:00Z");
+    });
+  });
+
+  describe("collections.actionData.date", () => {
+    const extract = SORT_FIELD_EXTRACTORS["collections.actionData.date"];
+
+    it("returns null when collections is undefined", () => {
+      expect(extract({ ...MINIMAL_IMAGE })).toBeNull();
+    });
+
+    it("returns null when collections array is empty", () => {
+      expect(extract({ ...MINIMAL_IMAGE, collections: [] })).toBeNull();
+    });
+
+    it("returns null when no collection has actionData.date", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        collections: [{ path: ["news"] as string[], pathId: "news", description: "", actionData: { author: "alice" } }],
+      };
+      expect(extract(img)).toBeNull();
+    });
+
+    it("returns the maximum actionData.date across multiple collections", () => {
+      const img = {
+        ...MINIMAL_IMAGE,
+        collections: [
+          { path: ["sports"] as string[], pathId: "sports", description: "", actionData: { author: "alice", date: "2025-06-01T00:00:00Z" } },
+          { path: ["news"]   as string[], pathId: "news",   description: "", actionData: { author: "bob",   date: "2026-01-20T00:00:00Z" } },
+        ],
+      };
+      expect(extract(img)).toBe("2026-01-20T00:00:00Z");
+    });
   });
 });

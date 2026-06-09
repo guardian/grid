@@ -14,8 +14,47 @@ import { gridConfig } from "@/lib/grid-config";
  * Used by extractSortValues to match the ES-native sort value format.
  */
 export const DATE_SORT_FIELDS = new Set([
-  "uploadTime", "metadata.dateTaken", "lastModified",
+  "uploadTime", "metadata.dateTaken", "lastModified", "usages.dateAdded",
+  "collections.actionData.date",
 ]);
+
+/**
+ * Maps ES field paths that live inside a nested type to their nested parent path.
+ * Used by es-adapter to wrap aggregations in a `nested` agg when needed.
+ * `collections.*` is an object array (NOT ES nested), so it's NOT listed here.
+ */
+export const NESTED_SORT_FIELDS: Readonly<Record<string, string>> = {
+  "usages.dateAdded": "usages",
+};
+
+/**
+ * Custom value extractors for sort fields that can't be read with a plain
+ * dot-path walk (because they live inside JS arrays and require array-max
+ * semantics to match what ES computes).
+ *
+ * ES sort mode:"max" picks the maximum value across all array entries.
+ * We replicate that here so that `extractSortValues` produces cursors that
+ * match the actual ES sort values, which is required for correct range
+ * selection (`getIdRange`) and cursor restoration.
+ *
+ * Keyed by the ES field path as it appears in the sort clause.
+ */
+export const SORT_FIELD_EXTRACTORS: Readonly<Record<string, (image: import("@/types/image").Image) => string | null>> = {
+  // usages.dateAdded: max dateAdded across all usages (matches mode:"max" nested sort)
+  "usages.dateAdded": (img) => {
+    const dates = img.usages
+      ?.map((u) => u.dateAdded)
+      .filter((d): d is string => !!d);
+    return dates?.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+  },
+  // collections.actionData.date: max date across all collection memberships
+  "collections.actionData.date": (img) => {
+    const dates = img.collections
+      ?.map((c) => c.actionData?.date)
+      .filter((d): d is string => !!d);
+    return dates?.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
+  },
+};
 
 /**
  * Build the ES sort clause from an orderBy string.
@@ -56,6 +95,18 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
     const dir = orderBy.startsWith("-") ? "desc" : "asc";
     return [
       { "collections.actionData.date": { order: dir, missing: "_last" } },
+      { uploadTime: dir },
+      { id: "asc" },
+    ];
+  }
+
+  // Special sort: usagesDateAdded → nested sort on usages.dateAdded (max across all usages).
+  // Semantics: "most recently placed in content". Missing = "_last" so images without
+  // usages sink to the bottom. Kupua-only improvement — not available in Kahuna.
+  if (orderBy === "-usagesDateAdded" || orderBy === "usagesDateAdded") {
+    const dir = orderBy.startsWith("-") ? "desc" : "asc";
+    return [
+      { "usages.dateAdded": { order: dir, mode: "max", nested: { path: "usages" }, missing: "_last" } },
       { uploadTime: dir },
       { id: "asc" },
     ];

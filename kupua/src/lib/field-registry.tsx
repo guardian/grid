@@ -659,6 +659,33 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "date",
     multiSelectBehaviour: "always-suppress",
   },
+  {
+    id: "usages_lastDateAdded",
+    label: "Last used",
+    group: "dates",
+    accessor: (img) => {
+      const usages = img.usages;
+      if (!usages?.length) return undefined;
+      const dates = usages.map((u) => u.dateAdded).filter(Boolean) as string[];
+      if (!dates.length) return undefined;
+      return dates.reduce((a, b) => (a > b ? a : b));
+    },
+    rawValue: (img) => {
+      const usages = img.usages;
+      if (!usages?.length) return undefined;
+      const dates = usages.map((u) => u.dateAdded).filter(Boolean) as string[];
+      if (!dates.length) return undefined;
+      return dates.reduce((a, b) => (a > b ? a : b));
+    },
+    formatter: formatDate,
+    sortKey: "usagesDateAdded",
+    detailHidden: true, // Not shown in detail panel — Usages section covers this
+    descByDefault: true,
+    defaultWidth: 150,
+    defaultHidden: true,
+    fieldType: "date",
+    multiSelectBehaviour: "always-suppress",
+  },
 
   {
     id: "uploadedBy",
@@ -1014,6 +1041,8 @@ export const DESC_BY_DEFAULT: ReadonlySet<string> = new Set([
   ...FIELD_REGISTRY.filter((f) => f.descByDefault).map((f) => f.sortKey!),
   // dateAddedToCollection is a sort-only concept (no registry field) — newest first by default.
   "dateAddedToCollection",
+  // usagesDateAdded is a sort-only concept — most recently placed first by default.
+  "usagesDateAdded",
   // relevance is the AI-mode sort — higher score = better match, so descending is correct default.
   "relevance",
 ]);
@@ -1031,13 +1060,17 @@ export const SORT_DROPDOWN_OPTIONS: readonly { label: string; value: string }[] 
     .filter((f) => ["dates", "core", "rights", "technical"].includes(f.group));
   const dates = sortable.filter((f) => f.group === "dates");
   const rest = sortable.filter((f) => f.group !== "dates");
-  // Dates in explicit order: Uploaded, Taken on, Last modified, Added to collection
-  const DATE_ORDER = ["uploadTime", "taken", "lastModified"];
+  // Dates in explicit order: Uploaded, Taken on, Last modified, Last used; sort-only date concepts trail naturally.
+  const DATE_ORDER = ["uploadTime", "taken", "lastModified", "usagesDateAdded"];
   dates.sort((a, b) => DATE_ORDER.indexOf(a.sortKey!) - DATE_ORDER.indexOf(b.sortKey!));
   const dateOptions = dates.map((f) => ({ label: f.label, value: f.sortKey! }));
   const restOptions = rest.map((f) => ({ label: f.label, value: f.sortKey! }));
-  // dateAddedToCollection is sort-only (no displayable image field) — appended after other dates.
-  return [...dateOptions, { label: "Added to collection", value: "dateAddedToCollection" }, ...restOptions];
+  // Sort-only concepts with no registry field appended after date fields.
+  return [
+    ...dateOptions,
+    { label: "Added to collection", value: "dateAddedToCollection" },
+    ...restOptions,
+  ];
 })();
 
 /** Fields shown in the details/metadata panel, in display order.

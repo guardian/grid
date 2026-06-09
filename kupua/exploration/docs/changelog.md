@@ -14,6 +14,122 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 June 2026 — Usages panel, CQL usages@, Last Used sort, Usages facet filters + SAF/cursor bug fixes
+
+Full implementation of the usages feature (Kahuna parity), plus several pre-existing bugs discovered and fixed during that work.
+
+---
+
+#### Feature: Usages panel (Steps A–G from usages-findings.md)
+
+**Step A — Type fixes (`dal/grid-api/types.ts`, `types/image.ts`):**
+- Fixed `UsageType`: removed "child", added "derivative" and "replaced".
+- Fixed `UsageStatus`: removed "cancelled", added syndicated/downloaded/derivative/replaced/failed/unknown.
+- Added fully-typed metadata sub-interfaces: `DigitalUsageMetadata`, `PrintUsageMetadata`, `SyndicationUsageMetadata`, `FrontUsageMetadata`, `DownloadUsageMetadata`, `ChildUsageMetadata`.
+- Added `title?` to `Usage`.
+- Added missing metadata sub-types and remaining `printUsageMetadata` fields to `types/image.ts`.
+- Removed `as Image["usages"]` cast in `derive-enriched-image.ts` (types now structurally compatible).
+
+**Step B — SVG assets:** Inlined directly in `UsagesSection.tsx` — no new asset files.
+
+**Step C — `UsagesSection` component (`src/components/UsagesSection.tsx`):**
+- `UsagesSection`: single-image display. Groups usages by status order (Published → Pending → Removed → Syndicated → Downloads → Front). Per-row: platform icon, title, relative date, reference links (Guardian globe / Composer C icon).
+- "Front" group: `status:unknown` on `platform:digital` (fronts are not a distinct ES platform value — confirmed from production data).
+- `countDisplayUsages`: exported helper driving the accordion badge count.
+- `MultiUsagesSummary`: multi-image aggregate stats — digital/print counts, recent counts (7-day), syndicated count, downloads count, and a "no usages" tally. Reads from selection-store + search-store directly, same pattern as `MultiImageMetadata` cost section.
+
+**Step D — Wiring into right panel and image detail:**
+- `ImageDetail.tsx`: replaced plain `<aside>` with accordion structure containing "Details" (wraps `ImageMetadata`) and "Usages" (`UsagesSection`) sections.
+- `search.tsx`: added second `AccordionSection` ("Usages") to the right panel, and a `FocusedUsages` function (mirrors `FocusedImageMetadata` image-resolution logic: multi-select → `MultiUsagesSummary`, single focused image → `UsagesSection`, no focus → empty state).
+- `panel-store.ts`: added `SECTION_DEFAULTS` entries: `"right-usages": false`, `"detail-metadata": true`, `"detail-usages": false`.
+
+**Step E — CQL `usages@` chip support (`cql.ts`, `CqlSearchInput.tsx`):**
+- Added `buildNestedUsagesQuery` supporting 8 sub-fields: `platform`, `status`, `reference`, `section`, `publication`, `orderedBy`, `<added` (before-date), `>added` (after-date).
+- Added `usages@` handler in `fieldToClause`.
+- Added `mergeUsagesNestedClauses`: groups multiple `usages@` conditions into a single `nested` clause with AND semantics (same-record matching — matches Kahuna's behaviour).
+- Fixed chip regex in `CqlSearchInput.tsx`: `/[+\-]?[\w#~]*:/` → `/[+\-]?[\w#~@]*:/` — without this, `usages@platform:` (incomplete chip) fired a search immediately.
+- 9 new unit tests in `cql.test.ts` covering all sub-fields, AND-combination, and negation.
+
+**Step F — `must_not: nested(usages.status:replaced)` default filter (`es-adapter.ts`):**
+- Added to `buildQuery` to mirror Kahuna's `Parser.scala` `thingsToHideByDefault`.
+- Fires on every ES search, agg, and count — ensures "replaced" usages never surface.
+- Uses proper nested query (`{nested:{path:"usages",query:{term:{"usages.status":"replaced"}}}}`), not a flat exists check.
+- Documented in `deviations.md` (obs 12) as a deviation to carry forward when the server owns filter construction (D3 end-state).
+
+**Step G — Sort by Last Used (`usagesDateAdded`):**
+- `sort-builders.ts`: added `usagesDateAdded` special-case → ES sort on `usages.dateAdded` with `mode:max`, `nested:{path:"usages"}`, `missing:"_last"`. Added to `DATE_SORT_FIELDS`.
+- `field-registry.tsx`: added `usages_lastDateAdded` field (group: "dates", `sortKey: "usagesDateAdded"`, `detailHidden: true`). Added "usagesDateAdded" to `DATE_ORDER` and `DESC_BY_DEFAULT`. Removed explicit "Last used" entry from `SORT_DROPDOWN_OPTIONS` builder (it auto-appears via the dates group).
+- `sort-context.ts`: added `usagesDateAdded` to `SORT_LABEL_MAP`, `NULL_ZONE_LABEL_OVERRIDES`, and `DATE_SORT_ES_FIELDS`.
+- `ImageGrid.tsx`: `getCellDateLine` handles `usagesDateAdded` → "Used: {date}".
+- `typeahead-fields.ts`: `USAGE_PLATFORMS = ["print", "digital", "syndication", ...]` — removed `front` (not a real ES value), added `syndication`. Download platform gated on `config["image.record.download"]`.
+- `grid-config.ts`: added `"image.record.download": false` (default false per Guardian config).
+
+**Step H — Usages facet filters (left panel):**
+- `dal/types.ts`: added `UsageFilterAggRequest` interface `{name, subField: "platform"|"status", value}`, added `usageFilters?: Record<string, number>` to `AggregationsResult`.
+- `search-store.ts`: added `usageFilterCounts: Record<string, number> | null` state, `UsageFilterAggRequest[]` requests for 6 values (digital, print, syndication, published, pending, removed), result stored in state.
+- `es-adapter.ts` `getAggregations`: consolidated all usage nested aggs into a single `_usages` agg with `by_platform` + `by_status` terms sub-aggs each with a `reverse_nested` sub-agg (counts parent images not usage records). 7× cheaper than separate nested aggs. Parses `UsageFilterAggRequest[]` from the consolidated result.
+- `FacetFilters.tsx`: added Usages section with 6 filter rows: Digital, Print, Syndicated, Published, Pending publication, Taken down. Backed by `usageFilterCounts` from store. `platform:front` was removed — it is not a real ES platform value.
+
+---
+
+#### Bugs fixed (pre-existing, discovered during usages work)
+
+**Bug 1 — SAF broken for `usagesDateAdded` sort (root cause: null cursor from array-field):**
+- `extractSortValues` used `readFieldPath` which walks dot-paths on plain objects but can't traverse JS arrays. For `usages.dateAdded` it returned `null` for any image, producing a null-zone cursor even for images with usages. SAF would then seek to the images-without-usages zone.
+- Fix: added `SORT_FIELD_EXTRACTORS` map in `sort-builders.ts` with custom array-max extractors for `usages.dateAdded` and `collections.actionData.date`. `extractSortValues` in `image-offset-cache.ts` now checks this map before falling back to `readFieldPath`.
+- Both extractors use reduce-max semantics to match ES `mode:max`.
+
+**Bug 2 — SAF broken for `dateAddedToCollection` sort (root cause: same array issue + missing DATE_SORT_FIELDS entry):**
+- Same root cause as Bug 1 for `collections.actionData.date`. The extractor returns an ISO string; without `DATE_SORT_FIELDS` membership, `extractSortValues` passed it through as a string rather than converting to epoch-ms. ES returns date sort values as epoch-ms numbers, so the cursor format mismatch caused wrong `countBefore` range queries and incorrect SAF landing positions.
+- Fix: added `"collections.actionData.date"` to `DATE_SORT_FIELDS`. Together with the `SORT_FIELD_EXTRACTORS` entry, this produces epoch-ms cursors that match ES's sort value format exactly.
+
+**Bug 3 — `countBefore` wrong for nested fields (root cause: plain range query on nested type):**
+- `usages.dateAdded` is an ES nested type. Plain `range` queries on nested fields return 0 without a `nested` wrapper. `countBefore` was emitting unwrapped range/exists queries for the `usages.dateAdded` position.
+- Fix: added `wrapIfNested` helper in `es-adapter.ts`; called in `countBefore` for range and exists clauses when the primary sort field is in `NESTED_SORT_FIELDS`.
+
+**Bug 4 — `getDateDistribution` / `estimateSortValue` returning null for `usages.dateAdded`:**
+- Stats and histogram aggregations on nested fields require a `nested` wrapper agg. Without it, ES returns 0/null results.
+- Fix: added `NESTED_SORT_FIELDS` check in both `getDateDistribution` and `estimateSortValue` in `es-adapter.ts`. When the primary sort field has a nested parent, the stats/histogram agg is wrapped in a `nested` agg at that path.
+
+**Bug 5 — Duplicate "Last used" in sort dropdown:**
+- `usages_lastDateAdded` has `group: "dates"`, so it auto-appears in the dates section of the sort dropdown. An explicit "Last used" entry had also been added to `SORT_DROPDOWN_OPTIONS`, producing a duplicate.
+- Fix: removed the explicit entry; the auto-generated dates group entry is sufficient.
+
+---
+
+#### Documentation updates
+
+- `deviations.md`: added §14 (CQL chip reading — DateFilter "Last used" problem), expanded §7 obs 3 (orderBy vocabulary now includes `usagesDateAdded`), added obs 11 (nested agg consolidation complexity for C1), obs 12 (`must_not` replaced filter default).
+- `phase-3-minimal-gap-derivation-findings.md`: §7 obs 3, obs 11, obs 12 updated to reflect 2026-06-09 state.
+- `phase-3-d3-searchafter-worklog.md`: added "Note on 2026-06-09 kupua changes" section for the D3 implementing agent.
+
+---
+
+---
+
+#### Review fixes (post-session, same uncommitted blob)
+
+Review by fresh agent identified five issues; all fixed before commit:
+
+1. **`formatRelativeTime` replaced with `Intl.RelativeTimeFormat`** (`UsagesSection.tsx`): the hand-rolled implementation used approximate month (30d) and year (365d) constants. Replaced with `Intl.RelativeTimeFormat("en", { numeric: "auto" })`, which is locale-correct, handles "yesterday"/"tomorrow" etc., and removes ~25 lines of custom arithmetic.
+
+2. **Dead `total` variable removed** (`UsagesSection.tsx` `MultiUsagesSummary`): `total = selectedIds.size` was computed but never used — `images.length` (resolved images) was the denominator everywhere. Removed and replaced with an explanatory comment: denominator is resolved images, not raw selection size.
+
+3. **Facet `UsagesSection` renamed to `UsageFacetSection`** (`FacetFilters.tsx`): two unrelated local-scope components both named `UsagesSection` — one the detail panel component (exported), one the facet filter rows (local). Renamed the facet one and its props interface to eliminate the collision.
+
+4. **Correctness comment added to `getIdRange` equality clause** (`es-adapter.ts`): the `range [gte=V, lte=V]` check is geometrically correct for nested max-mode sorts (no false negatives, over-counting is harmless due to OR semantics), but this was non-obvious. Added a comment explaining the reasoning so future maintainers don't "fix" it.
+
+5. **New unit tests for `SORT_FIELD_EXTRACTORS`** (`sort-builders.test.ts`): 9 tests covering `usages.dateAdded` and `collections.actionData.date` extractors — null on undefined/empty/no-values, single value, max across multiple, ignores entries without the field. Import updated to `{ buildSortClause, SORT_FIELD_EXTRACTORS }`.
+
+Also added deviations.md §31 documenting the `usages@status:replaced` default suppression.
+
+---
+
+#### Test state at end of session
+- Unit tests: 898/898 passing (net +18 from 880: 9 new `usages@` CQL tests, 4 new sort-builder special-case tests, 9 new `SORT_FIELD_EXTRACTORS` tests, -4 pre-existing tests consolidated into the new ones).
+- E2E: not run this session (component/hook/store changes present — E2E is pending, needs port 3000 free).
+- TS errors: 0.
+
 ### 1 June 2026 — TypeScript strict-mode error sweep (Groups A–H)
 
 Fixed all 60+ pre-existing TypeScript errors catalogued in `TS-errors-to-fix.md`

@@ -72,6 +72,7 @@ export function FacetFilters() {
   const aggregations = useSearchStore((s) => s.aggregations);
   const tickerCounts = useSearchStore((s) => s.tickerCounts);
   const isFilterCounts = useSearchStore((s) => s.isFilterCounts);
+  const usageFilterCounts = useSearchStore((s) => s.usageFilterCounts);
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
   const total = useSearchStore((s) => s.total);
   const expandedAggs = useSearchStore((s) => s.expandedAggs);
@@ -192,6 +193,21 @@ export function FacetFilters() {
               .trim().replace(/\s{2,}/g, " ");
           } else {
             newQuery = upsertFieldTerm(currentQuery, "is", value, negated);
+          }
+          updateSearch({ query: newQuery || undefined });
+        }}
+      />
+      <UsageFacetSection
+        currentQuery={currentQuery}
+        usageFilterCounts={usageFilterCounts}
+        onUsageClick={(cqlKey, value, negated) => {
+          const existing = findFieldTerm(currentQuery, cqlKey, value);
+          let newQuery: string;
+          if (existing && existing.negated === negated) {
+            newQuery = (currentQuery.slice(0, existing.start) + currentQuery.slice(existing.end))
+              .trim().replace(/\s{2,}/g, " ");
+          } else {
+            newQuery = upsertFieldTerm(currentQuery, cqlKey, value, negated);
           }
           updateSearch({ query: newQuery || undefined });
         }}
@@ -439,6 +455,78 @@ function IsSection({ currentQuery, tickerCounts, aggregations, isFilterCounts, o
                   />
                 )}
               </span>
+              {count !== undefined && (
+                <span className="text-2xs text-grid-text-dim shrink-0 tabular-nums">
+                  {formatCount(count)}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UsagesSection — facet filter rows for usage platform and status
+// ---------------------------------------------------------------------------
+
+const USAGE_FILTER_OPTIONS: Array<{
+  label: string;
+  cqlKey: string;
+  value: string;
+  countKey: string;
+}> = [
+  { label: "Digital", cqlKey: "usages@platform", value: "digital", countKey: "digital" },
+  { label: "Print", cqlKey: "usages@platform", value: "print", countKey: "print" },
+  { label: "Syndicated", cqlKey: "usages@platform", value: "syndication", countKey: "syndication" },
+  { label: "Published", cqlKey: "usages@status", value: "published", countKey: "published" },
+  { label: "Pending publication", cqlKey: "usages@status", value: "pending", countKey: "pending" },
+  { label: "Taken down", cqlKey: "usages@status", value: "removed", countKey: "removed" },
+];
+
+interface UsageFacetSectionProps {
+  currentQuery: string;
+  usageFilterCounts: Record<string, number> | null;
+  onUsageClick: (cqlKey: string, value: string, negated: boolean) => void;
+}
+
+function UsageFacetSection({ currentQuery, usageFilterCounts, onUsageClick }: UsageFacetSectionProps) {
+  const visibleOptions = USAGE_FILTER_OPTIONS.filter(({ cqlKey, value, countKey }) => {
+    const existing = findFieldTerm(currentQuery, cqlKey, value);
+    const isActive = !!existing && !existing.negated;
+    const isExcluded = !!existing && existing.negated;
+    const count = usageFilterCounts?.[countKey];
+    return !(count === 0 && !isActive && !isExcluded);
+  });
+
+  if (visibleOptions.length === 0 && !usageFilterCounts) return null;
+
+  return (
+    <div className="pb-2">
+      <div className="px-3 pt-2 pb-1 text-sm text-grid-text-muted">Usages</div>
+      <div className="flex flex-col gap-px px-3">
+        {visibleOptions.map(({ label, cqlKey, value, countKey }) => {
+          const existing = findFieldTerm(currentQuery, cqlKey, value);
+          const isActive = !!existing && !existing.negated;
+          const isExcluded = !!existing && existing.negated;
+          const count = usageFilterCounts?.[countKey];
+
+          return (
+            <button
+              key={`${cqlKey}:${value}`}
+              className={`flex items-center justify-between gap-2 px-1.5 py-0.5 rounded text-xs cursor-pointer transition-colors text-left ${
+                isActive
+                  ? "bg-grid-accent/20 text-grid-accent"
+                  : isExcluded
+                    ? "bg-red-500/15 text-red-400 line-through"
+                    : "text-grid-text hover:bg-grid-hover/30"
+              }`}
+              onClick={(e) => onUsageClick(cqlKey, value, e.altKey)}
+              title={`${label}${count !== undefined ? ` (${count.toLocaleString()})` : ""}${isActive ? " — click to remove" : isExcluded ? " — click to remove exclusion" : `\n${ALT_CLICK} to exclude`}`}
+            >
+              <span className="truncate min-w-0">{label}</span>
               {count !== undefined && (
                 <span className="text-2xs text-grid-text-dim shrink-0 tabular-nums">
                   {formatCount(count)}

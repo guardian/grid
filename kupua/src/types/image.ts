@@ -119,11 +119,32 @@ interface Usage {
   printUsageMetadata?: {
     sectionName?: string;
     publicationName?: string;
+    publicationCode?: string;
     pageNumber?: number;
     edition?: number;
     issueDate?: string;
     orderedBy?: string;
     storyName?: string;
+    sectionCode?: string;
+    size?: { x: number; y: number };
+    layoutId?: number;
+    notes?: string;
+    source?: string;
+  };
+  syndicationUsageMetadata?: {
+    partnerName: string;
+    syndicatedBy?: string;
+  };
+  frontUsageMetadata?: {
+    addedBy: string;
+    front: string;
+  };
+  downloadUsageMetadata?: {
+    downloadedBy: string;
+  };
+  childUsageMetadata?: {
+    addedBy: string;
+    childMediaId: string;
   };
 }
 

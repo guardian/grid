@@ -62,7 +62,7 @@ const SUBJECTS = [
 
 const FILE_TYPES = ["jpeg", "tiff", "png"];
 
-const USAGE_PLATFORMS = ["print", "digital", "download"];
+const USAGE_PLATFORMS = ["print", "digital", "syndication", ...(gridConfig["image.record.download"] ? ["download"] : [])];
 
 export function buildIsOptions(): string[] {
   const org = gridConfig.staffPhotographerOrganisation;

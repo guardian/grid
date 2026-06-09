@@ -103,6 +103,66 @@ describe("extractSortValues", () => {
     const sv = extractSortValues(IMAGE, "width");
     expect(sv?.[sv.length - 1]).toBe(IMAGE.id);
   });
+
+  // -----------------------------------------------------------------------
+  // Array-max fields: usagesDateAdded and dateAddedToCollection
+  // These use SORT_FIELD_EXTRACTORS and require array-max semantics to
+  // match what ES computes. Regression for: range selection returning only
+  // 2 images (anchor + target) when sorted by these fields.
+  // -----------------------------------------------------------------------
+
+  it("extracts usagesDateAdded — returns max dateAdded across usages as epoch ms", () => {
+    const imageWithUsages: typeof IMAGE = {
+      ...IMAGE,
+      usages: [
+        { id: "u1", platform: "digital", status: "published", media: "image",
+          lastModified: "2026-01-01T00:00:00Z", dateAdded: "2026-01-01T00:00:00Z" },
+        { id: "u2", platform: "print", status: "published", media: "image",
+          lastModified: "2026-03-15T12:00:00Z", dateAdded: "2026-03-15T12:00:00Z" },
+        { id: "u3", platform: "digital", status: "removed", media: "image",
+          lastModified: "2026-02-10T08:00:00Z", dateAdded: "2026-02-10T08:00:00Z" },
+      ],
+    };
+    const sv = extractSortValues(imageWithUsages, "-usagesDateAdded");
+    // Primary: max dateAdded = 2026-03-15 (epoch ms), then uploadTime, then id
+    expect(sv).toEqual([
+      Date.parse("2026-03-15T12:00:00Z"),
+      Date.parse("2026-03-20T14:30:00.000Z"),
+      IMAGE.id,
+    ]);
+  });
+
+  it("extracts usagesDateAdded — returns null when image has no usages", () => {
+    const imageNoUsages: typeof IMAGE = { ...IMAGE, usages: [] };
+    const sv = extractSortValues(imageNoUsages, "-usagesDateAdded");
+    // No usages → primary sort value is null (null-zone), uploadTime present, id present
+    expect(sv).toEqual([null, Date.parse("2026-03-20T14:30:00.000Z"), IMAGE.id]);
+  });
+
+  it("extracts dateAddedToCollection — returns max actionData.date across memberships as epoch ms", () => {
+    const imageInCollections: typeof IMAGE = {
+      ...IMAGE,
+      collections: [
+        { path: ["sports"], pathId: "sports", description: "",
+          actionData: { author: "jane", date: "2025-06-01T00:00:00Z" } },
+        { path: ["news"], pathId: "news", description: "",
+          actionData: { author: "john", date: "2026-01-20T00:00:00Z" } },
+      ],
+    };
+    const sv = extractSortValues(imageInCollections, "-dateAddedToCollection");
+    // Primary: max date = 2026-01-20, then uploadTime desc, then id
+    expect(sv).toEqual([
+      Date.parse("2026-01-20T00:00:00Z"),
+      Date.parse("2026-03-20T14:30:00.000Z"),
+      IMAGE.id,
+    ]);
+  });
+
+  it("extracts dateAddedToCollection — returns null when image has no collection memberships", () => {
+    const imageNoCollections: typeof IMAGE = { ...IMAGE, collections: [] };
+    const sv = extractSortValues(imageNoCollections, "-dateAddedToCollection");
+    expect(sv).toEqual([null, Date.parse("2026-03-20T14:30:00.000Z"), IMAGE.id]);
+  });
 });
 
 // ---------------------------------------------------------------------------

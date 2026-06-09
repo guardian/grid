@@ -19,7 +19,7 @@
 
 import type { Image } from "@/types/image";
 import type { SortValues } from "@/dal";
-import { buildSortClause, parseSortField, DATE_SORT_FIELDS } from "@/dal";
+import { buildSortClause, parseSortField, DATE_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "@/dal";
 
 const PREFIX = "kupua:imgOffset:";
 
@@ -82,6 +82,21 @@ export function extractSortValues(
     // The `id` tiebreaker is always present on the Image type.
     if (field === "id") {
       values.push(image.id);
+      continue;
+    }
+    // Custom extractor for array-field sorts (usages.dateAdded,
+    // collections.actionData.date) that require array-max semantics.
+    const customExtractor = SORT_FIELD_EXTRACTORS[field];
+    if (customExtractor) {
+      const raw = customExtractor(image);
+      if (raw == null) {
+        values.push(null);
+      } else if (DATE_SORT_FIELDS.has(field)) {
+        const ms = Date.parse(raw);
+        values.push(isNaN(ms) ? null : ms);
+      } else {
+        values.push(raw);
+      }
       continue;
     }
     const val = readFieldPath(image, field);

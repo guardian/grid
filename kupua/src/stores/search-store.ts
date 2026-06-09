@@ -30,6 +30,7 @@ import type {
   SearchAfterResult,
   TickerCountResult,
   FilterAggRequest,
+  UsageFilterAggRequest,
 } from "@/dal";
 import type { PositionMap } from "@/dal/position-map";
 import { cursorForPosition } from "@/dal/position-map";
@@ -360,6 +361,8 @@ interface SearchState {
   expandedAggsLoading: Set<string>;
   /** Filter agg counts for `is:` values that need full ES queries (deleted, under-quota). */
   isFilterCounts: Record<string, number> | null;
+  /** Nested-filter agg counts for usages (platform:digital, platform:print, status:published, etc.). */
+  usageFilterCounts: Record<string, number> | null;
 
   // --- Sort distribution for scrubber (tooltip + track ticks) ---
   /** Pre-fetched distribution for the current sort field (keyword or date). */
@@ -1674,6 +1677,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   expandedAggs: {},
   expandedAggsLoading: new Set(),
   isFilterCounts: null,
+  usageFilterCounts: null,
 
   // Sort distribution state (scrubber tooltip + ticks)
   sortDistribution: null,
@@ -3683,8 +3687,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       { name: "under-quota", isFilter: "under-quota" },
     ];
 
+    // Usage nested-filter agg requests — counts parent images via reverse_nested.
+    const usageFilterRequests: UsageFilterAggRequest[] = [
+      { name: "digital", subField: "platform", value: "digital" },
+      { name: "print", subField: "platform", value: "print" },
+      { name: "syndication", subField: "platform", value: "syndication" },
+      { name: "published", subField: "status", value: "published" },
+      { name: "pending", subField: "status", value: "pending" },
+      { name: "removed", subField: "status", value: "removed" },
+    ];
+
     try {
-      const result = await dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests);
+      const result = await dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests, usageFilterRequests);
 
       const elapsed = performance.now() - startTime;
 
@@ -3698,6 +3712,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         expandedAggs: {},
         expandedAggsLoading: new Set(),
         isFilterCounts: result.filters ?? null,
+        usageFilterCounts: result.usageFilters ?? null,
       });
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {

@@ -1015,6 +1015,18 @@ are unaffected. Once available, `stripFieldFromQuery` and
 Three consumers exist (kahuna, kupua, CQL demo page). Exposing minimal
 structured context is not speculative API surface.
 
+**Concrete consequence — DateFilter cannot support "Last used" via chips:**
+The DateFilter panel reflects its three active date fields via dedicated URL params
+(`since`/`until`, `takenSince`/`takenUntil`, `modifiedSince`/`modifiedUntil`),
+which round-trip cleanly. Adding "Last used" as a fourth option could write
+`usages@>added:...` / `usages@<added:...` chips into `params.query` — but
+DateFilter would then need to read those chips back to show active state.
+Without `getChipValue` / `queryWithoutChip`, the only option is regex on the raw
+string, which creates a two-class system and is fragile. Decision (2026-06-08):
+use dedicated params (`usagesAddedSince`/`usagesAddedUntil`) if/when this is built;
+for now the `usages@>added` / `usages@<added` CQL chips already work and cover
+the need without DateFilter integration.
+
 ### 17. No migration-aware dual-index search
 
 During a Grid index migration (`ThrallMigrationClient`), the `media-api`
@@ -1228,6 +1240,8 @@ dates cluster around business hours and events, so the estimate may be
 off by hours or days at the extremes. This is acceptable for scrubber
 orientation (the user needs "am I in 2024 or 2020?", not "which hour?").
 The position counter ("650,000 of 1,300,000") remains exact.
+
+
 
 ### 25. PIT fallback: retry without PIT on 404/410
 
@@ -1779,4 +1793,22 @@ from library defaults. The latch bug is unfixed; we accept it.
 
 Reference: `ImageGrid.tsx` (scroll container className), commit
 `a4fa028e6`-amends lineage.
+
+### 31. `usages@status:replaced` hidden by default — mirrors Kahuna `Parser.scala`
+
+Kahuna's `Parser.scala` appends `-usages@status:replaced` to every search
+query in `thingsToHideByDefault`, hiding images whose usage status is
+`"replaced"` (they were superseded by a newer version).  Kupua replicates
+this in `buildQuery` (`es-adapter.ts`) by unconditionally pushing a
+`mustNot` nested clause unless the query already contains
+`usages@status:replaced` explicitly.
+
+The opt-in check uses a substring match on the raw query string, identical
+to how Kahuna's `-is:deleted` suppression works and how kupua implements
+the deleted-image suppression.
+
+**Trade-off:** every search carries one extra nested `must_not` clause.
+The cost is negligible (a fast keyword term query on a small nested array);
+no performance regression has been observed.  If the Guardian's data model
+for "replaced" images changes, this default should be revisited.
 

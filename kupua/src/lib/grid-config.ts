@@ -77,6 +77,15 @@ export const gridConfig = {
   denySyndicationTextHeader: "This image has been denied for syndication.",
 
 
+  /**
+   * Whether download usages are recorded.
+   * Mirrors `image.record.download` in Grid config (default: false at the Guardian).
+   * When false, the `download` option is hidden from the usages@platform typeahead.
+   * Download usage rows are always shown in the UI if the data is present in ES,
+   * regardless of this flag.
+   */
+  "image.record.download": false,
+
   /** Whether the reaper feature is enabled */
   useReaper: false,
 

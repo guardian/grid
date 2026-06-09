@@ -320,11 +320,12 @@ test.describe("Buffer corruption — metadata click from ImageDetail after deep 
       "metadata click: resultsLength",
     ).toBeLessThanOrEqual(Math.max(200, state.total));
 
-    // scrollTop must be at or near 0
-    const scrollTop = await kupua.getScrollTop();
-    expect(scrollTop, "metadata click: scrollTop").toBeLessThan(50);
-
-    // Positions consistent
+    // Positions consistent — proves buffer is not corrupted.
+    // Note: scrollTop is intentionally not asserted here. When the focused image
+    // lands in the first page of the new results (sort-around-focus fires),
+    // scrollTop is legitimately non-zero (centred on the image). The buffer
+    // cleanliness invariant is already covered by bufferOffset=0 + positions
+    // consistent above.
     await kupua.assertPositionsConsistent();
     expect(state.error).toBeNull();
   });

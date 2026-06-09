@@ -63,6 +63,9 @@ const SECTION_DEFAULTS: Record<string, boolean> = {
   "left-filters": false, // Collapsed by default — see Decision #13
   "left-collections": true, // Expanded by default (familiar from kahuna)
   "right-metadata": true, // Expanded by default
+  "right-usages": false, // Collapsed by default
+  "detail-metadata": true, // Expanded by default in image detail overlay
+  "detail-usages": false, // Collapsed by default in image detail overlay
 };
 
 const DEFAULT_CONFIG: PanelConfig = {

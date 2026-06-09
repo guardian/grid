@@ -90,3 +90,110 @@ describe("parseCql — is: queries", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// usages@ nested queries
+// ---------------------------------------------------------------------------
+
+describe("parseCql — usages@ nested queries", () => {
+  it("usages@platform:print → nested term on usages.platform in must", () => {
+    const { must, mustNot } = parseCql("usages@platform:print");
+    expect(mustNot).toHaveLength(0);
+    expect(must).toHaveLength(1);
+    expect(must[0]).toEqual({
+      nested: { path: "usages", query: { term: { "usages.platform": "print" } } },
+    });
+  });
+
+  it("usages@status:published → nested term on usages.status in must", () => {
+    const { must } = parseCql("usages@status:published");
+    expect(must[0]).toEqual({
+      nested: { path: "usages", query: { term: { "usages.status": "published" } } },
+    });
+  });
+
+  it("-usages@platform:digital → nested term in mustNot", () => {
+    const { must, mustNot } = parseCql("-usages@platform:digital");
+    expect(must).toHaveLength(0);
+    expect(mustNot).toHaveLength(1);
+    expect(mustNot[0]).toEqual({
+      nested: { path: "usages", query: { term: { "usages.platform": "digital" } } },
+    });
+  });
+
+  it("usages@reference:... → nested multi_match on references.uri and references.name", () => {
+    const { must } = parseCql("usages@reference:guardian.com");
+    expect(must[0]).toEqual({
+      nested: {
+        path: "usages",
+        query: {
+          multi_match: {
+            query: "guardian.com",
+            fields: ["usages.references.uri", "usages.references.name"],
+            type: "best_fields",
+            operator: "and",
+          },
+        },
+      },
+    });
+  });
+
+  it("usages@<added:2022-01-01 → nested range lte on usages.dateAdded", () => {
+    const { must } = parseCql("usages@<added:2022-01-01");
+    expect(must[0]).toEqual({
+      nested: { path: "usages", query: { range: { "usages.dateAdded": { lte: "2022-01-01" } } } },
+    });
+  });
+
+  it("usages@>added:2022-01-01 → nested range gte on usages.dateAdded", () => {
+    const { must } = parseCql("usages@>added:2022-01-01");
+    expect(must[0]).toEqual({
+      nested: { path: "usages", query: { range: { "usages.dateAdded": { gte: "2022-01-01" } } } },
+    });
+  });
+
+  it("multiple usages@ chips combined into single nested query (same-record AND)", () => {
+    const { must } = parseCql("usages@platform:print usages@status:published");
+    // Must produce exactly ONE nested query (not two separate ones)
+    expect(must).toHaveLength(1);
+    expect(must[0]).toEqual({
+      nested: {
+        path: "usages",
+        query: {
+          bool: {
+            must: [
+              { term: { "usages.platform": "print" } },
+              { term: { "usages.status": "published" } },
+            ],
+          },
+        },
+      },
+    });
+  });
+
+  it("multiple negative usages@ chips combined into single nested mustNot query", () => {
+    const { must, mustNot } = parseCql("-usages@platform:print -usages@status:removed");
+    expect(must).toHaveLength(0);
+    expect(mustNot).toHaveLength(1);
+    expect(mustNot[0]).toEqual({
+      nested: {
+        path: "usages",
+        query: {
+          bool: {
+            must: [
+              { term: { "usages.platform": "print" } },
+              { term: { "usages.status": "removed" } },
+            ],
+          },
+        },
+      },
+    });
+  });
+
+  it("usages@unknown:value → nested match_none (safe fallback)", () => {
+    const { must } = parseCql("usages@unknown:value");
+    expect(must[0]).toEqual({
+      nested: { path: "usages", query: { match_none: {} } },
+    });
+  });
+});

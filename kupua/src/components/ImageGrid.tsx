@@ -146,6 +146,13 @@ function getCellDateLine(image: Image, orderBy: string | undefined): string {
       .sort();
     return `Added: ${formatDate(dates?.at(-1))}`;
   }
+  if (primary === "usagesDateAdded") {
+    const dates = image.usages
+      ?.map((u) => u.dateAdded)
+      .filter((d): d is string => !!d)
+      .sort();
+    return `Used: ${formatDate(dates?.at(-1))}`;
+  }
   return `Uploaded: ${formatDate(image.uploadTime)}`;
 }
 

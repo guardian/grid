@@ -131,6 +131,6 @@ export function deriveImage(
     actions: overlay?.actions,
     isPotentiallyGraphic: overlay?.isPotentiallyGraphic,
     syndicationStatus: overlay?.syndicationStatus ?? baselineSyndicationStatus,
-    enrichedUsages: (overlay?.usages ?? image.usages) as Image["usages"],
+    enrichedUsages: overlay?.usages ?? image.usages,
   };
 }

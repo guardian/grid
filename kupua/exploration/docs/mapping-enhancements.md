@@ -622,7 +622,17 @@ EXISTING KEYWORD FIELDS — add lowercase_asciifolding normalizer:
 
 ### What NOT to do
 
-- ❌ Don't add `.keyword` to description/title — aggs on prose are meaningless
+- ❌ Don't add `.keyword` to `description` — aggs on prose are meaningless
+- ⚠️ **`title` is a special case.** The above rule does not cleanly apply: agencies
+  use `title` as a *batch identifier* ("Winter Olympics 2026", "F1 - Australian GP
+  2026"), not prose. In the 10k sample, 1,368 titles appear on 2+ images; the top
+  title covers 186 images. Adding `title.keyword` would enable grouping images into
+  agency shoots — see `exploration/docs/01 Research/grouping-stacks-ideation.md` for
+  the full analysis and cardinality measurements. If shoot-grouping is pursued,
+  `title.keyword` (with `lowercase_asciifolding` normalizer) should be added.
+  **Corpus-wide terms aggs on `title.keyword` are inadvisable** (~5M unique values);
+  the intended usage is query-scoped aggregation and sort, where cardinality is
+  naturally bounded by the search context.
 - ❌ Don't add completion suggesters everywhere — heap cost, rarely justified
 - ❌ Don't add `wildcard` field type — the `.keyword` sub-fields already support trailing wildcards (`Rob*`); the dedicated `wildcard` type only helps with leading wildcards (`*enson`), which are rare and not worth the much heavier index
 - ❌ Don't add `.keyword` to filename — 100% unique, useless for aggs
@@ -697,7 +707,70 @@ If Grid does a major ES upgrade, consider also cleaning up:
 
 ---
 
-## 10. Where This Fits in the Migration Plan
+## 10. Cost Estimates — PROD-Calibrated
+
+> **Sources:** local 10k sample (`exploration/mock/sample-data.ndjson`) for
+> field coverage and average value lengths; PROD Cerebro queries (6 Jun 2026,
+> read-only) for real doc count, index size, and cardinality figures.
+> Estimates are for primary shards only; multiply by 4 for cluster total
+> (PROD has 5 primaries × 4 replicas = 20 shards).
+
+### PROD baseline (images index, primaries)
+
+| Metric | Value |
+|---|---|
+| Image documents | ~9.8M (16.7M ES docs total — remainder are nested usage/collection objects) |
+| Current primary store size | **134 GB** |
+| Cluster store size (×4 replicas) | **537 GB** |
+| `metadata.credit` unique values | 300,886 |
+| `metadata.source` unique values | 63,725 |
+
+### Extra disk per proposed change (primary only)
+
+| Change | Extra disk (primary) | Extra disk (cluster ×4) | % of current 134 GB |
+|---|---|---|---|
+| `.keyword` on byline | ~0.2 GB | ~0.6 GB | <1% |
+| `.keyword` on city, country, state, subLocation | ~0.3 GB | ~1.3 GB | <1% |
+| `.keyword` on copyright | ~0.3 GB | ~1.0 GB | <1% |
+| `.keyword` on suppliersReference | ~0.4 GB | ~1.6 GB | <1% |
+| `.keyword` on peopleInImage, photographer | ~0.1 GB | ~0.3 GB | <1% |
+| `.keyword` on title (grouping use case) | ~1.4 GB | ~5.5 GB | ~1% |
+| **All `.keyword` sub-fields (excl. title)** | **~1.4 GB** | **~5.4 GB** | **~1%** |
+| **All `.keyword` sub-fields (incl. title)** | **~2.7 GB** | **~10.9 GB** | **~2%** |
+| `.exact` on description | ~12.5 GB | ~50 GB | ~9% |
+| `.exact` on title | ~1.5 GB | ~6 GB | ~1% |
+| **All changes including `.exact`** | **~17.8 GB** | **~71 GB** | **~13%** |
+| Normalizers on credit/source | ~0 GB | ~0 GB | 0% — changes indexed form, not storage size |
+| `fielddata: true` on pathHierarchy | **0 GB disk** | 0 GB disk | 0% — JVM heap only (~100–300 MB when queries run) |
+
+### Key finding: `.exact` dominates, `.keyword` is cheap
+
+`description.exact` alone accounts for ~70% of the total cost (12.5 GB primary).
+This is because `description` is near-100% coverage, long (~340 bytes average),
+and generates ~68 tokens per document — producing an enormous inverted index.
+
+If the `.exact` sub-fields are deferred or dropped, the total cost falls from
+~18 GB to **~2.7 GB primary (~11 GB cluster)** — comfortably within the existing
+134 GB index. The `.keyword` sub-fields are essentially free at this scale.
+
+### Indexing overhead
+
+12 new sub-fields across all changes. Estimated **18–30% slower re-index**
+(one-time cost, ~30–120 min for 9.8M docs at current throughput). Ongoing
+per-document write overhead is negligible for the steady-state upload rate.
+
+### PROD evidence for normalizer value
+
+A Cerebro `terms` filter query on `metadata.credit` for
+`["Reuters", "REUTERS", "reuters", "AFP", "afp", "AFP/Getty Images"]`
+returned **1,056,158 docs** — confirming that case variants of Reuters/AFP
+alone account for ~112k documents split across incorrect buckets in the
+current credit filter panel. The `lowercase_asciifolding` normalizer
+would collapse these into single canonical entries at zero disk cost.
+
+---
+
+## 11. Where This Fits in the Migration Plan
 
 This is a **Grid platform change** — benefits kahuna and any future consumer.
 

@@ -193,9 +193,9 @@ export interface CollectionResponse {
 
 // ─── Usages ──────────────────────────────────────────────────────────────────
 
-export type UsageType = "print" | "digital" | "syndication" | "front" | "download" | "child";
+export type UsageType = "print" | "digital" | "syndication" | "download" | "derivative" | "replaced";
 
-export type UsageStatus = "pending" | "published" | "removed" | "cancelled";
+export type UsageStatus = "pending" | "published" | "removed" | "syndicated" | "downloaded" | "derivative" | "replaced" | "failed" | "unknown";
 
 export interface UsageReference {
   type: string;
@@ -203,8 +203,51 @@ export interface UsageReference {
   name?: string;
 }
 
+export interface DigitalUsageMetadata {
+  webUrl?: string;
+  webTitle?: string;
+  sectionId?: string;
+  composerUrl?: string;
+}
+
+export interface PrintUsageMetadata {
+  sectionName?: string;
+  issueDate?: string;
+  pageNumber?: number;
+  storyName?: string;
+  publicationCode?: string;
+  publicationName?: string;
+  sectionCode?: string;
+  edition?: number;
+  size?: { x: number; y: number };
+  layoutId?: number;
+  orderedBy?: string;
+  notes?: string;
+  source?: string;
+}
+
+export interface SyndicationUsageMetadata {
+  partnerName: string;
+  syndicatedBy?: string;
+}
+
+export interface FrontUsageMetadata {
+  addedBy: string;
+  front: string;
+}
+
+export interface DownloadUsageMetadata {
+  downloadedBy: string;
+}
+
+export interface ChildUsageMetadata {
+  addedBy: string;
+  childMediaId: string;
+}
+
 export interface Usage {
   id: string;
+  title?: string;
   references?: UsageReference[];
   platform: UsageType;
   media: string;
@@ -212,12 +255,12 @@ export interface Usage {
   dateAdded?: string;
   dateRemoved?: string;
   lastModified: string;
-  printUsageMetadata?: unknown;
-  digitalUsageMetadata?: unknown;
-  syndicationUsageMetadata?: unknown;
-  frontUsageMetadata?: unknown;
-  downloadUsageMetadata?: unknown;
-  childUsageMetadata?: unknown;
+  printUsageMetadata?: PrintUsageMetadata;
+  digitalUsageMetadata?: DigitalUsageMetadata;
+  syndicationUsageMetadata?: SyndicationUsageMetadata;
+  frontUsageMetadata?: FrontUsageMetadata;
+  downloadUsageMetadata?: DownloadUsageMetadata;
+  childUsageMetadata?: ChildUsageMetadata;
 }
 
 // ─── Edits (userMetadata) ────────────────────────────────────────────────────

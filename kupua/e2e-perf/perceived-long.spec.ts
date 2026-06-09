@@ -336,13 +336,16 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JA3: metadata click on detail panel ───────────────────────────────
-    // The right (Details) panel must be visible for the metadata buttons to
-    // be clickable.
-    const showDetailsBtn = kupua.page.locator('[aria-label="Show Details panel"]');
-    if (await showDetailsBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
-      await showDetailsBtn.click({ force: true });
-      // Panel-open animation may take a tick; wait for the content to settle
-      // before locating the metadata buttons or the click can land off-target.
+    // The "Details" accordion in the image detail overlay may be collapsed if
+    // kupua-panel-config in localStorage was saved with detail-metadata:false
+    // (e.g. from a prior dev session). Expand it before looking for buttons.
+    // aria-controls is set by AccordionSection and uniquely identifies the
+    // section regardless of other "Details"-labelled elements on the page.
+    const detailMetadataBtn = kupua.page.locator(
+      'button[aria-controls="section-detail-metadata"][aria-expanded="false"]'
+    );
+    if (await detailMetadataBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await detailMetadataBtn.click();
       await kupua.page.waitForTimeout(200);
     }
 

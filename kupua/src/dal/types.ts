@@ -176,12 +176,27 @@ export interface FilterAggRequest {
   isFilter: string;
 }
 
+/**
+ * A named nested-filter aggregation for usages — returns a parent image count
+ * (via reverse_nested) for a given platform or status value.
+ */
+export interface UsageFilterAggRequest {
+  /** Key in the response map (e.g. "digital", "published"). */
+  name: string;
+  /** The usages sub-field to filter on: "platform" or "status". */
+  subField: "platform" | "status";
+  /** The value to match (e.g. "digital", "published"). */
+  value: string;
+}
+
 /** Result of a batched aggregation — keyed by field path, with timing. */
 export interface AggregationsResult {
   /** Per-field aggregation results, keyed by ES field path. */
   fields: Record<string, AggregationResult>;
   /** IS-filter doc counts — only present when isFilters was passed to getAggregations. Keyed by filter name. */
   filters?: Record<string, number>;
+  /** Usage nested-filter doc counts — only present when usageFilters was passed. Keyed by name. */
+  usageFilters?: Record<string, number>;
   /** ES query time in milliseconds. */
   took?: number;
   /** Wall-clock ms from the start of getAggregations() to result return. */
@@ -280,6 +295,7 @@ export interface ImageDataSource {
     fields: AggregationRequest[],
     signal?: AbortSignal,
     isFilters?: FilterAggRequest[],
+    usageFilters?: UsageFilterAggRequest[],
   ): Promise<AggregationsResult>;
 
   // ---------------------------------------------------------------------------
