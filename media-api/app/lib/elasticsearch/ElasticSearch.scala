@@ -179,16 +179,16 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int)
+  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     if (!includeDenseVectorMappings) {
       logger.warn(logMarker, "knnSearch called but includeDenseVectorMappings=false, returning empty results")
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     }
-    val knn = Knn("embedding.cohereEmbedV4.image")
-        .queryVector(queryEmbedding.map(_.toDouble))
-        .k(k)
-        .numCandidates(numCandidates)
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+      .queryVector(queryEmbedding.map(_.toDouble))
+      .k(k)
+      .numCandidates(numCandidates)
 
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
       .knn(knn)
@@ -216,9 +216,12 @@ class ElasticSearch(
   // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
   // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
   // and can be effectively combined in a hybrid query.
-  private def fetchMaxBm25Score(query: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+  private def fetchMaxBm25Score(query: String, filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+    val baseQuery = createMultiMatchQuery(query)
+    val filteredQuery = filterOpt.map(filter => boolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
+
     val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(createMultiMatchQuery(query))
+      .query(filteredQuery)
 
     executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
       logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
@@ -232,9 +235,10 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    maxScore: Double
+    maxScore: Double,
+    filterOpt: Option[Query]
   )(implicit logMarker: LogMarker): SearchRequest = {
-    val knn = Knn("embedding.cohereEmbedV4.image")
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
       .queryVector(queryEmbedding)
       .k(k)
       .numCandidates(numCandidates)
@@ -247,9 +251,9 @@ class ElasticSearch(
     // BM25 score to bring it to the same range as the cosine similarity.
     val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
 
-    //    We want to apply only one boost if we can help it, so we scale the
-    //    multi_match boost to be in line with the max_score and the desired
-    //    lexical_weight/vec_weight balance
+    // We want to apply only one boost if we can help it, so we scale the
+    // multi_match boost to be in line with the max_score and the desired
+    // lexical_weight/vec_weight balance
     val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
 
     logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
@@ -257,7 +261,7 @@ class ElasticSearch(
     val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost))
 
     ElasticDsl.search(imagesCurrentAlias)
-      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)))
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)).filter(filterOpt))
       .size(k)
   }
 
@@ -267,6 +271,7 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
+    filterOpt: Option[Query]
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -278,8 +283,8 @@ class ElasticSearch(
     val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
     for {
-      maxScore <- fetchMaxBm25Score(query)
-      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore)
+      maxScore <- fetchMaxBm25Score(query, filterOpt)
+      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
       result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
     } yield {
       val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
@@ -290,84 +295,7 @@ class ElasticSearch(
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
-    val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
-    val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
-    // we only inject filters if there are actual date parameters
-    val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list.toList: _*))
-
-    val idsFilter = params.ids.map(filters.ids)
-    val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
-    val costFilter = params.payType match {
-      case Some(PayType.Free) => searchFilters.freeFilter
-      case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
-      case Some(PayType.Pay) => searchFilters.nonFreeFilter
-      case _ => None
-    }
-
-    val printUsageFilter = params.printUsageFilters.map(searchFilters.printUsageFilters)
-
-    val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
-
-    val validityFilter = params.valid.map(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
-
-    val persistFilter = params.persisted map {
-      case true => searchFilters.persistedFilter
-      case false => searchFilters.nonPersistedFilter
-    }
-
-    val usageFilter: Iterable[Query] =
-      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))).toOption ++
-        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _)).toOption
-
-    val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
-
-    // Port of special case code in elastic1 sorts. Using the dateAddedToCollection sort implies an additional filter for reasons unknown
-    val dateAddedToCollectionFilter = {
-      params.orderBy match {
-        case Some("dateAddedToCollection") => {
-          val pathHierarchyOpt = params.structuredQuery.flatMap {
-            case Match(HierarchyField, Phrase(value)) => Some(value)
-            case _ => None
-          }.headOption
-
-          pathHierarchyOpt.map { pathHierarchy =>
-            termQuery("collections.pathHierarchy", pathHierarchy)
-          }
-        }
-        case _ => None
-      }
-    }
-
-    val filterOpt = (
-      metadataFilter.toOption.toList
-        ++ persistFilter
-        ++ labelFilter.toOption
-        ++ archivedFilter
-        ++ uploadedByFilter
-        ++ idsFilter
-        ++ validityFilter
-        ++ simpleCostFilter
-        ++ costFilter
-        ++ hasExports
-        ++ hasIdentifier
-        ++ missingIdentifier
-        ++ dateFilter.toOption
-        ++ usageFilter
-        ++ hasRightsCategory
-        ++ searchFilters.tierFilter(params.tier)
-        ++ syndicationStatusFilter
-        ++ dateAddedToCollectionFilter
-        ++ printUsageFilter
-      ).toNel.map(filter => filter.list.toList.reduceLeft(filters.and(_, _))).toOption
+    val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)
 
     val withFilter = filterOpt.map { f =>
       boolQuery() must (query) filter f
