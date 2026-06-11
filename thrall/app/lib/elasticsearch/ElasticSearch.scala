@@ -222,20 +222,21 @@ class ElasticSearch(
     if (!includeDenseVectorMappings) {
       logger.info(s"Skipping embedding update for image $id: dense vector mappings are disabled")
       List(Future.successful(ElasticSearchUpdateResponse()))
+    } else {
+
+      val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
+
+      val scriptSource = loadPainless(replaceEmbeddingScript)
+
+      val embeddingParameter = asNestedMap(Json.toJson(embedding))
+
+      val eventualUpdateResponse = migrationAwareUpdater(
+        requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
+        logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
+      ).incrementOnFailure(metrics.map(_.failedEmbeddingUpdates)) { case _ => true }
+
+      List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
     }
-
-    val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
-
-    val scriptSource = loadPainless(replaceEmbeddingScript)
-
-    val embeddingParameter = asNestedMap(Json.toJson(embedding))
-
-    val eventualUpdateResponse = migrationAwareUpdater(
-      requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
-      logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
-    ).incrementOnFailure(metrics.map(_.failedEmbeddingUpdates)) { case _ => true }
-
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def applyImageMetadataOverride(id: String, metadata: Edits, lastModified: DateTime)
