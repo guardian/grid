@@ -8,7 +8,7 @@ import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
 
-  val imageMapping: MappingDefinition = {
+  def imageMapping(includeDenseVectorMappings: Boolean = true): MappingDefinition = {
 
     // Non indexed fields stored as keywords can still participate in exists / has queries
     def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
@@ -75,8 +75,7 @@ object Mappings {
         leasesMapping("leases"),
         collectionMapping("collections"),
         esInfoMapping("esInfo"),
-        embeddingMapping("embedding"),
-      )
+      ) ++ (if (includeDenseVectorMappings) Seq(embeddingMapping("embedding")) else Seq.empty)
     )
   }
 

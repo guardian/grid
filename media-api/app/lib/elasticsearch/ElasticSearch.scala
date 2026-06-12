@@ -75,6 +75,7 @@ class ElasticSearch(
   lazy val url = elasticConfig.url
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
+  lazy val includeDenseVectorMappings = elasticConfig.includeDenseVectorMappings
 
   private val SearchQueryTimeout = FiniteDuration(10, TimeUnit.SECONDS)
   // there is 15 seconds timeout set on cluster level as well
@@ -180,18 +181,23 @@ class ElasticSearch(
 
   def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
-      .queryVector(queryEmbedding.map(_.toDouble))
-      .k(k)
-      .numCandidates(numCandidates)
+    if (!includeDenseVectorMappings) {
+      logger.warn(logMarker, "knnSearch called but includeDenseVectorMappings=false, returning empty results")
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
+      val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+        .queryVector(queryEmbedding.map(_.toDouble))
+        .k(k)
+        .numCandidates(numCandidates)
 
-    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .knn(knn)
-      .size(k)
+      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+        .knn(knn)
+        .size(k)
 
-    executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+      executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
+        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+      }
     }
   }
 
@@ -271,15 +277,20 @@ class ElasticSearch(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
   ): Future[SearchResults] = {
-    val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
+    if (!includeDenseVectorMappings) {
+      logger.warn(logMarker, "hybridSearch called but includeDenseVectorMappings=false, returning empty results")
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
+      val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
-    for {
-      maxScore <- fetchMaxBm25Score(query, filterOpt)
-      searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
-      result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
-    } yield {
-      val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+      for {
+        maxScore <- fetchMaxBm25Score(query, filterOpt)
+        searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
+        result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
+      } yield {
+        val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+      }
     }
   }
 
