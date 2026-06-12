@@ -2,7 +2,7 @@
 
 Implement Phase 3 D3: `POST /images/search-after` endpoint (Leg A: Scala media-api) and kupua DAL wiring (Leg B: TypeScript). Full workplan in `phase-3-d3-searchafter-workplan.md`.
 
-**BLOCKED** on PR [guardian/grid#4752](https://github.com/guardian/grid/pull/4752) ("Add chips and filtering to AI Search", author: ellenmuller). See Session Log for details. Do not start implementation until that PR is merged.
+**UNBLOCKED 2026-06-10** — PR #4752 merged to `main` (commit `cdf30a5ca`) **and `main` is now merged into `mk-next-next-next`** (the merge is an ancestor of HEAD). Two developments shape the plan: (1) the merged PR already extracted our `buildFilteredQuery` as `QueryBuilder.buildFilterOpt`; (2) the Sort Hole companion mandates Option B (client sends resolved sort clause). The workplan (`phase-3-d3-searchafter-workplan.md`) has been revised throughout to match. **Ready to implement Leg A.** See Session Log 2026-06-10 entry.
 
 ## Session Log
 
@@ -104,3 +104,21 @@ Today's work added two things relevant to D3 implementation:
 **`must_not: nested(usages.status:replaced)` default filter:** Added to `buildQuery` to mirror Kahuna's `thingsToHideByDefault`. This fires on ALL kupua queries (not just cursor pagination). When Leg B wires the new `POST /images/search-after` endpoint, verify the ES queries flowing to the server still include this `must_not` clause (it comes from `buildQuery(params)` which is called client-side in the ES adapter — it will be present in the query the server endpoint receives in its `q`/filter params). No action needed for Leg A (server never builds this rule). For Option A (future): this rule must be added to `buildFilteredQuery` on the server.
 
 **`UsageFilterAggRequest` / nested aggs in `getAggregations`:** Not relevant to D3 itself, but affects the future C1/C2 aggregations endpoint — see phase-3 findings §7 observation 11.
+
+### 2026-06-10 — PR #4752 merged: confirmed code shape & workplan impact
+
+Verified against the actual merge diff (`git diff cdf30a5ca^1 cdf30a5ca`). The merge is on `main` but **NOT yet in `mk-next-next-next`** (`git merge-base --is-ancestor cdf30a5ca HEAD` → false). Merge `main` in before implementing.
+
+What 4752 actually did (8 files, +403/−139):
+
+1. **`QueryBuilder.buildFilterOpt(params: SearchParams, searchFilters: SearchFilters, syndicationFilter: SyndicationFilter): Option[Query]`** — the ENTIRE ~80-line filter-assembly block (incl. the `dateAddedToCollectionFilter`/pathHierarchy special case) was lifted verbatim out of `search()` into this new public method on `QueryBuilder`. `search()` now just calls it: `val filterOpt = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)`. **Our `buildFilteredQuery` extraction task is now obsolete** — `searchAfter()` calls `buildFilterOpt` directly and combines exactly as `search()` does: `filterOpt.map(f => boolQuery() must query filter f).getOrElse(query)`. This removes our planned modification of Kahuna-serving `search()` — strictly safer.
+2. **`SearchParams` gained `lazy val aiQueryParts: AiQueryParts`** (computed from `structuredQuery`). It's a body val, not a constructor param → `SearchParamsBody.fromJson` is unaffected; it auto-computes. No action.
+3. **`MediaApi.scala` AI refactor** touched only `performAiSearchAndRespond`/`semanticSearchByText`/`semanticSearchByImage`/`parseAiSearchMode` + new `buildAiFilter`. **`imageSearch()` / `hitToImageEntity` untouched** → our lift-to-private-method plan still applies cleanly.
+4. New `SimilarField`/`SimilarValue` querysyntax + `QueryBuilder` `SimilarField → matchNoneQuery` outside AI mode. Not relevant to D3.
+5. `knnSearch`/`hybridSearch`/`makeHybridSearchRequest`/`fetchMaxBm25Score` now take `filterOpt: Option[Query]`. Not relevant to D3 (cursor path is non-AI).
+
+**Net plan changes:**
+- DELETE "Extract `buildFilteredQuery`" task. Replace with: in `searchAfter()`, `val filterOpt = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)` (all three are `val`s on `ElasticSearch`).
+- The pathHierarchy both-orders edit (workplan's "one allowed change to shared code") now targets `QueryBuilder.buildFilterOpt`. Still matches only `Some("dateAddedToCollection")` (DESC); adding the asc token remains behaviour-preserving for Kahuna. One-line edit. **Re-evaluate whether it's even needed under Option B** — orderBy is read server-side ONLY for this filter; if kupua sends `dateAddedToCollection` asc, the filter must fire for both tokens, so the edit stands.
+- All Sort-Hole Option B work (`reverseSorts`, `jsonToSort`, `SearchAfterParams.sort: Seq[JsObject]`, length-parity validation) is unaffected by the merge and lands in the same commits.
+- `SearchParamsBody.fromJson`, `hitToImageEntity` lift, `sorts.scala` additions, routes, tests — all unaffected.

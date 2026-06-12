@@ -1,8 +1,15 @@
 # Phase 3 — D3: `searchAfter` Cursor Pagination — Workplan
 
-**Status:** BLOCKED — waiting on PR [guardian/grid#4752](https://github.com/guardian/grid/pull/4752) to merge. That PR touches `ElasticSearch.scala` (moves filter construction into `QueryBuilder`), `ElasticSearchModel.scala` (adds `AiQueryParts`/`aiQueryParts`), and `MediaApi.scala`. Implement only after it merges — re-read those three files before starting, as the code shape may differ from what this workplan assumes. Full context in `phase-3-d3-searchafter-worklog.md`.
+**Status:** READY TO IMPLEMENT. PR [guardian/grid#4752](https://github.com/guardian/grid/pull/4752) ("Add chips and filtering to AI Search") merged to `main` (commit `cdf30a5ca`) and is now in `mk-next-next-next` (merged 2026-06-10). **That merge changed the landscape and this workplan has been revised accordingly:**
 
-**Pre-block status:** Ready to implement. B1 and B2 refactors are complete.
+- 4752 already extracted the ~80-line filter-assembly block out of `ElasticSearch.search()` into `QueryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter): Option[Query]` (`QueryBuilder.scala:131`). The planned `buildFilteredQuery` extraction is therefore **obsolete** — `searchAfter()` calls the merged `buildFilterOpt` directly and **does not modify Kahuna's `search()`** at all (strictly safer than the original plan).
+- 4752 added `SearchParams.aiQueryParts` — a `lazy val` derived from `structuredQuery`, **not** a constructor parameter — so `SearchParamsBody.fromJson` and `SearchParams` construction are unaffected.
+- 4752 refactored only the AI-search methods (`performAiSearchAndRespond`/`semanticSearch*`/`parseAiSearchMode` + new `buildAiFilter`). **`imageSearch()` and the nested `hitToImageEntity` were NOT touched**, so the `hitToImageEntity` lift still applies cleanly.
+- New caller of `buildFilterOpt`: AI `buildAiFilter`. This widens the blast radius of the one allowed shared-code change (matching both `dateAddedToCollection` tokens) — see the `buildFilterOpt` note in Implementation sketch §1.
+
+Full diff analysis in the 2026-06-10 entry of `phase-3-d3-searchafter-worklog.md`.
+
+**Status:** B1 and B2 refactors complete; 4752 merged. Ready to implement.
 **Supersedes:** `ref--media-api-gap-01-searchAfter-workplan.md`
 **Key difference from the old plan:** Gap 10 (null-zone) is now **mandatory**,
 not out-of-scope. B1 moved null-zone handling into the ES adapter; the store
@@ -103,19 +110,22 @@ additive** and MUST NOT alter anything Kahuna depends on:
   `search()`.** Under Option B the new endpoint does not call `createSort` at all
   (the client sends the resolved clause), so there is no reason to modify it. The
   shared sort code stays exactly as-is, still serving Kahuna's `GET /images`.
-- The new endpoint may **read** the existing companion-filter logic (lift-and-reuse,
-  behaviour-preserving) but must not change its behaviour for `search()`.
-- The two extractions below (`buildFilteredQuery`, `hitToImageEntity` lift) DO
-  modify Kahuna-serving code. They MUST be **strictly behaviour-preserving** and
-  the existing `search()` / `imageSearch()` tests MUST stay green unchanged.
+- The new endpoint reuses the merged `QueryBuilder.buildFilterOpt` (already shared by
+  `search()` and AI search) — it must not change that method's behaviour for existing
+  callers. The one allowed change (matching both `dateAddedToCollection` tokens) is
+  behaviour-preserving for `search()` and AI search — see the `buildFilterOpt` note in
+  Implementation sketch §1.
+- The remaining extraction (`hitToImageEntity` lift) DOES modify Kahuna-serving code.
+  It MUST be **strictly behaviour-preserving** and the existing `imageSearch()` tests
+  MUST stay green unchanged.
 
-### Refactoring extractions (same as old plan — still valid)
+### Refactoring extractions (revised after 4752)
 
-| Extraction | Justification |
+| Extraction | Status / Justification |
 |---|---|
-| `buildFilteredQuery(params: SearchParams): Query` | ~80 lines inlined in `ElasticSearch.search()` — needed by 9+ endpoints |
-| Lift `hitToImageEntity` to private method on `MediaApi` | Currently a closure inside `imageSearch()`; needed by this endpoint and Gap 12/8 |
-| `SearchParamsBody.fromJson(body: JsValue, tier: Tier)` | All POST endpoints need body→SearchParams; write once |
+| ~~`buildFilteredQuery(params: SearchParams): Query`~~ | **Done by 4752.** The ~80-line filter block was lifted out of `search()` into `QueryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter): Option[Query]`. `searchAfter()` calls it directly — no new extraction, and `search()` is untouched. |
+| Lift `hitToImageEntity` to private method on `MediaApi` | Currently a closure inside `imageSearch()`; needed by this endpoint and Gap 12/8. **Still required** — 4752 did not touch `imageSearch()`. |
+| `SearchParamsBody.fromJson(body: JsValue, tier: Tier)` | All POST endpoints need body→SearchParams; write once. Unaffected by 4752. |
 
 > **Note (Option B):** the old plan's `sorts.appendTiebreaker` extraction is **not**
 > needed for this endpoint. Under Option B the client's `buildSortClause` already
@@ -128,37 +138,47 @@ additive** and MUST NOT alter anything Kahuna depends on:
 |------|--------|
 | `media-api/conf/routes` | Add `POST /images/search-after` before `GET /images/:id` |
 | `media-api/app/lib/elasticsearch/ElasticSearchModel.scala` | New `SearchAfterParams`, `SearchAfterRawResults`, `SearchParamsBody.fromJson` |
-| `media-api/app/lib/elasticsearch/ElasticSearch.scala` | Extract `buildFilteredQuery`; new `searchAfter()` method with null-zone detection |
+| `media-api/app/lib/elasticsearch/ElasticSearch.scala` | New `searchAfter()` method (null-zone detection) calling the merged `queryBuilder.buildFilterOpt`; sort-value conversion helpers. **No `buildFilteredQuery` extraction — done by 4752.** |
 | `media-api/app/lib/elasticsearch/sorts.scala` | Add `reverseSorts()` only (used by reverse pagination). **No `createSort` changes** — Option B applies the client clause verbatim. |
 | `media-api/app/controllers/MediaApi.scala` | Lift `hitToImageEntity`; new `searchAfterImages()` handler |
 | `media-api/test/lib/elasticsearch/ElasticSearchTest.scala` | Integration tests |
 
 ### Implementation sketch
 
-#### 1. `buildFilteredQuery` extraction
+#### 1. Filtered query — call the merged `buildFilterOpt` (no extraction needed)
 
-Extract the ~80-line filter-assembly block from `ElasticSearch.search()` (lines
-280–370) into a private method:
+4752 already extracted the filter-assembly block out of `search()` into
+`QueryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter): Option[Query]`
+(`QueryBuilder.scala:131`). `searchAfter()` builds its filtered query exactly as
+`search()` now does (`ElasticSearch.scala:286–293`):
 
 ```scala
-private def buildFilteredQuery(params: SearchParams): Query = {
-  // existing filter-building logic unchanged
-}
+val query: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
+val filterOpt: Option[Query] =
+  queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
+val withFilter: Query = filterOpt.map(f => boolQuery() must query filter f).getOrElse(query)
 ```
 
-`search()` becomes a one-line call. All new endpoints call the same method.
+`searchFilters`, `syndicationFilter` and `queryBuilder` are public `val`s on
+`ElasticSearch` (lines 90, 91, 93), so the method is directly callable. **No code in
+`search()` changes** — the original "extract `buildFilteredQuery`" task is gone.
 
-> **Companion `pathHierarchy` filter — both orders.** The extracted
-> `buildFilteredQuery` retains the existing `dateAddedToCollectionFilter` block.
-> Today it matches `Some("dateAddedToCollection")` only. kupua sends BOTH
-> `dateAddedToCollection` (asc) and `-dateAddedToCollection` (desc), so the new
-> endpoint needs the filter to fire for **both**. **Do not change the existing
-> `search()` match** (Kahuna only ever sends the DESC token) — instead match both
-> tokens inside `buildFilteredQuery` so the shared extraction covers Kahuna's one
-> case and the endpoint's two cases. Verify this is behaviour-preserving for
-> Kahuna: adding the asc token to the match cannot change Kahuna behaviour because
-> Kahuna never sends it. The sort clause itself is unaffected — it comes from the
-> client `sort` array, not from `orderBy`.
+> **Companion `pathHierarchy` filter — both orders.** The merged `buildFilterOpt`
+> retains the `dateAddedToCollectionFilter` block, matching `Some("dateAddedToCollection")`
+> only. kupua sends BOTH `dateAddedToCollection` (asc) and `-dateAddedToCollection`
+> (desc), so the new endpoint needs the filter to fire for **both**. Match both tokens
+> inside `buildFilterOpt`.
+>
+> **Blast-radius note (new after 4752):** `buildFilterOpt` is now shared by three
+> callers — `search()` (Kahuna `GET /images`), AI `buildAiFilter`, and (new)
+> `searchAfter()`. Adding the asc token is still behaviour-preserving for the first
+> two: the filter only fires when `orderBy` is the asc token AND a `HierarchyField`
+> phrase is present, and neither Kahuna nor AI search sends the asc token today. The
+> sort clause itself is unaffected — it comes from the client `sort` array, not from
+> `orderBy`. Confirm the existing `search()` and AI-search tests stay green after this
+> one-line widening. (If you prefer zero blast radius, gate the asc token so only this
+> endpoint can trigger it — but the both-token match is acceptable given the argument
+> above.)
 
 #### 2. `hitToImageEntity` lift
 
@@ -186,6 +206,11 @@ private def hitToImageEntity(
 Parses the POST body into `SearchParams`. All ~20 fields read as strings from JSON,
 same parsing helpers as `SearchParams.apply(request)`. `tier` comes from the
 authenticated request, not the body.
+
+> **Post-4752 note:** `SearchParams.aiQueryParts` is a `lazy val` derived from
+> `structuredQuery`, not a constructor parameter — constructing `SearchParams` is
+> unchanged and `aiQueryParts` auto-computes if ever read. This endpoint is non-AI
+> (`useAISearch` is not set on the cursor path), so it never reads it.
 
 ```scala
 object SearchParamsBody {
@@ -316,7 +341,13 @@ def searchAfter(params: SearchAfterParams)
                (implicit ec: ExecutionContext, logMarker: LogMarker)
     : Future[SearchAfterRawResults] = {
 
-  val query = buildFilteredQuery(params.searchParams)
+  // Filtered query, mirroring search() (ElasticSearch.scala:286-293). buildFilterOpt is
+  // the merged 4752 method; no buildFilteredQuery extraction needed. `query` (the filtered
+  // query) is used throughout the rest of this method, exactly as the old sketch did.
+  val rawQuery: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
+  val filterOpt: Option[Query] =
+    queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
+  val query: Query = filterOpt.map(f => boolQuery() must rawQuery filter f).getOrElse(rawQuery)
 
   // --- Sorts (Option B): apply the client-resolved clause verbatim ---
   // The client (kupua buildSortClause) has already resolved aliases, appended
@@ -671,6 +702,9 @@ Integration tests in `ElasticSearchTest.scala`:
 - [ ] PIT passthrough works (open PIT via ES, pass to API, get consistent results)
 - [ ] `createSort` / `dateAddedToCollectionDescending` / Kahuna's `search()` sort
       behaviour are **unchanged** (existing tests green)
+- [ ] `QueryBuilder.buildFilterOpt` behaviour is unchanged for `search()` and AI
+      search except the documented both-token `dateAddedToCollection` match
+      (behaviour-preserving for those callers; their tests stay green)
 - [ ] Leg A integration tests pass
 - [ ] Leg B unit tests pass
 - [ ] Existing e2e tests pass (default ES mode)
@@ -727,19 +761,21 @@ sort dropdown is silently corrupt or 422s (see companion's breakage table).
 
 ## Appendix: Refactoring justification (for PR reviewers)
 
-This commit includes four small extractions alongside the new endpoint. They are
-motivated by concrete near-term reuse across the 15-gap media-api expansion roadmap,
-not speculative cleanup. Each passes the test: "would it be obviously wrong NOT to
-do this if you knew the full roadmap?"
+This commit includes two small extractions alongside the new endpoint (a third,
+`buildFilteredQuery`, was already banked by PR #4752; a fourth, `appendTiebreaker`,
+is dropped under Option B). They are motivated by concrete near-term reuse across
+the 15-gap media-api expansion roadmap, not speculative cleanup. Each passes the
+test: "would it be obviously wrong NOT to do this if you knew the full roadmap?"
 
 ### What was extracted and why
 
-**1. `buildFilteredQuery(params: SearchParams): Query`** (~5 new LOC, ~80 moved)
+**1. ~~`buildFilteredQuery(params: SearchParams): Query`~~ — already done by PR #4752**
 
-The filter-assembly block in `search()` (lines 280–370) is inlined. It constructs
-the same bool query from `SearchParams` that 9 of the 15 planned endpoints need.
-Not extracting it means copy-pasting 80 lines nine times — a defect factory where
-a filter fix in one endpoint is missed in eight others.
+PR #4752 extracted the filter-assembly block out of `search()` into
+`QueryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter): Option[Query]`.
+The new endpoint calls it directly, so there is **no extraction in this commit** and
+`search()` is untouched. (The original justification — 9 of 15 planned endpoints need
+the same filter assembly — still holds; 4752 happened to bank the win first.)
 
 **2. `hitToImageEntity` lifted to private method** (~5 LOC signature change)
 
