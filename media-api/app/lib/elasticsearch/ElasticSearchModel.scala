@@ -147,7 +147,8 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
-  vecWeight: Option[Double] = None
+  vecWeight: Option[Double] = None,
+  fillScores: Option[Boolean] = None
 ) {
   lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
 }
@@ -242,6 +243,7 @@ object SearchParams {
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
       request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
+      request.getQueryString("fillScores") flatMap parseBooleanFromQuery,
     )
   }
 
