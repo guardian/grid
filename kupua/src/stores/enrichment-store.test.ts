@@ -82,7 +82,7 @@ describe("upsertEnrichment", () => {
   });
 
   it("empty input is a no-op — existing data unchanged", () => {
-    const initial = new Map([["img-1", { cost: "free" }]]);
+    const initial = new Map<string, EnrichmentFields>([["img-1", { cost: "free" }]]);
     useEnrichmentStore.getState().setEnrichment(initial);
     const before = useEnrichmentStore.getState().data;
     useEnrichmentStore.getState().upsertEnrichment(new Map());

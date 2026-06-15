@@ -1,6 +1,6 @@
 # Zombie-enrichment cleanup backlog
 
-**Created:** 2026-06-12. **Status:** backlog — do NOT action mid-D3 unless trivial.
+**Created:** 2026-06-12. **Status:** ~~backlog~~ **Partially actioned 2026-06-15** — see [Action taken](#action-taken--2026-06-15) at the bottom for what was deleted, what was kept, and why.
 
 ## Context (one paragraph)
 
@@ -62,3 +62,35 @@ no longer part of `EnrichmentFields` or `EnrichedImage`.
 The search-after-via-media-api path must be the **confirmed, tested** mechanism
 (unit + e2e green, both routes) before removing the DELETE-LATER items — they're
 the last traces of the previous architecture and double as reference.
+
+---
+
+## Action taken — 2026-06-15
+
+D3 (`POST /images/search-after`) is confirmed working. The guardrail above is satisfied
+for `enrichByIds` specifically: the new enrichment path (`apiSearchAfter` →
+`extractEnrichment` → `enrichment-store` via `upsertEnrichment`) is covered by
+`grid-api-search-adapter.test.ts`, including a dedicated F-1 regression guard.
+
+### Decision table
+
+| Item | This backlog said | Decision | Rationale |
+|---|---|---|---|
+| `enrichByIds()` method in `grid-api-adapter.ts` | DELETE | **Deleted** | Zero app call sites (tests only). Feeds the deleted `?ids=` mirror loop. Replacement path (`apiSearchAfter` enrichment) is covered by `grid-api-search-adapter.test.ts`. |
+| `MAX_IDS_PER_REQUEST` constant + `VITE_ENRICHMENT_MAX_IDS_PER_REQUEST` env var | (implied delete with method) | **Deleted** | Only used by `enrichByIds`. Gone with the method. |
+| `enrichByIds` tests in `grid-api-adapter.test.ts` | (implied delete) | **Deleted** | Tests for a deleted method. `SEARCH_HIT_DATA` / `SEARCH_RESPONSE_RAW` fixtures retained — a `getImageDetail` fixture-shape test uses them. |
+| `lib/grid-api-instance.ts` | DELETE | **Kept** | This backlog's reasoning ("discovers a service the app never calls") was written before D3 shipped. Now that `GridApiDataSource` is in active use and `getImageDetail` is imminent, destroying and recreating this singleton is pure churn. The single background `GET /api` on mount is cheap and primes discovery before `getImageDetail` is first called. |
+| `initGridApi()` call in `routes/search.tsx` | DELETE | **Kept** | Same reasoning as above. Verified: `apiSearchAfter` uses `/api/images/search-after` directly — does NOT need HATEOAS discovery. But `getImageDetail` (DORMANT-BUT-FUTURE) does, via `ServiceDiscovery.imageUrl()`. |
+| `dal/grid-api/service-discovery.ts` | DELETE | **Kept** | Constructor dependency of `GridApiDataSource`. The gap-closure roadmap (`phase-3-minimal-gap-derivation-findings.md`) adds more methods to `GridApiDataSource`, and satellite service proxies (leases, usages, collections) will need URL helpers here. Deleting now would require changing the constructor, then recreating nearly the same class. Not dead code — dormant but near-future. |
+| `mapApiImageToImage` / `argo.ts` duplication | CONSOLIDATE | **Deferred** | Tech-debt, not dead code. Tackle when touching both files. |
+
+### Test coverage assessment
+
+- **The deleted path has zero coverage risk.** `enrichByIds` had no app call sites;
+  TypeScript would prevent any accidental reintroduction.
+- **The replacement enrichment path is tested.** `grid-api-search-adapter.test.ts`
+  covers `extractEnrichment` field-by-field, the `apiSearchAfter` contract with
+  `deriveImage`, and the F-1 regression guard (probe calls must not write the store).
+- **Pre-existing gap (not introduced here):** `StranglerAdapter` has no dedicated unit
+  test verifying that `searchAfter` routes to `apiSearchAfter` rather than the ES path.
+  Worth adding as a low-cost regression guard when next touching `strangler-adapter.ts`.

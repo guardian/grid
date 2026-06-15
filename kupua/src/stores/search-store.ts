@@ -36,7 +36,7 @@ import type { PositionMap } from "@/dal/position-map";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { cursorForPosition } from "@/dal/position-map";
-import { ElasticsearchDataSource, buildSortClause, parseSortField, createDataSource } from "@/dal";
+import { buildSortClause, parseSortField, createDataSource } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";

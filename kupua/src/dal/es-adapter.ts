@@ -1808,7 +1808,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       for (const b of esBuckets) {
         // For nested fields, use the reverse_nested image count (not usage count).
         const count = nestedPath
-          ? (b as { image_count: { doc_count: number } }).image_count.doc_count
+          ? (b as unknown as { image_count: { doc_count: number } }).image_count.doc_count
           : b.doc_count;
         if (count === 0) continue; // skip empty buckets after reverse_nested
         buckets.push({

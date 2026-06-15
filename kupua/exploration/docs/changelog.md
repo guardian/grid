@@ -14,6 +14,37 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 15 June 2026 — Fix 5 pre-existing TypeScript errors (zero TS errors now)
+
+All five were pre-existing before this session. None were introduced by the `enrichByIds` cleanup.
+Full suite: 918/918 unit tests passing, 0 TS errors after fix.
+
+| # | File | Error | Fix |
+|---|---|---|---|
+| 1 | `dal/es-adapter.ts:1811` | `TS2352` — direct cast between disjoint bucket types (`{ key_as_string, doc_count }` → `{ image_count }`) | Added `unknown` as intermediate: `b as unknown as { image_count… }` |
+| 2–3 | `dal/grid-api-search-adapter.test.ts:380,382` | `TS2339` — `enrichment` property missing from inferred inline object type | Added `import type { SearchAfterResult }` and typed the variable `esResult: SearchAfterResult` |
+| 4 | `stores/enrichment-store.test.ts:86` | `TS2345` — multi-entry Map literal widens `"free"`/`"pay"` to `string`, not assignable to `Cost` | Added explicit generic: `new Map<string, EnrichmentFields>([…])` |
+| 5 | `stores/search-store.ts:39` | `TS6133` — `ElasticsearchDataSource` imported but never used | Removed from import list; confirmed single occurrence |
+
+### 15 June 2026 — Zombie-enrichment cleanup: `enrichByIds` deleted
+
+Post-D3 dead code removal. `enrichByIds()` and its supporting constant were deleted from
+`dal/grid-api/grid-api-adapter.ts`; 7 tests covering the dead method were removed from
+`grid-api-adapter.test.ts`. Full analysis and decision rationale recorded in
+`zz Archive/post-phase-3-d3-searchafter-zombie-enrichment-cleanup-backlog.md`.
+
+**Deleted:**
+- `enrichByIds()` method — fed the old `?ids=` mirror loop (deleted May 2026). Zero app call sites.
+- `MAX_IDS_PER_REQUEST` constant + `VITE_ENRICHMENT_MAX_IDS_PER_REQUEST` env var — used only by that method.
+- `unwrapSearchHits`, `SearchHitImageData`, `SearchResponseRaw` imports — only needed by that method.
+- 7 `enrichByIds` unit tests (`grid-api-adapter.test.ts`). `SEARCH_HIT_DATA`/`SEARCH_RESPONSE_RAW` fixtures retained — a `getImageDetail` fixture-shape test still uses them.
+
+**Kept (backlog said delete, decision reversed):**
+- `lib/grid-api-instance.ts` + `initGridApi()` call in `routes/search.tsx` — primes service discovery for `getImageDetail` (imminent). Destroying and recreating this singleton would be pure churn.
+- `dal/grid-api/service-discovery.ts` — constructor dep of `GridApiDataSource`; needed for all gap-closure work and satellite service URL helpers.
+
+**Test coverage:** The replacement enrichment path (`apiSearchAfter` → `extractEnrichment` → `upsertEnrichment`) is covered by `grid-api-search-adapter.test.ts` incl. the F-1 regression guard. Full suite: 918/918 passing. Zero new TS errors.
+
 ### 15 June 2026 — Graphic-image blur: full client-side implementation
 
 Completed the graphic-image blur feature end-to-end in both direct-ES and media-api modes.

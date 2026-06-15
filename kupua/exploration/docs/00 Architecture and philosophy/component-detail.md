@@ -4,7 +4,7 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last updated: 25 May 2026.**.
+> **Last updated: 16 June 2026.**.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ## DAL (`src/dal/`)
 
-`ImageDataSource` interface (`dal/types.ts`) → `ElasticsearchDataSource` (`es-adapter.ts`). 12 methods spanning search, cursor-based pagination (PIT with 404/410 fallback), aggregations (terms + IS-filter in one request), percentile estimation, composite keyword walk, and date/keyword distributions (adaptive interval selection). Selection-era additions: `getByIds` (mget, 1k-chunk parallel) and `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek (avoids percentile when total ≤ POSITION_MAP_THRESHOLD).
+`ImageDataSource` interface (`dal/types.ts`). `createDataSource()` (`dal/index.ts`) returns `StranglerAdapter` when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`. `StranglerAdapter` delegates all 13 methods to `ElasticsearchDataSource` except `searchAfter`, which calls `apiSearchAfter()` (`dal/grid-api-search-adapter.ts`) — sends `POST /images/search-after` to the media-api Scala endpoint and maps the response (including per-hit enrichment) to `SearchAfterResult`. `ElasticsearchDataSource` (`es-adapter.ts`): cursor-based pagination (PIT with 404/410 fallback), aggregations (terms + IS-filter in one request), percentile estimation, composite keyword walk, date/keyword distributions (adaptive interval selection), `getByIds` (mget, 1k-chunk parallel), `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek.
 
 ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (universal `uploadTime` fallback). Null-zone helpers in `dal/null-zone.ts` (`detectNullZoneCursor`, `remapNullZoneSortValues`) — shared across seek, extend, fill, and getIdRange paths.
 
@@ -20,9 +20,11 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 - **`DATE_SORT_FIELDS`** (exported set) — ES sort values are epoch ms; `_source` values are ISO strings. Callers must convert ISO→epoch before comparing.
 - **`ALLOWED_ES_PATHS`** lives in **both** `es-config.ts` and `vite.config.ts` (separate hardcoded arrays that must be kept manually in sync).
 
-## Grid API Adapter (`src/dal/grid-api/`, ~450 lines across 5 files)
+## Grid API Adapter (`src/dal/grid-api/`, `src/dal/grid-api-search-adapter.ts`)
 
-`GridApiDataSource` — HATEOAS service discovery (`service-discovery.ts`) against the Grid API root. `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort enrichment: network failure or non-2xx → `null` → caller degrades gracefully. Image rendering is never gated on API data (ES + S3 proxy + own imgproxy path is always the baseline). Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount; serves intent-driven single-image fetches only (no polling loop).
+**Search path (`--use-media-api` mode):** `apiSearchAfter()` in `grid-api-search-adapter.ts` — builds and sends `POST /api/images/search-after`, maps Argo-wrapped response to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `StranglerAdapter`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard).
+
+**Single-image enrichment (intent-driven, not wired to UI):** `GridApiDataSource` (`grid-api/grid-api-adapter.ts`) — HATEOAS service discovery (`service-discovery.ts`). `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort: network failure or non-2xx → `null` → caller degrades gracefully. Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount.
 
 ## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
 
@@ -30,7 +32,7 @@ Three-layer merge model:
 
 1. **ES baseline** — `SOURCE_INCLUDES` in `es-config.ts` fetches cost/validity/rights/leases/usages/labels/syndicationRights/XMP fields. Always available.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
-3. **Optional API overlay** — `enrichment-store` (Zustand, no persistence) populated by single-image Grid API fetch on detail open. `deriveImage(image, overlay?)` is the single merge point; API wins field-by-field; `undefined` overlay returns full baseline.
+3. **API overlay** — `enrichment-store` (Zustand, no persistence). In `--use-media-api` mode, populated per search page from `apiSearchAfter` response (server-authoritative cost, validity, rights, actions per hit). In direct-ES mode, overlay stays `undefined`. `deriveImage(image, overlay?)` is the single merge point; API wins field-by-field; `undefined` overlay returns full baseline.
 
 **Consuming enriched data:** Components use `useEnrichedImage(image)` — subscribes per-id to enrichment-store (O(1) `Map.get`), no search-store subscription. Non-React callers use `deriveImage` directly.
 

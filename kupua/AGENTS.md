@@ -16,12 +16,13 @@ Grid manages ~9 million images stored in S3, with metadata indexed in **Elastics
 
 ## Running Kupua
 
-Single entry point: `kupua/scripts/start.sh`. Two modes:
+Single entry point: `kupua/scripts/start.sh`. Three modes:
 
 | Mode | Command | ES source |
 |---|---|---|
 | **Local** (default) | `./kupua/scripts/start.sh` | Docker ES on port 9220 |
-| **TEST** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 |
+| **TEST (direct-ES)** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 |
+| **TEST (media-api)** | `./kupua/scripts/start.sh --use-TEST --use-media-api` | SSH tunnel → TEST ES, `searchAfter` via `POST /images/search-after` |
 
 Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunnel (via `ssm-scala` if available, falls back to raw AWS CLI + session-manager-plugin), auto-discovers index alias + S3 buckets, starts S3 proxy + imgproxy. Both independent of Grid's `dev/script/start.sh`. Docker Compose v1 and v2 supported.
 
@@ -35,7 +36,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Touch & desktop gestures (swipe, dismiss, zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts` (touch + mouse + wheel + keyboard zoom), `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `search-store.ts` (seek paths, `buildSeekCursorAnchors`, `fetchNullZoneDistribution`), `dal/null-zone.ts`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
-| **Grid API adapter / bread-and-butter integration** | `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md`, `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` |
+| **Grid API adapter / media-api integration** | `dal/strangler-adapter.ts`, `dal/grid-api-search-adapter.ts`, `dal/grid-api/grid-api-adapter.ts`, `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (`searchByAi`), `zz Archive/ai-search-workplan.md` |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx` |
@@ -55,15 +56,15 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
-## Current Phase: Phase 2 — Live Elasticsearch (Read-Only)
+## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
-**Goal:** Connect kupua to real ES clusters (TEST/CODE) via SSH tunnel to validate against ~9M images. Still read-only, no auth, no Grid API.
+**Status:** First media-api endpoint shipped (D3): `POST /images/search-after` routes cursor pagination through the Scala server when `VITE_USE_MEDIA_API=true`. Direct-ES path unchanged. Remaining gap-closure (aggregations, PIT, `getByIds`, satellite services) is the Phase 3 backlog — see `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`.
 
 ### System Summary
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/adapters/elasticsearch/*` | `ImageDataSource` interface → ES adapter. Search, pagination (PIT + `search_after`), aggregations, distributions. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface. `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
 | Store | `stores/search-store.ts` | Centre of gravity (~3,900 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map. |
@@ -72,7 +73,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). `is:` resolver enriches suggestions with counts from ticker store, category aggs, and `getAggregations` (with `isFilters` param) when store cache is cold. |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
-| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | Three-layer merge: ES baseline → TS cost/validity/syndication calculation → optional Grid API overlay. `deriveImage()` is the single merge point. Syndication status computed client-side from `syndicationRights`, `leases`, `usages` (SY-0–SY-5). |
+| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | `deriveImage()` merges ES baseline ⊕ TS-computed cost/validity/syndication ⊕ optional Grid API overlay. Direct-ES mode: overlay stays `undefined`. `--use-media-api` mode: `apiSearchAfter` extracts server-authoritative enrichment (cost, validity, rights, actions) per hit; `search-store` writes it to `enrichment-store` at commit-to-view points only. |
 | AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs` | KNN semantic search via Bedrock embeddings. Vite middleware proxy (dev-only). Store AI branch: all ≤200 results in-memory, no PIT/pagination. `?aiQuery=` URL param. Gated by `/bedrock/health`. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
@@ -80,7 +81,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **871 Vitest** unit/integration tests (~40s) -- `npm test`
+- **918 Vitest** unit/integration tests (~40s) -- `npm test`
 - **240 Playwright E2E** tests (~8min) -- `npx playwright test`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
@@ -132,7 +133,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Routing | TanStack Router (Zod-validated search params) |
 | Styling | Tailwind CSS 4 |
 | Build | Vite 8 (Rolldown) |
-| Data Layer | `ImageDataSource` interface → `ElasticsearchDataSource` |
+| Data Layer | `ImageDataSource` interface → `StranglerAdapter` / `ElasticsearchDataSource` |
 | Testing | Vitest + Playwright |
 
 ## Key Architecture Decisions
@@ -149,7 +150,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
    Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
 
-3. **DAL interface** — `ImageDataSource` with 13 methods. `ElasticsearchDataSource` for Phase 2, `GridApiDataSource` planned for Phase 3. Write protection on non-local ES.
+3. **DAL interface** — `ImageDataSource` with 13 methods. `StranglerAdapter` is the live Phase 3 adapter: wraps `ElasticsearchDataSource`, overrides `searchAfter` to call the media-api endpoint. `GridApiDataSource` handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 

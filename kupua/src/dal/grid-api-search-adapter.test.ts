@@ -22,6 +22,7 @@ import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import type { Action, Usage } from "@/dal/grid-api/types";
+import type { SearchAfterResult } from "./types";
 
 // ---------------------------------------------------------------------------
 // Fixture factories
@@ -368,7 +369,7 @@ describe("F-1 regression: apiSearchAfter must not write enrichment store", () =>
     // Simulates what ElasticsearchDataSource.searchAfter returns:
     // a plain result without enrichment. The store write gate (if result.enrichment)
     // must not fire, leaving the overlay unchanged.
-    const esResult = {
+    const esResult: SearchAfterResult = {
       hits: [],
       total: 0,
       sortValues: [],
