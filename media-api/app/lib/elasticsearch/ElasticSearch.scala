@@ -23,9 +23,10 @@ import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
+import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, Sort}
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
-import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
+import play.api.libs.json.{JsError, JsNull, JsNumber, JsObject, JsString, JsSuccess, JsValue, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import play.mvc.Http.Status
@@ -34,7 +35,7 @@ import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.ListMap
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(
@@ -293,7 +294,8 @@ class ElasticSearch(
     }.getOrElse(query)
 
     val sort = params.orderBy match {
-      case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
+      case Some("dateAddedToCollection")  => sorts.dateAddedToCollectionDescending
+      case Some("-dateAddedToCollection") => sorts.dateAddedToCollectionAscending
       case _ => sorts.createSort(params.orderBy)
     }
 
@@ -485,5 +487,177 @@ class ElasticSearch(
 
   private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
     if (res.isTimedOut) logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
+
+  // The Image schema is the source of truth for which _source fields exist; we read the field
+  // names off the case class rather than hand-maintaining a list. Over-inclusion is harmless
+  // (ES ignores unknown _source include paths); under-inclusion can't happen. Computed once.
+  // See exploration/docs/.../phase-3-d3-searchafter-payload-perf-findings.md.
+  private val imageSourceFields: Seq[String] =
+    classOf[Image].getDeclaredFields.toIndexedSeq.map(_.getName)
+
+  // Deliberately dropped from the (kupua-facing) search-after projection: the 1024-dim embedding
+  // vector, the pre-edit metadata copy, and the fileMetadata bulk (EXIF/XMP/ICC/IPTC). The
+  // fileMetadata alias leaves are added back from config.fieldAliasConfigs at call time.
+  // Note: pur:adultContentWarning is included via fieldAliasConfigs (silent alias, both display
+  // flags false) so kupua can compute graphic-image blur client-side without a Painless script.
+  private val searchAfterDropFields = Set("embedding", "originalMetadata", "fileMetadata")
+
+  // Search-after-only hit resolver. The search-after projection includes alias leaf paths
+  // (e.g. fileMetadata.icc.Profile Description) but drops the heavy parent objects, so _source
+  // carries a PARTIAL fileMetadata that Image's reader rejects (its iptc/exif/exifSub/xmp
+  // sub-maps are required, not nullable). We strip every dropped field from a copy of the
+  // source before validating as Image (absent -> default, which the reader tolerates), while
+  // keeping the FULL source in the wrapper so ImageResponse.extractAliasFieldValues can still
+  // read the alias leaves. Kept deliberately separate from the shared resolveHit/mapImageFrom
+  // used by production search, which must stay untouched.
+  private def resolveSearchAfterHit(hit: SearchHit): Option[SourceWrapper[Image]] = {
+    val source   = Json.parse(hit.sourceAsString)
+    val forImage = searchAfterDropFields.foldLeft(source.as[JsObject])(_ - _)
+    forImage.validate[Image] match {
+      case JsSuccess(image, _) => Some(SourceWrapper(source, image, hit.index, JsObject.empty))
+      case e: JsError =>
+        logger.error("Failed to parse search-after image from source string " + hit.id + ": " + e.toString)
+        None
+    }
+  }
+
+  def searchAfter(params: SearchAfterParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] = {
+    val rawQuery: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
+    val filterOpt: Option[Query] =
+      queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
+    val filteredQuery: Query = filterOpt.map(f => boolQuery() must rawQuery filter f).getOrElse(rawQuery)
+
+    val baseSorts          = params.sort.map(sorts.jsonToSort)
+    val withReverse        = if (params.reverse) sorts.reverseSorts(baseSorts) else baseSorts
+    val effectiveSortClause = if (params.seekToEnd) {
+      withReverse.headOption match {
+        case Some(fs: FieldSort) => fs.missing("_first") +: withReverse.tail
+        case _                   => withReverse
+      }
+    } else withReverse
+
+    val isNullZone = params.sortValues.exists(_.headOption.contains(JsNull))
+
+    val (effectiveSortValues, workingSort, extraMustNot) = if (isNullZone) {
+      val sv           = params.sortValues.get
+      val primaryField = baseSorts.collectFirst { case fs: FieldSort => fs.field }
+        .getOrElse(throw InvalidUriParams("cannot detect primary sort field for null-zone cursor"))
+      val nzSort   = effectiveSortClause.filterNot { case fs: FieldSort => fs.field == primaryField; case _ => false }
+      val nzFilter = boolQuery().withNot(existsQuery(primaryField))
+      (Some(sv.tail), nzSort, Some(nzFilter))
+    } else {
+      (params.sortValues, effectiveSortClause, None)
+    }
+
+    effectiveSortValues.foreach { sv =>
+      if (sv.length != workingSort.length)
+        return Future.failed(InvalidUriParams(
+          s"sortValues length ${sv.length} must equal sort clause length ${workingSort.length}"))
+    }
+
+    val effectiveQuery: Query = extraMustNot match {
+      case Some(nzf) => boolQuery().must(filteredQuery).filter(nzf)
+      case None      => filteredQuery
+    }
+
+    val baseRequest = params.pitId match {
+      case Some(pid) =>
+        // Bypass prepareSearch when a PIT is active. prepareSearch appends a migration dedup
+        // filter (must_not esInfo.migration.migratedTo = <new>) to avoid returning the same
+        // image twice when searching both the current and migration indexes live. With a PIT
+        // that filter is actively harmful: the snapshot already captures the correct merged
+        // view at open-time, but migrated images (which have esInfo.migration.migratedTo set)
+        // would be silently excluded, causing results to shrink progressively as migration
+        // proceeds. Use ElasticDsl.search(Nil) so ES resolves the search target from the PIT
+        // ID directly, with no index list and no migration filter.
+        // See media-api-work/phase-3-minimal-gap-derivation-findings.md §7 obs 5.
+        withSearchQueryTimeout(ElasticDsl.search(Nil).query(effectiveQuery)).pit(Pit(pid).keepAlive(1.minute))
+      case None =>
+        prepareSearch(effectiveQuery)
+    }
+
+    val withSort = baseRequest
+      .size(params.searchParams.length)
+      .sortBy(workingSort)
+      .trackTotalHits(params.searchParams.countAll.getOrElse(true))
+
+    val request = effectiveSortValues match {
+      case Some(sv) => withSort.searchAfter(sv.map(jsValueToAny))
+      case None     => withSort
+    }
+
+    // Lean _source projection for this (kupua-facing) endpoint: the Image schema minus the
+    // heavy unused giants (searchAfterDropFields), plus the specific alias leaf paths so their
+    // values survive (e.g. fileMetadata.icc.Profile Description). This yields a PARTIAL
+    // fileMetadata in _source; resolveSearchAfterHit strips the dropped fields before Image
+    // validation while preserving the alias leaves for extractAliasFieldValues.
+    val projectionIncludes: Seq[String] =
+      imageSourceFields.filterNot(searchAfterDropFields) ++ config.fieldAliasConfigs.map(_.elasticsearchPath)
+
+    val projected = request
+      .sourceInclude(projectionIncludes.head, projectionIncludes.tail: _*)
+
+    executeAndLog(projected, "search-after").map { r =>
+      val sortLen = workingSort.length
+
+      val (rawHits, rawSortValues) = r.result.hits.hits.toSeq.flatMap { hit =>
+        resolveSearchAfterHit(hit).map { image =>
+          ((image.instance.id, image), sortValuesToJsValues(hit.sort.getOrElse(Seq.empty).take(sortLen)))
+        }
+      }.unzip
+
+      val (orderedHits, orderedSortValues) =
+        if (params.reverse) (rawHits.reverse, rawSortValues.reverse) else (rawHits, rawSortValues)
+
+      val finalSortValues = if (isNullZone) {
+        val primaryField = baseSorts.collectFirst { case fs: FieldSort => fs.field }.get
+        remapNullZoneSortValues(orderedSortValues, baseSorts, primaryField)
+      } else orderedSortValues
+
+      SearchAfterRawResults(
+        hits           = orderedHits,
+        total          = if (params.searchParams.countAll.getOrElse(true)) r.result.totalHits else 0L,
+        sortValues     = finalSortValues,
+        nextSortValues = finalSortValues.lastOption,
+        pitId          = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+  }
+
+  private def sortValueToJsValue(v: AnyRef): JsValue = v match {
+    case null                  => JsNull
+    case n: java.lang.Long     => JsNumber(BigDecimal(n))
+    case n: java.lang.Double   => JsNumber(BigDecimal(n))
+    case n: java.lang.Integer  => JsNumber(BigDecimal(n.toLong))
+    case s: String             => JsString(s)
+    case other                 => JsString(other.toString)
+  }
+
+  private def sortValuesToJsValues(sort: Seq[AnyRef]): Seq[JsValue] =
+    sort.toSeq.map(sortValueToJsValue)
+
+  private def jsValueToAny(v: JsValue): AnyRef = v match {
+    case JsNull      => null
+    case JsNumber(n) => if (n.isValidLong) java.lang.Long.valueOf(n.toLong) else java.lang.Double.valueOf(n.toDouble)
+    case JsString(s) => s
+    case other       => other.toString
+  }
+
+  // Re-insert JsNull at the primary sort field position in each sort-values array.
+  // Mirrors remapNullZoneSortValues in kupua/src/dal/null-zone.ts.
+  private def remapNullZoneSortValues(
+    sortValues:     Seq[Seq[JsValue]],
+    fullSortClause: Seq[Sort],
+    primaryField:   String,
+  ): Seq[Seq[JsValue]] =
+    sortValues.map { sv =>
+      fullSortClause.foldLeft[(Seq[JsValue], Seq[JsValue])]((Seq.empty, sv)) {
+        case ((acc, remaining), fs: FieldSort) if fs.field == primaryField =>
+          (acc :+ JsNull, remaining)
+        case ((acc, remaining), _) =>
+          (acc :+ remaining.headOption.getOrElse(JsNull), remaining.drop(1))
+      }._1
+    }
 
 }

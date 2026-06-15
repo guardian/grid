@@ -164,6 +164,13 @@ trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
 
+    // Image with pur:adultContentWarning in XMP — used to verify the isPotentiallyGraphic script field
+    createImage(
+      "graphic-image-1",
+      Handout(),
+      fileMetadata = Some(FileMetadata(xmp = Map("pur:adultContentWarning" -> JsString("graphic"))))
+    ),
+
     // TODO this test image *should* be in `AwaitingReviewForSyndication` but instead its in `BlockedForSyndication`
     // see https://www.elastic.co/guide/en/elasticsearch/reference/current/nested.html to understand why
     //    createImageForSyndication(

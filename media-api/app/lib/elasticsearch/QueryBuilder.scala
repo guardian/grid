@@ -157,6 +157,11 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
+    val hasRightsAcquiredFilter = params.hasRightsAcquired.map { v =>
+      if (v) termQuery("syndicationRights.rights.acquired", true)
+      else boolQuery().not(termQuery("syndicationRights.rights.acquired", true))
+    }
+
     val validityFilter = params.valid.map(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
 
     val persistFilter = params.persisted map {
@@ -173,7 +178,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     // Port of special case code in elastic1 sorts. Using the dateAddedToCollection sort implies an additional filter for reasons unknown
     val dateAddedToCollectionFilter = {
       params.orderBy match {
-        case Some("dateAddedToCollection") => {
+        case Some("dateAddedToCollection") | Some("-dateAddedToCollection") => {
           val pathHierarchyOpt = params.structuredQuery.flatMap {
             case Match(HierarchyField, Phrase(value)) => Some(value)
             case _ => None
@@ -203,6 +208,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         ++ dateFilter.toOption
         ++ usageFilter
         ++ hasRightsCategory
+        ++ hasRightsAcquiredFilter
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
