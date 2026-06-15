@@ -28,7 +28,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.KUPUA_PERF_BASE_URL || "http://localhost:3000",
     headless: false,
     actionTimeout: 30_000,
     navigationTimeout: 30_000,
@@ -39,6 +39,7 @@ export default defineConfig({
        Independent of playwright.perf.config.ts — do NOT sync these. */
     viewport: { width: 1720, height: 960 },
     deviceScaleFactor: 2,
+    ...(process.env.KUPUA_PERF_AUTH_FILE && { storageState: process.env.KUPUA_PERF_AUTH_FILE }),
   },
 
   projects: [

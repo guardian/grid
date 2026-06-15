@@ -12,12 +12,17 @@
 # Usage:
 #   ./kupua/scripts/start.sh                     # local mock data (default)
 #   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
+#   ./kupua/scripts/start.sh --use-media-api     # TEST ES + route searchAfter through media-api
 #
 # Options:
 #   --use-TEST      Connect to real TEST ES cluster via SSH tunnel (port 9200).
 #                   Requires: media-service AWS profile credentials.
 #                   Skips local ES startup and sample data loading.
 #                   Sets VITE_ES_IS_LOCAL=false (enables write protection).
+#   --use-media-api Same as --use-TEST plus VITE_USE_MEDIA_API=true.
+#                   Routes searchAfter calls through the local media-api server
+#                   (port 9001 via nginx). Requires media-api to be running
+#                   in --use-TEST mode. Implies --use-TEST.
 #   --skip-es       Skip starting / waiting for Elasticsearch
 #   --skip-data     Skip checking / loading sample data
 #   --skip-install  Skip npm install check
@@ -95,6 +100,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUPUA_DIR="${SCRIPT_DIR}/.."
 
 USE_TEST=false
+USE_MEDIA_API=false
 SKIP_ES=false
 SKIP_DATA=false
 SKIP_INSTALL=false
@@ -102,12 +108,13 @@ SKIP_INSTALL=false
 for arg in "$@"; do
   case "$arg" in
     --use-TEST)     USE_TEST=true ;;
+    --use-media-api) USE_MEDIA_API=true; USE_TEST=true ;;
     --skip-es)      SKIP_ES=true ;;
     --skip-data)    SKIP_DATA=true ;;
     --skip-install) SKIP_INSTALL=true ;;
     *)
       echo -e "${red}Unknown option: $arg${plain}"
-      echo "Usage: $0 [--use-TEST] [--skip-es] [--skip-data] [--skip-install]"
+      echo "Usage: $0 [--use-TEST] [--use-media-api] [--skip-es] [--skip-data] [--skip-install]"
       exit 1
       ;;
   esac
@@ -242,7 +249,11 @@ fi
 if [ "$USE_TEST" = true ]; then
   wopr_intro
   echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
-  echo -e "${cyan}║      Starting Kupua (TEST mode)      ║${plain}"
+  if [ "$USE_MEDIA_API" = true ]; then
+    echo -e "${cyan}║  Starting Kupua (TEST + media-api)   ║${plain}"
+  else
+    echo -e "${cyan}║      Starting Kupua (TEST mode)      ║${plain}"
+  fi
   echo -e "${cyan}╚══════════════════════════════════════╝${plain}"
   echo
   echo -e "${yellow}  ⚠  Connecting to real TEST Elasticsearch cluster.${plain}"
@@ -623,6 +634,11 @@ print('')
   echo -e "${cyan}      → http://localhost:3000${plain}"
   echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
   echo -e "${yellow}      → Write protection: ON${plain}"
+  if [ "$USE_MEDIA_API" = true ]; then
+    export VITE_USE_MEDIA_API="true"
+    echo -e "${cyan}      → media-api: ON  (searchAfter → POST /images/search-after)${plain}"
+    echo -e "${cyan}        Requires media-api running: ./dev/script/start.sh media-api${plain}"
+  fi
   if [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then
     echo -e "${yellow}      → Thumbnails: ON (S3 proxy on port ${S3_PROXY_PORT})${plain}"
   else

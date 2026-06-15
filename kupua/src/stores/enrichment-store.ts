@@ -63,6 +63,14 @@ interface EnrichmentState {
   /** Replace the entire enrichment dataset (called after mirror-search completes). */
   setEnrichment: (entries: Map<string, EnrichmentFields>) => void;
 
+  /**
+   * Merge entries into the existing dataset (upsert by id). Used by the media-api
+   * search-after path, which fills the buffer incrementally page-by-page (unlike the
+   * old whole-window mirror-search that replaced everything at once). Entries from
+   * earlier pages are preserved; same-id entries are overwritten.
+   */
+  upsertEnrichment: (entries: Map<string, EnrichmentFields>) => void;
+
   /** Mark loading state. */
   setLoading: (loading: boolean) => void;
 
@@ -75,6 +83,14 @@ export const useEnrichmentStore = create<EnrichmentState>()((set, get) => ({
   loading: false,
 
   setEnrichment: (entries) => set({ data: entries, loading: false }),
+
+  upsertEnrichment: (entries) =>
+    set((state) => {
+      if (entries.size === 0) return state;
+      const merged = new Map(state.data);
+      for (const [id, fields] of entries) merged.set(id, fields);
+      return { data: merged };
+    }),
 
   setLoading: (loading) => set({ loading }),
 

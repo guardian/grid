@@ -30,6 +30,10 @@
  *                   median + p95.
  *   --dry-run       Run everything, print summaries, but write nothing.
  *   --headed        Show the browser window (otherwise headless).
+ *   --use-media-api Route searchAfter through the local media-api server.
+ *                   Requires kupua started with: ./scripts/start.sh --use-media-api
+ *                   Also requires a panda auth file (one-time setup — see
+ *                   enforceClusterGate() for the generation command).
  *   <P-id list>     Positional jank-test filter (e.g. "P3,P8").
  *
  * Output files (under e2e-perf/results/):
@@ -51,7 +55,6 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { chromium } from "playwright";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -99,6 +102,7 @@ let perceivedFull = false;     // --perceived             jank + short + long
 let perceivedOnly = false;     // --perceived-only        short + long
 let shortOnly = false;         // --short-perceived-only  short
 let longOnly = false;          // --long-perceived-only   long
+let useMediaApi = false;       // --use-media-api         route searchAfter through media-api
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -118,6 +122,8 @@ for (let i = 0; i < args.length; i++) {
     shortOnly = true;
   } else if (a === "--long-perceived-only") {
     longOnly = true;
+  } else if (a === "--use-media-api") {
+    useMediaApi = true;
   } else if (!a.startsWith("--")) {
     // Positional arg: jank test filter (e.g. "P8" or "P3,P8")
     const parts = a.split(",").map((s) => s.trim()).filter(Boolean);
@@ -203,57 +209,29 @@ async function probeRtt() {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-// ---------------------------------------------------------------------------
-// Cluster probe — global gate for both jank and perceived suites.
-//
-// Replaces the per-test requireRealData() helper that used to live in every
-// spec file. Doing this once at harness startup is correct because:
-//   - "are we on real ES?" is a property of the run, not of any test
-//   - "is PERF_STABLE_UNTIL set?" is set BY this harness, asserting it
-//     inside tests was tautological
-//   - per-test guards forced workarounds when CQL filters changed
-//     store.total mid-test, masking the actual measurement intent
-//
-// Direct `npx playwright test` invocations bypass this probe — by design.
-// Anyone running specs directly is debugging and accepts the responsibility.
-// ---------------------------------------------------------------------------
+// Path to the Playwright storageState file for --use-media-api mode.
+// Must contain a valid panda session cookie. Not committed — add to
+// .git/info/exclude. Generate once with:
+//   npx --prefix kupua playwright codegen \
+//     --save-storage=kupua/e2e-perf/.panda-auth.json \
+//     https://kupua.media.local.dev-gutools.co.uk
+const PANDA_AUTH_FILE = resolve(__dirname, ".panda-auth.json");
 
-async function probeCluster() {
-  console.log("  Probing cluster size at http://localhost:3000/search?nonFree=true …");
-  let browser;
-  try {
-    browser = await chromium.launch();
-    const page = await browser.newPage();
-    await page.goto("http://localhost:3000/search?nonFree=true", { waitUntil: "networkidle", timeout: 15_000 });
-    // Wait for the store to populate `total` (search resolves async).
-    await page.waitForFunction(
-      () => {
-        const s = window.__kupua_store__?.getState();
-        return s && typeof s.total === "number" && !s.loading;
-      },
-      { timeout: 15_000 },
-    );
-    const total = await page.evaluate(() => window.__kupua_store__.getState().total);
-    return total;
-  } finally {
-    if (browser) await browser.close();
-  }
-}
-
-async function enforceClusterGate() {
-  let total;
-  try {
-    total = await probeCluster();
-  } catch (err) {
-    console.error(`  ERROR: cluster probe failed — is the dev server running?`);
-    console.error(`         ${err.message}`);
-    console.error(`         Start it with: ./scripts/start.sh --use-TEST`);
-    process.exit(2);
-  }
-  if (total < 100_000) {
-    console.error(`  ERROR: connected to local ES (total=${total}). Perf suites require real ES.`);
-    console.error(`         Restart with: ./scripts/start.sh --use-TEST`);
-    process.exit(2);
+function enforceClusterGate() {
+  // --use-media-api auth check: must have a storageState file so Playwright
+  // contexts can authenticate to media-api.
+  if (useMediaApi) {
+    if (!existsSync(PANDA_AUTH_FILE)) {
+      console.error(`  ERROR: --use-media-api requires a panda auth file at:`);
+      console.error(`         ${PANDA_AUTH_FILE}`);
+      console.error(`  Generate it once (while logged in to kupua) with:`);
+      console.error(`    npx --prefix kupua playwright codegen \\`);
+      console.error(`      --save-storage=kupua/e2e-perf/.panda-auth.json \\`);
+      console.error(`      https://kupua.media.local.dev-gutools.co.uk`);
+      console.error(`  Then add kupua/e2e-perf/.panda-auth.json to .git/info/exclude.`);
+      process.exit(2);
+    }
+    console.log(`  Auth:         using storageState from ${PANDA_AUTH_FILE}`);
   }
   if (!STABLE_UNTIL) {
     // Defensive — STABLE_UNTIL is a const at the top of this file. If someone
@@ -261,7 +239,6 @@ async function enforceClusterGate() {
     console.error(`  ERROR: PERF_STABLE_UNTIL is empty. The corpus would drift between runs.`);
     process.exit(2);
   }
-  console.log(`  Cluster OK: total=${total.toLocaleString()} corpus images, pinned to until=${STABLE_UNTIL}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +271,10 @@ function runPerceivedPlaywright(kind) {
         ...process.env,
         FORCE_COLOR: "0",
         PERF_STABLE_UNTIL: STABLE_UNTIL,
+        ...(useMediaApi && {
+          KUPUA_PERF_AUTH_FILE: PANDA_AUTH_FILE,
+          KUPUA_PERF_BASE_URL: "https://kupua.media.local.dev-gutools.co.uk",
+        }),
       },
     });
 
@@ -527,6 +508,10 @@ function runPlaywright(grepPattern) {
         ...process.env,
         FORCE_COLOR: "0",
         PERF_STABLE_UNTIL: STABLE_UNTIL,
+        ...(useMediaApi && {
+          KUPUA_PERF_AUTH_FILE: PANDA_AUTH_FILE,
+          KUPUA_PERF_BASE_URL: "https://kupua.media.local.dev-gutools.co.uk",
+        }),
       },
     });
 
@@ -810,12 +795,12 @@ async function main() {
   console.log(`  Grep:         ${grepArg || "(all tests)"}`);
   if (dryRun) console.log(`  Dry run:      no log files will be written`);
   if (headed) console.log(`  Headed:       browser will be visible`);
+  if (useMediaApi) console.log(`  Mode:         --use-media-api (searchAfter via local media-api)`);
   console.log(`  Suites:       jank=${runJank} short=${runShort} long=${runLong}`);
   console.log();
 
-  // Cluster gate: ensures we're on real ES with a pinned corpus before
-  // running any spec. Replaces the old per-test requireRealData() guards.
-  await enforceClusterGate();
+  // Pre-flight checks: auth file (--use-media-api) and STABLE_UNTIL guard.
+  enforceClusterGate();
 
   // RTT probe: 5 pings to ES before any suite to establish network baseline.
   const baselineRttMs = await probeRtt();

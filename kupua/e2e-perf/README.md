@@ -44,6 +44,7 @@ Other flags:
 | `--runs N` | Repeat each suite N times; metrics aggregated as median + p95. |
 | `--dry-run` | Run everything, print summaries, write nothing. |
 | `--headed` | Show the browser window (otherwise headless). |
+| `--use-media-api` | Route `searchAfter` through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
 | `<P-id list>` | Positional jank-test filter (e.g. `P3,P8`). |
 
 ## How to run
@@ -64,6 +65,60 @@ node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 3
 `--dry-run` is the recommended first step whenever running the perceived suite
 on a new setup or after changing traced paths. It still runs Playwright; it
 just doesn't write the log.
+
+### Running against local media-api (`--use-media-api`)
+
+This routes `searchAfter` through the local media-api instead of going
+directly to ES. Useful for measuring the media-api code path end-to-end.
+
+**Prerequisites (every session):**
+
+1. The full Grid dev stack must be running — media-api needs to be up.
+2. Start kupua with the matching flag:
+   ```bash
+   ./scripts/start.sh --use-media-api
+   ```
+   This implies `--use-TEST` (ES tunnel on port 9200) plus
+   `VITE_USE_MEDIA_API=true`.
+
+**One-time auth setup (redo when panda session expires):**
+
+The Playwright browser needs a valid panda cookie to authenticate to
+media-api. Generate a `storageState` file once while logged in:
+
+```bash
+# Run from kupua/ — saves relative to that directory
+npx playwright codegen \
+  --save-storage=e2e-perf/.panda-auth.json \
+  https://kupua.media.local.dev-gutools.co.uk
+```
+
+In the browser that opens, sign in to **both**:
+- `https://media.test.dev-gutools.co.uk/` — captures the `.test.dev-gutools.co.uk` cookie (used by Collections tree etc.)
+- `https://media.local.dev-gutools.co.uk/` — captures the `.local.dev-gutools.co.uk` cookie (used by local media-api)
+
+Then **close the browser** — the file is written on exit, not during the session.
+
+Add it to your local git exclude (never commit — it contains your session token):
+```bash
+# Run from repo root (grid/)
+echo "kupua/e2e-perf/.panda-auth.json" >> .git/info/exclude
+```
+
+The harness will print this generation command and exit if the file is
+missing. Panda sessions expire periodically — re-run codegen when you see
+auth failures or empty results.
+
+**Examples:**
+
+```bash
+# Terminal 1
+./scripts/start.sh --use-media-api
+
+# Terminal 2
+node e2e-perf/run-audit.mjs --use-media-api --short-perceived-only --dry-run --label "media-api sanity"
+node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "media-api baseline" --runs 3
+```
 
 ## Dashboards
 

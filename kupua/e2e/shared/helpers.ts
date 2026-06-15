@@ -29,7 +29,12 @@ export const test = base.extend<{ kupua: KupuaHelpers }>({
     // calls even if it happens to be running. API calls handle 5xx
     // gracefully (null fallback per graceful-API-absence directive) — tests
     // are unaffected.
-    await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
+    // Skip the block when KUPUA_PERF_AUTH_FILE is set — that signals the
+    // perf harness is running in --use-media-api mode and media-api calls
+    // must flow through for real results.
+    if (!process.env["KUPUA_PERF_AUTH_FILE"]) {
+      await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
+    }
     const helpers = new KupuaHelpers(page);
     await use(helpers);
   },

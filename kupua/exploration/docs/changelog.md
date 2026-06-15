@@ -14,6 +14,178 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 12–15 June 2026 — D3: `POST /images/search-after` (Scala endpoint + TypeScript DAL)
+
+First media-api endpoint built for kupua: a cursor-based search-after route that lets kupua route
+its `searchAfter` calls through the server instead of hitting ES directly. Full end-to-end wiring
+on both sides, plus the enrichment overlay revive, a lean `_source` projection, a lean response
+writer, and the `--use-media-api` perf harness flag.
+
+---
+
+#### Leg A — Scala endpoint
+
+**New files / changes in `media-api/`:**
+
+- **`sorts.scala`** — `reverseSorts` (flips asc↔desc on any `Seq[Sort]`), `jsonToSort` (deserialises
+  flat and nested-object ES sort clause entries from JSON), `orderOf`/`sortModeOf` helpers.
+  `dateAddedToCollectionDescending` carries `.unmappedType("date")` so it survives indices without
+  that mapping; `dateAddedToCollectionAscending` added as its counterpart for the
+  `-dateAddedToCollection` token (see N-1 below — a small intentional Kahuna improvement).
+
+- **`ElasticSearchModel.scala`** — `SearchAfterParams` (cursor + sort clause + PIT + flags),
+  `SearchAfterRawResults` (raw hit list + total), `SearchParamsBody` with `fromJson` (parses the
+  POST body: query string, date range, label/uploader/category/collections/has/is filters,
+  `hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, `length`/`offset`).
+  `payType` is deliberately not parsed (disabled in Kahuna; vestigial).
+
+- **`ElasticSearch.scala`** — `searchAfter()` method: calls `buildFilterOpt` (reuses existing filter
+  construction), applies null-zone detection and strip/remap on the cursor when `seekToEnd=true`,
+  validates the cursor length against the resolved sort clause, then fans out into a PIT branch
+  (bypasses `prepareSearch` migration filter — correctness fix) or a plain branch. Returns
+  `SearchAfterRawResults`. Private helpers: `resolveSearchAfterHit` strips the three large
+  drop-fields (`embedding`, `originalMetadata`, `fileMetadata`) from a copy of the `_source`
+  before `validate[Image]`, while keeping the full source in the wrapper for alias extraction —
+  avoids a `JsError` when field aliases touch `fileMetadata` leaves. `_source` projection is
+  schema-derived at startup via reflection on `classOf[Image]` minus the drop-set plus
+  `fieldAliasConfigs` paths; no hardcoded list. Sort-value round-trip helpers: `sortValueToJsValue`
+  / `sortValuesToJsValues` / `jsValueToAny`.
+
+- **`QueryBuilder.scala`** — one-line widening: `dateAddedToCollection` filter now also matches
+  the `"-dateAddedToCollection"` token (ascending order from kupua).
+
+- **`MediaApi.scala`** — `hitToImageEntity` lifted to a private method (was inline in `imageSearch`;
+  now also used there). `searchAfterImages` action: `auth.async(parse.json)` — parses body,
+  resolves sort clause, calls `elasticSearch.searchAfter`, serialises via a typed
+  `SearchAfterResponse` case class + `OWrites` (compiler-checked; wire shape unchanged).
+  `canUserDeleteCropsOrUsages` hoisted out of the per-hit loop.
+
+- **`conf/routes`** — `POST /images/search-after` inserted before `GET /images/:id` (required;
+  Play route ordering matters).
+
+- **`ElasticSearchTest.scala` / `ElasticSearchTestBase.scala`** — 16 new integration tests covering:
+  first-page total/cursor, forward cursor pagination, reverse cursor continuation (two-page walk
+  asserting exact slices), null-zone round-trip, `seekToEnd`+null-zone crash guard, cursor-length
+  mismatch → 422, `dateAddedToCollection` path-hierarchy filter (both sort directions, cursor path),
+  `dateAddedToCollection` sort (both directions, Kahuna `search()` path — guards the N-1 restore),
+  `fieldAliases` projection (regression guard + alias-leaf presence), `isPotentiallyGraphic`
+  via fieldAlias (silent alias; not Painless script — see decision below).
+  Added `graphic-image-1` fixture to `ElasticSearchTestBase.images`.
+
+**Key design decisions (Scala):**
+
+- *Option B for sort clause*: client sends the fully-resolved ES sort clause; server applies it
+  verbatim. No `createSort` involvement on the cursor path.
+- *Lean `_source` projection*: schema-derived at startup (reflection on `Image` fields minus
+  `{embedding, originalMetadata, fileMetadata}` plus alias paths). Cuts payload from ~2.1 MB to
+  ~370 KB per page. Over-inclusion is harmless.
+- *Painless script removed*: `isPotentiallyGraphic` was initially computed server-side via a
+  Painless script (+30 ms ES `took`, also-prod). Removed. The field now arrives via a silent
+  `fieldAlias` (`fileMetadata.xmp.pur:adultContentWarning`) which is auto-included in the
+  projection; client-side `isImagePotentiallyGraphic()` handles the blur logic (adds keyword scan
+  too). Rationale in `post-phase-3-d3-searchafter-blur-graphic-work.md`.
+- *PIT bypass of `prepareSearch`*: when a `pitId` is present, uses `ElasticDsl.search(Nil)`
+  directly so the migration dedup filter from `prepareSearch` is not applied.
+- *`createForBrowse`*: lean one-pass Argo writer in `ImageResponse` — replaces the 12-step
+  `.transform` chain with a single `imageResponseWrites` call + `++` merge. Skips `imageLinks`
+  (browse clients don't read them). Measured at ~137 ms/page envelope on the dev tunnel; the
+  12-step chain was ~78 % of that.
+
+---
+
+#### Leg B — TypeScript DAL
+
+**New files:**
+
+- **`src/dal/grid-api-search-adapter.ts`** — `apiSearchAfter()`: builds the POST body from
+  `SearchParams` (sort clause via `buildSortClause`, all filter fields, `nonFree` → `hasRightsAcquired`).
+  Appends `-is:deleted` and `-usages@status:replaced` to `q` unless already present (mirrors the
+  ES adapter's default suppressions). Maps the response to `SearchAfterResult`. `extractEnrichment()`
+  pulls cost/valid/invalidReasons/persisted/usageRights/actions/syndicationStatus/usages from each
+  hit entity; the enrichment map is returned in `SearchAfterResult` rather than written to the store
+  (store write is the caller's responsibility — avoids clobber on probe calls).
+  `mapApiImageToImage()` unwraps Argo entity wrappers on usages/leases/collections.
+
+- **`src/dal/strangler-adapter.ts`** — `StranglerAdapter` implements `ImageDataSource`. All 18
+  methods delegate to `ElasticsearchDataSource` except `searchAfter`, which routes to
+  `apiSearchAfter`. Optional methods conditionally bound in constructor (Vite class-field ordering
+  fix — fields initialise before constructor params in native class fields).
+
+**Modified files:**
+
+- **`src/dal/index.ts`** — `createDataSource()` factory: returns `StranglerAdapter` when
+  `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`.
+- **`src/dal/types.ts`** — `SearchAfterResult.enrichment` is optional (`Map<string, EnrichmentFields> | undefined`); direct-ES path returns `undefined`, safe for dual-mode.
+- **`src/stores/enrichment-store.ts`** — added `upsertEnrichment(entries)` (merge-by-id) alongside
+  `setEnrichment` (replace-all). Fresh search → `setEnrichment`; extend/seek → `upsertEnrichment`.
+- **`src/stores/search-store.ts`** — `createDataSource()` replaces `new ElasticsearchDataSource()`.
+  Enrichment store written only at commit-to-view points (not on probe calls).
+- **`src/lib/grid-config.ts`** — silent fieldAlias for `fileMetadata.xmp.pur:adultContentWarning`
+  (display flags both false; auto-included in server projection).
+- **`vite.config.ts`** — `POST /images/search-after` whitelisted in the write guard; dev proxy
+  spoofs `Origin` to `media.local.dev-gutools.co.uk` for CORS (deviations.md §28).
+
+**Tests:**
+
+- `grid-api-search-adapter.test.ts` — `upsertEnrichment` (6 tests), `extractEnrichment` (12 tests,
+  all field paths including actions-at-entity-level), contract test (`extractEnrichment` →
+  `deriveImage`).
+
+---
+
+#### Enrichment overlay revive
+
+`setEnrichment` was written only in tests — the overlay was never populated in production. The
+search-after response from `imageResponse.createForBrowse` already carries all enrichment fields
+(cost, validity, rights, actions, `isPotentiallyGraphic`) server-authoritative. `apiSearchAfter`
+now extracts those fields and returns them as an enrichment map; `search-store.ts` writes the
+overlay at commit-to-view points. `deriveImage` is unchanged — it already merges baseline ⊕ overlay
+and is route-agnostic. Direct-ES mode continues to use TS-side derivation; the overlay just
+stays `undefined` in that mode.
+
+---
+
+#### Perf harness: `--use-media-api` flag
+
+`e2e-perf/run-audit.mjs` now accepts `--use-media-api`: passes
+`KUPUA_PERF_BASE_URL=https://kupua.media.local.dev-gutools.co.uk` and
+`KUPUA_PERF_AUTH_FILE` to Playwright spawns; all three perf configs inject `storageState` when
+set. The `/api/**` → 503 intercept in `e2e/shared/helpers.ts` is skipped when `KUPUA_PERF_AUTH_FILE`
+is set (real API calls must go through). Documented in `e2e-perf/README.md`.
+
+---
+
+#### Review findings and decisions
+
+A full code review (`phase-3-d3-searchafter-code-review-final.md`) was conducted before commit.
+Summary of resolved findings:
+
+- **F-1 (enrichment clobber)** — enrichment map moved out of `apiSearchAfter`; store written by
+  caller at commit-to-view points only; probe calls never write.
+- **F-2 (soft-delete suppression)** — `-is:deleted` / `-usages@status:replaced` appended to `q`.
+- **F-3 (`hasRightsAcquired` dropped)** — mapped through POST body → `fromJson` → `QueryBuilder`.
+- **F-4 (`payType` divergence)** — `payType = None` in `fromJson`; not sent by client.
+- **F-6 (PIT via `prepareSearch`)** — PIT branch bypasses `prepareSearch` (migration dedup filter
+  must not apply to cursor-based searches).
+- **N-1 (Kahuna `-dateAddedToCollection` sort)** — `QueryBuilder` Change 2 widens the
+  `dateAddedToCollection` pathHierarchy filter to also fire for the `-dateAddedToCollection`
+  (ascending) token, which kupua needs. To keep Kahuna's `search()` path coherent for that
+  token (filter + sort, not filter alone), the matching ascending sort case was **restored** in
+  `search()` + `sorts.scala`. This is a small, intentional, manual-URL-only improvement to
+  Kahuna (its UI never emits the negated token) — flagged explicitly in the Scala PR doc. A
+  `search()`-path test covers both sort directions; the searchAfter filter test covers Change 2
+  via the cursor path.
+- **N-2 (blur inert)** — deferred. `isPotentiallyGraphic` client-side wiring tracked in
+  `post-phase-3-d3-searchafter-blur-graphic-work.md`.
+- **N-3 (POST pattern)** — governance flag; team sign-off on `POST /images/search-after` +
+  `auth.async(parse.json)` as the cursor-endpoint convention still pending.
+
+---
+
+#### Test surface (final, on committed tree)
+
+168/168 Scala integration tests · 924/924 TS unit tests · 240/240 Playwright e2e — all green.
+
 ### 9 June 2026 — Usages panel, CQL usages@, Last Used sort, Usages facet filters + SAF/cursor bug fixes
 
 Full implementation of the usages feature (Kahuna parity), plus several pre-existing bugs discovered and fixed during that work.

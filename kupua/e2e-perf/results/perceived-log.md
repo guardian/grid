@@ -817,3 +817,82 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 63 | 290 | 991 | 991 | 755 |
 | JB4 | scrubber-scroll | — | — | — | 31 | — |
 | JB5 | fullscreen-exit | — | — | — | 70 | — |
+
+---
+
+## [short] After search-after --use-media-api (cf701ad4c (dirty), 2026-06-13)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 6
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 832 | 833 | — |
+| PP2 | sort-no-focus | 67 | — | 770 | 770 | — |
+| PP3 | sort-around-focus | 69 | 796 | 1321 | 1321 | 528 |
+| PP4 | sort-around-focus | 70 | 766 | 1283 | 1283 | 520 |
+| PP5 | filter-toggle | 64 | 1032 | — | 1152 | 119 |
+| PP6 | density-swap | — | — | — | 211 | — |
+| PP7 | scrubber-seek | 1 | — | 1593 | 1593 | — |
+| PP7b | scrubber-seek | 1 | — | 1422 | 1422 | — |
+| PP7c | scrubber-scroll | — | — | — | 132 | — |
+| PP8 | search | 0 | 822 | 1512 | 1512 | 693 |
+| PP9 | search | 0 | — | 783 | 783 | — |
+| PP10 | position-map | — | — | — | 2517 | — |
+| PP6b | density-swap | — | — | — | 283 | — |
+| PP6c | density-swap | — | — | — | 326 | — |
+
+---
+
+## [long] After search-after --use-media-api (cf701ad4c (dirty), 2026-06-13)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 6
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 729 | 729 | — |
+| JA2 | open-detail | — | — | — | 138 | — |
+| JB1 | search | 0 | — | 843 | 843 | — |
+| JB2 | facet-click | 76 | — | 1232 | 1232 | — |
+| JB3 | facet-click | 73 | 997 | 1964 | 1964 | 978 |
+| JB4 | scrubber-scroll | — | — | — | 38 | — |
+| JB5 | fullscreen-exit | — | — | — | 72 | — |
+
+---
+
+## [short] After search-after --use-media-api fieldAliases fix (cf701ad4c (dirty), 2026-06-13)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 6
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 926 | 926 | — |
+| PP2 | sort-no-focus | 68 | — | 822 | 822 | — |
+| PP3 | sort-around-focus | 70 | 829 | 1444 | 1444 | 616 |
+| PP4 | sort-around-focus | 69 | 842 | 1472 | 1472 | 620 |
+| PP5 | filter-toggle | 66 | 1164 | — | 1284 | 119 |
+| PP6 | density-swap | — | — | — | 261 | — |
+| PP7 | scrubber-seek | 1 | — | 1735 | 1735 | — |
+| PP7b | scrubber-seek | 1 | — | 1496 | 1496 | — |
+| PP7c | scrubber-scroll | — | — | — | 127 | — |
+| PP8 | search | 0 | 924 | 1668 | 1668 | 752 |
+| PP9 | search | 0 | — | 908 | 908 | — |
+| PP10 | position-map | — | — | — | 2201 | — |
+| PP6b | density-swap | — | — | — | 288 | — |
+| PP6c | density-swap | — | — | — | 328 | — |
+
+---
+
+## [long] After search-after --use-media-api fieldAliases fix (cf701ad4c (dirty), 2026-06-13)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 6
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 866 | 866 | — |
+| JA2 | open-detail | — | — | — | 142 | — |
+| JA3 | metadata-click | 67 | 1138 | 1978 | 1978 | 847 |
+| JB1 | search | 0 | — | 893 | 893 | — |
+| JB2 | facet-click | 78 | — | 1112 | 1113 | — |
+| JB3 | facet-click | 72 | 1028 | 2056 | 2056 | 1035 |
+| JB4 | scrubber-scroll | — | — | — | 39 | — |
+| JB5 | fullscreen-exit | — | — | — | 66 | — |

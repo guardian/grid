@@ -228,6 +228,19 @@ export const gridConfig = {
       displaySearchHint: false,
       displayInAdditionalMetadata: true,
     },
+    {
+      // Silent alias — not shown in search suggestions or metadata panel.
+      // Included in the search-after _source projection so kupua can compute
+      // graphic-image blur client-side (isImagePotentiallyGraphic) without a
+      // Painless script. The corresponding field.aliases entry must also exist
+      // in media-api's Play config for the server to include it in projections.
+      // See: exploration/docs/post-phase-3-d3-searchafter-blur-graphic-work.md
+      elasticsearchPath: "fileMetadata.xmp.pur:adultContentWarning",
+      alias: "adultContentWarning",
+      label: "Adult Content Warning",
+      displaySearchHint: false,
+      displayInAdditionalMetadata: false,
+    },
   ] as FieldAlias[],
 } as const;
 

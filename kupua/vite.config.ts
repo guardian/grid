@@ -67,13 +67,20 @@ function esProxyGuard(): Plugin {
  */
 const GRID_API_PROXY_PREFIXES = ["/api"];
 
+// POST endpoints on /api that are read-only (use POST only for request body).
+// These bypass the write guard without needing VITE_GRID_API_WRITES_ENABLED.
+const GRID_API_READ_VIA_POST = ["/images/search-after"];
+
 function gridApiWriteGuard(): Plugin {
   return {
     name: "grid-api-write-guard",
     configureServer(server) {
       for (const prefix of GRID_API_PROXY_PREFIXES) {
         server.middlewares.use(prefix, (req, res, next) => {
-          if (req.method !== "GET" && process.env.VITE_GRID_API_WRITES_ENABLED !== "true") {
+          const isReadViaPost =
+            req.method === "POST" &&
+            GRID_API_READ_VIA_POST.some((p) => (req.url ?? "").startsWith(p));
+          if (req.method !== "GET" && !isReadViaPost && process.env.VITE_GRID_API_WRITES_ENABLED !== "true") {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(
               `[grid-api-write-guard] Blocked ${req.method} ${req.url} — ` +
@@ -140,11 +147,16 @@ export default defineConfig({
       },
       // Proxy Grid media-api requests — avoids CORS (same-origin from browser's view).
       // kupua fetches /api/... → Vite forwards to media-api on port 9001.
+      // Origin is spoofed to Kahuna's domain because kupua.media.* is not in
+      // media-api's corsAllowedDomains (set from S3 config, not overrideable locally).
       "/api": {
         target: "https://api.media.local.dev-gutools.co.uk",
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),
+        headers: {
+          Origin: "https://media.local.dev-gutools.co.uk",
+        },
       },
     },
   },

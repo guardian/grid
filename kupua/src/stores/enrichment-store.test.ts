@@ -59,3 +59,62 @@ describe("enrichment-store", () => {
     expect(useEnrichmentStore.getState().data.size).toBe(0);
   });
 });
+
+describe("upsertEnrichment", () => {
+  it("adds new ids to an empty store", () => {
+    useEnrichmentStore.getState().upsertEnrichment(new Map([["img-1", { cost: "free" }]]));
+    expect(useEnrichmentStore.getState().data.get("img-1")).toEqual({ cost: "free" });
+  });
+
+  it("merges new ids with existing ids — old entries preserved", () => {
+    useEnrichmentStore.getState().setEnrichment(new Map([["img-1", { cost: "free" }]]));
+    useEnrichmentStore.getState().upsertEnrichment(new Map([["img-2", { cost: "pay" }]]));
+    const state = useEnrichmentStore.getState();
+    // img-1 must survive the upsert
+    expect(state.data.get("img-1")).toEqual({ cost: "free" });
+    expect(state.data.get("img-2")).toEqual({ cost: "pay" });
+  });
+
+  it("overwrites same-id entries (extend page updates an image that was already seen)", () => {
+    useEnrichmentStore.getState().setEnrichment(new Map([["img-1", { cost: "free" }]]));
+    useEnrichmentStore.getState().upsertEnrichment(new Map([["img-1", { cost: "overquota" }]]));
+    expect(useEnrichmentStore.getState().data.get("img-1")).toEqual({ cost: "overquota" });
+  });
+
+  it("empty input is a no-op — existing data unchanged", () => {
+    const initial = new Map([["img-1", { cost: "free" }]]);
+    useEnrichmentStore.getState().setEnrichment(initial);
+    const before = useEnrichmentStore.getState().data;
+    useEnrichmentStore.getState().upsertEnrichment(new Map());
+    // state reference should be unchanged (early-return path)
+    expect(useEnrichmentStore.getState().data).toBe(before);
+  });
+
+  it("setEnrichment replaces all, upsertEnrichment extends — the first-page/extend distinction", () => {
+    // Simulate page 1 (fresh search): setEnrichment replaces
+    useEnrichmentStore.getState().setEnrichment(new Map([
+      ["img-1", { cost: "free" }],
+      ["img-2", { cost: "pay" }],
+    ]));
+    // Simulate page 2 (cursor extend): upsertEnrichment merges
+    useEnrichmentStore.getState().upsertEnrichment(new Map([
+      ["img-3", { cost: "conditional" }],
+    ]));
+    const state = useEnrichmentStore.getState();
+    expect(state.data.size).toBe(3);
+    expect(state.data.get("img-1")?.cost).toBe("free");
+    expect(state.data.get("img-2")?.cost).toBe("pay");
+    expect(state.data.get("img-3")?.cost).toBe("conditional");
+  });
+
+  it("upsert after setEnrichment does not restore entries from before the replace", () => {
+    // Two different searches — second setEnrichment should wipe img-A
+    useEnrichmentStore.getState().setEnrichment(new Map([["img-A", { cost: "free" }]]));
+    useEnrichmentStore.getState().setEnrichment(new Map([["img-B", { cost: "pay" }]]));
+    useEnrichmentStore.getState().upsertEnrichment(new Map([["img-C", { cost: "conditional" }]]));
+    const state = useEnrichmentStore.getState();
+    expect(state.data.has("img-A")).toBe(false);
+    expect(state.data.has("img-B")).toBe(true);
+    expect(state.data.has("img-C")).toBe(true);
+  });
+});

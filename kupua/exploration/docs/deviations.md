@@ -596,6 +596,45 @@ unrestricted by design.
 enforce the same `uploadedBy` gate server-side before queries reach ES. No code
 change to `buildQuery()` needed — the restriction is purely an API-layer concern.
 
+### 27. `auth.async(parse.json)` body-parser combinator in `MediaApi.scala`
+
+**What:** The `POST /images/search-after` endpoint uses `auth.async(parse.json)` to
+parse the request body as JSON. All other read actions in `MediaApi.scala` use
+`auth.async` (no body parser) and access the body manually via
+`request.body.asJson`.
+
+**Why:** `POST /images/search-after` is the first read endpoint in media-api to
+accept a request body. The standard Play body-parser combinator is cleaner here
+than the manual `asJson` pattern: it returns a `400 Bad Request` automatically if
+the `Content-Type` is not `application/json`, rather than silently returning `None`.
+
+**Trade-off:** Establishes a new convention in a file that didn't have one before.
+Future body-carrying read endpoints should use the same `auth.async(parse.json)`
+pattern for consistency. `media-api-conventions.md` should be updated if more
+body-carrying endpoints are added.
+
+### 28. Vite proxy spoofs `Origin` header to `media.local.dev-gutools.co.uk`
+
+**What:** `vite.config.ts` overrides the `Origin` header to
+`media.local.dev-gutools.co.uk` for all requests proxied to local media-api (port
+9001). Kupua's own local origin (`kupua.media.local.dev-gutools.co.uk`) is not in
+media-api's default `corsAllowedDomains` list, so requests from kupua were rejected
+with CORS 403s.
+
+**Why:** Adding kupua's origin to `corsAllowedDomains` requires a config change
+that would need to be replicated across dev/TEST/CODE/PROD. Spoofing the Origin in
+the Vite proxy (which is dev-only by construction) is simpler and doesn't touch
+media-api config.
+
+**Scope:** Dev only — `vite.config.ts` is never shipped. The Origin spoof only
+applies to the Vite proxy (`/api` target), not to production requests. In
+TEST/CODE/PROD, kupua runs behind the standard nginx reverse proxy setup which
+handles CORS at the CDN/load-balancer layer.
+
+**Trade-off:** Could mask CORS configuration issues in dev if media-api's allowed
+domains list changes. If kupua gains its own nginx config, the Origin spoof should
+be removed and kupua's domain added to `corsAllowedDomains` properly.
+
 ---
 
 ### Permission assumptions — consolidated reference
@@ -1811,4 +1850,73 @@ the deleted-image suppression.
 The cost is negligible (a fast keyword term query on a small nested array);
 no performance regression has been observed.  If the Guardian's data model
 for "replaced" images changes, this default should be revisited.
+
+### 32. `searchAfter` strips dropped fields before `Image` validation (media-api)
+
+**What:** The kupua-facing `searchAfter` endpoint in `ElasticSearch.scala` omits the
+heavy `fileMetadata` / `embedding` / `originalMetadata` fields from the `_source`
+projection (`searchAfterDropFields`) but adds back the specific alias leaf paths from
+`config.fieldAliasConfigs` (e.g. `fileMetadata.icc.Profile Description`). The returned
+source therefore contains a *partial* `fileMetadata` object, which `Image`'s reader
+cannot parse — its `iptc`/`exif`/`exifSub`/`xmp` sub-maps are required, not nullable, so
+`readNullable[FileMetadata]` fails on a present-but-incomplete object and every hit
+returns `JsError` (empty grid). A search-after-only resolver, `resolveSearchAfterHit`,
+strips every dropped top-level field from a copy of the source before `validate[Image]`
+(absent → `FileMetadata()` default, which the reader tolerates), while keeping the FULL
+source in the `SourceWrapper` so `ImageResponse.extractAliasFieldValues` can still read
+the alias leaves from the raw JSON.
+
+**Why:** It decouples the two concerns the partial object conflates — what `Image` needs
+to parse (no partial `fileMetadata`) vs. what alias extraction needs (the raw leaves).
+The alternative (reinstating the whole `fileMetadata` blob whenever an alias touches it)
+more than doubled per-scroll latency by pulling the full EXIF/XMP/ICC/IPTC payload on
+every page.
+
+**Scope / production safety:** Confined to `searchAfter`. The shared `resolveHit` /
+`mapImageFrom` used by production `imageSearch` and the other search paths are
+deliberately left untouched — `resolveSearchAfterHit` is a separate method so the strip
+cannot leak into production. No `common-lib` change. The same payload-slimming pattern
+*could* be applied to the production search path (it still fetches the full `_source`)
+but is intentionally not attempted: that path has many more consumers (kahuna, public
+API, `?include=fileMetadata` callers) and the risk/benefit doesn't justify it.
+
+**Trade-off:** `instance.fileMetadata` is the empty default for search-after results.
+The only reachable reader of the parsed field is `fileMetadataEntity`, gated on
+`?include=fileMetadata`, which kupua never sends on this endpoint. A tiny per-hit JSON
+transform replaces carrying the full `fileMetadata` blob on every scroll page.
+
+Reference: `media-api/app/lib/elasticsearch/ElasticSearch.scala` (`resolveSearchAfterHit`,
+`searchAfter` projection), `phase-3-d3-searchafter-fileMetadata-aliases-companion-workplan.md`.
+
+### 33. `seekToEnd` and null-zone stripping run in opposite order in media-api vs kupua TS (benign)
+
+**What:** Both `searchAfter` implementations apply two transforms to the head of the sort
+clause — `seekToEnd` (sets `missing: "_first"` on the primary sort field) and null-zone
+handling (strips the primary field when the cursor's leading value is null). They apply
+them in opposite order:
+- **kupua TS** (`es-adapter.ts` `_searchAfterImpl`): strips the primary field first
+  (null-zone), then applies `missing: "_first"` to the new clause head (`uploadTime`).
+- **media-api Scala** (`ElasticSearch.searchAfter`): applies `missing: "_first"` to the
+  primary field first, then strips the primary field.
+
+**Why it doesn't matter (today):** `missing: "_first"` only affects a field that can
+actually be absent. In the null zone the only absent field is the primary (stripped in
+both), and the surviving tiebreakers (`uploadTime`, `id`) are never null. So the modifier
+lands on something it cannot affect in both implementations — identical query, identical
+results. The divergence is in *how* they reach a no-op, not in observable behaviour.
+
+**Not a deliberate design choice** — it's an artefact of where each codebase runs null-zone
+detection (TS detects at the top of the method; Scala strips after the `seekToEnd` step).
+Neither order is "more correct" given the no-op.
+
+**Why not fixed:** the `seekToEnd` + null-zone code is the most intricate logic in the
+method; reordering it to align would touch high-risk code for zero current benefit. It only
+stops being a no-op if a future sort uses a *secondary* field that can be null AND
+`seekToEnd` AND a null-zone cursor co-occur — a three-way combination that does not exist
+and is not planned. If kupua's direct-ES path is ever retired, the divergence disappears
+entirely (only the Scala remains). Guarded by the `seekToEnd + null-zone` integration test
+in `ElasticSearchTest.scala`.
+
+Reference: `media-api/app/lib/elasticsearch/ElasticSearch.scala` (`searchAfter`),
+`kupua/src/dal/es-adapter.ts` (`_searchAfterImpl`).
 

@@ -972,7 +972,9 @@ const ALIAS_FIELDS: FieldDefinition[] = gridConfig.fieldAliases
     id: `alias_${a.alias}`,
     label: a.label,
     group: "alias" as FieldGroup,
-    accessor: (img: Image) => resolveEsPath(img, a.elasticsearchPath),
+    // Prefer aliases.* from media-api response (populated by fieldAliasConfigs);
+    // fall back to resolving the raw ES path for direct-ES mode.
+    accessor: (img: Image) => img.aliases?.[a.alias] ?? resolveEsPath(img, a.elasticsearchPath),
     cqlKey: a.alias,
     esSearchPath: a.elasticsearchPath,
     sortKey: a.alias, // alias fields are all keyword -- sortable; URL uses short alias

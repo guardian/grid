@@ -9,6 +9,7 @@
 
 import type { Image } from "@/types/image";
 import type { PositionMap } from "./position-map";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 
 // ---------------------------------------------------------------------------
 // Sort values — opaque cursor for search_after pagination
@@ -145,6 +146,14 @@ export interface SearchAfterResult {
   /** The PIT ID returned by ES (may differ from the one sent if ES refreshed it).
    *  Explicit `null` means the PIT expired and was not renewed (audit #21). */
   pitId?: string | null;
+  /**
+   * Server-authoritative enrichment entries keyed by image ID.
+   * Present only on the media-api path (`apiSearchAfter`). Absent (`undefined`)
+   * on the direct-ES path. Callers write this to `useEnrichmentStore` at
+   * commit-to-view points ONLY — never inside the adapter itself.
+   * Gated on presence: `if (result.enrichment) { store.upsertEnrichment(...) }`
+   */
+  enrichment?: Map<string, EnrichmentFields>;
 }
 
 export interface AggregationBucket {

@@ -33,8 +33,10 @@ import type {
   UsageFilterAggRequest,
 } from "@/dal";
 import type { PositionMap } from "@/dal/position-map";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { cursorForPosition } from "@/dal/position-map";
-import { ElasticsearchDataSource, buildSortClause, parseSortField } from "@/dal";
+import { ElasticsearchDataSource, buildSortClause, parseSortField, createDataSource } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
@@ -928,6 +930,8 @@ async function _fillBufferForScrollMode(
       currentCursor = newEndCursor;
 
       // Append to buffer — no eviction (we want the full set)
+      // Commit-to-view (fill loop): merge enrichment incrementally.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set((state) => {
         const newBuffer = [...state.results, ...result.hits];
         const newPositions = buildPositions(
@@ -1042,6 +1046,8 @@ interface BufferAroundImage {
   pitId: string | null;
   /** Buffer-local index of the target image. */
   targetLocalIndex: number;
+  /** Merged enrichment from forward + backward results (upsert semantics at commit). */
+  enrichment?: Map<string, EnrichmentFields>;
 }
 
 /**
@@ -1132,6 +1138,15 @@ async function _loadBufferAroundImage(
     pitId: forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
     /** Buffer-local index of the target image. */
     targetLocalIndex: bwHits.length,
+    // Merge enrichment from forward + backward results (both carry enrichment on the
+    // media-api path; undefined on direct-ES path). Forward wins on id conflict (harmless
+    // — same image can't be in both directions of a bidirectional search_after).
+    enrichment: (forwardResult.enrichment || backwardResult.enrichment)
+      ? new Map<string, EnrichmentFields>([
+          ...(backwardResult.enrichment ?? []),
+          ...(forwardResult.enrichment ?? []),
+        ])
+      : undefined,
   };
 }
 
@@ -1503,6 +1518,8 @@ async function _findAndFocusImage(
       // "buffer-ready" signal for now.
       trace("sort-around-focus", "t_first_useful_pixel");
       trace("sort-around-focus", "t_settled");
+      // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
+      if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
@@ -1615,7 +1632,7 @@ async function _findAndFocusImage(
 // ---------------------------------------------------------------------------
 
 export const useSearchStore = create<SearchState>((set, get) => ({
-  dataSource: new ElasticsearchDataSource(),
+  dataSource: createDataSource(),
 
   params: {
     query: undefined,
@@ -2056,6 +2073,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               .map((h) => h.id))
           : new Set();
 
+        // Commit-to-view (fresh search): replace the enrichment overlay.
+        // setEnrichment replaces all — fresh search is the only commit that uses set (not upsert).
+        if (result.enrichment) useEnrichmentStore.getState().setEnrichment(result.enrichment);
         set({
           results: result.hits,
           bufferOffset: 0,
@@ -2210,6 +2230,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
+      // Commit-to-view (extend-forward): merge enrichment.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set((state) => {
         const newBuffer = [...state.results, ...result.hits];
         let newOffset = state.bufferOffset;
@@ -2370,7 +2392,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
-
+      // Commit-to-view (extend-backward): merge enrichment.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set((state) => {
         // result.hits are already in correct (forward) order after reversal
         const newBuffer = [...result.hits, ...state.results];
@@ -3371,6 +3394,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       trace(traceAction, "t_first_useful_pixel");
       trace(traceAction, "t_settled");
+      // Commit-to-view (seek): merge enrichment from the seek's forward fetch.
+      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set({
         results: result.hits,
         bufferOffset: actualOffset,
@@ -3573,6 +3598,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return inTwoTier ? exactOffset : -1;
       })();
 
+      // Commit-to-view (restoreAroundCursor buffer-around): merge enrichment.
+      if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,

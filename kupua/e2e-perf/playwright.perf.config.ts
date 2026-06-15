@@ -43,7 +43,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.KUPUA_PERF_BASE_URL || "http://localhost:3000",
     headless: false,
     actionTimeout: 30_000,
     navigationTimeout: 30_000,
@@ -55,6 +55,7 @@ export default defineConfig({
     viewport: { width: 1987, height: 1110 },
     deviceScaleFactor: 1.25,
     deviceScaleFactor: 2,
+    ...(process.env.KUPUA_PERF_AUTH_FILE && { storageState: process.env.KUPUA_PERF_AUTH_FILE }),
   },
 
   projects: [

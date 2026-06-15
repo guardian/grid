@@ -48,10 +48,11 @@ All image access is read-only and uses your existing developer AWS credentials. 
 ### Options
 
 ```bash
-./kupua/scripts/start.sh --use-TEST      # Runs in (some) TEST data
-./kupua/scripts/start.sh --skip-es       # Skip starting Elasticsearch
-./kupua/scripts/start.sh --skip-data     # Skip sample data check
-./kupua/scripts/start.sh --skip-install  # Skip npm install check
+./kupua/scripts/start.sh --use-TEST        # Connect to TEST ES cluster via SSH tunnel
+./kupua/scripts/start.sh --use-media-api   # Route some requests via local Grid media-api (implies --use-TEST)
+./kupua/scripts/start.sh --skip-es         # Skip starting Elasticsearch
+./kupua/scripts/start.sh --skip-data       # Skip sample data check
+./kupua/scripts/start.sh --skip-install    # Skip npm install check
 ```
 
 ## Prerequisites
@@ -193,6 +194,22 @@ Then run `dev-nginx setup-app dev/nginx-mappings.yml.template` from the Grid roo
 dev/script/setup.sh                  # provisions Docker, localstack, nginx, config
 dev/script/start.sh --use-TEST       # starts auth + media-api with TEST domain config
 ```
+
+### `--use-media-api` flag
+
+This flag routes a subset of Kupua's data fetching through a locally-running Grid
+media-api instead of going directly to Elasticsearch. It implies `--use-TEST` (a live
+ES cluster must be reachable), and additionally requires the full Grid stack to be
+running locally via `dev/script/start.sh --use-TEST`.
+
+```bash
+./kupua/scripts/start.sh --use-media-api
+```
+
+Which routes go via media-api vs direct ES is determined by
+[`src/dal/strangler-adapter.ts`](src/dal/strangler-adapter.ts) — that file is the
+single routing boundary. Methods that override the ES adapter call media-api;
+everything else still goes direct. As more gaps are closed, new overrides land there.
 
 ## Key Documentation
 

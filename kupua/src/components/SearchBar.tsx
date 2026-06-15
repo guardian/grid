@@ -221,13 +221,17 @@ export function SearchBar() {
 
       {/* ES timing — far right. Hidden below lg. Always rendered to avoid layout shift. */}
       <span className="hidden lg:block text-sm text-grid-text-dim shrink-0 ml-auto tabular-nums min-w-[7ch] text-right">
-        {took != null && (
+        {(took != null || fetchDuration != null) && (
           <span title={
-            fetchDuration != null && fetchDuration - took > 20
+            took != null && fetchDuration != null && fetchDuration - took > 20
               ? "ES query time / total fetch duration (includes network + proxy)"
-              : "Elasticsearch query time (last search)"
+              : took != null
+                ? "Elasticsearch query time (last search)"
+                : "Total fetch duration (includes network, proxy + server processing)"
           }>
-            {took}ms{fetchDuration != null && fetchDuration - took > 20 ? ` / ${fetchDuration}ms` : ""}
+            {took != null
+              ? `${took}ms${fetchDuration != null && fetchDuration - took > 20 ? ` / ${fetchDuration}ms` : ""}`
+              : `~${fetchDuration}ms`}
           </span>
         )}
         {seekTime != null && (
