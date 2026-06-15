@@ -192,7 +192,6 @@ const SEARCH_HIT_DATA: SearchHitImageData = {
   ...SINGLE_IMAGE_DATA,
   id: "7c33986723c0fd458d1efd823e5d803cefaa9ab0",
   cost: "free",
-  isPotentiallyGraphic: false, // only present on search hits, not single-image
 };
 
 const SEARCH_RESPONSE_RAW: SearchResponseRaw = {
@@ -355,18 +354,6 @@ describe("unwrapSearchHits", () => {
     expect(hits).toHaveLength(1);
     expect(hits[0].id).toBe("7c33986723c0fd458d1efd823e5d803cefaa9ab0");
     expect(hits[0].cost).toBe("free");
-  });
-
-  it("search hits carry isPotentiallyGraphic; single-image responses do not", () => {
-    const hit = unwrapSearchHits(SEARCH_RESPONSE_RAW)[0];
-    // Runtime check: the field is present on the search hit fixture
-    expect("isPotentiallyGraphic" in hit).toBe(true);
-    expect(hit.isPotentiallyGraphic).toBe(false);
-
-    // Runtime check: the field is absent from the single-image fixture
-    // (TypeScript also catches this — adding isPotentiallyGraphic to ImageData
-    // would break the SearchHitImageData type definition)
-    expect("isPotentiallyGraphic" in SINGLE_IMAGE_DATA).toBe(false);
   });
 
   it("silently drops hits where data is absent", () => {

@@ -11,14 +11,12 @@ replaced by direct-ES + widened `SOURCE_INCLUDES` + TS-replication
 **merge seam it fed survived** — `deriveImage` / `useEnrichedImage` /
 `enrichment-store` / `EnrichmentFields` — but **nothing populates the overlay
 anymore** (`setEnrichment` is called only in tests), so `deriveImage` always
-returns pure ES baseline and `isPotentiallyGraphic` (overlay-only) is always
-`undefined` (grid blur effectively off).
+returns pure ES baseline.
 
-The D3 search-after-via-media-api work **revives this seam**: media-api search
-hits are fully enriched by `imageResponse.create` (server-authoritative
-`cost`/`valid`/`persisted`/`actions`/`isPotentiallyGraphic`), so the
-`StranglerAdapter` populates `enrichment-store` from those hits. The seam was
-built for exactly this; the dead loop was just the wrong feeder.
+`isPotentiallyGraphic` was never revived via the enrichment overlay — the Painless
+script that emitted it was removed (see `post-phase-3-d3-searchafter-blur-graphic-work.md`).
+Blur is now computed entirely client-side in `isImagePotentiallyGraphic()` and is
+no longer part of `EnrichmentFields` or `EnrichedImage`.
 
 ## Architecture homes (keep these single)
 

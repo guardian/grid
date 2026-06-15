@@ -95,7 +95,6 @@ describe("deriveImage", () => {
       expect(enriched.leasesSummary).toBeUndefined();
       expect(enriched.persisted).toBeUndefined();
       expect(enriched.actions).toBeUndefined();
-      expect(enriched.isPotentiallyGraphic).toBeUndefined();
       // syndicationStatus is now always present — baseline from calculateSyndicationStatus.
       // Fixture has no syndicationRights → unsuitable.
       expect(enriched.syndicationStatus).toBe("unsuitable");
@@ -152,14 +151,12 @@ describe("deriveImage", () => {
         leasesSummary: { currentCount: 2, inactiveCount: 1, hasActiveAllowLease: false },
         persisted: { value: true, reasons: ["archived"] },
         actions: [],
-        isPotentiallyGraphic: true,
         syndicationStatus: "sent",
       };
       const enriched = deriveImage(img, overlay);
       expect(enriched.leasesSummary).toEqual({ currentCount: 2, inactiveCount: 1, hasActiveAllowLease: false });
       expect(enriched.persisted).toEqual({ value: true, reasons: ["archived"] });
       expect(enriched.actions).toEqual([]);
-      expect(enriched.isPotentiallyGraphic).toBe(true);
       expect(enriched.syndicationStatus).toBe("sent");
     });
 

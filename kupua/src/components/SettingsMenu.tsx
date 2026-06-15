@@ -20,6 +20,8 @@ export function SettingsMenu() {
   const pointerCoarse = useUiPrefsStore((s) => s._pointerCoarse);
   const effectiveMode = useEffectiveFocusMode();
   const setFocusMode = useUiPrefsStore((s) => s.setFocusMode);
+  const blurGraphicImages = useUiPrefsStore((s) => s.blurGraphicImages);
+  const toggleBlurGraphicImages = useUiPrefsStore((s) => s.toggleBlurGraphicImages);
 
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
@@ -82,7 +84,7 @@ export function SettingsMenu() {
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 top-full mt-1 w-56 bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
+          className="absolute right-[5px] top-full mt-1 w-56 bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
         >
           {/* Focus mode section */}
           <div className="px-3 py-1.5 text-xs font-medium text-grid-text-dim uppercase tracking-wider">
@@ -134,6 +136,33 @@ export function SettingsMenu() {
               </span>
             </span>
           </button>
+
+          {/* Divider */}
+          <div className="my-1 border-t border-grid-border" />
+
+          {/* Content safety section */}
+          <div className="px-3 py-1.5 text-xs font-medium text-grid-text-dim uppercase tracking-wider">
+            Content
+          </div>
+
+          <label
+            role="menuitemcheckbox"
+            aria-checked={blurGraphicImages}
+            className="w-full px-3 py-1.5 text-sm flex items-center gap-2 transition-colors text-grid-text hover:bg-grid-hover/15 cursor-pointer"
+          >
+            <input
+              type="checkbox"
+              checked={blurGraphicImages}
+              onChange={toggleBlurGraphicImages}
+              className="rounded border-grid-border bg-grid-bg text-grid-accent focus:ring-grid-accent focus:ring-offset-0 w-3.5 h-3.5 shrink-0"
+            />
+            <span>
+              Blur potentially graphic images
+              <span className="block text-xs text-grid-text-dim">
+                Blurs thumbnails with graphic content warnings
+              </span>
+            </span>
+          </label>
         </div>
       )}
     </div>

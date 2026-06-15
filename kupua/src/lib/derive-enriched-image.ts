@@ -12,7 +12,7 @@
  *
  * When an API overlay is present (intent-driven single-image fetch), its fields
  * win for cost/valid/invalidReasons (server-authoritative, includes overquota).
- * API-only fields (persisted, actions, isPotentiallyGraphic) are only present
+ * API-only fields (persisted, actions) are only present
  * when the overlay provides them. syndicationStatus is computed from ES baseline
  * (always present) but the overlay wins when available.
  *
@@ -72,8 +72,6 @@ export interface EnrichedImage extends Image, ComputedBaseline {
   persisted?: EnrichmentFields["persisted"];
   /** HATEOAS action descriptors — API only. */
   actions?: EnrichmentFields["actions"];
-  /** Graphic flag — API search-hit only (not on single-image detail). */
-  isPotentiallyGraphic?: boolean;
   /**
    * Syndication status — always present (computed from ES baseline by
    * calculateSyndicationStatus). API overlay wins when present (server-authoritative).
@@ -97,7 +95,7 @@ export interface EnrichedImage extends Image, ComputedBaseline {
  *
  * When `overlay` is present, its fields win for cost/valid/invalidReasons
  * (server-authoritative, includes overquota). API-only fields (persisted,
- * actions, isPotentiallyGraphic, syndicationStatus, leasesSummary) are
+ * actions, syndicationStatus, leasesSummary) are
  * only present when the overlay provides them.
  */
 export function deriveImage(
@@ -129,7 +127,6 @@ export function deriveImage(
     leasesSummary: overlay?.leasesSummary,
     persisted: overlay?.persisted,
     actions: overlay?.actions,
-    isPotentiallyGraphic: overlay?.isPotentiallyGraphic,
     syndicationStatus: overlay?.syndicationStatus ?? baselineSyndicationStatus,
     enrichedUsages: overlay?.usages ?? image.usages,
   };

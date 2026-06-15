@@ -51,9 +51,9 @@ function mapApiImageToImage(raw: unknown): Image {
 /**
  * Extracts the server-authoritative enrichment fields from a search-after hit entity
  * into an `EnrichmentFields` overlay entry. media-api computes these via
- * `imageResponse.create` (cost incl. overquota, valid, persisted, actions, the
- * `isPotentiallyGraphic` script field, etc.) — values kupua cannot fully derive from ES
- * alone. Returns `[id, fields]` or null when the hit has no id.
+ * `imageResponse.create` (cost incl. overquota, valid, persisted, actions, etc.) —
+ * values kupua cannot fully derive from ES alone.
+ * Returns `[id, fields]` or null when the hit has no id.
  *
  * Exported for unit testing.
  */
@@ -73,7 +73,6 @@ export function extractEnrichment(entity: { data?: unknown; actions?: unknown })
     persisted: d.persisted as EnrichmentFields["persisted"],
     usageRights: d.usageRights as EnrichmentFields["usageRights"],
     actions: entity.actions as EnrichmentFields["actions"],
-    isPotentiallyGraphic: d.isPotentiallyGraphic as boolean | undefined,
     syndicationStatus: d.syndicationStatus as EnrichmentFields["syndicationStatus"],
     usages: usages as EnrichmentFields["usages"],
   }];

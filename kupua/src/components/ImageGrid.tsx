@@ -46,6 +46,8 @@ import { useMetadataSearch } from "@/components/metadata-primitives";
 import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
 import { SyndicationBadge } from "@/components/SyndicationBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
+import { isImagePotentiallyGraphic } from "@/lib/graphic-image-blur";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import type { Image } from "@/types/image";
 import {
   GRID_ROW_HEIGHT as ROW_HEIGHT,
@@ -185,6 +187,8 @@ interface GridCellProps {
   draggable?: boolean;
   /** Desktop only: dragstart handler passed from ImageGrid. */
   onDragStart?: (imageId: string, e: React.DragEvent) => void;
+  /** Whether graphic-image blur is enabled (from ui-prefs-store, read once at container level). */
+  blurGraphicImages: boolean;
 }
 
 // Vendored Guardian cost config no longer needed — deriveImage handles cost computation.
@@ -202,11 +206,11 @@ const GridCell = memo(function GridCell({
   collectionColours,
   draggable,
   onDragStart,
+  blurGraphicImages,
 }: GridCellProps) {
   // Enrichment — each cell merges its own overlay so only this cell
   // re-renders when its enrichment data changes.
   const enriched = useEnrichedImage(image);
-  const [graphicRevealed, setGraphicRevealed] = useState(false);
   const handleTickBound = useCallback(
     (e: React.MouseEvent) => { if (image) onTickClick(image.id, e); },
     [image?.id, onTickClick],
@@ -232,8 +236,9 @@ const GridCell = memo(function GridCell({
   const cost = enriched?.cost;
   // Image border — thick coloured border on the thumbnail itself (not the cell).
   const imageBorderColor = getImageBorderColour(enriched ?? image);
-  // Graphic blur — only from enrichment (isPotentiallyGraphic is a search-hit-only field)
-  const isPotentiallyGraphic = enriched?.isPotentiallyGraphic;
+  // Graphic blur — computed client-side from image data (XMP + keyword scan).
+  // Works in both modes: direct-ES reads fileMetadata.xmp; media-api reads aliases.
+  const isPotentiallyGraphic = isImagePotentiallyGraphic(image, blurGraphicImages);
   // Usages for print/digital icons — enrichment preferred, ES fallback via enrichedUsages
   type AnyUsage = { platform: string; dateAdded?: string };
   const usages: AnyUsage[] | undefined = enriched?.enrichedUsages ?? image.usages;
@@ -274,7 +279,7 @@ const GridCell = memo(function GridCell({
       {/* Thumbnail area — 190px block, flex-centred so img element hugs actual
            image content (border wraps the visible image, not the container). */}
       <div
-        className="relative overflow-hidden flex items-center justify-center"
+        className="relative overflow-hidden flex items-center justify-center group"
         style={{ height: 190 }}
         title={descTooltip}
       >
@@ -284,7 +289,7 @@ const GridCell = memo(function GridCell({
             src={thumbUrl}
             alt=""
             loading="lazy"
-            className="max-w-full max-h-[186px] pointer-events-none"
+            className={`max-w-full max-h-[186px] pointer-events-none${isPotentiallyGraphic ? " blur-lg group-hover:blur-none transition-[filter] duration-500" : ""}`}
             style={imageBorderColor ? { border: `10px solid ${imageBorderColor}` } : undefined}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
@@ -296,17 +301,15 @@ const GridCell = memo(function GridCell({
           </div>
         )}
 
-        {/* Graphic image blur overlay — click to reveal (Kahuna row 5) */}
-        {isPotentiallyGraphic && !graphicRevealed && (
+        {/* Graphic image blur label — fades on hover (Kahuna behaviour: hover to reveal, re-blurs on leave) */}
+        {isPotentiallyGraphic && (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-md bg-black/40 cursor-pointer z-10"
-            onClick={(e) => { e.stopPropagation(); setGraphicRevealed(true); }}
-            title="This image may contain graphic content. Click to reveal."
+            className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 pointer-events-none z-10 group-hover:opacity-0 transition-opacity duration-500"
           >
             <span className="text-white text-xs font-semibold text-center px-2">
               Potentially graphic
             </span>
-            <span className="text-white/70 text-2xs mt-1">Click to reveal</span>
+            <span className="text-white/70 text-2xs mt-1">Hover to reveal</span>
           </div>
         )}
 
@@ -617,6 +620,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   // -------------------------------------------------------------------------
 
   const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+  const blurGraphicImages = useUiPrefsStore((s) => s.blurGraphicImages);
 
   // -------------------------------------------------------------------------
   // Long-press gestures (S5 -- coarse pointer / touch selection)
@@ -952,6 +956,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
                     collectionColours={collectionColours}
                     draggable={IS_COARSE_POINTER ? undefined : true}
                     onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
+                    blurGraphicImages={blurGraphicImages}
                   />
                 );
               })}

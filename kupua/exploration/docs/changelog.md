@@ -14,6 +14,47 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 15 June 2026 — Graphic-image blur: full client-side implementation
+
+Completed the graphic-image blur feature end-to-end in both direct-ES and media-api modes.
+
+**Signal wiring (`src/lib/graphic-image-blur.ts`):**
+- `isImagePotentiallyGraphic()` now checks both XMP paths: `image.fileMetadata?.xmp["pur:adultContentWarning"]`
+  (direct-ES, raw `_source`) and `image.aliases?.adultContentWarning` (media-api mode, projected via
+  `fieldAliasConfigs`). The function was already a complete port of Kahuna's keyword/SMOUT/phrase-list
+  signals; the aliases path was the only missing piece.
+- Added test coverage for the `aliases.adultContentWarning` path (3 new tests).
+
+**Dead code removal:**
+- `isPotentiallyGraphic` removed from `EnrichmentFields`, `extractEnrichment`, `EnrichedImage`, and
+  `deriveImage`. The Painless server script that emitted this field was deleted in D3 (+30ms per page);
+  the enrichment overlay was never the right channel for a client-side signal. All related test
+  assertions updated (`grid-api-search-adapter.test.ts`, `derive-enriched-image.test.ts`,
+  `grid-api/argo.test.ts`, `grid-api/grid-api-adapter.test.ts`). `SearchHitImageData` in `types.ts`
+  similarly cleaned.
+
+**Grid view wiring (`src/components/ImageGrid.tsx`):**
+- `isImagePotentiallyGraphic(image, blurGraphicImages)` called directly in `GridCell` using the raw
+  `Image` (which carries `aliases` from the spread in `mapApiImageToImage`). Replaces the dead
+  `enriched?.isPotentiallyGraphic` read.
+- `blurGraphicImages` preference read once at the `ImageGrid` container level (not per-cell) and
+  passed as a prop — one store subscription, not ~50.
+
+**Hover-to-reveal (Kahuna parity):**
+- Replaced click-to-reveal React state (`graphicRevealed`, `setGraphicRevealed`) with pure CSS
+  using Tailwind `group`/`group-hover:`. The `<img>` itself gets `blur-lg` when graphic; `group-hover:blur-none
+  transition-[filter] duration-500` removes it on hover (mirrors Kahuna's `filter: blur(15px)` → `filter: none`).
+  The text label overlay uses `pointer-events-none group-hover:opacity-0 transition-opacity duration-500`.
+  Zero JS on hover, re-blurs automatically when pointer leaves.
+
+**User preference (`src/stores/ui-prefs-store.ts` + `src/components/SettingsMenu.tsx`):**
+- `blurGraphicImages: boolean` (default `true`) added to `useUiPrefsStore`, persisted in
+  `localStorage` under the existing `kupua-ui-prefs` key alongside `focusMode`.
+- Native checkbox toggle added to the three-dot SettingsMenu under a "Content" section, styled
+  identically to the "Free to use only" checkbox in the toolbar.
+
+
+
 ### 12–15 June 2026 — D3: `POST /images/search-after` (Scala endpoint + TypeScript DAL)
 
 First media-api endpoint built for kupua: a cursor-based search-after route that lets kupua route

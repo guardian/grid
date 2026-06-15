@@ -123,4 +123,22 @@ describe("isImagePotentiallyGraphic", () => {
     const image = makeImage({ fileMetadata: undefined });
     expect(isImagePotentiallyGraphic(image)).toBe(false);
   });
+
+  // --- aliases.adultContentWarning (media-api mode) ---
+
+  it("detects adultContentWarning via aliases (media-api mode)", () => {
+    const image = makeImage({ aliases: { adultContentWarning: "1" } });
+    expect(isImagePotentiallyGraphic(image)).toBe(true);
+  });
+
+  it("treats any non-null aliases.adultContentWarning value as graphic", () => {
+    const image = makeImage({ aliases: { adultContentWarning: "" } });
+    // empty string is not null — still triggers
+    expect(isImagePotentiallyGraphic(image)).toBe(true);
+  });
+
+  it("returns false when aliases is present but adultContentWarning is absent", () => {
+    const image = makeImage({ aliases: { colourModel: "RGB" } });
+    expect(isImagePotentiallyGraphic(image)).toBe(false);
+  });
 });

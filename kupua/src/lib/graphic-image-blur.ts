@@ -10,10 +10,9 @@
  * 2. XMP `pur:adultContentWarning` flag from fileMetadata.
  *
  * NOTE: Kahuna also checks `image.data.isPotentiallyGraphic` (a server-side
- * Painless script field injected on search hits). That field is absent from
- * single-image GET responses and from kupua's ES `_source` fields. Kupua
- * relies on this TS heuristic instead. Absence of the server flag is treated
- * as "unknown", not "false" — so this function runs unconditionally.
+ * Painless script field). That script has been removed from the Grid search-after
+ * endpoint (+30ms ES overhead per page). Kupua uses this TS heuristic instead,
+ * covering both signal paths (XMP alias + keyword scan).
  *
  * The `defaultShouldBlurGraphicImages` flag is hardcoded to `true` per the
  * Cluster 1 "hardcode-defaults rule". A future user preference (cookie toggle)
@@ -51,9 +50,12 @@ export function isImagePotentiallyGraphic(
 ): boolean {
   if (!shouldBlur) return false;
 
-  // XMP adult-content warning flag
+  // XMP adult-content warning flag — two paths depending on mode:
+  //   direct-ES: fileMetadata.xmp["pur:adultContentWarning"] (raw _source)
+  //   media-api:  aliases.adultContentWarning (projected via fieldAliasConfigs)
   const xmp = image.fileMetadata?.xmp as Record<string, unknown> | undefined;
   if (xmp?.["pur:adultContentWarning"] != null) return true;
+  if (image.aliases?.adultContentWarning != null) return true;
 
   const desc = image.metadata?.description?.toLowerCase() ?? "";
   const title = image.metadata?.title?.toLowerCase() ?? "";

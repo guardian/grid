@@ -69,16 +69,12 @@ export const SOURCE_EXCLUDES: string[] = [];
  * server-computed values rather than approximations.
  *   cost, valid, invalidReasons, usageRights (full),
  *   leases, usages, actions,
- *   fileMetadata.xmp.pur:adultContentWarning (for TS isPotentiallyGraphic)
+ *   fileMetadata.xmp.pur:adultContentWarning (for isImagePotentiallyGraphic — direct-ES mode)
  *
  * NOT included (server-computed Scala defs, not stored in ES _source):
  *   syndicationStatus — computed by Image.scala at request time; not a stored field.
  *     Kupua computes this client-side via calculateSyndicationStatus() (SY-2).
  *   persisted — computed by Archiver service at request time; not a stored field.
- *
- * Note: isPotentiallyGraphic is a Painless script field — NOT stored in
- * _source. It is TS-replicated instead (see lib/graphic-image-blur.ts,
- * Session B).
  */
 export const SOURCE_INCLUDES = [
   // Tier 1 — grid
@@ -132,7 +128,7 @@ export const SOURCE_INCLUDES = [
   "syndicationRights.published",
   "syndicationRights.isInferred",
   "syndicationRights.rights.acquired",
-  "fileMetadata.xmp.pur:adultContentWarning",     // for TS isPotentiallyGraphic (Session B)
+  "fileMetadata.xmp.pur:adultContentWarning",     // for isImagePotentiallyGraphic (direct-ES mode)
   // Collections — required for CollectionTree display + field-registry chip rendering
   "collections.pathId",
   "collections.description",

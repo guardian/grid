@@ -139,7 +139,6 @@ const SEARCH_HIT_DATA: SearchHitImageData = {
   ...MINIMAL_IMAGE_DATA,
   id: "7c33986723c0fd458d1efd823e5d803cefaa9ab0",
   cost: "free",
-  isPotentiallyGraphic: false,
 };
 
 const SEARCH_RESPONSE_RAW: SearchResponseRaw = {
@@ -262,7 +261,6 @@ describe("GridApiDataSource.getImageDetail", () => {
     expect(SEARCH_RESPONSE_RAW.data[0].data?.id).toBe(
       "7c33986723c0fd458d1efd823e5d803cefaa9ab0",
     );
-    expect(SEARCH_RESPONSE_RAW.data[0].data?.isPotentiallyGraphic).toBe(false);
     // Search-level actions is a JSON object, not an array
     expect(Array.isArray(SEARCH_RESPONSE_RAW.actions)).toBe(false);
   });

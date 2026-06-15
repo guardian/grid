@@ -28,6 +28,9 @@ interface UiPrefsState {
   /** User's chosen focus mode (persisted in localStorage). */
   focusMode: FocusMode;
 
+  /** Whether to blur potentially graphic images (persisted in localStorage). Default on. */
+  blurGraphicImages: boolean;
+
   /**
    * Whether the primary pointer is coarse (touch device).
    * NOT persisted — detected at runtime via matchMedia.
@@ -37,6 +40,9 @@ interface UiPrefsState {
 
   /** Set the focus mode preference. Clears any existing explicit focus. */
   setFocusMode: (mode: FocusMode) => void;
+
+  /** Toggle the graphic-image blur preference. */
+  toggleBlurGraphicImages: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +53,7 @@ export const useUiPrefsStore = create<UiPrefsState>()(
   persist(
     (set) => ({
       focusMode: "explicit" as FocusMode,
+      blurGraphicImages: true,
       _pointerCoarse: false,
       setFocusMode: (mode) => {
         set({ focusMode: mode });
@@ -56,11 +63,12 @@ export const useUiPrefsStore = create<UiPrefsState>()(
           useSearchStore.getState().setFocusedImageId(null);
         }
       },
+      toggleBlurGraphicImages: () => set((s) => ({ blurGraphicImages: !s.blurGraphicImages })),
     }),
     {
       name: "kupua-ui-prefs",
-      // Only persist focusMode, not the runtime _pointerCoarse flag.
-      partialize: (state) => ({ focusMode: state.focusMode }),
+      // Only persist user-facing preferences, not the runtime _pointerCoarse flag.
+      partialize: (state) => ({ focusMode: state.focusMode, blurGraphicImages: state.blurGraphicImages }),
     },
   ),
 );

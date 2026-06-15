@@ -40,7 +40,6 @@ function makeEntity(overrides: {
       invalidReasons: {},
       persisted: { value: false, reasons: [] },
       usageRights: { category: "staff-photographer" },
-      isPotentiallyGraphic: false,
       syndicationStatus: "unsuitable" as const,
       usages: { data: [] },
       ...overrides.data,
@@ -107,11 +106,6 @@ describe("extractEnrichment", () => {
     const usageRights = { category: "agency", restrictions: "No web" };
     const result = extractEnrichment(makeEntity({ data: { usageRights } }));
     expect(result![1].usageRights).toEqual(usageRights);
-  });
-
-  it("extracts isPotentiallyGraphic from entity.data.isPotentiallyGraphic", () => {
-    const result = extractEnrichment(makeEntity({ data: { isPotentiallyGraphic: true } }));
-    expect(result![1].isPotentiallyGraphic).toBe(true);
   });
 
   it("extracts syndicationStatus from entity.data.syndicationStatus", () => {
@@ -200,7 +194,6 @@ describe("contract: extractEnrichment → deriveImage overlay wins", () => {
         invalidReasons: { over_quota: "Quota exceeded" },
         persisted: { value: true, reasons: ["archived"] },
         usageRights: { category: "agency", restrictions: "No web" },
-        isPotentiallyGraphic: true,
         syndicationStatus: "sent", // baseline would be "unsuitable" (no syndicationRights)
         usages: { data: [{ data: usage }] },
       },
@@ -225,7 +218,6 @@ describe("contract: extractEnrichment → deriveImage overlay wins", () => {
     expect(enriched.invalidReasons).toEqual({ over_quota: "Quota exceeded" }); // not {}
     expect(enriched.persisted).toEqual({ value: true, reasons: ["archived"] });
     expect(enriched.usageRights).toEqual({ category: "agency", restrictions: "No web" });
-    expect(enriched.isPotentiallyGraphic).toBe(true);
     expect(enriched.syndicationStatus).toBe("sent"); // not "unsuitable"
     expect(enriched.actions).toEqual(actions);
     expect(enriched.enrichedUsages).toEqual([usage]);
@@ -235,12 +227,11 @@ describe("contract: extractEnrichment → deriveImage overlay wins", () => {
   });
 
   it("absent overlay fields fall through to baseline — no silent undefined bleed", () => {
-    // Entity only provides cost and isPotentiallyGraphic; other fields absent.
+    // Entity only provides cost; other fields absent.
     const entity: { data?: unknown; actions?: unknown } = {
       data: {
         id: "abc123",
         cost: "overquota",
-        isPotentiallyGraphic: true,
         usages: { data: [] },
       },
       // no actions
@@ -256,7 +247,6 @@ describe("contract: extractEnrichment → deriveImage overlay wins", () => {
 
     // Overlay fields land
     expect(enriched.cost).toBe("overquota");
-    expect(enriched.isPotentiallyGraphic).toBe(true);
 
     // Absent overlay fields fall back to baseline, not undefined
     expect(enriched.valid).toBe(true);            // baseline: staff-photographer with credit+desc
@@ -293,7 +283,6 @@ function makeApiResponse(id: string) {
           invalidReasons: {},
           persisted: { value: false, reasons: [] },
           usageRights: { category: "staff-photographer" },
-          isPotentiallyGraphic: false,
           syndicationStatus: "unsuitable",
           usages: { data: [] },
         },

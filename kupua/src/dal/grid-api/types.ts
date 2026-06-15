@@ -404,14 +404,11 @@ export interface ImageData {
 }
 
 /**
- * SearchHitImageData — extends ImageData with `isPotentiallyGraphic`.
+ * SearchHitImageData — extends ImageData with search-hit-only fields.
  *
- * `isPotentiallyGraphic` is a painless-script-computed boolean present on search
- * hits but NOT on `GET /images/{id}` responses (contract §6.6, enrichment-strategy §A).
- * Treat its absence as "unknown", not "false".
+ * `actions` is present on search hits but NOT on `GET /images/{id}` responses.
  */
 export type SearchHitImageData = ImageData & {
-  isPotentiallyGraphic?: boolean;
   /** HATEOAS actions from the EmbeddedEntity wrapper (e.g. `delete`). Merged in by unwrapSearchHits. */
   actions?: Action[];
 };

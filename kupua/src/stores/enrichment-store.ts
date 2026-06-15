@@ -38,11 +38,6 @@ export interface EnrichmentFields {
   leasesSummary?: { currentCount: number; inactiveCount: number; hasActiveAllowLease: boolean };
   /** HATEOAS action descriptors (what this user can do with the image). */
   actions?: Action[];
-  /**
-   * Graphic image flag (search hits only — not on single-image detail response).
-   * Absence means "unknown", NOT "not graphic".
-   */
-  isPotentiallyGraphic?: boolean;
   /** Syndication status. */
   syndicationStatus?: SyndicationStatus;
   /** Usage list (for print/digital icon derivation on grid cells). */
