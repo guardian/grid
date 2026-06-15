@@ -208,7 +208,7 @@ class ElasticSearch(
       `type` = Some(BEST_FIELDS),
       fuzziness = Some("AUTO"),
       maxExpansions = Some(50),
-      operator = Some(And),
+      operator = Some(Or),
       prefixLength = Some(1),
       boost = boost
     )
@@ -266,6 +266,48 @@ class ElasticSearch(
       .size(k)
   }
 
+  def fillAndMaxNormalise(
+    query: String,
+    filterOpt: Option[Query],
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] = {
+
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+      .queryVector(queryEmbedding)
+      .k(k)
+      .numCandidates(numCandidates)
+
+    val knnRequest = ElasticDsl.search(imagesCurrentAlias)
+      .knn(knn)
+      .size(k)
+
+    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(1.0))
+
+    val multiMatchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(multiMatchQuery)
+      .size(k)
+
+    // Kick both queries off before awaiting either, so they execute in parallel.
+    val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
+    val multiMatchResponseF = executeAndLog(withSearchQueryTimeout(multiMatchRequest), "hybrid search: bm25 component")
+
+    for {
+      knnResponse <- knnResponseF
+      multiMatchResponse <- multiMatchResponseF
+    } yield {
+      val knnHits = knnResponse.result.hits.hits
+      val multiMatchHits = multiMatchResponse.result.hits.hits
+
+      logger.info(logMarker, s"knn returned ${knnHits.length} hits: " +
+        knnHits.map(h => s"${h.id}=${h.score}").mkString(", "))
+      logger.info(logMarker, s"bm25 returned ${multiMatchHits.length} hits: " +
+        multiMatchHits.map(h => s"${h.id}=${h.score}").mkString(", "))
+    }
+  }
+
   def hybridSearch(
     query: String,
     queryEmbedding: List[Float],
@@ -284,8 +326,7 @@ class ElasticSearch(
       val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
       for {
-        maxScore <- fetchMaxBm25Score(query, filterOpt)
-        searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
+        searchRequest <- fillAndMaxNormalise(query, filterOpt, queryEmbeddingDouble, k, numCandidates, vecWeight)
         result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
       } yield {
         val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
