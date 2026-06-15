@@ -273,7 +273,7 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double
-  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] = {
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
 
     val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
       .queryVector(queryEmbedding)
@@ -286,40 +286,94 @@ class ElasticSearch(
 
     val multiMatchQuery = createMultiMatchQuery(query, boost = Some(1.0))
 
+    // Top-k BM25 results are our lexical contenders. We keep their source so we can read
+    // each image's embedding and compute a local cosine for any contender absent from knn.
     val multiMatchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(multiMatchQuery)
-//    We don't restrict the number of results for our multiMatch so that we can assume if not there it's 0
-//      .size(k)
+      .query(filterOpt.map(f => boolQuery().must(multiMatchQuery).filter(f)).getOrElse(multiMatchQuery))
+      .size(k)
 
     // Kick both queries off before awaiting either, so they execute in parallel.
     val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
     val multiMatchResponseF = executeAndLog(withSearchQueryTimeout(multiMatchRequest), "hybrid search: bm25 component")
 
+    // Raw cosine similarity, then mapped onto ES's Cosine `_score` scale of (1 + cos) / 2
+    // so a locally-computed score is directly comparable to the knn scores ES returns.
+    def cosineSim(a: List[Double], b: List[Double]): Double = {
+      val dot = (a zip b).map { case (x, y) => x * y }.sum
+      val magA = math.sqrt(a.map(x => x * x).sum)
+      val magB = math.sqrt(b.map(y => y * y).sum)
+      if (magA == 0.0 || magB == 0.0) 0.0 else dot / (magA * magB)
+    }
+
     for {
       knnResponse <- knnResponseF
       multiMatchResponse <- multiMatchResponseF
-    } yield {
-//      Get the max score
-      val multiMatchMaxScore = multiMatchResponse.result.hits.maxScore
-      val knnMaxScore = knnResponse.result.hits.maxScore
 
-//      Create hash maps of the results for easy lookup and merging
-      val multiMatchMap: Map[String, (List[Double], Float)] = multiMatchResponse.result.hits.hits.flatMap { hit =>
-        resolveHit(hit)
-          .flatMap(_.instance.embedding)
-          .flatMap(_.cohereEmbedV4)
-          .map(embedding => hit.id -> (embedding.image, hit.score))
+      knnHits = knnResponse.result.hits.hits
+      multiMatchHits = multiMatchResponse.result.hits.hits
+
+      // Max scores for max-normalisation. Guard against empty result sets.
+      knnMaxScore = if (knnHits.isEmpty) 0.0 else knnResponse.result.hits.maxScore
+      bm25MaxScore = if (multiMatchHits.isEmpty) 0.0 else multiMatchResponse.result.hits.maxScore
+
+      // knn id -> raw knn score (ES Cosine _score)
+      knnScoreById = knnHits.map(h => h.id -> h.score.toDouble).toMap
+      // bm25 top-k id -> raw bm25 score
+      bm25ScoreById = multiMatchHits.map(h => h.id -> h.score.toDouble).toMap
+
+      // id -> SourceWrapper[Image] for every candidate we've seen (union of both result sets)
+      sourceById = (knnHits.toSeq ++ multiMatchHits.toSeq).flatMap(h => resolveHit(h).map(sw => h.id -> sw)).toMap
+
+      // bm25 contender id -> image embedding, used to compute a local cosine when the
+      // contender is absent from the knn result set.
+      bm25EmbeddingById = multiMatchHits.flatMap { h =>
+        resolveHit(h).flatMap(_.instance.embedding).flatMap(_.cohereEmbedV4).map(e => h.id -> e.image)
       }.toMap
-      val knnMap: Map[String, Float] = knnResponse.result.hits.hits.map(hit => hit.id -> hit.score).toMap
 
+      // knn ids missing an exact BM25 score (not in the bm25 top-k). We fetch their exact
+      // BM25 score with a second, ids-filtered query (scores only, no source).
+      missingBm25Ids = knnScoreById.keySet.diff(bm25ScoreById.keySet).toList
 
-      val knnHits = knnResponse.result.hits.hits
-      val multiMatchHits = multiMatchResponse.result.hits.hits
+      followUpBm25ScoreById <- if (missingBm25Ids.isEmpty) Future.successful(Map.empty[String, Double]) else {
+        val followUpRequest = ElasticDsl.search(imagesCurrentAlias)
+          .query(boolQuery().must(multiMatchQuery).filter(filters.ids(missingBm25Ids)))
+          .fetchSource(false)
+          .size(missingBm25Ids.size)
+        executeAndLog(withSearchQueryTimeout(followUpRequest), "hybrid search: bm25 fill for knn ids")
+          .map(_.result.hits.hits.map(h => h.id -> h.score.toDouble).toMap)
+      }
+    } yield {
+      // Every candidate id: union of the knn results and the bm25 top-k.
+      val candidateIds = knnScoreById.keySet ++ bm25ScoreById.keySet
 
-      logger.info(logMarker, s"knn returned ${knnHits.length} hits: " +
-        knnHits.map(h => s"${h.id}=${h.score}").mkString(", "))
-      logger.info(logMarker, s"bm25 returned ${multiMatchHits.length} hits: " +
-        multiMatchHits.map(h => s"${h.id}=${h.score}").mkString(", "))
+      val scored = candidateIds.toSeq.flatMap { id =>
+        sourceById.get(id).map { source =>
+          // knn score: ES knn score if present, else local cosine mapped to ES Cosine scale.
+          val rawKnnScore = knnScoreById.getOrElse(id,
+            bm25EmbeddingById.get(id).map(emb => (1.0 + cosineSim(queryEmbedding, emb)) / 2.0).getOrElse(0.0)
+          )
+          // bm25 score: bm25 top-k score if present, else exact follow-up score, else 0.
+          val rawBm25Score = bm25ScoreById.getOrElse(id, followUpBm25ScoreById.getOrElse(id, 0.0))
+
+          // HNSW is approximate, so a locally-computed knn score can nudge above maxScore - clamp to 1.
+          val normKnn = if (knnMaxScore > 0.0) math.min(rawKnnScore / knnMaxScore, 1.0) else 0.0
+          val normBm25 = if (bm25MaxScore > 0.0) rawBm25Score / bm25MaxScore else 0.0
+
+          val combinedScore = vecWeight * normKnn + (1.0 - vecWeight) * normBm25
+          (id, source, combinedScore)
+        }
+      }
+
+      val ranked = scored.sortBy { case (_, _, score) => -score }.take(k)
+
+      logger.info(logMarker, s"hybrid search merged ${ranked.length} results " +
+        s"(knn=${knnHits.length}, bm25=${multiMatchHits.length}, bm25-fill=${missingBm25Ids.length})")
+
+      SearchResults(
+        hits = ranked.map { case (id, source, _) => (id, source) },
+        total = ranked.length,
+        extraCounts = None
+      )
     }
   }
 
@@ -340,13 +394,7 @@ class ElasticSearch(
     } else {
       val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
-      for {
-        searchRequest <- fillAndMaxNormalise(query, filterOpt, queryEmbeddingDouble, k, numCandidates, vecWeight)
-        result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
-      } yield {
-        val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
-      }
+      fillAndMaxNormalise(query, filterOpt, queryEmbeddingDouble, k, numCandidates, vecWeight)
     }
   }
 
