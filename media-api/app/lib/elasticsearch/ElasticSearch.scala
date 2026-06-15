@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.common.Operator.And
+import com.sksamuel.elastic4s.requests.common.Operator.{And, Or}
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
@@ -288,7 +288,8 @@ class ElasticSearch(
 
     val multiMatchRequest = ElasticDsl.search(imagesCurrentAlias)
       .query(multiMatchQuery)
-      .size(k)
+//    We don't restrict the number of results for our multiMatch so that we can assume if not there it's 0
+//      .size(k)
 
     // Kick both queries off before awaiting either, so they execute in parallel.
     val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
@@ -298,6 +299,20 @@ class ElasticSearch(
       knnResponse <- knnResponseF
       multiMatchResponse <- multiMatchResponseF
     } yield {
+//      Get the max score
+      val multiMatchMaxScore = multiMatchResponse.result.hits.maxScore
+      val knnMaxScore = knnResponse.result.hits.maxScore
+
+//      Create hash maps of the results for easy lookup and merging
+      val multiMatchMap: Map[String, (List[Double], Float)] = multiMatchResponse.result.hits.hits.flatMap { hit =>
+        resolveHit(hit)
+          .flatMap(_.instance.embedding)
+          .flatMap(_.cohereEmbedV4)
+          .map(embedding => hit.id -> (embedding.image, hit.score))
+      }.toMap
+      val knnMap: Map[String, Float] = knnResponse.result.hits.hits.map(hit => hit.id -> hit.score).toMap
+
+
       val knnHits = knnResponse.result.hits.hits
       val multiMatchHits = multiMatchResponse.result.hits.hits
 
