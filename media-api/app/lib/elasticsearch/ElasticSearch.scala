@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCo
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
-import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
@@ -372,8 +372,16 @@ class ElasticSearch(
     } else {
       val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
 
+      val stopwatch = Stopwatch.start
+
       if (fillScores) {
-        fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        val searchResults = fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        val elapsed = stopwatch.elapsed
+        logger.info(
+          combineMarkers(logMarker, elapsed),
+          s"hybrid search (fill scores) completed in ${elapsed.toMillis} ms"
+        )
+        searchResults
       } else {
         for {
           maxScore <- fetchMaxBm25Score(query, filterOpt)
@@ -381,6 +389,11 @@ class ElasticSearch(
           result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
         } yield {
           val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+          val elapsed = stopwatch.elapsed
+          logger.info(
+            combineMarkers(logMarker, elapsed),
+            s"hybrid search (current) completed in ${elapsed.toMillis} ms"
+          )
           SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
         }
       }
