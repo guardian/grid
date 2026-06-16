@@ -352,8 +352,8 @@ class ElasticSearch(
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
     // of their results, not their execution.
-    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical")
-    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic")
+    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-fill-scores")
+    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-fill-scores")
 
     for {
       lexical <- lexicalSearchResponse
@@ -397,11 +397,14 @@ class ElasticSearch(
 
       if (fillScores) {
         val searchResults = fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
-        val elapsed = stopwatch.elapsed
-        logger.info(
-          combineMarkers(logMarker, elapsed),
-          s"hybrid search (fill scores) completed in ${elapsed.toMillis} ms"
-        )
+        searchResults.foreach { _ =>
+          val elapsed = stopwatch.elapsed
+          logger.info(
+            combineMarkers(logMarker, elapsed),
+            s"hybrid search (fill scores) completed in ${elapsed.toMillis} ms"
+          )
+        }
+
         searchResults
       } else {
         for {
