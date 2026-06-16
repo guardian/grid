@@ -282,12 +282,13 @@ class ElasticSearch(
       resolveHit(hit).map { image =>
         val semanticScore = image.instance.embedding
           .flatMap(_.cohereEmbedV4)
-          // Save some computation by assuming normalised vectors
-          // TODO: double check this assumption
+          // We can't use the dot product shortcut because image vectors
+          // are truncated 256-dim versions of a normalised 1536-dim vector,
+          // meaning they will not have magnitude 1.
           // Note this is true cosine similarity from -1 to 1,
           // *not* the ES-normalised score, but when we max-normalise
           // later it will end up in the range 0-1.
-          .map(e => VectorUtils.dotProduct(e.image, queryEmbedding))
+          .map(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
           .getOrElse(-1.0)
         HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
       }
