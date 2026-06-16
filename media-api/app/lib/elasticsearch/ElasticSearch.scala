@@ -330,7 +330,8 @@ class ElasticSearch(
       .rescore(Rescore(createMultiMatchQuery(query, operator = Or))
         .window(k)
         // We want to replace the knn score with the BM25 score,
-        // so we can preserve the cosine similarity in a separate field
+        // because we can calculate cosine similarity clientside,
+        // but can't do that for BM25.
         .originalQueryWeight(0)
         .rescoreQueryWeight(1)
       )
