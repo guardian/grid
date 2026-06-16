@@ -267,46 +267,42 @@ class ElasticSearch(
       .size(k)
   }
 
-  private case class HybridResult(
-    id: String,
-    lexicalScore: Double,
-    semanticScore: Double,
-    image: SourceWrapper[Image]
-  )
+  private case class HybridResult(id: String, lexicalScore: Double, semanticScore: Double, image: SourceWrapper[Image])
+  private case object HybridResult {
+    def resolveHitAndFillInSemanticScore(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
+      resolveHit(hit).map { image =>
+        val semanticScore = image.instance.embedding
+          .flatMap(_.cohereEmbedV4)
+          // Save some computation by assuming normalised vectors
+          // TODO: double check this assumption
+          // Note this is true cosine similarity from -1 to 1,
+          // *not* the ES-normalised score, but when we max-normalise
+          // later it will end up in the range 0-1.
+          .map(e => VectorUtils.dotProduct(e.image, queryEmbedding))
+          .getOrElse(-1.0)
+        HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
+      }
 
-  def resolveHitAndFillInSemanticScore(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
-    resolveHit(hit).map { image =>
-      val semanticScore = image.instance.embedding
-        .flatMap(_.cohereEmbedV4)
-        // Save some computation by assuming normalised vectors
-        // TODO: double check this assumption
-        // Note this is true cosine similarity from -1 to 1,
-        // *not* the ES-normalised score, but when we max-normalise
-        // later it will end up in the range 0-1.
-        .map(e => VectorUtils.dotProduct(e.image, queryEmbedding))
-        .getOrElse(-1.0)
-      HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
+    def getTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
+      val dedupedResults = results.distinctBy(_.id)
+      logger.info(logMarker, s"${dedupedResults.length} deduped results")
+
+      // Account for the rare case in which KNN doesn't return the true closest vector,
+      // and that true closest vector happens to be among the lexical-only results.
+      val maxLexicalScore = dedupedResults.maxBy(_.lexicalScore).lexicalScore
+      val maxSemanticScore = dedupedResults.maxBy(_.semanticScore).semanticScore
+
+      def combinedScore(result: HybridResult): Double = {
+        val normedLexicalScore = result.lexicalScore / maxLexicalScore
+        // normedScore = (score - theoretical_min) / (max - theoretical_min)
+        // This is theoretical min, i.e. -1, to actual max,
+        // so it effectively does both the max-norming and the ES-score norming.
+        val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
+        (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
+      }
+
+      dedupedResults.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
     }
-
-  def combineScoresAndGetTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
-    val dedupedResults = results.distinctBy(_.id)
-    logger.info(logMarker, s"${dedupedResults.length} deduped results")
-
-    // Account for the rare case in which KNN doesn't return the true closest vector,
-    // and that true closest vector happens to be among the lexical-only results.
-    val maxLexicalScore = dedupedResults.maxBy(_.lexicalScore).lexicalScore
-    val maxSemanticScore = dedupedResults.maxBy(_.semanticScore).semanticScore
-
-    def combinedScore(result: HybridResult): Double = {
-      val normedLexicalScore = result.lexicalScore / maxLexicalScore
-      // normedScore = (score - theoretical_min) / (max - theoretical_min)
-      // This is theoretical min, i.e. -1, to actual max,
-      // so it effectively does both the max-norming and the ES-score norming.
-      val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
-      (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
-    }
-
-    dedupedResults.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
   }
 
   // Alternative hybrid search mode, enabled via the `fillScores` query param.
@@ -354,9 +350,9 @@ class ElasticSearch(
       logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
       val allHits = lexical.result.hits.hits.toList ::: semantic.result.hits.hits.toList
       val resultsWithSemanticScoresFilledIn = allHits.flatMap { hit =>
-        resolveHitAndFillInSemanticScore(hit, queryEmbedding)
+        HybridResult.resolveHitAndFillInSemanticScore(hit, queryEmbedding)
       }
-      val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      val topK = HybridResult.getTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
       SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
     }
   }
