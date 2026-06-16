@@ -330,7 +330,7 @@ class ElasticSearch(
 
     val lexicalSearchRequest = ElasticDsl
       .search(imagesCurrentAlias)
-      .query(lexicalQuery)
+      .query(boolQuery().must(lexicalQuery).filter(filterOpt))
       .size(k)
 
     val semanticSearchRequest = ElasticDsl
