@@ -361,19 +361,17 @@ class ElasticSearch(
       val semanticHits = semantic.result.hits.hits.toList
       val maxSemanticScore = cosineSimilarityFromSearchHit(semanticHits.head) // TODO: make typesafe?
       logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
-      val allHits = lexicalHits ::: semanticHits
-      // TODO: simpler way of de-duping?
-      val dedupedHits = allHits.map(hit => hit.id -> hit).toMap.values.toList
+      val dedupedHits = (lexicalHits ::: semanticHits).distinctBy(_.id)
       logger.info(logMarker, s"${dedupedHits.length} deduped hits")
 
-      val sortedHits = dedupedHits.sortBy { searchHit =>
+      val topK = dedupedHits.sortBy { searchHit =>
         val maxNormedSemanticScore = (cosineSimilarityFromSearchHit(searchHit) + 1) / (maxSemanticScore + 1)
         val maxNormedLexicalScore = searchHit.score / maxLexicalScore
 
         -((vecWeight * maxNormedSemanticScore) + ((1 - vecWeight) * maxNormedLexicalScore))
-      }
+      }.take(k)
 
-      val resolvedHits = sortedHits.take(k).flatMap(resolveHit).map(i => (i.instance.id, i))
+      val resolvedHits = topK.flatMap(resolveHit).map(i => (i.instance.id, i))
       SearchResults(hits = resolvedHits, total = resolvedHits.length, extraCounts = None)
     }
   }
