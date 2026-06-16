@@ -283,7 +283,7 @@ class ElasticSearch(
         HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
       }
 
-    def getTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
+    def combineScoresAndGetTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
       val dedupedResults = results.distinctBy(_.id)
       logger.info(logMarker, s"${dedupedResults.length} deduped results")
 
@@ -314,6 +314,7 @@ class ElasticSearch(
     vecWeight: Double,
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    import HybridResult.{resolveHitAndFillInSemanticScore, combineScoresAndGetTopK}
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
 
     val lexicalSearchRequest = ElasticDsl
@@ -350,9 +351,9 @@ class ElasticSearch(
       logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
       val allHits = lexical.result.hits.hits.toList ::: semantic.result.hits.hits.toList
       val resultsWithSemanticScoresFilledIn = allHits.flatMap { hit =>
-        HybridResult.resolveHitAndFillInSemanticScore(hit, queryEmbedding)
+        resolveHitAndFillInSemanticScore(hit, queryEmbedding)
       }
-      val topK = HybridResult.getTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
       SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
     }
   }
