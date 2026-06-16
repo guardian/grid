@@ -296,14 +296,11 @@ class ElasticSearch(
       results: List[HybridResult],
       vecWeight: Double,
       k: Int
-    )(implicit logMarker: LogMarker): List[HybridResult] = {
-      val dedupedResults = results.distinctBy(_.id)
-      logger.info(logMarker, s"${dedupedResults.length} deduped results")
-
+    ): List[HybridResult] = {
       // Account for the rare case in which KNN doesn't return the true closest vector,
       // and that true closest vector happens to be among the lexical-only results.
-      val maxLexicalScore = dedupedResults.maxBy(_.lexicalScore).lexicalScore
-      val maxSemanticScore = dedupedResults.maxBy(_.semanticScore).semanticScore
+      val maxLexicalScore = results.maxBy(_.lexicalScore).lexicalScore
+      val maxSemanticScore = results.maxBy(_.semanticScore).semanticScore
 
       def combinedScore(result: HybridResult): Double = {
         val normedLexicalScore = result.lexicalScore / maxLexicalScore
@@ -314,7 +311,7 @@ class ElasticSearch(
         (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
       }
 
-      dedupedResults.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
+      results.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
     }
   }
 
@@ -361,9 +358,15 @@ class ElasticSearch(
       lexical <- lexicalSearchResponse
       semantic <- semanticSearchResponse
     } yield {
-      logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
-      val allHits = lexical.result.hits.hits.toList ::: semantic.result.hits.hits.toList
-      val resultsWithSemanticScoresFilledIn = allHits.flatMap { hit =>
+      val lexicalHits = lexical.result.hits.hits.toList
+      val semanticHits = semantic.result.hits.hits.toList
+      val allHits = lexicalHits ::: semanticHits
+      logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+
+      val distinctHits = allHits.distinctBy(_.id)
+      logger.info(logMarker, s"${distinctHits.length} distinct hits")
+
+      val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
         resolveHitAndFillInSemanticScore(hit, queryEmbedding)
       }
       val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
