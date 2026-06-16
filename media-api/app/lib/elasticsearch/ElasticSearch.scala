@@ -164,7 +164,6 @@ class ElasticSearch(
     }
   )
 
-  // TODO: delete because unused?
   def lookupIds(ids: List[String], offset: Int, length: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     val query = filters.pinnedIds(ids)
 
@@ -380,7 +379,6 @@ class ElasticSearch(
           searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
           result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
         } yield {
-          // TODO: factor out
           val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
           SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
         }
