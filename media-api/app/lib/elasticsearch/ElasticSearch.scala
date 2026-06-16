@@ -269,7 +269,7 @@ class ElasticSearch(
 
   private case class HybridResult(id: String, lexicalScore: Double, semanticScore: Double, image: SourceWrapper[Image])
   private case object HybridResult {
-    def fromSearchHit(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
+    def resolveHitAndFillInSemanticScore(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
       resolveHit(hit).map { image =>
         val semanticScore = image.instance.embedding
           .flatMap(_.cohereEmbedV4)
@@ -348,8 +348,10 @@ class ElasticSearch(
     } yield {
       logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
       val allHits = lexical.result.hits.hits.toList ::: semantic.result.hits.hits.toList
-      val results = allHits.flatMap(HybridResult.fromSearchHit(_, queryEmbedding))
-      val topK = HybridResult.getTopK(results, vecWeight, k)
+      val resultsWithSemanticScoresFilledIn = allHits.flatMap { hit =>
+        HybridResult.resolveHitAndFillInSemanticScore(hit, queryEmbedding)
+      }
+      val topK = HybridResult.getTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
       SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
     }
   }
