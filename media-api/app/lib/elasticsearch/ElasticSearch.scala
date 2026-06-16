@@ -294,6 +294,7 @@ class ElasticSearch(
 
       def combinedScore(result: HybridResult): Double = {
         val normedLexicalScore = result.lexicalScore / maxLexicalScore
+        // normedScore = (score - theoretical_min) / (max - theoretical_min)
         // This is theoretical min, i.e. -1, to actual max,
         // so it effectively does both the max-norming and the ES-score norming.
         val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
