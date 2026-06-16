@@ -269,40 +269,33 @@ class ElasticSearch(
 
   private case class HybridResult(id: String, lexicalScore: Double, semanticScore: Double, image: SourceWrapper[Image])
   private case object HybridResult {
-    def fromSearchHit(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] = {
-      val lexicalScore = hit.score
-      resolveHit(hit) map { image =>
-        val semanticScore = (for {
-          embedding <- image.instance.embedding
-          cohereEmbedV4 <- embedding.cohereEmbedV4
-        } yield {
+    def fromSearchHit(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
+      resolveHit(hit).map { image =>
+        val semanticScore = image.instance.embedding
+          .flatMap(_.cohereEmbedV4)
           // Save some computation by assuming normalised vectors
           // TODO: double check this assumption
-          VectorUtils.dotProduct(cohereEmbedV4.image, queryEmbedding)
-        }).getOrElse(-1.0)
-        HybridResult(hit.id, lexicalScore = lexicalScore, semanticScore = semanticScore, image = image)
+          .map(e => VectorUtils.dotProduct(e.image, queryEmbedding))
+          .getOrElse(-1.0)
+        HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
       }
-    }
 
     def getTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
-      // Account for the rare case in which KNN doesn't return the true closest vector,
-      // and that true closest vector happens to be among the lexical-only results.
-      // Max lexical score could still be pulled from the top of the lexical results,
-      // but it reads better to do it in a uniform way for both.
-      val maxLexicalScore = results.maxBy(_.lexicalScore).lexicalScore
-      val maxSemanticScore = results.maxBy(_.semanticScore).semanticScore
-
       val dedupedResults = results.distinctBy(_.id)
       logger.info(logMarker, s"${dedupedResults.length} deduped results")
 
-      dedupedResults.sortBy { result =>
-        val maxNormedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
-        val maxNormedLexicalScore = result.lexicalScore / maxLexicalScore
+      // Account for the rare case in which KNN doesn't return the true closest vector,
+      // and that true closest vector happens to be among the lexical-only results.
+      val maxLexicalScore = dedupedResults.maxBy(_.lexicalScore).lexicalScore
+      val maxSemanticScore = dedupedResults.maxBy(_.semanticScore).semanticScore
 
-        // Negative to get a descending sort order
-        // Only other way to do this is to .reverse afterwards, apparently
-        -((vecWeight * maxNormedSemanticScore) + ((1 - vecWeight) * maxNormedLexicalScore))
-      }.take(k)
+      def combinedScore(result: HybridResult): Double = {
+        val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
+        val normedLexicalScore = result.lexicalScore / maxLexicalScore
+        (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
+      }
+
+      dedupedResults.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
     }
   }
 
@@ -315,9 +308,11 @@ class ElasticSearch(
     vecWeight: Double,
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val lexicalQuery = createMultiMatchQuery(query, operator = Or)
+
     val lexicalSearchRequest = ElasticDsl
       .search(imagesCurrentAlias)
-      .query(createMultiMatchQuery(query, operator = Or))
+      .query(lexicalQuery)
       .size(k)
 
     val semanticSearchRequest = ElasticDsl
@@ -327,7 +322,7 @@ class ElasticSearch(
         .k(k)
         .numCandidates(numCandidates)
       )
-      .rescore(Rescore(createMultiMatchQuery(query, operator = Or))
+      .rescore(Rescore(lexicalQuery)
         .window(k)
         // We want to replace the knn score with the BM25 score,
         // because we can calculate cosine similarity clientside,
