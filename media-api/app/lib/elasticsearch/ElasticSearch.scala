@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCo
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
-import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
@@ -275,6 +275,9 @@ class ElasticSearch(
     vecWeight: Double
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
 
+    // Times the whole pipeline: parallel queries + conditional follow-up + local merge.
+    val pipelineStopwatch = Stopwatch.start
+
     val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
       .queryVector(queryEmbedding)
       .k(k)
@@ -293,8 +296,14 @@ class ElasticSearch(
       .size(k)
 
     // Kick both queries off before awaiting either, so they execute in parallel.
+    // Each is timed independently so we can see the individual request latencies.
+    val knnStopwatch = Stopwatch.start
     val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
+    knnResponseF.onComplete(_ => logger.info(logMarker, s"hybrid search timing: knn component took ${knnStopwatch.elapsed.toMillis} ms"))
+
+    val multiMatchStopwatch = Stopwatch.start
     val multiMatchResponseF = executeAndLog(withSearchQueryTimeout(multiMatchRequest), "hybrid search: bm25 component")
+    multiMatchResponseF.onComplete(_ => logger.info(logMarker, s"hybrid search timing: bm25 component took ${multiMatchStopwatch.elapsed.toMillis} ms"))
 
     // Raw cosine similarity, then mapped onto ES's Cosine `_score` scale of (1 + cos) / 2
     // so a locally-computed score is directly comparable to the knn scores ES returns.
@@ -334,6 +343,7 @@ class ElasticSearch(
       // BM25 score with a second, ids-filtered query (scores only, no source).
       missingBm25Ids = knnScoreById.keySet.diff(bm25ScoreById.keySet).toList
 
+      followUpStopwatch = Stopwatch.start
       followUpBm25ScoreById <- if (missingBm25Ids.isEmpty) Future.successful(Map.empty[String, Double]) else {
         val followUpRequest = ElasticDsl.search(imagesCurrentAlias)
           .query(boolQuery().must(multiMatchQuery).filter(filters.ids(missingBm25Ids)))
@@ -342,7 +352,11 @@ class ElasticSearch(
         executeAndLog(withSearchQueryTimeout(followUpRequest), "hybrid search: bm25 fill for knn ids")
           .map(_.result.hits.hits.map(h => h.id -> h.score.toDouble).toMap)
       }
+      _ = logger.info(logMarker, s"hybrid search timing: bm25 fill follow-up took ${followUpStopwatch.elapsed.toMillis} ms (${missingBm25Ids.length} ids)")
     } yield {
+      // Time the local (in-memory) merge + scoring separately from the ES round trips.
+      val mergeStopwatch = Stopwatch.start
+
       // Every candidate id: union of the knn results and the bm25 top-k.
       val candidateIds = knnScoreById.keySet ++ bm25ScoreById.keySet
 
@@ -365,6 +379,9 @@ class ElasticSearch(
       }
 
       val ranked = scored.sortBy { case (_, _, score) => -score }.take(k)
+
+      logger.info(logMarker, s"hybrid search timing: local merge took ${mergeStopwatch.elapsed.toMillis} ms")
+      logger.info(logMarker, s"hybrid search timing: full pipeline took ${pipelineStopwatch.elapsed.toMillis} ms")
 
       logger.info(logMarker, s"hybrid search merged ${ranked.length} results " +
         s"(knn=${knnHits.length}, bm25=${multiMatchHits.length}, bm25-fill=${missingBm25Ids.length})")
