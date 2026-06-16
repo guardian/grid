@@ -267,9 +267,18 @@ class ElasticSearch(
       .size(k)
   }
 
-  private case class HybridResult(id: String, lexicalScore: Double, semanticScore: Double, image: SourceWrapper[Image])
+  private case class HybridResult(
+    id: String,
+    lexicalScore: Double,
+    semanticScore: Double,
+    image: SourceWrapper[Image]
+  )
+
   private case object HybridResult {
-    def resolveHitAndFillInSemanticScore(hit: SearchHit, queryEmbedding: List[Double]): Option[HybridResult] =
+    def resolveHitAndFillInSemanticScore(
+      hit: SearchHit,
+      queryEmbedding: List[Double]
+    ): Option[HybridResult] =
       resolveHit(hit).map { image =>
         val semanticScore = image.instance.embedding
           .flatMap(_.cohereEmbedV4)
@@ -283,7 +292,11 @@ class ElasticSearch(
         HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
       }
 
-    def combineScoresAndGetTopK(results: List[HybridResult], vecWeight: Double, k: Int)(implicit logMarker: LogMarker): List[HybridResult] = {
+    def combineScoresAndGetTopK(
+      results: List[HybridResult],
+      vecWeight: Double,
+      k: Int
+    )(implicit logMarker: LogMarker): List[HybridResult] = {
       val dedupedResults = results.distinctBy(_.id)
       logger.info(logMarker, s"${dedupedResults.length} deduped results")
 
