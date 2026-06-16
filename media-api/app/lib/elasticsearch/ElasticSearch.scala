@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.common.Operator.{And, Or}
@@ -164,6 +164,7 @@ class ElasticSearch(
     }
   )
 
+  // TODO: delete because unused?
   def lookupIds(ids: List[String], offset: Int, length: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     val query = filters.pinnedIds(ids)
 
@@ -267,9 +268,52 @@ class ElasticSearch(
       .size(k)
   }
 
+  // Computes the exact cosine similarity between the query embedding and each
+  // hit's image embedding, exposed as a `cosineSimilarity` script field so it
+  // survives even when the hit's `_score` is something else (e.g. a BM25 score
+  // after rescoring). Hits without an embedding score 0 so the script doesn't
+  // throw on documents that lack a dense vector.
+  //
+  // NB: the predefined `cosineSimilarity(...)` vector function is ONLY available
+  // in the `script_score` query context, so calling it from a script field
+  // throws a painless compile error. We therefore reimplement cosine similarity
+  // by hand using the doc-value vector accessors (`vectorValue`/`magnitude`),
+  // which *are* available in the script field context.
+  // https://www.elastic.co/guide/en/elasticsearch/reference/8.19/query-dsl-script-score-query.html#vector-functions-accessing-the-vector
+  private def cosineSimilarityScriptField(queryEmbedding: List[Double]): ScriptField = {
+    val queryMagnitude = math.sqrt(queryEmbedding.map(x => x * x).sum)
+    ScriptField(
+      field = "cosineSimilarity",
+      script = Script(
+        //language=groovy -- it's actually painless, but that's pretty similar to groovy and this provides syntax highlighting
+        // The `doc[...].size() == 0` guard is the ES-documented idiom for handling docs without a vector value,
+        // which otherwise throw: "If a document doesn't have a value for a vector field on which a vector function
+        // is executed, an error is thrown."
+        // https://www.elastic.co/guide/en/elasticsearch/reference/8.19/query-dsl-script-score-query.html#vector-functions-missing-values
+        script =
+          """
+            |if (doc['embedding.cohereEmbedV4.image'].size() == 0) { return 0.0; }
+            |float[] v = doc['embedding.cohereEmbedV4.image'].vectorValue;
+            |float vm = doc['embedding.cohereEmbedV4.image'].magnitude;
+            |if (vm == 0.0 || params.queryMagnitude == 0.0) { return 0.0; }
+            |double dotProduct = 0.0;
+            |for (int i = 0; i < v.length; i++) { dotProduct += v[i] * params.queryVector[i]; }
+            |return dotProduct / (vm * params.queryMagnitude);
+            |""".stripMargin,
+        lang = Some("painless")
+      ).param("queryVector", queryEmbedding).param("queryMagnitude", queryMagnitude)
+    )
+  }
+
+  private def cosineSimilarityFromSearchHit(hit: SearchHit): Double = {
+    // TODO, blows up if not found. What should it do instead?
+    // Why a List[Double] not just Double?
+    // "The fields response always returns an array of values for each field"
+    // https://www.elastic.co/guide/en/elasticsearch/reference/8.19/search-fields.html#search-fields-response
+    hit.fields.get("cosineSimilarity").map(_.asInstanceOf[List[Double]]).get.head
+  }
+
   // Alternative hybrid search mode, enabled via the `fillScores` query param.
-  // TODO: implement. For now this is a placeholder that fails fast so the
-  // mode can be wired up end-to-end before the real implementation lands.
   private def fillScoresSearch(
     query: String,
     queryEmbedding: List[Double],
@@ -281,6 +325,8 @@ class ElasticSearch(
     val lexicalSearchRequest = ElasticDsl
       .search(imagesCurrentAlias)
       .query(createMultiMatchQuery(query, operator = Or))
+      .storedFields("_source") // needs to be explicit when using script fields
+      .scriptfields(cosineSimilarityScriptField(queryEmbedding))
       .size(k)
 
     val semanticSearchRequest = ElasticDsl
@@ -290,6 +336,8 @@ class ElasticSearch(
         .k(k)
         .numCandidates(numCandidates)
       )
+      .storedFields("_source") // needs to be explicit when using script fields
+      .scriptfields(cosineSimilarityScriptField(queryEmbedding))
       .rescore(Rescore(createMultiMatchQuery(query, operator = Or))
         .window(k)
         // We want to replace the knn score with the BM25 score,
@@ -308,11 +356,25 @@ class ElasticSearch(
       lexical <- lexicalSearchResponse
       semantic <- semanticSearchResponse
     } yield {
-      // TODO: merge the BM25-ranked lexical hits with the cosine-similarity
-      // scores from the semantic (knn + rescore) response into SearchResults.
-      val lexicalHits = lexical.result.hits.hits
-      val semanticHits = semantic.result.hits.hits
-      ???
+      val lexicalHits = lexical.result.hits.hits.toList
+      val maxLexicalScore = lexicalHits.head.score // TODO: assumes we have at least one result. what if none?
+      val semanticHits = semantic.result.hits.hits.toList
+      val maxSemanticScore = cosineSimilarityFromSearchHit(semanticHits.head) // TODO: make typesafe?
+      logger.info(logMarker, s"${lexical.result.hits.total} lexical hits, ${semantic.result.hits.total} semantic hits")
+      val allHits = lexicalHits ::: semanticHits
+      // TODO: simpler way of de-duping?
+      val dedupedHits = allHits.map(hit => hit.id -> hit).toMap.values.toList
+      logger.info(logMarker, s"${dedupedHits.length} deduped hits")
+
+      val sortedHits = dedupedHits.sortBy { searchHit =>
+        val maxNormedSemanticScore = (cosineSimilarityFromSearchHit(searchHit) + 1) / (maxSemanticScore + 1)
+        val maxNormedLexicalScore = searchHit.score / maxLexicalScore
+
+        -((vecWeight * maxNormedSemanticScore) + ((1 - vecWeight) * maxNormedLexicalScore))
+      }
+
+      val resolvedHits = sortedHits.take(k).flatMap(resolveHit).map(i => (i.instance.id, i))
+      SearchResults(hits = resolvedHits, total = resolvedHits.length, extraCounts = None)
     }
   }
 
@@ -342,6 +404,7 @@ class ElasticSearch(
           searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
           result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
         } yield {
+          // TODO: factor out
           val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
           SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
         }
