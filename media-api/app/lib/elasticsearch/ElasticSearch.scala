@@ -275,6 +275,9 @@ class ElasticSearch(
           .flatMap(_.cohereEmbedV4)
           // Save some computation by assuming normalised vectors
           // TODO: double check this assumption
+          // Note this is true cosine similarity from -1 to 1,
+          // *not* the ES-normalised score, but when we max-normalise
+          // later it will end up in the range 0-1.
           .map(e => VectorUtils.dotProduct(e.image, queryEmbedding))
           .getOrElse(-1.0)
         HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
@@ -290,8 +293,10 @@ class ElasticSearch(
       val maxSemanticScore = dedupedResults.maxBy(_.semanticScore).semanticScore
 
       def combinedScore(result: HybridResult): Double = {
-        val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
         val normedLexicalScore = result.lexicalScore / maxLexicalScore
+        // This is theoretical min, i.e. -1, to actual max,
+        // so it effectively does both the max-norming and the ES-score norming.
+        val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
         (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
       }
 
