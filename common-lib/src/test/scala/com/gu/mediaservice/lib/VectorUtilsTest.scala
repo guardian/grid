@@ -40,4 +40,16 @@ class VectorUtilsTest extends AnyFunSpec with Matchers {
   it ("should return a cosine similarity of -1 for opposite vectors") {
     VectorUtils.cosineSimilarity(List(1.0, 2.0, 3.0), List(-1.0, -2.0, -3.0)) shouldBe -1.0 +- 1e-9
   }
+
+  it ("should return a cosine similarity of 0 when the first vector has zero magnitude") {
+    VectorUtils.cosineSimilarity(List(0.0, 0.0, 0.0), List(1.0, 2.0, 3.0)) shouldBe 0.0 +- 1e-9
+  }
+
+  it ("should return a cosine similarity of 0 when the second vector has zero magnitude") {
+    VectorUtils.cosineSimilarity(List(1.0, 2.0, 3.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
+  }
+
+  it ("should return a cosine similarity of 0 when both vectors have zero magnitude") {
+    VectorUtils.cosineSimilarity(List(0.0, 0.0, 0.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
+  }
 }

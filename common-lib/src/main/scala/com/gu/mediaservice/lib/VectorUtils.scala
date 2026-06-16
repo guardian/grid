@@ -10,6 +10,8 @@ object VectorUtils {
   }
 
   def cosineSimilarity(vectorOne: List[Double], vectorTwo: List[Double]): Double = {
-    dotProduct(vectorOne, vectorTwo) / (magnitude(vectorOne) * magnitude(vectorTwo))
+    val magnitudeProduct = magnitude(vectorOne) * magnitude(vectorTwo)
+    if (magnitudeProduct == 0.0) 0.0
+    else dotProduct(vectorOne, vectorTwo) / magnitudeProduct
   }
 }
