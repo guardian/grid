@@ -210,7 +210,7 @@ class ElasticSearch(
       maxExpansions = Some(50),
       operator = Some(Or),
       prefixLength = Some(1),
-      boost = boost
+//      boost = boost
     )
 
   // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
@@ -297,14 +297,9 @@ class ElasticSearch(
 
     // Kick both queries off before awaiting either, so they execute in parallel.
     // Each is timed independently so we can see the individual request latencies.
-    val knnStopwatch = Stopwatch.start
-    val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
-    knnResponseF.onComplete(_ => logger.info(logMarker, s"hybrid search timing: knn component took ${knnStopwatch.elapsed.toMillis} ms"))
-
-    val multiMatchStopwatch = Stopwatch.start
     val multiMatchResponseF = executeAndLog(withSearchQueryTimeout(multiMatchRequest), "hybrid search: bm25 component")
-    multiMatchResponseF.onComplete(_ => logger.info(logMarker, s"hybrid search timing: bm25 component took ${multiMatchStopwatch.elapsed.toMillis} ms"))
-
+    val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
+    
     // Raw cosine similarity, then mapped onto ES's Cosine `_score` scale of (1 + cos) / 2
     // so a locally-computed score is directly comparable to the knn scores ES returns.
     def cosineSim(a: List[Double], b: List[Double]): Double = {
