@@ -348,6 +348,7 @@ class ElasticSearch(
         .originalQueryWeight(0)
         .rescoreQueryWeight(1)
       )
+      .size(k)
 
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
