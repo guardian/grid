@@ -20,7 +20,6 @@ trait ElasticSearchExecutions extends GridLogging {
                                                                                             logMarkers: LogMarker
   ): Future[Response[U]] = {
     val stopwatch = Stopwatch.start
-    logger.info(request.show)
     val result = client.execute(request).transform {
       case Success(r) =>
         if (r.isSuccess) {

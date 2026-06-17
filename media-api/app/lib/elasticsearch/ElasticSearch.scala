@@ -299,7 +299,7 @@ class ElasticSearch(
     // Each is timed independently so we can see the individual request latencies.
     val multiMatchResponseF = executeAndLog(withSearchQueryTimeout(multiMatchRequest), "hybrid search: bm25 component")
     val knnResponseF = executeAndLog(withSearchQueryTimeout(knnRequest), "hybrid search: knn component")
-    
+
     // Raw cosine similarity, then mapped onto ES's Cosine `_score` scale of (1 + cos) / 2
     // so a locally-computed score is directly comparable to the knn scores ES returns.
     def cosineSim(a: List[Double], b: List[Double]): Double = {
@@ -312,6 +312,10 @@ class ElasticSearch(
     for {
       knnResponse <- knnResponseF
       multiMatchResponse <- multiMatchResponseF
+
+      knnResponseT= knnResponse.result.took
+      multiMatchResponseT = multiMatchResponse.result.took
+      _ = logger.info(logMarker, s"hybrid search timing: knn took ${knnResponseT} ms, bm25 took ${multiMatchResponseT} ms")
 
       knnHits = knnResponse.result.hits.hits
       multiMatchHits = multiMatchResponse.result.hits.hits
