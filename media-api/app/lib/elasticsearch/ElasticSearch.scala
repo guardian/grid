@@ -287,7 +287,7 @@ class ElasticSearch(
       .knn(knn)
       .size(k)
 
-    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(1.0))
+    val multiMatchQuery = createMultiMatchQuery(query)
 
     // Top-k BM25 results are our lexical contenders. We keep their source so we can read
     // each image's embedding and compute a local cosine for any contender absent from knn.
