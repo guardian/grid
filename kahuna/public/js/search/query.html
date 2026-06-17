@@ -7,14 +7,6 @@
             Use AI search
         </label>
     </span>
-    <span id="fill-scores-checkbox" class="search__modifier-item search__modifier-checkbox"
-        ng-if="searchQuery.shouldDisplayAISearchOption && searchQuery.useAISearch">
-        <label>
-            <input type="checkbox"
-                   ng-model="searchQuery.fillScores"/>
-            Fill scores
-        </label>
-    </span>
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"

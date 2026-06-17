@@ -12,7 +12,7 @@ import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
-import com.sksamuel.elastic4s.requests.common.Operator.{And, Or}
+import com.sksamuel.elastic4s.requests.common.Operator.Or
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
@@ -21,7 +21,6 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
-import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
@@ -214,59 +213,6 @@ class ElasticSearch(
       boost = boost
     )
 
-  // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
-  // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
-  // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
-  // and can be effectively combined in a hybrid query.
-  private def fetchMaxBm25Score(query: String, filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
-    val baseQuery = createMultiMatchQuery(query, operator = And)
-    val filteredQuery = filterOpt.map(filter => boolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
-
-    val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(filteredQuery)
-
-    executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
-      logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
-      if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
-    }
-  }
-
-  private def makeHybridSearchRequest(
-    query: String,
-    queryEmbedding: List[Double],
-    k: Int,
-    numCandidates: Int,
-    vecWeight: Double,
-    maxScore: Double,
-    filterOpt: Option[Query]
-  )(implicit logMarker: LogMarker): SearchRequest = {
-    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
-      .queryVector(queryEmbedding)
-      .k(k)
-      .numCandidates(numCandidates)
-      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
-
-    val lexicalWeight = 1.0 - vecWeight
-
-    // KNN results are in [0,1], but BM25 scores are unbounded and typically much
-    // larger than cosine similarity, so we need to apply a scaling factor to the
-    // BM25 score to bring it to the same range as the cosine similarity.
-    val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
-
-    // We want to apply only one boost if we can help it, so we scale the
-    // multi_match boost to be in line with the max_score and the desired
-    // lexical_weight/vec_weight balance
-    val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
-
-    logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
-
-    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost), operator = And)
-
-    ElasticDsl.search(imagesCurrentAlias)
-      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)).filter(filterOpt))
-      .size(k)
-  }
-
   private case class HybridResult(
     id: String,
     lexicalScore: Double,
@@ -316,8 +262,9 @@ class ElasticSearch(
     }
   }
 
-  // Alternative hybrid search mode, enabled via the `fillScores` query param.
-  private def fillScoresSearch(
+  // Runs lexical and semantic searches in parallel, fills in the missing scores
+  // for each result clientside, then combines and re-ranks them.
+  private def hybridSearchImpl(
     query: String,
     queryEmbedding: List[Double],
     k: Int,
@@ -353,8 +300,8 @@ class ElasticSearch(
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
     // of their results, not their execution.
-    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-fill-scores")
-    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-fill-scores")
+    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid")
+    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid")
 
     for {
       lexical <- lexicalSearchResponse
@@ -382,7 +329,6 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    fillScores: Boolean,
     filterOpt: Option[Query]
   )(
     implicit ex: ExecutionContext,
@@ -396,32 +342,16 @@ class ElasticSearch(
 
       val stopwatch = Stopwatch.start
 
-      if (fillScores) {
-        val searchResults = fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
-        searchResults.foreach { _ =>
-          val elapsed = stopwatch.elapsed
-          logger.info(
-            combineMarkers(logMarker, elapsed),
-            s"hybrid search (fill scores) completed in ${elapsed.toMillis} ms"
-          )
-        }
-
-        searchResults
-      } else {
-        for {
-          maxScore <- fetchMaxBm25Score(query, filterOpt)
-          searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
-          result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
-        } yield {
-          val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-          val elapsed = stopwatch.elapsed
-          logger.info(
-            combineMarkers(logMarker, elapsed),
-            s"hybrid search (current) completed in ${elapsed.toMillis} ms"
-          )
-          SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
-        }
+      val searchResults = hybridSearchImpl(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+      searchResults.foreach { _ =>
+        val elapsed = stopwatch.elapsed
+        logger.info(
+          combineMarkers(logMarker, elapsed),
+          s"hybrid search completed in ${elapsed.toMillis} ms"
+        )
       }
+
+      searchResults
     }
   }
 

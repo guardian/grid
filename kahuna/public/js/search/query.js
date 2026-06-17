@@ -83,11 +83,9 @@ query.controller('SearchQueryCtrl', [
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
-      ctrl.fillScores = false;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
       ctrl.vecWeight = $stateParams.vecWeight;
-      ctrl.fillScores = ($stateParams.fillScores === 'true' || $stateParams.fillScores === true) ? true : false;
     }
 
     //--react - angular interop events--
@@ -391,8 +389,8 @@ query.controller('SearchQueryCtrl', [
     Object.keys($stateParams).
         // Exclude date-related filters, managed separately in dateFilter
         filter(key => dateFilterParams.indexOf(key) === -1).
-        // Exclude useAISearch and fillScores, managed separately by their own dedicated watchers
-        filter(key => key !== 'useAISearch' && key !== 'fillScores').
+        // Exclude useAISearch, managed separately by its own dedicated watcher
+        filter(key => key !== 'useAISearch').
         forEach(setAndWatchParam);
 
     // URL parameters are not decoded when taken out of the params.
@@ -460,24 +458,10 @@ query.controller('SearchQueryCtrl', [
         $state.go('search.results', {
           ...ctrl.filter,
           useAISearch: true,
-          vecWeight: ctrl.vecWeight,
-          fillScores: ctrl.fillScores ? true : null
+          vecWeight: ctrl.vecWeight
         });
       } else {
-          // fillScores is only meaningful with AI search, so clear it when AI search is disabled
-          ctrl.fillScores = false;
-          $state.go('search.results', {...ctrl.filter,  useAISearch: null, fillScores: null});
-      }
-    });
-    $scope.$watch(() => ctrl.fillScores, () => {
-      // fillScores only applies when AI search is enabled
-      if (ctrl.useAISearch) {
-        $state.go('search.results', {
-          ...ctrl.filter,
-          useAISearch: true,
-          vecWeight: ctrl.vecWeight,
-          fillScores: ctrl.fillScores ? true : null
-        });
+          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
       }
     });
 

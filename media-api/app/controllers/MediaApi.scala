@@ -90,8 +90,7 @@ class MediaApi(
     "countAll",
     "persisted",
     "useAISearch",
-    "vecWeight",
-    "fillScores"
+    "vecWeight"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -652,7 +651,6 @@ class MediaApi(
           }
 
           val weight = params.vecWeight.getOrElse(1.0)
-          val fillScores = params.fillScores.getOrElse(false)
 
           // cache.get(key) is atomic: if two requests race on the same key, only one
           // load fires and both callers receive the same Future.
@@ -669,7 +667,6 @@ class MediaApi(
               k = k,
               numCandidates = Math.max(k * 2, 100),
               vecWeight = weight,
-              fillScores = fillScores,
               filterOpt = filterOpt
             )
           } yield searchResults
