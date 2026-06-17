@@ -148,7 +148,7 @@ case class SearchParams(
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
   vecWeight: Option[Double] = None,
-  fillScores: Option[Boolean] = None
+  fillScoresMode: FillScoresMode = FillScoresMode.Off
 ) {
   lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
 }
@@ -171,6 +171,32 @@ object PayType extends Enumeration {
     case "all" => Some(All)
     case "pay" => Some(Pay)
     case _ => None
+  }
+}
+
+// Selects which experimental hybrid-search scoring strategy to use, chosen via the
+// `fillScores` query param. `Off` is the default production hybrid query; `Option1`
+// and `Option2` are the two competing "fill missing scores" approaches we want to
+// benchmark against each other.
+sealed trait FillScoresMode {
+  def name: String
+}
+object FillScoresMode {
+  case object Off extends FillScoresMode { val name = "off" }
+  case object Option1 extends FillScoresMode { val name = "option1" }
+  case object Option2 extends FillScoresMode { val name = "option2" }
+
+  val all: List[FillScoresMode] = List(Off, Option1, Option2)
+
+  def fromString(s: String): Option[FillScoresMode] = {
+    val normalised = s.trim.toLowerCase
+    all.find(_.name == normalised).orElse(normalised match {
+      // Backwards compatibility with the previous boolean `fillScores` param,
+      // where `true` enabled what is now Option2.
+      case "true" => Some(Option2)
+      case "false" => Some(Off)
+      case _ => None
+    })
   }
 }
 
@@ -243,7 +269,7 @@ object SearchParams {
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
       request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
-      request.getQueryString("fillScores") flatMap parseBooleanFromQuery,
+      request.getQueryString("fillScores") flatMap FillScoresMode.fromString getOrElse FillScoresMode.Off,
     )
   }
 

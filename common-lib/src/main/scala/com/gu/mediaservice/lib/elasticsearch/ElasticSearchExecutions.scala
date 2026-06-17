@@ -1,7 +1,9 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging._
+import com.sksamuel.elastic4s.ElasticDsl.RichRequest
 import com.sksamuel.elastic4s._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 

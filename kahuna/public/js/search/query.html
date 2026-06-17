@@ -7,12 +7,15 @@
             Use AI search
         </label>
     </span>
-    <span id="fill-scores-checkbox" class="search__modifier-item search__modifier-checkbox"
+    <span id="fill-scores-select" class="search__modifier-item"
         ng-if="searchQuery.shouldDisplayAISearchOption && searchQuery.useAISearch">
         <label>
-            <input type="checkbox"
-                   ng-model="searchQuery.fillScores"/>
-            Fill scores
+            Fill scores:
+            <select ng-model="searchQuery.fillScoresMode">
+                <option value="off">Off (default hybrid)</option>
+                <option value="option1">Option 1</option>
+                <option value="option2">Option 2</option>
+            </select>
         </label>
     </span>
     <span class="search-query">

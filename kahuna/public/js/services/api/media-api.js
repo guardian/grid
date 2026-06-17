@@ -67,7 +67,7 @@ mediaApi.factory('mediaApi',
             persisted,
             useAISearch: maybeStringToBoolean(useAISearch),
             vecWeight: vecWeight,
-            fillScores: maybeStringToBoolean(fillScores)
+            fillScores: fillScores
         }).get();
     }
 

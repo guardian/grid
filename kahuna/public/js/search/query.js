@@ -83,11 +83,11 @@ query.controller('SearchQueryCtrl', [
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
-      ctrl.fillScores = false;
+      ctrl.fillScoresMode = 'off';
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
       ctrl.vecWeight = $stateParams.vecWeight;
-      ctrl.fillScores = ($stateParams.fillScores === 'true' || $stateParams.fillScores === true) ? true : false;
+      ctrl.fillScoresMode = $stateParams.fillScores || 'off';
     }
 
     //--react - angular interop events--
@@ -461,22 +461,22 @@ query.controller('SearchQueryCtrl', [
           ...ctrl.filter,
           useAISearch: true,
           vecWeight: ctrl.vecWeight,
-          fillScores: ctrl.fillScores ? true : null
+          fillScores: (ctrl.fillScoresMode && ctrl.fillScoresMode !== 'off') ? ctrl.fillScoresMode : null
         });
       } else {
           // fillScores is only meaningful with AI search, so clear it when AI search is disabled
-          ctrl.fillScores = false;
+          ctrl.fillScoresMode = 'off';
           $state.go('search.results', {...ctrl.filter,  useAISearch: null, fillScores: null});
       }
     });
-    $scope.$watch(() => ctrl.fillScores, () => {
+    $scope.$watch(() => ctrl.fillScoresMode, () => {
       // fillScores only applies when AI search is enabled
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
           useAISearch: true,
           vecWeight: ctrl.vecWeight,
-          fillScores: ctrl.fillScores ? true : null
+          fillScores: (ctrl.fillScoresMode && ctrl.fillScoresMode !== 'off') ? ctrl.fillScoresMode : null
         });
       }
     });

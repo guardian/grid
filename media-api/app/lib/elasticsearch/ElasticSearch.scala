@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.sksamuel.elastic4s.{ElasticDsl, Hit}
+import com.sksamuel.elastic4s.{ElasticDsl, Hit, Response}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.common.Operator.{And, Or}
@@ -214,6 +214,31 @@ class ElasticSearch(
       boost = boost
     )
 
+  // All hybrid-search ES requests go through this helper so the latency logging is
+  // consistent across every mode. For each request it reports:
+  //   - round-trip: wall-clock time from issuing the request to receiving the response
+  //   - elasticsearch took: ES's own reported execution time (`result.took`), i.e. the
+  //     internal work done by the cluster
+  //   - network+overhead: round-trip minus took, i.e. transfer over the network plus
+  //     any queueing/serialisation outside ES
+  // The remaining time (deserialisation, computing missing scores, merging) is timed
+  // separately by each mode as "local merge" / "full pipeline".
+  private def executeHybridSearchWithTiming(request: SearchRequest, label: String)
+                                           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[SearchResponse]] = {
+    val stopwatch = Stopwatch.start
+    val responseF = executeAndLog(withSearchQueryTimeout(request), s"hybrid search: $label")
+    responseF.foreach { r =>
+      val roundTripMs = stopwatch.elapsed.toMillis
+      val esTookMs = r.result.took
+      logger.info(
+        logMarker,
+        s"hybrid search timing: $label round-trip ${roundTripMs} ms " +
+          s"(elasticsearch took ${esTookMs} ms, network+overhead ${roundTripMs - esTookMs} ms)"
+      )
+    }
+    responseF
+  }
+
   // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
   // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
   // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
@@ -225,7 +250,7 @@ class ElasticSearch(
     val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
       .query(filteredQuery)
 
-    executeAndLog(withSearchQueryTimeout(maxScoreRequest), "max BM25 score").map { r =>
+    executeHybridSearchWithTiming(maxScoreRequest, "off max-bm25 query").map { r =>
       logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
       if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
     }
@@ -316,7 +341,10 @@ class ElasticSearch(
     }
   }
 
-  // Alternative hybrid search mode, enabled via the `fillScores` query param.
+  // Hybrid search mode "Option 2": run a lexical (BM25) query and a knn query in
+  // parallel, take the union of their hits, fill in each hit's missing semantic score
+  // by computing cosine similarity client-side, then max-normalise both score types and
+  // combine them. Selected via `fillScores=option2`.
   private def fillScoresSearch(
     query: String,
     queryEmbedding: List[Double],
@@ -326,6 +354,10 @@ class ElasticSearch(
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     import HybridResult.{resolveHitAndFillInSemanticScore, combineScoresAndGetTopK}
+
+    // Times the whole pipeline: parallel queries + local merge/scoring.
+    val pipelineStopwatch = Stopwatch.start
+
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
 
     val lexicalSearchRequest = ElasticDsl
@@ -353,26 +385,185 @@ class ElasticSearch(
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
     // of their results, not their execution.
-    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-fill-scores")
-    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-fill-scores")
+    val lexicalSearchResponse = executeHybridSearchWithTiming(lexicalSearchRequest, "hybrid search timing: option2 lexical query")
+    val semanticSearchResponse = executeHybridSearchWithTiming(semanticSearchRequest, "hybrid search timing: option2 semantic query")
 
     for {
       lexical <- lexicalSearchResponse
       semantic <- semanticSearchResponse
     } yield {
+      // Local (in-memory) merge + scoring: deserialising hits, computing the missing
+      // semantic scores and combining. Timed separately from the ES round trips.
+      val mergeStopwatch = Stopwatch.start
+
       val lexicalHits = lexical.result.hits.hits.toList
       val semanticHits = semantic.result.hits.hits.toList
       val allHits = lexicalHits ::: semanticHits
-      logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+      logger.info(logMarker, s"hybrid search (option2) ${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
 
       val distinctHits = allHits.distinctBy(_.id)
-      logger.info(logMarker, s"${distinctHits.length} distinct hits")
+      logger.info(logMarker, s"hybrid search (option2) ${distinctHits.length} distinct hits")
 
       val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
         resolveHitAndFillInSemanticScore(hit, queryEmbedding)
       }
       val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+
+      logger.info(logMarker, s"hybrid search timing: option2 local merge took ${mergeStopwatch.elapsed.toMillis} ms")
+      val elapsed = pipelineStopwatch.elapsed
+      logger.info(combineMarkers(logMarker, elapsed), s"hybrid search timing: option2 full pipeline took ${elapsed.toMillis} ms")
+
       SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
+    }
+  }
+
+  // Hybrid search mode "Option 1": run a knn query and a BM25 (multi_match) query in
+  // parallel; for any knn hit missing from the BM25 top-k, fetch its exact BM25 score
+  // with a second ids-filtered query; for any BM25 hit missing from the knn results,
+  // compute its cosine similarity client-side. Max-normalise both score types and
+  // combine. Selected via `fillScores=option1`.
+  private def fillAndMaxNormalise(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+
+    // Times the whole pipeline: parallel queries + conditional follow-up + local merge.
+    val pipelineStopwatch = Stopwatch.start
+
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+      .queryVector(queryEmbedding)
+      .k(k)
+      .numCandidates(numCandidates)
+
+    val knnRequest = ElasticDsl.search(imagesCurrentAlias)
+      .knn(knn)
+      .size(k)
+
+    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(1.0), operator = Or)
+
+    // Top-k BM25 results are our lexical contenders. We keep their source so we can read
+    // each image's embedding and compute a local cosine for any contender absent from knn.
+    val multiMatchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(filterOpt.map(f => boolQuery().must(multiMatchQuery).filter(f)).getOrElse(multiMatchQuery))
+      .size(k)
+
+    // Kick both queries off before awaiting either, so they execute in parallel.
+    // Each is timed independently (by the helper) so we can see the individual request latencies.
+    val knnResponseF = executeHybridSearchWithTiming(knnRequest, "hybrid search timing: option1 semantic query")
+    val multiMatchResponseF = executeHybridSearchWithTiming(multiMatchRequest, "hybrid search timing: option1 lexical query")
+
+    // Raw cosine similarity, mapped onto ES's Cosine `_score` scale of (1 + cos) / 2
+    // so a locally-computed score is directly comparable to the knn scores ES returns.
+    def knnScaledCosine(a: List[Double], b: List[Double]): Double = (1.0 + VectorUtils.cosineSimilarity(a, b)) / 2.0
+
+    for {
+      knnResponse <- knnResponseF
+      multiMatchResponse <- multiMatchResponseF
+
+      knnHits = knnResponse.result.hits.hits
+      multiMatchHits = multiMatchResponse.result.hits.hits
+
+      // Max scores for max-normalisation. Guard against empty result sets.
+      knnMaxScore = if (knnHits.isEmpty) 0.0 else knnResponse.result.hits.maxScore
+      bm25MaxScore = if (multiMatchHits.isEmpty) 0.0 else multiMatchResponse.result.hits.maxScore
+
+      // knn id -> raw knn score (ES Cosine _score)
+      knnScoreById = knnHits.map(h => h.id -> h.score.toDouble).toMap
+      // bm25 top-k id -> raw bm25 score
+      bm25ScoreById = multiMatchHits.map(h => h.id -> h.score.toDouble).toMap
+
+      // id -> SourceWrapper[Image] for every candidate we've seen (union of both result sets)
+      sourceById = (knnHits.toSeq ++ multiMatchHits.toSeq).flatMap(h => resolveHit(h).map(sw => h.id -> sw)).toMap
+
+      // bm25 contender id -> image embedding, used to compute a local cosine when the
+      // contender is absent from the knn result set.
+      bm25EmbeddingById = multiMatchHits.flatMap { h =>
+        resolveHit(h).flatMap(_.instance.embedding).flatMap(_.cohereEmbedV4).map(e => h.id -> e.image)
+      }.toMap
+
+      // knn ids missing an exact BM25 score (not in the bm25 top-k). We fetch their exact
+      // BM25 score with a second, ids-filtered query (scores only, no source).
+      missingBm25Ids = knnScoreById.keySet.diff(bm25ScoreById.keySet).toList
+
+      followUpBm25ScoreById <- if (missingBm25Ids.isEmpty) Future.successful(Map.empty[String, Double]) else {
+        val followUpRequest = ElasticDsl.search(imagesCurrentAlias)
+          .query(boolQuery().must(multiMatchQuery).filter(filters.ids(missingBm25Ids)))
+          .fetchSource(false)
+          .size(missingBm25Ids.size)
+        executeHybridSearchWithTiming(followUpRequest, s"option1 bm25 fill follow-up (${missingBm25Ids.length} ids)")
+          .map(_.result.hits.hits.map(h => h.id -> h.score.toDouble).toMap)
+      }
+    } yield {
+      // Time the local (in-memory) merge + scoring separately from the ES round trips.
+      val mergeStopwatch = Stopwatch.start
+
+      // Every candidate id: union of the knn results and the bm25 top-k.
+      val candidateIds = knnScoreById.keySet ++ bm25ScoreById.keySet
+
+      val scored = candidateIds.toSeq.flatMap { id =>
+        sourceById.get(id).map { source =>
+          // knn score: ES knn score if present, else local cosine mapped to ES Cosine scale.
+          val rawKnnScore = knnScoreById.getOrElse(id,
+            bm25EmbeddingById.get(id).map(emb => knnScaledCosine(queryEmbedding, emb)).getOrElse(0.0)
+          )
+          // bm25 score: bm25 top-k score if present, else exact follow-up score, else 0.
+          val rawBm25Score = bm25ScoreById.getOrElse(id, followUpBm25ScoreById.getOrElse(id, 0.0))
+
+          // HNSW is approximate, so a locally-computed knn score can nudge above maxScore - clamp to 1.
+          val normKnn = if (knnMaxScore > 0.0) math.min(rawKnnScore / knnMaxScore, 1.0) else 0.0
+          val normBm25 = if (bm25MaxScore > 0.0) rawBm25Score / bm25MaxScore else 0.0
+
+          val combinedScore = vecWeight * normKnn + (1.0 - vecWeight) * normBm25
+          (id, source, combinedScore)
+        }
+      }
+
+      val ranked = scored.sortBy { case (_, _, score) => -score }.take(k)
+
+      logger.info(logMarker, s"hybrid search timing: option1 local merge took ${mergeStopwatch.elapsed.toMillis} ms")
+      val elapsed = pipelineStopwatch.elapsed
+      logger.info(combineMarkers(logMarker, elapsed), s"hybrid search timing: option1 full pipeline took ${elapsed.toMillis} ms")
+
+      logger.info(logMarker, s"hybrid search (option1) merged ${ranked.length} results " +
+        s"(knn=${knnHits.length}, bm25=${multiMatchHits.length}, bm25-fill=${missingBm25Ids.length})")
+
+      SearchResults(
+        hits = ranked.map { case (id, source, _) => (id, source) },
+        total = ranked.length,
+        extraCounts = None
+      )
+    }
+  }
+
+  // Default production hybrid search (no score-filling). A single ES request combines the
+  // knn and BM25 queries, with BM25 scaled by the max BM25 score so the two score types are
+  // comparable. Selected via `fillScores=off` (the default).
+  private def defaultHybridSearch(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val pipelineStopwatch = Stopwatch.start
+    for {
+      maxScore <- fetchMaxBm25Score(query, filterOpt)
+      searchRequest = makeHybridSearchRequest(query, queryEmbedding, k, numCandidates, vecWeight, maxScore, filterOpt)
+      result <- executeHybridSearchWithTiming(searchRequest, "off combined query")
+    } yield {
+      // Local (in-memory) work: deserialising hits into images. Timed separately from
+      // the ES round trips.
+      val mergeStopwatch = Stopwatch.start
+      val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      logger.info(logMarker, s"hybrid search timing: off local merge took ${mergeStopwatch.elapsed.toMillis} ms")
+      val elapsed = pipelineStopwatch.elapsed
+      logger.info(combineMarkers(logMarker, elapsed), s"hybrid search timing: off full pipeline took ${elapsed.toMillis} ms")
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
     }
   }
 
@@ -382,7 +573,7 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    fillScores: Boolean,
+    fillScoresMode: FillScoresMode,
     filterOpt: Option[Query]
   )(
     implicit ex: ExecutionContext,
@@ -393,34 +584,11 @@ class ElasticSearch(
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
       val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
-
-      val stopwatch = Stopwatch.start
-
-      if (fillScores) {
-        val searchResults = fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
-        searchResults.foreach { _ =>
-          val elapsed = stopwatch.elapsed
-          logger.info(
-            combineMarkers(logMarker, elapsed),
-            s"hybrid search (fill scores) completed in ${elapsed.toMillis} ms"
-          )
-        }
-
-        searchResults
-      } else {
-        for {
-          maxScore <- fetchMaxBm25Score(query, filterOpt)
-          searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
-          result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
-        } yield {
-          val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-          val elapsed = stopwatch.elapsed
-          logger.info(
-            combineMarkers(logMarker, elapsed),
-            s"hybrid search (current) completed in ${elapsed.toMillis} ms"
-          )
-          SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
-        }
+      logger.info(logMarker, s"hybrid search mode: ${fillScoresMode.name}")
+      fillScoresMode match {
+        case FillScoresMode.Option1 => fillAndMaxNormalise(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        case FillScoresMode.Option2 => fillScoresSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        case FillScoresMode.Off => defaultHybridSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
       }
     }
   }
