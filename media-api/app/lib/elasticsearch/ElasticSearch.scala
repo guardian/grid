@@ -292,7 +292,7 @@ class ElasticSearch(
     // Top-k BM25 results are our lexical contenders. We keep their source so we can read
     // each image's embedding and compute a local cosine for any contender absent from knn.
     val multiMatchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(filterOpt.map(f => boolQuery().must(multiMatchQuery).filter(f)).getOrElse(multiMatchQuery))
+      .query(boolQuery().must(multiMatchQuery).filter(filterOpt))
       .size(k)
 
     // Kick both queries off before awaiting either, so they execute in parallel.
