@@ -263,6 +263,8 @@ class ElasticSearch(
       val allHits = lexicalHits ::: semanticHits
       logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
 
+      // This is only valid because the queries ensure that all hits, including semantic,
+      // have only the lexical score at this point.
       val distinctHits = allHits.distinctBy(_.id)
       logger.info(logMarker, s"${distinctHits.length} distinct hits")
 
