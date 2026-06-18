@@ -464,17 +464,17 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     // The vector we'll "search" with - represents the user's query embedding.
     val queryEmbedding: List[Float] = oneHot(0).map(_.toFloat)
 
-    // Matches the text "kitten" but is semantically far from the query vector:
-    // a pure *lexical* hit (lexicalScore high, semanticScore ~0).
-    val lexicalMatch = withEmbedding(
+    // Matches the text "kitten" but has NO embedding at all: a pure *lexical*
+    // hit. Deliberately un-embedded so it is invisible to the kNN (semantic)
+    // side of the search - only the BM25 (lexical) side can ever surface it.
+    val lexicalMatch =
       createImage("ai-lexical-match", staffPhotographer).copy(
         metadata = ImageMetadata(title = Some("a kitten playing in the garden"), keywords = Some(Set("kitten")))
-      ),
-      oneHot(42)
-    )
+      )
 
     // Does NOT match the text at all, but IS the nearest neighbour of the query
-    // vector: a pure *semantic* hit (semanticScore ~1, lexicalScore 0).
+    // vector: a pure *semantic* hit. The only image in the fixture set with an
+    // embedding, so it is the sole image the kNN side can ever return.
     val semanticMatch = withEmbedding(
       createImage("ai-semantic-match", staffPhotographer).copy(
         metadata = ImageMetadata(title = Some("completely unrelated wording"), keywords = Some(Set("unrelated")))
@@ -482,13 +482,12 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       oneHot(0)
     )
 
-    // Noise: neither a text match nor a close vector match.
-    val unrelated = withEmbedding(
+    // Noise: neither a text match nor an embedding, so neither side of the
+    // search can ever surface it.
+    val unrelated =
       createImage("ai-unrelated", staffPhotographer).copy(
         metadata = ImageMetadata(title = Some("nothing to see here"), keywords = Some(Set("noise")))
-      ),
-      oneHot(99)
-    )
+      )
 
     val aiImages = Seq(lexicalMatch, semanticMatch, unrelated)
 
@@ -558,6 +557,30 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       ids should contain("ai-semantic-match")
       ids should contain("ai-lexical-match")
       ids.indexOf("ai-lexical-match") should be < ids.indexOf("ai-semantic-match")
+    }
+
+    it("short-circuits to a pure lexical (BM25) search when vecWeight is exactly 0, skipping the semantic side entirely") {
+      aiImagesIndexed
+
+      // vecWeight == 0 => the semantic side contributes nothing to the fused
+      // score, so the kNN query should be skipped altogether. The only result
+      // should be the text match; the semantic-only image must not leak in via
+      // the kNN path.
+      val ids = hybridSearchIds(vecWeight = 0)
+
+      ids shouldEqual Seq("ai-lexical-match")
+    }
+
+    it("short-circuits to a pure semantic (kNN) search when vecWeight is exactly 1, skipping the lexical side entirely") {
+      aiImagesIndexed
+
+      // vecWeight == 1 => the lexical side contributes nothing to the fused
+      // score, so the BM25 query should be skipped altogether. The only result
+      // should be the vector match; the lexical-only image must not leak in via
+      // the BM25 path.
+      val ids = hybridSearchIds(vecWeight = 1)
+
+      ids shouldEqual Seq("ai-semantic-match")
     }
   }
 

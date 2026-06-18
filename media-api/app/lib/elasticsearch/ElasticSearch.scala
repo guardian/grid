@@ -179,28 +179,6 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
-               (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    if (!includeDenseVectorMappings) {
-      logger.warn(logMarker, "knnSearch called but includeDenseVectorMappings=false, returning empty results")
-      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
-    } else {
-      val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
-        .queryVector(queryEmbedding.map(_.toDouble))
-        .k(k)
-        .numCandidates(numCandidates)
-
-      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-        .knn(knn)
-        .size(k)
-
-      executeAndLog(withSearchQueryTimeout(searchRequest), "knn search").map { r =>
-        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
-      }
-    }
-  }
-
   private def createMultiMatchQuery(query: String, boost: Option[Double] = None, operator: Operator): MultiMatchQuery =
     MultiMatchQuery(
       text = query,
@@ -213,12 +191,69 @@ class ElasticSearch(
       boost = boost
     )
 
+  private def lexicalRequest(
+    lexicalQuery: MultiMatchQuery,
+    k: Int,
+    filterOpt: Option[Query]
+  ): SearchRequest =
+    ElasticDsl
+      .search(imagesCurrentAlias)
+      .query(boolQuery().must(lexicalQuery).filter(filterOpt))
+      .size(k)
+
+  private def lexicalSearch(
+    query: String,
+    k: Int,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    val searchRequest = lexicalRequest(createMultiMatchQuery(query, operator = Or), k, filterOpt)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "lexical-only").map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+    }
+  }
+
+  private def semanticRequest(
+    queryEmbedding: List[Double],
+    k: Int, numCandidates: Int,
+    filterOpt: Option[Query]
+  ): SearchRequest =
+    ElasticDsl
+      .search(imagesCurrentAlias)
+      .knn(Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+        .queryVector(queryEmbedding)
+        .k(k)
+        .numCandidates(numCandidates)
+      )
+      .size(k)
+
+  def semanticSearch(
+    queryEmbedding: List[Float],
+    k: Int,
+    numCandidates: Int,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    if (!includeDenseVectorMappings) {
+      // TODO: could we factor out this check into semanticRequest or elsewhere?
+      logger.warn(logMarker, "semanticSearch called but includeDenseVectorMappings=false, returning empty results")
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
+      val searchRequest = semanticRequest(queryEmbedding.map(_.toDouble), k, numCandidates, filterOpt)
+
+      executeAndLog(withSearchQueryTimeout(searchRequest), "semantic search").map { r =>
+        val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+        SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+      }
+    }
+  }
+
   // Runs lexical and semantic searches in parallel, fills in the missing scores
   // for each result clientside, then combines and re-ranks them.
   // This approach was inspired by
   // "An Analysis of Fusion Functions for Hybrid Retrieval"
   // https://arxiv.org/pdf/2210.11934
-  private def hybridSearchImpl(
+  private def fusedLexicalAndSemanticSearch(
     query: String,
     queryEmbedding: List[Double],
     k: Int,
@@ -227,20 +262,11 @@ class ElasticSearch(
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     import HybridResult.{resolveHitAndFillInSemanticScore, combineScoresAndGetTopK}
+
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
+    val lexicalSearchRequest = lexicalRequest(lexicalQuery, k, filterOpt)
 
-    val lexicalSearchRequest = ElasticDsl
-      .search(imagesCurrentAlias)
-      .query(boolQuery().must(lexicalQuery).filter(filterOpt))
-      .size(k)
-
-    val semanticSearchRequest = ElasticDsl
-      .search(imagesCurrentAlias)
-      .knn(Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
-        .queryVector(queryEmbedding)
-        .k(k)
-        .numCandidates(numCandidates)
-      )
+    val semanticSearchRequest = semanticRequest(queryEmbedding, k, numCandidates, filterOpt)
       .rescore(Rescore(lexicalQuery)
         .window(k)
         // We want to replace the knn score with the BM25 score,
@@ -249,7 +275,6 @@ class ElasticSearch(
         .originalQueryWeight(0)
         .rescoreQueryWeight(1)
       )
-      .size(k)
 
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
@@ -305,7 +330,14 @@ class ElasticSearch(
 
       val stopwatch = Stopwatch.start
 
-      val searchResults = hybridSearchImpl(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+      // When the weighting is entirely on one side, short-circuit to that side
+      // alone rather than running both queries and fusing.
+      val searchResults = vecWeight match {
+        case 0.0 => lexicalSearch(query, k, filterOpt)
+        case 1.0 => semanticSearch(queryEmbedding, k, numCandidates, filterOpt)
+        case _ => fusedLexicalAndSemanticSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+      }
+
       searchResults.foreach { _ =>
         val elapsed = stopwatch.elapsed
         logger.info(

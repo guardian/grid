@@ -625,7 +625,7 @@ class MediaApi(
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filterOpt = filterOpt)
+            elasticSearch.semanticSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filterOpt = filterOpt)
           case None =>
             Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         }
