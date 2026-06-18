@@ -279,13 +279,102 @@ class ElasticSearch(
     }
   }
 
+  // Like hybridSearchImpl, but defers hydration: the two candidate queries fetch
+  // ONLY the embedding vector (not the full _source), candidates are ranked on
+  // id + scores alone, and a single follow-up by-id fetch hydrates the full Image
+  // for just the top-k winners. This avoids deserialising a full Image for every
+  // one of the ~2k candidates, which dominates the clientside merge time.
+  private def hybridSearchDeferredImpl(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    import HybridResult.{candidateWithSemanticScore, combineScoresAndGetTopK}
+    val lexicalQuery = createMultiMatchQuery(query, operator = Or)
+
+    // Strip _source down to just the embedding vector: it's the only field we
+    // need to compute cosine similarity clientside for ranking.
+    val vectorSourceInclude = "embedding.cohereEmbedV4.image"
+
+    val lexicalSearchRequest = ElasticDsl
+      .search(imagesCurrentAlias)
+      .query(boolQuery().must(lexicalQuery).filter(filterOpt))
+      .sourceInclude(vectorSourceInclude)
+      .size(k)
+
+    val semanticSearchRequest = ElasticDsl
+      .search(imagesCurrentAlias)
+      .knn(Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+        .queryVector(queryEmbedding)
+        .k(k)
+        .numCandidates(numCandidates)
+      )
+      .rescore(Rescore(lexicalQuery)
+        .window(k)
+        // We want to replace the knn score with the BM25 score,
+        // because we can calculate cosine similarity clientside,
+        // but can't do that for BM25.
+        .originalQueryWeight(0)
+        .rescoreQueryWeight(1)
+      )
+      .sourceInclude(vectorSourceInclude)
+      .size(k)
+
+    // Assigning to vals here eagerly starts both requests, so they run in
+    // parallel. The for-comprehension below only sequences the *combination*
+    // of their results, not their execution.
+    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid-deferred")
+    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid-deferred")
+
+    for {
+      lexical <- lexicalSearchResponse
+      semantic <- semanticSearchResponse
+      orderedTopK <- {
+        val lexicalHits = lexical.result.hits.hits.toList
+        val semanticHits = semantic.result.hits.hits.toList
+        val allHits = lexicalHits ::: semanticHits
+        logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+
+        // This is only valid because the queries ensure that all hits, including semantic,
+        // have only the lexical score at this point.
+        val distinctHits = allHits.distinctBy(_.id)
+        logger.info(logMarker, s"${distinctHits.length} distinct hits")
+
+        val candidates = distinctHits.map(candidateWithSemanticScore(_, queryEmbedding))
+        val rankedIds = combineScoresAndGetTopK(candidates, vecWeight, k).map(_.id)
+
+        hydrateInRankedOrder(rankedIds)
+      }
+    } yield orderedTopK
+  }
+
+  // Hydrates the full Image for each id and returns them in the given ranked
+  // order. The by-id lookup does NOT preserve order, so we re-sort here; ids
+  // that fail to resolve are dropped (parity with the flatMap discipline used
+  // elsewhere).
+  private def hydrateInRankedOrder(rankedIds: List[String])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    if (rankedIds.isEmpty) {
+      Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+    } else {
+      lookupIds(rankedIds, offset = 0, length = rankedIds.length).map { hydrated =>
+        val imagesById = hydrated.hits.toMap
+        val orderedHits = rankedIds.flatMap(id => imagesById.get(id).map(image => (id, image)))
+        SearchResults(hits = orderedHits, total = orderedHits.length, extraCounts = None)
+      }
+    }
+  }
+
   def hybridSearch(
     query: String,
     queryEmbedding: List[Float],
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    filterOpt: Option[Query]
+    filterOpt: Option[Query],
+    deferHydration: Boolean = false
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -298,7 +387,11 @@ class ElasticSearch(
 
       val stopwatch = Stopwatch.start
 
-      val searchResults = hybridSearchImpl(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+      val searchResults =
+        if (deferHydration)
+          hybridSearchDeferredImpl(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        else
+          hybridSearchImpl(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
       searchResults.foreach { _ =>
         val elapsed = stopwatch.elapsed
         logger.info(

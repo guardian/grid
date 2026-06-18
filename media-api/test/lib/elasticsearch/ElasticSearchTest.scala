@@ -505,7 +505,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     // k = 2 (not, say, 10) is deliberate: with a small k the search is forced
     // to discriminate. If we asked for more results than we indexed, kNN would
     // return everything and the assertions would pass trivially.
-    def hybridSearchIds(vecWeight: Double, k: Int = 2): Seq[String] =
+    def hybridSearchIds(vecWeight: Double, k: Int = 2, deferHydration: Boolean = false): Seq[String] =
       Await.result(
         ES.hybridSearch(
           query = "kitten",
@@ -513,7 +513,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           k = k,
           numCandidates = 10,
           vecWeight = vecWeight,
-          filterOpt = None
+          filterOpt = None,
+          deferHydration = deferHydration
         ),
         fiveSeconds
       ).hits.map(_._1)
@@ -558,6 +559,33 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       ids should contain("ai-semantic-match")
       ids should contain("ai-lexical-match")
       ids.indexOf("ai-lexical-match") should be < ids.indexOf("ai-semantic-match")
+    }
+
+    it("deferred hydration produces the same ranked ids as the default (full-hydration) path") {
+      aiImagesIndexed
+
+      // The deferred path only changes *when/how much* document data is hydrated,
+      // not the scoring, so for a fixed dataset it must produce identical ranking.
+      Seq(0.01, 0.5, 0.99).foreach { vecWeight =>
+        val default = hybridSearchIds(vecWeight = vecWeight, deferHydration = false)
+        val deferred = hybridSearchIds(vecWeight = vecWeight, deferHydration = true)
+        deferred shouldBe default
+      }
+    }
+
+    it("deferred hydration hydrates only the top k results, preserving ranked order") {
+      aiImagesIndexed
+
+      // k = 1 forces a single winner: this proves only k documents are hydrated
+      // (the response carries exactly one hit) rather than all candidates.
+      val deferredTopOne = hybridSearchIds(vecWeight = 0.99, k = 1, deferHydration = true)
+      deferredTopOne should have size 1
+      // vecWeight ~1 => the nearest-vector image wins.
+      deferredTopOne.head shouldBe "ai-semantic-match"
+
+      // Order is preserved across the by-id hydration fetch.
+      val deferred = hybridSearchIds(vecWeight = 0.99, deferHydration = true)
+      deferred.indexOf("ai-semantic-match") should be < deferred.indexOf("ai-lexical-match")
     }
   }
 

@@ -90,7 +90,8 @@ class MediaApi(
     "countAll",
     "persisted",
     "useAISearch",
-    "vecWeight"
+    "vecWeight",
+    "deferHydration"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -667,7 +668,8 @@ class MediaApi(
               k = k,
               numCandidates = Math.max(k * 2, 100),
               vecWeight = weight,
-              filterOpt = filterOpt
+              filterOpt = filterOpt,
+              deferHydration = params.deferHydration.getOrElse(false)
             )
           } yield searchResults
       }

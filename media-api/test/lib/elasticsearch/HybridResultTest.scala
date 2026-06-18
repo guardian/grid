@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 
 class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with Tolerance with Fixtures {
 
-  import HybridResult.{combineScoresAndGetTopK, combinedScore, normalise, resolveHitAndFillInSemanticScore}
+  import HybridResult.{combineScoresAndGetTopK, combinedScore, normalise, resolveHitAndFillInSemanticScore, candidateWithSemanticScore}
 
   private val tolerance = 1e-9
 
@@ -33,6 +33,15 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     inner_hits = Map.empty,
     matchedQueries = None
   )
+
+  // Builds a hit whose _source mirrors the stripped shape returned when we
+  // sourceInclude("embedding.cohereEmbedV4.image"): just the vector, no Image.
+  private def searchHitWithEmbedding(id: String, score: Float, embedding: Option[List[Double]]): SearchHit =
+    searchHit(id, score).copy(
+      _source = embedding.fold(Map.empty[String, AnyRef]) { vec =>
+        Map("embedding" -> Map("cohereEmbedV4" -> Map("image" -> vec)))
+      }
+    )
 
   private def imageWithEmbedding(id: String, embedding: Option[List[Double]]): Image =
     createImage(id, Handout()).copy(
@@ -121,6 +130,56 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
       ).value
 
       result.semanticScore should be(-1.0 +- tolerance)
+    }
+  }
+
+  describe("candidateWithSemanticScore") {
+
+    it("carries the hit id and uses the hit score as the lexical score") {
+      val candidate = candidateWithSemanticScore(
+        searchHitWithEmbedding("img-1", score = 4.2f, embedding = Some(List(1.0, 0.0))),
+        queryEmbedding = List(1.0, 0.0)
+      )
+
+      candidate.id should be("img-1")
+      candidate.lexicalScore should be(4.2f.toDouble +- tolerance)
+    }
+
+    it("computes the semantic score from the embedding vector in the (stripped) _source") {
+      // Orthogonal vectors -> cosine similarity 0.
+      val candidate = candidateWithSemanticScore(
+        searchHitWithEmbedding("img-1", score = 1.0f, embedding = Some(List(0.0, 1.0))),
+        queryEmbedding = List(1.0, 0.0)
+      )
+
+      candidate.semanticScore should be(0.0 +- tolerance)
+    }
+
+    it("returns a cosine similarity of 1 for identical (parallel) embeddings") {
+      val candidate = candidateWithSemanticScore(
+        searchHitWithEmbedding("img-1", score = 1.0f, embedding = Some(List(3.0, 4.0))),
+        queryEmbedding = List(6.0, 8.0)
+      )
+
+      candidate.semanticScore should be(1.0 +- tolerance)
+    }
+
+    it("returns a cosine similarity of -1 for opposite embeddings") {
+      val candidate = candidateWithSemanticScore(
+        searchHitWithEmbedding("img-1", score = 1.0f, embedding = Some(List(-1.0, 0.0))),
+        queryEmbedding = List(1.0, 0.0)
+      )
+
+      candidate.semanticScore should be(-1.0 +- tolerance)
+    }
+
+    it("falls back to a semantic score of -1 when the _source has no embedding vector") {
+      val candidate = candidateWithSemanticScore(
+        searchHitWithEmbedding("img-1", score = 1.0f, embedding = None),
+        queryEmbedding = List(1.0, 0.0)
+      )
+
+      candidate.semanticScore should be(-1.0 +- tolerance)
     }
   }
 
