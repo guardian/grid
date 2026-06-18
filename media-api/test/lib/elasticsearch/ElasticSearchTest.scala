@@ -448,6 +448,119 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
   }
 
+  describe("AI / hybrid search") {
+    implicit val logMarker: LogMarker = MarkerMap()
+
+    // 256-dim vectors to match the `embedding.cohereEmbedV4.image` dense_vector
+    // mapping. One-hot vectors are orthogonal and unit-magnitude, so cosine
+    // similarity is 1.0 against themselves and 0.0 against each other - which
+    // makes the semantic ranking easy to reason about in assertions.
+    def oneHot(hotIndex: Int): List[Double] =
+      List.tabulate(256)(i => if (i == hotIndex) 1.0 else 0.0)
+
+    def withEmbedding(image: Image, vector: List[Double]): Image =
+      image.copy(embedding = Some(Embedding(cohereEmbedV4 = Some(CohereV4Embedding(image = vector)))))
+
+    // The vector we'll "search" with - represents the user's query embedding.
+    val queryEmbedding: List[Float] = oneHot(0).map(_.toFloat)
+
+    // Matches the text "kitten" but is semantically far from the query vector:
+    // a pure *lexical* hit (lexicalScore high, semanticScore ~0).
+    val lexicalMatch = withEmbedding(
+      createImage("ai-lexical-match", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("a kitten playing in the garden"), keywords = Some(Set("kitten")))
+      ),
+      oneHot(42)
+    )
+
+    // Does NOT match the text at all, but IS the nearest neighbour of the query
+    // vector: a pure *semantic* hit (semanticScore ~1, lexicalScore 0).
+    val semanticMatch = withEmbedding(
+      createImage("ai-semantic-match", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("completely unrelated wording"), keywords = Some(Set("unrelated")))
+      ),
+      oneHot(0)
+    )
+
+    // Noise: neither a text match nor a close vector match.
+    val unrelated = withEmbedding(
+      createImage("ai-unrelated", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("nothing to see here"), keywords = Some(Set("noise")))
+      ),
+      oneHot(99)
+    )
+
+    val aiImages = Seq(lexicalMatch, semanticMatch, unrelated)
+
+    // Seed exactly once for the whole describe block: the three tests share the
+    // same fixtures, and re-indexing the same ids per-test causes version
+    // conflicts (409s) when the suite's match-all purge runs in afterAll.
+    lazy val aiImagesIndexed: Unit = {
+      Await.ready(saveImages(aiImages), 1.minute)
+      eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds)) {
+        totalImages shouldBe (expectedNumberOfImages + aiImages.size)
+      }
+    }
+
+    // k = 2 (not, say, 10) is deliberate: with a small k the search is forced
+    // to discriminate. If we asked for more results than we indexed, kNN would
+    // return everything and the assertions would pass trivially.
+    def hybridSearchIds(vecWeight: Double, k: Int = 2): Seq[String] =
+      Await.result(
+        ES.hybridSearch(
+          query = "kitten",
+          queryEmbedding = queryEmbedding,
+          k = k,
+          numCandidates = 10,
+          vecWeight = vecWeight,
+          filterOpt = None
+        ),
+        fiveSeconds
+      ).hits.map(_._1)
+
+    it("combines lexical (BM25) and semantic (kNN) search, retrieving images by meaning even when the text doesn't match, and fusing the two rankings") {
+      aiImagesIndexed
+
+      val ids = hybridSearchIds(vecWeight = 0.5)
+
+      // Semantic recall: the nearest-vector image is returned even though it
+      // shares no words with the query - only the kNN path could have found it.
+      ids should contain("ai-semantic-match")
+
+      // Lexical recall still works alongside semantic recall.
+      ids should contain("ai-lexical-match")
+
+      // The meaningful assertion: the noise image is neither a text match nor a
+      // near vector, so fusion + top-k ranking drops it. This is what proves the
+      // search actually discriminates rather than just returning everything.
+      ids should not contain "ai-unrelated"
+    }
+
+    it("ranks the semantic match above the lexical match when vecWeight is cranked towards vectors") {
+      aiImagesIndexed
+
+      // vecWeight ~1 => the fused score is dominated by cosine similarity, so the
+      // pure-vector match should outrank the pure-text match.
+      val ids = hybridSearchIds(vecWeight = 0.99)
+
+      ids should contain("ai-semantic-match")
+      ids should contain("ai-lexical-match")
+      ids.indexOf("ai-semantic-match") should be < ids.indexOf("ai-lexical-match")
+    }
+
+    it("ranks the lexical match above the semantic match when vecWeight is cranked towards text") {
+      aiImagesIndexed
+
+      // vecWeight ~0 => the fused score is dominated by BM25, so the pure-text
+      // match should outrank the pure-vector match. The mirror image of the above.
+      val ids = hybridSearchIds(vecWeight = 0.01)
+
+      ids should contain("ai-semantic-match")
+      ids should contain("ai-lexical-match")
+      ids.indexOf("ai-lexical-match") should be < ids.indexOf("ai-semantic-match")
+    }
+  }
+
   private def saveImages(images: Seq[Image]) = {
     implicit val logMarker: LogMarker = MarkerMap()
 
