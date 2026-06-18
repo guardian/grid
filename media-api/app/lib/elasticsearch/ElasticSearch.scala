@@ -271,10 +271,17 @@ class ElasticSearch(
       val distinctHits = allHits.distinctBy(_.id)
       logger.info(logMarker, s"${distinctHits.length} distinct hits")
 
+      val lexicalIds = lexicalHits.map(_.id).toSet
+      val semanticIds = semanticHits.map(_.id).toSet
+
       val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
         resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit)
       }
       val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      topK.foreach { r =>
+        logger.info(logMarker, s"hybrid result ${r.id}: lexicalScore=${r.lexicalScore} semanticScore=${r.semanticScore} " +
+          s"originallyFromLexical=${lexicalIds.contains(r.id)} originallyFromSemantic=${semanticIds.contains(r.id)}")
+      }
       SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
     }
   }
