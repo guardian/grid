@@ -1,7 +1,9 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging._
+import com.sksamuel.elastic4s.ElasticDsl.RichRequest
 import com.sksamuel.elastic4s._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -18,7 +20,6 @@ trait ElasticSearchExecutions extends GridLogging {
                                                                                             logMarkers: LogMarker
   ): Future[Response[U]] = {
     val stopwatch = Stopwatch.start
-
     val result = client.execute(request).transform {
       case Success(r) =>
         if (r.isSuccess) {
