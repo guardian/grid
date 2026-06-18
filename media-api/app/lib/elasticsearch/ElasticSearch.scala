@@ -215,6 +215,9 @@ class ElasticSearch(
 
   // Runs lexical and semantic searches in parallel, fills in the missing scores
   // for each result clientside, then combines and re-ranks them.
+  // This approach was inspired by
+  // "An Analysis of Fusion Functions for Hybrid Retrieval"
+  // https://arxiv.org/pdf/2210.11934
   private def hybridSearchImpl(
     query: String,
     queryEmbedding: List[Double],

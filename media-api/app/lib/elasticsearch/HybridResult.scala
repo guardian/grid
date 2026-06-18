@@ -31,25 +31,45 @@ object HybridResult {
       HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
     }
 
+  // This is the "theoretical min-max" normalisation chosen by
+  // "An Analysis of Fusion Functions for Hybrid Retrieval"
+  // https://arxiv.org/pdf/2210.11934
+  def normalise(score: Double, max: Double, theoreticalMin: Double): Double =
+    if (max == theoreticalMin) 0.0
+    else (score - theoreticalMin) / (max - theoreticalMin)
+
+  def combinedScore(
+    result: HybridResult,
+    maxLexicalScore: Double,
+    maxSemanticScore: Double,
+    vecWeight: Double
+  ): Double = {
+    val normedLexicalScore = normalise(result.lexicalScore, maxLexicalScore, theoreticalMin = 0.0)
+    // The semantic theoretical min of -1 means we do both the max-norming
+    // and the ES-score norming in one step.
+    val normedSemanticScore = normalise(result.semanticScore, maxSemanticScore, theoreticalMin = -1.0)
+    (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
+  }
+
   def combineScoresAndGetTopK(
     results: List[HybridResult],
     vecWeight: Double,
     k: Int
   ): List[HybridResult] = {
-    // Account for the rare case in which KNN doesn't return the true closest vector,
-    // and that true closest vector happens to be among the lexical-only results.
-    val maxLexicalScore = results.maxBy(_.lexicalScore).lexicalScore
-    val maxSemanticScore = results.maxBy(_.semanticScore).semanticScore
-
-    def combinedScore(result: HybridResult): Double = {
-      val normedLexicalScore = result.lexicalScore / maxLexicalScore
-      // normedScore = (score - theoretical_min) / (max - theoretical_min)
-      // This is theoretical min, i.e. -1, to actual max,
-      // so it effectively does both the max-norming and the ES-score norming.
-      val normedSemanticScore = (result.semanticScore + 1) / (maxSemanticScore + 1)
-      (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
-    }
-
-    results.sortBy(combinedScore)(Ordering[Double].reverse).take(k)
+    // Why do this rather than looking at the top result from elasticsearch or hits.maxScore?
+    // Because for the semantic query, we rescore by BM25, meaning neither maxScore nor the
+    // top result will actually tell us the max semantic score.
+    //
+    // A side benefit is that this approach also accounts for the rare case in which KNN
+    // doesn't even contain true closest vector, and that true closest vector happens to
+    // be among the lexical-only results.
+    (for {
+      maxLexicalScore <- results.map(_.lexicalScore).maxOption
+      maxSemanticScore <- results.map(_.semanticScore).maxOption
+    } yield {
+      results
+        .sortBy(combinedScore(_, maxLexicalScore, maxSemanticScore, vecWeight))(Ordering[Double].reverse)
+        .take(k)
+    }).getOrElse(List())
   }
 }

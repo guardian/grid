@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 
 class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with Tolerance with Fixtures {
 
-  import HybridResult.{combineScoresAndGetTopK, resolveHitAndFillInSemanticScore}
+  import HybridResult.{combineScoresAndGetTopK, combinedScore, normalise, resolveHitAndFillInSemanticScore}
 
   private val tolerance = 1e-9
 
@@ -124,7 +124,102 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
   }
 
+  describe("normalise") {
+    it("maps a score to its fraction of the way from the theoretical min to the max") {
+      // Halfway between theoreticalMin 0 and max 10.
+      normalise(score = 5.0, max = 10.0, theoreticalMin = 0.0) should be(0.5 +- tolerance)
+    }
+
+    it("maps the max itself to 1") {
+      normalise(score = 10.0, max = 10.0, theoreticalMin = 0.0) should be(1.0 +- tolerance)
+    }
+
+    it("maps the theoretical min itself to 0") {
+      normalise(score = -1.0, max = 1.0, theoreticalMin = -1.0) should be(0.0 +- tolerance)
+    }
+
+    it("accounts for a non-zero theoretical min when normalising") {
+      // (0 - -1) / (1 - -1) = 0.5
+      normalise(score = 0.0, max = 1.0, theoreticalMin = -1.0) should be(0.5 +- tolerance)
+    }
+
+    it("returns 0 when the range collapses (max == theoreticalMin)") {
+      normalise(score = 0.0, max = 0.0, theoreticalMin = 0.0) should be(0.0 +- tolerance)
+      normalise(score = -1.0, max = -1.0, theoreticalMin = -1.0) should be(0.0 +- tolerance)
+    }
+  }
+
+  describe("combinedScore") {
+    it("blends the normalised lexical and semantic scores using vecWeight") {
+      // normedLexical = 2/4 = 0.5, normedSemantic = (0 + 1)/(1 + 1) = 0.5
+      // combined = 0.25 * 0.5 + 0.75 * 0.5 = 0.5
+      val score = combinedScore(
+        hybridResult("blend", lexicalScore = 2.0, semanticScore = 0.0),
+        maxLexicalScore = 4.0,
+        maxSemanticScore = 1.0,
+        vecWeight = 0.25
+      )
+      score should be(0.5 +- tolerance)
+    }
+
+    it("uses only the lexical score when vecWeight is 0") {
+      val score = combinedScore(
+        hybridResult("lexical-only", lexicalScore = 2.0, semanticScore = 1.0),
+        maxLexicalScore = 4.0,
+        maxSemanticScore = 1.0,
+        vecWeight = 0.0
+      )
+      score should be(0.5 +- tolerance)
+    }
+
+    it("uses only the semantic score when vecWeight is 1") {
+      val score = combinedScore(
+        hybridResult("semantic-only", lexicalScore = 2.0, semanticScore = 0.0),
+        maxLexicalScore = 4.0,
+        maxSemanticScore = 1.0,
+        vecWeight = 1.0
+      )
+      // normedSemantic = (0 + 1)/(1 + 1) = 0.5
+      score should be(0.5 +- tolerance)
+    }
+
+    it("contributes 0 from the lexical side when the max lexical score is 0") {
+      val score = combinedScore(
+        hybridResult("no-lexical", lexicalScore = 0.0, semanticScore = 1.0),
+        maxLexicalScore = 0.0,
+        maxSemanticScore = 1.0,
+        vecWeight = 0.5
+      )
+      // normedLexical = 0, normedSemantic = (1 + 1)/(1 + 1) = 1
+      // combined = 0.5 * 1 + 0.5 * 0 = 0.5
+      score should be(0.5 +- tolerance)
+    }
+
+    it("contributes 0 from the semantic side when the max semantic score is -1") {
+      val score = combinedScore(
+        hybridResult("no-semantic", lexicalScore = 4.0, semanticScore = -1.0),
+        maxLexicalScore = 4.0,
+        maxSemanticScore = -1.0,
+        vecWeight = 0.5
+      )
+      // normedSemantic = 0, normedLexical = 4/4 = 1
+      // combined = 0.5 * 0 + 0.5 * 1 = 0.5
+      score should be(0.5 +- tolerance)
+    }
+  }
+
   describe("combineScoresAndGetTopK") {
+    it("returns an empty list if the input is empty") {
+      combineScoresAndGetTopK(List(), vecWeight = 0.0, k = 3) should be (List())
+    }
+
+    it("doesn't break when tha max lexical score is 0") {
+      val results = List(
+        hybridResult("low-lexical", lexicalScore = 0.0, semanticScore = 1.0),
+        hybridResult("high-lexical", lexicalScore = 0.0, semanticScore = -1.0),
+        hybridResult("mid-lexical", lexicalScore = 0.0, semanticScore = 0.0)
+      )
+    }
 
     it("ranks purely by lexical score when vecWeight is 0") {
       val results = List(
@@ -138,6 +233,18 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
       ranked.map(_.id) should be(List("high-lexical", "mid-lexical", "low-lexical"))
     }
 
+    it("ranks purely by lexical score when max semantic score is -1.0") {
+      val results = List(
+        hybridResult("low-lexical", lexicalScore = 1.0, semanticScore = -1.0),
+        hybridResult("high-lexical", lexicalScore = 10.0, semanticScore = -1.0),
+        hybridResult("mid-lexical", lexicalScore = 5.0, semanticScore = -1.0)
+      )
+
+      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
+
+      ranked.map(_.id) should be(List("high-lexical", "mid-lexical", "low-lexical"))
+    }
+
     it("ranks purely by semantic score when vecWeight is 1") {
       val results = List(
         hybridResult("low-semantic", lexicalScore = 10.0, semanticScore = -1.0),
@@ -146,6 +253,18 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
       )
 
       val ranked = combineScoresAndGetTopK(results, vecWeight = 1.0, k = 3)
+
+      ranked.map(_.id) should be(List("high-semantic", "mid-semantic", "low-semantic"))
+    }
+
+    it("ranks purely by semantic score when max lexical score is 0") {
+      val results = List(
+        hybridResult("low-semantic", lexicalScore = 0.0, semanticScore = -1.0),
+        hybridResult("high-semantic", lexicalScore = 0.0, semanticScore = 1.0),
+        hybridResult("mid-semantic", lexicalScore = 0.0, semanticScore = 0.0)
+      )
+
+      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
 
       ranked.map(_.id) should be(List("high-semantic", "mid-semantic", "low-semantic"))
     }
