@@ -191,6 +191,26 @@ class ElasticSearch(
       boost = boost
     )
 
+  // A dedicated, bounded thread pool for the CPU-heavy part of hybrid search:
+  // deserialising each hit's _source into an Image and computing the clientside
+  // cosine score. Running this off Play's shared request dispatcher means the
+  // lexical and semantic responses can be streamed, parsed and deserialised
+  // genuinely in parallel instead of contending for the same threads.
+  private val hybridSearchExecutionContext: ExecutionContext = {
+    val threadFactory = new java.util.concurrent.ThreadFactory {
+      private val count = new java.util.concurrent.atomic.AtomicInteger(0)
+      override def newThread(r: Runnable): Thread = {
+        val thread = new Thread(r, s"hybrid-search-${count.incrementAndGet()}")
+        thread.setDaemon(true)
+        thread
+      }
+    }
+    val parallelism = Math.max(2, Runtime.getRuntime.availableProcessors)
+    ExecutionContext.fromExecutor(
+      java.util.concurrent.Executors.newFixedThreadPool(parallelism, threadFactory)
+    )
+  }
+
   private def lexicalRequest(
     lexicalQuery: MultiMatchQuery,
     k: Int,
@@ -276,33 +296,49 @@ class ElasticSearch(
         .rescoreQueryWeight(1)
       )
 
+    // The CPU-heavy part of hybrid search is deserialising each hit's _source
+    // into an Image and computing its clientside cosine score. We attach that
+    // work to each query's own future via `.map` on hybridSearchExecutionContext,
+    // so:
+    //   - the lexical hits are deserialised as soon as they arrive, while the
+    //     (slower) semantic query is still in flight, and
+    //   - the two response bodies are processed on separate threads rather than
+    //     contending for Play's shared request dispatcher.
+    def deserialiseAndScore(hits: List[SearchHit], label: String): List[HybridResult] = {
+      val results = hits.flatMap(hit => resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit))
+      logger.info(logMarker, s"hybrid search: $label query deserialised ${results.length} of ${hits.length} hits " +
+        s"on ${Thread.currentThread().getName}")
+      results
+    }
+
     // Assigning to vals here eagerly starts both requests, so they run in
-    // parallel. The for-comprehension below only sequences the *combination*
-    // of their results, not their execution.
-    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid")
-    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid")
+    // parallel. Each `.map` runs on hybridSearchExecutionContext, keeping the two
+    // pipelines genuinely concurrent end-to-end (stream -> parse -> deserialise).
+    val lexicalResults: Future[List[HybridResult]] =
+      executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid")
+        .map(resp => deserialiseAndScore(resp.result.hits.hits.toList, "lexical"))(hybridSearchExecutionContext)
 
+    val semanticResults: Future[List[HybridResult]] =
+      executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid")
+        .map(resp => deserialiseAndScore(resp.result.hits.hits.toList, "semantic"))(hybridSearchExecutionContext)
+
+    // The for-comprehension only sequences the *combination* of the already
+    // deserialised, already scored results, which is cheap.
     for {
-      lexical <- lexicalSearchResponse
-      semantic <- semanticSearchResponse
+      lexical <- lexicalResults
+      semantic <- semanticResults
     } yield {
-      val lexicalHits = lexical.result.hits.hits.toList
-      val semanticHits = semantic.result.hits.hits.toList
-      val allHits = lexicalHits ::: semanticHits
-      logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+      val lexicalIds = lexical.map(_.id).toSet
+      val semanticIds = semantic.map(_.id).toSet
 
-      // This is only valid because the queries ensure that all hits, including semantic,
-      // have only the lexical score at this point.
-      val distinctHits = allHits.distinctBy(_.id)
-      logger.info(logMarker, s"${distinctHits.length} distinct hits")
+      // A document can appear in both result sets. The duplicate HybridResults are
+      // identical (same BM25 from the semantic query's rescore, same clientside
+      // cosine), so deduping by id and keeping either is safe.
+      val distinctResults = (lexical ::: semantic).distinctBy(_.id)
+      logger.info(logMarker, s"${lexical.length + semantic.length} total hits: ${lexical.length} lexical, " +
+        s"${semantic.length} semantic; ${distinctResults.length} distinct")
 
-      val lexicalIds = lexicalHits.map(_.id).toSet
-      val semanticIds = semanticHits.map(_.id).toSet
-
-      val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
-        resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit)
-      }
-      val topK = fuseScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      val topK = fuseScoresAndGetTopK(distinctResults, vecWeight, k)
       topK.foreach { r =>
         logger.info(logMarker, s"hybrid result ${r.id}: lexicalScore=${r.lexicalScore} semanticScore=${r.semanticScore} " +
           s"originallyFromLexical=${lexicalIds.contains(r.id)} originallyFromSemantic=${semanticIds.contains(r.id)}")
