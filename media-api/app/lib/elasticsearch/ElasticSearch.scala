@@ -352,15 +352,20 @@ class ElasticSearch(
   }
 
   // Hydrates the full Image for each id and returns them in the given ranked
-  // order. The by-id lookup does NOT preserve order, so we re-sort here; ids
-  // that fail to resolve are dropped (parity with the flatMap discipline used
-  // elsewhere).
+  // order. We use a plain ids query (not the pinned query that lookupIds uses,
+  // which this ES cluster rejects) and re-sort the results back into ranked
+  // order ourselves; ids that fail to resolve are dropped (parity with the
+  // flatMap discipline used elsewhere).
   private def hydrateInRankedOrder(rankedIds: List[String])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     if (rankedIds.isEmpty) {
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
-      lookupIds(rankedIds, offset = 0, length = rankedIds.length).map { hydrated =>
-        val imagesById = hydrated.hits.toMap
+      val searchRequest = prepareSearch(filters.ids(rankedIds))
+        .storedFields("_source")
+        .size(rankedIds.length)
+
+      executeAndLog(searchRequest, "hybrid deferred hydration").map { r =>
+        val imagesById = r.result.hits.hits.flatMap(resolveHit).map(image => (image.instance.id, image)).toMap
         val orderedHits = rankedIds.flatMap(id => imagesById.get(id).map(image => (id, image)))
         SearchResults(hits = orderedHits, total = orderedHits.length, extraCounts = None)
       }
