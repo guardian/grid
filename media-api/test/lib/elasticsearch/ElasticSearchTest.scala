@@ -582,6 +582,158 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       ids shouldEqual Seq("ai-semantic-match")
     }
+
+    // ----------------------------------------------------------------------
+    // Score "cross-pollination": every candidate is scored on BOTH dimensions,
+    // regardless of which side of the search originally surfaced it.
+    //
+    // A hit found only by the lexical side still has its true cosine similarity
+    // filled in client-side; a hit found only by the semantic side still carries
+    // the BM25 score it earns from the lexical rescore. The two tests below pin
+    // down each of those behaviours in isolation.
+    //
+    // They use their own query word + vector axis (so the fixtures above can't
+    // interfere) and a few small unit vectors with hand-picked cosine values.
+    // ----------------------------------------------------------------------
+
+    // Builds a 256-dim unit vector from (index -> value) components. Used to make
+    // vectors with specific cosine similarities to a one-hot query axis, e.g.
+    // unitVector(7 -> 0.8, 8 -> 0.6) has cosine 0.8 with oneHot(7).
+    def unitVector(components: (Int, Double)*): List[Double] = {
+      val arr = Array.fill(256)(0.0)
+      components.foreach { case (i, v) => arr(i) = v }
+      arr.toList
+    }
+
+    def hybridSearchIdsFor(query: String, queryEmbedding: List[Float], vecWeight: Double, k: Int): Seq[String] =
+      Await.result(
+        ES.hybridSearch(
+          query = query,
+          queryEmbedding = queryEmbedding,
+          k = k,
+          numCandidates = 10,
+          vecWeight = vecWeight,
+          filterOpt = None
+        ),
+        fiveSeconds
+      ).hits.map(_._1)
+
+    // Test 1 fixtures - query axis oneHot(7), query word "axolotl".
+    //
+    // A lexical hit that the kNN side never returns. Its embedding sits at cosine
+    // 0.5 from the query, but 'ai-semantic-hit-near-vector' (cosine 0.8) is nearer,
+    // so with k = 1 the semantic side only ever returns the latter - leaving this
+    // image strictly outside the top-k semantic results.
+    val lexicalHitWithVector = withEmbedding(
+      createImage("ai-lexical-hit-with-vector", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("a lone axolotl"), keywords = Some(Set("axolotl")))
+      ),
+      unitVector(7 -> 0.5, 8 -> math.sqrt(0.75))
+    )
+
+    // The nearer vector, with no text match: the only image the kNN side returns
+    // for the query above.
+    val semanticHitNearVector = withEmbedding(
+      createImage("ai-semantic-hit-near-vector", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("the blurst of times"))
+      ),
+      unitVector(7 -> 0.8, 8 -> 0.6)
+    )
+
+    // Test 2 fixtures - query axis oneHot(9), query phrase "narwhal arctic ocean".
+    //
+    // A semantic hit that the lexical side never returns. It is one of the two
+    // nearest vectors AND a (weak) text match for "narwhal", but the two strong
+    // lexical matches below outscore it on BM25, so with k = 2 it falls strictly
+    // outside the top-k lexical results.
+    val semanticHitWithText = withEmbedding(
+      createImage("ai-semantic-hit-with-text", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("a narwhal"))
+      ),
+      unitVector(9 -> 0.9, 10 -> math.sqrt(0.19))
+    )
+
+    // Equally close to the query vector as 'ai-semantic-hit-with-text' (cosine
+    // 0.9), but with no text match at all - so its lexical score is zero. The
+    // identical semantic score is what lets us attribute any ranking difference
+    // purely to the lexical contribution.
+    val semanticHitNoText = withEmbedding(
+      createImage("ai-semantic-hit-no-text", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("the blurst of times"))
+      ),
+      unitVector(9 -> 0.9, 11 -> math.sqrt(0.19))
+    )
+
+    // Two strong, un-embedded lexical matches that fill the top-k lexical results
+    // and push 'ai-semantic-hit-with-text' out of them. The first matches all
+    // three query terms, the second matches two.
+    val lexicalStrongOne =
+      createImage("ai-lexical-strong-1", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("narwhal arctic ocean"))
+      )
+    val lexicalStrongTwo =
+      createImage("ai-lexical-strong-2", staffPhotographer).copy(
+        metadata = ImageMetadata(title = Some("narwhal arctic"))
+      )
+
+    val contributionImages = Seq(
+      lexicalHitWithVector,
+      semanticHitNearVector,
+      semanticHitWithText,
+      semanticHitNoText,
+      lexicalStrongOne,
+      lexicalStrongTwo
+    )
+
+    // Seed once, on top of the aiImages above, so the total is deterministic no
+    // matter which tests run.
+    lazy val contributionImagesIndexed: Unit = {
+      aiImagesIndexed
+      Await.ready(saveImages(contributionImages), 1.minute)
+      eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds)) {
+        totalImages shouldBe (expectedNumberOfImages + aiImages.size + contributionImages.size)
+      }
+    }
+
+    it("scores a lexical-only hit by its embedding, even though the kNN side never returned it") {
+      contributionImagesIndexed
+
+      val query = "axolotl"
+      val queryVector = oneHot(7).map(_.toFloat)
+
+      // A pure semantic search returns only the nearer vector - proving the
+      // lexical hit is genuinely outside the top-k semantic results.
+      hybridSearchIdsFor(query, queryVector, vecWeight = 1.0, k = 1) shouldEqual Seq("ai-semantic-hit-near-vector")
+
+      // At a strongly semantic-leaning weight the lexical-only hit nonetheless
+      // wins. It can only do so because its true cosine similarity (0.5) was
+      // filled in client-side: had its semantic score been treated as absent, the
+      // nearer vector (0.8) would have taken the single slot at this weight.
+      hybridSearchIdsFor(query, queryVector, vecWeight = 0.8, k = 1) shouldEqual Seq("ai-lexical-hit-with-vector")
+    }
+
+    it("scores a semantic-only hit by BM25, even though the lexical side never returned it") {
+      contributionImagesIndexed
+
+      val query = "narwhal arctic ocean"
+      val queryVector = oneHot(9).map(_.toFloat)
+
+      // A pure lexical search returns the two strong text matches and not
+      // 'ai-semantic-hit-with-text' - proving it is genuinely outside the top-k
+      // lexical results.
+      val pureLexical = hybridSearchIdsFor(query, queryVector, vecWeight = 0.0, k = 2)
+      pureLexical should contain("ai-lexical-strong-1")
+      pureLexical should contain("ai-lexical-strong-2")
+      pureLexical should not contain "ai-semantic-hit-with-text"
+
+      // The two semantic hits are equidistant from the query vector, so their
+      // semantic scores are identical and both rise above the lexical matches at
+      // this weight. The ONLY thing that can separate them is the weak BM25 score
+      // the text-bearing one picked up via the semantic-side rescore - so it must
+      // rank first.
+      hybridSearchIdsFor(query, queryVector, vecWeight = 0.6, k = 2) shouldEqual
+        Seq("ai-semantic-hit-with-text", "ai-semantic-hit-no-text")
+    }
   }
 
   private def saveImages(images: Seq[Image]) = {
