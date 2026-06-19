@@ -667,7 +667,8 @@ class MediaApi(
               k = k,
               numCandidates = Math.max(k * 2, 100),
               vecWeight = weight,
-              filterOpt = filterOpt
+              filterOpt = filterOpt,
+              separateThreadPools = params.separateThreadPools.getOrElse(true)
             )
           } yield searchResults
       }

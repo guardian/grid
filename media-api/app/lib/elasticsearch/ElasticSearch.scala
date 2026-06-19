@@ -279,7 +279,8 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    filterOpt: Option[Query]
+    filterOpt: Option[Query],
+    separateThreadPools: Boolean
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     import HybridResult.{resolveHitAndFillInSemanticScore, fuseScoresAndGetTopK}
 
@@ -295,6 +296,26 @@ class ElasticSearch(
         .originalQueryWeight(0)
         .rescoreQueryWeight(1)
       )
+
+    if (separateThreadPools) {
+      fuseOnSeparateThreadPools(lexicalSearchRequest, semanticSearchRequest, queryEmbedding, vecWeight, k)
+    } else {
+      fuseOnSharedDispatcher(lexicalSearchRequest, semanticSearchRequest, queryEmbedding, vecWeight, k)
+    }
+  }
+
+  // Branch `js-separate-thread-pools` behaviour: deserialise and score each
+  // query's hits on a dedicated thread pool, so the two response bodies are
+  // processed genuinely in parallel rather than contending for Play's shared
+  // request dispatcher.
+  private def fuseOnSeparateThreadPools(
+    lexicalSearchRequest: SearchRequest,
+    semanticSearchRequest: SearchRequest,
+    queryEmbedding: List[Double],
+    vecWeight: Double,
+    k: Int
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    import HybridResult.{resolveHitAndFillInSemanticScore, fuseScoresAndGetTopK}
 
     // The CPU-heavy part of hybrid search is deserialising each hit's _source
     // into an Image and computing its clientside cosine score. We attach that
@@ -347,13 +368,61 @@ class ElasticSearch(
     }
   }
 
+  // Branch `js-fill-missing-scores-with-two-rescore-queries` behaviour: run both
+  // requests in parallel, then combine the raw hits and deserialise/score them
+  // on the shared request dispatcher after deduping.
+  private def fuseOnSharedDispatcher(
+    lexicalSearchRequest: SearchRequest,
+    semanticSearchRequest: SearchRequest,
+    queryEmbedding: List[Double],
+    vecWeight: Double,
+    k: Int
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    import HybridResult.{resolveHitAndFillInSemanticScore, fuseScoresAndGetTopK}
+
+    // Assigning to vals here eagerly starts both requests, so they run in
+    // parallel. The for-comprehension below only sequences the *combination*
+    // of their results, not their execution.
+    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid")
+    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid")
+
+    for {
+      lexical <- lexicalSearchResponse
+      semantic <- semanticSearchResponse
+    } yield {
+      val lexicalHits = lexical.result.hits.hits.toList
+      val semanticHits = semantic.result.hits.hits.toList
+      val allHits = lexicalHits ::: semanticHits
+      logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+
+      // This is only valid because the queries ensure that all hits, including semantic,
+      // have only the lexical score at this point.
+      val distinctHits = allHits.distinctBy(_.id)
+      logger.info(logMarker, s"${distinctHits.length} distinct hits")
+
+      val lexicalIds = lexicalHits.map(_.id).toSet
+      val semanticIds = semanticHits.map(_.id).toSet
+
+      val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
+        resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit)
+      }
+      val topK = fuseScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      topK.foreach { r =>
+        logger.info(logMarker, s"hybrid result ${r.id}: lexicalScore=${r.lexicalScore} semanticScore=${r.semanticScore} " +
+          s"originallyFromLexical=${lexicalIds.contains(r.id)} originallyFromSemantic=${semanticIds.contains(r.id)}")
+      }
+      SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
+    }
+  }
+
   def hybridSearch(
     query: String,
     queryEmbedding: List[Float],
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    filterOpt: Option[Query]
+    filterOpt: Option[Query],
+    separateThreadPools: Boolean = true
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -371,7 +440,7 @@ class ElasticSearch(
       val searchResults = vecWeight match {
         case 0.0 => lexicalSearch(query, k, filterOpt)
         case 1.0 => semanticSearch(queryEmbedding, k, numCandidates, filterOpt)
-        case _ => fusedLexicalAndSemanticSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        case _ => fusedLexicalAndSemanticSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt, separateThreadPools)
       }
 
       searchResults.foreach { _ =>

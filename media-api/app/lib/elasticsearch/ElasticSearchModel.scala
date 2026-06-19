@@ -147,7 +147,13 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
-  vecWeight: Option[Double] = None
+  vecWeight: Option[Double] = None,
+  // Perf-test switch for hybrid search: when true (default), each query's hits
+  // are deserialised and scored on a dedicated thread pool, matching branch
+  // `js-separate-thread-pools`. When false, hits are combined first and
+  // deserialised on the shared dispatcher, matching branch
+  // `js-fill-missing-scores-with-two-rescore-queries`.
+  separateThreadPools: Option[Boolean] = None
 ) {
   lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
 }
@@ -242,6 +248,7 @@ object SearchParams {
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
       request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
+      request.getQueryString("separateThreadPools") flatMap parseBooleanFromQuery,
     )
   }
 
