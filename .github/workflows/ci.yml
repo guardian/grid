@@ -15,10 +15,15 @@ jobs:
       pull-requests: write
     services:
       elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch:7.17.29
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
         # Wait for elasticsearch to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
-        options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
+        # Version must match the Testcontainers pin in ElasticSearchDockerBase (8.18.3): CI runs the
+        # tests with USE_DOCKER_FOR_TESTS=false, so they hit this service container instead of spinning
+        # up their own. The hybrid kNN search syntax requires ES 8.x. Security is disabled here to match
+        # ElasticSearchDockerBase / dev/elasticsearch/elasticsearch.yml, since CI configures the
+        # single-node service purely through these flags rather than a mounted config file.
+        options: -e "discovery.type=single-node" -e "xpack.security.enabled=false" -e "ES_JAVA_OPTS=-Xms1024m -Xmx1024m" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
         ports:
           - 9200:9200
       localstack:
