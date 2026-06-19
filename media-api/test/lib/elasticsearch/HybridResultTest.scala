@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 
 class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with Tolerance with Fixtures {
 
-  import HybridResult.{combineScoresAndGetTopK, combinedScore, normalise, resolveHitAndFillInSemanticScore}
+  import HybridResult.{fuseScoresAndGetTopK, fuseScores, normalise, resolveHitAndFillInSemanticScore}
 
   private val tolerance = 1e-9
 
@@ -153,7 +153,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     it("blends the normalised lexical and semantic scores using vecWeight") {
       // normedLexical = 2/4 = 0.5, normedSemantic = (0 + 1)/(1 + 1) = 0.5
       // combined = 0.25 * 0.5 + 0.75 * 0.5 = 0.5
-      val score = combinedScore(
+      val score = fuseScores(
         hybridResult("blend", lexicalScore = 2.0, semanticScore = 0.0),
         maxLexicalScore = 4.0,
         maxSemanticScore = 1.0,
@@ -163,7 +163,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
 
     it("uses only the lexical score when vecWeight is 0") {
-      val score = combinedScore(
+      val score = fuseScores(
         hybridResult("lexical-only", lexicalScore = 2.0, semanticScore = 1.0),
         maxLexicalScore = 4.0,
         maxSemanticScore = 1.0,
@@ -173,7 +173,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
 
     it("uses only the semantic score when vecWeight is 1") {
-      val score = combinedScore(
+      val score = fuseScores(
         hybridResult("semantic-only", lexicalScore = 2.0, semanticScore = 0.0),
         maxLexicalScore = 4.0,
         maxSemanticScore = 1.0,
@@ -184,7 +184,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
 
     it("contributes 0 from the lexical side when the max lexical score is 0") {
-      val score = combinedScore(
+      val score = fuseScores(
         hybridResult("no-lexical", lexicalScore = 0.0, semanticScore = 1.0),
         maxLexicalScore = 0.0,
         maxSemanticScore = 1.0,
@@ -196,7 +196,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
 
     it("contributes 0 from the semantic side when the max semantic score is -1") {
-      val score = combinedScore(
+      val score = fuseScores(
         hybridResult("no-semantic", lexicalScore = 4.0, semanticScore = -1.0),
         maxLexicalScore = 4.0,
         maxSemanticScore = -1.0,
@@ -210,7 +210,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
 
   describe("combineScoresAndGetTopK") {
     it("returns an empty list if the input is empty") {
-      combineScoresAndGetTopK(List(), vecWeight = 0.0, k = 3) should be (List())
+      fuseScoresAndGetTopK(List(), vecWeight = 0.0, k = 3) should be (List())
     }
 
     it("doesn't break when tha max lexical score is 0") {
@@ -228,7 +228,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("mid-lexical", lexicalScore = 5.0, semanticScore = 0.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.0, k = 3)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 0.0, k = 3)
 
       ranked.map(_.id) should be(List("high-lexical", "mid-lexical", "low-lexical"))
     }
@@ -240,7 +240,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("mid-lexical", lexicalScore = 5.0, semanticScore = -1.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
 
       ranked.map(_.id) should be(List("high-lexical", "mid-lexical", "low-lexical"))
     }
@@ -252,7 +252,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("mid-semantic", lexicalScore = 5.0, semanticScore = 0.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 1.0, k = 3)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 1.0, k = 3)
 
       ranked.map(_.id) should be(List("high-semantic", "mid-semantic", "low-semantic"))
     }
@@ -264,7 +264,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("mid-semantic", lexicalScore = 0.0, semanticScore = 0.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 0.5, k = 3)
 
       ranked.map(_.id) should be(List("high-semantic", "mid-semantic", "low-semantic"))
     }
@@ -276,7 +276,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("c", lexicalScore = 5.0, semanticScore = 1.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.0, k = 2)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 0.0, k = 2)
 
       ranked should have size 2
       ranked.map(_.id) should be(List("b", "c"))
@@ -292,7 +292,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         hybridResult("blend", lexicalScore = 2.0, semanticScore = 0.0)
       )
 
-      val ranked = combineScoresAndGetTopK(results, vecWeight = 0.25, k = 3)
+      val ranked = fuseScoresAndGetTopK(results, vecWeight = 0.25, k = 3)
 
       val blend = ranked.find(_.id == "blend").value
       // Recompute the expected combined score independently of ordering.

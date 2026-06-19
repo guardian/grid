@@ -261,7 +261,7 @@ class ElasticSearch(
     vecWeight: Double,
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    import HybridResult.{resolveHitAndFillInSemanticScore, combineScoresAndGetTopK}
+    import HybridResult.{resolveHitAndFillInSemanticScore, fuseScoresAndGetTopK}
 
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
     val lexicalSearchRequest = lexicalRequest(lexicalQuery, k, filterOpt)
@@ -302,7 +302,7 @@ class ElasticSearch(
       val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
         resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit)
       }
-      val topK = combineScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
+      val topK = fuseScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
       topK.foreach { r =>
         logger.info(logMarker, s"hybrid result ${r.id}: lexicalScore=${r.lexicalScore} semanticScore=${r.semanticScore} " +
           s"originallyFromLexical=${lexicalIds.contains(r.id)} originallyFromSemantic=${semanticIds.contains(r.id)}")

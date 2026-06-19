@@ -38,7 +38,7 @@ object HybridResult {
     if (max == theoreticalMin) 0.0
     else (score - theoreticalMin) / (max - theoreticalMin)
 
-  def combinedScore(
+  def fuseScores(
     result: HybridResult,
     maxLexicalScore: Double,
     maxSemanticScore: Double,
@@ -51,7 +51,7 @@ object HybridResult {
     (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
   }
 
-  def combineScoresAndGetTopK(
+  def fuseScoresAndGetTopK(
     results: List[HybridResult],
     vecWeight: Double,
     k: Int
@@ -68,7 +68,7 @@ object HybridResult {
       maxSemanticScore <- results.map(_.semanticScore).maxOption
     } yield {
       results
-        .sortBy(combinedScore(_, maxLexicalScore, maxSemanticScore, vecWeight))(Ordering[Double].reverse)
+        .sortBy(fuseScores(_, maxLexicalScore, maxSemanticScore, vecWeight))(Ordering[Double].reverse)
         .take(k)
     }).getOrElse(List())
   }
