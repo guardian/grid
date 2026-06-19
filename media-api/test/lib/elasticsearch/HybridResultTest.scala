@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 
 class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with Tolerance with Fixtures {
 
-  import HybridResult.{fuseScoresAndGetTopK, fuseScores, normalise, resolveHitAndFillInSemanticScore}
+  import HybridResult.{fuseScoresAndGetTopK, fuseScores, normalise, resolveHitAndFillInSemanticScore, Bm25TheoreticalMin, CosineSimilarityTheoreticalMin}
 
   private val tolerance = 1e-9
 
@@ -120,32 +120,32 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         resolveHit = resolveTo(image)
       ).value
 
-      result.semanticScore should be(-1.0 +- tolerance)
+      result.semanticScore should be(CosineSimilarityTheoreticalMin +- tolerance)
     }
   }
 
   describe("normalise") {
     it("maps a score to its fraction of the way from the theoretical min to the max") {
       // Halfway between theoreticalMin 0 and max 10.
-      normalise(score = 5.0, max = 10.0, theoreticalMin = 0.0) should be(0.5 +- tolerance)
+      normalise(score = 5.0, max = 10.0, theoreticalMin = Bm25TheoreticalMin) should be(0.5 +- tolerance)
     }
 
     it("maps the max itself to 1") {
-      normalise(score = 10.0, max = 10.0, theoreticalMin = 0.0) should be(1.0 +- tolerance)
+      normalise(score = 10.0, max = 10.0, theoreticalMin = Bm25TheoreticalMin) should be(1.0 +- tolerance)
     }
 
     it("maps the theoretical min itself to 0") {
-      normalise(score = -1.0, max = 1.0, theoreticalMin = -1.0) should be(0.0 +- tolerance)
+      normalise(score = -1.0, max = 1.0, theoreticalMin = CosineSimilarityTheoreticalMin) should be(0.0 +- tolerance)
     }
 
     it("accounts for a non-zero theoretical min when normalising") {
       // (0 - -1) / (1 - -1) = 0.5
-      normalise(score = 0.0, max = 1.0, theoreticalMin = -1.0) should be(0.5 +- tolerance)
+      normalise(score = 0.0, max = 1.0, theoreticalMin = CosineSimilarityTheoreticalMin) should be(0.5 +- tolerance)
     }
 
     it("returns 0 when the range collapses (max == theoreticalMin)") {
-      normalise(score = 0.0, max = 0.0, theoreticalMin = 0.0) should be(0.0 +- tolerance)
-      normalise(score = -1.0, max = -1.0, theoreticalMin = -1.0) should be(0.0 +- tolerance)
+      normalise(score = 0.0, max = 0.0, theoreticalMin = Bm25TheoreticalMin) should be(0.0 +- tolerance)
+      normalise(score = -1.0, max = -1.0, theoreticalMin = CosineSimilarityTheoreticalMin) should be(0.0 +- tolerance)
     }
   }
 

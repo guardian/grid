@@ -12,6 +12,11 @@ case class HybridResult(
 )
 
 object HybridResult {
+  // Theoretical minimum cosine similarity (opposite vectors).
+  val CosineSimilarityTheoreticalMin: Double = -1.0
+  // Theoretical minimum BM25 lexical score.
+  val Bm25TheoreticalMin: Double = 0.0
+
   def resolveHitAndFillInSemanticScore(
     hit: SearchHit,
     queryEmbedding: List[Double],
@@ -27,7 +32,7 @@ object HybridResult {
         // *not* the ES-normalised score, but when we max-normalise
         // later it will end up in the range 0-1.
         .map(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
-        .getOrElse(-1.0)
+        .getOrElse(CosineSimilarityTheoreticalMin)
       HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
     }
 
@@ -44,10 +49,10 @@ object HybridResult {
     maxSemanticScore: Double,
     vecWeight: Double
   ): Double = {
-    val normedLexicalScore = normalise(result.lexicalScore, maxLexicalScore, theoreticalMin = 0.0)
+    val normedLexicalScore = normalise(result.lexicalScore, maxLexicalScore, theoreticalMin = Bm25TheoreticalMin)
     // The semantic theoretical min of -1 means we do both the max-norming
     // and the ES-score norming in one step.
-    val normedSemanticScore = normalise(result.semanticScore, maxSemanticScore, theoreticalMin = -1.0)
+    val normedSemanticScore = normalise(result.semanticScore, maxSemanticScore, theoreticalMin = CosineSimilarityTheoreticalMin)
     (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
   }
 
