@@ -11,6 +11,69 @@
 
 ---
 
+## Status snapshot & post-D3 standing constraints (added 2026-06-20)
+
+> Sections 1–9 below are the original derivation (2026-05-31) and remain correct. This banner
+> was added after D3 shipped to record **what is built** and the **invariants D3 established that
+> every future gap workplan must honour**. Design-level constraints live here; the Scala spelling
+> of each lives in `media-api-instructions-for-agents.md` (the "hand to implementing agents" doc).
+
+**Build status**
+
+| Bucket / item | Status |
+|---|---|
+| B1 — shape-leak elimination (Section 4a) | ✅ DONE — `bcde65a58` |
+| B2 — method fusions (Section 4b) | ✅ DONE |
+| D3 — `searchAfter` cursor endpoint (Section 5) | ✅ DONE — `49cae4bb7` (TS) + `b52d027da` (Scala) |
+| D1, D2, D4, D5, D6, D7, D8, D9 | ⬜ not started |
+| A items (`searchRange`, `getAggregation`, `getById`, `searchByAi`) | ⬜ not started (client wiring only — no server work) |
+| C items (C1–C3) | ⬜ not started |
+
+**Recommended next order** (single-session oversight): **D7 + D8 + D9 together** — three small POST
+endpoints that reuse the D3 plumbing (`SearchParamsBody.fromJson`, the lifted `hitToImageEntity`);
+one session, **three Scala commits** (one per gap, for per-gap PR extraction). Then **D1**, then
+**D2** as **separate** sessions, each opening with an algorithm spec (the `c1998394b` null-zone
+precedent). D8 (PIT) before D1/D2 because they need it for snapshot consistency.
+
+**Standing constraints established by D3** (every new gap workplan must honour these):
+
+1. **Option B is the template for *every* cursor endpoint, not just D3.** The client sends the
+   fully-resolved ES sort clause; the server applies it verbatim (`jsonToSort`) and never calls
+   `createSort`. D1/D2/D4 reuse this — the cursor-shape-parity invariant then holds by construction.
+   *Cost to track:* each new cursor endpoint adds another place the API leaks the ES sort DSL, so
+   the deferred **Option A** (server owns a semantic `orderBy`) grows more expensive with each one.
+   See `phase-3-d3-searchafter-sort-companion-workplan.md`.
+2. **PIT is migration-aware** (Section 7, obs 5): open across both indexes when a migration is
+   running; any endpoint consuming a `pitId` bypasses `prepareSearch` (`search(Nil).pit(...)`) so the
+   migration dedup filter can't shrink results. D1/D2 inherit this. (We built D3 before D8/PIT — fine:
+   kupua still runs PIT lifecycle via direct-ES and the endpoint takes `pitId` as a param.)
+3. **Enrichment flows through the overlay, written at commit-to-view points only.** Server-authoritative
+   `cost`/`valid`/`persisted`/`actions` ride in each hit; the store writes them at fresh-search /
+   extend / seek, never inside the adapter fetch (the F-1 clobber lesson). D9 and any future
+   image-returning endpoint use the same channel.
+4. **Image-returning endpoints reuse the lean schema-derived projection + strip-before-validate**
+   (`Image` fields − `{embedding, originalMetadata, fileMetadata}` + alias paths; strip the dropped
+   fields from a *copy* before `validate[Image]`). D9 inherits this.
+5. **POST + `auth.async(parse.json)` is the adopted pattern** for cursor/body-heavy endpoints — this
+   resolves the old "GET-vs-POST" open question (`media-api-conventions.md` §15.1). **Pending team
+   sign-off (N-3)** — see `phase-3-d3-searchafter-scala-pr.md`.
+
+**Performance — the one prod lever still unbuilt.** The dominant prod cost is the Argo **envelope
+build** (~55 ms/page). A lean one-pass writer (`createForBrowse`) was prototyped and **reverted** —
+it is *not* in the shipped code (`searchAfterImages` uses `hitToImageEntity` → `imageResponse.create`).
+Build it before drawing any perf verdict, or you measure dev-tunnel noise (the uncompressed
+media-api↔ES leg is dev-only). Evidence: `phase-3-d3-searchafter-perf-deep-dive.md` (kept active for
+engineer discussion).
+
+**Executing a future gap?** The authoritative algorithm source is the **live kupua TS**
+(`es-adapter.ts`, `null-zone.ts`, `sort-builders.ts`) — more current than the archived Phase-2
+snapshot (which predates `usagesDateAdded` and the usages nested-agg). The archived
+`ref--media-api-gap-closure-feasibility.md` and `ref--media-api-gap-01-searchAfter-findings-2.md`
+(in `zz Archive/media-api-work/`) hold the elastic4s / PIT Scala notes worth consulting for
+D8/D2/D4/D5/D6.
+
+---
+
 ## Section 1 — Classification Matrix
 
 | # | DAL method | Bucket | Phase 2 ref | Phase 1 ref | One-line rationale |
@@ -831,6 +894,9 @@ C4 is noted here because it is a C-sized addition to the D-sized `searchAfter` e
 
 Sorted by size descending.
 
+> **Status (2026-06-20):** D3 ✅ shipped (`49cae4bb7` + `b52d027da`). D1, D2, D4–D9 ⬜ not started.
+> See the status banner at the top of this doc for the recommended build order.
+
 | # | New capability | Size (S/M/L) | DAL methods served | Phase 1 closest existing thing |
 |---|----------------|--------------|--------------------|---------------------------------|
 | D1 | `fetchPositionIndex?` — paginated ID+cursor stream, no content, two-phase null-zone | **L** | `fetchPositionIndex?` | Phase 1 §6.3 `lookupIds` (not routed, wrong API, 200-ID cap) |
@@ -853,7 +919,7 @@ The original plan numbered gaps 1–18 (with skips). For each:
 
 | Original gap | Verdict | Reason |
 |---|---|---|
-| **Gap 1** — `searchAfter` cursor pagination | **CONFIRMED D3** (D) — still needed | Core pagination gap. B1 client refactor removes `sortOverride`/`extraFilter` first. |
+| **Gap 1** — `searchAfter` cursor pagination | **✅ DONE — D3** (`49cae4bb7` + `b52d027da`) | Core pagination gap. B1 client refactor removed `sortOverride`/`extraFilter` first; shipped under Option B. |
 | **Gap 2** — PIT (openPit/closePit) | **CONFIRMED D8** (D) — still needed | Absolutely absent. Phase 1 §6.7 confirms no PIT code anywhere. |
 | **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — still needed | B1 removes `sortClause` param first (pure client refactor, independent value). |
 | **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. |

@@ -14,13 +14,12 @@ See `media-api-conventions.md` for full detail and file:line cites.
 2. **Route ordering.** Specific paths before generic. `POST /images/search-after`
    must appear *before* `GET /images/:id` in `conf/routes`. Cite: §2 of conventions.
 
-3. **GET only for reads (current media-api pattern — may change).** All existing
-   search params go as URL query strings via `SearchParams.apply(request)` +
-   `getQueryString()`. POST body parsing does not exist in MediaApi yet, but IS
-   standard across Grid (6 services, ~25 endpoints use `auth.async(parse.json)`).
-   Whether new cursor-based endpoints should adopt the Grid-wide POST pattern is an
-   **open decision** — see Appendix A of conventions doc. Model implementation:
-   `leases/MediaLeaseController.scala:97`. Cite: `ElasticSearchModel.scala:140+`.
+3. **POST + `auth.async(parse.json)` for cursor/body-heavy reads (adopted by D3).** Simple
+   reads still use GET + URL query strings via `SearchParams.apply(request)` + `getQueryString()`.
+   But cursor/filter-heavy endpoints (compound `sortValues`, large ID lists) use POST with a JSON
+   body parsed via `auth.async(parse.json)` — established by `POST /images/search-after` (deviations
+   §27), in line with 6 other Grid services. **Team sign-off still pending (N-3).** Model
+   implementations: `leases/MediaLeaseController.scala:97`; `MediaApi.searchAfterImages`.
 
 4. **Every handler opens with a logMarker.** Pattern:
    `MarkerMap("requestType" -> "...", "requestId" -> ..., "imageId" -> ...) ++ RequestLoggingFilter.loggablePrincipal(request.user)`.
@@ -85,8 +84,46 @@ See `media-api-conventions.md` for full detail and file:line cites.
 
 21. **`resolveHit` turns a raw `SearchHit` into `Option[SourceWrapper[Image]]`.** Never parse `hit.sourceAsString` manually. Use `resolveHit` (private to `ElasticSearch`) or mirror its pattern exactly. Cite: `ElasticSearch.scala:153`.
 
-22. **Before writing any code,** read §14-15 of `media-api-conventions.md`. Open
-    questions requiring team input: **GET vs POST for new endpoints (§15.1)**, testing
-    bar (§15.2), sort value serialisation (§15.3), cluster PIT overhead (§15.6), and
-    `_source` filtering (§15.7). Argo format (§15.4) is resolved. §15.1 is the
-    critical blocker — it determines the controller pattern for all cursor endpoints.
+22. **Before writing any code,** read §14-15 of `media-api-conventions.md`. **§15.1 (GET vs POST)
+    is RESOLVED** — D3 adopted POST + `auth.async(parse.json)` (pending team sign-off, N-3). Argo
+    format (§15.4) and PIT availability (§15.5) are also resolved. Remaining open questions for
+    team input: testing bar (§15.2), sort-value serialisation (§15.3), cluster PIT overhead (§15.6),
+    `_source` filtering (§15.7).
+
+---
+
+## Post-D3 standing constraints (Scala mechanics for future cursor/image endpoints)
+
+> Added 2026-06-20 after D3 shipped. Design-level rationale is in
+> `phase-3-minimal-gap-derivation-findings.md` (status banner); this is the Scala spelling.
+
+23. **Option B sort handling — every cursor endpoint, never `createSort`.** The client (kupua
+    `buildSortClause`) sends the fully-resolved ES sort clause in the request body. Deserialise it
+    with `sorts.jsonToSort` (flat `{field:"asc"}` and nested-object
+    `{field:{order,missing,mode,nested}}` shapes), apply verbatim, and use `sorts.reverseSorts` for
+    reverse pagination. Do **not** call `sorts.createSort` on a cursor path — it serves Kahuna and
+    must not change. Read `orderBy` only for the `dateAddedToCollection` companion `pathHierarchy`
+    filter (both token orders).
+
+24. **PIT consumers bypass `prepareSearch`.** When a `pitId` is present, build the request as
+    `ElasticDsl.search(Nil).query(q).pit(...)` (still apply `withSearchQueryTimeout`) — the migration
+    dedup filter from `prepareSearch` must NOT be applied to a PIT (it shrinks results mid-migration).
+    When D8 builds `POST /images/pit`, open the PIT across both `imagesCurrentAlias` and the running
+    migration index. Cite: `ElasticSearch.searchAfter` PIT branch; `phase-3-d3-searchafter-scala-pr.md`.
+
+25. **Image-returning endpoints reuse the lean projection + strip-before-validate.** `_source` is the
+    schema-derived `Image` field set minus `{embedding, originalMetadata, fileMetadata}` plus
+    `fieldAliasConfigs` paths. Because that yields a *partial* `fileMetadata` that `Image`'s reader
+    rejects, strip the dropped fields from a copy of `_source` before `validate[Image]` while keeping
+    the full source for alias extraction (`resolveSearchAfterHit`). Keep this separate from the
+    production `resolveHit`/`mapImageFrom`. Cite: deviations §32.
+
+26. **Shared building blocks from D3.** `SearchParamsBody.fromJson(body, tier)` (POST body →
+    `SearchParams`) and the lifted private `hitToImageEntity(request, include)` (hit → enriched
+    `EmbeddedEntity`) are reused by all new POST/image endpoints (D7/D9). New `*Params`/`*Results`
+    case classes go in `ElasticSearchModel.scala` with `OWrites`.
+
+27. **Branch/PR discipline.** One Scala commit per gap (even when building several in one session) so
+    each cherry-picks cleanly onto `main` as its own PR. One PR doc per Scala commit
+    (`phase-3-d3-searchafter-scala-pr.md` is the template). See `media-api-worknotes.md` for the
+    extraction recipe.

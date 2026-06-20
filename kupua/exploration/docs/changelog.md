@@ -14,6 +14,45 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20 June 2026 — media-api-work docs refresh + D7/D8/D9 workplan (D3 shipped)
+
+Documentation pass after D3 (`POST /images/search-after`) shipped: a `media-api-work/` folder
+cleanup (~30 docs → **9 active + 22 archived**) **plus the next buildable workplan**. No code changed.
+
+**Edits:**
+- **`phase-3-minimal-gap-derivation-findings.md`** — added a top **status banner** (B1/B2/D3 ✅,
+  D1/D2/D4–D9 ⬜; recommended next order D7+D8+D9 → D1 → D2) and the **post-D3 standing constraints**
+  (Option-B sort template, migration-aware PIT, enrichment-at-commit, lean projection, POST adopted),
+  plus the unbuilt-perf-lever line and an "executing a gap? use live TS; archived `ref--` docs hold
+  the elastic4s/PIT Scala notes" pointer. Gap-1 / Section-5 marked done.
+- **`phase-3-d3-searchafter-scala-pr.md`** — corrected the `createForBrowse` claim (prototyped +
+  **reverted**, not shipped; `searchAfterImages` uses `hitToImageEntity` → `imageResponse.create`)
+  and added a Performance note (lean writer = the unbuilt prod lever; dev slowness = uncompressed
+  media-api↔ES leg).
+- **`changelog.md`** — same `createForBrowse` correction in the 12–15 June D3 entry (two places).
+- **`media-api-conventions.md`** — §14.1/§15.1 GET-vs-POST marked **resolved by D3** (pending team
+  sign-off, N-3); removed two dangling refs to a non-existent `media-api-conventions-POST-research.md`.
+- **`media-api-instructions-for-agents.md`** (+ the `.github` mirror) — items 3 & 22 de-staled;
+  **new items 23–27** capture the Scala mechanics (Option-B sort, PIT bypass, lean projection +
+  strip-before-validate, shared `fromJson`/`hitToImageEntity`, one-commit-per-gap).
+- **`_index.md`** — rewritten to "Active docs" + "Archived" sections (now lists the new workplan).
+
+**Added:**
+- **`phase-3-d7-d8-d9-workplan.md`** — a detailed, buildable workplan for the next three searchAfter
+  companions (D7 `countWithTickers`, D8 PIT lifecycle, D9 `mget`), to the D3 standard, built from
+  four read-only research passes. §0 records the research: items #1–#3 **resolved** (server already
+  emits the agency-picks supplier sub-counts; multi-index `createPointInTime` via comma-joined
+  `Index`; shared `mapLeanImageFrom` strip helper) and baked into the plan; **#4**
+  (enrichment-overlay population for `getById`/`getByIds`) left as a team decision with a
+  recommended default (populate both). Listed in `_index.md` as "next to build".
+
+**Archived to `zz Archive/media-api-work/` (22 docs):** the D3 build history (workplan, worklog,
+both code reviews, payload-perf, perf-review, fileMetadata companion), the B1/B2 workplans, the
+gap-derivation handoff, the Phase-1/2/2.5 research inputs, and all 6 `ref--*` docs. Active folder is
+now: `phase-3-minimal-gap-derivation-findings.md`, `phase-3-d7-d8-d9-workplan.md`,
+`phase-3-d3-searchafter-{scala-pr, sort-companion-workplan, perf-deep-dive}.md`,
+`media-api-{conventions, instructions-for-agents, worknotes}.md`, `_index.md`.
+
 ### 15 June 2026 — Fix 5 pre-existing TypeScript errors (zero TS errors now)
 
 All five were pre-existing before this session. None were introduced by the `enrichByIds` cleanup.
@@ -158,10 +197,11 @@ writer, and the `--use-media-api` perf harness flag.
   too). Rationale in `post-phase-3-d3-searchafter-blur-graphic-work.md`.
 - *PIT bypass of `prepareSearch`*: when a `pitId` is present, uses `ElasticDsl.search(Nil)`
   directly so the migration dedup filter from `prepareSearch` is not applied.
-- *`createForBrowse`*: lean one-pass Argo writer in `ImageResponse` — replaces the 12-step
-  `.transform` chain with a single `imageResponseWrites` call + `++` merge. Skips `imageLinks`
-  (browse clients don't read them). Measured at ~137 ms/page envelope on the dev tunnel; the
-  12-step chain was ~78 % of that.
+- *`createForBrowse`* (prototyped, then **reverted** — not in the shipped code): a lean one-pass
+  Argo writer was explored to replace the 12-step `.transform` chain (measured ~42% envelope
+  reduction). It was reverted before ship; `searchAfterImages` enriches via the lifted
+  `hitToImageEntity` → `imageResponse.create`. The lean writer remains the main unbuilt prod
+  perf lever — see `phase-3-d3-searchafter-perf-deep-dive.md`.
 
 ---
 
@@ -208,7 +248,8 @@ writer, and the `--use-media-api` perf harness flag.
 #### Enrichment overlay revive
 
 `setEnrichment` was written only in tests — the overlay was never populated in production. The
-search-after response from `imageResponse.createForBrowse` already carries all enrichment fields
+search-after response (built via the lifted `hitToImageEntity` → `imageResponse.create`) already
+carries all enrichment fields
 (cost, validity, rights, actions, `isPotentiallyGraphic`) server-authoritative. `apiSearchAfter`
 now extracts those fields and returns them as an enrichment map; `search-store.ts` writes the
 overlay at commit-to-view points. `deriveImage` is unchanged — it already merges baseline ⊕ overlay

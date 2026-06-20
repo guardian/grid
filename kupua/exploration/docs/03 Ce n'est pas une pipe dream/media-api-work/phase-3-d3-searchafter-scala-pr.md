@@ -30,8 +30,9 @@ for alias extraction.
 `"-dateAddedToCollection"` (the ascending token kupua sends). See the Kahuna note below.
 
 **`MediaApi.scala`** — `hitToImageEntity` lifted to private method. `searchAfterImages` action
-uses `imageResponse.createForBrowse` (lean one-pass Argo writer, replaces 12-step transform chain;
-skips `imageLinks`). Typed `SearchAfterResponse` case class + `OWrites`.
+enriches each hit via the lifted `hitToImageEntity` (→ `imageResponse.create`), with a typed
+`SearchAfterResponse` case class + `OWrites`. (A lean one-pass writer, `createForBrowse`, was
+prototyped and measured but **reverted** — it is not in this PR. See the Performance note below.)
 
 **`conf/routes`** — `POST /images/search-after` before `GET /images/:id`.
 
@@ -59,6 +60,21 @@ unrecognised `orderBy` token to `-uploadTime` before the request reaches media-a
 from the Kahuna UI (even via manual URL editing). This change benefits **direct API
 callers** (curl, REST clients, future integrations). We left the server-side contract
 more correct; the Kahuna JS is a separate concern.
+
+## Performance note
+
+Each hit is enriched via the lifted `hitToImageEntity` → `imageResponse.create` — the same
+path Kahuna's `GET /images` uses. On a fast production ES link the dominant per-page cost is
+this Argo **envelope build** (~55 ms/page, measured): `imageResponse.create` runs a ~12-step
+`JsObject.transform` chain and presigns S3 URLs per hit. A lean one-pass writer
+(`createForBrowse`) was prototyped and measured (~42% envelope reduction) but **reverted** —
+it is not in this PR. It is the main remaining server-side optimisation and is worth building
+before this endpoint carries production browse traffic.
+
+The ~3× slowness versus direct-ES that you may see in local dev is a **separate, dev-only
+artefact**: the elastic4s client → ES leg is uncompressed (~5× the bytes over the same SSH
+tunnel), which does not apply on the production same-VPC link. Full evidence and measurements:
+`phase-3-d3-searchafter-perf-deep-dive.md`.
 
 ## Two decisions for team consideration
 

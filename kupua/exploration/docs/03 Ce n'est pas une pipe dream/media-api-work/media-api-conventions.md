@@ -577,16 +577,14 @@ existing file's case when adding to it; for new files use PascalCase.
 
 ## 14. Patterns I'm Uncertain About
 
-1. **POST body parsing in MediaApi — absent here, but standard across Grid.**
-   media-api uses GET + URL query params for all read endpoints — confirmed by PRs
-   #4554, #4708, #4738. However, 6 other Grid services (collections, cropper, leases,
-   metadata-editor, usage, image-loader) use `auth.async(parse.json)` + `request.body
-   .validate[T]` across ~25 endpoints — the exact same `auth` wrapper media-api has.
-   This is not untested territory for the team; media-api is the outlier. Kupua's
-   cursor-based endpoints need compound `sortValues` and large ID lists that don't
-   fit GET cleanly. Whether to bring media-api in line with the rest of Grid for
-   these new endpoints is an **open decision**. See **Appendix A** for full analysis
-   and `media-api-conventions-POST-research.md` for the audit.
+1. **POST body parsing in MediaApi — RESOLVED by D3 (2026-06-15).** D3 (`POST /images/search-after`)
+   adopted `auth.async(parse.json)` + body parsing (deviations §27); this is now the pattern for
+   cursor/body-heavy endpoints. **Team sign-off still pending (N-3).** Background (still accurate):
+   media-api previously used GET + URL query params for all read endpoints — confirmed by PRs #4554,
+   #4708, #4738 — but 6 other Grid services (collections, cropper, leases, metadata-editor, usage,
+   image-loader) use `auth.async(parse.json)` + `request.body.validate[T]` across ~25 endpoints,
+   the exact same `auth` wrapper media-api has. media-api was the outlier; D3 brought it in line.
+   See **Appendix A** for the full analysis.
 
 2. **`SearchParams.validate`** — called in `imageSearch()` for standard (non-AI)
    searches: `SearchParams.validate(searchParams).fold(errors => respondError(...), params => performSearchAndRespond(params))`.
@@ -614,14 +612,13 @@ existing file's case when adding to it; for new files use PascalCase.
 
 ## 15. Questions for the Team
 
-1. **GET vs POST for new endpoints — open decision (but precedent is clear).**
-   media-api has never used POST body parsing, but 6 other Grid services do — using
-   the same `auth.async(parse.json)` wrapper. Kupua's new endpoints need compound
-   cursor values (`sortValues`: mixed-type JSON arrays with nulls) and large ID
-   lists (>200 IDs) that strain or break the GET+query-string pattern. **See
-   Appendix A** for concrete examples and trade-offs. The model implementation is
-   `leases/MediaLeaseController.scala:97` (`postLease`). Team conversation needed
-   mainly to confirm intent, not to invent a pattern.
+1. **GET vs POST for new endpoints — RESOLVED by D3 (2026-06-15):** adopted **POST +
+   `auth.async(parse.json)`** for cursor/body-heavy endpoints (deviations §27). Kupua's endpoints
+   need compound cursor values (`sortValues`: mixed-type JSON arrays with nulls) and large ID
+   lists (>200 IDs) that strain or break GET+query-string. The model implementation is
+   `leases/MediaLeaseController.scala:97` (`postLease`); **see Appendix A** for the trade-offs.
+   **Still open: team sign-off (N-3)** — confirm this as the standing convention before the `main`
+   PR; it was a unilateral implementation choice the team had reserved.
 
 2. **Testing bar for new read-only endpoints** — Are controller-level tests expected
    (none exist currently in media-api), or is integration coverage at the ES layer
@@ -746,7 +743,7 @@ Null-zone: `"sortValues": [null, "abc123def456"]` — native JSON, unambiguous.
 **Problems:**
 - First POST-for-reads in MediaApi — but NOT a new pattern for Grid (6 services,
   ~25 endpoints already use `auth.async(parse.json)` with the same auth wrapper).
-  See `media-api-conventions-POST-research.md` for the full audit.
+  (Adopted by D3 — see deviations §27.)
 - Slightly harder to test with curl (need `-d` flag)
 - Breaks the assumption that all `SearchParams` come from `getQueryString()`
 
