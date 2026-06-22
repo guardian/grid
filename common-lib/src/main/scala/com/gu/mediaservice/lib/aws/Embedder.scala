@@ -18,7 +18,7 @@ object EmbedderMessage {
 
 class Embedder(bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: ExecutionContext) extends GridLogging {
 
-  def createQueryEmbedding(query: String)(implicit logMarker: LogMarker): Future[List[Float]] = {
+  def createQueryEmbedding(query: String)(implicit logMarker: LogMarker): Future[List[Double]] = {
     logger.info(logMarker, s"Creating text embedding for query: $query")
     for {
       embedding <- bedrock.createTextEmbedding(query)
