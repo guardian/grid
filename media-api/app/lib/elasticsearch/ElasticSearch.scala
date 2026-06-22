@@ -179,14 +179,14 @@ class ElasticSearch(
       }
   }
 
-  def knnSearch(queryEmbedding: List[Float], k: Int, numCandidates: Int, filterOpt: Option[Query])
+  def knnSearch(queryEmbedding: List[Double], k: Int, numCandidates: Int, filterOpt: Option[Query])
                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     if (!includeDenseVectorMappings) {
       logger.warn(logMarker, "knnSearch called but includeDenseVectorMappings=false, returning empty results")
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
       val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
-        .queryVector(queryEmbedding.map(_.toDouble))
+        .queryVector(queryEmbedding)
         .k(k)
         .numCandidates(numCandidates)
 
@@ -268,7 +268,7 @@ class ElasticSearch(
 
   def hybridSearch(
     query: String,
-    queryEmbedding: List[Float],
+    queryEmbedding: List[Double],
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
@@ -281,11 +281,9 @@ class ElasticSearch(
       logger.warn(logMarker, "hybridSearch called but includeDenseVectorMappings=false, returning empty results")
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
-      val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
-
       for {
         maxScore <- fetchMaxBm25Score(query, filterOpt)
-        searchRequest = makeHybridSearchRequest(query, queryEmbeddingDouble, k, numCandidates, vecWeight, maxScore, filterOpt)
+        searchRequest = makeHybridSearchRequest(query, queryEmbedding, k, numCandidates, vecWeight, maxScore, filterOpt)
         result <- executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid search")
       } yield {
         val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
