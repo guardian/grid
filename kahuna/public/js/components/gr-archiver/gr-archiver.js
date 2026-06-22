@@ -27,6 +27,7 @@ module.controller('grArchiverCtrl', [
     'humanJoin',
     'mediaApi',
     'getDeletedState',
+    'apiPoll',
     function ($scope,
               $window,
               archiveService,
@@ -34,7 +35,8 @@ module.controller('grArchiverCtrl', [
               imageLogic,
               humanJoin,
               mediaApi,
-              getDeletedState) {
+              getDeletedState,
+              apiPoll) {
 
         const ctrl = this;
 
@@ -115,14 +117,30 @@ module.controller('grArchiverCtrl', [
                 reduce((all, items) => all.union(items)).
                 toArray();
         }
+
+        function pollUndeleted(imageId) {
+          const findImage = () => mediaApi.find(imageId).then(
+            (i) => i.data?.softDeletedMetadata === undefined && i.data.userMetadata?.data?.archived
+              ? Promise.resolve()
+              : Promise.reject()
+          );
+          return apiPoll(findImage);
+        }
         function undelete() {
             ctrl.undeleting = true;
             const imageId = ctrl.image.data.id;
             mediaApi.undelete(imageId)
-                .then(
-                  ctrl.canUndelete = ctrl.isDeleted = false
-                ).catch(() => {
+                .then(() => pollUndeleted(imageId))
+                .then(() => {
+                    ctrl.canUndelete = ctrl.isDeleted = false;
+                    ctrl.image.softDeletedMetadata = undefined;
+                    if (ctrl.image.userMetadata?.data !== undefined) {
+                        ctrl.image.userMetadata.data.archived = true;
+                    }
+                    $scope.$emit('images-updated', [ctrl.image]);
+                }).catch((e) => {
                      $window.alert('Failed to undelete image!, please try again.');
+                     console.error('Image undeletion failed', e);
                 }).finally(() => {
                      ctrl.undeleting = false;
                 });
