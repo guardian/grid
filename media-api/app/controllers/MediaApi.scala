@@ -55,7 +55,7 @@ class MediaApi(
   // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
   // concurrent requests for the same query share a single in-flight Bedrock call, and
   // subsequent requests within the TTL window skip Bedrock entirely.
-  private val embeddingCache: AsyncLoadingCache[String, List[Float]] = Scaffeine()
+  private val embeddingCache: AsyncLoadingCache[String, List[Double]] = Scaffeine()
     .maximumSize(config.aiSearchEmbeddingCacheMaxSize)
     .buildAsyncFuture((normQuery: String) =>
       embedder.createQueryEmbedding(normQuery)(MarkerMap())
@@ -621,7 +621,7 @@ class MediaApi(
           .filter(image => isVisibleToAccessor(request.user, image))
           .flatMap(_.embedding)
           .flatMap(_.cohereEmbedV4)
-          .map(_.image.map(_.toFloat))
+          .map(_.image)
         searchResults <- maybeEmbedding match {
           // If we have an embedding, perform the KNN search. If not, return an empty result set.
           case Some(embedding) =>
@@ -650,7 +650,7 @@ class MediaApi(
             logger.info(markers, s"AI search embedding cache miss query=$semanticQuery")
           }
 
-          val weight = params.vecWeight.getOrElse(1.0)
+          val weight = params.vecWeight.getOrElse(0.8)
 
           // cache.get(key) is atomic: if two requests race on the same key, only one
           // load fires and both callers receive the same Future.

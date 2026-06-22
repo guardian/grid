@@ -462,7 +462,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       image.copy(embedding = Some(Embedding(cohereEmbedV4 = Some(CohereV4Embedding(image = vector)))))
 
     // The vector we'll "search" with - represents the user's query embedding.
-    val queryEmbedding: List[Float] = oneHot(0).map(_.toFloat)
+    val queryEmbedding: List[Double] = oneHot(0)
 
     // Matches the text "kitten" but has NO embedding at all: a pure *lexical*
     // hit. Deliberately un-embedded so it is invisible to the kNN (semantic)
@@ -605,7 +605,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       arr.toList
     }
 
-    def hybridSearchIdsFor(query: String, queryEmbedding: List[Float], vecWeight: Double, k: Int): Seq[String] =
+    def hybridSearchIdsFor(query: String, queryEmbedding: List[Double], vecWeight: Double, k: Int): Seq[String] =
       Await.result(
         ES.hybridSearch(
           query = query,
@@ -699,7 +699,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       contributionImagesIndexed
 
       val query = "axolotl"
-      val queryVector = oneHot(7).map(_.toFloat)
+      val queryVector = oneHot(7)
 
       // A pure semantic search returns only the nearer vector - proving the
       // lexical hit is genuinely outside the top-k semantic results.
@@ -716,7 +716,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       contributionImagesIndexed
 
       val query = "narwhal arctic ocean"
-      val queryVector = oneHot(9).map(_.toFloat)
+      val queryVector = oneHot(9)
 
       // A pure lexical search returns the two strong text matches and not
       // 'ai-semantic-hit-with-text' - proving it is genuinely outside the top-k

@@ -229,7 +229,7 @@ class ElasticSearch(
       .size(k)
 
   def semanticSearch(
-    queryEmbedding: List[Float],
+    queryEmbedding: List[Double],
     k: Int,
     numCandidates: Int,
     filterOpt: Option[Query]
@@ -239,7 +239,7 @@ class ElasticSearch(
       logger.warn(logMarker, "semanticSearch called but includeDenseVectorMappings=false, returning empty results")
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
-      val searchRequest = semanticRequest(queryEmbedding.map(_.toDouble), k, numCandidates, filterOpt)
+      val searchRequest = semanticRequest(queryEmbedding, k, numCandidates, filterOpt)
 
       executeAndLog(withSearchQueryTimeout(searchRequest), "semantic search").map { r =>
         val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
@@ -313,7 +313,7 @@ class ElasticSearch(
 
   def hybridSearch(
     query: String,
-    queryEmbedding: List[Float],
+    queryEmbedding: List[Double],
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
@@ -326,8 +326,6 @@ class ElasticSearch(
       logger.warn(logMarker, "hybridSearch called but includeDenseVectorMappings=false, returning empty results")
       Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
     } else {
-      val queryEmbeddingDouble: List[Double] = queryEmbedding.map(_.toDouble)
-
       val stopwatch = Stopwatch.start
 
       // When the weighting is entirely on one side, short-circuit to that side
@@ -335,7 +333,7 @@ class ElasticSearch(
       val searchResults = vecWeight match {
         case 0.0 => lexicalSearch(query, k, filterOpt)
         case 1.0 => semanticSearch(queryEmbedding, k, numCandidates, filterOpt)
-        case _ => fusedLexicalAndSemanticSearch(query, queryEmbeddingDouble, k, numCandidates, vecWeight, filterOpt)
+        case _ => fusedLexicalAndSemanticSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
       }
 
       searchResults.foreach { _ =>
