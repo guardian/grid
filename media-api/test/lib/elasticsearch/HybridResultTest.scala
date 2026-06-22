@@ -208,17 +208,9 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
     }
   }
 
-  describe("combineScoresAndGetTopK") {
+  describe("fuseScoresAndGetTopK") {
     it("returns an empty list if the input is empty") {
       fuseScoresAndGetTopK(List(), vecWeight = 0.0, k = 3) should be (List())
-    }
-
-    it("doesn't break when tha max lexical score is 0") {
-      val results = List(
-        hybridResult("low-lexical", lexicalScore = 0.0, semanticScore = 1.0),
-        hybridResult("high-lexical", lexicalScore = 0.0, semanticScore = -1.0),
-        hybridResult("mid-lexical", lexicalScore = 0.0, semanticScore = 0.0)
-      )
     }
 
     it("ranks purely by lexical score when vecWeight is 0") {
