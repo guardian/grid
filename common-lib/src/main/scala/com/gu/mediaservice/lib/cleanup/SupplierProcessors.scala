@@ -22,9 +22,9 @@ class SupplierProcessors(resources: ImageProcessorResources)
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
     AllstarSportsphotoParser,
     AllStarParser,
+    new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
     UsageRightsToMetadataParser(resources) //This should come after processors that assign usage rights
   )
 
@@ -52,21 +52,24 @@ case class UsageRightsToMetadataParser(resources: ImageProcessorResources) exten
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
   */
 class PhotographerParser(photographersConfig: UsageRightsConfigProvider) extends ImageProcessor {
-  def apply(image: Image): Image = {
-    image.metadata.byline.flatMap { byline =>
-      photographersConfig.getPhotographer(byline, image.metadata.dateTaken.getOrElse(image.uploadTime)).map{
-        case p: StaffPhotographer => image.copy(
-          usageRights = p,
-          metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
-        )
-        case p: ContractPhotographer => image.copy(
-          usageRights = p,
-          metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
-        )
-        case _ => image
-      }
-    }
-  }.getOrElse(image)
+  def apply(image: Image): Image = image.usageRights match {
+    // only attempt to set Photographer Usagerights if no other processor has already set usage rights
+    case NoRights =>
+      image.metadata.byline.flatMap { byline =>
+        photographersConfig.getPhotographer(byline, image.metadata.dateTaken.getOrElse(image.uploadTime)).map{
+          case p: StaffPhotographer => image.copy(
+            usageRights = p,
+            metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))
+          )
+          case p: ContractPhotographer => image.copy(
+            usageRights = p,
+            metadata    = image.metadata.copy(credit = p.publication, byline = Some(p.photographer))
+          )
+          case _ => image
+        }
+      }.getOrElse(image)
+    case _ => image
+  }
 }
 
 object AapParser extends ImageProcessor {
