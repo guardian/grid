@@ -38,8 +38,8 @@ object ClientResponse {
 case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: String)
 
 object GridClient extends LazyLogging {
-  def apply(services: Services)(implicit wsClient: WSClient): GridClient =
-    new GridClient(services)
+  def apply(services: Services, originUri: String)(implicit wsClient: WSClient): GridClient =
+    new GridClient(services, originUri)
 
   sealed trait Response {
     def status: Int
@@ -96,7 +96,7 @@ object GridClient extends LazyLogging {
 
 }
 
-class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLogging {
+class GridClient(services: Services, originDomain: String)(implicit wsClient: WSClient) extends LazyLogging {
 
   /*
    * `requestTimeout` will set the max duration of the request before timing out. You may also want to increase the
