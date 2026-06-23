@@ -298,8 +298,8 @@ class ElasticSearch(
       val semanticResults = semanticHits.flatMap(resolveHitAndFillInSemanticScore(_, queryEmbedding, resolveHit))
 
       val ranked = fuseAndRank(lexicalResults, semanticResults, vecWeight, k)
-      val from = ranked.groupBy(_.source)
-      logger.info(logMarker, s"${ranked.length} hits (k=$k) after fusing and ranking, ${from(Lexical).length} from lexical, ${from(Semantic)} from semantic, ${from(Both).length} from both")
+      val counts = ranked.groupBy(_.source).view.mapValues(_.size).toMap.withDefaultValue(0)
+      logger.info(logMarker, s"${ranked.length} hits (k=$k) after fusing and ranking, ${counts(Lexical)} from lexical, ${counts(Semantic)} from semantic, ${counts(Both)} from both")
       SearchResults(hits = ranked.map(r => (r.result.id, r.result.image)), total = ranked.length, extraCounts = None)
     }
   }
