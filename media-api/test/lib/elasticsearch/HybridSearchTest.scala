@@ -61,84 +61,80 @@ class HybridSearchTest extends AnyFunSpec
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
 
+  // The vector we'll "search" with - represents the user's query embedding.
+  private val queryEmbedding: List[Double] = firstBasisVector(256)
+
+  private def aiImage(id: String, title: String, vector: List[Double]): Image = {
+    val base = createImage(id = id, usageRights = Handout(), vector = Some(vector))
+    base.copy(metadata = base.metadata.copy(title = Some(title)))
+  }
+
+  // 256-dim vectors to match the `embedding.cohereEmbedV4.image` dense_vector
+  // mapping, each constructed to have a known cosine similarity to the queryEmbedding.
+  private def vectorWithScore(score: Double): List[Double] = {
+    vectorWithCosineSimilarity(256, score)
+  }
+
+  // The full set of images shared by every spec below; indexed once in beforeAll.
+  private val testImages = Seq(
+    aiImage("a", title = "zero lexical", vector = vectorWithScore(1.0)),
+    aiImage("b", title = "zero lexical", vector = vectorWithScore(0.9)),
+    aiImage("c", title = "good lexical", vector = vectorWithScore(0.8)),
+    aiImage("d", title = "good good lexical", vector = vectorWithScore(0.7))
+  )
+
   override def beforeAll(): Unit = {
     super.beforeAll()
     ES.ensureIndexExistsAndAliasAssigned()
+
+    implicit val logMarker: LogMarker = MarkerMap()
+    purgeTestImages
+    Await.ready(saveImages(testImages), 1.minute)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe testImages.size)
   }
 
   describe("AI / hybrid search") {
     implicit val logMarker: LogMarker = MarkerMap()
 
-    // The vector we'll "search" with - represents the user's query embedding.
-    val queryEmbedding: List[Double] = firstBasisVector(256)
-
-    // 256-dim vectors to match the `embedding.cohereEmbedV4.image` dense_vector
-    // mapping, each constructed to have a known cosine similarity to the query.
-    val vectorWithSemanticScore: Map[Double, List[Double]] = Map(
-      1.0 -> vectorWithCosineSimilarity(256, 1.0),
-      0.9 -> vectorWithCosineSimilarity(256, 0.9),
-      0.8 -> vectorWithCosineSimilarity(256, 0.8),
-      0.7 -> vectorWithCosineSimilarity(256, 0.7),
-      0.5 -> vectorWithCosineSimilarity(256, 0.5),
-      0.0 -> vectorWithCosineSimilarity(256, 0.0),
-      -0.5 -> vectorWithCosineSimilarity(256, -0.5),
-      -0.9 -> vectorWithCosineSimilarity(256, -0.9),
-      -1.0 -> vectorWithCosineSimilarity(256, -1.0)
-    )
-
-    def aiImage(id: String, title: String, vector: List[Double]): Image = {
-      val base = createImage(id = id, usageRights = Handout(), vector = Some(vector))
-      base.copy(metadata = base.metadata.copy(title = Some(title)))
+    it("orders purely by semantic similarity when vecWeight = 1.0") {
+      val semanticOnlyResults = Await.result(
+        ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 1.0, filterOpt = None),
+        fiveSeconds
+      )
+      semanticOnlyResults.hits.map(_._1) shouldBe List("a", "b", "c", "d")
     }
 
-    // Replace the images persisted in ES with exactly `imgs`, so each test
-    // reasons about a small, fully controlled set of documents.
-    def withOnly(imgs: Seq[Image])(test: => Unit): Unit = {
-      purgeTestImages
-      Await.ready(saveImages(imgs), 1.minute)
-      eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe imgs.size)
-      test
+    it("runs only the lexical query when vecWeight = 0.0") {
+      val lexicalOnlyResults = Await.result(
+        ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 0.0, filterOpt = None),
+        fiveSeconds
+      )
+      // Because we asked for k = 4 but only got 2 back, this confirms
+      // the short-circuiting behaviour at vecWeight 0.0, i.e. only the lexical query ran.
+      lexicalOnlyResults.hits.map(_._1) shouldBe List("d", "c")
     }
 
-    it("joe") {
-      val a = aiImage("a", title = "zero lexical", vector = vectorWithSemanticScore(1.0))
-      val b = aiImage("b", title = "zero lexical", vector = vectorWithSemanticScore(0.9))
-      val c = aiImage("c", title = "good lexical", vector = vectorWithSemanticScore(0.8))
-      val d = aiImage("d", title = "good good lexical", vector = vectorWithSemanticScore(0.7))
+    it("includes all results once vecWeight > 0") {
+      val weightedHeavilyLexicallyResults = Await.result(
+        ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 0.1, filterOpt = None),
+        fiveSeconds
+      )
+      // We should now get all 4 because vecWeight > 0
+      weightedHeavilyLexicallyResults.hits.map(_._1) shouldBe List("d", "c", "a", "b")
+    }
 
-      withOnly(Seq(a, b, c, d)) {
-        val semanticOnlyResults = Await.result(
-          ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 1.0, filterOpt = None),
-          fiveSeconds
-        )
-        semanticOnlyResults.hits.map(_._1) shouldBe List("a", "b", "c", "d")
-
-        val lexicalOnlyResults = Await.result(
-          ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 0.0, filterOpt = None),
-          fiveSeconds
-        )
-        // Because we asked for k = 4 but only got 2 back, this confirms
-        // the short-circuiting behaviour at vecWeight 0.0, i.e. only the lexical query ran.
-        lexicalOnlyResults.hits.map(_._1) shouldBe List("d", "c")
-
-        val weightedHeavilyLexicallyResults = Await.result(
-          ES.hybridSearch("good", queryEmbedding, k = 4, numCandidates = 10, vecWeight = 0.1, filterOpt = None),
-          fiveSeconds
-        )
-        // We should now get all 4 because vecWeight > 0
-        weightedHeavilyLexicallyResults.hits.map(_._1) shouldBe List("d", "c", "a", "b")
-
-        // We've now proven that the lexical top 2 (d, c) are disjunct from the semantic top 2 (a, b)
-        // Therefore, without score filling, the top 2 hybrid results after theoretical min-max norming
-        // would have to be the top semantic and the top lexical, i.e. a and d, which both get a score of 1.
-        // But thanks to score filling, c can make it into the top 2.
-        val equalWeightingResults = Await.result(
-          ES.hybridSearch("good", queryEmbedding, k = 2, numCandidates = 10, vecWeight = 0.5, filterOpt = None),
-          fiveSeconds
-        )
-        equalWeightingResults.hits.map(_._1) shouldBe List("d", "c")
-        equalWeightingResults.hits.map(_._2.instance) // is there a way to get the score out here?
-      }
+    it("promotes a score-filled result into the top 2 with equal weighting") {
+      // We've now proven that the lexical top 2 (d, c) are disjunct
+      // from the semantic top 2 (a, b).Therefore, without score filling,
+      // the top 2 hybrid results after theoretical min-max norming
+      // would have to be the top semantic and the top lexical, i.e. a and d,
+      // which both get a score of 1. But thanks to score filling,
+      // c can make it into the top 2.
+      val equalWeightingResults = Await.result(
+        ES.hybridSearch("good", queryEmbedding, k = 2, numCandidates = 10, vecWeight = 0.5, filterOpt = None),
+        fiveSeconds
+      )
+      equalWeightingResults.hits.map(_._1) shouldBe List("d", "c")
     }
   }
 
