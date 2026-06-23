@@ -35,7 +35,7 @@ object VectorUtils {
     if (similarity == 0.0) {
       // A cosine similarity of 0 means orthogonal to the first basis vector.
       // That vector is one-hot at index 0, so any vector with a zero
-      // first component is orthogonal to it; (0, 1) is the simplest choice.
+      // first component is orthogonal to it. (0, 1, 0, 0, ...) is the simplest choice.
       oneHotVector(dims, 1)
     } else {
       val absVec2D = {
