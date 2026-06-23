@@ -11,6 +11,42 @@ case class HybridResult(
   image: SourceWrapper[Image]
 )
 
+// Whether a result was originally returned by the lexical query, the semantic
+// query, or both. A shared result tends to rank highly, so this is useful both
+// for debugging and for understanding why something appears where it does.
+sealed trait ResultSource
+object ResultSource {
+  case object Lexical extends ResultSource
+  case object Semantic extends ResultSource
+  case object Both extends ResultSource
+
+  def from(inLexical: Boolean, inSemantic: Boolean): ResultSource =
+    (inLexical, inSemantic) match {
+      case (true, true) => Both
+      case (true, false) => Lexical
+      // A ranked result always comes from at least one side, so the remaining
+      // case is "semantic only".
+      case (false, _) => Semantic
+    }
+}
+
+// The intermediate scoring detail for a single result: the two normalised
+// component scores and the weighted blend of them that we actually rank by.
+case class FusedScore(
+  normedLexicalScore: Double,
+  normedSemanticScore: Double,
+  fusedScore: Double
+)
+
+// A fully scored, ranked result. Carries the original scores (via `result`),
+// where it came from (`source`), the normalised scores and the fused score
+// (both via `score`) so the whole ranking decision is inspectable.
+case class RankedResult(
+  result: HybridResult,
+  source: ResultSource,
+  score: FusedScore
+)
+
 object HybridResult {
   // Theoretical minimum cosine similarity (opposite vectors).
   val CosineSimilarityTheoreticalMin: Double = -1.0
@@ -48,32 +84,56 @@ object HybridResult {
     maxLexicalScore: Double,
     maxSemanticScore: Double,
     vecWeight: Double
-  ): Double = {
+  ): FusedScore = {
     val normedLexicalScore = normalise(result.lexicalScore, maxLexicalScore, theoreticalMin = Bm25TheoreticalMin)
     // The semantic theoretical min of -1 means we do both the max-norming
     // and the ES-score norming in one step.
     val normedSemanticScore = normalise(result.semanticScore, maxSemanticScore, theoreticalMin = CosineSimilarityTheoreticalMin)
-    (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
+    val fusedScore = (vecWeight * normedSemanticScore) + ((1 - vecWeight) * normedLexicalScore)
+    FusedScore(normedLexicalScore, normedSemanticScore, fusedScore)
   }
 
-  def fuseScoresAndGetTopK(
-    results: List[HybridResult],
+  // Combines the lexical and semantic result sets into a single, ranked list.
+  //
+  // Each input result already carries both scores (the semantic query is
+  // rescored to BM25 server-side, and resolveHitAndFillInSemanticScore fills in
+  // the cosine similarity client-side), so this function only has to: tag each
+  // result with where it came from, de-duplicate, normalise + fuse the scores,
+  // then sort and take the top k.
+  def fuseAndRank(
+    lexicalResults: List[HybridResult],
+    semanticResults: List[HybridResult],
     vecWeight: Double,
     k: Int
-  ): List[HybridResult] = {
-    // Why do this rather than looking at the top result from elasticsearch or hits.maxScore?
-    // Because for the semantic query, we rescore by BM25, meaning neither maxScore nor the
-    // top result will actually tell us the max semantic score.
+  ): List[RankedResult] = {
+    val lexicalIds = lexicalResults.map(_.id).toSet
+    val semanticIds = semanticResults.map(_.id).toSet
+
+    // De-duplicating by id is safe because, at this point, every result (lexical
+    // or semantic) carries only the lexical (BM25) score from Elasticsearch, so
+    // the two copies of a shared result are identical.
+    val distinctResults = (lexicalResults ::: semanticResults).distinctBy(_.id)
+
+    // Why compute the maxes ourselves rather than reading them from Elasticsearch's
+    // top result or hits.maxScore? Because for the semantic query we rescore by BM25,
+    // so neither maxScore nor the top result reflects the max semantic score.
     //
-    // A side benefit is that this approach also accounts for the rare case in which KNN
-    // doesn't even contain true closest vector, and that true closest vector happens to
-    // be among the lexical-only results.
+    // A side benefit is that this also accounts for the rare case in which KNN
+    // doesn't contain the true closest vector, and that true closest vector
+    // happens to be among the lexical-only results.
     (for {
-      maxLexicalScore <- results.map(_.lexicalScore).maxOption
-      maxSemanticScore <- results.map(_.semanticScore).maxOption
+      maxLexicalScore <- distinctResults.map(_.lexicalScore).maxOption
+      maxSemanticScore <- distinctResults.map(_.semanticScore).maxOption
     } yield {
-      results
-        .sortBy(fuseScores(_, maxLexicalScore, maxSemanticScore, vecWeight))(Ordering[Double].reverse)
+      distinctResults
+        .map { result =>
+          RankedResult(
+            result = result,
+            source = ResultSource.from(lexicalIds.contains(result.id), semanticIds.contains(result.id)),
+            score = fuseScores(result, maxLexicalScore, maxSemanticScore, vecWeight)
+          )
+        }
+        .sortBy(_.score.fusedScore)(Ordering[Double].reverse)
         .take(k)
     }).getOrElse(List())
   }

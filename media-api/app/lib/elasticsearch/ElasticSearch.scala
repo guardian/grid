@@ -23,6 +23,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
+import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
 import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
@@ -261,7 +262,7 @@ class ElasticSearch(
     vecWeight: Double,
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    import HybridResult.{resolveHitAndFillInSemanticScore, fuseScoresAndGetTopK}
+    import HybridResult.{resolveHitAndFillInSemanticScore, fuseAndRank}
 
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
     val lexicalSearchRequest = lexicalRequest(lexicalQuery, k, filterOpt)
@@ -288,26 +289,18 @@ class ElasticSearch(
     } yield {
       val lexicalHits = lexical.result.hits.hits.toList
       val semanticHits = semantic.result.hits.hits.toList
-      val allHits = lexicalHits ::: semanticHits
-      logger.info(logMarker, s"${allHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+      logger.info(logMarker, s"${lexicalHits.length + semanticHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
 
-      // This is only valid because the queries ensure that all hits, including semantic,
-      // have only the lexical score at this point.
-      val distinctHits = allHits.distinctBy(_.id)
-      logger.info(logMarker, s"${distinctHits.length} distinct hits")
+      // Resolve each side to images and fill in the client-side semantic score.
+      // We keep the two sides separate so that fuseAndRank can tag each result
+      // with where it originally came from (lexical, semantic, or both).
+      val lexicalResults = lexicalHits.flatMap(resolveHitAndFillInSemanticScore(_, queryEmbedding, resolveHit))
+      val semanticResults = semanticHits.flatMap(resolveHitAndFillInSemanticScore(_, queryEmbedding, resolveHit))
 
-      val lexicalIds = lexicalHits.map(_.id).toSet
-      val semanticIds = semanticHits.map(_.id).toSet
-
-      val resultsWithSemanticScoresFilledIn = distinctHits.flatMap { hit =>
-        resolveHitAndFillInSemanticScore(hit, queryEmbedding, resolveHit)
-      }
-      val topK = fuseScoresAndGetTopK(resultsWithSemanticScoresFilledIn, vecWeight, k)
-      topK.foreach { r =>
-        logger.info(logMarker, s"hybrid result ${r.id}: lexicalScore=${r.lexicalScore} semanticScore=${r.semanticScore} " +
-          s"originallyFromLexical=${lexicalIds.contains(r.id)} originallyFromSemantic=${semanticIds.contains(r.id)}")
-      }
-      SearchResults(hits = topK.map(r => (r.id, r.image)), total = topK.length, extraCounts = None)
+      val ranked = fuseAndRank(lexicalResults, semanticResults, vecWeight, k)
+      val from = ranked.groupBy(_.source)
+      logger.info(logMarker, s"${ranked.length} hits (k=$k) after fusing and ranking, ${from(Lexical).length} from lexical, ${from(Semantic)} from semantic, ${from(Both).length} from both")
+      SearchResults(hits = ranked.map(r => (r.result.id, r.result.image)), total = ranked.length, extraCounts = None)
     }
   }
 
