@@ -8,52 +8,58 @@ import VectorUtils.{dotProduct, magnitude, cosineSimilarity, firstBasisVector, v
 
 
 class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors {
-  it ("should compute the dot product of two vectors") {
-    dotProduct(List(1.0, 2.0, 3.0), List(4.0, 5.0, 6.0)) shouldBe 32.0
+  describe("dotProduct") {
+    it ("should compute the dot product of two vectors") {
+      dotProduct(List(1.0, 2.0, 3.0), List(4.0, 5.0, 6.0)) shouldBe 32.0
+    }
+
+    it ("should compute a dot product of zero for orthogonal vectors") {
+      dotProduct(List(1.0, 0.0), List(0.0, 1.0)) shouldBe 0.0
+    }
+
+    it ("should return zero for the dot product of empty vectors") {
+      dotProduct(List.empty, List.empty) shouldBe 0.0
+    }
   }
 
-  it ("should compute a dot product of zero for orthogonal vectors") {
-    dotProduct(List(1.0, 0.0), List(0.0, 1.0)) shouldBe 0.0
+  describe("magnitude") {
+    it ("should compute the magnitude of a vector") {
+      magnitude(List(3.0, 4.0)) shouldBe 5.0
+    }
+
+    it ("should return a magnitude of zero for a zero vector") {
+      magnitude(List(0.0, 0.0, 0.0)) shouldBe 0.0
+    }
   }
 
-  it ("should return zero for the dot product of empty vectors") {
-    dotProduct(List.empty, List.empty) shouldBe 0.0
-  }
+  describe("cosineSimilarity") {
+    it ("should return a cosine similarity of 1 for identical vectors") {
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(1.0, 2.0, 3.0)) shouldBe 1.0 +- 1e-9
+    }
 
-  it ("should compute the magnitude of a vector") {
-    magnitude(List(3.0, 4.0)) shouldBe 5.0
-  }
+    it ("should return a cosine similarity of 1 for parallel vectors") {
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(2.0, 4.0, 6.0)) shouldBe 1.0 +- 1e-9
+    }
 
-  it ("should return a magnitude of zero for a zero vector") {
-    magnitude(List(0.0, 0.0, 0.0)) shouldBe 0.0
-  }
+    it ("should return a cosine similarity of 0 for orthogonal vectors") {
+      cosineSimilarity(List(1.0, 0.0), List(0.0, 1.0)) shouldBe 0.0 +- 1e-9
+    }
 
-  it ("should return a cosine similarity of 1 for identical vectors") {
-    cosineSimilarity(List(1.0, 2.0, 3.0), List(1.0, 2.0, 3.0)) shouldBe 1.0 +- 1e-9
-  }
+    it ("should return a cosine similarity of -1 for opposite vectors") {
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(-1.0, -2.0, -3.0)) shouldBe -1.0 +- 1e-9
+    }
 
-  it ("should return a cosine similarity of 1 for parallel vectors") {
-    cosineSimilarity(List(1.0, 2.0, 3.0), List(2.0, 4.0, 6.0)) shouldBe 1.0 +- 1e-9
-  }
+    it ("should return a cosine similarity of 0 when the first vector has zero magnitude") {
+      cosineSimilarity(List(0.0, 0.0, 0.0), List(1.0, 2.0, 3.0)) shouldBe 0.0 +- 1e-9
+    }
 
-  it ("should return a cosine similarity of 0 for orthogonal vectors") {
-    cosineSimilarity(List(1.0, 0.0), List(0.0, 1.0)) shouldBe 0.0 +- 1e-9
-  }
+    it ("should return a cosine similarity of 0 when the second vector has zero magnitude") {
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
+    }
 
-  it ("should return a cosine similarity of -1 for opposite vectors") {
-    cosineSimilarity(List(1.0, 2.0, 3.0), List(-1.0, -2.0, -3.0)) shouldBe -1.0 +- 1e-9
-  }
-
-  it ("should return a cosine similarity of 0 when the first vector has zero magnitude") {
-    cosineSimilarity(List(0.0, 0.0, 0.0), List(1.0, 2.0, 3.0)) shouldBe 0.0 +- 1e-9
-  }
-
-  it ("should return a cosine similarity of 0 when the second vector has zero magnitude") {
-    cosineSimilarity(List(1.0, 2.0, 3.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
-  }
-
-  it ("should return a cosine similarity of 0 when both vectors have zero magnitude") {
-    cosineSimilarity(List(0.0, 0.0, 0.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
+    it ("should return a cosine similarity of 0 when both vectors have zero magnitude") {
+      cosineSimilarity(List(0.0, 0.0, 0.0), List(0.0, 0.0, 0.0)) shouldBe 0.0 +- 1e-9
+    }
   }
 
   describe("vectorWithCosineSimilarity") {
