@@ -122,6 +122,17 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
 
       result.semanticScore should be(CosineSimilarityTheoreticalMin +- tolerance)
     }
+
+    it("falls back to a semantic score of -1 when the image embedding has zero magnitude (cosine similarity is undefined)") {
+      val image = imageWithEmbedding("img-1", embedding = Some(List(0.0, 0.0)))
+      val result = resolveHitAndFillInSemanticScore(
+        searchHit("img-1", score = 1.0f),
+        queryEmbedding = List(1.0, 0.0),
+        resolveHit = resolveTo(image)
+      ).value
+
+      result.semanticScore should be(CosineSimilarityTheoreticalMin +- tolerance)
+    }
   }
 
   describe("normalise") {

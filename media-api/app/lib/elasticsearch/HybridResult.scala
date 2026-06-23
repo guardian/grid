@@ -59,7 +59,10 @@ object HybridResult {
         // Note this is true cosine similarity from -1 to 1,
         // *not* the ES-normalised score, but when we normalise
         // later it will end up in the range 0-1.
-        .map(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
+        // cosineSimilarity is None for a zero-magnitude (degenerate) embedding,
+        // which we treat as "no usable semantic signal", the same as a missing
+        // embedding: both fall through to the theoretical min.
+        .flatMap(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
         .getOrElse(CosineSimilarityTheoreticalMin)
       HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
     }

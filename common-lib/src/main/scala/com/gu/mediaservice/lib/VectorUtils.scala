@@ -9,10 +9,13 @@ object VectorUtils {
     math.sqrt(vector.map(math.pow(_, 2)).sum)
   }
 
-  def cosineSimilarity(vectorOne: List[Double], vectorTwo: List[Double]): Double = {
+  def cosineSimilarity(vectorOne: List[Double], vectorTwo: List[Double]): Option[Double] = {
     val magnitudeProduct = magnitude(vectorOne) * magnitude(vectorTwo)
-    if (magnitudeProduct == 0.0) 0.0
-    else dotProduct(vectorOne, vectorTwo) / magnitudeProduct
+    // Cosine similarity is undefined when either vector has zero magnitude
+    // (the angle to the origin is meaningless), so we return None and let the
+    // caller choose a domain-appropriate fallback.
+    if (magnitudeProduct == 0.0) None
+    else Some(dotProduct(vectorOne, vectorTwo) / magnitudeProduct)
   }
 
   // The below functions are primarily for constructing artificial vectors for tests
