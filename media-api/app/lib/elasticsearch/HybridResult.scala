@@ -11,9 +11,7 @@ case class HybridResult(
   image: SourceWrapper[Image]
 )
 
-// Whether a result was originally returned by the lexical query, the semantic
-// query, or both. A shared result tends to rank highly, so this is useful both
-// for debugging and for understanding why something appears where it does.
+
 sealed trait ResultSource
 object ResultSource {
   case object Lexical extends ResultSource
@@ -24,23 +22,17 @@ object ResultSource {
     (inLexical, inSemantic) match {
       case (true, true) => Both
       case (true, false) => Lexical
-      // A ranked result always comes from at least one side, so the remaining
-      // case is "semantic only".
-      case (false, _) => Semantic
+      case (false, true) => Semantic
+      case _ => throw new IllegalArgumentException("Result must be in either lexical or semantic")
     }
 }
 
-// The intermediate scoring detail for a single result: the two normalised
-// component scores and the weighted blend of them that we actually rank by.
 case class FusedScore(
   normedLexicalScore: Double,
   normedSemanticScore: Double,
   fusedScore: Double
 )
 
-// A fully scored, ranked result. Carries the original scores (via `result`),
-// where it came from (`source`), the normalised scores and the fused score
-// (both via `score`) so the whole ranking decision is inspectable.
 case class RankedResult(
   result: HybridResult,
   source: ResultSource,
@@ -65,15 +57,14 @@ object HybridResult {
         // are truncated 256-dim versions of a normalised 1536-dim vector,
         // meaning they will not have magnitude 1.
         // Note this is true cosine similarity from -1 to 1,
-        // *not* the ES-normalised score, but when we max-normalise
+        // *not* the ES-normalised score, but when we normalise
         // later it will end up in the range 0-1.
         .map(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
         .getOrElse(CosineSimilarityTheoreticalMin)
       HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
     }
 
-  // This is the "theoretical min-max" normalisation chosen by
-  // "An Analysis of Fusion Functions for Hybrid Retrieval"
+  // This is the "theoretical min-max" normalisation chosen in
   // https://arxiv.org/pdf/2210.11934
   def normalise(score: Double, max: Double, theoreticalMin: Double): Double =
     if (max == theoreticalMin) 0.0
@@ -93,13 +84,6 @@ object HybridResult {
     FusedScore(normedLexicalScore, normedSemanticScore, fusedScore)
   }
 
-  // Combines the lexical and semantic result sets into a single, ranked list.
-  //
-  // Each input result already carries both scores (the semantic query is
-  // rescored to BM25 server-side, and resolveHitAndFillInSemanticScore fills in
-  // the cosine similarity client-side), so this function only has to: tag each
-  // result with where it came from, de-duplicate, normalise + fuse the scores,
-  // then sort and take the top k.
   def fuseAndRank(
     lexicalResults: List[HybridResult],
     semanticResults: List[HybridResult],
