@@ -150,19 +150,7 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
   }
 
   describe("fuseScores") {
-    it("exposes the normalised lexical and semantic component scores") {
-      // normedLexical = 2/4 = 0.5, normedSemantic = (0 + 1)/(1 + 1) = 0.5
-      val score = fuseScores(
-        hybridResult("components", lexicalScore = 2.0, semanticScore = 0.0),
-        maxLexicalScore = 4.0,
-        maxSemanticScore = 1.0,
-        vecWeight = 0.25
-      )
-      score.normedLexicalScore should be(0.5 +- tolerance)
-      score.normedSemanticScore should be(0.5 +- tolerance)
-    }
-
-    it("blends the normalised lexical and semantic scores using vecWeight") {
+    it("exposes the normalised component scores and blends them using vecWeight") {
       // normedLexical = 2/4 = 0.5, normedSemantic = (0 + 1)/(1 + 1) = 0.5
       // fused = 0.25 * 0.5 + 0.75 * 0.5 = 0.5
       val score = fuseScores(
@@ -171,6 +159,8 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
         maxSemanticScore = 1.0,
         vecWeight = 0.25
       )
+      score.normedLexicalScore should be(0.5 +- tolerance)
+      score.normedSemanticScore should be(0.5 +- tolerance)
       score.fusedScore should be(0.5 +- tolerance)
     }
 
