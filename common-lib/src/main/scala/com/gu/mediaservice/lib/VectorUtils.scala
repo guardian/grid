@@ -31,7 +31,6 @@ object VectorUtils {
   // Builds a vector whose cosine similarity with the first basis vector equals
   // the requested `similarity` (in [-1, 1], where 1 is identical and 0 is orthogonal).
   def vectorWithCosineSimilarity(dims: Int, similarity: Double): List[Double] = {
-    // Assert that similarity is between -1 and 1
     require(similarity >= -1.0 && similarity <= 1.0, "Cosine similarity must be between -1 and 1")
     if (similarity == 0.0) {
       // A cosine similarity of 0 means orthogonal to the first basis vector.
@@ -41,9 +40,18 @@ object VectorUtils {
     } else {
       val absVec2D = {
         // Let's pretend we're in just 2 dimensions and think about triangles.
-        // (Diagram would help here!)
+        //
+        //            /|
+        //           / |
+        //        n /  | opposite = sqrt(n^2 - 1)
+        //         /   |
+        //        /θ___|
+        //          1
+        //       (adjacent)
+        //
         // Our queryEmbedding lies flat on the x axis.
-        // If we want cos 0 to be 1/n, e.g. 1/2,
+        // cos(θ) = adjacent / hypotenuse = 1 / n
+        // If we want cos θ to be 1/n, e.g. 1/2,
         // then the adjacent side must be 1, and the hypotenuse n.
         // We want to find the opposite side
         // n^2 = 1^2 + adj^2
