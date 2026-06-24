@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.{CohereV4Embedding, Embedding, Handout, Image}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import org.scalactic.Tolerance
@@ -13,6 +14,8 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
   import HybridResult.{fuseAndRank, fuseScores, normalise, resolveHitAndFillInSemanticScore, Bm25TheoreticalMin, CosineSimilarityTheoreticalMin}
 
   private val tolerance = 1e-9
+
+  implicit val logMarker: LogMarker = MarkerMap()
 
   private def searchHit(id: String, score: Float): SearchHit = SearchHit(
     id = id,
