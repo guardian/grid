@@ -215,7 +215,7 @@ class ElasticSearch(
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
     val searchRequest = lexicalRequest(createMultiMatchQuery(query, operator = Or), k, filterOpt)
 
-    executeAndLog(withSearchQueryTimeout(searchRequest), "lexical-only").map { r =>
+    executeAndLog(withSearchQueryTimeout(searchRequest), "lexical search").map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
     }
@@ -286,8 +286,8 @@ class ElasticSearch(
     // Assigning to vals here eagerly starts both requests, so they run in
     // parallel. The for-comprehension below only sequences the *combination*
     // of their results, not their execution.
-    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical-hybrid")
-    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic-hybrid")
+    val lexicalSearchResponse = executeAndLog(withSearchQueryTimeout(lexicalSearchRequest), "lexical side of hybrid AI search")
+    val semanticSearchResponse = executeAndLog(withSearchQueryTimeout(semanticSearchRequest), "semantic side of hybrid AI search")
 
     for {
       lexical <- lexicalSearchResponse
@@ -295,7 +295,7 @@ class ElasticSearch(
     } yield {
       val lexicalHits = lexical.result.hits.hits.toList
       val semanticHits = semantic.result.hits.hits.toList
-      logger.info(logMarker, s"${lexicalHits.length + semanticHits.length} total hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
+      logger.info(logMarker, s"Hybrid AI search returned ${lexicalHits.length + semanticHits.length} initial hits: ${lexicalHits.length} lexical, ${semanticHits.length} semantic")
 
       // Resolve each side to images and fill in the client-side semantic score.
       // We keep the two sides separate so that fuseAndRank can tag each result
@@ -305,7 +305,7 @@ class ElasticSearch(
 
       val ranked = fuseAndRank(lexicalResults, semanticResults, vecWeight, k)
       val counts = ranked.groupBy(_.source).view.mapValues(_.size).toMap.withDefaultValue(0)
-      logger.info(logMarker, s"${ranked.length} hits (k=$k) after fusing and ranking, ${counts(Lexical)} from lexical, ${counts(Semantic)} from semantic, ${counts(Both)} from both")
+      logger.info(logMarker, s"Hybrid AI search returned ${ranked.length} hits (k=$k) after fusing and ranking, ${counts(Lexical)} from lexical, ${counts(Semantic)} from semantic, ${counts(Both)} from both")
       SearchResults(hits = ranked.map(r => (r.result.id, r.result.image)), total = ranked.length, extraCounts = None)
     }
   }
@@ -339,7 +339,7 @@ class ElasticSearch(
         val elapsed = stopwatch.elapsed
         logger.info(
           combineMarkers(logMarker, elapsed),
-          s"hybrid search completed in ${elapsed.toMillis} ms"
+          s"Hybrid AI search completed in ${elapsed.toMillis} ms"
         )
       }
 
