@@ -125,7 +125,7 @@ class HybridSearchTest extends AnyFunSpec
 
     it("promotes a score-filled result into the top 2 with equal weighting") {
       // We've now proven that the lexical top 2 (d, c) are disjunct
-      // from the semantic top 2 (a, b).Therefore, without score filling,
+      // from the semantic top 2 (a, b). Therefore, without score filling,
       // the top 2 hybrid results after theoretical min-max norming
       // would have to be the top semantic and the top lexical, i.e. a and d,
       // which both get a score of 1. But thanks to score filling,
