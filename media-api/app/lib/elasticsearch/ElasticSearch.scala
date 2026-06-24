@@ -192,6 +192,12 @@ class ElasticSearch(
       boost = boost
     )
 
+  private def maybeWithFilter(query: Query, filterOpt: Option[Query]): Query = {
+    filterOpt.map { f =>
+      boolQuery() must (query) filter f
+    }.getOrElse(query)
+  }
+
   private def lexicalRequest(
     lexicalQuery: MultiMatchQuery,
     k: Int,
@@ -199,7 +205,7 @@ class ElasticSearch(
   ): SearchRequest =
     ElasticDsl
       .search(imagesCurrentAlias)
-      .query(boolQuery().must(lexicalQuery).filter(filterOpt))
+      .query(maybeWithFilter(lexicalQuery, filterOpt))
       .size(k)
 
   private def lexicalSearch(
@@ -346,10 +352,6 @@ class ElasticSearch(
 
     val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)
 
-    val withFilter = filterOpt.map { f =>
-      boolQuery() must (query) filter f
-    }.getOrElse(query)
-
     val sort = params.orderBy match {
       case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
       case _ => sorts.createSort(params.orderBy)
@@ -380,7 +382,7 @@ class ElasticSearch(
         Seq.empty
       }
 
-    val searchRequest = prepareSearch(withFilter)
+    val searchRequest = prepareSearch(maybeWithFilter(query, filterOpt))
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
