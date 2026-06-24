@@ -39,6 +39,7 @@ object VectorUtils {
   // Builds a vector whose cosine similarity with the first basis vector equals
   // the requested `similarity` (in [-1, 1], where 1 is identical and 0 is orthogonal).
   def vectorWithCosineSimilarity(dims: Int, similarity: Double): List[Double] = {
+    require(dims > 1, "Dimensions must be at least 2")
     require(similarity >= -1.0 && similarity <= 1.0, "Cosine similarity must be between -1 and 1")
     if (similarity == 0.0) {
       // A cosine similarity of 0 means orthogonal to the first basis vector.
