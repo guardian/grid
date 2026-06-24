@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib
 
 object VectorUtils {
   def dotProduct(vectorOne: List[Double], vectorTwo: List[Double]): Double = {
+    require(vectorOne.length == vectorTwo.length, "Vectors must be the same dimensionality")
     vectorOne.zip(vectorTwo).map(component => component._1 * component._2).sum
   }
 
@@ -10,12 +11,16 @@ object VectorUtils {
   }
 
   def cosineSimilarity(vectorOne: List[Double], vectorTwo: List[Double]): Option[Double] = {
-    val magnitudeProduct = magnitude(vectorOne) * magnitude(vectorTwo)
-    // Cosine similarity is undefined when either vector has zero magnitude
-    // (the angle to the origin is meaningless), so we return None and let the
-    // caller choose a domain-appropriate fallback.
-    if (magnitudeProduct == 0.0) None
-    else Some(dotProduct(vectorOne, vectorTwo) / magnitudeProduct)
+    // Cosine similarity is undefined when the vectors differ in dimensionality
+    // (the dot product is meaningless) or when either has zero magnitude (the
+    // angle to the origin is meaningless), so we return None in those cases and
+    // let the caller choose a domain-appropriate fallback.
+    if (vectorOne.length != vectorTwo.length) None
+    else {
+      val magnitudeProduct = magnitude(vectorOne) * magnitude(vectorTwo)
+      if (magnitudeProduct == 0.0) None
+      else Some(dotProduct(vectorOne, vectorTwo) / magnitudeProduct)
+    }
   }
 
   // The below functions are primarily for constructing artificial vectors for tests

@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.VectorUtils
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 
@@ -39,7 +40,7 @@ case class RankedResult(
   score: FusedScore
 )
 
-object HybridResult {
+object HybridResult extends GridLogging {
   // Theoretical minimum cosine similarity (opposite vectors).
   val CosineSimilarityTheoreticalMin: Double = -1.0
   // Theoretical minimum BM25 lexical score.
@@ -49,7 +50,7 @@ object HybridResult {
     hit: SearchHit,
     queryEmbedding: List[Double],
     resolveHit: SearchHit => Option[SourceWrapper[Image]]
-  ): Option[HybridResult] =
+  )(implicit logMarker: LogMarker): Option[HybridResult] =
     resolveHit(hit).map { image =>
       val semanticScore = image.instance.embedding
         .flatMap(_.cohereEmbedV4)
@@ -59,11 +60,14 @@ object HybridResult {
         // Note this is true cosine similarity from -1 to 1,
         // *not* the ES-normalised score, but when we normalise
         // later it will end up in the range 0-1.
-        // cosineSimilarity is None for a zero-magnitude (degenerate) embedding,
-        // which we treat as "no usable semantic signal", the same as a missing
-        // embedding: both fall through to the theoretical min.
         .flatMap(e => VectorUtils.cosineSimilarity(e.image, queryEmbedding))
-        .getOrElse(CosineSimilarityTheoreticalMin)
+        // cosineSimilarity is None when there's no usable semantic signal (a
+        // missing, mismatched, or zero-magnitude embedding), all of which fall
+        // through to the theoretical min.
+        .getOrElse {
+          logger.warn(logMarker, s"Could not calculate semantic score for image ${hit.id}. Falling back to minimum semantic score")
+          CosineSimilarityTheoreticalMin
+        }
       HybridResult(hit.id, lexicalScore = hit.score, semanticScore = semanticScore, image = image)
     }
 
