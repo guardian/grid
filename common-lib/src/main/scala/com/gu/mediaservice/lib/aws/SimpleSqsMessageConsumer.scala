@@ -1,42 +1,48 @@
 package com.gu.mediaservice.lib.aws
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.amazonaws.services.sqs.AmazonSQS
-import com.amazonaws.services.sqs.AmazonSQSClientBuilder
-import com.amazonaws.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, ReceiveMessageRequest, SendMessageRequest, SendMessageResult, Message => SQSMessage}
+import software.amazon.awssdk.services.sqs.SqsClient
+import software.amazon.awssdk.services.sqs.model.{ChangeMessageVisibilityRequest, DeleteMessageRequest, GetQueueAttributesRequest, MessageSystemAttributeName, QueueAttributeName, ReceiveMessageRequest, SendMessageRequest, SendMessageResponse, Message => SQSMessage}
 
 import scala.jdk.CollectionConverters._
 
 class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
 
-  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
+  lazy val client= config.withAWSCredentialsV2(SqsClient.builder()).build()
 
-  def getNextMessage(attributeNames: String*): Option[SQSMessage] =
+  def getNextMessage(attributeNames: MessageSystemAttributeName*): Option[SQSMessage] =
     client.receiveMessage(
-      new ReceiveMessageRequest(queueUrl)
-        .withWaitTimeSeconds(20) // Wait for maximum duration (20s) as per doc recommendation: http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
-        .withMaxNumberOfMessages(1) // Pull 1 message at a time to avoid starvation
-        .withMessageSystemAttributeNames(attributeNames: _*)
-    ).getMessages.asScala.headOption
+      ReceiveMessageRequest.builder().queueUrl(queueUrl)
+        .waitTimeSeconds(20) // Wait for maximum duration (20s) as per doc recommendation: http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
+        .maxNumberOfMessages(1) // Pull 1 message at a time to avoid starvation
+        .messageSystemAttributeNames(attributeNames: _*) // todo come back to this
+        .build()
+    ).messages().asScala.headOption
 
   def deleteMessage(message: SQSMessage): Unit =
-    client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
+    client.deleteMessage(new DeleteMessageRequest(queueUrl, message.receiptHandle()))
 
   def makeMessageVisible(message: SQSMessage): Unit =
-    client.changeMessageVisibility(new ChangeMessageVisibilityRequest(queueUrl, message.getReceiptHandle, 0))
+    client.changeMessageVisibility(new ChangeMessageVisibilityRequest(queueUrl, message.receiptHandle(), 0))
 
   def getStatus: Map[String, String] = {
-   client.getQueueAttributes(queueUrl, List(
-      "ApproximateNumberOfMessagesDelayed",
-      "ApproximateNumberOfMessages",
-      "ApproximateNumberOfMessagesNotVisible"
-    ).asJava).getAttributes.asScala.toMap
+    client.getQueueAttributes(
+      GetQueueAttributesRequest.builder().
+        queueUrl(queueUrl)
+        .attributeNames(
+          QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES,
+          QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_DELAYED,
+          QueueAttributeName.APPROXIMATE_NUMBER_OF_MESSAGES_NOT_VISIBLE
+        )
+        .build()
+    ).attributes().asScala.toMap.map({ case(k, v) => (k.name(), v)})
   }
 
-  def sendMessage(messageBody: String): SendMessageResult = {
-    val sendMessageRequest: SendMessageRequest = new SendMessageRequest()
-      .withQueueUrl(queueUrl)
-      .withMessageBody(messageBody)
+  def sendMessage(messageBody: String): SendMessageResponse = {
+    val sendMessageRequest: SendMessageRequest = SendMessageRequest.builder()
+      .queueUrl(queueUrl)
+      .messageBody(messageBody)
+      .build()
     client.sendMessage(sendMessageRequest)
   }
 }
