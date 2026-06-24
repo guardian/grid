@@ -20,10 +20,21 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
     ).messages().asScala.headOption
 
   def deleteMessage(message: SQSMessage): Unit =
-    client.deleteMessage(new DeleteMessageRequest(queueUrl, message.receiptHandle()))
+      client.deleteMessage(
+        DeleteMessageRequest.builder()
+          .queueUrl(queueUrl)
+          .receiptHandle(message.receiptHandle())
+          .build()
+      )
 
   def makeMessageVisible(message: SQSMessage): Unit =
-    client.changeMessageVisibility(new ChangeMessageVisibilityRequest(queueUrl, message.receiptHandle(), 0))
+    client.changeMessageVisibility(
+      ChangeMessageVisibilityRequest.builder()
+        .queueUrl(queueUrl)
+        .receiptHandle(message.receiptHandle())
+        .visibilityTimeout(0)
+        .build()
+    )
 
   def getStatus: Map[String, String] = {
     client.getQueueAttributes(
