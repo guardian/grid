@@ -21,6 +21,10 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
     it ("should return zero for the dot product of empty vectors") {
       dotProduct(List.empty, List.empty) shouldBe 0.0
     }
+
+    it ("should reject vectors of differing dimensionality") {
+      an [IllegalArgumentException] should be thrownBy dotProduct(List(1.0, 2.0), List(1.0, 2.0, 3.0))
+    }
   }
 
   describe("magnitude") {
@@ -60,6 +64,10 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
 
     it ("should be undefined (None) when both vectors have zero magnitude") {
       cosineSimilarity(List(0.0, 0.0, 0.0), List(0.0, 0.0, 0.0)) shouldBe None
+    }
+
+    it ("should be undefined (None) when the vectors differ in dimensionality") {
+      cosineSimilarity(List(1.0, 2.0), List(1.0, 2.0, 3.0)) shouldBe None
     }
   }
 
@@ -123,6 +131,10 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
 
     it ("should reject a similarity less than -1") {
       an [IllegalArgumentException] should be thrownBy vectorWithCosineSimilarity(dims, -1.0001)
+    }
+
+    it ("should reject fewer than 2 dimensions") {
+      an [IllegalArgumentException] should be thrownBy vectorWithCosineSimilarity(1, 0.5)
     }
   }
 }
