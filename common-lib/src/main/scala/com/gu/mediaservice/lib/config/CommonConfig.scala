@@ -219,7 +219,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
     configuration.getOptional[Map[String, Seq[String]]]("agencyPicks.ingredients")
   val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegionV2, awsCredentialsV2, awsLocalEndpointUri, isDev, streamName)
 
   final def getOptionalStringSet(key: String): Option[Set[String]] = Try {
     configuration.getOptional[Seq[String]](key)
