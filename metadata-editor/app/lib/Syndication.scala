@@ -144,7 +144,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getImagesInPhotoshoot(photoshoot: Photoshoot)
                            (implicit ec: ExecutionContext): Future[List[String]] =
-      editsStore.scanForId(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
+      editsStore.scanForIdV2(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
         .recover { case NoItemFound => Nil }
 
   def getChangedRights(before: Map[String, SyndicationRights], after: Map[String, SyndicationRights]): Map[String, Option[SyndicationRights]] = {

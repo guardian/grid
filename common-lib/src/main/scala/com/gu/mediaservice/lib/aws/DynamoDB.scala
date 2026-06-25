@@ -17,7 +17,7 @@ import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model
 import software.amazon.awssdk.enhanced.dynamodb.model.{BatchGetItemEnhancedRequest, ReadBatch}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemRequest, UpdateItemRequest, AttributeValue => AttributeValueV2, KeysAndAttributes => KeysAndAttributesV2, ReturnValue => ReturnValueV2}
+import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2, QueryRequest => QueryRequestV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -254,6 +254,36 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     val items: List[Item] = index.query(spec).iterator.asScala.toList
     items map (a => a.getString("id"))
   }
+
+  def scanForIdV2(
+                 indexName: String,
+                 keyName: String,
+                 key: String
+               )(implicit ex: ExecutionContext): Future[List[String]] =
+    Future {
+
+      val response =
+        client2.query(
+          QueryRequestV2.builder()
+            .tableName(tableName)
+            .indexName(indexName)
+            .keyConditionExpression(s"$keyName = :key")
+            .expressionAttributeValues(
+              Map(
+                ":key" ->
+                  AttributeValueV2.builder()
+                    .s(key)
+                    .build()
+              ).asJava
+            )
+            .projectionExpression("id")
+            .build()
+        )
+
+      response.items().asScala.toList.map { item =>
+        item.get("id").s()
+      }
+    }
 
   private def updateRequestBuilder(id: String, expression: String) = {
     UpdateItemRequest.builder()
