@@ -167,6 +167,20 @@ The Bedrock embedding call is skipped entirely when `vecWeight=0`
 pre-existing pure-KNN behaviour — identical to before this feature
 was added.
 
+**Divergence from media-api's hybrid (as of main, June 2026 — `HybridResult.scala`).**
+The server-side hybrid search (PR #4764) uses a meaningfully different algorithm:
+two searches run in parallel (lexical + semantic); each side's missing score is
+filled in client-side using cosine similarity (`VectorUtils`) rather than via a
+probe query; scores are normalised using theoretical min-max bounds rather than
+`maxScore`-based scaling; results are fused in `fuseAndRank`. The server also
+defaults `vecWeight` to **0.8**, not 1.0. Kupua's probe-based approach produces
+correct but less thorough hybrid results — lexical-only hits don't get a semantic
+score, so they rank below any hit that appeared in both queries regardless of their
+actual vector proximity. If hybrid mode becomes a first-class feature in kupua,
+aligning with `HybridResult.scala`'s algorithm (two parallel ES calls + client-side
+cosine similarity) would improve result quality. Not worth doing until there is UI
+for `vecWeight`.
+
 ### 3.2 Result shape
 
 ES returns a ranked list of at most `k=200` hits, scored by cosine
