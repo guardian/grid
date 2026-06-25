@@ -9,6 +9,8 @@ import VectorUtils.{dotProduct, magnitude, cosineSimilarity, firstBasisVector, v
 
 
 class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with OptionValues {
+  val tolerance = 1e-9
+
   describe("dotProduct") {
     it ("should compute the dot product of two vectors") {
       dotProduct(List(1.0, 2.0, 3.0), List(4.0, 5.0, 6.0)) shouldBe 32.0
@@ -39,19 +41,19 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
 
   describe("cosineSimilarity") {
     it ("should return a cosine similarity of 1 for identical vectors") {
-      cosineSimilarity(List(1.0, 2.0, 3.0), List(1.0, 2.0, 3.0)).value shouldBe 1.0 +- 1e-9
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(1.0, 2.0, 3.0)).value shouldBe 1.0 +- tolerance
     }
 
     it ("should return a cosine similarity of 1 for parallel vectors") {
-      cosineSimilarity(List(1.0, 2.0, 3.0), List(2.0, 4.0, 6.0)).value shouldBe 1.0 +- 1e-9
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(2.0, 4.0, 6.0)).value shouldBe 1.0 +- tolerance
     }
 
     it ("should return a cosine similarity of 0 for orthogonal vectors") {
-      cosineSimilarity(List(1.0, 0.0), List(0.0, 1.0)).value shouldBe 0.0 +- 1e-9
+      cosineSimilarity(List(1.0, 0.0), List(0.0, 1.0)).value shouldBe 0.0 +- tolerance
     }
 
     it ("should return a cosine similarity of -1 for opposite vectors") {
-      cosineSimilarity(List(1.0, 2.0, 3.0), List(-1.0, -2.0, -3.0)).value shouldBe -1.0 +- 1e-9
+      cosineSimilarity(List(1.0, 2.0, 3.0), List(-1.0, -2.0, -3.0)).value shouldBe -1.0 +- tolerance
     }
 
     it ("should be undefined (None) when the first vector has zero magnitude") {
@@ -73,7 +75,6 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
 
   describe("vectorWithCosineSimilarity") {
     val dims = 256
-    val tolerance = 1e-9
 
     it ("should create a vector at the requested cosine similarity across a fine sweep of the valid range") {
       val similarities = (-1000 to 1000).map(_ / 1000.0)
