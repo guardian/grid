@@ -335,15 +335,13 @@ class ElasticSearch(
         case _ => fusedLexicalAndSemanticSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
       }
 
-      searchResults.foreach { _ =>
+      searchResults.andThen { case _ =>
         val elapsed = stopwatch.elapsed
         logger.info(
           combineMarkers(logMarker, elapsed),
           s"Hybrid AI search completed in ${elapsed.toMillis} ms"
         )
       }
-
-      searchResults
     }
   }
 
