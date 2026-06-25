@@ -128,4 +128,27 @@ object HybridResult extends GridLogging {
         .take(k)
     }).getOrElse(List())
   }
+
+  // Renders the full ranked output as an aligned table, ordered as given
+  // (i.e. by fused score descending), for logging/debugging.
+  def renderRankedTable(ranked: List[RankedResult]): String = {
+    val header = Seq("id", "source", "lexical", "semantic", "normedLex", "normedSem", "fused")
+    val rows = ranked.map { r =>
+      Seq(
+        r.result.id,
+        r.source.toString,
+        f"${r.result.lexicalScore}%.4f",
+        f"${r.result.semanticScore}%.4f",
+        f"${r.score.normedLexicalScore}%.4f",
+        f"${r.score.normedSemanticScore}%.4f",
+        f"${r.score.fusedScore}%.4f"
+      )
+    }
+    val widths = header.indices.map { i =>
+      (header +: rows).map(_(i).length).max
+    }
+    (header +: rows)
+      .map(row => row.zip(widths).map { case (cell, w) => cell.padTo(w, ' ') }.mkString("  "))
+      .mkString("\n")
+  }
 }

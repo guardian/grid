@@ -268,7 +268,7 @@ class ElasticSearch(
     vecWeight: Double,
     filterOpt: Option[Query]
   )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
-    import HybridResult.{resolveHitAndFillInSemanticScore, fuseAndRank}
+    import HybridResult.{resolveHitAndFillInSemanticScore, fuseAndRank, renderRankedTable}
 
     val lexicalQuery = createMultiMatchQuery(query, operator = Or)
     val lexicalSearchRequest = lexicalRequest(lexicalQuery, k, filterOpt)
@@ -306,6 +306,12 @@ class ElasticSearch(
       val ranked = fuseAndRank(lexicalResults, semanticResults, vecWeight, k)
       val counts = ranked.groupBy(_.source).view.mapValues(_.size).toMap.withDefaultValue(0)
       logger.info(logMarker, s"Hybrid AI search returned ${ranked.length} hits (k=$k) after fusing and ranking, ${counts(Lexical)} from lexical, ${counts(Semantic)} from semantic, ${counts(Both)} from both")
+      // This log will be noisy and we can get rid of it at a later stage if we want,
+      // but I think it could be indispensable if we see weird results and we
+      // want to understand why they're there. An alternative would be putting it
+      // into the search response so we could see it in the network tab and even surface
+      // in the UI if we wanted, but that would be a bigger change.
+      logger.info(logMarker, s"Hybrid AI search ranked results:\n${renderRankedTable(ranked)}")
       SearchResults(hits = ranked.map(r => (r.result.id, r.result.image)), total = ranked.length, extraCounts = None)
     }
   }
