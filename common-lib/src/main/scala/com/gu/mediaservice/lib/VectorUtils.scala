@@ -23,7 +23,9 @@ object VectorUtils {
     }
   }
 
+  // ===============================================================================
   // The below functions are primarily for constructing artificial vectors for tests
+  // ===============================================================================
   private def oneHotVector(dims: Int, hotIndex: Int): List[Double] =
     List.tabulate(dims)(i => if (i == hotIndex) 1.0 else 0.0)
 
@@ -38,6 +40,8 @@ object VectorUtils {
 
   // Builds a vector whose cosine similarity with the first basis vector equals
   // the requested `similarity` (in [-1, 1], where 1 is identical and 0 is orthogonal).
+  // This is specifically for use in tests where we need to create test fixtures with
+  // specific semantic scores.
   def vectorWithCosineSimilarity(dims: Int, similarity: Double): List[Double] = {
     require(dims > 1, "Dimensions must be at least 2")
     require(similarity >= -1.0 && similarity <= 1.0, "Cosine similarity must be between -1 and 1")

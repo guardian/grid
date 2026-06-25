@@ -73,6 +73,8 @@ class VectorUtilsTest extends AnyFunSpec with Matchers with Inspectors with Opti
     }
   }
 
+  // This function is specifically for use in tests,
+  // where we need to create test fixtures with specific semantic scores.
   describe("vectorWithCosineSimilarity") {
     val dims = 256
 
