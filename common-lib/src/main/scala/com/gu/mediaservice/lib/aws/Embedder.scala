@@ -1,10 +1,10 @@
 package com.gu.mediaservice.lib.aws
-import com.amazonaws.services.sqs.model.SendMessageResult
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import play.api.libs.json.{Json, OFormat}
 import software.amazon.awssdk.services.s3vectors.model.QueryVectorsResponse
 import software.amazon.awssdk.services.s3vectors.model.{QueryOutputVector, QueryVectorsResponse, VectorData}
+import software.amazon.awssdk.services.sqs.model.SendMessageResponse
 
 import java.nio.file.{Files, Path}
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +27,7 @@ class Embedder(bedrock: Bedrock, sqs: SimpleSqsMessageConsumer)(implicit ec: Exe
 
   def queueImageToEmbed(message: EmbedderMessage)(implicit logMarker: LogMarker) = {
     val messageBody = Json.stringify(Json.toJson(message))
-    val result: SendMessageResult = sqs.sendMessage(messageBody)
-    logger.info(logMarker, s"Queued image for embedding with message ID: ${result.getMessageId}")
+    val result: SendMessageResponse = sqs.sendMessage(messageBody)
+    logger.info(logMarker, s"Queued image for embedding with message ID: ${result.messageId()}")
   }
 }

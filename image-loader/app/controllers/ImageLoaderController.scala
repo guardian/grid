@@ -4,7 +4,7 @@ import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.sqs.model.{Message => SQSMessage}
+import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.GridClient
@@ -84,7 +84,7 @@ class ImageLoaderController(auth: Authentication,
             activeProcessingMessage.set(Some(sqsMessage))
             val logMarker: LogMarker = MarkerMap(
               "requestType" -> "handleMessageFromIngestBucket",
-              "requestId" -> sqsMessage.getMessageId,
+              "requestId" -> sqsMessage.messageId(),
             )
             handleMessageFromIngestBucket(sqsMessage)(logMarker)
               .recover {
