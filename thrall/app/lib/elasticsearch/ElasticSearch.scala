@@ -41,6 +41,7 @@ class ElasticSearch(
   lazy val url: String = config.url
   lazy val shards: Int = config.shards
   lazy val replicas: Int = config.replicas
+  lazy val includeDenseVectorMappings: Boolean = config.includeDenseVectorMappings
 
 
   def migrationAwareUpdater[REQUEST, RESPONSE](
@@ -78,9 +79,13 @@ class ElasticSearch(
     executeAndLog(request, s"Setting migration info on image id: ${imageId}")
   }
 
+  private def prepareImageJson(json: JsObject): JsObject =
+    if (includeDenseVectorMappings) json
+    else json - "embedding"
+
   def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] =
     executeAndLog(
-      indexInto(indexName).id(image.id).source(Json.stringify(Json.toJson(image))),
+      indexInto(indexName).id(image.id).source(Json.stringify(prepareImageJson(Json.toJson(image).as[JsObject]))),
       s"ES6 indexing image ${image.id} into index '$indexName'"
     ).map(indexResponse =>
       ElasticSearchInsertResponse(indexResponse.result.index)
@@ -92,14 +97,14 @@ class ElasticSearch(
 
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
-    val insertImageAsJson = Json.toJson(insertImage)
+    val insertImageAsJson = prepareImageJson(Json.toJson(insertImage).as[JsObject])
 
     def runUpsertIntoIndex(indexAlias: String, maybeEsInfo: Option[JsObject]) = {
       val esInfo = maybeEsInfo.getOrElse(JsObject.empty)
 
       // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
       val updateImage = image.copy(lastModified = None)
-      val upsertImageAsJson = Json.toJson(updateImage)
+      val upsertImageAsJson = prepareImageJson(Json.toJson(updateImage).as[JsObject])
 
       val painlessSource =
         // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
@@ -214,18 +219,24 @@ class ElasticSearch(
   def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
                      (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
+    if (!includeDenseVectorMappings) {
+      logger.info(s"Skipping embedding update for image $id: dense vector mappings are disabled")
+      List(Future.successful(ElasticSearchUpdateResponse()))
+    } else {
 
-    val scriptSource = loadPainless(replaceEmbeddingScript)
+      val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
 
-    val embeddingParameter = asNestedMap(Json.toJson(embedding))
+      val scriptSource = loadPainless(replaceEmbeddingScript)
 
-    val eventualUpdateResponse = migrationAwareUpdater(
-      requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
-      logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
-    ).incrementOnFailure(metrics.map(_.failedEmbeddingUpdates)) { case _ => true }
+      val embeddingParameter = asNestedMap(Json.toJson(embedding))
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+      val eventualUpdateResponse = migrationAwareUpdater(
+        requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("embedding", embeddingParameter)),
+        logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
+      ).incrementOnFailure(metrics.map(_.failedEmbeddingUpdates)) { case _ => true }
+
+      List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    }
   }
 
   def applyImageMetadataOverride(id: String, metadata: Edits, lastModified: DateTime)

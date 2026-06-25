@@ -146,7 +146,7 @@ function getKahunaConfig(config){
         |]`;
 
     const permissionsConfig = stripMargin`
-      |usePermissionsFilter=true
+      |usePermissionsFilter=false
       |permissionsDefault="allPermissions"
       `;
 
@@ -191,6 +191,7 @@ function getMediaApiConfig(config) {
         |es6.url="${config.es6.url}"
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
+        |es.includeDenseVectorMappings=true
         |quota.store.key="rcs-quota.json"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |search.fuzziness={
@@ -225,6 +226,7 @@ function getThrallConfig(config) {
         |es6.url="${config.es6.url}"
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
+        |es.includeDenseVectorMappings=true
         |metrics.request.enabled=false
         |`;
 }
