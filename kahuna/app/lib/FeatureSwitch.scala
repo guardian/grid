@@ -22,6 +22,15 @@ object EnableAISearch extends FeatureSwitch(
   default = false
 )
 
+// Temporary switch to A/B the "fill scores" hybrid search approach against the
+// previous approach. When active, a "Fill scores" checkbox (defaulted on) is
+// shown alongside the AI search option. Remove once the A/B test is complete.
+object FillScores extends FeatureSwitch(
+  key = "fill-scores",
+  title = "Show the 'Fill scores' AI search toggle (A/B testing the hybrid search approach)",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
