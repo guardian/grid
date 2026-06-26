@@ -80,12 +80,25 @@ query.controller('SearchQueryCtrl', [
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
     ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    // Temporary v1/v2 hybrid search selector for A/B testing the two approaches.
+    // Only shown when AI search is available and the feature switch is active.
+    // v2 = "fill scores" (current main), v1 = legacy approach.
+    ctrl.shouldDisplayFillScoresOption = ctrl.shouldDisplayAISearchOption && getFeatureSwitchActive("fill-scores");
+    ctrl.searchVersionOptions = [
+      { label: 'v2', value: true },
+      { label: 'v1', value: false }
+    ];
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
+      ctrl.fillScores = undefined;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
       ctrl.vecWeight = $stateParams.vecWeight;
+      // Defaults to v2 (fill scores); only v1 when explicitly set to false in the URL.
+      ctrl.fillScores = ctrl.shouldDisplayFillScoresOption
+        ? !($stateParams.fillScores === 'false' || $stateParams.fillScores === false)
+        : undefined;
     }
 
     //--react - angular interop events--
@@ -458,12 +471,25 @@ query.controller('SearchQueryCtrl', [
         $state.go('search.results', {
           ...ctrl.filter,
           useAISearch: true,
-          vecWeight: ctrl.vecWeight
+          vecWeight: ctrl.vecWeight,
+          fillScores: ctrl.shouldDisplayFillScoresOption ? ctrl.fillScores : null
         });
       } else {
-          $state.go('search.results', {...ctrl.filter,  useAISearch: null});
+          $state.go('search.results', {...ctrl.filter,  useAISearch: null, fillScores: null});
       }
     });
+
+    // Re-run the AI search when the v1/v2 selector changes.
+    $scope.$watch(() => ctrl.fillScores, onValChange(() => {
+      if (ctrl.useAISearch && ctrl.shouldDisplayFillScoresOption) {
+        $state.go('search.results', {
+          ...ctrl.filter,
+          useAISearch: true,
+          vecWeight: ctrl.vecWeight,
+          fillScores: ctrl.fillScores
+        });
+      }
+    }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params

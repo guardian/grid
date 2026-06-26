@@ -90,7 +90,8 @@ class MediaApi(
     "countAll",
     "persisted",
     "useAISearch",
-    "vecWeight"
+    "vecWeight",
+    "fillScores"
   ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
@@ -650,12 +651,14 @@ class MediaApi(
           Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         case Some(semanticQuery) =>
           val vecWeight = params.vecWeight.getOrElse(0.8)
+          val fillScores = params.fillScores.getOrElse(true)
           val outerMarker = logMarker
 
           {
             implicit val logMarker: LogMarker = outerMarker ++ Map(
               "query" -> semanticQuery,
               "vecWeight" -> vecWeight,
+              "fillScores" -> fillScores,
               "aiSearchType" -> "hybrid"
             )
 
@@ -681,7 +684,8 @@ class MediaApi(
                 k = k,
                 numCandidates = Math.max(k * 2, 100),
                 vecWeight = vecWeight,
-                filterOpt = filterOpt
+                filterOpt = filterOpt,
+                fillScores = fillScores
               )
             } yield searchResults
           }

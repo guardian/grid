@@ -1036,6 +1036,10 @@ textarea.ng-invalid {
     align-self: center;
 }
 
+#search-version-select {
+    align-self: center;
+}
+
 .search__advanced-toggle-lbl {
   margin-right: 6px;
 }

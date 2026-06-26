@@ -21,6 +21,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
@@ -322,7 +323,8 @@ class ElasticSearch(
     k: Int,
     numCandidates: Int,
     vecWeight: Double,
-    filterOpt: Option[Query]
+    filterOpt: Option[Query],
+    fillScores: Boolean = true
   )(
     implicit ex: ExecutionContext,
     logMarker: LogMarker
@@ -333,12 +335,18 @@ class ElasticSearch(
     } else {
       val stopwatch = Stopwatch.start
 
-      // When the weighting is entirely on one side, short-circuit to that side
-      // alone rather than running both queries and fusing.
-      val searchResults = vecWeight match {
-        case 0.0 => lexicalSearch(query, k, filterOpt)
-        case 1.0 => semanticSearch(queryEmbedding, k, numCandidates, filterOpt)
-        case _ => fusedLexicalAndSemanticSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
+      val searchResults = if (!fillScores) {
+        // Legacy, pre-"fill scores" approach, gated behind the `fillScores` flag
+        // purely so we can A/B the two approaches on PROD. See legacyHybridSearch.
+        legacyHybridSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
+      } else {
+        // When the weighting is entirely on one side, short-circuit to that side
+        // alone rather than running both queries and fusing.
+        vecWeight match {
+          case 0.0 => lexicalSearch(query, k, filterOpt)
+          case 1.0 => semanticSearch(queryEmbedding, k, numCandidates, filterOpt)
+          case _ => fusedLexicalAndSemanticSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
+        }
       }
 
       searchResults.andThen { case _ =>
@@ -350,6 +358,91 @@ class ElasticSearch(
       }
     }
   }
+
+  // ===========================================================================
+  // BEGIN legacy hybrid search (pre "fill scores").
+  //
+  // This faithfully reproduces the hybrid search approach that was on `main`
+  // before the "fill missing scores" change. It is gated behind the `fillScores`
+  // flag purely so we can A/B the two approaches on PROD, and the whole of this
+  // section (along with the flag, the frontend checkbox and its feature switch)
+  // should be removed once we've finished comparing them.
+  // ===========================================================================
+
+  // BM25 scores are unbounded [0,inf] and typically much larger in magnitude
+  // than cosine similarity (knn). So we get the max BM25 score for the query and use that to calculate
+  // the scaling factor for the lexical part of the query, so that BM25 and knn scores are both between 0-1 scale
+  // and can be effectively combined in a hybrid query.
+  private def legacyFetchMaxBm25Score(query: String, filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Double] = {
+    val baseQuery = createMultiMatchQuery(query, operator = Operator.And)
+    val filteredQuery = filterOpt.map(filter => boolQuery().must(baseQuery).filter(filter)).getOrElse(baseQuery)
+
+    val maxScoreRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(filteredQuery)
+
+    executeAndLog(withSearchQueryTimeout(maxScoreRequest), "legacy hybrid search: max BM25 score").map { r =>
+      logger.info(logMarker, s"Max BM25 score for query '$query' is ${r.result.hits.maxScore}")
+      if (r.result.hits.hits.isEmpty) 1.0 else r.result.hits.maxScore
+    }
+  }
+
+  private def makeLegacyHybridSearchRequest(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    maxScore: Double,
+    filterOpt: Option[Query]
+  )(implicit logMarker: LogMarker): SearchRequest = {
+    val knn = Knn("embedding.cohereEmbedV4.image", filter = filterOpt)
+      .queryVector(queryEmbedding)
+      .k(k)
+      .numCandidates(numCandidates)
+      .boost(if (vecWeight > 0.0) 1.0 else 0.0)
+
+    val lexicalWeight = 1.0 - vecWeight
+
+    // KNN results are in [0,1], but BM25 scores are unbounded and typically much
+    // larger than cosine similarity, so we need to apply a scaling factor to the
+    // BM25 score to bring it to the same range as the cosine similarity.
+    val scalingFactor = if (maxScore > 0.0) 1.0 / maxScore else 1.0
+
+    // We want to apply only one boost if we can help it, so we scale the
+    // multi_match boost to be in line with the max_score and the desired
+    // lexical_weight/vec_weight balance
+    val multiMatchBoost = if (vecWeight > 0.0) (lexicalWeight / vecWeight) * scalingFactor else 1.0
+
+    logger.info(logMarker, s"Scaling factor for BM25 score is $scalingFactor, multi-match boost is $multiMatchBoost")
+
+    val multiMatchQuery = createMultiMatchQuery(query, boost = Some(multiMatchBoost), operator = Operator.And)
+
+    ElasticDsl.search(imagesCurrentAlias)
+      .bool(BoolQuery().should(Seq(multiMatchQuery, knn)).filter(filterOpt))
+      .size(k)
+  }
+
+  private def legacyHybridSearch(
+    query: String,
+    queryEmbedding: List[Double],
+    k: Int,
+    numCandidates: Int,
+    vecWeight: Double,
+    filterOpt: Option[Query]
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SearchResults] = {
+    for {
+      maxScore <- legacyFetchMaxBm25Score(query, filterOpt)
+      searchRequest = makeLegacyHybridSearchRequest(query, queryEmbedding, k, numCandidates, vecWeight, maxScore, filterOpt)
+      result <- executeAndLog(withSearchQueryTimeout(searchRequest), "legacy hybrid search: main query")
+    } yield {
+      val imageHits = result.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
+      SearchResults(hits = imageHits, total = imageHits.length, extraCounts = None)
+    }
+  }
+
+  // ===========================================================================
+  // END legacy hybrid search (pre "fill scores").
+  // ===========================================================================
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)

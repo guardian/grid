@@ -7,6 +7,14 @@
             Use AI search
         </label>
     </span>
+    <span id="search-version-select" class="search__modifier-item search__modifier-checkbox"
+        ng-if="searchQuery.shouldDisplayFillScoresOption && searchQuery.useAISearch">
+        <label>
+            <select ng-model="searchQuery.fillScores"
+                    ng-options="option.value as option.label for option in searchQuery.searchVersionOptions">
+            </select>
+        </label>
+    </span>
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
