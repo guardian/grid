@@ -132,7 +132,8 @@ module.controller('grArchiverCtrl', [
             mediaApi.undelete(imageId)
                 .then(() => pollUndeleted(imageId))
                 .then(() => {
-                    ctrl.canUndelete = ctrl.isDeleted = false;
+                    ctrl.canUndelete = false;
+                    ctrl.isDeleted = false;
                     ctrl.image.softDeletedMetadata = undefined;
                     if (ctrl.image.userMetadata?.data !== undefined) {
                         ctrl.image.userMetadata.data.archived = true;
