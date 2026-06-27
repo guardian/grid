@@ -146,6 +146,8 @@ larger response bodies on every search, on a high-QPS editorial service. That is
 > Worth offering to the Grid team as a low-risk, one-line, behaviour-transparent change — but
 > framed as efficiency, not speed. ⚠️ It lives in `common-lib` and affects **every** Grid
 > service (thrall, cropper, usage, etc.), so the blast radius is wider than this endpoint.
+>
+> **See below:** More measurements and a PR to main: https://github.com/guardian/grid/pull/4784
 
 ---
 
@@ -346,6 +348,47 @@ envelope (F5), not transport, is the thing worth optimising** — the opposite o
 **Do not touch:**
 - `trackTotalHits=true` on page 1 (F3) — product requirement (scrubber).
 - The mixed-route strangler (F6) — the contention is a dev-tunnel artefact, not a design flaw.
+
+---
+
+## F1 follow-up — measurements on real Grid (2026-06-27)
+
+The F1 patch (`setCompressionEnabled(true)` via `JavaClient.fromRestClient`) was applied to a
+PR branch (`mk-media-api-gzip-on`) and measured against real Grid TEST. Full data and scripts
+are in [zz Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md](../../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md).
+
+**Signal used:** Kibana `duration` field = media-api's `executeAndLog` elapsed time on the
+ES round-trip (send + ES `took` + read body + parse). This is the gzip-sensitive leg. Tunnel
+rate confirmed ~800 KB/s, consistent with the F1 model.
+
+### Arena A — local dev (media-api → TEST ES over SSH tunnel)
+
+| `length` | Response bytes raw → gzip | `duration` before | `duration` after | Speedup |
+|----------|--------------------------|-------------------|-----------------|---------|
+| 50 (Kahuna default) | 433 KB → 77 KB (5.6×) | 850 ms | 348 ms | **2.4×** |
+| 200 (API max) | 1742 KB → 291 KB (6.0×) | 2817 ms | 868 ms | **3.2×** |
+
+Dev win is a **tunnel artefact** — exactly as predicted.
+
+### Arena B — TEST / prod-like (intra-VPC link)
+
+Gold-standard comparison: both runs pre-warmed (20 throwaway requests), 100 reps, same
+pinned `until` timestamp. The only variable is the patch.
+
+| `length` | `duration` before (main) | `duration` after (patch) | Δ |
+|----------|--------------------------|--------------------------|---|
+| 1        | 69 ms                    | 68 ms                    | −1 ms — **identical** |
+| 50       | 115 ms                   | 129.5 ms                 | +14.5 ms — noise¹ |
+| 200      | 269 ms                   | 256 ms                   | −13 ms — consistent² |
+
+¹ After-run had a cluster load burst at end of batch inflating the median; warm-state ranges
+overlap (104–136 ms before vs 117–145 ms after).
+² Appears in three independent after-measurements. Likely reduced heap/GC pressure (291 KB
+buffer read vs 1742 KB).
+
+**Verdict:** no latency regression on the prod-like link. Worst case +14 ms, within noise.
+One unmeasured trade-off: ES + media-api CPU for compression/decompression, invisible at
+TEST QPS, real but likely small at PROD QPS.
 
 ---
 
