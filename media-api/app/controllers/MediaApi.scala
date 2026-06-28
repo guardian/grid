@@ -50,7 +50,7 @@ class MediaApi(
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(ws)
+  val gridClient: GridClient = GridClient(services, services.apiBaseUri)(ws)
 
   // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
   // concurrent requests for the same query share a single in-flight Bedrock call, and
@@ -404,15 +404,19 @@ class MediaApi(
           && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
         logger.info(logMarker, s"undeleting image $id")
 
-        softDeletedMetadataTable.updateStatus(id, isDeleted = false)
-          .map { _ =>
-            messageSender.publish(
-              UpdateMessage(
-                subject = UnSoftDeleteImage,
-                id = Some(id)
-              )
+        for {
+          // Take an "undeletion" as a marker that the file should be kept and not reaped.
+          // Mark as archived before undeleting, to make sure the reaper doesn't immediately reap it.
+          _ <- gridClient.putArchived(id, auth.getOnBehalfOfPrincipal(request.user))
+          _ <- softDeletedMetadataTable.updateStatus(id, isDeleted = false)
+          _ = messageSender.publish(
+            UpdateMessage(
+              subject = UnSoftDeleteImage,
+              id = Some(id)
             )
-          }.map { _ => Accepted }
+          )
+        } yield Accepted
+
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
         Future.successful(ImageDeleteForbidden)
