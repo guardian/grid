@@ -611,7 +611,7 @@ class MediaApi(
         data = imageEntities,
         offset = Some(0),
         total = Some(searchResults.total),
-        maybeExtraCounts = None,
+        maybeExtraCounts = searchResults.extraCounts,
         links = Nil
       )
     }

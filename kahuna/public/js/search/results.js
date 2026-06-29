@@ -248,6 +248,9 @@ results.controller('SearchResultsCtrl', [
         function initialiseAiResults(images) {
           const totalLength = images.data.length;
           ctrl.imagesAll = new Array(totalLength);
+          // Number of results actually shown (the top k), so we can display
+          // "Best k of N matches" where N is ctrl.totalResults.
+          ctrl.aiResultsShown = totalLength;
 
           // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
           // so we populate the full backing array up front to avoid placeholder rows.
@@ -292,6 +295,8 @@ results.controller('SearchResultsCtrl', [
             initialisePagedResults(images);
             checkForNewImages();
           }
+
+          ctrl.isAiSearch = isAiSearch;
 
           updateLastSearchBoundary();
 
