@@ -363,18 +363,17 @@ class ElasticSearch(
   // How many images match the active filters in total, so we can show
   // "Best k of N matches".
   private def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
-    val searchRequest = prepareSearch(filterOpt.getOrElse(matchAllQuery()))
-      .trackTotalHits(true)
-      .size(0)
+    val countRequest = ElasticDsl.count(imagesCurrentAlias).query(filterOpt.getOrElse(matchAllQuery()))
 
-    executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid AI search filter count").map(_.result.totalHits)
+    executeAndLog(countRequest, "hybrid AI search filter count").map(_.result.count)
   }
 
   // The ticker count badges restricted to the given (top-k) result ids.
   private def extraCountsForIds(ids: Seq[String])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ExtraCounts] = {
     if (ids.isEmpty) Future.successful(ExtraCounts(tickerCounts = Map.empty))
     else {
-      val searchRequest = prepareSearch(filters.ids(ids.toList))
+      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+        .query(filters.ids(ids.toList))
         .size(0)
         .aggregations(extraCountAggregations)
 
