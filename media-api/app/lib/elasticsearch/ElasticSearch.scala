@@ -369,6 +369,9 @@ class ElasticSearch(
   }
 
   // The ticker count badges restricted to the given (top-k) result ids.
+  // In principle, we could compute this here, without an extra request.
+  // But it would require awkward duplication of the search logic
+  // from `maybeOrgOwnedExtraCount` and `maybeAgencyPicksExtraCount`
   private def extraCountsForIds(ids: Seq[String])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ExtraCounts] = {
     if (ids.isEmpty) Future.successful(ExtraCounts(tickerCounts = Map.empty))
     else {
