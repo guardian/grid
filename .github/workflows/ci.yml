@@ -15,10 +15,16 @@ jobs:
       pull-requests: write
     services:
       elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch:7.17.29
-        # Wait for elasticsearch to report healthy before continuing.
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
+        # These options should mimic those set in ElasticSearchDockerBase.scala, because this is
+        # the CI version of the TestContainers approach we use for running tests locally.
+        # `xpack.security.enabled=false` is needed since v8 for tests to use plain
+        # unauthenticated HTTP, because in v7 => v8 they changed the default to `true`:
+        # https://www.elastic.co/guide/en/elasticsearch/reference/8.18/release-notes-8.0.0.html#:~:text=Set%20xpack.security.enabled%20to%20true%20for%20all%20licenses
+        #
+        # `--health-` settings make it wait for es to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
-        options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
+        options: -e "discovery.type=single-node" -e "xpack.security.enabled=false" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
         ports:
           - 9200:9200
       localstack:
@@ -77,7 +83,7 @@ jobs:
           npm test
       - name: Image Embedder bundling
         run: ./scripts/embedder-deploy/build.sh
-      - uses: guardian/actions-riff-raff@v4.2.4
+      - uses: guardian/actions-riff-raff@v4.3.3
         if: "! github.event.pull_request.head.repo.fork"
         with:
           githubToken: ${{ secrets.GITHUB_TOKEN }}

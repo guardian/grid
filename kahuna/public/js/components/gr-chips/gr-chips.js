@@ -27,7 +27,7 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
     $grChipsCtrl.configureNgModel = function(ngModelCtrl, onChangeExpr, autoCompleteExpr,
                                              validKeysExpr, autofocus, placeholder) {
         $grChipsCtrl.defaultPlaceholder = placeholder || 'Search for images... (type + for advanced search)';
-        $grChipsCtrl.aiSearchPlaceholder = 'Search for conceptual images using AI search... (no filters available)';
+        $grChipsCtrl.aiSearchPlaceholder = 'Search for conceptual images using AI search...';
 
 
         $grChipsCtrl.onChange = () => onChangeExpr($scope, {$chips: $grChipsCtrl.items});

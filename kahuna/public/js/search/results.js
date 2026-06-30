@@ -1,7 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
 import moment from 'moment';
-
 import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
@@ -578,6 +577,7 @@ results.controller('SearchResultsCtrl', [
                 length:     length,
                 orderBy:    orderBy,
                 useAISearch: $stateParams.useAISearch,
+                vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
@@ -827,24 +827,27 @@ results.controller('SearchResultsCtrl', [
             });
         };
 
-        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-            images.forEach(image => {
-                // TODO: should not be needed here, the selection and
-                // results should listen to these events and update
-                // itself outside of any controller
-                ctrl.deselect(image);
+        const imageDeleteHandler = (_, images) => {
+          images.forEach(image => {
+            // TODO: should not be needed here, the selection and
+            // results should listen to these events and update
+            // itself outside of any controller
+            ctrl.deselect(image);
 
-                const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
-                results.removeAt(indexAll);
+            const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+            results.removeAt(indexAll);
 
-                updateImageArray(ctrl.images, image);
-                updateImageArray(ctrl.imagesAll, image);
+            updateImageArray(ctrl.images, image);
+            updateImageArray(ctrl.imagesAll, image);
 
-                updatePositions(image);
+            updatePositions(image);
 
-                ctrl.totalResults--;
-            });
-        });
+            ctrl.totalResults--;
+          });
+        };
+
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', imageDeleteHandler);
+        const freeImageUndeleteListener = $rootScope.$on('images-undeleted', imageDeleteHandler);
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
@@ -913,6 +916,7 @@ results.controller('SearchResultsCtrl', [
             }
             freeUpdatesListener();
             freeImageDeleteListener();
+            freeImageUndeleteListener();
             scopeGone = true;
         });
     }

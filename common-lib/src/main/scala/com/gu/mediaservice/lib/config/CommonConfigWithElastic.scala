@@ -13,7 +13,8 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
     ),
     url = string("es6.url"),
     shards = string("es6.shards").toInt,
-    replicas = string("es6.replicas").toInt
+    replicas = string("es6.replicas").toInt,
+    includeDenseVectorMappings = booleanOpt("es.includeDenseVectorMappings").getOrElse(true)
   )
 
   private val persistenceIdentifier = string("persistence.identifier")

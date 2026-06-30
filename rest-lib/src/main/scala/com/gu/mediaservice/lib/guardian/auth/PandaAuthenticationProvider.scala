@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{UserPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.aws.S3Ops
@@ -17,7 +17,6 @@ import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result}
 
-import scala.concurrent.duration.{Duration, HOURS}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -33,8 +32,6 @@ class PandaAuthenticationProvider(
   override lazy val panDomainSettings: PanDomainAuthSettingsRefresher = buildPandaSettings()
   override def wsClient: WSClient = resources.wsClient
   override def controllerComponents: ControllerComponents = resources.controllerComponents
-
-  override def apiGracePeriod: Long = Duration(24, HOURS).toMillis
 
   val loginLinks = List(
     Link("login", resources.commonConfig.services.loginUriTemplate)
@@ -115,6 +112,22 @@ class PandaAuthenticationProvider(
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some((rh, _) => processLogout(rh))
 
   val PandaCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("PandaCookie")
+  val OriginKey: TypedKey[String] = TypedKey[String]("Origin")
+
+  private def withPersistedOrigin(request: Principal): WSRequest => WSRequest = { wsRequest =>
+    request.attributes.get(OriginKey) match {
+      case Some(origin) => wsRequest.withHttpHeaders(("Origin", origin))
+      case None => wsRequest
+    }
+  }
+
+  private def withPersistedCookie(request: Principal): Either[String, WSRequest => WSRequest] = {
+    val cookieName = panDomainSettings.settings.cookieSettings.cookieName
+    request.attributes.get(PandaCookieKey) match {
+      case Some(cookie) => Right(wsRequest => wsRequest.addCookies(DefaultWSCookie(cookieName, cookie.value)))
+      case None => Left(s"Pan domain cookie $cookieName is missing in principal.")
+    }
+  }
 
   /**
     * A function that allows downstream API calls to be made using the credentials of the inflight request
@@ -122,19 +135,13 @@ class PandaAuthenticationProvider(
     * @param request The request header of the inflight call
     * @return A function that adds appropriate data to a WSRequest
     */
-  override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] = {
-    val cookieName = panDomainSettings.settings.cookieSettings.cookieName
-    request.attributes.get(PandaCookieKey) match {
-      case Some(cookie) => Right { wsRequest: WSRequest =>
-        wsRequest.addCookies(DefaultWSCookie(cookieName, cookie.value))
-      }
-      case None => Left(s"Pan domain cookie $cookieName is missing in principal.")
-    }
-  }
+  override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] =
+    withPersistedCookie(request).map(_.andThen(withPersistedOrigin(request)))
 
   private def gridUserFrom(pandaUser: User, request: RequestHeader): UserPrincipal = {
     val maybePandaCookie: Option[TypedEntry[Cookie]] = request.cookies.get(panDomainSettings.settings.cookieSettings.cookieName).map(TypedEntry[Cookie](PandaCookieKey, _))
-    val attributes = TypedMap.empty + (maybePandaCookie.toSeq:_*)
+    val maybeOrigin = request.headers.get("Origin").map(TypedEntry[String](OriginKey, _))
+    val attributes = TypedMap(Seq(maybePandaCookie, maybeOrigin).flatten:_*)
     UserPrincipal(
       firstName = pandaUser.firstName,
       lastName = pandaUser.lastName,
@@ -150,7 +157,7 @@ class PandaAuthenticationProvider(
       system = providerConfiguration.getOptional[String]("panda.system").getOrElse("media-service"),
       bucketName = providerConfiguration.getOptional[String]("panda.bucketName").getOrElse("pan-domain-auth-settings"),
       settingsFileKey = providerConfiguration.getOptional[String]("panda.settingsFileKey").getOrElse(s"$domain.settings"),
-      s3Client = S3Ops.buildS3Client(resources.commonConfig, localstackAware=resources.commonConfig.useLocalAuth)
+      s3Client = S3Ops.buildS3ClientV2(resources.commonConfig, localstackAware=resources.commonConfig.useLocalAuth)
     )
   }
 
