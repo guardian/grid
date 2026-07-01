@@ -4,11 +4,13 @@ import './prompt/prompt';
 import './recent/recent-uploads';
 import '../services/scroll-position';
 
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 var upload = angular.module('kahuna.upload.controller', [
-    'kahuna.upload.prompt',
-    'kahuna.upload.recent',
-    'kahuna.services.scroll-position',
-    'util.storage'
+  'kahuna.upload.prompt',
+  'kahuna.upload.recent',
+  'kahuna.services.scroll-position',
+  'util.storage'
 ]);
 
 upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', 'storage',
@@ -23,7 +25,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
     $scope.$on("$locationChangeStart", function(event, _, current) {
       // handle route changes
       if (current.indexOf("/upload") > -1) {
-          ctrl.displayWarning(event);
+        ctrl.displayWarning(event);
       }
     });
 
@@ -37,7 +39,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
     ctrl.systemName = window._clientConfig.systemName;
 
     mediaApi.canUserUpload().then(canUpload => {
-        ctrl.canUpload = canUpload;
+      ctrl.canUpload = canUpload;
     });
 
     // TODO: Show multiple jobs?
@@ -57,14 +59,14 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
         const defaultNonFreeFilter = {
           isDefault: true,
-          isNonFree: showPaid ? showPaid : false
+          isNonFree: toNonFreeString(showPaid)
         };
         storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
-          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true
         }));
         scrollPosition.resetToTop();
       });
     };
-}]);
+  }]);

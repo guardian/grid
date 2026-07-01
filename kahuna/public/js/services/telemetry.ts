@@ -49,11 +49,10 @@ const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string
     }, 1);
 };
 
-export const sendTelemetryForQuery = (query: string, nonFree?: boolean | string, uploadedByMe?: boolean, useAISearch?: boolean ) => {
+export const sendTelemetryForQuery = (query: string, nonFree?: string, uploadedByMe?: boolean, useAISearch?: boolean  ) => {
     const structuredQuery = structureQuery(query || "");
     const searchUuid = v4();
-    // nonFree is unfortunately either a boolean, stringified boolean, or undefined
-    const freeToUseOnly = (!(nonFree === 'true' || nonFree === true));
+    const freeToUseOnly = nonFree !== 'true';
     const uploadedByMeOnly = (uploadedByMe);
 
     // Only log for true - matching how these filters work in Grid (only applied when true)
