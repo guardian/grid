@@ -24,6 +24,7 @@
             <p>If you're happy, then enter the media ID below and hit 'submit'...</p>
 
             @form(routes.ThrallController.upsertProjectPage(None)) {
+                @CSRF.formField
                 <label for="imageId">Image ID:</label>
                 <input type="text" id="imageId" name="imageId">
                 <input type="submit" value="Submit">
