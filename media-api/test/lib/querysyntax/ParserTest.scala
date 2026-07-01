@@ -486,6 +486,24 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     }
   }
 
+  describe("similar filter") {
+    it("should parse similar queries") {
+      Parser.run("similar:abc123") should be (List(
+        Match(SimilarField, SimilarValue("abc123")),
+        ) ++ standardNegations
+      )
+    }
+
+    it("should parse similar queries with other filters and text") {
+      Parser.run("similar:abc123 fileType:jpeg hello") should be (List(
+        Match(SimilarField, SimilarValue("abc123")),
+        Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg")),
+        Match(AnyField, Words("hello")),
+        ) ++ standardNegations
+      )
+    }
+  }
+
   describe("fileType filter") {
     it("should find jpegs images") {
       Parser.run("fileType:jpeg") should be (List(

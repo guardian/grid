@@ -197,15 +197,19 @@ object Reindex extends EsScript {
 object UpdateMapping extends EsScript {
 
   def run(esUrl: String, extraArgs: List[String]): Unit = {
+    val includeDenseVectors = !extraArgs.contains("--no-dense-vectors")
+    val remainingArgs = extraArgs.filterNot(_ == "--no-dense-vectors")
 
-    object MappingsClient extends EsClient(esUrl) {
+    println(s"includeDenseVectorMappings: $includeDenseVectors")
+
+    object MappingsClient extends EsClient(esUrl, includeDenseVectors) {
       def updateMappings(specifiedIndex: Option[String]): Unit = {
         val index = specifiedIndex.getOrElse(imagesCurrentAlias)
         println(s"Updating mapping on index: $index")
 
         val result = client.execute {
           putMapping(Indexes(index)) as {
-            Mappings.imageMapping.properties
+            Mappings.imageMapping(includeDenseVectors).properties
           }
         }.await
 
@@ -219,11 +223,11 @@ object UpdateMapping extends EsScript {
 
     }
 
-    MappingsClient.updateMappings(extraArgs.headOption)
+    MappingsClient.updateMappings(remainingArgs.headOption)
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateMapping <ES_URL>")
+    System.err.println("Usage: UpdateMapping <ES_URL> [<index_name>] [--no-dense-vectors]")
     sys.exit(1)
   }
 }
@@ -422,7 +426,7 @@ abstract class EsScript {
     run(esUrl, extraArgs)
   }
 
-  class EsClient(val url: String) extends ElasticSearchClient {
+  class EsClient(val url: String, val includeDenseVectorMappings: Boolean = true) extends ElasticSearchClient {
     override def imagesCurrentAlias = esImagesAlias
     override def shards = esShards
     override def replicas = esReplicas

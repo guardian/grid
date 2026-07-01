@@ -37,6 +37,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def shards: Int
   def replicas: Int
+  def includeDenseVectorMappings: Boolean
 
   lazy val client = {
     logger.info("Connecting to Elastic 8: " + url)
@@ -146,7 +147,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
         "to remove the need for these: " + nonRecommendenedIndexSettingOverrides)
 
       createIndex(index).
-        mapping(Mappings.imageMapping).
+        mapping(Mappings.imageMapping(includeDenseVectorMappings)).
         analysis(IndexSettings.analysis).
         settings(nonRecommendenedIndexSettingOverrides).
         shards(shards).

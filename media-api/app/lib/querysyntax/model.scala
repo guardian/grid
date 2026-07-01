@@ -15,6 +15,7 @@ final case class SingleField(name: String) extends Field
 final case class MultipleField(names: List[String]) extends Field
 final case object HasField extends Field
 final case object IsField extends Field
+final case object SimilarField extends Field
 
 sealed trait Value
 final case class Words(string: String) extends Value
@@ -23,3 +24,4 @@ final case class Date(date: DateTime) extends Value
 final case class DateRange(startDate: DateTime, endDate: DateTime) extends Value
 final case class HasValue(string: String) extends Value
 final case class IsValue(string: String) extends Value
+final case class SimilarValue(string: String) extends Value

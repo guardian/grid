@@ -1,7 +1,6 @@
 import angular from 'angular';
 import Rx from 'rx';
 import moment from 'moment';
-
 import '../services/scroll-position';
 import '../services/panel';
 import '../util/async';
@@ -249,6 +248,9 @@ results.controller('SearchResultsCtrl', [
         function initialiseAiResults(images) {
           const totalLength = images.data.length;
           ctrl.imagesAll = new Array(totalLength);
+          // Number of results actually shown (the top k), so we can display
+          // "Best k of N matches" where N is ctrl.totalResults.
+          ctrl.aiResultsShown = totalLength;
 
           // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
           // so we populate the full backing array up front to avoid placeholder rows.
@@ -293,6 +295,8 @@ results.controller('SearchResultsCtrl', [
             initialisePagedResults(images);
             checkForNewImages();
           }
+
+          ctrl.isAiSearch = isAiSearch;
 
           updateLastSearchBoundary();
 
@@ -578,6 +582,7 @@ results.controller('SearchResultsCtrl', [
                 length:     length,
                 orderBy:    orderBy,
                 useAISearch: $stateParams.useAISearch,
+                vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
                 syndicationStatus: $stateParams.syndicationStatus,
@@ -827,24 +832,27 @@ results.controller('SearchResultsCtrl', [
             });
         };
 
-        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-            images.forEach(image => {
-                // TODO: should not be needed here, the selection and
-                // results should listen to these events and update
-                // itself outside of any controller
-                ctrl.deselect(image);
+        const imageDeleteHandler = (_, images) => {
+          images.forEach(image => {
+            // TODO: should not be needed here, the selection and
+            // results should listen to these events and update
+            // itself outside of any controller
+            ctrl.deselect(image);
 
-                const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
-                results.removeAt(indexAll);
+            const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+            results.removeAt(indexAll);
 
-                updateImageArray(ctrl.images, image);
-                updateImageArray(ctrl.imagesAll, image);
+            updateImageArray(ctrl.images, image);
+            updateImageArray(ctrl.imagesAll, image);
 
-                updatePositions(image);
+            updatePositions(image);
 
-                ctrl.totalResults--;
-            });
-        });
+            ctrl.totalResults--;
+          });
+        };
+
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', imageDeleteHandler);
+        const freeImageUndeleteListener = $rootScope.$on('images-undeleted', imageDeleteHandler);
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
@@ -913,6 +921,7 @@ results.controller('SearchResultsCtrl', [
             }
             freeUpdatesListener();
             freeImageDeleteListener();
+            freeImageUndeleteListener();
             scopeGone = true;
         });
     }

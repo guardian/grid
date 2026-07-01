@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
 import play.api.libs.json.{Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
@@ -16,6 +16,67 @@ import scala.util.Try
 case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, extraCounts: Option[ExtraCounts])
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
+
+case class AiQueryParts(
+  semanticQuery: Option[String],
+  filterConditions: List[Condition],
+  similarImageId: Option[String]
+) {
+  def hasSimilarAndSemanticText: Boolean = similarImageId.nonEmpty && semanticQuery.nonEmpty
+
+  // A KNN bit is the only thing AI search can rank by, so a query must contain either
+  // a text query (text KNN) or a similar image (image KNN) to be valid.
+  def hasKnn: Boolean = similarImageId.nonEmpty || semanticQuery.nonEmpty
+
+  // Returns Left(error message) if the AI query cannot be satisfied, otherwise Right(()).
+  def validationError: Either[String, Unit] = {
+    if (hasSimilarAndSemanticText)
+      Left(
+        "AI search can't combine a similar image search with a text query because the two rankings can't be merged. " +
+          "Please use either a text query or a similar image, not both."
+      )
+    else if (!hasKnn)
+      Left(
+        "AI search needs something to rank by. " +
+          "Add a text query or a similar image alongside your filters."
+      )
+    else
+      Right(())
+  }
+}
+
+object AiQueryParts {
+  def from(conditions: List[Condition]): AiQueryParts = {
+    val initial = AiQueryParts(
+      semanticQuery = None,
+      filterConditions = List.empty,
+      similarImageId = None,
+    )
+
+    conditions.foldLeft(initial) {
+      case (parts, Match(AnyField, Words(value))) =>
+        appendSemanticText(parts, value)
+      case (parts, Match(AnyField, Phrase(value))) =>
+        appendSemanticText(parts, value)
+      case (parts, Match(SimilarField, SimilarValue(imageId))) if imageId.trim.nonEmpty =>
+        parts.copy(similarImageId = Some(imageId.trim))
+      case (parts, Match(SimilarField, _)) =>
+        parts
+      case (parts, condition) =>
+        parts.copy(filterConditions = parts.filterConditions :+ condition)
+    }
+  }
+
+  private def appendSemanticText(parts: AiQueryParts, value: String): AiQueryParts = {
+    val trimmedValue = value.trim
+
+    if (trimmedValue.isEmpty) parts
+    else {
+      val semanticQuery = parts.semanticQuery.fold(trimmedValue)(existing => s"$existing $trimmedValue")
+      parts.copy(semanticQuery = Some(semanticQuery))
+    }
+  }
+}
 
 case class CompletionSuggestionResult(key: String, score: Float)
 
@@ -86,7 +147,10 @@ case class SearchParams(
   printUsageFilters: Option[PrintUsageFilters] = None,
   shouldFlagGraphicImages: Boolean = false,
   useAISearch: Option[Boolean] = None,
-)
+  vecWeight: Option[Double] = None
+) {
+  lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
+}
 
 case class InvalidUriParams(message: String) extends Throwable
 object InvalidUriParams {
@@ -115,6 +179,8 @@ object SearchParams {
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+  def parseBoundedDoubleFromQuery(s: String): Option[Double] =
+    Try(s.toDouble).toOption.filter(d => !d.isNaN && !d.isInfinity && d >= 0.0 && d <= 1.0)
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
   def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
@@ -175,6 +241,7 @@ object SearchParams {
       printUsageFilters,
       shouldFlagGraphicImages = false,
       request.getQueryString("useAISearch") flatMap parseBooleanFromQuery,
+      request.getQueryString("vecWeight") flatMap parseBoundedDoubleFromQuery,
     )
   }
 
