@@ -334,7 +334,7 @@ search.run(['$rootScope', '$state', function($rootScope, $state) {
     if (toState.name === 'search.results') {
       //If moving to a collection, sorts images by time added to a collection by default
       //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
-      const checkForCollection = (query) => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+      const checkForCollection = (query) => /~"[a-zA-Z0-9 #\-_.://]+"/.test(query);
       const toQuery = toParams.query ? toParams.query : "";
       if (!checkForCollection(toQuery) && toParams.orderBy === COLLECTION_SORT_VALUE) {
         delete toParams.orderBy;

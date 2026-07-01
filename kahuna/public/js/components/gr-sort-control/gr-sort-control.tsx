@@ -16,7 +16,7 @@ export interface SortWrapperProps {
   props: SortProps;
 }
 
-const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
+const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #\-_.://]+"/.test(query);
 
 const deriveSortState = (query: string, orderBy: string, sortOptions: SortDropdownOption[]) => {
   const hasCollection = checkForCollection(query);
