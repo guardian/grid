@@ -222,9 +222,7 @@
         <div ng-if="ctrl.filtersOnlyAiSearch"
              class="image-no-results">
             <span>
-                Your filters have narrowed your pool of images down from {{ctrl.filterPoolCounts.totalPool | toLocaleString}}
-                to {{ctrl.filterPoolCounts.filteredPool | toLocaleString}}.
-                Please add a search query to search over these.
+                {{ctrl.filterPoolCounts.filteredPool | toLocaleString}} images match your filters. Add a query to see the best 200.
             </span>
         </div>
 
