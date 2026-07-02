@@ -14,6 +14,46 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 2 July 2026 — Unit test coverage gap fixes (Batch A + Batch B)
+
+Added Vitest coverage for two Tier-1 pure-logic files identified in a test-gap audit
+(`test-gap-findings.md`, now archived to `zz Archive/`). No production code changed.
+Ran the full clean-slate check first (Vitest 918/918, `tsc -b && vite build` clean,
+Playwright e2e 240/240) before starting.
+
+**Batch A — `src/lib/orchestration/search.test.ts` (new, 4 tests):**
+- User-initiated navigation flag (`markUserInitiatedNavigation`/`consumeUserInitiatedFlag`)
+  is read-and-clear — guards the real shipped-bug class where the flag was consumed by a
+  dedup no-op effect before the real consumer fired.
+- Adversarial: two consecutive consumes on a fresh, unmarked module are both `false`.
+- `cancelSearchDebounce` actually cancels the pending timer callback (fake timers —
+  asserts the callback never fires, not just that a bookkeeping var changed).
+- `cancelSearchDebounce` bumps `_cqlInputGeneration` (forces `CqlSearchInput` remount).
+- Zero mocking — all four functions touch no external imports; used `vi.resetModules()` +
+  dynamic import per test for a pristine module each time.
+
+**Batch B — `src/lib/sort-context.test.ts` (new, 11 tests) + `fast-check` dependency:**
+- Installed `fast-check` as a new devDependency (`kupua/package.json`) — justified by the
+  binary-search property test below.
+- Part A (5 tests): `computeTrackTicksWithNullZone` boundary cases — no boundary tick when
+  `coveredCount >= total`; exactly one boundary tick at `coveredCount - 1`; boundary tick at
+  position 0 when `coveredCount === 0`; null-zone tick positions correctly offset by
+  `coveredCount`. Covers the documented past null-zone boundary-tick regression.
+  (`coveredCount >= total` guard was previously read as verified against source before writing.)
+- Part B (2 tests): a `fast-check` property test drives the private `lookupSortDistribution`
+  binary search transitively through the exported `interpolateSortLabel`, checking hundreds of
+  random bucket layouts resolve the correct key at every position and `null` beyond
+  `coveredCount` — plus one hand-written example.
+- Part C (4 tests): `resolvePrimarySortKey`, `resolveDateSortInfo`, `resolveKeywordSortInfo` —
+  default sort fallback, comma-separated field stripping, unknown-field → `null`, correct
+  ES field path + direction for known fields.
+- `two-tier.ts`, `dispatchClickEffects.ts`, and `reset-to-home.ts` proposals from the audit
+  were deliberately not pursued (see archived doc for reasoning — trivial boolean, requires
+  a production refactor, or heavy store-mocking for marginal confidence).
+
+All 933 tests green after both batches (up from 918). Full suite + build re-verified after
+each batch, not just the new files.
+
 ### 20 June 2026 — media-api-work docs refresh + D7/D8/D9 workplan (D3 shipped)
 
 Documentation pass after D3 (`POST /images/search-after`) shipped: a `media-api-work/` folder
