@@ -602,8 +602,41 @@ class MediaApi(
       elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt)
     }
 
+    // The pool of images before the user's chip filters are applied (i.e. only the
+    // filters implied by the request itself, e.g. syndication/permissions). Used to
+    // explain how the chip filters have narrowed things down.
+    def buildBasePoolFilter(params: SearchParams): Option[Query] =
+      elasticSearch.queryBuilder.buildFilterOpt(
+        params,
+        elasticSearch.searchFilters,
+        elasticSearch.syndicationFilter
+      )
+
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
+
+    // Response for an AI search that only has filters (no text/similar-image query to
+    // rank by). Rather than erroring, we return an empty result set annotated with how
+    // the filters have narrowed the pool of images, so the client can prompt the user
+    // to add a query.
+    def filtersOnlyAiSearchResponse(params: SearchParams): Future[Result] = {
+      val basePoolFilter = buildBasePoolFilter(params)
+      val filteredPoolFilter = buildAiFilter(params)
+
+      for {
+        totalPool <- elasticSearch.countMatchingFilter(basePoolFilter)
+        filteredPool <- elasticSearch.countMatchingFilter(filteredPoolFilter)
+      } yield respondCollection(
+        data = List.empty[EmbeddedEntity[JsValue]],
+        offset = Some(0),
+        total = Some(0),
+        maybeExtraCounts = Some(ExtraCounts(
+          tickerCounts = Map.empty,
+          filterPoolCounts = Some(FilterPoolCounts(totalPool = totalPool, filteredPool = filteredPool))
+        )),
+        links = Nil
+      )
+    }
 
     def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
       val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
@@ -695,8 +728,13 @@ class MediaApi(
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
       params.aiQueryParts.validationError match {
         case Left(errorMessage) =>
-          logger.info(logMarker, s"Invalid AI search query: $errorMessage")
-          Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
+          if (params.aiQueryParts.hasFilterConditions) {
+            logger.info(logMarker, s"AI search with only filters and no query to rank by; returning filter pool counts: ${params.aiQueryParts.filterConditions}")
+            filtersOnlyAiSearchResponse(params)
+          } else {
+            logger.info(logMarker, s"Invalid AI search query: $errorMessage")
+            Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
+          }
         case scala.util.Right(_) =>
           val k = config.aiSearchResultLimit
           val searchResultsFuture = parseAiSearchMode(params) match {

@@ -233,6 +233,12 @@ results.controller('SearchResultsCtrl', [
           // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
           ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
+          // Present only when an AI search had filters but no text/similar-image query to
+          // rank by. When set, we show a prompt explaining how the filters have narrowed
+          // the pool of images and inviting the user to add a query.
+          ctrl.filterPoolCounts = images.$response?.$$state?.value?.actions?.filterPoolCounts;
+          ctrl.filtersOnlyAiSearch = !!ctrl.filterPoolCounts;
+
           ctrl.hasQuery = !!$stateParams.query;
           ctrl.initialSearchUri = images.uri;
           ctrl.embeddableUrl = window.location.href;

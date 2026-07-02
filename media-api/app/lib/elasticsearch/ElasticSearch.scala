@@ -362,7 +362,7 @@ class ElasticSearch(
 
   // How many images match the active filters in total, so we can show
   // "Best k of N matches".
-  private def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
+  def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
     val countRequest = ElasticDsl.count(imagesCurrentAlias).query(filterOpt.getOrElse(matchAllQuery()))
 
     executeAndLog(countRequest, "hybrid AI search filter count").map(_.result.count)
