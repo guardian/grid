@@ -85,8 +85,20 @@ query.controller('SearchQueryCtrl', [
       ctrl.vecWeight = undefined;
     } else {
       ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
-      ctrl.vecWeight = $stateParams.vecWeight;
+      // vecWeight defaults to 0.8 (matching the backend default) when unset.
+      const parsedWeight = parseFloat($stateParams.vecWeight);
+      ctrl.vecWeight = Number.isFinite(parsedWeight) ? parsedWeight : 0.8;
     }
+    ctrl.showWeightSlider = false;
+
+    // Bridge for the range input so two-way binding can debounce numerically.
+    ctrl.vecWeightModel = function (newValue) {
+      if (arguments.length) {
+        const n = parseFloat(newValue);
+        ctrl.vecWeight = Number.isFinite(n) ? n : 0.8;
+      }
+      return ctrl.vecWeight;
+    };
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
@@ -464,6 +476,13 @@ query.controller('SearchQueryCtrl', [
           $state.go('search.results', {...ctrl.filter,  useAISearch: null});
       }
     });
+
+    // Hybrid weight slider: push vector/lexical weight changes to the URL while AI search is on.
+    $scope.$watch(() => ctrl.vecWeight, onValChange((newVal) => {
+      if (ctrl.useAISearch) {
+        $state.go('search.results', {...ctrl.filter, vecWeight: newVal});
+      }
+    }));
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
         // Translate dateFilter to actual state and query params

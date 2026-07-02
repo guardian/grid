@@ -22,6 +22,27 @@
         </button>
     </span>
 
+    <!-- AI hybrid weight: collapsed to a single button, expands to a vector/lexical mix slider. -->
+    <span class="search__ai-controls" ng-if="searchQuery.useAISearch">
+        <span class="search__ai-weight">
+            <button type="button"
+                    class="search__ai-weight-toggle"
+                    ng-click="searchQuery.showWeightSlider = !searchQuery.showWeightSlider"
+                    gr-tooltip="Show/hide the vector vs lexical mix slider">
+                <gr-icon>tune</gr-icon>
+            </button>
+            <span ng-if="searchQuery.showWeightSlider" class="search__ai-weight-slider">
+                <gr-icon class="search__ai-weight-label" title="Lexical (text) match">text_fields</gr-icon>
+                <input type="range" min="0" max="1" step="0.05"
+                       ng-model="searchQuery.vecWeightModel"
+                       ng-model-options="{ debounce: 200, getterSetter: true }"
+                       aria-label="Vector weight"/>
+                <gr-icon class="search__ai-weight-label" title="Vector (image) similarity">image</gr-icon>
+                <span class="search__ai-weight-value">{{ searchQuery.vecWeight | number:2 }}</span>
+            </span>
+        </span>
+    </span>
+
     <button class="search__advanced-toggle" ng-class="searchQuery.usePermissionsFilter ? 'search__advanced-toggle-lbl' : ''"
             type="button"
             ng-click="searchInfo = !searchInfo"
