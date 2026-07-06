@@ -16,7 +16,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import scala.jdk.CollectionConverters.{IterableHasAsScala, IteratorHasAsScala}
 
 class UsageTable(config: UsageConfig) extends GridLogging {
 
@@ -30,7 +30,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
     .addIndexSortKey(TableMetadata.primaryIndexName(), rangeKeyName, AttributeValueType.S)
     .addIndexPartitionKey(
-      "CustomIndex",
+      "MediaIdIndex",
       imageIndexName,
       AttributeValueType.S
     )
@@ -56,11 +56,18 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       throw new BadInputException("Empty string received for image id")
 
     logger.info(logMarkerWithId, s"Querying usages table for $id")
-    val imageIndex = table.getIndex(imageIndexName)
-    val keyAttribute = new KeyAttribute(imageIndexName, id)
-    val queryResult = imageIndex.query(keyAttribute)
 
-    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
+    val key = Key.builder()
+      .partitionValue(id)
+      .build()
+
+    val queryResult = table.index("MediaIdIndex").query(QueryConditional.keyEqualTo(key))
+
+    val unsortedUsages = queryResult.iterator()
+      .asScala
+      .flatMap(_.items().asScala)
+      .map(ItemToMediaUsage.transform)
+      .toList
 
     logger.info(logMarkerWithId, s"Query of usages table for $id found ${unsortedUsages.size} results")
 
