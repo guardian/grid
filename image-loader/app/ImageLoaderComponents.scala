@@ -37,7 +37,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     }
 
   val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth)
-  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
+  val projector = Projector(config, imageOperations, imageProcessor, maybeEmbedder)
   val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
     new QuarantineUploader(new QuarantineStore(config), config)
   )

@@ -382,16 +382,14 @@ class ImageLoaderController(auth: Authentication,
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
-      result.map {
-        case Some(img) =>
-          logger.info(context, "image found")
-          Ok(Json.toJson(img)).as(ArgoMediaType)
-        case None =>
+      result.map { img =>
+        logger.info(context, "image found")
+        Ok(Json.toJson(img)).as(ArgoMediaType)
+      } recover {
+        case _: NoSuchImageExistsInS3 =>
           val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
           logger.info(context, "image not found")
           respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
-      } recover {
-        case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
         case e =>
           logger.error(context, s"projectImageBy request for id $imageId ended with a failure", e)
           InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
