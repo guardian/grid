@@ -1,28 +1,28 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
-import com.amazonaws.services.dynamodbv2.document.{DeleteItemOutcome, KeyAttribute, RangeKeyCondition}
-import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.aws.DynamoDB.avToAny
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
 import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
-import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional
+import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
+import software.amazon.awssdk.enhanced.dynamodb.model.{DeleteItemEnhancedRequest, QueryConditional, QueryEnhancedRequest, UpdateItemEnhancedRequest}
 import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverterProvider, AttributeValueType, DynamoDbEnhancedClient, Key, TableMetadata, TableSchema}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ReturnValue, UpdateItemRequest}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters.{IterableHasAsScala, IteratorHasAsScala}
+import scala.jdk.CollectionConverters.{IterableHasAsScala, IteratorHasAsScala, MapHasAsJava, MapHasAsScala}
 
 class UsageTable(config: UsageConfig) extends GridLogging {
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
   val imageIndexName = "media_id"
+
 
   lazy val client2: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
   lazy val dynamo2: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client2).build()
@@ -111,13 +111,17 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       val grouping = usageGroup.grouping
 
       logger.info(logMarker, s"Querying table for $grouping")
-      val queryResult = table.query(
-        new QuerySpec()
-          .withConsistentRead(true)
-          .withHashKey(new KeyAttribute("grouping", grouping))
-      )
+      val key = Key.builder()
+        .partitionValue(grouping)
+        .build()
+      val request =
+        QueryEnhancedRequest.builder()
+          .queryConditional(QueryConditional.keyEqualTo(key))
+          .consistentRead(true)
+          .build()
+      val queryResult = table.query(request)
 
-      val usages = queryResult.asScala
+      val usages = queryResult.items().asScala
         .map(ItemToMediaUsage.transform)
         .toSet
 
@@ -136,36 +140,39 @@ class UsageTable(config: UsageConfig) extends GridLogging {
   def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
     upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
-  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): DeleteItemOutcome = {
+  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): EnhancedDocument = {
     logger.info(logMarker, s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
-    val deleteSpec = new DeleteItemSpec()
-      .withPrimaryKey(
-        hashKeyName, mediaUsage.grouping,
-        rangeKeyName, mediaUsage.usageId.toString
-      )
+    val key = Key.builder()
+      .partitionValue(mediaUsage.grouping)
+      .sortValue(mediaUsage.usageId.toString)
+      .build()
 
-    table.deleteItem(deleteSpec)
+    table.deleteItem(DeleteItemEnhancedRequest.builder().key(key).build())
   }
 
   def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker): Observable[JsObject] = Observable.from(Future {
+      val key = Map(
+        hashKeyName -> AttributeValue.builder().s(record.hashKey).build(),
+        rangeKeyName -> AttributeValue.builder().s(record.rangeKey).build()
+      ).asJava
 
-     val updateSpec = new UpdateItemSpec()
-      .withPrimaryKey(
-        hashKeyName,
-        record.hashKey,
-        rangeKeyName,
-        record.rangeKey
-      )
-      .withExpressionSpec(record.toXSpec)
-      .withReturnValues(ReturnValue.ALL_NEW)
+      val request = UpdateItemRequest.builder()
+        .tableName(table.tableName())
+        .key(key)
+        .updateExpression(record.toExpression.expression())
+        .expressionAttributeNames(record.toExpression.expressionNames())
+        .expressionAttributeValues(record.toExpression.expressionValues())
+        .returnValues(ReturnValue.ALL_NEW)
+        .build()
 
-    table.updateItem(updateSpec)
-
+      client2.updateItem(request)
   })
   .onErrorResumeNext(e => {
     logger.error(logMarker, s"Dynamo update fail for $record!", e)
     Observable.error(e)
   })
-  .map(asJsObject)
+  .map(response => {
+    Json.toJson(response.attributes().asScala.view.mapValues(avToAny).toMap).as[JsObject]
+  })
 }

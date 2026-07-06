@@ -342,6 +342,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     Option(outcome.getItem) map asJsObject getOrElse Json.obj()
 
+
   // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
   // around the community. This guard keeps the introduction of `null` fairly
   // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
@@ -447,4 +448,13 @@ object DynamoDB {
   def generateExpression(baseExpression: String, lastModifiedKey: Option[String]) = {
     lastModifiedKey.fold(baseExpression)(lastModifiedKey => s"$baseExpression SET $lastModifiedKey = :$lastModifiedKey")
   }
+
+
+  def avToAny(av: AttributeValueV2): Any =
+    if (av.s() != null) av.s()
+    else if (av.n() != null) av.n()
+    else if (av.bool() != null) av.bool()
+    else if (av.m() != null) av.m().asScala.view.mapValues(avToAny).toMap
+    else if (av.l() != null) av.l().asScala.map(avToAny)
+    else null
 }
