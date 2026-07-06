@@ -5,41 +5,45 @@ import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object ItemToMediaUsage {
 
-  def transform(item: Item): MediaUsage = {
+  def transform(doc: EnhancedDocument): MediaUsage = {
     MediaUsage(
-      UsageId(item.getString("usage_id")),
-      item.getString("grouping"),
-      item.getString("media_id"),
-      UsageType(item.getString("usage_type")),
-      item.getString("media_type"),
-      UsageStatus(item.getString("usage_status")),
-      Option(item.getMap[Any]("print_metadata"))
-        .map(_.asScala.toMap).flatMap(buildPrint),
-      Option(item.getMap[Any]("digital_metadata"))
-        .map(_.asScala.toMap).flatMap(buildDigital),
-      Option(item.getMap[Any]("syndication_metadata"))
-        .map(_.asScala.toMap).flatMap(buildSyndication),
-      Option(item.getMap[Any]("front_metadata"))
-        .map(_.asScala.toMap).flatMap(buildFront),
-      Option(item.getMap[Any]("download_metadata"))
-        .map(_.asScala.toMap).flatMap(buildDownload),
-      Option(item.getMap[Any]("child_metadata"))
-        .map(_.asScala.toMap).flatMap(buildChild),
-      new DateTime(item.getLong("last_modified")),
-      Try {
-        item.getLong("date_added")
-      }.toOption.map(new DateTime(_)),
-      Try {
-        item.getLong("date_removed")
-      }.toOption.map(new DateTime(_))
+      UsageId(doc.getString("usage_id")),
+      doc.getString("grouping"),
+      doc.getString("media_id"),
+      UsageType(doc.getString("usage_type")),
+      doc.getString("media_type"),
+      UsageStatus(doc.getString("usage_status")),
+      Option(doc.getMapOfUnknownType("print_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildPrint),
+      Option(doc.getMapOfUnknownType("digital_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildDigital),
+      Option(doc.getMapOfUnknownType("syndication_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildSyndication),
+      Option(doc.getMapOfUnknownType("front_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildFront),
+      Option(doc.getMapOfUnknownType("download_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildDownload),
+      Option(doc.getMapOfUnknownType("child_metadata"))
+        .map(_.asScala.toMap)
+        .flatMap(buildChild),
+      new DateTime(doc.getNumber("last_modified").longValue()),
+      Try(doc.getNumber("date_added").longValue()).toOption.map(new DateTime(_)),
+      Try(doc.getNumber("date_removed").longValue()).toOption.map(new DateTime(_))
     )
   }
+
 
   private def buildFront(metadataMap: Map[String, Any]): Option[FrontUsageMetadata] = {
     Try {

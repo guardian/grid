@@ -10,25 +10,43 @@ import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, Publishe
 import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
+import software.amazon.awssdk.enhanced.dynamodb.model.QueryConditional
+import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverterProvider, AttributeValueType, DynamoDbEnhancedClient, Key, TableMetadata, TableSchema}
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.IterableHasAsScala
 
-class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {
+class UsageTable(config: UsageConfig) extends GridLogging {
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
   val imageIndexName = "media_id"
 
+  lazy val client2: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val dynamo2: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client2).build()
+  lazy val tableSchema = TableSchema.documentSchemaBuilder()
+    .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
+    .addIndexSortKey(TableMetadata.primaryIndexName(), rangeKeyName, AttributeValueType.S)
+    .addIndexPartitionKey(
+      "CustomIndex",
+      imageIndexName,
+      AttributeValueType.S
+    )
+    .attributeConverterProviders(AttributeConverterProvider.defaultProvider())
+    .build()
+  lazy val table = dynamo2.table(config.usageRecordTable, tableSchema)
+
   def queryByUsageId(id: String): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
-      val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
-      val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
 
-      val queryResult = table.query(keyAttribute, rangeKeyCondition)
-
-      queryResult.asScala.map(ItemToMediaUsage.transform).headOption
+      val key = Key.builder()
+        .partitionValue(tableFullKey.hashKey)
+        .sortValue(tableFullKey.rangeKey)
+        .build()
+      val queryResult = table.query(QueryConditional.keyEqualTo(key))
+      queryResult.items().asScala.map(ItemToMediaUsage.transform).headOption
     })
   }
 
