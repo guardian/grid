@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.aws.DynamoDB.avToAny
+import com.gu.mediaservice.lib.aws.DynamoDB.{avToAny, jsonWithNullAsEmptyString}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
@@ -167,12 +167,14 @@ class UsageTable(config: UsageConfig) extends GridLogging {
         .build()
 
       client2.updateItem(request)
+
   })
   .onErrorResumeNext(e => {
     logger.error(logMarker, s"Dynamo update fail for $record!", e)
     Observable.error(e)
   })
-  .map(response => {
-    Json.toJson(response.attributes().asScala.view.mapValues(avToAny).toMap).as[JsObject]
+  .map(updateResponse => {
+    val doc = EnhancedDocument.fromAttributeValueMap(updateResponse.attributes())
+    jsonWithNullAsEmptyString(Json.parse(doc.toJson)).as[JsObject]
   })
 }
