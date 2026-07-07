@@ -448,13 +448,5 @@ object DynamoDB {
     case JsNull => JsString("")
     case value => value
   }
-
-
-  def avToAny(av: AttributeValueV2): Any =
-    if (av.s() != null) av.s()
-    else if (av.n() != null) av.n()
-    else if (av.bool() != null) av.bool()
-    else if (av.m() != null) av.m().asScala.view.mapValues(avToAny).toMap
-    else if (av.l() != null) av.l().asScala.map(avToAny)
-    else null
+  
 }
