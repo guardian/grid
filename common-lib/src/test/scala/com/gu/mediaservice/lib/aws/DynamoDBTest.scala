@@ -76,46 +76,6 @@ class DynamoDBTest extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("addLastModifiedUpdate") {
-    val testTime = new DateTime(2021, 3, 22, 14, 58)
-
-    it ("should prefix a lastModified update to existing SET expression") {
-      val input = new UpdateItemSpec()
-        .withUpdateExpression("SET anotherKey = :anotherValue")
-      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
-      output.getUpdateExpression shouldBe "SET lm = :lm, anotherKey = :anotherValue"
-    }
-
-    it ("should prefix a lastModified SET clause to existing ADD expression") {
-      val input = new UpdateItemSpec()
-        .withUpdateExpression("ADD anotherKey :anotherValue")
-      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
-      output.getUpdateExpression shouldBe "SET lm = :lm ADD anotherKey :anotherValue"
-    }
-
-    it ("should add a date time to an existing value map") {
-      val valueMap = new ValueMap()
-      valueMap.put(":anotherValue", "anotherValue")
-      val input = new UpdateItemSpec()
-        .withUpdateExpression("banana")
-        .withValueMap(valueMap)
-      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
-      output.getValueMap.asScala shouldBe Map(
-        ":anotherValue" -> "anotherValue",
-        ":lm" -> testTime.toString
-      )
-    }
-
-    it ("should add a date time when there is no value map") {
-      val input = new UpdateItemSpec()
-        .withUpdateExpression("banana")
-      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
-      output.getValueMap.asScala shouldBe Map(
-        ":lm" -> testTime.toString
-      )
-    }
-  }
-
   describe("removeExpr") {
     it("should generate the correction expression when the lastModified is set") {
       DynamoDB.removeExpr("key", Some("lastModifiedKey")) shouldBe "REMOVE key SET lastModifiedKey = :lastModifiedKey"
