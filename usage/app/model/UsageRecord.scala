@@ -1,11 +1,11 @@
 package model
 
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+
 import scala.jdk.CollectionConverters._
-import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateItemExpressionSpec}
+import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateAction, UpdateItemExpressionSpec}
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
 import com.gu.mediaservice.model.usage._
-
 import org.joda.time.DateTime
 import software.amazon.awssdk.enhanced.dynamodb.Expression
 

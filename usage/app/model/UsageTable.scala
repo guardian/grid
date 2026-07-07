@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.aws.DynamoDB.{avToAny, jsonWithNullAsEmptyString}
+import com.gu.mediaservice.lib.aws.DynamoDB.jsonWithNullAsEmptyString
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
