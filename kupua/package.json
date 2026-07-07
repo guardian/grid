@@ -25,7 +25,7 @@
     "test:diag": "npx playwright test --config=playwright.debug.config.ts --headed"
   },
   "dependencies": {
-    "@guardian/cql": "^1.8.4",
+    "@guardian/cql": "^1.8.6",
     "@tanstack/react-router": "^1.168.10",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.23",

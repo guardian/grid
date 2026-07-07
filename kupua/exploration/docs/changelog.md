@@ -14,6 +14,49 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 7 July 2026 — Upgrade @guardian/cql to 1.8.6, remove polarity-remount workaround
+
+Bumped `@guardian/cql` from `1.8.4` to `1.8.6` in `kupua/package.json`. 1.8.6 includes
+[PR #121](https://github.com/guardian/cql/pull/121) ("Detect polarity changes in
+programmatic value updates"), which was opened by an earlier kupua session against the
+upstream repo to fix the exact bug documented in `deviations.md` §13. 1.8.6 also bundles
+1.8.5's mobile chip-creation fixes and a dropdown-click-below fix (unrelated, incidental).
+
+**The workaround being removed:** `cancelSearchDebounce()` in
+`src/lib/orchestration/search.ts` used to unconditionally bump a module-level
+`_cqlInputGeneration` counter (used as a React `key` on `CqlSearchInput`/`AiSearchInput`
+in `SearchBar.tsx`) to force a full remount of the `<cql-input>` web component whenever
+the query was updated externally (table cell shift/alt-click, metadata panel click).
+This was needed because the CQL library's vendored ProseMirror diff ignored the
+`POLARITY` node attribute, so `setAttribute("value", ...)` silently failed to re-render a
+chip when only its polarity changed (`+credit:Getty` → `-credit:Getty`). PR #121 fixes
+this at the source via a new `sameContentMarkup` comparison.
+
+**Refactor:** Split the generation-bump concern out of `cancelSearchDebounce()`, since it
+was doing two unrelated jobs. `cancelSearchDebounce()` now only cancels the pending
+debounce timer and sets the `_externalQuery` latch — used by `ImageTable.tsx`'s cell-click
+handler and `useMetadataSearch()` in `metadata-primitives.tsx`, both of which no longer
+need a remount for polarity flips. A new `resetCqlInputComponents()` (cancels debounce +
+bumps generation) was added for the two call sites that still need the remount for an
+unrelated reason: `reset-to-home.ts` (Home logo) and `SearchBar.tsx`'s `handleClear` (✕
+button) both remount to wipe partial/ghost chip state living only in ProseMirror's
+internal document (e.g. an in-progress `colourModel:` chip with no value typed yet) —
+a different bug, not addressed by PR #121, so the remount stays for those two paths only.
+
+Updated `search.test.ts`'s generation-counter test to assert `cancelSearchDebounce()` no
+longer bumps the counter, and added a new test for `resetCqlInputComponents()` covering
+both cancel-timer and bump-generation behaviour.
+
+Updated `deviations.md` §13: marked the CQL editor remount workaround resolved, kept the
+polarity-flip mechanics description (still relevant — `upsertFieldTerm`/`findFieldTerm`
+unchanged), and updated the "Broader pattern" table's "Polarity change not re-rendering"
+row from "PR #121 open" to "Fixed in 1.8.6".
+
+**Verification:** Full test surface run before committing to the change: Vitest
+934/934 (one test rewritten, one new test added), Playwright e2e 240/240 (including both
+`ui-features.spec.ts` "Click-to-search" tests that exercise the exact polarity-flip path
+that used to depend on the remount).
+
 ### 2 July 2026 — Unit test coverage gap fixes (Batch A + Batch B)
 
 Added Vitest coverage for two Tier-1 pure-logic files identified in a test-gap audit

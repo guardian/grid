@@ -17,7 +17,7 @@
  * `<a>` + `e.preventDefault()` so the browser doesn't navigate eagerly.
  */
 
-import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, cancelSearchDebounce } from "@/lib/orchestration/search";
+import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, resetCqlInputComponents } from "@/lib/orchestration/search";
 import { useSearchStore, suppressNextRestore, clearSuppressRestore } from "@/stores/search-store";
 import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
@@ -125,7 +125,7 @@ export async function resetToHome(navigate: () => void) {
   // the generation bump remounts the component. Passing "" would leave a
   // stale _externalQuery latch that blocks subsequent typing because the
   // useUrlSearchSync effect deduplicates after Home (never clearing it).
-  cancelSearchDebounce();
+  resetCqlInputComponents();
   // Apply the full reset, then overlay the home defaults (DEFAULT_SEARCH).
   // Single source of truth: if the home URL defaults change, this follows.
   store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });

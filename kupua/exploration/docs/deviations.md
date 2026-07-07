@@ -942,7 +942,7 @@ suggestions immediately and resolve values independently.  An issue / PR
 should be opened on `@guardian/cql` with this fix.  Once merged,
 `LazyTypeahead` can be deleted and replaced with the stock `Typeahead`.
 
-### 13. Click-to-search flips polarity instead of adding duplicates; CQL editor remount on external query change
+### 13. Click-to-search flips polarity instead of adding duplicates
 
 **What:** When the user shift-clicks a table cell to add `+key:value` and
 then alt-clicks the same value, kupua flips the existing chip's polarity
@@ -962,45 +962,40 @@ walk the CQL AST and structurally match a field term by key + value
 polarity), or splice-replace (opposite polarity) — using exact character
 offsets from the AST tokens, not string `.includes()`.
 
-**CQL editor remount workaround:** When `handleCellClick` updates the
-query externally (bypassing the CQL editor), the `<cql-input>` web
-component's `attributeChangedCallback` does not reliably re-render chips
-when only polarity changes.  Its ProseMirror document model appears to
-normalise `+field:value` and `-field:value` to the same document
-structure, so `updateEditorView` either isn't called or produces no
-visible change.  To work around this, `cancelSearchDebounce()` bumps a
-generation counter (`_cqlInputGeneration`) that is used as a React `key`
-on `CqlSearchInput`.  When the key changes, React unmounts and remounts
-the component, creating a fresh `<cql-input>` that initialises with the
-correct query.
+**~~CQL editor remount workaround~~ — RESOLVED (@guardian/cql 1.8.6):**
+Previously, when `handleCellClick` updated the query externally (bypassing
+the CQL editor), the `<cql-input>` web component's `attributeChangedCallback`
+didn't reliably re-render chips when only polarity changed — its vendored
+ProseMirror diff (`findDiffStartForContent` / `findDiffEndForContent`)
+compared child nodes by content only, ignoring the `POLARITY` node
+attribute.  The workaround forced a full remount of `<CqlSearchInput>` via
+a generation-counter `key` bump inside `cancelSearchDebounce()`.
 
-Additionally, `cancelSearchDebounce()` clears any pending debounce timer
-from the CQL editor's `queryChange` → `handleQueryChange` flow, and
-records the externally-set query in `_externalQuery`.  The debounce
-callback checks this at fire time and skips if its captured `queryStr`
-differs from `_externalQuery` — a belt-and-suspenders guard against stale
-timers reverting the URL.
+[PR #121](https://github.com/guardian/cql/pull/121) fixed this upstream by
+introducing `sameContentMarkup`, a targeted comparison that restores
+sensitivity to semantic attribute changes (`POLARITY`) while still skipping
+transient ones (`IS_SELECTED`, `IS_READ_ONLY` — the #52 fix). Released in
+1.8.6. Kupua bumped `@guardian/cql` to `^1.8.6` and removed the
+generation-bump from `cancelSearchDebounce()` — cell/metadata clicks now
+rely on plain `setAttribute("value", ...)`, no remount.
 
-**Trade-off:** Remounting destroys the ProseMirror editor and recreates it,
-which costs ~10ms and may briefly flash.  This only happens on cell clicks
-that change polarity — not on normal typing.  The alternative (patching
-the CQL input's internal state) would require reaching into the web
-component's shadow DOM and ProseMirror instance, which is fragile.
+The generation-counter mechanism itself (`_cqlInputGeneration`,
+`getCqlInputGeneration()`) is **not** deleted — it's kept for a separate,
+unrelated need and renamed-in-spirit to `resetCqlInputComponents()`: Home
+logo / Clear-button resets still force a remount to wipe partial/ghost
+chip state that lives only in ProseMirror's internal document (e.g. an
+in-progress `colourModel:` chip with no value typed yet) and isn't cleared
+by `setAttribute("value", "")` alone. That is a different bug, not
+addressed by PR #121, so the remount stays for those two call sites only.
 
-**Upstream fix:** The root cause is in `@guardian/cql`'s vendored
-ProseMirror diff (`findDiffStartForContent` / `findDiffEndForContent`),
-which compares child nodes by content only and ignores the `POLARITY`
-node attribute.  The `sameMarkup` check was removed to fix #52
-(transient `IS_SELECTED` attr causing cursor disruption); the fix
-re-adds a targeted `sameContentMarkup` that skips transient attrs
-while detecting semantic ones like `POLARITY`.
+`cancelSearchDebounce()` still clears any pending debounce timer from the
+CQL editor's `queryChange` → `handleQueryChange` flow, and records the
+externally-set query in `_externalQuery`.  The debounce callback checks
+this at fire time and skips if its captured `queryStr` differs from
+`_externalQuery` — a belt-and-suspenders guard against stale timers
+reverting the URL.  This part is unrelated to the remount and still applies
+to every external-update caller.
 
-PR: https://github.com/guardian/cql/pull/121
-
-Once merged and released, bump `@guardian/cql` in kupua and remove the
-remount workaround (`_cqlInputGeneration` key + generation-bumping in
-`cancelSearchDebounce`).  `setAttribute("value", ...)` will then work
-directly for polarity changes.
 
 ### 14. Typeahead resolver strips own field from query via regex (workaround for missing CQL context)
 
@@ -1037,7 +1032,7 @@ are unaffected. Once available, `stripFieldFromQuery` and
 
 | Problem | Kupua workaround | Upstream fix | Status |
 |---|---|---|---|
-| Polarity change not re-rendering | Remount component (§13) | Fix internal diff (`sameContentMarkup`) | PR #121 open |
+| Polarity change not re-rendering | ~~Remount component (§13)~~ | Fix internal diff (`sameContentMarkup`) | **Fixed in 1.8.6** ([#121](https://github.com/guardian/cql/pull/121)) |
 | Resolver gets self-referential aggs | Regex-strip field from query (this §) | Resolver receives `ResolverContext` | Not filed |
 | `+`/`-` not triggering on mobile | — | Add `handleTextInput` fallback | PR #125 open |
 | Popover dead space below suggestions | — | `pointer-events: none` on container | PR #126 open |
@@ -1048,7 +1043,7 @@ are unaffected. Once available, `stripFieldFromQuery` and
 | No `::part` / theme key for internal elements | Style injection into `shadowRoot` | Expose CSS parts or extend theme schema | Not filed |
 | Home/End swallowed by shadow DOM | Capture-phase `document` listener (§7 lib) | Propagate nav keys from `stopUnhandled` | Architectural |
 | Multi-value padding breaks `calc()` in shadow DOM | Single-value padding only | Use `padding-*` longhand internally | Not filed |
-| Stale debounce after remount | `setExternalQuery` latch | — (consequence of §13; goes away with PR #121) | Blocked |
+| Stale debounce after remount | `setExternalQuery` latch | — (was a consequence of §13's remount) | Still needed for the Home/Clear remount case (§13); the polarity-flip remount it originally guarded is gone |
 | No API to extract a chip's value or reconstruct the query without a specific chip | Regex on raw query string (typeahead `stripFieldFromQuery`) | Expose `getChipValue(field)` + `queryWithoutChip(field)` on `<cql-input>` element | Not filed |
 
 Three consumers exist (kahuna, kupua, CQL demo page). Exposing minimal

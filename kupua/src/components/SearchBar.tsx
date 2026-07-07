@@ -11,7 +11,7 @@ import {
   setDebounceTimer,
   _externalQuery,
   setExternalQuery,
-  cancelSearchDebounce,
+  resetCqlInputComponents,
   getCqlInputGeneration,
   pushNavigateAsPopstate,
 } from "@/lib/orchestration/search";
@@ -123,7 +123,9 @@ export function SearchBar() {
   );
 
   const handleClear = useCallback(() => {
-    cancelSearchDebounce();
+    // Force CqlSearchInput/AiSearchInput to remount so partial/ghost chip
+    // state living only in ProseMirror's internal document is fully wiped.
+    resetCqlInputComponents();
     if (aiDebounceRef.current) { clearTimeout(aiDebounceRef.current); aiDebounceRef.current = null; }
     setHasEditorContent(false);
     updateSearch({ query: undefined, aiQuery: undefined });

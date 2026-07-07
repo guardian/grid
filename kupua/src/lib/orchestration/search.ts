@@ -37,6 +37,11 @@ let _cqlInputGeneration = 0;
  * Call this before programmatically updating the query from outside the
  * CQL editor (e.g. shift/alt-click on a table cell).
  *
+ * Since @guardian/cql 1.8.6 (PR #121), `setAttribute("value", ...)` on
+ * `<cql-input>` correctly re-renders polarity-only changes — no remount
+ * needed here. See `resetCqlInputComponents()` below for the (unrelated)
+ * case that still needs a remount.
+ *
  * @param newQuery — optional. When provided, stored as `_externalQuery` so
  *   the debounce callback can detect it already ran and skip. Use this only
  *   when the caller is about to set a specific query value (e.g. polarity
@@ -49,17 +54,27 @@ export function cancelSearchDebounce(newQuery?: string) {
     _debounceTimerId = null;
   }
   _externalQuery = newQuery ?? null;
-  // Bump generation to force CqlSearchInput to remount with the new value.
-  // The @guardian/cql <cql-input> web component doesn't reliably re-render
-  // chips when only polarity changes (its ProseMirror document model may not
-  // distinguish +field:value from -field:value). A fresh mount picks up
-  // the new value correctly.
-  _cqlInputGeneration++;
 }
 
 /** Current generation counter — used as a React key on CqlSearchInput. */
 export function getCqlInputGeneration() {
   return _cqlInputGeneration;
+}
+
+/**
+ * Cancel the debounce (as above) AND force CqlSearchInput/AiSearchInput to
+ * remount by bumping the generation counter used as their React `key`.
+ *
+ * This remains necessary for full-reset flows (Home logo, Clear button):
+ * `setAttribute("value", "")` alone doesn't reliably clear partial/ghost
+ * chip state that lives only in ProseMirror's internal document (e.g. an
+ * in-progress `colourModel:` chip with no value yet). A fresh mount
+ * guarantees a clean slate. This is unrelated to the polarity-diff bug
+ * fixed in @guardian/cql 1.8.6 — do not conflate the two.
+ */
+export function resetCqlInputComponents() {
+  cancelSearchDebounce();
+  _cqlInputGeneration++;
 }
 
 // ===========================================================================

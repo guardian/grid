@@ -1250,11 +1250,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
 
       if (newQuery !== currentQuery) {
         // Cancel any pending debounce from the CQL editor's queryChange flow
-        // so it doesn't revert the query back to its previous value.
-        // This also bumps the CqlSearchInput generation counter, forcing
-        // the CQL editor to remount with the new value — working around a
-        // @guardian/cql limitation where setAttribute("value", ...) doesn't
-        // reliably re-render chips when only polarity changes.
+        // so it doesn't revert the query back to its previous value. (No
+        // remount needed: @guardian/cql 1.8.6+ correctly re-renders
+        // polarity-only changes via setAttribute — see deviations.md §13.)
         cancelSearchDebounce(newQuery);
 
         updateSearch({ query: newQuery });

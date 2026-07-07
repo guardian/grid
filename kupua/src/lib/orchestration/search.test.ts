@@ -46,9 +46,26 @@ describe("orchestration/search.ts — module-level state", () => {
     expect(mod._debounceTimerId).toBe(null);
   });
 
-  it("cancelSearchDebounce bumps the CqlSearchInput generation counter", () => {
+  it("cancelSearchDebounce does NOT bump the CqlSearchInput generation counter", () => {
+    // Since @guardian/cql 1.8.6 (PR #121), setAttribute("value", ...) correctly
+    // re-renders polarity-only changes, so cancelSearchDebounce no longer needs
+    // to force a remount. Only resetCqlInputComponents() does that now.
     const before = mod.getCqlInputGeneration();
     mod.cancelSearchDebounce();
+    expect(mod.getCqlInputGeneration()).toBe(before);
+  });
+
+  it("resetCqlInputComponents cancels the debounce AND bumps the generation counter", () => {
+    vi.useFakeTimers();
+    let fired = false;
+    mod.setDebounceTimer(setTimeout(() => { fired = true; }, 300));
+
+    const before = mod.getCqlInputGeneration();
+    mod.resetCqlInputComponents();
+    vi.advanceTimersByTime(500);
+
+    expect(fired).toBe(false);
+    expect(mod._debounceTimerId).toBe(null);
     expect(mod.getCqlInputGeneration()).toBe(before + 1);
   });
 });
