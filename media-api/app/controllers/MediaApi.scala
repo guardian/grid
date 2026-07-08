@@ -624,8 +624,8 @@ class MediaApi(
       val filteredPoolFilter = buildAiFilter(params)
 
       for {
-        totalPool <- elasticSearch.countMatchingFilter(basePoolFilter)
-        filteredPool <- elasticSearch.countMatchingFilter(filteredPoolFilter)
+        totalPool <- elasticSearch.countMatchingFilterWithExtraCounts(basePoolFilter).map(_._1)
+        filteredPool <- elasticSearch.countMatchingFilterWithExtraCounts(filteredPoolFilter).map(_._1)
       } yield respondCollection(
         data = List.empty[EmbeddedEntity[JsValue]],
         offset = Some(0),

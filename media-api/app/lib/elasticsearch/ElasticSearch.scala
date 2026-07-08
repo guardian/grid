@@ -362,7 +362,7 @@ class ElasticSearch(
   // How many images match the active filters in total (so we can show
   // "Best k of N matches") along with the ticker count badges, both computed
   // over the whole filtered set in a single request.
-  private def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
+  def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
       .query(filterOpt.getOrElse(matchAllQuery()))
       .trackTotalHits(true)
@@ -372,17 +372,6 @@ class ElasticSearch(
     executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid AI search filter count and ticker counts").map { r =>
       (r.result.totalHits, extraCountsFrom(r.result.aggregations))
     }
-  }
-
-  // How many images match the given filter (or the whole index if no filter),
-  // used to tell the user the size of the pool an AI search would rank over.
-  def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
-    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-      .query(filterOpt.getOrElse(matchAllQuery()))
-      .trackTotalHits(true)
-      .size(0)
-
-    executeAndLog(withSearchQueryTimeout(searchRequest), "AI search filter pool count").map(_.result.totalHits)
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
