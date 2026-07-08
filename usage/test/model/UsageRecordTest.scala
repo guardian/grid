@@ -614,7 +614,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
       val actualChild = attributeMaps.find(_.contains("childMediaId")).getOrElse(fail("Missing child_metadata Map"))
       actualChild("addedBy").s() shouldBe "Eve"
       actualChild("childMediaId").s() shouldBe "child-999"
-      
+
       val expectedExpressionString =
         "SET #media_id = :media_id, #usage_type = :usage_type, #media_type = :media_type, " +
           "#last_modified = :last_modified, #usage_status = :usage_status, #print_metadata = :print_metadata, " +

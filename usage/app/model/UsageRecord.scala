@@ -57,23 +57,11 @@ case class UsageRecord(
     specBuilder.buildForUpdate
   }
 
-  def toAttributeValueMap2(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
+  def toAttributeValueMap(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
     m.map { case(k, v) =>
       k -> v.toAttrValue
     }
   }.asJava
-  def toAttributeValueMap(m: Map[String, Any]): java.util.Map[String, AttributeValue] =
-    m.map { case (k, v) =>
-      k -> toAttr(v)
-    }.asJava
-  def toAttr(v: Any): AttributeValue = v match {
-    case s: String => AttributeValue.builder().s(s).build()
-    case n: Long   => AttributeValue.builder().n(n.toString).build()
-    case n: Int    => AttributeValue.builder().n(n.toString).build()
-    case b: Boolean => AttributeValue.builder().bool(b).build()
-    case null       => AttributeValue.builder().nul(true).build()
-    case other      => throw new IllegalArgumentException(s"Unsupported type: $other")
-  }
   def toExpression: Expression = {
     val setOps = scala.collection.mutable.ListBuffer.empty[(String, AttributeValue)]
     val removeOps = scala.collection.mutable.ListBuffer.empty[String]
@@ -110,12 +98,12 @@ case class UsageRecord(
 
     usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
 
-    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap2(p.toDynamoMap)))
-    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap2(m.toDynamoMap)))
-    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toMap)))
-    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toMap)))
-    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toMap)))
-    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toMap)))
+    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap(p.toDynamoMap)))
+    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toDynamoMap)))
+    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toDynamoMap)))
+    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toDynamoMap)))
+    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toDynamoMap)))
+    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toDynamoMap)))
 
     dateAdded.foreach(dt => setN("date_added", dt.getMillis))
 
