@@ -14,6 +14,7 @@ case class PrintImageSize(
     "x" -> x,
     "y" -> y
   )
+  override def toDynamoMap: Map[String, DynamoElement] = Map("x" -> DbInt(x), "y" -> DbInt(y))
 }
 object PrintImageSize {
   implicit val reads: Reads[PrintImageSize] = Json.reads[PrintImageSize]
@@ -56,7 +57,7 @@ case class PrintUsageMetadata(
       notes.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("notes" -> s)) ++
       source.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("source" -> s))
 
-  def toDynamoMap: Map[String, DynamoElement] = Map(
+  override def toDynamoMap: Map[String, DynamoElement] = Map(
     "sectionName" -> DbString(sectionName),
     "issueDate" -> DbString(issueDate.toString),
     "pageNumber" -> DbInt(pageNumber),
@@ -64,7 +65,7 @@ case class PrintUsageMetadata(
     "publicationCode" -> DbString(publicationCode),
     "publicationName" -> DbString(publicationName),
     "sectionCode" -> DbString(sectionCode)
-  ) ++ size.map(s => "size" -> DbNestedMap(s.toMap)) ++
+  ) ++ size.map(s => "size" -> DbNestedMap(s.toDynamoMap)) ++
     orderedBy.map(o => "orderedBy" -> DbString(o)) ++
     layoutId.map(l => "layoutId" -> DbLong(l)) ++
     edition.map(e => "edition" -> DbInt(e)) ++

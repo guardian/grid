@@ -420,7 +420,6 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
         val rawValues = expression.expressionValues().values().asScala
 
         val printMetadataMap = rawValues.head.m().asScala
-
         printMetadataMap("sectionName") shouldBe DbString("News").toAttrValue
         printMetadataMap("issueDate") shouldBe DbString("2026-07-07T12:00:00.000Z").toAttrValue
         printMetadataMap("pageNumber") shouldBe DbInt(5).toAttrValue
@@ -428,7 +427,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
         printMetadataMap("publicationCode") shouldBe DbString("PUB1").toAttrValue
         printMetadataMap("publicationName") shouldBe DbString("The Tech Daily").toAttrValue
         printMetadataMap("sectionCode") shouldBe DbString("SEC-A").toAttrValue
-        printMetadataMap("size") shouldBe DbNestedMap(Map("x" -> 1, "y" -> 2)).toAttrValue
+        printMetadataMap("size") shouldBe DbNestedMap(Map("x" -> DbInt(1), "y" -> DbInt(2))).toAttrValue
         printMetadataMap("layoutId") shouldBe DbInt(12345).toAttrValue
         printMetadataMap("edition") shouldBe DbInt(2).toAttrValue
         printMetadataMap("orderedBy") shouldBe DbString("Alice").toAttrValue
