@@ -342,14 +342,13 @@ class ElasticSearch(
       }
 
       // Run in parallel: how many images match the filters in total (so we can
-      // show "Best k of N matches"). The ticker count badges are computed over
-      // the top-k results we actually return, not the whole filtered set.
-      val filterTotal = countMatchingFilter(filterOpt)
+      // show "Best k of N matches") along with the ticker count badges, both
+      // computed over the whole filtered set.
+      val filterTotalAndCounts = countMatchingFilterWithExtraCounts(filterOpt)
 
       (for {
         results <- searchResults
-        total <- filterTotal
-        extraCounts <- extraCountsForIds(results.hits.map(_._1))
+        (total, extraCounts) <- filterTotalAndCounts
       } yield results.copy(total = total, extraCounts = Some(extraCounts))).andThen { case _ =>
         val elapsed = stopwatch.elapsed
         logger.info(
@@ -360,29 +359,18 @@ class ElasticSearch(
     }
   }
 
-  // How many images match the active filters in total, so we can show
-  // "Best k of N matches".
-  def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
-    val countRequest = ElasticDsl.count(imagesCurrentAlias).query(filterOpt.getOrElse(matchAllQuery()))
+  // How many images match the active filters in total (so we can show
+  // "Best k of N matches") along with the ticker count badges, both computed
+  // over the whole filtered set in a single request.
+  private def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(filterOpt.getOrElse(matchAllQuery()))
+      .trackTotalHits(true)
+      .size(0)
+      .aggregations(extraCountAggregations)
 
-    executeAndLog(countRequest, "hybrid AI search filter count").map(_.result.count)
-  }
-
-  // The ticker count badges restricted to the given (top-k) result ids.
-  // In principle, we could compute this here, without an extra request.
-  // But it would require awkward duplication of the search logic
-  // from `maybeOrgOwnedExtraCount` and `maybeAgencyPicksExtraCount`
-  private def extraCountsForIds(ids: Seq[String])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ExtraCounts] = {
-    if (ids.isEmpty) Future.successful(ExtraCounts(tickerCounts = Map.empty))
-    else {
-      val searchRequest = ElasticDsl.search(imagesCurrentAlias)
-        .query(filters.ids(ids.toList))
-        .size(0)
-        .aggregations(extraCountAggregations)
-
-      executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid AI search ticker counts").map { r =>
-        extraCountsFrom(r.result.aggregations)
-      }
+    executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid AI search filter count and ticker counts").map { r =>
+      (r.result.totalHits, extraCountsFrom(r.result.aggregations))
     }
   }
 
