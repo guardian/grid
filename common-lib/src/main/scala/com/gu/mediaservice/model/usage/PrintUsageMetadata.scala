@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model.usage
 
+import com.gu.mediaservice.lib.dynamo.{DbInt, DbLong, DbNestedMap, DbString, DynamoElement}
 import play.api.libs.json._
 import org.joda.time.DateTime
 
@@ -54,6 +55,22 @@ case class PrintUsageMetadata(
       edition.foldLeft[IntElement](Nil)((_,i) => List("edition" -> i)) ++
       notes.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("notes" -> s)) ++
       source.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("source" -> s))
+
+  def toDynamoMap: Map[String, DynamoElement] = Map(
+    "sectionName" -> DbString(sectionName),
+    "issueDate" -> DbString(issueDate.toString),
+    "pageNumber" -> DbInt(pageNumber),
+    "storyName" -> DbString(storyName),
+    "publicationCode" -> DbString(publicationCode),
+    "publicationName" -> DbString(publicationName),
+    "sectionCode" -> DbString(sectionCode)
+  ) ++ size.map(s => "size" -> DbNestedMap(s.toMap)) ++
+    orderedBy.map(o => "orderedBy" -> DbString(o)) ++
+    layoutId.map(l => "layoutId" -> DbLong(l)) ++
+    edition.map(e => "edition" -> DbInt(e)) ++
+    notes.map(n => "notes" -> DbString(n)) ++
+    source.map(s => "source" -> DbString(s))
+
 }
 object PrintUsageMetadata {
   import JodaWrites._

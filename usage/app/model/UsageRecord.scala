@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import scala.jdk.CollectionConverters._
 import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateAction, UpdateItemExpressionSpec}
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
+import com.gu.mediaservice.lib.dynamo.DynamoElement
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import software.amazon.awssdk.enhanced.dynamodb.Expression
@@ -56,6 +57,11 @@ case class UsageRecord(
     specBuilder.buildForUpdate
   }
 
+  def toAttributeValueMap2(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
+    m.map { case(k, v) =>
+      k -> v.toAttrValue
+    }
+  }.asJava
   def toAttributeValueMap(m: Map[String, Any]): java.util.Map[String, AttributeValue] =
     m.map { case (k, v) =>
       k -> toAttr(v)
@@ -104,7 +110,7 @@ case class UsageRecord(
 
     usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
 
-    printUsageMetadata.map(p => p.toMap).foreach(p => setM("print_metadata", toAttributeValueMap(p)))
+    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap2(p.toDynamoMap)))
     digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toMap)))
     syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toMap)))
     frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toMap)))

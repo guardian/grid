@@ -1,13 +1,14 @@
 package model
 
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintUsage, PrintUsageMetadata}
+import com.gu.mediaservice.lib.dynamo.{DbInt, DbNestedMap, DbString}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintImageSize, PrintUsage, PrintUsageMetadata}
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import org.joda.time.DateTime
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.net.URI
-import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsScala}
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava, MapHasAsScala}
 class UsageRecordTest extends AnyFunSpec with Matchers {
 
   def getMapFromValues(rawValues: Iterable[AnyRef]) = {
@@ -121,7 +122,46 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
   }
 
   describe("PrintUsageMetadata") {
-    it("should handle PrintUsageMetadata") {
+    it("should handle PrintUsageMetadata with empty values") {
+      val targetDate = DateTime.parse("2026-07-07T12:00:00Z")
+      val metadata = PrintUsageMetadata(
+        sectionName = "News",
+        issueDate = targetDate,
+        pageNumber = 5,
+        storyName = "Scala Breakthrough",
+        publicationCode = "PUB1",
+        publicationName = "The Tech Daily",
+        sectionCode = "SEC-A",
+        layoutId = None,
+        edition = None,
+        size = None,
+        orderedBy = None,
+        notes = None,
+        source = None
+      )
+
+      val record = UsageRecord(
+        hashKey = "hash-123",
+        rangeKey = "range-456",
+        dateRemovedOperation = LeaveDateRemovedUntouched,
+        printUsageMetadata = Some(metadata)
+      )
+      val spec = record.toXSpec
+      val rawValues = spec.getValueMap.values().asScala
+
+      val printMetadataMap: Map[String, Any] = getMapFromValues(rawValues)
+
+      printMetadataMap("sectionName") shouldBe "News"
+      printMetadataMap("issueDate") shouldBe "2026-07-07T12:00:00.000Z"
+      printMetadataMap("pageNumber") shouldBe 5
+      printMetadataMap("storyName") shouldBe "Scala Breakthrough"
+      printMetadataMap("publicationCode") shouldBe "PUB1"
+      printMetadataMap("publicationName") shouldBe "The Tech Daily"
+      printMetadataMap("sectionCode") shouldBe "SEC-A"
+
+      printMetadataMap should have size 7
+    }
+    it("should handle PrintUsageMetadata with full values set") {
       val targetDate = DateTime.parse("2026-07-07T12:00:00Z")
       val metadata = PrintUsageMetadata(
         sectionName = "News",
@@ -133,7 +173,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
         sectionCode = "SEC-A",
         layoutId = Some(12345L),
         edition = Some(2),
-        size = None,
+        size = Some(PrintImageSize(1, 2)),
         orderedBy = Some("Alice"),
         notes = Some("Urgent print"),
         source = Some("Internal")
@@ -159,11 +199,12 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
       printMetadataMap("sectionCode") shouldBe "SEC-A"
       printMetadataMap("layoutId") shouldBe 12345
       printMetadataMap("edition") shouldBe 2
+      printMetadataMap("size") shouldBe Map("x" -> 1, "y" -> 2).asJava
       printMetadataMap("orderedBy") shouldBe "Alice"
       printMetadataMap("notes") shouldBe "Urgent print"
       printMetadataMap("source") shouldBe "Internal"
 
-      printMetadataMap should have size 12
+      printMetadataMap should have size 13
     }
   }
 
@@ -312,6 +353,45 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
       }
     }
     describe("PrintUsageMetadata") {
+      it("should handle PrintUsageMetadata with empty values") {
+        val targetDate = DateTime.parse("2026-07-07T12:00:00Z")
+        val metadata = PrintUsageMetadata(
+          sectionName = "News",
+          issueDate = targetDate,
+          pageNumber = 5,
+          storyName = "Scala Breakthrough",
+          publicationCode = "PUB1",
+          publicationName = "The Tech Daily",
+          sectionCode = "SEC-A",
+          layoutId = None,
+          edition = None,
+          size = None,
+          orderedBy = None,
+          notes = None,
+          source = None
+        )
+
+        val record = UsageRecord(
+          hashKey = "hash-123",
+          rangeKey = "range-456",
+          dateRemovedOperation = LeaveDateRemovedUntouched,
+          printUsageMetadata = Some(metadata)
+        )
+        val expression = record.toExpression
+        val rawValues = expression.expressionValues().values().asScala
+
+        val printMetadataMap = rawValues.head.m().asScala
+
+        printMetadataMap("sectionName") shouldBe DbString("News").toAttrValue
+        printMetadataMap("issueDate") shouldBe DbString("2026-07-07T12:00:00.000Z").toAttrValue
+        printMetadataMap("pageNumber") shouldBe DbInt(5).toAttrValue
+        printMetadataMap("storyName") shouldBe DbString("Scala Breakthrough").toAttrValue
+        printMetadataMap("publicationCode") shouldBe DbString("PUB1").toAttrValue
+        printMetadataMap("publicationName") shouldBe DbString("The Tech Daily").toAttrValue
+        printMetadataMap("sectionCode") shouldBe DbString("SEC-A").toAttrValue
+
+        printMetadataMap should have size 7
+      }
       it("should handle PrintUsageMetadata") {
         val targetDate = DateTime.parse("2026-07-07T12:00:00Z")
         val metadata = PrintUsageMetadata(
@@ -324,7 +404,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
           sectionCode = "SEC-A",
           layoutId = Some(12345L),
           edition = Some(2),
-          size = None,
+          size = Some(PrintImageSize(1, 2)),
           orderedBy = Some("Alice"),
           notes = Some("Urgent print"),
           source = Some("Internal")
@@ -341,20 +421,21 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
 
         val printMetadataMap = rawValues.head.m().asScala
 
-        printMetadataMap("sectionName") shouldBe AttributeValue.builder().s("News").build()
-        printMetadataMap("issueDate") shouldBe AttributeValue.builder().s("2026-07-07T12:00:00.000Z").build()
-        printMetadataMap("pageNumber") shouldBe AttributeValue.builder().n("5").build()
-        printMetadataMap("storyName") shouldBe AttributeValue.builder().s("Scala Breakthrough").build()
-        printMetadataMap("publicationCode") shouldBe AttributeValue.builder().s("PUB1").build()
-        printMetadataMap("publicationName") shouldBe AttributeValue.builder().s("The Tech Daily").build()
-        printMetadataMap("sectionCode") shouldBe AttributeValue.builder().s("SEC-A").build()
-        printMetadataMap("layoutId") shouldBe AttributeValue.builder().n("12345").build()
-        printMetadataMap("edition") shouldBe AttributeValue.builder().n("2").build()
-        printMetadataMap("orderedBy") shouldBe AttributeValue.builder().s("Alice").build()
-        printMetadataMap("notes") shouldBe AttributeValue.builder().s("Urgent print").build()
-        printMetadataMap("source") shouldBe AttributeValue.builder().s("Internal").build()
+        printMetadataMap("sectionName") shouldBe DbString("News").toAttrValue
+        printMetadataMap("issueDate") shouldBe DbString("2026-07-07T12:00:00.000Z").toAttrValue
+        printMetadataMap("pageNumber") shouldBe DbInt(5).toAttrValue
+        printMetadataMap("storyName") shouldBe DbString("Scala Breakthrough").toAttrValue
+        printMetadataMap("publicationCode") shouldBe DbString("PUB1").toAttrValue
+        printMetadataMap("publicationName") shouldBe DbString("The Tech Daily").toAttrValue
+        printMetadataMap("sectionCode") shouldBe DbString("SEC-A").toAttrValue
+        printMetadataMap("size") shouldBe DbNestedMap(Map("x" -> 1, "y" -> 2)).toAttrValue
+        printMetadataMap("layoutId") shouldBe DbInt(12345).toAttrValue
+        printMetadataMap("edition") shouldBe DbInt(2).toAttrValue
+        printMetadataMap("orderedBy") shouldBe DbString("Alice").toAttrValue
+        printMetadataMap("notes") shouldBe DbString("Urgent print").toAttrValue
+        printMetadataMap("source") shouldBe DbString("Internal").toAttrValue
 
-        printMetadataMap should have size 12
+        printMetadataMap should have size 13
       }
     }
     describe("digitalUsageMetadata") {
