@@ -222,14 +222,13 @@
         <div ng-if="ctrl.filtersOnlyAiSearch"
              class="image-no-results">
             <span>
-                {{ctrl.filterPoolCounts.filteredPool | toLocaleString}} images match your filters. Add a query to see the best 200.
+                {{ctrl.filterPoolCounts.filteredPool | toLocaleString}} images match your filters. Enter a query to rank them and surface the best 200 matches.
             </span>
         </div>
 
         <div ng-if="! ctrl.filtersOnlyAiSearch && ctrl.totalResults == 0"
              class="image-no-results">
-            <span ng-if="!ctrl.needsQuery">No matches, sorry! Try altering your search.</span>
-            <span ng-if="ctrl.needsQuery">Please enter a query. You can include filters, but must include either some text or a similar:image-id term.</span>
+            <span>No matches, sorry! Try altering your search.</span>
         </div>
     </div>
 </div>

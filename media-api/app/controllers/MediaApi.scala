@@ -727,13 +727,13 @@ class MediaApi(
 
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
       params.aiQueryParts.validationError match {
-        case Left(errorMessage) =>
+        case Left(_) =>
           if (params.aiQueryParts.hasFilterConditions) {
             logger.info(logMarker, s"AI search with only filters and no query to rank by; returning filter pool counts: ${params.aiQueryParts.filterConditions}")
             filtersOnlyAiSearchResponse(params)
           } else {
-            logger.info(logMarker, s"Invalid AI search query: $errorMessage")
-            Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
+            logger.info(logMarker, s"AI search with no query to rank by and no filters; returning filter pool counts over the whole pool")
+            filtersOnlyAiSearchResponse(params)
           }
         case scala.util.Right(_) =>
           val k = Math.min(params.length, config.aiSearchResultLimit)
@@ -753,11 +753,11 @@ class MediaApi(
           emptyAiSearchResponse
         case Some(q) if !q.isBlank =>
           performAiSearchAndRespond(_searchParams)
-        // Empty queries do not make sense for AI search as we can
-        // only rank results once we have a meaningful vector to compare with.
-        // So return 0 results if the query was empty.
+        // No query text to rank by, so we can't return ranked results. Instead
+        // return the size of the pool we'd be searching over, so the client can
+        // prompt the user to add a query.
         case _ =>
-          emptyAiSearchResponse
+          filtersOnlyAiSearchResponse(_searchParams)
       }
     } else {
       val searchParams = if (canViewDeletedImages) {

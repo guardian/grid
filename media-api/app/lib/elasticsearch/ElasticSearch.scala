@@ -374,6 +374,17 @@ class ElasticSearch(
     }
   }
 
+  // How many images match the given filter (or the whole index if no filter),
+  // used to tell the user the size of the pool an AI search would rank over.
+  def countMatchingFilter(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Long] = {
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(filterOpt.getOrElse(matchAllQuery()))
+      .trackTotalHits(true)
+      .size(0)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "AI search filter pool count").map(_.result.totalHits)
+  }
+
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal], logMarker: LogMarker = MarkerMap()): Future[SearchResults] = {
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
