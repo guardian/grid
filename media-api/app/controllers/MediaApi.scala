@@ -50,7 +50,7 @@ class MediaApi(
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(ws)
+  val gridClient: GridClient = GridClient(services, services.apiBaseUri)(ws)
 
   // Process-local cache keyed on normalised query text. Stores the Bedrock Future so that
   // concurrent requests for the same query share a single in-flight Bedrock call, and
@@ -404,15 +404,19 @@ class MediaApi(
           && ImageExtras.userMayUndeleteImage(request.user, image, authorisation) =>
         logger.info(logMarker, s"undeleting image $id")
 
-        softDeletedMetadataTable.updateStatus(id, isDeleted = false)
-          .map { _ =>
-            messageSender.publish(
-              UpdateMessage(
-                subject = UnSoftDeleteImage,
-                id = Some(id)
-              )
+        for {
+          // Take an "undeletion" as a marker that the file should be kept and not reaped.
+          // Mark as archived before undeleting, to make sure the reaper doesn't immediately reap it.
+          _ <- gridClient.putArchived(id, auth.getOnBehalfOfPrincipal(request.user))
+          _ <- softDeletedMetadataTable.updateStatus(id, isDeleted = false)
+          _ = messageSender.publish(
+            UpdateMessage(
+              subject = UnSoftDeleteImage,
+              id = Some(id)
             )
-          }.map { _ => Accepted }
+          )
+        } yield Accepted
+
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         logger.info(logMarker, s"user ${request.user.accessor.identity} was not permitted to undelete image $id")
         Future.successful(ImageDeleteForbidden)
@@ -607,29 +611,38 @@ class MediaApi(
         data = imageEntities,
         offset = Some(0),
         total = Some(searchResults.total),
-        maybeExtraCounts = None,
+        maybeExtraCounts = searchResults.extraCounts,
         links = Nil
       )
     }
 
     def semanticSearchByImage(imageId: String, k: Int, params: SearchParams): Future[SearchResults] = {
-      val filterOpt = buildAiFilter(params)
+      val outerMarker = logMarker
 
-      for {
-        maybeImage <- elasticSearch.getImageById(imageId)
-        maybeEmbedding = maybeImage
-          .filter(image => isVisibleToAccessor(request.user, image))
-          .flatMap(_.embedding)
-          .flatMap(_.cohereEmbedV4)
-          .map(_.image)
-        searchResults <- maybeEmbedding match {
-          // If we have an embedding, perform the KNN search. If not, return an empty result set.
-          case Some(embedding) =>
-            elasticSearch.knnSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filterOpt = filterOpt)
-          case None =>
-            Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
-        }
-      } yield searchResults
+      {
+        implicit val logMarker: LogMarker = outerMarker ++ Map(
+          "imageId" -> imageId,
+          "aiSearchType" -> "image"
+        )
+
+        val filterOpt = buildAiFilter(params)
+
+        for {
+          maybeImage <- elasticSearch.getImageById(imageId)
+          maybeEmbedding = maybeImage
+            .filter(image => isVisibleToAccessor(request.user, image))
+            .flatMap(_.embedding)
+            .flatMap(_.cohereEmbedV4)
+            .map(_.image)
+          searchResults <- maybeEmbedding match {
+            // If we have an embedding, perform the KNN search. If not, return an empty result set.
+            case Some(embedding) =>
+              elasticSearch.semanticSearch(embedding, k = k, numCandidates = Math.max(k * 2, 100), filterOpt = filterOpt)
+            case None =>
+              Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
+          }
+        } yield searchResults
+      }
     }
 
     def semanticSearchByText(k: Int, params: SearchParams): Future[SearchResults] = {
@@ -640,36 +653,42 @@ class MediaApi(
           logger.info(logMarker, s"No semantic query found in structured query; returning no AI results")
           Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         case Some(semanticQuery) =>
-          // Normalise key so that "Dogs" and "dogs " share a cache entry.
-          val cacheKey = semanticQuery.trim.toLowerCase
-          val markers = logMarker ++ Map("query" -> semanticQuery)
+          val vecWeight = params.vecWeight.getOrElse(0.8)
+          val outerMarker = logMarker
 
-          if (embeddingCache.getIfPresent(cacheKey).isDefined) {
-            logger.info(markers, s"AI search embedding cache hit query=$semanticQuery")
-          } else {
-            logger.info(markers, s"AI search embedding cache miss query=$semanticQuery")
-          }
-
-          val weight = params.vecWeight.getOrElse(0.8)
-
-          // cache.get(key) is atomic: if two requests race on the same key, only one
-          // load fires and both callers receive the same Future.
-          val embeddingFuture = embeddingCache.get(cacheKey)
-
-          val filterOpt = buildAiFilter(params)
-
-          logger.info(markers, s"vecWeight for query '$semanticQuery' is $weight")
-          for {
-            embedding <- embeddingFuture
-            searchResults <- elasticSearch.hybridSearch(
-              query = semanticQuery,
-              queryEmbedding = embedding,
-              k = k,
-              numCandidates = Math.max(k * 2, 100),
-              vecWeight = weight,
-              filterOpt = filterOpt
+          {
+            implicit val logMarker: LogMarker = outerMarker ++ Map(
+              "query" -> semanticQuery,
+              "vecWeight" -> vecWeight,
+              "aiSearchType" -> "hybrid"
             )
-          } yield searchResults
+
+            // Normalise key so that "Dogs" and "dogs " share a cache entry.
+            val cacheKey = semanticQuery.trim.toLowerCase
+            if (embeddingCache.getIfPresent(cacheKey).isDefined) {
+              logger.info(logMarker, s"AI search embedding cache hit query=$semanticQuery")
+            } else {
+              logger.info(logMarker, s"AI search embedding cache miss query=$semanticQuery")
+            }
+
+            // cache.get(key) is atomic: if two requests race on the same key, only one
+            // load fires and both callers receive the same Future.
+            val embeddingFuture = embeddingCache.get(cacheKey)
+
+            val filterOpt = buildAiFilter(params)
+
+            for {
+              embedding <- embeddingFuture
+              searchResults <- elasticSearch.hybridSearch(
+                query = semanticQuery,
+                queryEmbedding = embedding,
+                k = k,
+                numCandidates = Math.max(k * 2, 100),
+                vecWeight = vecWeight,
+                filterOpt = filterOpt
+              )
+            } yield searchResults
+          }
       }
     }
 
@@ -679,7 +698,7 @@ class MediaApi(
           logger.info(logMarker, s"Invalid AI search query: $errorMessage")
           Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
         case scala.util.Right(_) =>
-          val k = config.aiSearchResultLimit
+          val k = Math.min(params.length, config.aiSearchResultLimit)
           val searchResultsFuture = parseAiSearchMode(params) match {
             case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
             case TextSearch => semanticSearchByText(k, params)

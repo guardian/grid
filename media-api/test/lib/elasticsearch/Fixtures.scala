@@ -56,6 +56,7 @@ trait Fixtures {
     usages: List[Usage] = Nil,
     fileMetadata: Option[FileMetadata] = None,
     softDeletedMetadata: Option[SoftDeletedMetadata] = None,
+    vector: Option[List[Double]] = None,
   ): Image = {
     Image(
       id = id,
@@ -88,7 +89,7 @@ trait Fixtures {
       syndicationRights = syndicationRights,
       leases = leases.getOrElse(LeasesByMedia.build(Nil)),
       usages = usages,
-      embedding = None,
+      embedding = vector.map(v => Embedding(cohereEmbedV4 = Some(CohereV4Embedding(image = v)))),
     )
   }
 
