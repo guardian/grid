@@ -334,7 +334,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
         )
 
         val expression = record.toExpression
-        expression.expression() shouldEqual "REMOVE #date_removed"
+        expression.expression() shouldEqual "REMOVE date_removed"
       }
       it("should handle a mix of remove and set updates when the relevant fields are set") {
         val record = UsageRecord(
@@ -349,7 +349,7 @@ class UsageRecordTest extends AnyFunSpec with Matchers {
         val names = expression.expressionNames().values().asScala
         names.size shouldBe 1
         names should contain ("media_id")
-        expression.expression() shouldEqual "SET #media_id = :media_id REMOVE #date_removed"
+        expression.expression() shouldEqual "SET #media_id = :media_id REMOVE date_removed"
       }
     }
     describe("PrintUsageMetadata") {

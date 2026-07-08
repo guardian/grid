@@ -125,7 +125,7 @@ case class UsageRecord(
 
     val removeExpr =
       if (removeOps.nonEmpty)
-        "REMOVE " + removeOps.map(f => s"#$f").mkString(", ")
+        "REMOVE " + removeOps.map(f => s"$f").mkString(", ")
       else ""
 
     val expression =
