@@ -111,7 +111,7 @@ case class UsageRecord(
     usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
 
     printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap2(p.toDynamoMap)))
-    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toMap)))
+    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap2(m.toDynamoMap)))
     syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toMap)))
     frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toMap)))
     downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toMap)))
