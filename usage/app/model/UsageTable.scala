@@ -30,7 +30,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
     .addIndexSortKey(TableMetadata.primaryIndexName(), rangeKeyName, AttributeValueType.S)
     .addIndexPartitionKey(
-      "MediaIdIndex",
+      imageIndexName,
       imageIndexName,
       AttributeValueType.S
     )
