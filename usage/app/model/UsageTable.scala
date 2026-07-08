@@ -61,7 +61,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       .partitionValue(id)
       .build()
 
-    val queryResult = table.index(imageIndexNameg).query(QueryConditional.keyEqualTo(key))
+    val queryResult = table.index(imageIndexName).query(QueryConditional.keyEqualTo(key))
 
     val unsortedUsages = queryResult.iterator()
       .asScala
