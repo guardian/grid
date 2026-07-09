@@ -602,29 +602,17 @@ class MediaApi(
       elasticSearch.searchFilters.filterAndFilter(chipFilterOpt, requestFilterOpt)
     }
 
-    // The pool of images before the user's chip filters are applied (i.e. only the
-    // filters implied by the request itself, e.g. syndication/permissions). Used to
-    // explain how the chip filters have narrowed things down.
-    def buildBasePoolFilter(params: SearchParams): Option[Query] =
-      elasticSearch.queryBuilder.buildFilterOpt(
-        params,
-        elasticSearch.searchFilters,
-        elasticSearch.syndicationFilter
-      )
-
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
     // Response for an AI search that only has filters (no text/similar-image query to
     // rank by). Rather than erroring, we return an empty result set annotated with how
-    // the filters have narrowed the pool of images, so the client can prompt the user
-    // to add a query.
+    // many images are in the pool a query would rank over, so the client can prompt the
+    // user to add a query.
     def filtersOnlyAiSearchResponse(params: SearchParams): Future[Result] = {
-      val basePoolFilter = buildBasePoolFilter(params)
       val filteredPoolFilter = buildAiFilter(params)
 
       for {
-        totalPool <- elasticSearch.countMatchingFilterWithExtraCounts(basePoolFilter).map(_._1)
         filteredPool <- elasticSearch.countMatchingFilterWithExtraCounts(filteredPoolFilter).map(_._1)
       } yield respondCollection(
         data = List.empty[EmbeddedEntity[JsValue]],
@@ -632,7 +620,7 @@ class MediaApi(
         total = Some(0),
         maybeExtraCounts = Some(ExtraCounts(
           tickerCounts = Map.empty,
-          filterPoolCounts = Some(FilterPoolCounts(totalPool = totalPool, filteredPool = filteredPool))
+          filterPoolCounts = Some(FilterPoolCounts(filteredPool = filteredPool))
         )),
         links = Nil
       )

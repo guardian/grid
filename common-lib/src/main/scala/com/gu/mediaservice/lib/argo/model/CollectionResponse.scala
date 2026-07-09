@@ -19,11 +19,10 @@ case class ExtraCount(
   subCounts: Option[Map[String, Long]] = None
 )
 
-// Describes an AI search that only had filters applied (no text/similar-image query
-// to rank by), so the client can explain how the filters have narrowed the pool of
-// images (from totalPool to filteredPool) and prompt the user to add a query.
+// Describes an AI search that had no text/similar-image query to rank by, so the
+// client can tell the user how many images are in the pool a query would rank over
+// (filteredPool) and prompt them to add a query.
 case class FilterPoolCounts(
-  totalPool: Long,
   filteredPool: Long
 )
 
