@@ -48,7 +48,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
   useEffect(() => {
     const handleLogoClick = (e: any) => {
       setSortOption(DefaultSortOption);
-      props.onSortSelect(DefaultSortOption);
     };
 
     const handleQueryChange = (e: any) => {
