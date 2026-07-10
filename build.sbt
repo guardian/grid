@@ -198,8 +198,11 @@ lazy val usage = playProject("usage", 9009).settings(
     "io.reactivex" %% "rxscala" % "0.27.0",
     "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
-    "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
+    "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
+
+    "software.amazon.awssdk" % "autoscaling" % awsSdkV2Version,
+    "software.amazon.awssdk" % "imds" % awsSdkV2Version,
     "com.google.protobuf" % "protobuf-java" % "3.19.6"
   ),
 )
