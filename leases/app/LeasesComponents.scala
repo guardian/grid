@@ -4,11 +4,12 @@ import controllers.MediaLeaseController
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 
 class LeasesComponents(context: Context) extends GridComponents(context, new LeasesConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val store = new LeaseStore(config)
+  val store = new LeaseStore(config.leasesTable,config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build())
   val notifications = new LeaseNotifier(config, store)
 
   val controller = new MediaLeaseController(auth, store, config, notifications, controllerComponents)

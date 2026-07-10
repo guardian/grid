@@ -2,7 +2,6 @@ package store
 
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
-import lib.CollectionsConfig
 import org.joda.time.DateTime
 import org.scanamo.generic.auto.genericDerivedFormat
 import org.scanamo.{DynamoFormat, ScanamoAsync, Table}
@@ -16,9 +15,7 @@ import org.scanamo.generic.semiauto.FieldName
 
 case class Record(id: String, collection: Collection)
 
-class CollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
-  override val tableName: FieldName = config.collectionsTable
-  lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+class CollectionsStore(val tableName: String, client: DynamoDbAsyncClient) extends DynamoHelpers {
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
