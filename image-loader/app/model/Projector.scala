@@ -30,8 +30,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbedder)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, maybeEmbedder)
 }
 
 case class S3FileExtractedMetadata(
@@ -84,13 +84,12 @@ class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
-                auth: Authentication,
                 maybeEmbedder: Option[Embedder]) extends GridLogging {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3, maybeEmbedder)
 
   def projectS3ImageById(imageId: String, tempFile: File, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
-                        (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
+                        (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
@@ -106,14 +105,11 @@ class Projector(config: ImageUploadOpsCfg,
         val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
         val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-        val finalImageFuture = projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
-        val finalImage = Await.result(finalImageFuture, Duration.Inf)
-
-        Some(finalImage)
+        projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
       } finally {
         s3Source.close()
       }
-    }
+    }.flatten
   }
 
   private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
