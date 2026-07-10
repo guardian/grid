@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "oidc-provider": "^9.8.3"
+    "oidc-provider": "^9.8.5"
   },
   "devDependencies": {
     "jest": "^29.7.0"
