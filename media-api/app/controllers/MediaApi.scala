@@ -612,13 +612,12 @@ class MediaApi(
       val filteredPoolFilter = buildAiFilter(filterConditions, params)
 
       for {
-        filteredPool <- elasticSearch.countMatchingFilterWithExtraCounts(filteredPoolFilter).map(_._1)
+        (filteredPool, extraCounts) <- elasticSearch.countMatchingFilterWithExtraCounts(filteredPoolFilter)
       } yield respondCollection(
         data = List.empty[EmbeddedEntity[JsValue]],
         offset = Some(0),
         total = Some(0),
-        maybeExtraCounts = Some(ExtraCounts(
-          tickerCounts = Map.empty,
+        maybeExtraCounts = Some(extraCounts.copy(
           filterPoolCounts = Some(FilterPoolCounts(filteredPool = filteredPool))
         )),
         links = Nil
@@ -647,6 +646,11 @@ class MediaApi(
 
         val filterOpt = buildAiFilter(parts.filterConditions, params)
 
+        // Compute the filtered pool total and ticker count badges in parallel with the
+        // KNN search, so similar-image results show the same "Best k of N matches" total
+        // and tickers as text/hybrid AI search.
+        val filterTotalAndCounts = elasticSearch.countMatchingFilterWithExtraCounts(filterOpt)
+
         for {
           maybeImage <- elasticSearch.getImageById(imageId)
           maybeEmbedding = maybeImage
@@ -661,7 +665,8 @@ class MediaApi(
             case None =>
               Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
           }
-        } yield searchResults
+          (total, extraCounts) <- filterTotalAndCounts
+        } yield searchResults.copy(total = total, extraCounts = Some(extraCounts))
       }
     }
 
