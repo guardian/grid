@@ -181,6 +181,21 @@ aligning with `HybridResult.scala`'s algorithm (two parallel ES calls + client-s
 cosine similarity) would improve result quality. Not worth doing until there is UI
 for `vecWeight`.
 
+**Update (merged into main, July 2026 — PRs #4785/#4787/#4788/#4789).**
+`aiSearchResponseFromResults` in `MediaApi.scala` no longer hardcodes
+`maybeExtraCounts = None`. `ElasticSearch.scala`'s AI/hybrid search path now
+runs a parallel `countMatchingFilterWithExtraCounts` query — `size:0`,
+`trackTotalHits`, same ticker aggregations as normal search — against the
+**whole filtered set** (not just the top-`k` semantic hits), and returns real
+`extraCounts` (ticker badges) plus a real `total` ("Best k of N matches") in
+one round trip (`4ba78c76c` "Add GNM-owned, agency picks and filtered matches
+to AI search", `31db1d738` "Calculate aggregations against the full filtered
+set, not top k"). Separately, `k` is now `Math.min(params.length,
+config.aiSearchResultLimit)` instead of always 200 (`171f578b1` "Respect
+length param"). This is architecturally the same fix as kupua's own §6
+decorator, done server-side — see §6.3 for what this means for kupua's
+approach.
+
 ### 3.2 Result shape
 
 ES returns a ranked list of at most `k=200` hits, scored by cosine
@@ -395,6 +410,17 @@ implementing it.
 For one algorithm, the decorator is the right size (~25 lines, three
 call sites, one breadcrumb comment). For two, it would not be.
 
+**Note (main, July 2026 — PRs #4785/#4787):** media-api's own AI/hybrid search
+endpoint now solves this same problem server-side — `extraCounts` and `total`
+are computed against the full filtered set in one round trip (§3.1). Kupua's
+`searchByAi` still talks directly to ES, not to media-api, so this doesn't
+change anything today. But if AI search is ever migrated onto the
+media-api-routed path (Phase 3 direction), the server can hand back
+`extraCounts`/`total` for free — retiring the decorator for *this* concern
+without needing the full SearchContext refactor. Cheaper partial win worth
+considering at that point; doesn't retire the synthetic-`sortValues` problem
+(§3.2, §9.2), which still needs SearchContext.
+
 ---
 
 ## §7 Focus, Back-Navigation, and Density Switching
@@ -448,7 +474,11 @@ Recorded here, not hidden:
    `SearchContext` (see `zz Archive/ai-searchContext-future-abstraction.md`); it is
    gated in AGENTS.md behind the arrival of a second alternative-ranking
    algorithm (image-to-image similarity, collection-based search). Until
-   then the decorator stays.
+   then the decorator stays. Media-api now solves the ticker/total half of
+   this problem server-side for its own AI endpoint (§3.1, §6.3,
+   PRs #4785/#4787) — relevant only if/when kupua's AI search moves onto
+   the media-api-routed path; doesn't change anything while `searchByAi`
+   talks directly to ES.
 
 2. **Synthetic `sortValues` are protected only by an invariant.**
    `[k - i, img.id]` is not a real ES cursor. It works because
