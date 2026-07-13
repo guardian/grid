@@ -22,8 +22,10 @@
 
             <div class="results-toolbar-item results-toolbar-item--static
                     image-results-count">
-                <span ng-if="ctrl.isAiSearch && !ctrl.filtersOnlyAiSearch">Best {{ctrl.aiResultsShown | toLocaleString}} of {{ctrl.totalResults | toLocaleString}} matches</span>
-                <span ng-if="ctrl.isAiSearch && ctrl.filtersOnlyAiSearch">{{ctrl.filterPoolCounts.filteredPool | toLocaleString}} matches</span>
+                <span ng-if="ctrl.isAiSearch">
+                    <span ng-if="!ctrl.filtersOnlyAiSearch">Best {{ctrl.aiResultsShown | toLocaleString}} of {{ctrl.totalResults | toLocaleString}} matches</span>
+                    <span ng-if="ctrl.filtersOnlyAiSearch">{{ctrl.filterPoolCounts.filteredPool | toLocaleString}} matches</span>
+                </span>
                 <button ng-if="ctrl.newImagesCount > 0"
                         ng-click="ctrl.revealNewImages()"
                         class="image-results-count__new"
