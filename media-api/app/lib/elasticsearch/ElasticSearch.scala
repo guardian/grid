@@ -341,13 +341,36 @@ class ElasticSearch(
         case _ => fusedLexicalAndSemanticSearch(query, queryEmbedding, k, numCandidates, vecWeight, filterOpt)
       }
 
-      searchResults.andThen { case _ =>
+      // Run in parallel: how many images match the filters in total (so we can
+      // show "Best k of N matches") along with the ticker count badges, both
+      // computed over the whole filtered set.
+      val filterTotalAndCounts = countMatchingFilterWithExtraCounts(filterOpt)
+
+      (for {
+        results <- searchResults
+        (total, extraCounts) <- filterTotalAndCounts
+      } yield results.copy(total = total, extraCounts = Some(extraCounts))).andThen { case _ =>
         val elapsed = stopwatch.elapsed
         logger.info(
           combineMarkers(logMarker, elapsed),
           s"Hybrid AI search completed in ${elapsed.toMillis} ms"
         )
       }
+    }
+  }
+
+  // How many images match the active filters in total (so we can show
+  // "Best k of N matches") along with the ticker count badges, both computed
+  // over the whole filtered set in a single request.
+  private def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
+    val searchRequest = ElasticDsl.search(imagesCurrentAlias)
+      .query(filterOpt.getOrElse(matchAllQuery()))
+      .trackTotalHits(true)
+      .size(0)
+      .aggregations(extraCountAggregations)
+
+    executeAndLog(withSearchQueryTimeout(searchRequest), "hybrid AI search filter count and ticker counts").map { r =>
+      (r.result.totalHits, extraCountsFrom(r.result.aggregations))
     }
   }
 
@@ -391,10 +414,7 @@ class ElasticSearch(
       .runtimeMappings(runtimeMappings)
       .storedFields("_source") // this needs to be explicit when using script fields
       .scriptfields(graphicImagesScriptFields)
-      .aggregations(aggregationsNameToSearchClauseMap.map {
-        case (name, ExtraCountConfig(searchClause, _, maybeSubAggregation)) =>
-          filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))).subAggregations(maybeSubAggregation)
-      })
+      .aggregations(extraCountAggregations)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -408,26 +428,35 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        extraCounts = Some(ExtraCounts(
-          tickerCounts = aggregationsNameToSearchClauseMap.map {
-            case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubAggregation)) =>
-              val aggResult = r.result.aggregations.filter(name)
-              val maybeSubAggResult = maybeSubAggregation.map(_.name).map(aggResult.result[Terms])
-              name -> ExtraCount(
-                value = aggResult.docCount,
-                searchClause,
-                backgroundColour,
-                subCounts = maybeSubAggResult.map { termsAgg =>
-                  ListMap(termsAgg.buckets.sortBy(_.docCount).reverse.map { bucket =>
-                    (bucket.key, bucket.docCount)
-                  }: _*) + ("other" -> termsAgg.otherDocCount)
-                }.filter(_.exists { case (_, count) => count > 0 })
-              )
-          }
-        ))
+        extraCounts = Some(extraCountsFrom(r.result.aggregations))
       )
     }
   }
+
+  // The aggregations used to compute the ticker count badges ("GNM-owned",
+  // "agency picks" etc) shown above search results.
+  private def extraCountAggregations = aggregationsNameToSearchClauseMap.map {
+    case (name, ExtraCountConfig(searchClause, _, maybeSubAggregation)) =>
+      filterAgg(name, queryBuilder.makeQuery(Parser.run(searchClause))).subAggregations(maybeSubAggregation)
+  }
+
+  private def extraCountsFrom(aggregations: Aggregations): ExtraCounts = ExtraCounts(
+    tickerCounts = aggregationsNameToSearchClauseMap.map {
+      case (name, ExtraCountConfig(searchClause, backgroundColour, maybeSubAggregation)) =>
+        val aggResult = aggregations.filter(name)
+        val maybeSubAggResult = maybeSubAggregation.map(_.name).map(aggResult.result[Terms])
+        name -> ExtraCount(
+          value = aggResult.docCount,
+          searchClause,
+          backgroundColour,
+          subCounts = maybeSubAggResult.map { termsAgg =>
+            ListMap(termsAgg.buckets.sortBy(_.docCount).reverse.map { bucket =>
+              (bucket.key, bucket.docCount)
+            }: _*) + ("other" -> termsAgg.otherDocCount)
+          }.filter(_.exists { case (_, count) => count > 0 })
+        )
+    }
+  )
 
   def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierUsageSummary] = {
     val supplier = Agencies.get(id)
