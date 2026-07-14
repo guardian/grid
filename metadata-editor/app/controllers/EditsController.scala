@@ -145,7 +145,7 @@ class EditsController(
 
 
   def getMetadata(id: String) = auth.async {
-    editsStore.getV2(id).map { dynamoEntry =>
+    editsStore.get(id).map { dynamoEntry =>
       val metadata = (dynamoEntry \ Edits.Metadata).asOpt[ImageMetadata].getOrElse(Edits.emptyMetadata)
       respond(metadata)
     } recover {
