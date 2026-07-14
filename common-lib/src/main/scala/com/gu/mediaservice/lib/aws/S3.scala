@@ -1,15 +1,18 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.services.s3.model.{Region => _, _}
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
+//import com.amazonaws.services.s3.model.{Region => _, _}
+//import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
+//import com.amazonaws.util.IOUtils
+//import com.amazonaws.{AmazonServiceException, ClientConfiguration}
+import com.amazonaws.AmazonServiceException
 import com.amazonaws.util.IOUtils
-import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse}
 
 import java.io.File
 import java.net.URI
@@ -67,7 +70,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type Key = String
   type UserMetadata = Map[String, String]
 
-  lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  lazy val client: S3Client = S3Ops.buildS3ClientV2(config)
 
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
@@ -81,24 +84,23 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def getObject(bucket: Bucket, url: URI): model.S3Object = {
+  def getObject(bucket: Bucket, url: URI): GetObjectResponse = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    client.getObject(new GetObjectRequest(bucket, key))
+    //    client.getObject(GetObjectRequest(bucket, key))
+    val resp = client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
+    resp.response()
+
   }
 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
-    val content = client.getObject(new GetObjectRequest(bucket, key))
-    val stream = content.getObjectContent
     try {
+      val stream = client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build());
       Some(IOUtils.toString(stream).trim)
     } catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
         logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
-    }
-    finally {
-      stream.close()
     }
   }
 
@@ -176,18 +178,18 @@ object S3Ops {
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
-    val builder = config.awsLocalEndpoint match {
-      case Some(_) if config.isDev =>
-        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
-        //  `withPathStyleAccessEnabled` for localstack
-        //  see https://github.com/localstack/localstack/issues/1512
-        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
-      case _ => AmazonS3ClientBuilder.standard()
-    }
-
-    config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
-  }
+//  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
+//    val builder = config.awsLocalEndpoint match {
+//      case Some(_) if config.isDev =>
+//        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+//        //  `withPathStyleAccessEnabled` for localstack
+//        //  see https://github.com/localstack/localstack/issues/1512
+//        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
+//      case _ => AmazonS3ClientBuilder.standard()
+//    }
+//
+//    config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
+//  }
 
   def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
     val builder = config.awsLocalEndpoint match {
