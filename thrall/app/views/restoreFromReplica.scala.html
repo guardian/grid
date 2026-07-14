@@ -22,6 +22,7 @@
             <p>Useful if the image has been hard-deleted.</p>
 
             @form(Call("POST", imageLoaderEndpoint)) {
+                @CSRF.formField
                 <label for="imageId">Image ID:</label>
                 <input type="text" id="imageId" name="imageId">
                 <input type="submit" value="Submit">

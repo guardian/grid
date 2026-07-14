@@ -21,7 +21,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     logger.info(s" $index -> ${processor.description}")
   }
 
-  private val gridClient = GridClient(config.services)(wsClient)
+  private val gridClient = GridClient(config.services, config.services.loaderBaseUri)(wsClient)
 
   val store = new ImageLoaderStore(config)
   val maybeIngestQueue = config.maybeIngestSqsQueueUrl.map(queueUrl => new SimpleSqsMessageConsumer(queueUrl, config))
