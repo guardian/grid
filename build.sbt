@@ -99,7 +99,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
