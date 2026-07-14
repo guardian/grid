@@ -4,6 +4,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import scala.jdk.CollectionConverters._
 import com.gu.mediaservice.model.usage._
 
+import com.gu.mediaservice.lib.dynamo.DynamoElement
 import org.joda.time.DateTime
 import software.amazon.awssdk.enhanced.dynamodb.Expression
 
@@ -30,18 +31,11 @@ case class UsageRecord(
   childUsageMetadata: Option[ChildUsageMetadata] = None,
   dateAdded: Option[DateTime] = None
 ) {
-  def toAttributeValueMap(m: Map[String, Any]): java.util.Map[String, AttributeValue] =
-    m.map { case (k, v) =>
-      k -> toAttr(v)
-    }.asJava
-  def toAttr(v: Any): AttributeValue = v match {
-    case s: String => AttributeValue.builder().s(s).build()
-    case n: Long   => AttributeValue.builder().n(n.toString).build()
-    case n: Int    => AttributeValue.builder().n(n.toString).build()
-    case b: Boolean => AttributeValue.builder().bool(b).build()
-    case null       => AttributeValue.builder().nul(true).build()
-    case other      => throw new IllegalArgumentException(s"Unsupported type: $other")
-  }
+  def toAttributeValueMap(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
+    m.map { case(k, v) =>
+      k -> v.toAttrValue
+    }
+  }.asJava
   def toExpression: Expression = {
     val setOps = scala.collection.mutable.ListBuffer.empty[(String, AttributeValue)]
     val removeOps = scala.collection.mutable.ListBuffer.empty[String]
@@ -78,12 +72,12 @@ case class UsageRecord(
 
     usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
 
-    printUsageMetadata.map(p => p.toMap).foreach(p => setM("print_metadata", toAttributeValueMap(p)))
-    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toMap)))
-    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toMap)))
-    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toMap)))
-    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toMap)))
-    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toMap)))
+    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap(p.toDynamoMap)))
+    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toDynamoMap)))
+    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toDynamoMap)))
+    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toDynamoMap)))
+    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toDynamoMap)))
+    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toDynamoMap)))
 
     dateAdded.foreach(dt => setN("date_added", dt.getMillis))
 
@@ -105,7 +99,7 @@ case class UsageRecord(
 
     val removeExpr =
       if (removeOps.nonEmpty)
-        "REMOVE " + removeOps.map(f => s"#$f").mkString(", ")
+        "REMOVE " + removeOps.map(f => s"$f").mkString(", ")
       else ""
 
     val expression =

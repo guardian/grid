@@ -20,7 +20,7 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
-lazy val jacksonVersion = "2.21.1"
+lazy val jacksonVersion = "2.21.4"
 lazy val jacksonAnnotationsVersion = "2.21"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",

@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.aws.DynamoDB.{avToAny, jsonWithNullAsEmptyString}
+import com.gu.mediaservice.lib.aws.DynamoDB.jsonWithNullAsEmptyString
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
@@ -24,19 +24,19 @@ class UsageTable(config: UsageConfig) extends GridLogging {
   val imageIndexName = "media_id"
 
 
-  lazy val client2: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
-  lazy val dynamo2: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client2).build()
+  lazy val client: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val dynamo: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()
   lazy val tableSchema = TableSchema.documentSchemaBuilder()
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
     .addIndexSortKey(TableMetadata.primaryIndexName(), rangeKeyName, AttributeValueType.S)
     .addIndexPartitionKey(
-      "MediaIdIndex",
+      imageIndexName,
       imageIndexName,
       AttributeValueType.S
     )
     .attributeConverterProviders(AttributeConverterProvider.defaultProvider())
     .build()
-  lazy val table = dynamo2.table(config.usageRecordTable, tableSchema)
+  lazy val table = dynamo.table(config.usageRecordTable, tableSchema)
 
   def queryByUsageId(id: String): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
@@ -61,7 +61,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       .partitionValue(id)
       .build()
 
-    val queryResult = table.index("MediaIdIndex").query(QueryConditional.keyEqualTo(key))
+    val queryResult = table.index(imageIndexName).query(QueryConditional.keyEqualTo(key))
 
     val unsortedUsages = queryResult.iterator()
       .asScala
@@ -166,7 +166,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
         .returnValues(ReturnValue.ALL_NEW)
         .build()
 
-      client2.updateItem(request)
+      client.updateItem(request)
 
   })
   .onErrorResumeNext(e => {

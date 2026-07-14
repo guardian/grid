@@ -59,7 +59,7 @@ class EditsController(
   import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(ws)
+  val gridClient: GridClient = GridClient(services, services.metadataBaseUri)(ws)
 
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
@@ -145,8 +145,8 @@ class EditsController(
 
 
   def getMetadata(id: String) = auth.async {
-    editsStore.get(id).map { dynamoEntry =>
-      val metadata = (dynamoEntry \ Edits.Metadata).as[ImageMetadata]
+    editsStore.getV2(id).map { dynamoEntry =>
+      val metadata = (dynamoEntry \ Edits.Metadata).asOpt[ImageMetadata].getOrElse(Edits.emptyMetadata)
       respond(metadata)
     } recover {
       case NoItemFound => respond(Json.toJson(JsObject(Nil)))
