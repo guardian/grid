@@ -960,6 +960,60 @@ textarea.ng-invalid {
     flex-grow: 1;
 }
 
+.search__ai-controls {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    gap: 8px;
+    flex-shrink: 0;
+    color: #ccc;
+}
+
+.search__ai-weight {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.search__ai-weight-toggle {
+    background: none;
+    border: 1px solid #666;
+    color: #ccc;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.search__ai-weight-toggle gr-icon {
+    display: block;
+    line-height: 1;
+}
+
+.search__ai-weight-toggle:hover {
+    border-color: #999;
+}
+
+.search__ai-weight-slider {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.search__ai-weight-slider input[type="range"] {
+    width: 100px;
+}
+
+.search__ai-weight-value {
+    min-width: 2.6em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
 .search {
     margin-top: 10px;
     display: flex;
