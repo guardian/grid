@@ -362,7 +362,7 @@ class ElasticSearch(
   // How many images match the active filters in total (so we can show
   // "Best k of N matches") along with the ticker count badges, both computed
   // over the whole filtered set in a single request.
-  private def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
+  def countMatchingFilterWithExtraCounts(filterOpt: Option[Query])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[(Long, ExtraCounts)] = {
     val searchRequest = ElasticDsl.search(imagesCurrentAlias)
       .query(filterOpt.getOrElse(matchAllQuery()))
       .trackTotalHits(true)

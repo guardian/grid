@@ -19,6 +19,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
+import lib.querysyntax.Condition
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -583,12 +584,10 @@ class MediaApi(
     case object TextSearch extends AiSearchMode
     case class SimilarSearch(imageId: String) extends AiSearchMode
 
-    def parseAiSearchMode(params: SearchParams): AiSearchMode =
-      params.aiQueryParts.similarImageId.map(SimilarSearch).getOrElse(TextSearch)
+    def parseAiSearchMode(parts: AiQueryParts): AiSearchMode =
+      parts.similarImageId.map(SimilarSearch).getOrElse(TextSearch)
 
-    def buildAiFilter(params: SearchParams): Option[Query] = {
-      val filterConditions = params.aiQueryParts.filterConditions
-
+    def buildAiFilter(filterConditions: List[Condition], params: SearchParams): Option[Query] = {
       val chipFilterOpt =
         if (filterConditions.nonEmpty) Some(elasticSearch.queryBuilder.makeQuery(filterConditions))
         else None
@@ -605,6 +604,26 @@ class MediaApi(
     def emptyAiSearchResponse =
       Future.successful(respondCollection(List.empty[EmbeddedEntity[JsValue]], Some(0), Some(0), None, List()))
 
+    // Response for an AI search that only has filters (no text/similar-image query to
+    // rank by). Rather than erroring, we return an empty result set annotated with how
+    // many images are in the pool a query would rank over, so the client can prompt the
+    // user to add a query.
+    def filtersOnlyAiSearchResponse(filterConditions: List[Condition], params: SearchParams): Future[Result] = {
+      val filteredPoolFilter = buildAiFilter(filterConditions, params)
+
+      for {
+        (filteredPool, extraCounts) <- elasticSearch.countMatchingFilterWithExtraCounts(filteredPoolFilter)
+      } yield respondCollection(
+        data = List.empty[EmbeddedEntity[JsValue]],
+        offset = Some(0),
+        total = Some(0),
+        maybeExtraCounts = Some(extraCounts.copy(
+          filterPoolCounts = Some(FilterPoolCounts(filteredPool = filteredPool))
+        )),
+        links = Nil
+      )
+    }
+
     def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
       val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
       respondCollection(
@@ -616,7 +635,7 @@ class MediaApi(
       )
     }
 
-    def semanticSearchByImage(imageId: String, k: Int, params: SearchParams): Future[SearchResults] = {
+    def semanticSearchByImage(imageId: String, k: Int, parts: AiQueryParts, params: SearchParams): Future[SearchResults] = {
       val outerMarker = logMarker
 
       {
@@ -625,7 +644,12 @@ class MediaApi(
           "aiSearchType" -> "image"
         )
 
-        val filterOpt = buildAiFilter(params)
+        val filterOpt = buildAiFilter(parts.filterConditions, params)
+
+        // Compute the filtered pool total and ticker count badges in parallel with the
+        // KNN search, so similar-image results show the same "Best k of N matches" total
+        // and tickers as text/hybrid AI search.
+        val filterTotalAndCounts = elasticSearch.countMatchingFilterWithExtraCounts(filterOpt)
 
         for {
           maybeImage <- elasticSearch.getImageById(imageId)
@@ -641,14 +665,15 @@ class MediaApi(
             case None =>
               Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
           }
-        } yield searchResults
+          (total, extraCounts) <- filterTotalAndCounts
+        } yield searchResults.copy(total = total, extraCounts = Some(extraCounts))
       }
     }
 
-    def semanticSearchByText(k: Int, params: SearchParams): Future[SearchResults] = {
+    def semanticSearchByText(k: Int, parts: AiQueryParts, params: SearchParams): Future[SearchResults] = {
       // Separate the chips from the main query text
       // So that we can embed just the query text
-      params.aiQueryParts.semanticQuery match {
+      parts.semanticQuery match {
         case None =>
           logger.info(logMarker, s"No semantic query found in structured query; returning no AI results")
           Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
@@ -675,7 +700,7 @@ class MediaApi(
             // load fires and both callers receive the same Future.
             val embeddingFuture = embeddingCache.get(cacheKey)
 
-            val filterOpt = buildAiFilter(params)
+            val filterOpt = buildAiFilter(parts.filterConditions, params)
 
             for {
               embedding <- embeddingFuture
@@ -693,34 +718,39 @@ class MediaApi(
     }
 
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
-      params.aiQueryParts.validationError match {
-        case Left(errorMessage) =>
-          logger.info(logMarker, s"Invalid AI search query: $errorMessage")
-          Future.successful(respondError(UnprocessableEntity, "invalid-ai-search", errorMessage))
-        case scala.util.Right(_) =>
+      params.aiQueryParts match {
+        case scala.util.Right(parts) =>
           val k = Math.min(params.length, config.aiSearchResultLimit)
-          val searchResultsFuture = parseAiSearchMode(params) match {
-            case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, params)
-            case TextSearch => semanticSearchByText(k, params)
+          val searchResultsFuture = parseAiSearchMode(parts) match {
+            case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, parts, params)
+            case TextSearch => semanticSearchByText(k, parts, params)
           }
 
           searchResultsFuture.map(aiSearchResponseFromResults)
+
+        // No query to rank by, so we can't return ranked results. Instead return the
+        // size of the pool we'd be searching over, so the client can prompt the user to
+        // add a query.
+        case Left(AiQueryError.NoRankingSignal(filterConditions)) =>
+          logger.info(logMarker, s"AI search with no query to rank by; returning filter pool counts: $filterConditions")
+          filtersOnlyAiSearchResponse(filterConditions, params)
+
+        case Left(AiQueryError.ConflictingRankingSignals) =>
+          logger.info(logMarker, "AI search combining a similar image with a text query; rankings can't be merged")
+          Future.successful(respondError(
+            UnprocessableEntity,
+            InvalidUriParams.errorKey,
+            AiQueryError.ConflictingRankingSignals.message
+          ))
       }
     }
 
     if (_searchParams.useAISearch.contains(true)) {
-      _searchParams.query match {
-        // Short-circuit polling requests (length=0) and empty queries to avoid unnecessary Bedrock/KNN calls
-        case _ if _searchParams.length == 0 =>
-          emptyAiSearchResponse
-        case Some(q) if !q.isBlank =>
-          performAiSearchAndRespond(_searchParams)
-        // Empty queries do not make sense for AI search as we can
-        // only rank results once we have a meaningful vector to compare with.
-        // So return 0 results if the query was empty.
-        case _ =>
-          emptyAiSearchResponse
-      }
+      // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
+      // Everything else is handled by performAiSearchAndRespond, which falls back to
+      // filter-pool counts when there's no query to rank by.
+      if (_searchParams.length == 0) emptyAiSearchResponse
+      else performAiSearchAndRespond(_searchParams)
     } else {
       val searchParams = if (canViewDeletedImages) {
         _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))

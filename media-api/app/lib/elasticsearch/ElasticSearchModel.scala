@@ -17,43 +17,43 @@ case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long,
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 
+// The reasons an AI search can't be run as a ranked query. These are distinct from
+// each other so the caller can decide how to respond: an expected "no ranking signal"
+// case is handled by reporting filter-pool counts, whereas a genuine error is surfaced
+// to the user.
+sealed trait AiQueryError
+object AiQueryError {
+  // The query has no KNN ranking signal (no text and no similar image), so there's
+  // nothing to rank by. We still carry the parsed filter conditions so the caller can
+  // report how big the filtered pool is and prompt the user to add a query.
+  final case class NoRankingSignal(filterConditions: List[Condition]) extends AiQueryError
+
+  // The query combines a similar image with a text query. The two rankings can't be
+  // merged, so this is a genuine error.
+  case object ConflictingRankingSignals extends AiQueryError {
+    val message: String =
+      "AI search can't combine a similar image search with a text query because the two rankings can't be merged. " +
+        "Please use either a text query or a similar image, not both."
+  }
+}
+
 case class AiQueryParts(
   semanticQuery: Option[String],
   filterConditions: List[Condition],
   similarImageId: Option[String]
-) {
-  def hasSimilarAndSemanticText: Boolean = similarImageId.nonEmpty && semanticQuery.nonEmpty
-
-  // A KNN bit is the only thing AI search can rank by, so a query must contain either
-  // a text query (text KNN) or a similar image (image KNN) to be valid.
-  def hasKnn: Boolean = similarImageId.nonEmpty || semanticQuery.nonEmpty
-
-  // Returns Left(error message) if the AI query cannot be satisfied, otherwise Right(()).
-  def validationError: Either[String, Unit] = {
-    if (hasSimilarAndSemanticText)
-      Left(
-        "AI search can't combine a similar image search with a text query because the two rankings can't be merged. " +
-          "Please use either a text query or a similar image, not both."
-      )
-    else if (!hasKnn)
-      Left(
-        "AI search needs something to rank by. " +
-          "Add a text query or a similar image alongside your filters."
-      )
-    else
-      Right(())
-  }
-}
+)
 
 object AiQueryParts {
-  def from(conditions: List[Condition]): AiQueryParts = {
+  // Parse the structured query into AI search parts. Returns Right with parts ready to
+  // rank by, or Left explaining why the search can't be run as a ranked query.
+  def from(conditions: List[Condition]): Either[AiQueryError, AiQueryParts] = {
     val initial = AiQueryParts(
       semanticQuery = None,
       filterConditions = List.empty,
       similarImageId = None,
     )
 
-    conditions.foldLeft(initial) {
+    val parts = conditions.foldLeft(initial) {
       case (parts, Match(AnyField, Words(value))) =>
         appendSemanticText(parts, value)
       case (parts, Match(AnyField, Phrase(value))) =>
@@ -65,6 +65,15 @@ object AiQueryParts {
       case (parts, condition) =>
         parts.copy(filterConditions = parts.filterConditions :+ condition)
     }
+
+    val hasText = parts.semanticQuery.nonEmpty
+    val hasSimilarImage = parts.similarImageId.nonEmpty
+
+    // A KNN bit is the only thing AI search can rank by, so a query must contain exactly
+    // one of a text query (text KNN) or a similar image (image KNN) to be valid.
+    if (hasText && hasSimilarImage) Left(AiQueryError.ConflictingRankingSignals)
+    else if (!hasText && !hasSimilarImage) Left(AiQueryError.NoRankingSignal(parts.filterConditions))
+    else Right(parts)
   }
 
   private def appendSemanticText(parts: AiQueryParts, value: String): AiQueryParts = {
@@ -149,7 +158,7 @@ case class SearchParams(
   useAISearch: Option[Boolean] = None,
   vecWeight: Option[Double] = None
 ) {
-  lazy val aiQueryParts: AiQueryParts = AiQueryParts.from(structuredQuery)
+  lazy val aiQueryParts: Either[AiQueryError, AiQueryParts] = AiQueryParts.from(structuredQuery)
 }
 
 case class InvalidUriParams(message: String) extends Throwable
