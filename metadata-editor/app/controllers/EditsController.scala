@@ -59,7 +59,7 @@ class EditsController(
   import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(ws)
+  val gridClient: GridClient = GridClient(services, services.metadataBaseUri)(ws)
 
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive

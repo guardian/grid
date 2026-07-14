@@ -112,6 +112,22 @@ class PandaAuthenticationProvider(
   override def flushToken: Option[(RequestHeader, Result) => Result] = Some((rh, _) => processLogout(rh))
 
   val PandaCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("PandaCookie")
+  val OriginKey: TypedKey[String] = TypedKey[String]("Origin")
+
+  private def withPersistedOrigin(request: Principal): WSRequest => WSRequest = { wsRequest =>
+    request.attributes.get(OriginKey) match {
+      case Some(origin) => wsRequest.withHttpHeaders(("Origin", origin))
+      case None => wsRequest
+    }
+  }
+
+  private def withPersistedCookie(request: Principal): Either[String, WSRequest => WSRequest] = {
+    val cookieName = panDomainSettings.settings.cookieSettings.cookieName
+    request.attributes.get(PandaCookieKey) match {
+      case Some(cookie) => Right(wsRequest => wsRequest.addCookies(DefaultWSCookie(cookieName, cookie.value)))
+      case None => Left(s"Pan domain cookie $cookieName is missing in principal.")
+    }
+  }
 
   /**
     * A function that allows downstream API calls to be made using the credentials of the inflight request
@@ -119,19 +135,13 @@ class PandaAuthenticationProvider(
     * @param request The request header of the inflight call
     * @return A function that adds appropriate data to a WSRequest
     */
-  override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] = {
-    val cookieName = panDomainSettings.settings.cookieSettings.cookieName
-    request.attributes.get(PandaCookieKey) match {
-      case Some(cookie) => Right { wsRequest: WSRequest =>
-        wsRequest.addCookies(DefaultWSCookie(cookieName, cookie.value))
-      }
-      case None => Left(s"Pan domain cookie $cookieName is missing in principal.")
-    }
-  }
+  override def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest] =
+    withPersistedCookie(request).map(_.andThen(withPersistedOrigin(request)))
 
   private def gridUserFrom(pandaUser: User, request: RequestHeader): UserPrincipal = {
     val maybePandaCookie: Option[TypedEntry[Cookie]] = request.cookies.get(panDomainSettings.settings.cookieSettings.cookieName).map(TypedEntry[Cookie](PandaCookieKey, _))
-    val attributes = TypedMap.empty + (maybePandaCookie.toSeq:_*)
+    val maybeOrigin = request.headers.get("Origin").map(TypedEntry[String](OriginKey, _))
+    val attributes = TypedMap(Seq(maybePandaCookie, maybeOrigin).flatten:_*)
     UserPrincipal(
       firstName = pandaUser.firstName,
       lastName = pandaUser.lastName,
