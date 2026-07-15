@@ -1,19 +1,18 @@
 package com.gu.mediaservice.lib.aws
 
-//import com.amazonaws.services.s3.model.{Region => _, _}
-//import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
-//import com.amazonaws.util.IOUtils
-//import com.amazonaws.{AmazonServiceException, ClientConfiguration}
+
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
-import org.joda.time.{DateTime, Duration}
+import org.joda.time.DateTime
+import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsRequest, ListObjectsV2Request, NoSuchKeyException, PutObjectRequest}
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
 import java.io.File
 import java.net.URI
@@ -79,10 +78,17 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
     val contentDisposition = getContentDisposition(image, imageType, config.shortenDownloadFilename)
 
-    val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
+    val presigner = S3Presigner.create()
 
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
-    client.generatePresignedUrl(request).toExternalForm
+    val getObjectRequest = GetObjectRequest.builder.bucket(bucket).key(key)
+                            .responseContentDisposition(contentDisposition).build()
+    val getObjectPresignRequest =
+      GetObjectPresignRequest.builder()
+        .getObjectRequest(getObjectRequest)
+        .build();
+
+    val req = presigner.presignGetObject(getObjectPresignRequest)
+    req.url().toExternalForm
   }
 
   def getObject(bucket: Bucket, url: URI): GetObjectResponse = {
