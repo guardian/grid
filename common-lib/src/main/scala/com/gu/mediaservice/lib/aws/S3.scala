@@ -10,9 +10,10 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse}
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, PutObjectRequest}
 
 import java.io.File
 import java.net.URI
@@ -51,13 +52,13 @@ object S3Object {
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 
 object S3Metadata {
-  def apply(meta: ObjectMetadata): S3Metadata = {
+  def apply(meta: HeadObjectResponse): S3Metadata = {
     S3Metadata(
-      meta.getUserMetadata.asScala.toMap,
+      meta.metadata().asScala.toMap,
       S3ObjectMetadata(
-        contentType = Option(meta.getContentType).filterNot(_.toLowerCase == "application/octet-stream").map(MimeType.apply),
-        cacheControl = Option(meta.getCacheControl),
-        lastModified = Option(meta.getLastModified).map(new DateTime(_))
+        contentType = Option(meta.contentType()).filterNot(_.toLowerCase == "application/octet-stream").map(MimeType.apply),
+        cacheControl = Option(meta.cacheControl()),
+        lastModified = Option(meta.lastModified()).map(new DateTime(_))
       )
     )
   }
@@ -107,10 +108,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
            (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
-      val metadata = new ObjectMetadata
-      mimeType.foreach(m => metadata.setContentType(m.name))
-      cacheControl.foreach(metadata.setCacheControl)
-      metadata.setUserMetadata(meta.asJava)
 
       val fileMarkers = Map(
         "bucket" -> bucket,
@@ -119,12 +116,20 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       )
       val markers = logMarker ++ fileMarkers
 
-      val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
+      val reqBuilder = PutObjectRequest.builder().key(id).bucket(bucket)
+      cacheControl.foreach(c => reqBuilder.cacheControl(c))
+      mimeType.foreach(m => reqBuilder.contentType(m.name))
+      reqBuilder.metadata(meta.asJava)
+      val req = reqBuilder.build()
+
       Stopwatch(s"S3 client.putObject ($req)"){
-        client.putObject(req)
+        client.putObject(req, RequestBody.fromFile(file))
         // once we've completed the PUT read back to ensure that we are returning reality
-        val metadata = client.getObjectMetadata(bucket, id)
-        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata))
+        val metadata = client.headObject(
+          HeadObjectRequest.builder().key(id).bucket(bucket).build()
+        )
+
+        S3Object(bucket, id, metadata.contentLength(), S3Metadata(metadata))
       }(markers)
     }
 
