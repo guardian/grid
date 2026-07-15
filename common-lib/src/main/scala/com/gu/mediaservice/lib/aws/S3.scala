@@ -13,7 +13,7 @@ import org.joda.time.{DateTime, Duration}
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, PutObjectRequest}
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsRequest, ListObjectsV2Request, NoSuchKeyException, PutObjectRequest}
 
 import java.io.File
 import java.net.URI
@@ -136,14 +136,16 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def storeIfNotPresent(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] = {
     Future{
-      Some(client.getObjectMetadata(bucket, id))
+      Some(client.headObject(
+        HeadObjectRequest.builder().key(id).bucket(bucket).build()
+      ))
     }.recover {
       // translate this exception into the object not existing
-      case as3e:AmazonS3Exception if as3e.getStatusCode == 404 => None
+      case _: NoSuchKeyException => None
     }.flatMap {
-      case Some(objectMetadata) =>
+      case Some(metadata) =>
         logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
-        Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata)))
+        Future.successful(S3Object(bucket, id, metadata.contentLength(), S3Metadata(metadata)))
       case None =>
         store(bucket, id, file, mimeType, meta, cacheControl)
     }
@@ -152,28 +154,28 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def list(bucket: Bucket, prefixDir: String)
           (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {
-      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")
-      val listing = client.listObjects(req)
-      val summaries = listing.getObjectSummaries.asScala
-      summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
-        case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key)) :: memo
-      }
+      val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixDir/").build()
+      val listing = client.listObjectsV2(req)
+      val s3Objects = listing.contents().asScala.toList
+      s3Objects.map(s3Object => {
+        S3Object(bucket, s3Object.key(), size = s3Object.size(), metadata = getMetadata(bucket, s3Object.key()))
+      })
     }
 
   def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
-    val meta = client.getObjectMetadata(bucket, key)
+    val meta = client.headObject(HeadObjectRequest.builder().key(key).bucket(bucket).build())
     S3Metadata(meta)
   }
 
-  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] =
-    client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
+  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] = {
+    val meta = client.headObject(HeadObjectRequest.builder().key(key).bucket(bucket).build())
+    meta.metadata().asScala.toMap
+  }
 
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
-    val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
-    val listing = client.listObjects(req)
-    val summaries = listing.getObjectSummaries.asScala
-    summaries.headOption.map(_.getKey)
+    val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixName-").build()
+    val objects = client.listObjectsV2(req).contents().asScala.toList
+    objects.headOption.map(_.key())
   }
 
 }
