@@ -15,8 +15,9 @@ import play.api.libs.json._
 import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model
+import software.amazon.awssdk.enhanced.dynamodb.model.{BatchGetItemEnhancedRequest, ReadBatch}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2}
+import software.amazon.awssdk.services.dynamodb.model.{BatchGetItemRequest, UpdateItemRequest, AttributeValue => AttributeValueV2, KeysAndAttributes => KeysAndAttributesV2, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -131,6 +132,60 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(id, DynamoDB.addExpr(key, lastModifiedKey), AttributeValueV2.fromSs(value.asJava))
   }
+
+  def batchGetV2(ids: List[String], attributeKey: String)(implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
+    val chunks =
+      ids.grouped(100).toList.zipWithIndex
+
+    Future
+      .traverse(chunks) { case (chunk, idx) =>
+        logger.info(s"Fetching records for chunk $idx of ${chunks.size}")
+        Future {
+
+          val readBatchBuilder =
+            ReadBatch.builder(classOf[EnhancedDocument])
+              .mappedTableResource(table2)
+
+          chunk.foreach { id =>
+            readBatchBuilder.addGetItem(
+              Key.builder()
+                .partitionValue(id)
+                .build()
+            )
+          }
+
+          val results =
+            dynamo2.batchGetItem(
+              BatchGetItemEnhancedRequest.builder()
+                .readBatches(readBatchBuilder.build())
+                .build()
+            )
+
+          results
+            .resultsForTable(table2)
+            .asScala
+            .toList
+            .flatMap { doc =>
+
+              logger.info(s"Obtained document $doc")
+
+              val json = asJsObject(doc)
+
+              val maybeT =
+                (json \ attributeKey).asOpt[T]
+
+              logger.info(s"Obtained a T of $maybeT from json $json")
+
+              maybeT.map(
+                doc.getString(IdKey) -> _
+              )
+            }
+            .toMap
+        }
+      }
+      .map(_.foldLeft(Map.empty[String, T])(_ ++ _))
+  }
+
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
     val keyChunkList = ids
