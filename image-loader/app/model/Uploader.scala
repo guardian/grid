@@ -27,10 +27,13 @@ import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3.model.CopyObjectRequest
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.bedrockruntime.model.ResponseStream
+import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, GetObjectResponse}
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.MapHasAsScala
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
@@ -319,8 +322,10 @@ object Uploader extends GridLogging {
     }
   }
 
-  def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: S3Object): UploadRequest = {
-    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
+  def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: ResponseInputStream[GetObjectResponse]): UploadRequest = {
+    val lastModified = s3Object.response().lastModified()
+    val metadataMap = s3Object.response().metadata().asScala.toMap
+    val metadata = S3FileExtractedMetadata(lastModified, metadataMap)
     request.copy(
       uploadTime = metadata.uploadTime,
       uploadedBy = metadata.uploadedBy,

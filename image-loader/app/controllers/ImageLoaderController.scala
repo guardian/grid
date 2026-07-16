@@ -3,7 +3,6 @@ package controllers
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
-import com.amazonaws.services.s3.AmazonS3
 import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
 import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
@@ -31,13 +30,17 @@ import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.Json
 import play.api.mvc._
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectRequest, NoSuchKeyException}
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.MapHasAsScala
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -187,15 +190,18 @@ class ImageLoaderController(auth: Authentication,
             metrics.successfulIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
             logger.info(logMarker, s"Successfully processed image ${digestedFile.file.getName}")
             store.deleteObjectFromIngestBucket(s3IngestObject.key)
+            ()
           } recover {
             case _: UnsupportedMimeTypeException =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
               logger.info(logMarker, s"Unsupported mime type. Moving straight to fail bucket.")
               store.moveObjectToFailedBucket(s3IngestObject.key)
+              ()
             case t: Throwable =>
               metrics.failedIngestsFromQueue.incrementBothWithAndWithoutDimensions(metricDimensions)
               logger.error(logMarker, s"Failed to process file. Moving to fail bucket.", t)
               store.moveObjectToFailedBucket(s3IngestObject.key)
+              ()
           }
         }
     }
@@ -559,7 +565,16 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  lazy val replicaS3: AmazonS3 = S3Ops.buildS3Client(config, maybeRegionOverride = Some("us-west-1"))
+  lazy val replicaS3: S3Client = S3Ops.buildS3ClientV2(config, maybeRegionOverride = Some(Region.US_WEST_1))
+
+  def doesObjectExist(bucket: String, key: String) = {
+    try {
+      replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+      true
+    } catch {
+      case _: NoSuchKeyException => false
+    }
+  }
 
   private case class RestoreFromReplicaForm(imageId: String)
   def restoreFromReplica: Action[AnyContent] = AuthenticatedAndAuthorised.async { implicit request =>
@@ -582,21 +597,28 @@ class ImageLoaderController(auth: Authentication,
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))
-        case Some(replicaBucket) if replicaS3.doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
+        case Some(replicaBucket) if doesObjectExist(replicaBucket, fileKeyFromId(imageId)) =>
           val s3Key = fileKeyFromId(imageId)
 
           logger.info(logMarker, s"Restoring image $imageId from replica bucket $replicaBucket (key: $s3Key)")
 
-          val replicaObject = replicaS3.getObject(replicaBucket, s3Key)
-          val metadata = S3FileExtractedMetadata(replicaObject.getObjectMetadata)
-          val stream = replicaObject.getObjectContent
+          val replicaObject = replicaS3.getObject(
+              GetObjectRequest.builder().bucket(replicaBucket).key(s3Key).build()
+          )
+          val lastModified = replicaObject.response().lastModified()
+          val metaMap = replicaObject.response().metadata().asScala.toMap
+          val metadata = S3FileExtractedMetadata.apply(lastModified, metaMap)
           val tempFile = createTempFile(s"restoringReplica-$imageId")
           val fos = new FileOutputStream(tempFile)
           try {
-            IOUtils.copy(stream, fos)
-          } finally {
-            stream.close()
+            IOUtils.copy(replicaObject, fos)
           }
+          finally {
+            replicaObject.close()
+            fos.close()
+          }
+
+
 
           val future = uploader.restoreFile(
             UploadRequest(
