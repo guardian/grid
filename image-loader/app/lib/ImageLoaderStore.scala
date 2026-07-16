@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.gu.mediaservice.lib.logging.LogMarker
+import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, DeleteObjectRequest, GetObjectRequest, GetObjectResponse, PutObjectRequest}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.{GetObjectPresignRequest, PutObjectPresignRequest}
@@ -30,9 +31,9 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
     }
   }
 
-  def getS3Object(key: String)(implicit logMarker: LogMarker): GetObjectResponse = handleNotFound(key) {
+  def getS3Object(key: String)(implicit logMarker: LogMarker): ResponseInputStream[GetObjectResponse] = handleNotFound(key) {
     client.getObject(
-      GetObjectRequest.builder().bucket(config.maybeIngestBucket.get).key(key).build()).response()
+      GetObjectRequest.builder().bucket(config.maybeIngestBucket.get).key(key).build())
   } {
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }

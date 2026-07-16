@@ -25,6 +25,7 @@ import lib.storage.{ImageLoaderStore, S3FileDoesNotExistException}
 import lib._
 import model.upload.UploadRequest
 import model.{Projector, QuarantineUploader, S3FileExtractedMetadata, S3IngestObject, StatusType, UploadStatus, UploadStatusRecord, UploadStatusUri, Uploader}
+import org.joda.time.DateTime
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.inject.ApplicationLifecycle
@@ -607,7 +608,7 @@ class ImageLoaderController(auth: Authentication,
           )
           val lastModified = replicaObject.response().lastModified()
           val metaMap = replicaObject.response().metadata().asScala.toMap
-          val metadata = S3FileExtractedMetadata.apply(lastModified, metaMap)
+          val metadata = S3FileExtractedMetadata.apply(new DateTime(lastModified), metaMap)
           val tempFile = createTempFile(s"restoringReplica-$imageId")
           val fos = new FileOutputStream(tempFile)
           try {
