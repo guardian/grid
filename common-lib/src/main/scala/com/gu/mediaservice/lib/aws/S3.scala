@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
+import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
@@ -91,13 +92,10 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     req.url().toExternalForm
   }
 
-  def getObject(bucket: Bucket, url: URI): GetObjectResponse = {
+  def getObject(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse] = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    //    client.getObject(GetObjectRequest(bucket, key))
-    val resp = client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
-    resp.response()
-
+    client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
   }
 
   def doesObjectExist(bucket: Bucket, key: String) = {
