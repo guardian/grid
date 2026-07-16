@@ -18,7 +18,7 @@ jobs:
       contents: write
       actions: write
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@e8d4307400f9427dba7cb98e488d6ab85f1cec5f # v7.0.0
       - name: push-pr
         env:
           PR: ${{ inputs.prNumber }}
