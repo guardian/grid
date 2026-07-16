@@ -4,7 +4,6 @@ import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
-import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
@@ -612,7 +611,7 @@ class ImageLoaderController(auth: Authentication,
           val tempFile = createTempFile(s"restoringReplica-$imageId")
           val fos = new FileOutputStream(tempFile)
           try {
-            IOUtils.copy(replicaObject, fos)
+            replicaObject.transferTo(fos)
           }
           finally {
             replicaObject.close()

@@ -1,8 +1,5 @@
 package com.gu.mediaservice.lib.aws
 
-
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
@@ -17,6 +14,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -115,9 +113,9 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
     try {
       val stream = client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build());
-      Some(IOUtils.toString(stream).trim)
+      Some(new String(stream.readAllBytes(), StandardCharsets.UTF_8))
     } catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
+      case e: NoSuchKeyException =>
         logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
     }
