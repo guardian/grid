@@ -1,21 +1,19 @@
 package lib.storage
 
 import com.amazonaws.HttpMethod
-import org.apache.pekko.http.impl.util.JavaMapping.Implicits.AddAsJava
-import software.amazon.awssdk.services.s3.model.{NoSuchKeyException, S3Exception}
-
-//import com.amazonaws.services.dynamodbv2.model.DeleteRequest
-//import com.amazonaws.services.s3.model.{AmazonS3Exception, GeneratePresignedUrlRequest, , S3Object}
+import software.amazon.awssdk.services.s3.model.S3Exception
 import lib.ImageLoaderConfig
 import com.gu.mediaservice.lib
 import com.gu.mediaservice.lib.logging.LogMarker
-import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, DeleteObjectRequest, GetObjectRequest, PutObjectRequest, GetObjectResponse}
+import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, DeleteObjectRequest, GetObjectRequest, GetObjectResponse, PutObjectRequest}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.{GetObjectPresignRequest, PutObjectPresignRequest}
+
 import java.time.Duration
 import java.io.File
 import java.time.ZonedDateTime
 import java.util.Date
+import scala.jdk.CollectionConverters.MapHasAsJava
 
 class S3FileDoesNotExistException extends Exception()
 

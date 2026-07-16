@@ -25,9 +25,9 @@ import lib.storage.ImageLoaderStore
 import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.Json
 import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
@@ -471,8 +471,12 @@ class Uploader(
           logger.info(logMarker, s"Copying $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket")
           try {
             store.client.copyObject(
-              config.imageBucket, fileKeyFromId(mediaId),
-              lowerEnvironmentQueueBucket, s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}"
+              CopyObjectRequest.builder()
+                .sourceBucket(config.imageBucket)
+                .sourceKey(fileKeyFromId(mediaId))
+                .destinationBucket(lowerEnvironmentQueueBucket)
+                .destinationKey(s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}")
+                .build()
             )
           } catch {
             case e: Throwable =>

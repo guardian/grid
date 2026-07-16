@@ -97,6 +97,9 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val key: Key = url.getPath.drop(1)
     client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
   }
+  def getObject(bucket: Bucket, key: String): ResponseInputStream[GetObjectResponse] = {
+    client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
+  }
 
   def doesObjectExist(bucket: Bucket, key: String) = {
     try {
