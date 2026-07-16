@@ -1,0 +1,25 @@
+{
+  "name": "grid",
+  "version": "1.0.0",
+  "description": "Grid ==== [![License](https://img.shields.io/github/license/guardian/grid.svg)](https://github.com/guardian/grid/blob/master/LICENSE) [![Join the chat at https://gitter.im/guardian/grid](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/guardian/grid?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guardian/grid.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/guardian/grid/issues"
+  },
+  "homepage": "https://github.com/guardian/grid#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1"
+  }
+}
