@@ -11,8 +11,8 @@ import {
   DescribeStackResourcesCommand,
   waitUntilStackCreateComplete,
 } from '@aws-sdk/client-cloudformation';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { API_KEY, CORE_STACK_NAME, REGION, REPO_ROOT } from './constants';
+import { CreateBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { API_KEY, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants';
 
 const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 
@@ -82,6 +82,29 @@ async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
 }
 
 /**
+ * Create the permissions bucket (not part of the core stack) and seed it with the
+ * permissions fixture so the real authorisation provider can read `permissions.json`.
+ * Returns the bucket name so it can be added to the stack props map.
+ */
+async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
+  await s3.send(
+    new CreateBucketCommand({
+      Bucket: PERMISSIONS_BUCKET,
+      CreateBucketConfiguration: { LocationConstraint: REGION },
+    }),
+  );
+
+  await putObject(
+    s3,
+    PERMISSIONS_BUCKET,
+    'permissions.json',
+    fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
+  );
+
+  return PERMISSIONS_BUCKET;
+}
+
+/**
  * Apply the core stack and seed its buckets. Returns the LogicalResourceId ->
  * PhysicalResourceId map used to generate service config.
  */
@@ -89,5 +112,6 @@ export async function provisionCoreStack(localstackEndpoint: string): Promise<St
   const { cfn, s3 } = clients(localstackEndpoint);
   const props = await createCoreStack(cfn);
   await seedBuckets(s3, props);
+  props.PermissionsBucket = await provisionPermissionsBucket(s3);
   return props;
 }
