@@ -36,8 +36,11 @@ image-embedder-lambda/__tests__/embedder/integration/test-data/
 image-embedder-lambda/__tests__/embedder/test-data
 
 # Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
+/e2e-tests/test-results/
+/e2e-tests/playwright-report/
+/e2e-tests/blob-report/
+/e2e-tests/playwright/.cache/
+/e2e-tests/playwright/.auth/
+
+# Testcontainers global-setup artifacts
+/e2e-tests/.grid-urls.json
