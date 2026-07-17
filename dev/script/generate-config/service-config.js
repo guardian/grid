@@ -10,7 +10,19 @@ function getCorsAllowedOriginString(config) {
 }
 
 function getCommonConfig(config) {
+  // `NO_AUTH` is a backwards-compatible shorthand that disables both authentication and
+  // authorisation. The two can also be controlled independently via `NO_AUTHENTICATION`
+  // and `NO_AUTHORISATION` (e.g. the e2e tests use local authentication but exercise the
+  // real S3-backed authorisation provider).
   const isNoAuth = process.env.NO_AUTH === "true";
+  const isNoAuthentication = isNoAuth || process.env.NO_AUTHENTICATION === "true";
+  const isNoAuthorisation = isNoAuth || process.env.NO_AUTHORISATION === "true";
+
+  // When the real authorisation provider is in use and a permissions bucket has been
+  // provisioned locally (localstack), point the provider at it and enable the local-auth
+  // code path so it reads `permissions.json` from that bucket instead of Guardian infra.
+  const useLocalPermissions = !isNoAuthorisation && Boolean(config.coreStackProps.PermissionsBucket);
+
   return `domain.root="${config.DOMAIN}"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
@@ -22,8 +34,10 @@ function getCommonConfig(config) {
         |defaultShouldBlurGraphicImages=true
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
-        ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
-        ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
+        ${isNoAuthentication ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
+        ${isNoAuthorisation ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
+        ${useLocalPermissions ? '|auth.useLocal=true' : ''}
+        ${useLocalPermissions ? `|permissions.bucket="${config.coreStackProps.PermissionsBucket}"` : ''}
         |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
         |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"

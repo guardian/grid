@@ -10,6 +10,13 @@ export const REGION = 'eu-west-1';
 
 export const CORE_STACK_NAME = 'grid-dev-core';
 
+/**
+ * Bucket holding `permissions.json` for the real authorisation provider. Not part of the
+ * core CloudFormation stack, so it is created directly during provisioning. The name
+ * matches the code default in `PermissionsAuthorisationProvider`.
+ */
+export const PERMISSIONS_BUCKET = 'permissions-cache';
+
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
 export const GRID_IMAGE = process.env.GRID_IMAGE ?? 'grid-all';
 export const ELASTICSEARCH_IMAGE = 'docker.elastic.co/elasticsearch/elasticsearch:8.18.3';

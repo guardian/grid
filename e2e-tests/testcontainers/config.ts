@@ -52,9 +52,10 @@ function rewriteEndpoints(conf: string): string {
  * Generate all service config files into `configDir`, reusing `service-config.js`.
  */
 export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  // NO_AUTH makes `getCommonConfig` emit the Local authentication/authorisation
-  // providers, so we don't need pan-domain / OIDC infrastructure.
-  process.env.NO_AUTH = 'true';
+  // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so we
+  // don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
+  // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
+  process.env.NO_AUTHENTICATION = 'true';
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
