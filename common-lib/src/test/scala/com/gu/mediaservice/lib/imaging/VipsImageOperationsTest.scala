@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.imaging
 import app.photofox.vipsffm.Vips
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
-import com.gu.mediaservice.model.{Instance, Tiff}
+import com.gu.mediaservice.model._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +27,20 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
       val outputFile = tempFileNamed("thumbnail", ".jpg")
       val browserViewableImageImage = BrowserViewableImage("an-image-id", image, Tiff, Map.empty, isTransformedFromSource = false)
 
-      val eventualThumbnail = vipsImageOperations.createThumbnail(browserViewableImageImage, 500, 85, outputFile, None, None, None)
+      val eventualThumbnail = vipsImageOperations.createThumbnail(browserViewableImageImage, 240, 95, outputFile, None, None, None)
+      whenReady(eventualThumbnail) { r =>
+        r._1.isFile should be(true)
+      }
+    }
+
+    it("should correct for exif orientation if provided") {
+      val image = fileAt("IMG_4445.jpg")
+
+      val outputFile = tempFileNamed("thumbnail-tall", ".jpg")
+      val browserViewableImageImage = BrowserViewableImage("an-image-id", image, Tiff, Map.empty, isTransformedFromSource = false)
+
+      // Use a large tall thumbnail to expose out of order read which exceeds the line cache
+      val eventualThumbnail = vipsImageOperations.createThumbnail(browserViewableImageImage, 2800, 95, outputFile, None, None, Some(OrientationMetadata(exifOrientation = Some(6))))
       whenReady(eventualThumbnail) { r =>
         r._1.isFile should be(true)
       }
