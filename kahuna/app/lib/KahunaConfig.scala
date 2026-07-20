@@ -53,7 +53,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   // the client-side, sticky-cookie-backed `enable-ai-search` feature switch so that AI search (and
   // its UI) can be turned off for every user immediately via config, regardless of individual
   // browsers' feature-switch cookies.
-  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(true)
+  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(false)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeBucketForUIUploads.map { bucket =>

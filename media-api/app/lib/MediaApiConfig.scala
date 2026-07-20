@@ -81,7 +81,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // Server-side kill switch. Overrides the (client-side, sticky-cookie-backed) `enable-ai-search`
   // feature switch, so AI search can be disabled for every user immediately by config change alone,
   // without depending on individual browsers' feature-switch cookies.
-  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(true)
+  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(false)
 
   val maybeAgencyPickQuery: Option[Query] = agencyPicksIngredients.map { ingredients =>
     filters.or(
