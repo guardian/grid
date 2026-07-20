@@ -70,19 +70,19 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
     "source"          -> AttributeValue.builder.s("Desk").build()
   ).asJava
 
-  val digitalMetadata = Map[String, Any](
+  val digitalMetadata = Map[String, String](
     "webUrl"      -> "https://www.theguardian.com/world/2026/jul/20/article",
     "webTitle"    -> "Breaking News",
     "sectionId"   -> "world",
     "composerUrl" -> "https://composer.gutools.co.uk/content/123"
   ).asJava
 
-  val syndicationMetadata = Map[String, Any](
+  val syndicationMetadata = Map[String, String](
     "partnerName"  -> "Reuters",
     "syndicatedBy" -> "syndication_user"
   ).asJava
 
-  val frontMetadata = Map[String, Any](
+  val frontMetadata = Map[String, String](
     "addedBy" -> "front_editor",
     "front"   -> "uk-news"
   ).asJava
@@ -210,6 +210,9 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
       .putNumber("last_modified", lastModifiedMillis)
       .putNumber("date_added", dateAddedMillis)
       .putNumber("date_removed", dateRemovedMillis)
+      .putMap("digital_metadata", digitalMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
+      .putMap("syndication_metadata", syndicationMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
+      .putMap("front_metadata", frontMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
       .putMap("print_metadata", printMetadataAttr, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[AttributeValue]))
       .putMap("download_metadata", downloadMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
       .putMap("child_metadata", childMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
@@ -234,6 +237,19 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
       notes = Some("Top priority"),
       source = Some("Desk")
     ))
+    mediaUsage.syndicationUsageMetadata shouldEqual Some(
+      SyndicationUsageMetadata("Reuters", Some("syndication_user"))
+    )
+    mediaUsage.frontUsageMetadata shouldEqual Some(FrontUsageMetadata("front_editor", "uk-news"))
+    mediaUsage.digitalUsageMetadata shouldEqual Some(
+      DigitalUsageMetadata(
+        URI.create("https://www.theguardian.com/world/2026/jul/20/article"),
+        "Breaking News",
+        "world",
+        Some(URI.create("https://composer.gutools.co.uk/content/123"))
+      )
+    )
+
   }
 
 }

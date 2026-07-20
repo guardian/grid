@@ -24,11 +24,11 @@ object ItemToMediaUsage {
       UsageStatus(item.getString("usage_status")),
       Option(item.getMap[Any]("print_metadata"))
         .map(_.asScala.toMap).flatMap(buildPrint),
-      Option(item.getMap[Any]("digital_metadata"))
+      Option(item.getMap[String]("digital_metadata"))
         .map(_.asScala.toMap).flatMap(buildDigital),
-      Option(item.getMap[Any]("syndication_metadata"))
+      Option(item.getMap[String]("syndication_metadata"))
         .map(_.asScala.toMap).flatMap(buildSyndication),
-      Option(item.getMap[Any]("front_metadata"))
+      Option(item.getMap[String]("front_metadata"))
         .map(_.asScala.toMap).flatMap(buildFront),
       Option(item.getMap[String]("download_metadata"))
         .map(_.asScala.toMap).flatMap(buildDownload),
@@ -58,13 +58,13 @@ object ItemToMediaUsage {
         ))
         .map(_.asScala.toMap)
         .flatMap(buildPrintFromAttr),
-      Option(doc.getMapOfUnknownType("digital_metadata"))
+      Option(doc.getMap("digital_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
         .map(_.asScala.toMap)
         .flatMap(buildDigital),
-      Option(doc.getMapOfUnknownType("syndication_metadata"))
+      Option(doc.getMap("syndication_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
         .map(_.asScala.toMap)
         .flatMap(buildSyndication),
-      Option(doc.getMapOfUnknownType("front_metadata"))
+      Option(doc.getMap("front_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
         .map(_.asScala.toMap)
         .flatMap(buildFront),
       Option(doc.getMap("download_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
@@ -98,13 +98,13 @@ object ItemToMediaUsage {
     }.toOption
   }
 
-  private def buildDigital(metadataMap: Map[String, Any]): Option[DigitalUsageMetadata] = {
+  private def buildDigital(metadataMap: Map[String, String]): Option[DigitalUsageMetadata] = {
     Try {
       DigitalUsageMetadata(
-        URI.create(metadataMap("webUrl").asInstanceOf[String]),
-        metadataMap("webTitle").asInstanceOf[String],
-        metadataMap("sectionId").asInstanceOf[String],
-        metadataMap.get("composerUrl").map(x => URI.create(x.asInstanceOf[String]))
+        URI.create(metadataMap("webUrl")),
+        metadataMap("webTitle"),
+        metadataMap("sectionId"),
+        metadataMap.get("composerUrl").map(x => URI.create(x))
       )
     }.toOption
   }
