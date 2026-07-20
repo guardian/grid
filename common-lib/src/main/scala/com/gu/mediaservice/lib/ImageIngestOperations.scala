@@ -1,6 +1,8 @@
 package com.gu.mediaservice.lib
 
-import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteException}
+//import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteException}
+
+import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, HeadObjectRequest, NoSuchKeyException, ObjectIdentifier}
 
 import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -48,21 +50,21 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   private def bulkDelete(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
     case Nil => Future.successful(Map.empty)
     case _ => Future {
-      try {
-        client.deleteObjects(
-          new DeleteObjectsRequest(bucket).withKeys(keys: _*)
-        )
-        keys.map { key =>
-          key -> true
-        }.toMap
-      } catch {
-        case partialFailure: MultiObjectDeleteException =>
-          logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
-          val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
-          keys.map { key =>
-            key -> !errorKeys.contains(key)
-          }.toMap
-      }
+      val objects = keys.map { key =>
+        ObjectIdentifier.builder()
+          .key(key)
+          .build()
+      }.asJava
+
+      val response = client.deleteObjects(
+          DeleteObjectsRequest.builder().bucket(bucket)
+            .delete(Delete.builder().objects(objects).build())
+            .build()
+      )
+      val errorKeys = response.errors().asScala.toList.map(_.key())
+      keys.map { key =>
+        key -> !errorKeys.contains(key)
+      }.toMap
     }
   }
 
@@ -74,7 +76,12 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
   def doesOriginalExist(id: String): Boolean =
-    client.doesObjectExist(imageBucket, fileKeyFromId(id))
+  try {
+    client.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
+    true
+  } catch {
+    case _: NoSuchKeyException => false
+  }
 }
 
 sealed trait ImageWrapper {

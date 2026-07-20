@@ -1,11 +1,10 @@
 package com.gu.mediaservice.lib.logging
 
 import java.net.InetSocketAddress
-
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
 import net.logstash.logback.appender.LogstashTcpSocketAppender
-import com.amazonaws.util.EC2MetadataUtils
+import software.amazon.awssdk.regions.internal.util.EC2MetadataUtils
 import com.gu.logback.appender.kinesis.KinesisAppender
 import com.gu.mediaservice.lib.config.CommonConfig
 import net.logstash.logback.encoder.LogstashEncoder
