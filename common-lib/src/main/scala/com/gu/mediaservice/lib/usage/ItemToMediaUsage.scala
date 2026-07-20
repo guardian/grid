@@ -12,6 +12,35 @@ import scala.util.Try
 
 object ItemToMediaUsage {
 
+  def transform(item: Item): MediaUsage = {
+    MediaUsage(
+      UsageId(item.getString("usage_id")),
+      item.getString("grouping"),
+      item.getString("media_id"),
+      UsageType(item.getString("usage_type")),
+      item.getString("media_type"),
+      UsageStatus(item.getString("usage_status")),
+      Option(item.getMap[Any]("print_metadata"))
+        .map(_.asScala.toMap).flatMap(buildPrint),
+      Option(item.getMap[Any]("digital_metadata"))
+        .map(_.asScala.toMap).flatMap(buildDigital),
+      Option(item.getMap[Any]("syndication_metadata"))
+        .map(_.asScala.toMap).flatMap(buildSyndication),
+      Option(item.getMap[Any]("front_metadata"))
+        .map(_.asScala.toMap).flatMap(buildFront),
+      Option(item.getMap[Any]("download_metadata"))
+        .map(_.asScala.toMap).flatMap(buildDownload),
+      Option(item.getMap[Any]("child_metadata"))
+        .map(_.asScala.toMap).flatMap(buildChild),
+      new DateTime(item.getLong("last_modified")),
+      Try {
+        item.getLong("date_added")
+      }.toOption.map(new DateTime(_)),
+      Try {
+        item.getLong("date_removed")
+      }.toOption.map(new DateTime(_))
+    )
+  }
   def transform(doc: EnhancedDocument): MediaUsage = {
     MediaUsage(
       UsageId(doc.getString("usage_id")),
