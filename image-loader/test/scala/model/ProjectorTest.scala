@@ -250,16 +250,13 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
     }
 
     "should remap headers with underscores to dashes" in {
-      val s3Metadata = new ObjectMetadata()
-      s3Metadata.setLastModified(new Date(1613388118000L))
-      s3Metadata.setUserMetadata(Map(
+
+      val result = S3FileExtractedMetadata(new DateTime(1613388118000L), Map(
         "file_name" -> "filename.jpg",
         "uploaded_by" -> "user",
         "upload_time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
         "identifier!picdarurn" -> "12*543"
-      ).asJava)
-
-      val result = S3FileExtractedMetadata(s3Metadata)
+      ))
       result.uploadFileName shouldBe Some("filename.jpg")
       result.uploadedBy shouldBe "user"
       result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
@@ -268,16 +265,10 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
     }
 
     "should correctly read in non URL encoded values" in {
-      // we have plenty of values in S3 that are not URL encoded
-      // and we must be able to read them correctly
-      val s3Metadata = new ObjectMetadata()
-      s3Metadata.setLastModified(new Date(1613388118000L))
-      s3Metadata.setUserMetadata(Map(
+      val result = S3FileExtractedMetadata(new DateTime(1613388118000L), Map(
         "uploaded_by" -> "user",
         "upload_time" -> "2019-12-11T01:12:10.427Z",
-      ).asJava)
-
-      val result = S3FileExtractedMetadata(s3Metadata)
+      ))
       result.uploadedBy shouldBe "user"
       result.uploadTime.toString shouldBe "2019-12-11T01:12:10.427Z"
     }
