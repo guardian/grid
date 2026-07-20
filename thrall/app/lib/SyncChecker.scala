@@ -4,11 +4,11 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.{Materializer, RestartSettings}
 import org.apache.pekko.stream.scaladsl.{RestartSource, Source}
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ListObjectsV2Request
 import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import lib.elasticsearch.ElasticSearch
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
@@ -20,7 +20,7 @@ case class Prefix(prefix: String) extends SyncCheckJob
 case object Other extends SyncCheckJob
 
 class SyncChecker(
-  s3: AmazonS3,
+  s3: S3Client,
   es: ElasticSearch,
   imageBucketName: String,
   actorSystem: ActorSystem
@@ -36,15 +36,15 @@ class SyncChecker(
     z <- expectedAlphabet
   } yield Prefix(s"$x$y$z")) :+ Other
 
-  private def paginatedListObjects(request: ListObjectsV2Request, maybeContinuationToken: Option[String] = None): Future[Seq[String]] = {
+  private def paginatedListObjects(request: ListObjectsV2Request.Builder, maybeContinuationToken: Option[String] = None): Future[Seq[String]] = {
     Future {
       val fullRequest = maybeContinuationToken match {
-        case Some(token) => request.withContinuationToken(token)
+        case Some(token) => request.continuationToken(token)
         case None => request
       }
-      val result = s3.listObjectsV2(fullRequest)
-      val keys = result.getObjectSummaries.asScala.toSeq.map(_.getKey.split("/").last)
-      val nextContinuationToken = Option(result.getNextContinuationToken)
+      val result = s3.listObjectsV2(fullRequest.build())
+      val keys = result.contents().asScala.toSeq.map(_.key().split("/").last)
+      val nextContinuationToken = Option(result.nextContinuationToken())
       keys -> nextContinuationToken
     } flatMap {
       case (keys, None) => Future.successful(keys)
@@ -54,15 +54,11 @@ class SyncChecker(
   }
 
   private def listFilesWithPrefix(prefix: String): Future[Seq[String]] = {
-    val request = new ListObjectsV2Request()
-      .withBucketName(imageBucketName)
-      .withPrefix(prefix)
+    val request = ListObjectsV2Request.builder().bucket(imageBucketName).prefix(prefix)
     paginatedListObjects(request)
   }
   private def listFilesAtRoot(): Future[Seq[String]] = {
-    val request = new ListObjectsV2Request()
-      .withBucketName(imageBucketName)
-      .withDelimiter("/")
+    val request = ListObjectsV2Request.builder().bucket(imageBucketName).delimiter("/")
     paginatedListObjects(request)
   }
 
