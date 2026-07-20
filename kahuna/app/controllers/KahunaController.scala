@@ -38,7 +38,7 @@ class KahunaController(
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
     val featureSwitches = new FeatureSwitches(
-      List(ExampleSwitch, UseCqlChips, EnableAISearch)
+      List(ExampleSwitch, UseCqlChips) ++ (if (config.aiSearchEnabled) List(EnableAISearch) else Nil)
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))

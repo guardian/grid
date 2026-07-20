@@ -9,6 +9,7 @@ declare global {
       rootUri: string;
       telemetryUri: string;
       aiSearchResultLimit: number;
+      aiSearchEnabled: boolean;
       featureSwitches: Array<FeatureSwitchData>;
       interimFilterOptions: Array<PermissionOption>;
       maybeOrgOwnedValue: string | undefined;
