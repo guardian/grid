@@ -1,18 +1,31 @@
 package com.gu.mediaservice.lib.usage
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import software.amazon.awssdk.enhanced.dynamodb.EnhancedType
+import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverter, AttributeConverterProvider, AttributeValueType, DefaultAttributeConverterProvider, EnhancedType}
 import com.gu.mediaservice.model.usage.{ChildUsageMetadata, DigitalUsageMetadata, DownloadUsageMetadata, FrontUsageMetadata, MediaUsage, PrintImageSize, PrintUsageMetadata, SyndicationUsageMetadata, UsageId, UsageStatus, UsageType}
 import org.joda.time.DateTime
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
-import software.amazon.awssdk.enhanced.dynamodb.DefaultAttributeConverterProvider
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters.MapHasAsJava
 import java.math.BigDecimal
 import java.net.URI
 
+object AttributeValueConverterProvider extends AttributeConverterProvider {
+  private val converter = new AttributeConverter[AttributeValue] {
+    override def transformFrom(input: AttributeValue): AttributeValue = input
+    override def transformTo(input: AttributeValue): AttributeValue = input
+    override def attributeValueType(): AttributeValueType = AttributeValueType.M
+    override def `type`(): EnhancedType[AttributeValue] = EnhancedType.of(classOf[AttributeValue])
+  }
+
+  override def converterFor[T](enhancedType: EnhancedType[T]): AttributeConverter[T] = {
+    if (enhancedType.rawClass() == classOf[AttributeValue]) converter.asInstanceOf[AttributeConverter[T]]
+    else null
+  }
+}
 class ItemToMediaUsageTest extends AnyFunSuiteLike {
 
   val lastModifiedMillis = 1700000000000L
@@ -36,6 +49,25 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
     "sectionCode"     -> "GND-NEWS",
     "notes"           -> "Top priority",
     "source"          -> "Desk"
+  ).asJava
+
+  val printMetadataAttr = Map[String, AttributeValue](
+    "sectionName"     -> AttributeValue.builder().s("News").build(),
+    "issueDate"       -> AttributeValue.builder().s("2026-07-20T10:00:00.000Z").build(),
+    "pageNumber"      -> AttributeValue.builder().n(new BigDecimal(5).toString).build(),
+    "storyName"       -> AttributeValue.builder().s("Lead Story").build(),
+    "publicationCode" -> AttributeValue.builder().s("GND").build(),
+    "publicationName" -> AttributeValue.builder().s("The Guardian").build(),
+    "layoutId"        -> AttributeValue.builder().n(new BigDecimal(12).toString).build(),
+    "edition"         -> AttributeValue.builder().n(new BigDecimal(1).toString).build(),
+    "size"            -> AttributeValue.builder().m(Map(
+                              "x" -> AttributeValue.builder().n(new BigDecimal(100).toString).build(),
+                              "y" -> AttributeValue.builder().n(new BigDecimal(200).toString).build()
+                        ).asJava).build(),
+    "orderedBy"       -> AttributeValue.builder.s("editor1").build(),
+    "sectionCode"     -> AttributeValue.builder.s("GND-NEWS").build(),
+    "notes"           -> AttributeValue.builder.s("Top priority").build(),
+    "source"          -> AttributeValue.builder.s("Desk").build()
   ).asJava
 
   val digitalMetadata = Map[String, Any](
@@ -165,7 +197,10 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
 
   test("testTransform dynamo v2 with complex fields") {
     val enchancedDoc = EnhancedDocument.builder()
-      .attributeConverterProviders(DefaultAttributeConverterProvider.create())
+      .attributeConverterProviders(
+        AttributeValueConverterProvider,
+        DefaultAttributeConverterProvider.create()
+      )
       .putString("usage_id", "usage-123")
       .putString("grouping","group-abc")
       .putString("media_id", "media-789")
@@ -175,6 +210,7 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
       .putNumber("last_modified", lastModifiedMillis)
       .putNumber("date_added", dateAddedMillis)
       .putNumber("date_removed", dateRemovedMillis)
+      .putMap("print_metadata", printMetadataAttr, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[AttributeValue]))
       .putMap("download_metadata", downloadMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
       .putMap("child_metadata", childMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
       .build()
@@ -183,6 +219,21 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
 
     mediaUsage.downloadUsageMetadata shouldEqual  Some(DownloadUsageMetadata("designer123"))
     mediaUsage.childUsageMetadata shouldEqual  Some(ChildUsageMetadata("parent_editor", "child-media-999"))
+    mediaUsage.printUsageMetadata shouldEqual Some(PrintUsageMetadata(
+      sectionName = "News",
+      issueDate = new DateTime("2026-07-20T10:00:00.000Z"),
+      pageNumber = 5,
+      storyName = "Lead Story",
+      publicationCode = "GND",
+      publicationName = "The Guardian",
+      layoutId = Some(12),
+      edition = Some(1),
+      size = Some(PrintImageSize(100, 200)),
+      orderedBy = Some("editor1"),
+      sectionCode = "GND-NEWS",
+      notes = Some("Top priority"),
+      source = Some("Desk")
+    ))
   }
 
 }
