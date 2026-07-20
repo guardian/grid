@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.usage
 
 import com.amazonaws.services.dynamodbv2.document.Item
+import software.amazon.awssdk.enhanced.dynamodb.EnhancedType
 import com.gu.mediaservice.model.usage.{ChildUsageMetadata, DigitalUsageMetadata, DownloadUsageMetadata, FrontUsageMetadata, MediaUsage, PrintImageSize, PrintUsageMetadata, SyndicationUsageMetadata, UsageId, UsageStatus, UsageType}
 import org.joda.time.DateTime
 import org.scalatest.funsuite.AnyFunSuiteLike
@@ -54,11 +55,11 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
     "front"   -> "uk-news"
   ).asJava
 
-  val downloadMetadata = Map[String, Any](
+  val downloadMetadata = Map[String, String](
     "downloadedBy" -> "designer123"
   ).asJava
 
-  val childMetadata = Map[String, Any](
+  val childMetadata = Map[String, String](
     "addedBy"      -> "parent_editor",
     "childMediaId" -> "child-media-999"
   ).asJava
@@ -143,7 +144,6 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
 
     val mediaUsage = ItemToMediaUsage.transform(enchancedDoc)
 
-
     mediaUsage shouldEqual MediaUsage(
       UsageId("usage-123"),
       "group-abc",
@@ -161,7 +161,28 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
       Some(new DateTime(dateAddedMillis)),
       Some(new DateTime(dateRemovedMillis))
     )
-    
+  }
+
+  test("testTransform dynamo v2 with complex fields") {
+    val enchancedDoc = EnhancedDocument.builder()
+      .attributeConverterProviders(DefaultAttributeConverterProvider.create())
+      .putString("usage_id", "usage-123")
+      .putString("grouping","group-abc")
+      .putString("media_id", "media-789")
+      .putString("usage_type", "print")
+      .putString("media_type", "image")
+      .putString("usage_status", "pending")
+      .putNumber("last_modified", lastModifiedMillis)
+      .putNumber("date_added", dateAddedMillis)
+      .putNumber("date_removed", dateRemovedMillis)
+      .putMap("download_metadata", downloadMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
+      .putMap("child_metadata", childMetadata, EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String]))
+      .build()
+
+    val mediaUsage = ItemToMediaUsage.transform(enchancedDoc)
+
+    mediaUsage.downloadUsageMetadata shouldEqual  Some(DownloadUsageMetadata("designer123"))
+    mediaUsage.childUsageMetadata shouldEqual  Some(ChildUsageMetadata("parent_editor", "child-media-999"))
   }
 
 }

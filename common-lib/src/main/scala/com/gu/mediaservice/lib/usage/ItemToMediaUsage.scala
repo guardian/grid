@@ -5,6 +5,7 @@ import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import software.amazon.awssdk.enhanced.dynamodb.EnhancedType
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 
 import scala.jdk.CollectionConverters._
@@ -28,9 +29,9 @@ object ItemToMediaUsage {
         .map(_.asScala.toMap).flatMap(buildSyndication),
       Option(item.getMap[Any]("front_metadata"))
         .map(_.asScala.toMap).flatMap(buildFront),
-      Option(item.getMap[Any]("download_metadata"))
+      Option(item.getMap[String]("download_metadata"))
         .map(_.asScala.toMap).flatMap(buildDownload),
-      Option(item.getMap[Any]("child_metadata"))
+      Option(item.getMap[String]("child_metadata"))
         .map(_.asScala.toMap).flatMap(buildChild),
       new DateTime(item.getLong("last_modified")),
       Try {
@@ -61,10 +62,10 @@ object ItemToMediaUsage {
       Option(doc.getMapOfUnknownType("front_metadata"))
         .map(_.asScala.toMap)
         .flatMap(buildFront),
-      Option(doc.getMapOfUnknownType("download_metadata"))
+      Option(doc.getMap("download_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
         .map(_.asScala.toMap)
         .flatMap(buildDownload),
-      Option(doc.getMapOfUnknownType("child_metadata"))
+      Option(doc.getMap("child_metadata", EnhancedType.of(classOf[String]), EnhancedType.of(classOf[String])))
         .map(_.asScala.toMap)
         .flatMap(buildChild),
       new DateTime(doc.getNumber("last_modified").longValue()),
@@ -127,19 +128,19 @@ object ItemToMediaUsage {
     }.toOption
   }
 
-  private def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
+  private def buildDownload(metadataMap: Map[String, String]): Option[DownloadUsageMetadata] = {
     Try {
       DownloadUsageMetadata(
-        metadataMap("downloadedBy").asInstanceOf[String]
+        metadataMap("downloadedBy")
       )
     }.toOption
   }
 
-  private def buildChild(metadataMap: Map[String, Any]): Option[ChildUsageMetadata] = {
+  private def buildChild(metadataMap: Map[String, String]): Option[ChildUsageMetadata] = {
     Try {
       ChildUsageMetadata(
-        metadataMap("addedBy").asInstanceOf[String],
-        metadataMap("childMediaId").asInstanceOf[String],
+        metadataMap("addedBy"),
+        metadataMap("childMediaId"),
       )
     }.toOption
   }
