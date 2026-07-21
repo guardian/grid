@@ -22,7 +22,10 @@
 
             <div class="results-toolbar-item results-toolbar-item--static
                     image-results-count">
-                <span ng-if="ctrl.isAiSearch">Best {{ctrl.aiResultsShown | toLocaleString}} of {{ctrl.totalResults | toLocaleString}} matches</span>
+                <span ng-if="ctrl.isAiSearch">
+                    <span ng-if="!ctrl.filtersOnlyAiSearch">Best {{ctrl.aiResultsShown | toLocaleString}} of {{ctrl.totalResults | toLocaleString}} matches</span>
+                    <span ng-if="ctrl.filtersOnlyAiSearch">{{ctrl.filterPoolCounts.filteredPool | toLocaleString}} matches</span>
+                </span>
                 <span ng-if="! ctrl.isAiSearch">{{ctrl.totalResults | toLocaleString}} matches</span>
                 <button ng-if="ctrl.newImagesCount > 0"
                         ng-click="ctrl.revealNewImages()"
@@ -219,10 +222,16 @@
             <div class="image-results-more__instructions">Please refine your search to limit the number of results</div>
         </div>
 
-        <div ng-if="ctrl.totalResults == 0"
+        <div ng-if="ctrl.filtersOnlyAiSearch"
              class="image-no-results">
-            <span ng-if="!ctrl.needsQuery">No matches, sorry! Try altering your search.</span>
-            <span ng-if="ctrl.needsQuery">Please enter a query. You can include filters, but must include either some text or a similar:image-id term.</span>
+            <span>
+                {{ctrl.filterPoolCounts.filteredPool | toLocaleString}} images match your filters. Add a query to see the best 200.
+            </span>
+        </div>
+
+        <div ng-if="! ctrl.filtersOnlyAiSearch && ctrl.totalResults == 0"
+             class="image-no-results">
+            <span>No matches, sorry! Try altering your search.</span>
         </div>
     </div>
 </div>

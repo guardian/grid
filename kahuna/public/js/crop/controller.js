@@ -50,6 +50,7 @@ crop.controller('ImageCropCtrl', [
       const imageId = $stateParams.imageId;
 
       const circularMaskKey = 'crop.shouldUseCircularMask';
+      ctrl.shouldUseCircularMask = true;
       try {
         const stored = storage.getJs(circularMaskKey);
         if (typeof stored === 'boolean') {
