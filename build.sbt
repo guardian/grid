@@ -100,6 +100,7 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "software.amazon.awssdk" % "sns" % awsSdkV2Version,
     "software.amazon.awssdk" % "sqs" % awsSdkV2Version,
+    "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
