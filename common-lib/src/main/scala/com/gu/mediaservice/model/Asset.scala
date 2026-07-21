@@ -4,6 +4,10 @@ import java.net.{URI, URL}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.aws.S3Object
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
+
+import scala.jdk.CollectionConverters.MapHasAsScala
 
 
 // FIXME: size, mimeType and dimensions not optional (must backfill first)
@@ -17,8 +21,6 @@ object Asset {
 
   def fromS3Object(s3Object: S3Object, dims: Option[Dimensions],
                    orientationMetadata: Option[OrientationMetadata] = None): Asset = {
-    val userMetadata   = s3Object.metadata.userMetadata
-    val objectMetadata = s3Object.metadata.objectMetadata
 
     val orientedDimensions = for {
       dimensions <- dims
@@ -49,7 +51,7 @@ object Asset {
     Asset(
       file       = s3Object.uri,
       size       = Some(s3Object.size),
-      mimeType   = objectMetadata.contentType,
+      mimeType   = s3Object.metadata.objectMetadata.contentType,
       dimensions = dims,
       secureUrl  = None,
       orientationMetadata = orientationMetadata,
