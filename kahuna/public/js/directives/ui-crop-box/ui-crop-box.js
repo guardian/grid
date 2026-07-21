@@ -23,7 +23,8 @@ cropBox.directive('uiCropBox', [
             coords:         '=uiCropBox',
             cropType:       '=uiCropBoxCropType',
             originalWidth:  '=uiCropBoxOriginalWidth',
-            originalHeight: '=uiCropBoxOriginalHeight'
+            originalHeight: '=uiCropBoxOriginalHeight',
+            onReady:        '&uiCropBoxOnReady'
         },
         link: function (scope, element) {
             var cropper;
@@ -87,6 +88,11 @@ cropBox.directive('uiCropBox', [
                 previewImg = cropper.getCanvasData();
                 widthRatio = scope.originalWidth / previewImg.naturalWidth;
                 heightRatio = scope.originalHeight / previewImg.naturalHeight;
+
+                // Cropper.js fires this outside of Angular's digest cycle,
+                // so use safeApply to make sure any bound loading state
+                // updates in the view.
+                safeApply(scope, () => scope.onReady());
             }
 
             function update(c) {

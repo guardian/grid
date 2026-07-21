@@ -44,9 +44,7 @@ crop.config(['$stateProvider',
                         return $q.reject(error);
                     }
                 });
-            }],
-            optimisedImageUri: ['image', 'imgops',
-                                (image, imgops) => imgops.getFullScreenUri(image)]
+            }]
         }
     });
 
