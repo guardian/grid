@@ -20,13 +20,15 @@ const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #-_.://]+"/.
 
 const deriveSortState = (query: string, orderBy: string, sortOptions: SortDropdownOption[]) => {
   const hasCollection = checkForCollection(query);
-  if (hasCollection) {
+  const matchedByOrderBy = sortOptions.find(o => o.value === orderBy);
+
+  if (hasCollection && !matchedByOrderBy) {
+    // no explicit sort chosen yet for this collection query - use the collection default
     const collectionSort = sortOptions.find(o => o.isCollection) || DefaultSortOption;
     return { hasCollection, selectedSort: collectionSort };
   }
 
-  const selectedSort = sortOptions.find(o => o.value === orderBy) || DefaultSortOption;
-  return { hasCollection, selectedSort };
+  return { hasCollection, selectedSort: matchedByOrderBy || DefaultSortOption };
 };
 
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
@@ -53,6 +55,11 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   // initialisation
   useEffect(() => {
+    const handleLogoClick = (e: any) => {
+      setSortOption(DefaultSortOption);
+      props.onSortSelect(DefaultSortOption);
+    };
+
     const handleQueryChange = (e: any) => {
       const newQuery = e.detail.query ? (" " + e.detail.query) : "";
       const curHasCollec = e.detail.hasCollection ? e.detail.hasCollection : false;
@@ -72,10 +79,12 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       }
     };
 
+    window.addEventListener("logoClick", handleLogoClick);
     window.addEventListener("queryChangeEvent", handleQueryChange);
 
     // Clean up the event listener when the component unmounts
     return () => {
+      window.removeEventListener("logoClick", handleLogoClick);
       window.removeEventListener("queryChangeEvent", handleQueryChange);
     };
 

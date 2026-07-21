@@ -49,10 +49,11 @@ query.controller('SearchQueryCtrl', [
   '$scope',
   '$state',
   '$stateParams',
+  '$timeout',
   'onValChange',
   'storage',
   'mediaApi',
-  function($rootScope, $scope, $state, $stateParams, onValChange, storage, mediaApi) {
+  function($rootScope, $scope, $state, $stateParams, $timeout, onValChange, storage, mediaApi) {
 
     const ctrl = this;
     ctrl.costFilterLabel = window._clientConfig.costFilterLabel;
@@ -68,6 +69,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.ordering = {
       orderBy: $stateParams.orderBy
     };
+
+    let lastRequestedOrderBy = $stateParams.orderBy;
 
     ctrl.filter = {
       uploadedByMe: false
@@ -162,6 +165,10 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
+    // Guards the delayed disarming of the "pending default nonFree" flag,
+    // see manageDefaultNonFree() below for why this is needed.
+    let clearDefaultNonFreeFilterTimeout;
+
     function manageDefaultNonFree() {
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
@@ -169,7 +176,6 @@ query.controller('SearchQueryCtrl', [
         storage.setJs("isNonFree", newNonFree, true);
         storage.setJs("defaultIsNonFree", newNonFree, true);
         storage.setJs("isUploadedByMe", false, true);
-        storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
         ctrl.filterMyUploads = false;
         if (ctrl.myUploadsProps) {
           syncMyUploadsProps();
@@ -177,8 +183,38 @@ query.controller('SearchQueryCtrl', [
         ctrl.filter.orgOwned = false;
         Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         raiseFilterChangeEvent(ctrl.filter);
+
+        // IMPORTANT: don't disarm the "isDefault" flag immediately here.
+        // A single logo click triggers *several* back-to-back
+        // navigations/filter-change digests (onLogoClick's own $state.go,
+        // then gr-sort-control's handleLogoClick -> updateSortChips, and
+        // sometimes a delayed, spurious transition fired by
+        // ui-router-extras' Deep State Redirect mechanism that drops
+        // params such as `nonFree` back to their state defaults).
+        // If we disarm the flag on the very *first* of these passes
+        // (which may just be an incidental/harmless one - e.g. the echo
+        // of onLogoClick's own navigation - and not the actual rogue
+        // transition we need to correct), this function becomes a no-op
+        // for any later pass, so `nonFree` never gets corrected again if
+        // the rogue transition drops it afterwards, leaving it stuck at
+        // its non-default value. Instead, keep re-applying the default
+        // on every pass for a short grace period after being armed, and
+        // only disarm it once that period elapses.
+        if (clearDefaultNonFreeFilterTimeout) {
+          $timeout.cancel(clearDefaultNonFreeFilterTimeout);
+        }
+        clearDefaultNonFreeFilterTimeout = $timeout(() => {
+          storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
+          clearDefaultNonFreeFilterTimeout = undefined;
+        }, 1500);
       }
     }
+
+    $scope.$on('$destroy', () => {
+      if (clearDefaultNonFreeFilterTimeout) {
+        $timeout.cancel(clearDefaultNonFreeFilterTimeout);
+      }
+    });
 
     function manageOrgOwnedSetting(filter) {
       const structuredQuery = structureQuery(filter.query) || [];
@@ -210,7 +246,7 @@ query.controller('SearchQueryCtrl', [
 
     function checkForCollection(query) {
       return /~"[a-zA-Z0-9 #-_.://]+"/.test(query);
-    };
+    }
 
     function storeCollection(query) {
       const match = query ? query.match(/~"[a-zA-Z0-9 #-_.://]+"/) : undefined;
@@ -220,13 +256,11 @@ query.controller('SearchQueryCtrl', [
     }
 
     function getCollection() {
-      const collection = storage.getJs("currentCollection") ? storage.getJs("currentCollection") : "";
-      return collection;
+      return storage.getJs("currentCollection") ? storage.getJs("currentCollection") : "";
     }
 
     function getPriorOrderBy() {
-      const prior = storage.getJs("priorOrderBy") ? storage.getJs("priorOrderBy") : "";
-      return prior;
+      return storage.getJs("priorOrderBy") ? storage.getJs("priorOrderBy") : "";
     }
 
     function setPriorOrderBy(priorOrderBy) {
@@ -244,7 +278,7 @@ query.controller('SearchQueryCtrl', [
     function priorRevisedOrderBy(collectionSearch, newCollection, oldCollection) {
       const priorOrderBy = getPriorOrderBy();
       if (collectionSearch && ((oldCollection !== newCollection) || ("" !== priorOrderBy))) {
-        if (priorOrderBy != "") {
+        if (priorOrderBy !== "") {
           setPriorOrderBy("");
           return priorOrderBy;
         } else {
@@ -257,10 +291,11 @@ query.controller('SearchQueryCtrl', [
     }
 
     function resolveNonFree() {
-      let nonFreeCheck = ctrl.filter.nonFree;
+      let nonFreeCheck = ctrl.filter.nonFree !== undefined
+        ? toNonFreeString(ctrl.filter.nonFree)
+        : undefined;
       if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
-        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid === 'true' ? 'true' : 'false';
+        nonFreeCheck = toNonFreeString(storage.getJs("defaultIsNonFree", true));
       } else if (!ctrl.usePermissionsFilter && nonFreeCheck === 'false') {
         nonFreeCheck = undefined;
       }
@@ -288,7 +323,7 @@ query.controller('SearchQueryCtrl', [
       const newCollection = storeCollection(newFilter.query);
 
       if (ctrl.usePermissionsFilter) {
-        if (sender && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
+        if (sender && ctrl.ordering["orderBy"] !== $stateParams.orderBy) {
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
         }
         if ($stateParams.orderBy && $stateParams.orderBy.includes(TAKEN_SORT) && (!newFilter.query || !newFilter.query.includes(HAS_DATE_TAKEN))) {
@@ -308,14 +343,61 @@ query.controller('SearchQueryCtrl', [
 
       emitQueryTelemetry();
 
+      // Helper to check if all keys in `goParams` already match the current
+      // $stateParams. If so, this navigation would be a no-op and firing it
+      // anyway has been observed to trigger a rogue transition from
+      // ui-router-extras DSR mechanism that drops params like nonFree.
+      function goParamsAlreadyCurrent(goParams) {
+        return Object.keys(goParams).every(key => {
+          const a = goParams[key];
+          const b = $stateParams[key];
+          // treat '' and undefined as equivalent to avoid false negatives
+          return (a || undefined) === (b || undefined);
+        });
+      }
+
+      // If every key in `goParams` other than `orderBy` already matches the
+      // current $stateParams, this transition's *only* purpose is to correct
+      // `orderBy` (e.g. auto-switching to the collection sort order after
+      // navigating into/out of a collection search). In that case the
+      // "real" navigation (e.g. a ui-sref collection link, or the browser's
+      // own back/forward navigation) has already happened and already
+      // pushed/popped a history entry - so this follow-up correction should
+      // patch the current history entry (`location: 'replace'`) rather than
+      // push a brand new one. Otherwise a single user action (e.g. clicking
+      // a collection) ends up creating *two* history entries, which means
+      // the back button has to be pressed twice to fully undo it - and on
+      // the first press, the collection filter is still applied.
+      function isOrderByOnlyCorrection(goParams) {
+        return Object.keys(goParams).every(key => {
+          if (key === 'orderBy') { return true; }
+          const a = goParams[key];
+          const b = $stateParams[key];
+          return (a || undefined) === (b || undefined);
+        });
+      }
+
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
-        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value}});
+        // Record synchronously *before* the ctrl.ordering.orderBy $watch can
+        // run in this same digest, so it recognises this orderBy change as
+        // already handled and doesn't fire its own extra navigation.
+        lastRequestedOrderBy = CollectionSortOption.value;
+        const goParams1 = {...ctrl.filter, ...{orderBy: CollectionSortOption.value}};
+        if (!goParamsAlreadyCurrent(goParams1)) {
+          raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
+          const options1 = isOrderByOnlyCorrection(goParams1) ? {location: 'replace'} : undefined;
+          $state.go('search.results', goParams1, options1);
+        }
       } else {
-        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
+        lastRequestedOrderBy = ctrl.ordering["orderBy"];
+        const goParams2 = {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}};
+        if (!goParamsAlreadyCurrent(goParams2)) {
+          raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
+          const options2 = isOrderByOnlyCorrection(goParams2) ? {location: 'replace'} : undefined;
+          $state.go('search.results', goParams2, options2);
+        }
       }
     }
 
@@ -343,7 +425,9 @@ query.controller('SearchQueryCtrl', [
     function updateSortChips (sortSel) {
       ctrl.ordering['orderBy'] = manageSortSelection(sortSel.value);
       storage.setJs("orderBy", ctrl.ordering["orderBy"]);
-      $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering['orderBy']}});
+
+      lastRequestedOrderBy = ctrl.ordering['orderBy'];
+      $state.go('search.results', {orderBy: ctrl.ordering['orderBy']});
     }
 
     ctrl.sortProps = {
@@ -351,6 +435,20 @@ query.controller('SearchQueryCtrl', [
       query: $stateParams.query,
       orderBy: ctrl.ordering ? ctrl.ordering.orderBy : ""
     };
+
+    // Keep the React sort-control's props in sync with the underlying model.
+    // A *new* object reference is required each time, since react2angular's
+    // one-way ('<') binding only re-renders when the bound reference changes.
+    $scope.$watch(
+      () => `${ctrl.ordering.orderBy}||${ctrl.filter.query}`,
+      onValChange(() => {
+        ctrl.sortProps = {
+          ...ctrl.sortProps,
+          query: ctrl.filter.query,
+          orderBy: ctrl.ordering.orderBy
+        };
+      })
+    );
     //-end sort control-
 
     //-permissions filter-
@@ -373,9 +471,24 @@ query.controller('SearchQueryCtrl', [
       selectedOption: pfDefPerm,
       onSelect: updatePermissionsChips,
       onChargeable: chargeableChange,
-      chargeable: (ctrl.filter.nonFree || $stateParams.nonFree) === "true",
+      chargeable: toNonFreeString(ctrl.filter.nonFree || $stateParams.nonFree) === "true",
       query: ctrl.filter.query
     };
+
+    // Keep the React permissions-filter's props in sync with the underlying
+    // model (e.g. after a reset via onLogoClick or the back button), for the
+    // same reason as ctrl.sortProps above: react2angular's one-way binding
+    // only re-renders on a *new* object reference.
+    $scope.$watch(
+      () => `${ctrl.filter.nonFree}||${ctrl.filter.query}`,
+      onValChange(() => {
+        ctrl.permissionsProps = {
+          ...ctrl.permissionsProps,
+          chargeable: toNonFreeString(ctrl.filter.nonFree) === "true",
+          query: ctrl.filter.query
+        };
+      })
+    );
     //-end permissions filter-
 
     ctrl.resetQuery = resetQuery;
@@ -436,7 +549,25 @@ query.controller('SearchQueryCtrl', [
         // FIXME: broken for 'your uploads'
         // FIXME: + they triggers filter $watch and $state.go (breaks history)
         if (key !== 'orderBy') {
-          ctrl.filter[key] = valOrUndefined(newVal);
+          // For nonFree, ensure boolean true from URL decode is normalised to string 'true'
+          const val = valOrUndefined(newVal);
+          ctrl.filter[key] = (key === 'nonFree' && val !== undefined) ? toNonFreeString(val) : val;
+        } else {
+          ctrl.ordering.orderBy = valOrUndefined(newVal);
+        }
+
+        if (key === 'query') {
+          const sq = structureQuery(valOrUndefined(newVal)) || [];
+          ctrl.filter.orgOwned = sq.some(item => item.value === ctrl.maybeOrgOwnedValue);
+        }
+
+        // When uploadedBy changes externally (e.g. back button), sync uploadedByMe
+        // and filterMyUploads so manageUploadedBy doesn't re-set uploadedBy.
+        if (key === 'uploadedBy') {
+          const isMyUploads = ctrl.user ? valOrUndefined(newVal) === ctrl.user.email : false;
+          ctrl.filter.uploadedByMe = isMyUploads;
+          ctrl.filterMyUploads = isMyUploads;
+          syncMyUploadsProps();
         }
 
         // don't track changes to `query` as it would trigger on every keypress
@@ -474,7 +605,12 @@ query.controller('SearchQueryCtrl', [
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
-      $state.go('search.results', {...ctrl.filter, orderBy: newVal});
+      if ($stateParams.orderBy === newVal || lastRequestedOrderBy === newVal) {
+        return;
+      }
+      lastRequestedOrderBy = newVal;
+      const stateGoParams = {...ctrl.filter, orderBy: newVal};
+      $state.go('search.results', stateGoParams);
     }));
 
     let aiSearchInitialised = false;
