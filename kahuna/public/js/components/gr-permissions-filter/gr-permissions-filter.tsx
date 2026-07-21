@@ -106,8 +106,8 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     setIsChargeable(event.detail.showPaid);
   };
 
-  const handleQueryChange = (event: QueryChangeEvent) => {
-    const newQuery = event.detail.query ? (" " + event.detail.query) : "";
+  const syncSelectionFromQuery = (rawQuery: string | undefined) => {
+    const newQuery = rawQuery ? (" " + rawQuery) : "";
 
     if (propsRef.current.query !== newQuery) {
       propsRef.current.query = newQuery;
@@ -127,6 +127,10 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     }
   };
 
+  const handleQueryChange = (event: QueryChangeEvent) => {
+    syncSelectionFromQuery(event.detail.query);
+  };
+
   useEffect(() => {
     window.addEventListener('queryChangeEvent', handleQueryChange);
     window.addEventListener('logoClick', handleLogoClick);
@@ -134,7 +138,6 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     window.addEventListener('mouseup', autoHideListener);
     window.addEventListener('scroll', autoHideListener);
     window.addEventListener('keydown', autoHideListener);
-    setSelection(defPerms);
 
     // Clean up the event listener when the component unmounts
     return () => {
@@ -147,6 +150,17 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
       window.removeEventListener('keydown', autoHideListener);
     };
   }, []);
+
+  useEffect(() => {
+    syncSelectionFromQuery(props.query);
+  }, [props.query]);
+
+  useEffect(() => {
+    if (propsRef.current.chargeable !== props.chargeable) {
+      propsRef.current.chargeable = props.chargeable;
+      setIsChargeable(props.chargeable);
+    }
+  }, [props.chargeable]);
 
   const handleOptionClick = (option: PermissionsDropdownOption) => {
     const payableDef = payableDefaults.filter(pd => pd.opt === option.value)[0];
@@ -162,6 +176,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   useEffect(() => {
+    propsRef.current.chargeable = isChargeable;
     props.onChargeable(isChargeable);
   }, [isChargeable]);
 

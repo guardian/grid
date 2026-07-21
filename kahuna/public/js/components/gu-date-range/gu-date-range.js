@@ -122,7 +122,12 @@ guDateRange.directive('guDateRange', [function () {
               pikaStart.show();
           });
 
-          $scope.$watch('ctrl.guEndDate',   resetView);
+          // Watch both start and end dates: many presets/filters only set
+          // one of the two (e.g. 'since' with 'until' left undefined), so
+          // watching guEndDate alone can miss changes to guStartDate and
+          // leave the display summary out of sync with the actual filter
+          // (e.g. after using the logo click or browser back button).
+          $scope.$watchGroup(['ctrl.guStartDate', 'ctrl.guEndDate'], resetView);
 
           $scope.$on('$destroy', function() {
               pikaStart.destroy();
