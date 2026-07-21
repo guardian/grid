@@ -200,20 +200,7 @@ object S3Ops {
   // TODO make this localstack friendly
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
-
-//  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
-//    val builder = config.awsLocalEndpoint match {
-//      case Some(_) if config.isDev =>
-//        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
-//        //  `withPathStyleAccessEnabled` for localstack
-//        //  see https://github.com/localstack/localstack/issues/1512
-//        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
-//      case _ => AmazonS3ClientBuilder.standard()
-//    }
-//
-//    config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
-//  }
-
+  
   def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
     val builder = config.awsLocalEndpoint match {
       case Some(_) if config.isDev =>
