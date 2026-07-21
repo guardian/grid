@@ -81,7 +81,7 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root — npm scripts set cwd=`kupua/` so configs and artefacts resolve correctly. **Never `cd kupua && ...`** (zsh strips `cd`). **Never `npm --prefix kupua exec`** or bare `npx playwright`/`vitest` — those keep cwd=root and dump `test-results/`/`playwright-report/` there. Tee to `"$TMPDIR/kupua-test-output.txt"` (the sandbox blocks `/tmp`; `$TMPDIR` is always writable). Foreground. No `tail`/`head`/`sleep`. Don't re-run a running test — `read_file` the tee output file. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
+**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root (never `cd kupua && ...` — zsh strips `cd` — and never `npm --prefix kupua exec` / bare `npx playwright`/`vitest`, which dump `test-results/`/`playwright-report/` at repo root instead of `kupua/`). Foreground, always `| tee "$TMPDIR/kupua-test-output.txt"` — never a plain `>` redirect (blanks the terminal for the whole run) and never `| tail`/`head` on the live stream (hides tests scrolling by). The user wants to watch tests run live and interrupt early on a failure; `read_file` the tee'd file afterward if you need to filter/search it. Don't re-run a still-running test — `read_file` the tee'd file instead. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
 
 | Surface | Command | Agent runs | Agent suggests |
 |---|---|---|---|
@@ -101,9 +101,10 @@ This does NOT mean ask before starting — take action when the path is clear. I
 when you're uncertain between approaches that diverge significantly, or when a first
 attempt failed and the next one requires assumptions about user intent, stop and ask.
 
-**Directive: Fresh agent protocol.** You are a new agent every session. You have
-NO memory of prior conversations. On session start: (1) Say "Hi, I'm a fresh agent."
-(2) Read `kupua/exploration/docs/worklog-current.md` — it contains the previous
+**Directive: Fresh agent protocol.** You are a new agent every session. Don't assume
+continuity with prior work — verify using the steps below before proceeding, even if
+the task feels familiar. On session start: (1) Say "Hi, I'm a fresh agent."
+(2) Read `kupua/exploration/docs/worklog-current.md` — it may contain the previous
 agent's in-progress notes. Also read any file with "handoff" in its name that is
 referenced in AGENTS.md. (3) State what context you have (attached files, AGENTS.md,
 worklog, any pasted text). (4) Ask: "What should I read before starting? Is there

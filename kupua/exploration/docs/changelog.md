@@ -14,6 +14,44 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 July 2026 — Fix stale suppress flag breaking return-from-detail focus after Home
+
+**Bug report:** Press Home (logo), enter image A, traverse in detail to image K, exit
+(Backspace) → focus landed on A instead of K. Reproduced reliably only on the *first*
+detail session after a Home press made from the grid (not from inside detail).
+
+**Root cause:** `resetToHome()` ([lib/reset-to-home.ts](../../src/lib/reset-to-home.ts))
+unconditionally calls `suppressReturnFromDetail()`, setting a module-level one-shot flag
+(`_suppressReturnFromDetail` in
+[hooks/useReturnFromDetail.ts](../../src/hooks/useReturnFromDetail.ts)). The flag exists
+to stop `useReturnFromDetail` from re-focusing the old image when Home is pressed *from
+inside* image detail. It is only ever checked/reset on the detail-closing transition
+(`imageParam` present → absent). If Home is pressed while already on the grid
+(`imageParam` already absent), that closing transition never runs, so the flag was never
+consumed — it stayed `true` indefinitely, waiting to silently suppress focus restoration
+on the *next*, entirely unrelated detail-close, however much later that happened. That's
+exactly the repro: Home (flag set, never consumed) → enter A → traverse to K → exit
+(flag consumed here instead, skipping `setFocusedImageId(K)`, leaving focus on A).
+
+Same bug family as the previously-fixed `_suppressDensityFocusSave` leak (see
+`scrubber.spec.ts` regression comment) — an unconditional one-shot flag set by
+`resetToHome()` that isn't guaranteed to be consumed by the transition it was intended for.
+
+**Fix:** `useReturnFromDetail`'s effect now clears `_suppressReturnFromDetail` on the
+*opening* transition (`imageParam` absent → present) — a flag set before a fresh detail
+session starts can never legitimately apply to that session's eventual close. Left the
+existing closing-transition consumption untouched, so the intended "Home from inside
+detail" suppression still works exactly as before. Updated the flag's doc comment to
+explain the gap and the fix.
+
+**Tests:** Added a regression test in `useReturnFromDetail.test.ts` reproducing the exact
+repro (suppress flag set while `imageParam` is already absent, then open → traverse →
+close), asserting focus updates to the final image. Existing suppress-flag tests
+(Home-from-detail, one-shot consumption) verified unaffected.
+
+**Verification:** Full test surface run after the fix: Vitest 935/935, Playwright e2e
+240/240 (mandatory — the fix touches focus/return-from-detail behaviour).
+
 ### 7 July 2026 — Upgrade @guardian/cql to 1.8.6, remove polarity-remount workaround
 
 Bumped `@guardian/cql` from `1.8.4` to `1.8.6` in `kupua/package.json`. 1.8.6 includes

@@ -24,6 +24,15 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 // One-shot suppress flag — set by resetToHome() so useReturnFromDetail
 // skips scroll restoration even in phantom mode (where focusedImageId
 // is always null and can't signal "intentional clear").
+//
+// Only meaningful when resetToHome() is called *while detail is open*
+// (imageParam present) — it's consumed on that session's closing transition
+// below. If Home is pressed from the grid (imageParam already absent), there
+// is no closing transition to consume it here, so it would otherwise leak
+// into a future, unrelated detail-close. The effect below clears it as soon
+// as a fresh detail session opens, so a stale flag never survives to
+// suppress the wrong close (see regression test "stale flag from Home-on-
+// grid must not suppress a later, unrelated detail close").
 // ---------------------------------------------------------------------------
 let _suppressReturnFromDetail = false;
 
@@ -77,6 +86,20 @@ export function useReturnFromDetail({
   useEffect(() => {
     const wasViewing = prevImageParam.current;
     prevImageParam.current = imageParam;
+
+    // Opening transition: detail just opened fresh (was not viewing anything,
+    // now viewing an image). resetToHome() sets _suppressReturnFromDetail
+    // unconditionally, but the flag is only ever consumed on a *closing*
+    // transition below. If Home was pressed while already on the grid (no
+    // detail open), that closing transition never happens here, so the flag
+    // is left dangling — silently suppressing focus restoration on some
+    // unrelated, much-later detail close. Clear it here: a suppress flag set
+    // before this fresh open can never legitimately apply to this session's
+    // eventual close.
+    if (!wasViewing && imageParam) {
+      _suppressReturnFromDetail = false;
+      return;
+    }
 
     // Only act on the transition: image param was set → now gone
     if (!wasViewing || imageParam) return;

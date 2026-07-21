@@ -271,4 +271,49 @@ describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () =>
     expect(setFocusedImageId).toHaveBeenCalledOnce();
     expect(setFocusedImageId).toHaveBeenCalledWith("img-2");
   });
+
+  it("stale flag from Home-on-grid must not suppress a later, unrelated detail close", () => {
+    // Regression: Home pressed while already on the grid (no detail open)
+    // still calls suppressReturnFromDetail() — but the closing-transition
+    // branch never runs (no wasViewing), so the flag was never consumed.
+    // It then leaked into the NEXT, entirely unrelated detail session:
+    //   Home -> enter image A -> traverse to image K -> exit
+    // produced focus stuck on A instead of updating to K.
+    mockFocusMode = "explicit";
+    const setFocusedImageId = vi.fn();
+    // Mount already on the grid — no detail open.
+    const props = makeProps({ imageParam: undefined, focusedImageId: null, setFocusedImageId });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    // Home clicked from the grid: sets the flag, but there's no closing
+    // transition here to consume it (imageParam stays undefined).
+    suppressReturnFromDetail();
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+    expect(setFocusedImageId).not.toHaveBeenCalled();
+
+    // Enter image A — fresh detail session opens. This must clear the
+    // stale flag left over from the Home click above.
+    act(() => {
+      rerender({ ...props, imageParam: "img-A", focusedImageId: "img-A" });
+    });
+
+    // Traverse to image K.
+    act(() => {
+      rerender({ ...props, imageParam: "img-K", focusedImageId: "img-A" });
+    });
+
+    // Exit: focus must update to the last-viewed image (K), not be
+    // suppressed by the stale flag.
+    act(() => {
+      rerender({ ...props, imageParam: undefined, focusedImageId: "img-A" });
+    });
+
+    expect(setFocusedImageId).toHaveBeenCalledOnce();
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-K");
+  });
 });
