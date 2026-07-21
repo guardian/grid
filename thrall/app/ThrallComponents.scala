@@ -73,7 +73,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
-  val s3 = S3Ops.buildS3Client(config)
+  val s3 = S3Ops.buildS3ClientV2(config)
   val s3Vectors = new S3Vectors(config)
   val syncChecker = new SyncChecker(
     s3,
