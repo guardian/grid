@@ -93,22 +93,21 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "4.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
-    "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
+    "software.amazon.awssdk" % "iam" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
+    "software.amazon.awssdk" % "sns" % awsSdkV2Version,
+    "software.amazon.awssdk" % "sqs" % awsSdkV2Version,
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
     "com.gu" %% "thrift-serializer" % "5.0.2",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
-    "com.gu" % "kinesis-logback-appender" % "1.4.4",
+    "com.gu" % "kinesis-logback-appender" % "2.1.3",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     logback, // play-logback; needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -194,7 +193,7 @@ lazy val thrall = playProject("thrall", 9002)
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client-default" % "32.0.0",
-    "com.gu" %% "content-api-client-aws" % "0.7.6",
+    "com.gu" %% "content-api-client-aws" % "1.0.1",
     "io.reactivex" %% "rxscala" % "0.27.0",
     "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
