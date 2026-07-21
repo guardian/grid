@@ -1195,10 +1195,13 @@ textarea.ng-invalid {
 
 .search__advanced-toggle {
     margin-left: 10px;
+    padding: 0 5px 3px;
 }
 
 .search__advanced-toggle:hover {
     color: white;
+    background-color: #666666;
+    border-radius: 2px;
 }
 
 .search__advanced-toggle:focus {
