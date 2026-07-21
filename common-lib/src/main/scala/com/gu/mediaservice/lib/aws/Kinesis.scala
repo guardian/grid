@@ -1,36 +1,32 @@
 package com.gu.mediaservice.lib.aws
 
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
-import software.amazon.awssdk.core.SdkBytes
-import software.amazon.awssdk.regions.Region
-
 import java.nio.ByteBuffer
 import java.util.UUID
-import software.amazon.awssdk.services.kinesis.model.PutRecordRequest
-import software.amazon.awssdk.services.kinesis.KinesisClient
+import com.amazonaws.services.kinesis.model.PutRecordRequest
+import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.libs.json.{JodaWrites, Json, Writes}
+import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import org.joda.time.DateTime
 
-import java.net.URI
-
 case class KinesisSenderConfig(
-  override val awsRegionV2: Region,
-  override val awsCredentialsV2: AwsCredentialsProvider,
-  override val awsLocalEndpointUri: Option[URI],
+  override val awsRegion: String,
+  override val awsCredentials: AWSCredentialsProvider,
+  override val awsLocalEndpoint: Option[String],
   override val isDev: Boolean,
   streamName: String
-) extends AwsClientV2BuilderUtils
+) extends AwsClientV1BuilderUtils
 
 class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
+  private val builder = AmazonKinesisClientBuilder.standard()
 
-  private def getKinesisClient = config.withAWSCredentialsV2(KinesisClient.builder()).build()
+  private def getKinesisClient: AmazonKinesis = config.withAWSCredentials(builder).build()
 
-  private lazy val kinesisClient: KinesisClient = getKinesisClient
+  private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
   def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]): Unit = {
     val partitionKey = UUID.randomUUID().toString
@@ -44,10 +40,10 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
     logger.info(markers, "Publishing message to kinesis")
 
     val data = ByteBuffer.wrap(payload)
-    val request = PutRecordRequest.builder()
-                  .streamName(config.streamName)
-                  .partitionKey(partitionKey).data(SdkBytes.fromByteBuffer(data))
-                    .build()
+    val request = new PutRecordRequest()
+      .withStreamName(config.streamName)
+      .withPartitionKey(partitionKey)
+      .withData(data)
 
     try {
       val result = kinesisClient.putRecord(request)

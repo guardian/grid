@@ -20,7 +20,7 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
-lazy val jacksonVersion = "2.21.1"
+lazy val jacksonVersion = "2.21.4"
 lazy val jacksonAnnotationsVersion = "2.21"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",
@@ -94,8 +94,9 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "editorial-permissions-client" % "7.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
-    "software.amazon.awssdk" % "ec2" % awsSdkV2Version,
+    "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "software.amazon.awssdk" % "iam" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "software.amazon.awssdk" % "sns" % awsSdkV2Version,
