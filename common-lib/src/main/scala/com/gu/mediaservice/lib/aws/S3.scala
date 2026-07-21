@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.core.sync.RequestBody
@@ -56,7 +56,7 @@ object S3Metadata {
       S3ObjectMetadata(
         contentType = Option(meta.contentType()).filterNot(_.toLowerCase == "application/octet-stream").map(MimeType.apply),
         cacheControl = Option(meta.cacheControl()),
-        lastModified = Option(meta.lastModified()).map(new DateTime(_))
+        lastModified = Option(meta.lastModified()).map(l => new DateTime(l.toEpochMilli).withZone(DateTimeZone.UTC))
       )
     )
   }
@@ -200,7 +200,7 @@ object S3Ops {
   // TODO make this localstack friendly
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
-  
+
   def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
     val builder = config.awsLocalEndpoint match {
       case Some(_) if config.isDev =>
