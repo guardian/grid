@@ -5,7 +5,7 @@
 # thrall) together with Kahuna's compiled frontend.
 #
 # Build from the repository root:
-#   docker build -f images/Dockerfile -t grid-all .
+#   docker build -f e2e-tests/images/Dockerfile -t grid-all .
 #
 # Runtime configuration is NOT baked into the image. Mount per-environment
 # config (and a stage marker) into /etc/grid at run time, e.g.:
