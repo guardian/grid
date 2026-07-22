@@ -27,6 +27,7 @@ import {
   LOCALSTACK_PORT,
   MEDIA_API_PORT,
   REGION,
+  SERVICE_PORTS,
   URLS_FILE,
 } from './testcontainers/constants';
 import { generateServiceConfig } from './testcontainers/config';
@@ -61,6 +62,9 @@ async function globalSetup(): Promise<void> {
   const localstack = await new LocalstackContainer(LOCALSTACK_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(LOCALSTACK_ALIAS)
+    // Pin to the fixed host port dev-nginx expects for the S3 vanity domains
+    // (images.media / public.media / localstack.media -> 4566).
+    .withExposedPorts({ container: LOCALSTACK_PORT, host: LOCALSTACK_PORT })
     .withEnvironment({
       SERVICES: LOCALSTACK_SERVICES,
       DEFAULT_REGION: REGION,
@@ -82,11 +86,16 @@ async function globalSetup(): Promise<void> {
 
   // --- Application: the pre-built grid-all image ---------------------------
   // All eight services run inside this single container and talk to each other over
-  // its localhost, so only the ports the tests target are exposed (dynamically, to
-  // avoid clashing with any locally-running Grid).
+  // its localhost. Each is published on the *fixed* host port its dev-nginx mapping
+  // expects (dev/nginx-mappings.yml), so the developer's dev-nginx routes the
+  // https://*.media.<domain> domains straight into this container. This trades the
+  // previous dynamic-port isolation for compatibility with the existing nginx setup:
+  // it cannot run alongside a locally-running Grid that already owns these ports.
   let gridBuilder = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
-    .withExposedPorts(KAHUNA_PORT, MEDIA_API_PORT)
+    .withExposedPorts(
+      ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
+    )
     .withBindMounts([
       // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
       { source: configDir, target: '/root/.grid', mode: 'ro' },
