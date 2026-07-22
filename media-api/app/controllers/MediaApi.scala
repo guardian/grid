@@ -309,8 +309,11 @@ class MediaApi(
       case Some(source) if isVisibleToAccessor(request.user, source) =>
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
+          _ = logger.info("**** found export")
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
+          _ = logger.info("**** found asset")
           s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
+          _ = logger.info(s"**** found s3 object, ${config.imageBucket}, ${asset.file}")
           file = StreamConverters.fromInputStream(() => s3Object)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
           result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset, config.shortenDownloadFilename))
@@ -318,9 +321,13 @@ class MediaApi(
           if(config.recordDownloadAsUsage) {
             postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))
           }
+          logger.info("**** found result")
           result
         }
-        maybeResult.getOrElse(ExportNotFound)
+        maybeResult.getOrElse({
+          logger.info("**** not found result")
+          ExportNotFound
+        })
       case _ => ImageNotFound(imageId)
     }
   }
