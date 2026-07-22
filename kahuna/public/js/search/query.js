@@ -336,37 +336,28 @@ query.controller('SearchQueryCtrl', [
 
       sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
 
-      // Helper to check if all keys in `goParams` already match the current
-      // $stateParams. If so, this navigation would be a no-op and firing it
-      // anyway has been observed to trigger a rogue transition from
-      // ui-router-extras DSR mechanism that drops params like nonFree.
+      function normaliseParamForComparison(key, val) {
+        if (key === 'nonFree' && !ctrl.usePermissionsFilter && val === 'false') {
+          return undefined;
+        }
+        // treat '' and undefined as equivalent to avoid false negatives
+        return val || undefined;
+      }
+
       function goParamsAlreadyCurrent(goParams) {
         return Object.keys(goParams).every(key => {
-          const a = goParams[key];
-          const b = $stateParams[key];
-          // treat '' and undefined as equivalent to avoid false negatives
-          return (a || undefined) === (b || undefined);
+          const a = normaliseParamForComparison(key, goParams[key]);
+          const b = normaliseParamForComparison(key, $stateParams[key]);
+          return a === b;
         });
       }
 
-      // If every key in `goParams` other than `orderBy` already matches the
-      // current $stateParams, this transition's *only* purpose is to correct
-      // `orderBy` (e.g. auto-switching to the collection sort order after
-      // navigating into/out of a collection search). In that case the
-      // "real" navigation (e.g. a ui-sref collection link, or the browser's
-      // own back/forward navigation) has already happened and already
-      // pushed/popped a history entry - so this follow-up correction should
-      // patch the current history entry (`location: 'replace'`) rather than
-      // push a brand new one. Otherwise a single user action (e.g. clicking
-      // a collection) ends up creating *two* history entries, which means
-      // the back button has to be pressed twice to fully undo it - and on
-      // the first press, the collection filter is still applied.
       function isOrderByOnlyCorrection(goParams) {
         return Object.keys(goParams).every(key => {
           if (key === 'orderBy') { return true; }
-          const a = goParams[key];
-          const b = $stateParams[key];
-          return (a || undefined) === (b || undefined);
+          const a = normaliseParamForComparison(key, goParams[key]);
+          const b = normaliseParamForComparison(key, $stateParams[key]);
+          return a === b;
         });
       }
 
