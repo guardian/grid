@@ -1,7 +1,6 @@
 import angular from 'angular';
 import './gr-more-like-this.css';
 import template from './gr-more-like-this.html';
-import {getFeatureSwitchActive} from '../gr-feature-switch-panel/gr-feature-switch-panel';
 
 export const moreLikeThis = angular.module('gr.moreLikeThis', []);
 
@@ -13,7 +12,6 @@ moreLikeThis.controller('MoreLikeThisCtrl', [
     let ctrl = this;
 
     ctrl.$onInit = () => {
-      ctrl.showMoreLikeThis = getFeatureSwitchActive('enable-ai-search');
       ctrl.getMoreLikeThisQuery = function() {
         return `similar:${ctrl.image.data.id}`;
       };

@@ -26,7 +26,7 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
-import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
+
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -79,14 +79,8 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
-    if (!ctrl.shouldDisplayAISearchOption) {
-      ctrl.useAISearch = false;
-      ctrl.vecWeight = undefined;
-    } else {
-      ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
-      ctrl.vecWeight = $stateParams.vecWeight;
-    }
+    ctrl.useAISearch = ($stateParams.useAISearch === 'true' || $stateParams.useAISearch === true) ? true : false;
+    ctrl.vecWeight = $stateParams.vecWeight;
 
     //--react - angular interop events--
     function raisePayableImagesEvent(showPaid) {
