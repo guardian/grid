@@ -312,7 +312,11 @@ class MediaApi(
           _ = logger.info("**** found export")
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
           _ = logger.info("**** found asset")
-          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
+          s3Res = Try(s3Client.getObject(config.imgPublishingBucket, asset.file))
+          _ = s3Res.failed.foreach { ex =>
+            logger.error("Failed to fetch S3 object", ex)
+          }
+          s3Object  <- s3Res.toOption
           _ = logger.info(s"**** found s3 object, ${config.imgPublishingBucket}, ${asset.file}")
           file = StreamConverters.fromInputStream(() => s3Object)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
