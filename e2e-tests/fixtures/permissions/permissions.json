@@ -5,7 +5,11 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   },
   {
     "permission": {
@@ -13,7 +17,11 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   },
   {
     "permission": {
@@ -21,7 +29,11 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   },
   {
     "permission": {
@@ -29,7 +41,11 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   },
   {
     "permission": {
@@ -37,7 +53,11 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   },
   {
     "permission": {
@@ -45,6 +65,10 @@
       "app": "grid",
       "defaultValue": true
     },
-    "overrides": []
+    "overrides": [{
+      "userId": "composer.application@guardian.co.uk",
+      "active": true,
+      "isCasualNotOnShift": false
+    }]
   }
 ]
