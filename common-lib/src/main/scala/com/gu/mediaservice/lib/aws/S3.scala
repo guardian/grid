@@ -15,6 +15,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.time.Duration
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -71,7 +72,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   lazy val client: S3Client = S3Ops.buildS3ClientV2(config)
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
+  def signUrl(bucket: Bucket, url: URI, image: Image, imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
@@ -84,6 +85,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val getObjectPresignRequest =
       GetObjectPresignRequest.builder()
         .getObjectRequest(getObjectRequest)
+        .signatureDuration(Duration.ofMinutes(30))
         .build();
 
     val req = presigner.presignGetObject(getObjectPresignRequest)
