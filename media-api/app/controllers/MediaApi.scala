@@ -312,6 +312,7 @@ class MediaApi(
           _ = logger.info("**** found export")
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
           _ = logger.info("**** found asset")
+          _ = logger.info(s"**** looking up s3 object, ${config.imageBucket}, ${asset.file}")
           s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
           _ = logger.info(s"**** found s3 object, ${config.imageBucket}, ${asset.file}")
           file = StreamConverters.fromInputStream(() => s3Object)
