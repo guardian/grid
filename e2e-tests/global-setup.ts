@@ -18,14 +18,17 @@ import { LocalstackContainer } from '@testcontainers/localstack';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 import type { StartedTestContainer } from 'testcontainers';
 import {
+  DOMAIN,
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
+  GRID_ALIAS,
   GRID_IMAGE,
   KAHUNA_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_IMAGE,
   LOCALSTACK_PORT,
   MEDIA_API_PORT,
+  PROXY_IMAGE,
   REGION,
   SERVICE_PORTS,
   URLS_FILE,
@@ -35,6 +38,51 @@ import { provisionCoreStack } from './testcontainers/provision';
 import { setEnvironment } from './testcontainers/state';
 
 const LOCALSTACK_SERVICES = 'cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam';
+
+/**
+ * Build a Caddyfile that reproduces the dev-nginx subdomain routing: each Grid service
+ * domain (https://<prefix>.media.<domain>) reverse-proxies to the grid-all container on
+ * its in-container port, and the S3 vanity domains proxy to localstack (prepending the
+ * real bucket to the path). `tls internal` serves a self-signed cert per site; Playwright
+ * runs with `ignoreHTTPSErrors`, so the internal CA does not need to be trusted.
+ */
+function buildCaddyfile(coreStackProps: Record<string, string>): string {
+  const appServices: Record<string, number> = {
+    [`media.${DOMAIN}`]: SERVICE_PORTS.kahuna,
+    [`api.media.${DOMAIN}`]: SERVICE_PORTS['media-api'],
+    [`cropper.media.${DOMAIN}`]: SERVICE_PORTS.cropper,
+    [`thrall.media.${DOMAIN}`]: SERVICE_PORTS.thrall,
+    [`media-metadata.${DOMAIN}`]: SERVICE_PORTS['metadata-editor'],
+    [`media-collections.${DOMAIN}`]: SERVICE_PORTS.collections,
+    [`media-leases.${DOMAIN}`]: SERVICE_PORTS.leases,
+    [`media-auth.${DOMAIN}`]: SERVICE_PORTS.auth,
+  };
+
+  // S3 vanity domains that omit the bucket -> localstack, with the bucket prepended.
+  const imageBuckets: Record<string, string> = {
+    [`images.media.${DOMAIN}`]: coreStackProps.ImageBucket,
+    [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket,
+  };
+
+  const blocks: string[] = [];
+
+  for (const [siteHost, port] of Object.entries(appServices)) {
+    blocks.push(`${siteHost} {\n\ttls internal\n\treverse_proxy ${GRID_ALIAS}:${port}\n}`);
+  }
+
+  for (const [siteHost, bucket] of Object.entries(imageBuckets)) {
+    blocks.push(
+      `${siteHost} {\n\ttls internal\n\trewrite * /${bucket}{uri}\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
+    );
+  }
+
+  // Thumbnails / direct S3 access already include the bucket in the path.
+  blocks.push(
+    `localstack.media.${DOMAIN} {\n\ttls internal\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
+  );
+
+  return `${blocks.join('\n\n')}\n`;
+}
 
 async function globalSetup(): Promise<void> {
   const started: StartedTestContainer[] = [];
@@ -93,6 +141,7 @@ async function globalSetup(): Promise<void> {
   // it cannot run alongside a locally-running Grid that already owns these ports.
   let gridBuilder = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
+    .withNetworkAliases(GRID_ALIAS)
     .withExposedPorts(
       ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
     )
@@ -125,6 +174,24 @@ async function globalSetup(): Promise<void> {
 
   const grid = await gridBuilder.start();
   started.push(grid);
+
+  // --- CI routing: bundled reverse proxy -----------------------------------
+  // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
+  // dev-nginx. CI has no dev-nginx, so when running under CI (GitHub Actions sets CI=true)
+  // start a Caddy proxy that replays the same subdomain routing and terminates TLS with a
+  // self-signed cert, published on the standard https port the domains resolve to.
+  if (process.env.CI) {
+    const proxy = await new GenericContainer(PROXY_IMAGE)
+      .withNetwork(network)
+      .withExposedPorts({ container: 443, host: 443 })
+      .withCopyContentToContainer([
+        { content: buildCaddyfile(coreStackProps), target: '/etc/caddy/Caddyfile' },
+      ])
+      .withWaitStrategy(Wait.forListeningPorts())
+      .withStartupTimeout(60_000)
+      .start();
+    started.push(proxy);
+  }
 
   const host = grid.getHost();
   const baseUrl = `http://${host}:${grid.getMappedPort(KAHUNA_PORT)}`;
