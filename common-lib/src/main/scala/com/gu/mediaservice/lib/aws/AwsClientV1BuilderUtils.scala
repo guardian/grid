@@ -1,10 +1,11 @@
 package com.gu.mediaservice.lib.aws
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
+import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, EnvironmentVariableCredentialsProvider, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.gu.mediaservice.lib.logging.GridLogging
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 
 trait AwsClientV1BuilderUtils extends GridLogging {
   def awsLocalEndpoint: Option[String]
@@ -14,7 +15,8 @@ trait AwsClientV1BuilderUtils extends GridLogging {
 
   def awsCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
-    InstanceProfileCredentialsProvider.getInstance()
+    InstanceProfileCredentialsProvider.getInstance(),
+    new EnvironmentVariableCredentialsProvider()
   )
 
   final def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
