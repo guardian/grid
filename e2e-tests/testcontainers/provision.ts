@@ -12,7 +12,7 @@ import {
   waitUntilStackCreateComplete,
 } from '@aws-sdk/client-cloudformation';
 import { CreateBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { API_KEY, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants';
+import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants';
 
 const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 
@@ -66,7 +66,7 @@ async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
   const devConfig = path.join(REPO_ROOT, 'dev', 'config');
 
   // API key used by the machine authentication provider.
-  await putObject(s3, props.KeyBucket, API_KEY, 'DEV Key');
+  await putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key');
 
   // Static config consumed by the services.
   for (const file of ['photographers.json', 'rcs-quota.json', 'usage_rights.json']) {
