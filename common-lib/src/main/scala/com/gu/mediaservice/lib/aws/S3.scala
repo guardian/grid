@@ -11,10 +11,11 @@ import org.joda.time.{DateTime, Duration}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, GetObjectRequest => GetObjectRequestV2}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2}
 
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -83,7 +84,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
   }
-  
+
   def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
@@ -106,6 +107,16 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
     finally {
       stream.close()
+    }
+  }
+  def getObjectAsStringV2(bucket: Bucket, key: String): Option[String] = {
+    try {
+      val stream = clientV2.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build());
+      Some(new String(stream.readAllBytes(), StandardCharsets.UTF_8))
+    } catch {
+      case e: NoSuchKeyException =>
+        logger.warn(s"Cannot find key: $key in bucket: $bucket")
+        None
     }
   }
 
