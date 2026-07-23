@@ -1,0 +1,10 @@
+# BuildKit uses this file (named <Dockerfile>.dockerignore) to trim the build
+# context for images/Dockerfile.dev. Keeps build artefacts and caches out of the
+# context sent to the daemon; they are regenerated at build/run time.
+**/target
+**/node_modules
+**/logs
+**/.git
+.git
+**/.DS_Store
+dev/.localstack
