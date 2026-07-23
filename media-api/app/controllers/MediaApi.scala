@@ -310,8 +310,12 @@ class MediaApi(
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
-          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
-          file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+          s3Res = Try(s3Client.getObjectV2(config.imgPublishingBucket, asset.file))
+          _ = s3Res.failed.foreach { ex =>
+            logger.error("Failed to fetch S3 object", ex)
+          }
+          s3Object  <- s3Res.toOption
+          file = StreamConverters.fromInputStream(() => s3Object)
           entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
           result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> getContentDisposition(source, export, asset, config.shortenDownloadFilename))
         } yield {
@@ -437,8 +441,8 @@ class MediaApi(
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+        val s3Object = s3Client.getObjectV2(config.imageBucket, image.source.file)
+        val file = StreamConverters.fromInputStream(() => s3Object)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         if(config.recordDownloadAsUsage) {

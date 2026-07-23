@@ -8,8 +8,10 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, GetObjectRequest => GetObjectRequestV2}
 
 import java.io.File
 import java.net.URI
@@ -68,6 +70,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type UserMetadata = Map[String, String]
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  lazy val clientV2: S3Client = S3Ops.buildS3ClientV2(config)
 
   def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
     // get path and remove leading `/`
@@ -80,11 +83,15 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
   }
-
-  def getObject(bucket: Bucket, url: URI): model.S3Object = {
+  
+  def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    client.getObject(new GetObjectRequest(bucket, key))
+    clientV2.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build())
+  }
+
+  def getObjectV2(bucket: Bucket, key: String): ResponseInputStream[GetObjectResponse] = {
+    clientV2.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build())
   }
 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
