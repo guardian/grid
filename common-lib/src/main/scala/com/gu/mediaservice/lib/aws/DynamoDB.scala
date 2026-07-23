@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
-import com.gu.mediaservice.lib.aws.DynamoDB.{deleteExpr, setExpr}
+import com.gu.mediaservice.lib.aws.DynamoDB.{deleteExpr, jsonWithNullAsEmptyString, setExpr}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
@@ -17,7 +17,7 @@ import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model
 import software.amazon.awssdk.enhanced.dynamodb.model.{BatchGetItemEnhancedRequest, ReadBatch}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2, QueryRequest => QueryRequestV2}
+import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, QueryRequest => QueryRequestV2, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -342,21 +342,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     Option(outcome.getItem) map asJsObject getOrElse Json.obj()
 
-  // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
-  // around the community. This guard keeps the introduction of `null` fairly
-  // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
-  // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
-  // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
-  def mapJsValue(jsValue: JsValue)(f: JsValue => JsValue): JsValue = jsValue match {
-    case JsObject(items) => JsObject(items.map{ case (k, v) => k -> mapJsValue(v)(f) })
-    case JsArray(items) => JsArray(items.map(f))
-    case value => f(value)
-  }
 
-  def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
-    case JsNull => JsString("")
-    case value => value
-  }
 
 }
 
@@ -447,4 +433,20 @@ object DynamoDB {
   def generateExpression(baseExpression: String, lastModifiedKey: Option[String]) = {
     lastModifiedKey.fold(baseExpression)(lastModifiedKey => s"$baseExpression SET $lastModifiedKey = :$lastModifiedKey")
   }
+
+  // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
+  // around the community. This guard keeps the introduction of `null` fairly
+  // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
+  // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
+  // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
+  def mapJsValue(jsValue: JsValue)(f: JsValue => JsValue): JsValue = jsValue match {
+    case JsObject(items) => JsObject(items.map{ case (k, v) => k -> mapJsValue(v)(f) })
+    case JsArray(items) => JsArray(items.map(f))
+    case value => f(value)
+  }
+  def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
+    case JsNull => JsString("")
+    case value => value
+  }
+  
 }

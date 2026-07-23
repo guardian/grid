@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model.usage
 
+import com.gu.mediaservice.lib.dynamo.{DbString, DynamoElement}
 import play.api.libs.json.{Json, Reads, Writes}
 
 case class ChildUsageMetadata(
@@ -10,6 +11,11 @@ case class ChildUsageMetadata(
   override def toMap: Map[String, Any] = Map(
     "addedBy" -> addedBy,
     "childMediaId" -> childMediaId
+  )
+
+  override def toDynamoMap: Map[String, DynamoElement] = Map(
+    "addedBy" -> DbString(addedBy),
+    "childMediaId" -> DbString(childMediaId)
   )
 }
 

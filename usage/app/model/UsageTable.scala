@@ -1,34 +1,52 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
-import com.amazonaws.services.dynamodbv2.document.{DeleteItemOutcome, KeyAttribute, RangeKeyCondition}
-import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.aws.DynamoDB.jsonWithNullAsEmptyString
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
 import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
+import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
+import software.amazon.awssdk.enhanced.dynamodb.model.{DeleteItemEnhancedRequest, QueryConditional, QueryEnhancedRequest, UpdateItemEnhancedRequest}
+import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverterProvider, AttributeValueType, DynamoDbEnhancedClient, Key, TableMetadata, TableSchema}
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ReturnValue, UpdateItemRequest}
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.{IterableHasAsScala, IteratorHasAsScala, MapHasAsJava, MapHasAsScala}
 
-class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {
+class UsageTable(config: UsageConfig) extends GridLogging {
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
   val imageIndexName = "media_id"
 
+
+  lazy val client: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val dynamo: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()
+  lazy val tableSchema = TableSchema.documentSchemaBuilder()
+    .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
+    .addIndexSortKey(TableMetadata.primaryIndexName(), rangeKeyName, AttributeValueType.S)
+    .addIndexPartitionKey(
+      imageIndexName,
+      imageIndexName,
+      AttributeValueType.S
+    )
+    .attributeConverterProviders(AttributeConverterProvider.defaultProvider())
+    .build()
+  lazy val table = dynamo.table(config.usageRecordTable, tableSchema)
+
   def queryByUsageId(id: String): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
-      val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
-      val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
 
-      val queryResult = table.query(keyAttribute, rangeKeyCondition)
-
-      queryResult.asScala.map(ItemToMediaUsage.transform).headOption
+      val key = Key.builder()
+        .partitionValue(tableFullKey.hashKey)
+        .sortValue(tableFullKey.rangeKey)
+        .build()
+      val queryResult = table.query(QueryConditional.keyEqualTo(key))
+      queryResult.items().asScala.map(ItemToMediaUsage.transform).headOption
     })
   }
 
@@ -38,11 +56,18 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       throw new BadInputException("Empty string received for image id")
 
     logger.info(logMarkerWithId, s"Querying usages table for $id")
-    val imageIndex = table.getIndex(imageIndexName)
-    val keyAttribute = new KeyAttribute(imageIndexName, id)
-    val queryResult = imageIndex.query(keyAttribute)
 
-    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
+    val key = Key.builder()
+      .partitionValue(id)
+      .build()
+
+    val queryResult = table.index(imageIndexName).query(QueryConditional.keyEqualTo(key))
+
+    val unsortedUsages = queryResult.iterator()
+      .asScala
+      .flatMap(_.items().asScala)
+      .map(ItemToMediaUsage.transform)
+      .toList
 
     logger.info(logMarkerWithId, s"Query of usages table for $id found ${unsortedUsages.size} results")
 
@@ -86,13 +111,17 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       val grouping = usageGroup.grouping
 
       logger.info(logMarker, s"Querying table for $grouping")
-      val queryResult = table.query(
-        new QuerySpec()
-          .withConsistentRead(true)
-          .withHashKey(new KeyAttribute("grouping", grouping))
-      )
+      val key = Key.builder()
+        .partitionValue(grouping)
+        .build()
+      val request =
+        QueryEnhancedRequest.builder()
+          .queryConditional(QueryConditional.keyEqualTo(key))
+          .consistentRead(true)
+          .build()
+      val queryResult = table.query(request)
 
-      val usages = queryResult.asScala
+      val usages = queryResult.items().asScala
         .map(ItemToMediaUsage.transform)
         .toSet
 
@@ -111,36 +140,41 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
     upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
-  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): DeleteItemOutcome = {
+  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): EnhancedDocument = {
     logger.info(logMarker, s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
-    val deleteSpec = new DeleteItemSpec()
-      .withPrimaryKey(
-        hashKeyName, mediaUsage.grouping,
-        rangeKeyName, mediaUsage.usageId.toString
-      )
+    val key = Key.builder()
+      .partitionValue(mediaUsage.grouping)
+      .sortValue(mediaUsage.usageId.toString)
+      .build()
 
-    table.deleteItem(deleteSpec)
+    table.deleteItem(DeleteItemEnhancedRequest.builder().key(key).build())
   }
 
   def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker): Observable[JsObject] = Observable.from(Future {
+      val key = Map(
+        hashKeyName -> AttributeValue.builder().s(record.hashKey).build(),
+        rangeKeyName -> AttributeValue.builder().s(record.rangeKey).build()
+      ).asJava
 
-     val updateSpec = new UpdateItemSpec()
-      .withPrimaryKey(
-        hashKeyName,
-        record.hashKey,
-        rangeKeyName,
-        record.rangeKey
-      )
-      .withExpressionSpec(record.toXSpec)
-      .withReturnValues(ReturnValue.ALL_NEW)
+      val request = UpdateItemRequest.builder()
+        .tableName(table.tableName())
+        .key(key)
+        .updateExpression(record.toExpression.expression())
+        .expressionAttributeNames(record.toExpression.expressionNames())
+        .expressionAttributeValues(record.toExpression.expressionValues())
+        .returnValues(ReturnValue.ALL_NEW)
+        .build()
 
-    table.updateItem(updateSpec)
+      client.updateItem(request)
 
   })
   .onErrorResumeNext(e => {
     logger.error(logMarker, s"Dynamo update fail for $record!", e)
     Observable.error(e)
   })
-  .map(asJsObject)
+  .map(updateResponse => {
+    val doc = EnhancedDocument.fromAttributeValueMap(updateResponse.attributes())
+    jsonWithNullAsEmptyString(Json.parse(doc.toJson)).as[JsObject]
+  })
 }
