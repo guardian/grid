@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
+import software.amazon.awssdk.core.exception.SdkClientException
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -78,9 +79,17 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def doesOriginalExist(id: String): Boolean =
   try {
     client.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
+    logger.info(s"found ${fileKeyFromId(id)} ")
     true
   } catch {
-    case _: NoSuchKeyException => false
+    case _: NoSuchKeyException => {
+      logger.info(s"did not find ${fileKeyFromId(id)} ")
+      false
+    }
+    case ex: SdkClientException => {
+      logger.error(s"error calling head on s3 bucket", ex)
+      throw ex
+    }
   }
 }
 
