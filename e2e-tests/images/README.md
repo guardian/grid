@@ -1,7 +1,15 @@
 # Grid all-in-one container
 
-`images/Dockerfile` builds a single container that runs eight Grid Play
-services plus Kahuna's compiled frontend:
+This directory provides **two** single-container images that run eight Grid Play
+services plus Kahuna's frontend:
+
+- **CI image** — `Dockerfile`: stages pre-compiled artefacts and runs them in a
+  production-style JRE. Used by the e2e-tests testcontainers harness.
+- **Local-dev image** — `Dockerfile.dev`: runs the services under `sbt <svc>/run`
+  (Play dev mode) with the repo bind-mounted, so source changes recompile live.
+  See [Development image (live reload)](#development-image-live-reload) below.
+
+Both expose the same service ports:
 
 | Service           | Port |
 | ----------------- | ---- |
@@ -60,3 +68,58 @@ docker run --rm -e GRID_SERVICES="media-api kahuna auth" grid-all
 ```
 
 If any running service exits, the container stops.
+
+## Development image (live reload)
+
+`Dockerfile.dev` is for local development: instead of staging compiled
+artefacts it runs the services under `sbt <svc>/run` (Play dev mode), so changed
+Scala sources are recompiled on the next request. When `kahuna` is selected its
+webpack bundle is rebuilt continuously via `npm run watch`.
+
+Build from the **repository root**:
+
+```bash
+DOCKER_BUILDKIT=1 docker build -f e2e-tests/images/Dockerfile.dev -t grid-dev .
+```
+
+The build warms the sbt dependency cache (`sbt update`) and Kahuna's
+`node_modules` (`npm ci`) so the first run only has to compile sources.
+
+Run with the repo bind-mounted over `/build` so host edits are picked up live,
+and your DEV config mounted at `/root/.grid`:
+
+```bash
+docker run --rm \
+  -v "$PWD:/build" \
+  -v "$HOME/.grid:/root/.grid:ro" \
+  -p 9001:9001 -p 9005:9005 -p 9011:9011 \
+  grid-dev
+```
+
+Because the services run in Play **dev mode**, no `play.http.secret.key` is
+required (it is auto-generated), unlike the CI image's production-style run.
+Edit a `.scala` file on the host and hit an endpoint to trigger a recompile;
+edit a Kahuna asset and the webpack watcher rebuilds `public/dist`.
+
+### Options
+
+All configurable via environment variables:
+
+| Variable                | Default              | Purpose                                                        |
+| ----------------------- | -------------------- | -------------------------------------------------------------- |
+| `GRID_SERVICES`         | `auth media-api kahuna` | Space-separated services to run.                            |
+| `GRID_EXTRA_CONFIG_DIR` | _(unset)_            | Dir of `<service>.conf` overrides (sets `-DextraConfigDir`).    |
+| `GRID_JAVA_OPTS`        | _(unset)_            | Extra JVM options forwarded to the run JVM (as `-J...`).        |
+| `GRID_DEBUG`            | _(unset)_            | If set, opens a JDWP debug server on port `5005` (also `EXPOSE`d). |
+
+```bash
+docker run --rm -v "$PWD:/build" -v "$HOME/.grid:/root/.grid:ro" \
+  -e GRID_SERVICES="media-api kahuna" -e GRID_DEBUG=1 \
+  -p 9001:9001 -p 9005:9005 -p 5005:5005 \
+  grid-dev
+```
+
+The services still need their backing infrastructure reachable (see the root
+`docker-compose.yml`). The image also works against the e2e-tests testcontainers
+harness: mount the generated config the same way the CI image does (to
+`/root/.grid` and/or `/etc/grid`) and join the same network.
