@@ -1,0 +1,98 @@
+# syntax=docker/dockerfile:1
+
+# Development image for the Grid Play services.
+#
+# Unlike the CI image (images/Dockerfile), this image does NOT stage compiled
+# artefacts. Instead it runs the selected services under `sbt <svc>/run`
+# (Play dev mode), which recompiles changed Scala sources on the next request.
+# Kahuna's webpack bundle is rebuilt continuously via `npm run watch`.
+#
+# The repository is expected to be bind-mounted over /build at run time so host
+# edits are reflected live. Build from the repository root:
+#   DOCKER_BUILDKIT=1 docker build -f e2e-tests/images/Dockerfile.dev -t grid-dev .
+#
+# Run with the repo and your DEV config mounted:
+#   docker run --rm \
+#     -v "$PWD:/build" \
+#     -v "$HOME/.grid:/root/.grid:ro" \
+#     -p 9001:9001 -p 9005:9005 -p 9011:9011 \
+#     grid-dev
+#
+# See images/README.md for details.
+
+# ---------------------------------------------------------------------------
+# Single stage: JDK + sbt + Node + native image tooling, with warmed caches.
+# ---------------------------------------------------------------------------
+FROM eclipse-temurin:11-jdk-jammy
+
+ARG SBT_VERSION=1.10.3
+ARG NODE_VERSION=22.12.0
+# Provided automatically by BuildKit (e.g. amd64, arm64).
+ARG TARGETARCH
+
+# Base tooling: curl/xz for downloads plus the native tools the image
+# processing services need (mirrors images/Dockerfile's runtime stage).
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      curl \
+      ca-certificates \
+      xz-utils \
+      graphicsmagick \
+      imagemagick \
+      pngquant \
+      libimage-exiftool-perl \
+      libgd3; \
+    rm -rf /var/lib/apt/lists/*
+
+# Install sbt from the official release tarball.
+RUN set -eux; \
+    curl -fLo /tmp/sbt.tgz "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz"; \
+    tar -xzf /tmp/sbt.tgz -C /opt; \
+    ln -s /opt/sbt/bin/sbt /usr/local/bin/sbt; \
+    rm -f /tmp/sbt.tgz
+
+# Install Node (pinned to match kahuna's required version) from the official
+# tarball so `npm run watch` matches local development.
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) node_arch=x64 ;; \
+      arm64) node_arch=arm64 ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fLo /tmp/node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz"; \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -f /tmp/node.tar.xz; \
+    node --version; \
+    npm --version
+
+WORKDIR /build
+
+# Warm the sbt dependency cache (~/.ivy2, ~/.sbt, ~/.cache/coursier). These live
+# under $HOME, so a runtime bind-mount over /build does not shadow them: the
+# first runtime compile only needs to compile sources, not re-resolve deps.
+# Copying just the build definition keeps this layer cached across source edits.
+COPY build.sbt ./
+COPY project/ ./project/
+RUN sbt update
+
+# Warm Kahuna's node_modules. The dockerignore keeps node_modules out of the
+# build context, so this install is not clobbered by the COPY below.
+COPY kahuna/package.json kahuna/package-lock.json ./kahuna/
+RUN cd kahuna && npm ci
+
+# Copy the rest of the source so the image is runnable standalone; a runtime
+# bind-mount of the repo over /build overrides this for live editing.
+COPY . .
+
+COPY e2e-tests/images/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
+RUN chmod +x /usr/local/bin/entrypoint.dev.sh
+
+# The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
+ENV AWS_CBOR_DISABLE=true
+
+# media-api, thrall, kahuna, cropper, metadata-editor, collections, auth, leases
+# plus the JDWP debug port used when GRID_DEBUG is set.
+EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012 5005
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.dev.sh"]

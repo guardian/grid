@@ -1,0 +1,2810 @@
+{
+    "status": 200,
+    "body": {
+        "took": 7,
+        "timed_out": false,
+        "_shards": {
+            "total": 5,
+            "successful": 5,
+            "skipped": 0,
+            "failed": 0
+        },
+        "hits": {
+            "total": {
+                "value": 10000,
+                "relation": "gte"
+            },
+            "max_score": 1,
+            "hits": [
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                    "_score": 1,
+                    "_source": {
+                        "id": "f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                        "uploadTime": "2020-03-04T10:41:37.204Z",
+                        "uploadedBy": "stingray",
+                        "lastModified": "2020-03-04T10:55:06.059Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "Swans_Nesting_004.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 587773,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3156,
+                                "height": 1728
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/f/6/b/f/d/2/f6bfd2f0e54c232fd642237dfe773bb14275b3b3",
+                            "size": 14830,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 140
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Copyright Notice": "© Richard Austin",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \rThis week will see the staff putting out bundles of reeds for the swans to build their nests.\rThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\rThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \rAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \rThe colony can number over 600 swans with around 150 nesting pairs. \rWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\r© Richard Austin\rTel: 07831 566005",
+                                "Credit": "Richard Austin",
+                                "Source": "Richard Austin",
+                                "Keywords": "richardaustinimages.com",
+                                "By-line": "Richard Austin",
+                                "Caption Writer/Editor": "Richard Austin",
+                                "Date Created": "2020:03:04"
+                            },
+                            "exif": {
+                                "Image Description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Richard Austin\nTel: 07831 566005",
+                                "X Resolution": "350 dots per inch",
+                                "Software": "Digital Photo Professional",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "Canon",
+                                "Image Width": "5184 pixels",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "© Richard Austin",
+                                "Date/Time": "2020:03:03 19:10:38",
+                                "Model": "Canon EOS-1D X",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "350 dots per inch",
+                                "Artist": "Richard Austin",
+                                "Image Height": "3456 pixels"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "24-70mm",
+                                "Body Serial Number": "063012002171",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1728 pixels",
+                                "Lens Serial Number": "5903000717",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "61 mm",
+                                "Date/Time Original": "2020:03:03 14:54:13",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/789 sec",
+                                "Exif Image Width": "3156 pixels",
+                                "Focal Plane Y Resolution": "49/172800 inches",
+                                "Sub-Sec Time Original": "82",
+                                "Exposure Time": "1/800 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "2/3 EV",
+                                "F-Number": "f/10.0",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Lens Model": "EF24-70mm f/4L IS USM",
+                                "Date/Time Digitized": "2016:07:28 15:57:54",
+                                "Recommended Exposure Index": "400",
+                                "Date/Time Original Composite": "2020-03-03T14:54:13.820Z",
+                                "Aperture Value": "f/9.9",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Sub-Sec Time Digitized": "76",
+                                "Focal Plane X Resolution": "731/2592000 inches",
+                                "Max Aperture Value": "f/4.0"
+                            },
+                            "xmp": {
+                                "dc:format": "image/jpeg",
+                                "dc:description": [
+                                    "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Richard Austin\nTel: 07831 566005",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:MetadataDate": "2020-03-04T10:04:59.000Z",
+                                "aux:LensSerialNumber": "5903000717",
+                                "aux:ImageNumber": "0",
+                                "dc:subject": [
+                                    "richardaustinimages.com"
+                                ],
+                                "photoshop:CaptionWriter": "Richard Austin",
+                                "aux:FlashCompensation": "0/1",
+                                "aux:Lens": "EF24-70mm f/4L IS USM",
+                                "xmp:ModifyDate": "2020-03-03T19:10:38.000Z",
+                                "xmpMM:OriginalDocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmp:Rating": "0",
+                                "photoshop:DateCreated": "2020-03-04T00:00:00.000Z",
+                                "photoshop:Credit": "Richard Austin",
+                                "xmp:CreateDate": "2016-07-28T15:57:54.760Z",
+                                "aux:LensID": "504",
+                                "aux:ApproximateFocusDistance": "595/100",
+                                "dc:rights": [
+                                    "© Richard Austin",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "xmp:CreatorTool": "Digital Photo Professional",
+                                "aux:LensInfo": "24/1 70/1 0/0 0/0",
+                                "xmpMM:DocumentID": "B5CA1C6D9E598ABFD1488E67E2EC3F78",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Richard Austin"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'richardaustinimages.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'r_austin@btconnect.com'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'07831 566005'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'UK'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'DT7 3PW'}"
+                                ],
+                                "aux:Firmware": "2.0.3",
+                                "aux:SerialNumber": "063012002171",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2015.5 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-03T19:10:38Z'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e8c994fa-f18f-4333-815c-aa852b3beced'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6'}",
+                                        "{'stEvt:instanceID':'xmp.iid:e9307528-6f0e-451c-830a-0580bd9c73a2'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:when':'2020-03-03T21:20:25Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-03-04T10:04:59Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 9.6.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c'}"
+                                    ]
+                                ],
+                                "photoshop:Source": "Richard Austin",
+                                "xmpMM:InstanceID": "xmp.iid:f013e587-41b4-4496-a7c8-5be3c1495b5c"
+                            },
+                            "icc": {
+                                "Chromatic Adaptation": "sf32 (0x73663332): 44 bytes",
+                                "Profile Size": "3140",
+                                "Media White Point": "(0.9642, 1, 0.8249)",
+                                "Device model": "Z009",
+                                "Red Colorant": "(0.436, 0.2224, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Version": "2.4.0",
+                                "Tag Count": "14",
+                                "Profile Description": "sRGB v1.31 (Canon)",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "CANO",
+                                "Device Mfg Description": "Canon Inc.",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7139)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "UCCM",
+                                "Class": "Display Device",
+                                "Profile Date/Time": "2003:04:04 00:00:00",
+                                "Device Model Description": "sRGB v1.31 (Canon)",
+                                "Profile Copyright": "Copyright (c) 2003, Canon Inc.  All rights reserved.",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Richard Austin\nTel: 07831 566005",
+                            "credit": "Richard Austin",
+                            "byline": "Richard Austin",
+                            "copyright": "© Richard Austin",
+                            "source": "Richard Austin",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-03-03T14:54:13.820Z",
+                            "description": "Its that time of year again, early spring and the birds and wildlife in general are getting into the reproduction mood especially the swans at the Abbotsbury Swannery in Dorset. \nThis week will see the staff putting out bundles of reeds for the swans to build their nests.\nThe swan numbers are around 700 but will thin out a little as some swans nest elsewhere away from the colony.\nThe swans are looking in first  class condition and the male swans (Cob) are becoming territorial leading to violent bouts of fighting for the females (Pen) and space around their chosen nesting site. \nAbbotsbury Swannery is the only managed colony of nesting mute swans in the world. It is situated near the village of Abbotsbury in Dorset, where the Fleet Lagoon is protected from the weather of Lyme Bay by Chesil Beach (The longest Peeble beach in the world). \nThe colony can number over 600 swans with around 150 nesting pairs. \nWritten records of the swannery's existence go back to 1393 but it probably existed well before that, and is believed to have been set up by Benedictine Monks in the eleventh century.\n© Richard Austin\nTel: 07831 566005",
+                            "credit": "Richard Austin",
+                            "byline": "Richard Austin",
+                            "copyright": "© Richard Austin",
+                            "source": "Richard Austin",
+                            "keywords": [
+                                "richardaustinimages.com"
+                            ],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:55:06.059+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "aa22008a915bf22184136ac94a3553977a8921bc",
+                    "_score": 1,
+                    "_source": {
+                        "id": "aa22008a915bf22184136ac94a3553977a8921bc",
+                        "uploadTime": "2019-01-24T16:21:51.712Z",
+                        "uploadedBy": "karin.andreasson@guardian.co.uk",
+                        "lastModified": "2019-01-25T11:23:46.597Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "GettyImages-143581630.jpg"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/a/a/2/2/0/0/aa22008a915bf22184136ac94a3553977a8921bc",
+                            "size": 5698095,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 5200,
+                                "height": 3454
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/a/a/2/2/0/0/aa22008a915bf22184136ac94a3553977a8921bc",
+                            "size": 10107,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 170
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "By-line Title": "Contributor",
+                                "Country/Primary Location Name": "United Kingdom",
+                                "Country/Primary Location Code": "GBR",
+                                "Copyright Notice": "Gary Tack Moral Rights Asserted",
+                                "Credit": "Getty Images",
+                                "Source": "Oxford Scientific RM",
+                                "City": "Preston",
+                                "Keywords": "Blackbird,Songbird,Animal,",
+                                "By-line": "Gary Tack",
+                                "Special Instructions": "Not Released (NR)",
+                                "Headline": "Blackbird in winter English garden",
+                                "Province/State": "Lancashire",
+                                "Object Name": "143581630",
+                                "Date Created": "2012:02:15"
+                            },
+                            "exif": {
+                                "Date/Time Digitized": "2012-02-15T00:00:00.000Z",
+                                "Copyright": "Gary Tack Moral Rights Asserted",
+                                "Orientation": "Top, left side (Horizontal / normal)"
+                            },
+                            "exifSub": {},
+                            "xmp": {
+                                "GettyImagesGIFT:ImageRank": "3",
+                                "photoshop:CopyrightFlag": "true",
+                                "photoshop:Headline": "Blackbird in winter English garden",
+                                "photoshop:Instructions": "Not Released (NR)",
+                                "photoshop:AuthorsPosition": "Contributor",
+                                "dc:subject": [
+                                    "Blackbird",
+                                    "Songbird",
+                                    "Animal"
+                                ],
+                                "photoshop:URL": "http://www.gettyimages.com",
+                                "photoshop:City": "Preston",
+                                "photoshop:DateCreated": "2012-02-15T00:00:00.000Z",
+                                "photoshop:Credit": "Getty Images",
+                                "photoshop:State": "Lancashire",
+                                "plus:LicsensorURL": "http://www.gettyimages.com",
+                                "dc:Rights": "Gary Tack Moral Rights Asserted",
+                                "dc:creator": [
+                                    "Gary Tack"
+                                ],
+                                "dc:title": [
+                                    "143581630",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "GettyImagesGIFT:Dlref": "WKdcV+rIBAMIAwr1jFqQgg==",
+                                "Iptc4xmpCore:CountryCode": "GBR",
+                                "photoshop:Country": "United Kingdom",
+                                "photoshop:Source": "Oxford Scientific RM",
+                                "GettyImagesGIFT:AssetID": "143581630"
+                            },
+                            "icc": {
+                                "Profile Size": "560",
+                                "Media White Point": "(0.9505, 1, 1.0891)",
+                                "Red Colorant": "(0.6097, 0.3111, 0.0195)",
+                                "Blue TRC": "0.0085908",
+                                "Version": "2.1.0",
+                                "Tag Count": "10",
+                                "Profile Description": "Adobe RGB (1998)",
+                                "Green Colorant": "(0.2053, 0.6257, 0.0609)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "none",
+                                "Green TRC": "0.0085908",
+                                "Red TRC": "0.0085908",
+                                "Blue Colorant": "(0.1492, 0.0632, 0.7446)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Apple Computer, Inc.",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "ADBE",
+                                "Rendering Intent": "Media-Relative Colorimetric",
+                                "Class": "Display Device",
+                                "Media Black Point": "(0, 0, 0)",
+                                "Profile Date/Time": "1999:06:03 00:00:00",
+                                "Profile Copyright": "Copyright 1999 Adobe Systems Incorporated"
+                            },
+                            "getty": {
+                                "Image Rank": "3",
+                                "Asset ID": "143581630"
+                            },
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [],
+                            "metadata": {
+                                "description": "GettyImages-143581630"
+                            },
+                            "lastModified": "2019-01-25T11:23:46.597Z"
+                        },
+                        "metadata": {
+                            "dateTaken": "2012-02-15T00:00:00.000Z",
+                            "description": "GettyImages-143581630",
+                            "credit": "Getty Images",
+                            "byline": "Gary Tack",
+                            "bylineTitle": "Contributor",
+                            "title": "Blackbird in winter English garden",
+                            "copyright": "Gary Tack Moral Rights Asserted",
+                            "suppliersReference": "143581630",
+                            "source": "Oxford Scientific RM",
+                            "specialInstructions": "Not Released (NR)",
+                            "keywords": [
+                                "Blackbird",
+                                "Songbird",
+                                "Animal"
+                            ],
+                            "city": "Preston",
+                            "state": "Lancashire",
+                            "country": "United Kingdom",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2012-02-15T00:00:00.000Z",
+                            "credit": "Getty Images",
+                            "byline": "Gary Tack",
+                            "bylineTitle": "Contributor",
+                            "title": "Blackbird in winter English garden",
+                            "copyright": "Gary Tack Moral Rights Asserted",
+                            "suppliersReference": "143581630",
+                            "source": "Oxford Scientific RM",
+                            "specialInstructions": "Not Released (NR)",
+                            "keywords": [
+                                "Blackbird",
+                                "Songbird",
+                                "Animal"
+                            ],
+                            "city": "Preston",
+                            "state": "Lancashire",
+                            "country": "United Kingdom",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "agency",
+                            "supplier": "Getty Images",
+                            "suppliersCollection": "Oxford Scientific RM"
+                        },
+                        "originalUsageRights": {
+                            "category": "agency",
+                            "supplier": "Getty Images",
+                            "suppliersCollection": "Oxford Scientific RM"
+                        },
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2019-01-25T11:23:46.597Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "02aa01b0ad57aa2794a5765dab3010d53387e677",
+                    "_score": 1,
+                    "_source": {
+                        "id": "02aa01b0ad57aa2794a5765dab3010d53387e677",
+                        "uploadTime": "2020-03-04T07:23:14.490Z",
+                        "uploadedBy": "stingray",
+                        "lastModified": "2020-03-04T10:47:49.175Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "PHT_China_Medicinal_herb_Plant_5.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/0/2/a/a/0/1/02aa01b0ad57aa2794a5765dab3010d53387e677",
+                            "size": 2609472,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 3000,
+                                "height": 1902
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/0/2/a/a/0/1/02aa01b0ad57aa2794a5765dab3010d53387e677",
+                            "size": 22684,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 162
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Country/Primary Location Name": "CHINA",
+                                "Category": "MAC",
+                                "Country/Primary Location Code": "CHN",
+                                "Copyright Notice": "Avalon.red. All rights reserved.",
+                                "Supplemental Category(s)": "Macro economics",
+                                "Application Record Version": "2",
+                                "Caption/Abstract": "(200304) -- MIANXIAN, March 4, 2020 (Xinhua) -- Aerial photo taken on March 3, 2020 shows villagers planting Ophiopogon japonicus, a traditional Chinese medicinal (TCM) herb, in the fields of Chunfeng Village in Mianxian County, northwest China's Shaanxi Province.\r\n  Since 2018, the Chunfeng Village of Mianxian County has tried planting Ophiopogon japonicus, a TCM herb newly introduced into the village, and made a success. The village then established professional planting and processing cooperatives to extend its production chain of the TCM herb. \r\n  Up till now, a 400 mu (about 26.7 hectares) standardized Ophiopogon japonicus breeding and planting base has been set up here with an annual output value of more than 7.2 million yuan (about 1 million U.S. dollars), creating jobs for local villagers and at the same time helping them increase their incomes. (Xinhua/Tao Ming)",
+                                "Credit": "Avalon.red",
+                                "Source": "Avalon.red",
+                                "City": "MIANXIAN",
+                                "Keywords": "cn;PHT_WIRE;Sent to UK Press on 04.03.2020 at 07:21:40",
+                                "By-line": "Tao Ming/Avalon.red",
+                                "Urgency": "53",
+                                "Special Instructions": "Supplied by AVALON - Fee Payable Upon Reproduction - For queries contact Avalon  - sales@avalon.red  London: +44 (0) 20 7421 6000  Los Angeles: +1 (310) 822 0419",
+                                "Headline": "China Medicinal herb Planting",
+                                "Date Created": "2020:03:03"
+                            },
+                            "exif": {},
+                            "exifSub": {},
+                            "xmp": {},
+                            "icc": {
+                                "Profile Size": "3144",
+                                "Media White Point": "(0.9505, 1, 1.0891)",
+                                "Device model": "sRGB",
+                                "Red Colorant": "(0.4361, 0.2225, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Viewing Conditions Description": "Reference Viewing Condition in IEC61966-2.1",
+                                "Luminance": "(76.0365, 80, 87.1246)",
+                                "Viewing Conditions": "view (0x76696577): 36 bytes",
+                                "Version": "2.1.0",
+                                "Tag Count": "17",
+                                "Profile Description": "sRGB IEC61966-2.1",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "IEC",
+                                "Device Mfg Description": "IEC http://www.iec.ch",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7141)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "Lino",
+                                "Class": "Display Device",
+                                "Measurement": "1931 2° Observer, Backing (0, 0, 0), Geometry Unknown, Flare 1%, Illuminant D65",
+                                "Media Black Point": "(0, 0, 0)",
+                                "Profile Date/Time": "1998:02:09 06:49:00",
+                                "Device Model Description": "IEC 61966-2.1 Default RGB colour space - sRGB",
+                                "Profile Copyright": "Copyright (c) 1998 Hewlett-Packard Company",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "description": "(200304) -- MIANXIAN, March 4, 2020 (Xinhua) -- Aerial photo taken on March 3, 2020 shows villagers planting Ophiopogon japonicus, a traditional Chinese medicinal (TCM) herb, in the fields of Chunfeng Village in Mianxian County, northwest China's Shaanxi Province.\r\n  Since 2018, the Chunfeng Village of Mianxian County has tried planting Ophiopogon japonicus, a TCM herb newly introduced into the village, and made a success. The village then established professional planting and processing cooperatives to extend its production chain of the TCM herb. \r\n  Up till now, a 400 mu (about 26.7 hectares) standardized Ophiopogon japonicus breeding and planting base has been set up here with an annual output value of more than 7.2 million yuan (about 1 million U.S. dollars), creating jobs for local villagers and at the same time helping them increase their incomes. (Xinhua/Tao Ming)",
+                            "credit": "Avalon.red",
+                            "byline": "Tao Ming",
+                            "title": "China Medicinal herb Planting",
+                            "copyright": "Avalon.red. All rights reserved.",
+                            "source": "Avalon.red",
+                            "specialInstructions": "Supplied by AVALON - Fee Payable Upon Reproduction - For queries contact Avalon  - sales@avalon.red  London: +44 (0) 20 7421 6000  Los Angeles: +1 (310) 822 0419",
+                            "keywords": [
+                                "cn",
+                                "PHT_WIRE",
+                                "Sent to UK Press on 04.03.2020 at 07:21:40"
+                            ],
+                            "city": "Mianxian",
+                            "country": "China",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "description": "(200304) -- MIANXIAN, March 4, 2020 (Xinhua) -- Aerial photo taken on March 3, 2020 shows villagers planting Ophiopogon japonicus, a traditional Chinese medicinal (TCM) herb, in the fields of Chunfeng Village in Mianxian County, northwest China's Shaanxi Province.\r\n  Since 2018, the Chunfeng Village of Mianxian County has tried planting Ophiopogon japonicus, a TCM herb newly introduced into the village, and made a success. The village then established professional planting and processing cooperatives to extend its production chain of the TCM herb. \r\n  Up till now, a 400 mu (about 26.7 hectares) standardized Ophiopogon japonicus breeding and planting base has been set up here with an annual output value of more than 7.2 million yuan (about 1 million U.S. dollars), creating jobs for local villagers and at the same time helping them increase their incomes. (Xinhua/Tao Ming)",
+                            "credit": "Avalon.red",
+                            "byline": "Tao Ming",
+                            "title": "China Medicinal herb Planting",
+                            "copyright": "Avalon.red. All rights reserved.",
+                            "source": "Avalon.red",
+                            "specialInstructions": "Supplied by AVALON - Fee Payable Upon Reproduction - For queries contact Avalon  - sales@avalon.red  London: +44 (0) 20 7421 6000  Los Angeles: +1 (310) 822 0419",
+                            "keywords": [
+                                "cn",
+                                "PHT_WIRE",
+                                "Sent to UK Press on 04.03.2020 at 07:21:40"
+                            ],
+                            "city": "Mianxian",
+                            "country": "China",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit foreign"
+                                ],
+                                "pathId": "daily edit/daily edit foreign",
+                                "description": "Daily edit foreign",
+                                "actionData": {
+                                    "author": "paul.bellsham@guardian.co.uk",
+                                    "date": "2020-03-04T10:47:49.175+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-03-04T10:47:49.175Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "dafbac97097c9438bd3cbad8d7a04d2eaadee25e",
+                    "_score": 1,
+                    "_source": {
+                        "id": "dafbac97097c9438bd3cbad8d7a04d2eaadee25e",
+                        "uploadTime": "2015-06-17T12:59:31.000Z",
+                        "uploadedBy": "Picdar Export",
+                        "lastModified": "2015-06-17T23:00:00.000Z",
+                        "identifiers": {
+                            "picdarurn": "GD*53549404"
+                        },
+                        "uploadInfo": {},
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/d/a/f/b/a/c/dafbac97097c9438bd3cbad8d7a04d2eaadee25e",
+                            "size": 808161,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 1661,
+                                "height": 2403
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/d/a/f/b/a/c/dafbac97097c9438bd3cbad8d7a04d2eaadee25e",
+                            "size": 13890,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 177,
+                                "height": 256
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {},
+                            "exif": {
+                                "Subject Distance Range": "Macro",
+                                "Rating": "0",
+                                "Exposure Mode": "Auto exposure",
+                                "Custom Rendered": "Normal process",
+                                "Make": "EASTMAN KODAK COMPANY",
+                                "White Balance Mode": "Manual white balance",
+                                "YCbCr Positioning": "Center of pixel array",
+                                "Gain Control": "Low gain down",
+                                "Date/Time": "2011:01:07 12:03:59",
+                                "Model": "KODAK EASYSHARE Z915 DIGITAL CAMERA",
+                                "Sharpness": "None",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Digital Zoom Ratio": "Digital zoom not used",
+                                "Resolution Unit": "Inch",
+                                "Focal Length 35": "35 mm",
+                                "Contrast": "None",
+                                "Scene Capture Type": "Standard",
+                                "Saturation": "None"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.21",
+                                "ISO Speed Ratings": "400",
+                                "Exif Image Height": "2736 pixels",
+                                "Flash": "Flash did not fire",
+                                "Related Sound File": "RelatedSound",
+                                "White Balance": "Daylight",
+                                "Focal Length": "6.2 mm",
+                                "Date/Time Original": "2011:01:07 12:04:00",
+                                "Shutter Speed Value": "1/20 sec",
+                                "Exif Image Width": "3648 pixels",
+                                "Sensing Method": "One-chip color area sensor",
+                                "Scene Type": "Directly photographed image",
+                                "Sub-Sec Time Original": "59",
+                                "Brightness Value": "1.0",
+                                "Makernote": "[40960 values]",
+                                "Exposure Time": "0.05 sec",
+                                "Metering Mode": "Center weighted average",
+                                "Exposure Program": "Program normal",
+                                "Exposure Bias Value": "0 EV",
+                                "F-Number": "f/3.5",
+                                "Color Space": "sRGB",
+                                "FlashPix Version": "1.00",
+                                "Exposure Index": "400",
+                                "Components Configuration": "YCbCr",
+                                "Date/Time Digitized": "2011:01:07 12:04:00",
+                                "Date/Time Original Composite": "2011-01-07T12:04:00.590Z",
+                                "Aperture Value": "f/3.4",
+                                "File Source": "Digital Still Camera (DSC)",
+                                "Max Aperture Value": "f/3.5"
+                            },
+                            "xmp": {},
+                            "icc": {},
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [],
+                            "metadata": {
+                                "description": "Daphne Du Maurier - Rebecca"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2011-01-07T12:04:00.590Z",
+                            "description": "Daphne Du Maurier - Rebecca",
+                            "keywords": [],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2011-01-07T12:04:00.590Z",
+                            "keywords": [],
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [
+                            {
+                                "id": "print/b01ff63186ac8b771d8d589227c5a3c9_140a9429c07583239faf0c7e4b1e256d",
+                                "references": [
+                                    {
+                                        "type": "indesign",
+                                        "name": "2015-06-17, The Guardian, g2f, Page 2"
+                                    }
+                                ],
+                                "platform": "print",
+                                "media": "image",
+                                "status": "published",
+                                "dateAdded": "2015-06-17T23:00:00.000Z",
+                                "lastModified": "2015-06-17T23:00:00.000Z",
+                                "printUsageMetadata": {
+                                    "sectionName": "g2f",
+                                    "issueDate": "2015-06-17T23:00:00.000Z",
+                                    "pageNumber": 2,
+                                    "storyName": "scMWkatemo_02_g2f_0618_002",
+                                    "publicationCode": "gdn",
+                                    "publicationName": "The Guardian",
+                                    "edition": 1,
+                                    "sectionCode": "g2f",
+                                    "notes": "Andrew Stocks",
+                                    "source": "picdar"
+                                }
+                            }
+                        ],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2015-06-17T23:00:00.000Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "ad61e5bee9ceb7e47350d1380ee6c6d7500ebe52",
+                    "_score": 1,
+                    "_source": {
+                        "id": "ad61e5bee9ceb7e47350d1380ee6c6d7500ebe52",
+                        "uploadTime": "2015-07-28T15:10:22.000Z",
+                        "uploadedBy": "DEV Ingest Script",
+                        "lastModified": "2014-01-07T05:01:26.000Z",
+                        "identifiers": {
+                            "picdarurn": "GD*40548955"
+                        },
+                        "uploadInfo": {},
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/a/d/6/1/e/5/ad61e5bee9ceb7e47350d1380ee6c6d7500ebe52",
+                            "size": 1653855,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 4928,
+                                "height": 3280
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/a/d/6/1/e/5/ad61e5bee9ceb7e47350d1380ee6c6d7500ebe52",
+                            "size": 41245,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 170
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Country/Primary Location Name": "England",
+                                "Copyright Notice": "Lucy Young",
+                                "Application Record Version": "3",
+                                "Caption/Abstract": "Rear sun deck on board a Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel. The eight-cabin vessel has sleeping quarters for 15 people and boasts nine bathrooms, including one with a Jacuzzi. There are five bars and seven fridges Ð including four specialist wine coolers and three ice makers. The Sunseeker is the costliest vessel on display at the London Boat Show, which opens tomorrow and runs until January 12.\rBy Lucy Young \r07799118984\rlucyyounguk@gmail.com\r\rwww.lucyyoungphotos.co.uk",
+                                "Credit": "Lucy Young",
+                                "City": "London",
+                                "Time Created": "12:43:54+0000",
+                                "By-line": "Lucy Young",
+                                "Special Instructions": "From: Lucy Young <lucyyounguk@gmail.com>",
+                                "Headline": "A Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel.",
+                                "Date Time Created Composite": "2014-01-02T12:43:54.000Z",
+                                "Date Created": "2014:01:02"
+                            },
+                            "exif": {
+                                "X Resolution": "300 dots per inch",
+                                "Software": "Adobe Photoshop CS6 (Macintosh)",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "NIKON CORPORATION",
+                                "Image Width": "4928 pixels",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "Lucy Young",
+                                "Date/Time": "2014:01:02 20:18:33",
+                                "Model": "NIKON D4",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "300 dots per inch",
+                                "Artist": "Lucy Young",
+                                "Image Height": "3280 pixels"
+                            },
+                            "exifSub": {
+                                "CFA Pattern": "[Red,Green][Green,Blue]",
+                                "Exif Version": "2.21",
+                                "Subject Distance Range": "Unknown",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "400",
+                                "Lens Specification": "14-24mm f/2.8",
+                                "Body Serial Number": "2055843",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "3280 pixels",
+                                "Flash": "Flash did not fire",
+                                "White Balance": "Unknown",
+                                "Focal Length": "14 mm",
+                                "Date/Time Original": "2014:01:02 12:43:54",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/499 sec",
+                                "Exif Image Width": "4928 pixels",
+                                "Gain Control": "Low gain up",
+                                "Sensing Method": "One-chip color area sensor",
+                                "Scene Type": "Directly photographed image",
+                                "Focal Plane Y Resolution": "32768/4485575 unknown (4)",
+                                "Sub-Sec Time Original": "10",
+                                "Exposure Time": "1/500 sec",
+                                "Sharpness": "None",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Digital Zoom Ratio": "1",
+                                "Exposure Bias Value": "0 EV",
+                                "F-Number": "f/9.0",
+                                "Color Space": "Undefined",
+                                "Sub-Sec Time": "10",
+                                "Lens Model": "14.0-24.0 mm f/2.8",
+                                "Focal Length 35": "14 mm",
+                                "Date/Time Digitized": "2014:01:02 12:43:54",
+                                "Date/Time Original Composite": "2014-01-02T12:43:54.100Z",
+                                "Aperture Value": "f/9.0",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Contrast": "None",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Unknown (4)",
+                                "File Source": "Digital Still Camera (DSC)",
+                                "Sub-Sec Time Digitized": "10",
+                                "Focal Plane X Resolution": "32768/4485575 unknown (4)",
+                                "Saturation": "None",
+                                "Max Aperture Value": "f/2.8"
+                            },
+                            "xmp": {
+                                "crs:ParametricDarks": "0",
+                                "dc:format": "image/jpeg",
+                                "crs:DefringeGreenHueLo": "40",
+                                "crs:SaturationAdjustmentPurple": "0",
+                                "crs:HasSettings": "True",
+                                "crs:GreenHue": "0",
+                                "photoshop:ColorMode": "3",
+                                "dc:description": [
+                                    "Rear sun deck on board a Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel. The eight-cabin vessel has sleeping quarters for 15 people and boasts nine bathrooms, including one with a Jacuzzi. There are five bars and seven fridges – including four specialist wine coolers and three ice makers. The Sunseeker is the costliest vessel on display at the London Boat Show, which opens tomorrow and runs until January 12.\nBy Lucy Young \n07799118984\nlucyyounguk@gmail.com\n\nwww.lucyyoungphotos.co.uk",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:SaturationAdjustmentAqua": "0",
+                                "crs:UprightVersion": "134217728",
+                                "crs:SharpenDetail": "25",
+                                "crs:GrainAmount": "0",
+                                "xmp:MetadataDate": "2014-01-02T20:18:33.000Z",
+                                "crs:CameraProfile": "Adobe Standard",
+                                "crs:WhiteBalance": "As Shot",
+                                "crs:ColorNoiseReductionDetail": "50",
+                                "crs:Blacks2012": "0",
+                                "crs:SaturationAdjustmentBlue": "0",
+                                "xmpMM:DerivedFrom": [
+                                    "{'stRef:instanceID':'xmp.iid:F63F7CEC112068118083C60981F28C85'}",
+                                    "{'stRef:documentID':'xmp.did:bfa36716-faee-4eb2-9e22-02910f56286a'}",
+                                    "{'stRef:originalDocumentID':'4CC35D0B77263D9E2D74FAAEEEB7E101'}"
+                                ],
+                                "crs:UprightPreview": "False",
+                                "aux:ImageNumber": "19408",
+                                "crs:SplitToningShadowSaturation": "0",
+                                "crs:SplitToningShadowHue": "0",
+                                "photoshop:Headline": "A Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel.",
+                                "crs:ParametricHighlightSplit": "75",
+                                "crs:PerspectiveRotate": "0.0",
+                                "crs:PerspectiveUpright": "0",
+                                "photoshop:ICCProfile": "Adobe RGB (1998)",
+                                "crs:DefringePurpleHueLo": "30",
+                                "crs:ToneCurveName2012": "Linear",
+                                "crs:ToneCurvePV2012": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:HueAdjustmentPurple": "0",
+                                "crs:VignetteAmount": "0",
+                                "crs:Exposure2012": "-0.25",
+                                "crs:ParametricShadowSplit": "25",
+                                "crs:LuminanceAdjustmentAqua": "0",
+                                "crs:LuminanceAdjustmentPurple": "0",
+                                "photomechanic:PMVersion": "PM5",
+                                "crs:SplitToningBalance": "0",
+                                "crs:SaturationAdjustmentMagenta": "0",
+                                "crs:Sharpness": "25",
+                                "crs:HueAdjustmentAqua": "0",
+                                "crs:BlueHue": "0",
+                                "crs:DefringeGreenHueHi": "60",
+                                "crs:SaturationAdjustmentOrange": "0",
+                                "crs:HueAdjustmentYellow": "0",
+                                "crs:SplitToningHighlightHue": "0",
+                                "crs:PerspectiveScale": "100",
+                                "crs:HueAdjustmentGreen": "0",
+                                "photomechanic:Prefs": "0:3:0:019408",
+                                "crs:Temperature": "5050",
+                                "crs:ConvertToGrayscale": "False",
+                                "crs:RawFileName": "DSC_9706.NEF",
+                                "crs:ParametricLights": "0",
+                                "aux:Lens": "14.0-24.0 mm f/2.8",
+                                "crs:UprightFocalMode": "0",
+                                "photomechanic:Tagged": "False",
+                                "crs:ToneCurvePV2012Green": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:ParametricHighlights": "0",
+                                "crs:SharpenEdgeMasking": "0",
+                                "crs:SaturationAdjustmentRed": "0",
+                                "crs:Whites2012": "0",
+                                "crs:Clarity2012": "+14",
+                                "crs:UprightFocalLength35mm": "35",
+                                "xmp:ModifyDate": "2014-01-02T20:18:33.000Z",
+                                "crs:UprightTransformCount": "0",
+                                "crs:UprightCenterNormX": "0.5",
+                                "photoshop:City": "London",
+                                "xmpMM:OriginalDocumentID": "4CC35D0B77263D9E2D74FAAEEEB7E101",
+                                "xmp:Rating": "0",
+                                "crs:ToneCurvePV2012Blue": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:LuminanceAdjustmentRed": "0",
+                                "crs:DefringeGreenAmount": "0",
+                                "crs:PerspectiveVertical": "0",
+                                "crs:HueAdjustmentBlue": "0",
+                                "crs:LensManualDistortionAmount": "0",
+                                "crs:AutoLateralCA": "0",
+                                "crs:LuminanceSmoothing": "0",
+                                "crs:CameraProfileDigest": "939B4E1427152B8FC65E6BBE46CF1813",
+                                "crs:Contrast2012": "0",
+                                "photoshop:DateCreated": "2014-01-02T12:43:54.000Z",
+                                "photoshop:Credit": "Lucy Young",
+                                "crs:SaturationAdjustmentYellow": "0",
+                                "xmp:CreateDate": "2014-01-02T12:43:54.000Z",
+                                "crs:LensProfileSetup": "LensDefaults",
+                                "crs:Shadows2012": "0",
+                                "crs:UprightCenterMode": "0",
+                                "crs:LensProfileEnable": "0",
+                                "aux:LensID": "146",
+                                "aux:ApproximateFocusDistance": "4294967295/1",
+                                "crs:Tint": "-1",
+                                "crs:ParametricMidtoneSplit": "50",
+                                "crs:PerspectiveHorizontal": "0",
+                                "crs:ShadowTint": "0",
+                                "crs:UprightCenterNormY": "0.5",
+                                "dc:rights": [
+                                    "Lucy Young",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:HueAdjustmentMagenta": "0",
+                                "xmp:CreatorTool": "Adobe Photoshop CS6 (Macintosh)",
+                                "aux:LensInfo": "140/10 240/10 28/10 28/10",
+                                "crs:LuminanceAdjustmentMagenta": "0",
+                                "photoshop:LegacyIPTCDigest": "F9B58E32E365BE2D442491E7BA5AEE2F",
+                                "photomechanic:ColorClass": "3",
+                                "crs:BlueSaturation": "0",
+                                "crs:LuminanceAdjustmentYellow": "0",
+                                "crs:AlreadyApplied": "True",
+                                "crs:DefringePurpleHueHi": "70",
+                                "crs:PostCropVignetteAmount": "0",
+                                "xmp:Label": "Superior",
+                                "xmpMM:DocumentID": "xmp.did:bfa36716-faee-4eb2-9e22-02910f56286a",
+                                "crs:PerspectiveAspect": "0",
+                                "crs:LuminanceAdjustmentGreen": "0",
+                                "crs:RedSaturation": "0",
+                                "xmpRights:Marked": "True",
+                                "crs:SaturationAdjustmentGreen": "0",
+                                "dc:creator": [
+                                    "Lucy Young"
+                                ],
+                                "crs:LuminanceAdjustmentOrange": "0",
+                                "crs:Version": "8.1",
+                                "crs:ToneCurvePV2012Red": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'www.lucyyoungphotos.co.uk'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'lucyyounguk@gmail.com'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'England'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'+44 (0)7799118984'}"
+                                ],
+                                "crs:ParametricShadows": "0",
+                                "crs:HueAdjustmentRed": "0",
+                                "crs:GreenSaturation": "0",
+                                "crs:RedHue": "0",
+                                "crs:SplitToningHighlightSaturation": "0",
+                                "aux:SerialNumber": "2055843",
+                                "crs:DefringePurpleAmount": "0",
+                                "crs:Saturation": "+17",
+                                "crs:HueAdjustmentOrange": "0",
+                                "crs:LuminanceAdjustmentBlue": "0",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 8.1 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2014-01-02T15:37:39Z'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:8f376438-551e-40c7-8867-759ff1c1e0c8'}"
+                                    ],
+                                    [
+                                        "{'stEvt:parameters':'converted from image/x-nikon-nef to image/tiff'}",
+                                        "{'stEvt:action':'derived'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2014-01-02T15:39:41Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 8.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:bfa36716-faee-4eb2-9e22-02910f56286a'}"
+                                    ],
+                                    [
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:F63F7CEC112068118083C60981F28C85'}",
+                                        "{'stEvt:when':'2014-01-02T15:41:22Z'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CS6 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}"
+                                    ],
+                                    [
+                                        "{'stEvt:parameters':'from image/tiff to image/jpeg'}",
+                                        "{'stEvt:action':'converted'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'derived'}",
+                                        "{'stEvt:parameters':'converted from image/tiff to image/jpeg'}"
+                                    ],
+                                    [
+                                        "{'stEvt:instanceID':'xmp.iid:F73F7CEC112068118083C60981F28C85'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CS6 (Macintosh)'}",
+                                        "{'stEvt:when':'2014-01-02T15:41:22Z'}"
+                                    ],
+                                    [
+                                        "{'stEvt:when':'2014-01-02T20:18:33Z'}",
+                                        "{'stEvt:instanceID':'xmp.iid:1D7ECFD70A2068118C1496C090CBA674'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CS6 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}"
+                                    ]
+                                ],
+                                "crs:Highlights2012": "0",
+                                "photoshop:Country": "England",
+                                "crs:ProcessVersion": "6.7",
+                                "crs:Vibrance": "+14",
+                                "crs:SharpenRadius": "+1.0",
+                                "xmpMM:InstanceID": "xmp.iid:1D7ECFD70A2068118C1496C090CBA674",
+                                "crs:ColorNoiseReduction": "25"
+                            },
+                            "icc": {
+                                "Profile Size": "560",
+                                "Media White Point": "(0.9505, 1, 1.0891)",
+                                "Red Colorant": "(0.6097, 0.3111, 0.0195)",
+                                "Blue TRC": "0.0085908",
+                                "Version": "2.1.0",
+                                "Tag Count": "10",
+                                "Profile Description": "Adobe RGB (1998)",
+                                "Green Colorant": "(0.2053, 0.6257, 0.0609)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "none",
+                                "Green TRC": "0.0085908",
+                                "Red TRC": "0.0085908",
+                                "Blue Colorant": "(0.1492, 0.0632, 0.7446)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Apple Computer, Inc.",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "ADBE",
+                                "Class": "Display Device",
+                                "Media Black Point": "(0, 0, 0)",
+                                "Profile Date/Time": "1999:06:03 00:00:00",
+                                "Profile Copyright": "Copyright 1999 Adobe Systems Incorporated"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [],
+                            "metadata": {
+                                "description": "Rear sun deck on board a Sunseeker 115 Sport Super Yacht, which has a starting price of  11.5 million exc tax. arrives for The London Boat Show at ExCel. The eight-cabin vessel has sleeping quarters for 15 people and boasts nine bathrooms, including one with a Jacuzzi. There are five bars and seven fridges   including four specialist wine coolers and three ice makers. The Sunseeker is the costliest vessel on display at the London Boat Show, which opens tomorrow and runs until January 12.\nBy Lucy Young \n07799118984\nlucyyounguk@gmail.com\nwww.lucyyoungphotos.co.uk",
+                                "title": "A Sunseeker 115 Sport Super Yacht, which has a starting price of  11.5 million exc tax. arrives for The London Boat Show at ExCel."
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2014-01-02T12:43:54.100Z",
+                            "description": "Rear sun deck on board a Sunseeker 115 Sport Super Yacht, which has a starting price of  11.5 million exc tax. arrives for The London Boat Show at ExCel. The eight-cabin vessel has sleeping quarters for 15 people and boasts nine bathrooms, including one with a Jacuzzi. There are five bars and seven fridges   including four specialist wine coolers and three ice makers. The Sunseeker is the costliest vessel on display at the London Boat Show, which opens tomorrow and runs until January 12.\nBy Lucy Young \n07799118984\nlucyyounguk@gmail.com\nwww.lucyyoungphotos.co.uk",
+                            "credit": "Lucy Young",
+                            "byline": "Lucy Young",
+                            "title": "A Sunseeker 115 Sport Super Yacht, which has a starting price of  11.5 million exc tax. arrives for The London Boat Show at ExCel.",
+                            "copyright": "Lucy Young",
+                            "specialInstructions": "From: Lucy Young <lucyyounguk@gmail.com>",
+                            "keywords": [],
+                            "city": "London",
+                            "country": "England",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2014-01-02T12:43:54.100Z",
+                            "description": "Rear sun deck on board a Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel. The eight-cabin vessel has sleeping quarters for 15 people and boasts nine bathrooms, including one with a Jacuzzi. There are five bars and seven fridges – including four specialist wine coolers and three ice makers. The Sunseeker is the costliest vessel on display at the London Boat Show, which opens tomorrow and runs until January 12.\nBy Lucy Young \n07799118984\nlucyyounguk@gmail.com\n\nwww.lucyyoungphotos.co.uk",
+                            "credit": "Lucy Young",
+                            "byline": "Lucy Young",
+                            "title": "A Sunseeker 115 Sport Super Yacht, which has a starting price of £11.5 million exc tax. arrives for The London Boat Show at ExCel.",
+                            "copyright": "Lucy Young",
+                            "specialInstructions": "From: Lucy Young <lucyyounguk@gmail.com>",
+                            "keywords": [],
+                            "city": "London",
+                            "country": "England",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [
+                            {
+                                "id": "print/90dab991a7b8d6dc95066ea91694c9e0_26d733c73fae0793858104574cc9df69",
+                                "references": [
+                                    {
+                                        "type": "indesign",
+                                        "name": "2014-01-07, The Guardian, frt, Page 3"
+                                    }
+                                ],
+                                "platform": "print",
+                                "media": "image",
+                                "status": "published",
+                                "dateAdded": "2014-01-07T05:01:26.000Z",
+                                "lastModified": "2014-01-07T05:01:26.000Z",
+                                "printUsageMetadata": {
+                                    "sectionName": "frt",
+                                    "issueDate": "2014-01-07T00:00:00.000Z",
+                                    "pageNumber": 3,
+                                    "storyName": "yachts_04_frt_0107_003",
+                                    "publicationCode": "gdn",
+                                    "publicationName": "The Guardian",
+                                    "edition": 1,
+                                    "sectionCode": "frt",
+                                    "notes": "Martin Nicholls",
+                                    "source": "picdar"
+                                }
+                            }
+                        ],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2014-01-07T05:01:26.000Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "1a5b08c19cd3a68ac496c46bdd761f8dc05313aa",
+                    "_score": 1,
+                    "_source": {
+                        "id": "1a5b08c19cd3a68ac496c46bdd761f8dc05313aa",
+                        "uploadTime": "2020-01-23T15:10:16.577Z",
+                        "uploadedBy": "getty",
+                        "lastModified": "2020-06-06T14:14:16.513Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "1195421274.jpg"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/1/a/5/b/0/8/1a5b08c19cd3a68ac496c46bdd761f8dc05313aa",
+                            "size": 5413118,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 5472,
+                                "height": 3648
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/1/a/5/b/0/8/1a5b08c19cd3a68ac496c46bdd761f8dc05313aa",
+                            "size": 15062,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 171
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "By-line Title": "Contributor",
+                                "Country/Primary Location Name": "Russia",
+                                "Category": "I",
+                                "Country/Primary Location Code": "RUS",
+                                "Supplemental Category(s)": "FIN",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "YEKATERINABURG, RUSSIA - JANUARY 23, 2020: The image shows blister packs of capsules of the antiviral medicine Triazavirin in an organic synthesis lab in the Centre for Pharmaceutical and Chemical Technologies at the Ural Federal University (UrFU); UrFU researchers have proposed using Triazavirin against the new strain of coronavirus in China given the fact that Triazavirin is effective against RNA viruses, to which the new virus belongs. Donat Sorokin/TASS (Photo by Donat Sorokin\\TASS via Getty Images)",
+                                "Enveloped Record Version": "4",
+                                "Credit": "Donat Sorokin/TASS",
+                                "Source": "TASS",
+                                "City": "Yekaterinburg",
+                                "Keywords": "medicine;coronavirus;drug;healthcare;corona virus;wuhan virus;china virus;urfu;ural federal university;treatment;remedy",
+                                "By-line": "Donat Sorokin",
+                                "Urgency": "51",
+                                "Special Instructions": "0",
+                                "Headline": "Ural Federal University researchers propose using Triazavirin against China coronavirus",
+                                "Object Name": "1195421274",
+                                "Caption Writer/Editor": "DF",
+                                "Original Transmission Reference": "1195421274",
+                                "Date Created": "20200123T00:00:00Z"
+                            },
+                            "exif": {
+                                "Image Description": "YEKATERINABURG, RUSSIA - JANUARY 23, 2020: The image shows blister packs of capsules of the antiviral medicine Triazavirin in an organic synthesis lab in the Centre for Pharmaceutical and Chemical Technologies at the Ural Federal University (UrFU); UrFU researchers have proposed using Triazavirin against the new strain of coronavirus in China given the fact that Triazavirin is effective against RNA viruses, to which the new virus belongs. Donat Sorokin/TASS (Photo by Donat Sorokin\\TASS via Getty Images)"
+                            },
+                            "exifSub": {},
+                            "xmp": {
+                                "GettyImagesGIFT:ImageRank": "3",
+                                "GettyImagesGIFT:OriginalFilename": "ts0cb425.jpg",
+                                "dc:description": [
+                                    "YEKATERINABURG, RUSSIA - JANUARY 23, 2020: The image shows blister packs of capsules of the antiviral medicine Triazavirin in an organic synthesis lab in the Centre for Pharmaceutical and Chemical Technologies at the Ural Federal University (UrFU); UrFU researchers have proposed using Triazavirin against the new strain of coronavirus in China given the fact that Triazavirin is effective against RNA viruses, to which the new virus belongs. Donat Sorokin/TASS (Photo by Donat Sorokin\\TASS via Getty Images)",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "photoshop:Headline": "Ural Federal University researchers propose using Triazavirin against China coronavirus",
+                                "photoshop:TransmissionReference": "0",
+                                "photoshop:Instructions": "0",
+                                "photoshop:AuthorsPosition": "Contributor",
+                                "dc:subject": [
+                                    "medicine",
+                                    "coronavirus",
+                                    "drug",
+                                    "healthcare",
+                                    "corona virus",
+                                    "wuhan virus",
+                                    "china virus",
+                                    "urfu",
+                                    "ural federal university",
+                                    "treatment",
+                                    "remedy"
+                                ],
+                                "photoshop:CaptionWriter": "DF",
+                                "photoshop:SupplementalCategories": [
+                                    "FIN"
+                                ],
+                                "plus:ImageSupplierImageId": "ts0cb425",
+                                "photoshop:City": "Yekaterinburg",
+                                "GettyImagesGIFT:ExclusiveCoverage": "False",
+                                "photoshop:DateCreated": "2020-01-23T00:00:00.000Z",
+                                "photoshop:Credit": "Donat Sorokin/TASS",
+                                "plus:LicsensorURL": "http://www.gettyimages.com",
+                                "GettyImagesGIFT:OriginalCreateDateTime": "1970-01-01T00:00:02.000Z",
+                                "dc:creator": [
+                                    "Donat Sorokin"
+                                ],
+                                "GettyImagesGIFT:AssetId": "1195421274",
+                                "dc:title": [
+                                    "1195421274",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "Iptc4xmpCore:CountryCode": "RUS",
+                                "GettyImagesGIFT:CallForImage": "False",
+                                "photoshop:Country": "Russia",
+                                "photoshop:Source": "TASS",
+                                "photoshop:Category": "I"
+                            },
+                            "icc": {},
+                            "getty": {
+                                "Call For Image": "False",
+                                "Image Rank": "3",
+                                "Asset ID": "1195421274",
+                                "Original Filename": "ts0cb425.jpg",
+                                "Exclusive Coverage": "False",
+                                "Original Create Date Time": "1970-01-01T00:00:02.000Z"
+                            },
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-01-23T00:00:00.000Z",
+                            "description": "YEKATERINABURG, RUSSIA - JANUARY 23, 2020: The image shows blister packs of capsules of the antiviral medicine Triazavirin in an organic synthesis lab in the Centre for Pharmaceutical and Chemical Technologies at the Ural Federal University (UrFU); UrFU researchers have proposed using Triazavirin against the new strain of coronavirus in China given the fact that Triazavirin is effective against RNA viruses, to which the new virus belongs. Donat Sorokin/TASS (Photo by Donat Sorokin\\TASS via Getty Images)",
+                            "credit": "TASS",
+                            "byline": "Donat Sorokin",
+                            "bylineTitle": "Contributor",
+                            "title": "Ural Federal University researchers propose using Triazavirin against China coronavirus",
+                            "suppliersReference": "1195421274",
+                            "source": "TASS",
+                            "specialInstructions": "0",
+                            "keywords": [
+                                "ural federal university",
+                                "treatment",
+                                "remedy",
+                                "coronavirus",
+                                "china virus",
+                                "medicine",
+                                "corona virus",
+                                "healthcare",
+                                "urfu",
+                                "drug",
+                                "wuhan virus"
+                            ],
+                            "city": "Yekaterinburg",
+                            "country": "Russia",
+                            "subjects": [
+                                "finance",
+                                "news"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-01-23T00:00:00.000Z",
+                            "description": "YEKATERINABURG, RUSSIA - JANUARY 23, 2020: The image shows blister packs of capsules of the antiviral medicine Triazavirin in an organic synthesis lab in the Centre for Pharmaceutical and Chemical Technologies at the Ural Federal University (UrFU); UrFU researchers have proposed using Triazavirin against the new strain of coronavirus in China given the fact that Triazavirin is effective against RNA viruses, to which the new virus belongs. Donat Sorokin/TASS (Photo by Donat Sorokin\\TASS via Getty Images)",
+                            "credit": "TASS",
+                            "byline": "Donat Sorokin",
+                            "bylineTitle": "Contributor",
+                            "title": "Ural Federal University researchers propose using Triazavirin against China coronavirus",
+                            "suppliersReference": "1195421274",
+                            "source": "TASS",
+                            "specialInstructions": "0",
+                            "keywords": [
+                                "ural federal university",
+                                "treatment",
+                                "remedy",
+                                "coronavirus",
+                                "china virus",
+                                "medicine",
+                                "corona virus",
+                                "healthcare",
+                                "urfu",
+                                "drug",
+                                "wuhan virus"
+                            ],
+                            "city": "Yekaterinburg",
+                            "country": "Russia",
+                            "subjects": [
+                                "finance",
+                                "news"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "agency",
+                            "supplier": "Getty Images",
+                            "suppliersCollection": "TASS"
+                        },
+                        "originalUsageRights": {
+                            "category": "agency",
+                            "supplier": "Getty Images",
+                            "suppliersCollection": "TASS"
+                        },
+                        "exports": [],
+                        "usages": [
+                            {
+                                "id": "print/1ac0407e35d79a4b71bf9cb05d7da3e8_106ebc81cf0cde3c657607647b34fc93",
+                                "references": [
+                                    {
+                                        "type": "indesign",
+                                        "name": "2020-06-07, Observer, UK News (Observer), Page 13"
+                                    }
+                                ],
+                                "platform": "print",
+                                "media": "image",
+                                "status": "pending",
+                                "dateAdded": "2020-06-06T14:14:16.513Z",
+                                "lastModified": "2020-06-06T14:14:16.513Z",
+                                "printUsageMetadata": {
+                                    "sectionName": "UK News (Observer)",
+                                    "issueDate": "2020-06-07T00:00:00.000Z",
+                                    "pageNumber": 13,
+                                    "storyName": "HOMRMCovid7",
+                                    "publicationCode": "obs",
+                                    "publicationName": "Observer",
+                                    "layoutId": 15284077,
+                                    "edition": 1,
+                                    "size": {
+                                        "x": 240,
+                                        "y": 240
+                                    },
+                                    "orderedBy": "Liz Boulter",
+                                    "sectionCode": "2hn"
+                                }
+                            }
+                        ],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2020-06-06T14:14:16.513Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "ea763a169dd6574c6ac1ccaf3443d363e011533f",
+                    "_score": 1,
+                    "_source": {
+                        "id": "ea763a169dd6574c6ac1ccaf3443d363e011533f",
+                        "uploadTime": "2015-07-26T14:50:49.000Z",
+                        "uploadedBy": "DEV Ingest Script",
+                        "lastModified": "2006-03-31T23:00:00.000Z",
+                        "identifiers": {
+                            "picdarurn": "PD*9095009"
+                        },
+                        "uploadInfo": {},
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/e/a/7/6/3/a/ea763a169dd6574c6ac1ccaf3443d363e011533f",
+                            "size": 495188,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 2482,
+                                "height": 1793
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/e/a/7/6/3/a/ea763a169dd6574c6ac1ccaf3443d363e011533f",
+                            "size": 27755,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 185
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Country/Primary Location Name": "United Kingdom",
+                                "Category": "S",
+                                "Supplemental Category(s)": "Rugby Union",
+                                "Application Record Version": "2",
+                                "Caption/Abstract": "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\rNewcastle Falcons' Toby Flood prepears to take a penalty\rMandatory Credit: Action Images / Lee Smith\rLivepic",
+                                "Credit": "Action Images",
+                                "Source": "Action Images",
+                                "City": "Newcastle",
+                                "Keywords": "2006",
+                                "By-line": "Lee Smith",
+                                "Special Instructions": "01",
+                                "Caption Writer/Editor": "tp",
+                                "Original Transmission Reference": "GCLY-6LBGXV",
+                                "Date Created": "2006:03:31"
+                            },
+                            "exif": {
+                                "Image Description": "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\rNewcastle Falcons' Toby Flood prepears to take a penalty\rMandatory Credit: Action Images / Lee Smith\rLivepic",
+                                "Primary Chromaticities": "64/100 33/100 21/100 71/100 15/100 6/100",
+                                "X Resolution": "72 dots per inch",
+                                "Software": "Adobe Photoshop 7.0",
+                                "Make": "Canon",
+                                "YCbCr Coefficients": "299/1000 587/1000 114/1000",
+                                "YCbCr Positioning": "Datum point",
+                                "Date/Time": "2006:03:31 20:44:35",
+                                "Model": "Canon EOS-1D Mark II",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "White Point": "313/1000 329/1000",
+                                "Resolution Unit": "Inch",
+                                "Y Resolution": "72 dots per inch",
+                                "Artist": "Lee Smith"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.21",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "3200",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "1793 pixels",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "300 mm",
+                                "Date/Time Original": "2006:03:31 19:04:17",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/511 sec",
+                                "Exif Image Width": "2482 pixels",
+                                "Focal Plane Y Resolution": "189/585500 inches",
+                                "Exposure Time": "1/500 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Gamma": "2.2",
+                                "Exposure Bias Value": "1/3 EV",
+                                "F-Number": "f/2.8",
+                                "Color Space": "Undefined",
+                                "FlashPix Version": "1.00",
+                                "Components Configuration": "YCbCr",
+                                "Date/Time Digitized": "2006:03:31 19:04:17",
+                                "Date/Time Original Composite": "2006-03-31T19:04:17.000Z",
+                                "Aperture Value": "f/2.8",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "Inches",
+                                "Focal Plane X Resolution": "71/220000 inches"
+                            },
+                            "xmp": {
+                                "dc:description": [
+                                    "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\rNewcastle Falcons' Toby Flood prepears to take a penalty\rMandatory Credit: Action Images / Lee Smith\rLivepic",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "photoshop:TransmissionReference": "GCLY-6LBGXV",
+                                "photoshop:Instructions": "01",
+                                "dc:subject": [
+                                    "2006"
+                                ],
+                                "photoshop:CaptionWriter": "tp",
+                                "photoshop:SupplementalCategories": [
+                                    "Rugby Union"
+                                ],
+                                "photoshop:City": "Newcastle",
+                                "photoshop:DateCreated": "2006-03-31T00:00:00.000Z",
+                                "photoshop:Credit": "Action Images",
+                                "xmpMM:DocumentID": "adobe:docid:photoshop:bb6e8fa1-c0e8-11da-8611-8b5221e90d2f",
+                                "xmpRights:Marked": "True",
+                                "dc:creator": [
+                                    "Lee Smith"
+                                ],
+                                "photoshop:Country": "United Kingdom",
+                                "photoshop:Source": "Action Images",
+                                "photoshop:Category": "S",
+                                "xmpMM:InstanceID": "uuid:e3938d28-c0ed-11da-81f9-cc201dca07e4"
+                            },
+                            "icc": {},
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [],
+                            "metadata": {
+                                "description": "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\nNewcastle Falcons' Toby Flood prepears to take a penalty\nMandatory Credit: Action Images / Lee Smith\nLivepic"
+                            },
+                            "usageRights": {
+                                "category": "agency",
+                                "supplier": "Corbis"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2006-03-31T19:04:17.000Z",
+                            "description": "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\nNewcastle Falcons' Toby Flood prepears to take a penalty\nMandatory Credit: Action Images / Lee Smith\nLivepic",
+                            "credit": "Action Images/Reuters",
+                            "byline": "Lee Smith",
+                            "suppliersReference": "GCLY-6LBGXV",
+                            "source": "Action Images",
+                            "specialInstructions": "01",
+                            "keywords": [
+                                "2006"
+                            ],
+                            "city": "Newcastle",
+                            "country": "United Kingdom",
+                            "subjects": [
+                                "sport"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2006-03-31T19:04:17.000Z",
+                            "description": "Rugby Union - Newcastle Falcons v Connacht - European Challenge Cup Quarter Final - Kingston Park - 31/3/06\rNewcastle Falcons' Toby Flood prepears to take a penalty\rMandatory Credit: Action Images / Lee Smith\rLivepic",
+                            "credit": "Action Images/Reuters",
+                            "byline": "Lee Smith",
+                            "suppliersReference": "GCLY-6LBGXV",
+                            "source": "Action Images",
+                            "specialInstructions": "01",
+                            "keywords": [
+                                "2006"
+                            ],
+                            "city": "Newcastle",
+                            "country": "United Kingdom",
+                            "subjects": [
+                                "sport"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "agency",
+                            "supplier": "Corbis"
+                        },
+                        "originalUsageRights": {
+                            "category": "agency",
+                            "supplier": "Action Images"
+                        },
+                        "exports": [],
+                        "usages": [
+                            {
+                                "id": "print/e02f7633cbd760e61a9f1c4cbef78699_d6848c99a477f095de6dab5660465049",
+                                "references": [
+                                    {
+                                        "type": "indesign",
+                                        "name": "2006-03-31, The Guardian, Guardian Sport, Page 10"
+                                    }
+                                ],
+                                "platform": "print",
+                                "media": "image",
+                                "status": "published",
+                                "dateAdded": "2006-03-31T23:00:00.000Z",
+                                "lastModified": "2006-03-31T23:00:00.000Z",
+                                "printUsageMetadata": {
+                                    "sectionName": "Guardian Sport",
+                                    "issueDate": "2006-03-31T23:00:00.000Z",
+                                    "pageNumber": 10,
+                                    "storyName": "flood01",
+                                    "publicationCode": "gdn",
+                                    "publicationName": "The Guardian",
+                                    "sectionCode": "Guardian Sport",
+                                    "notes": "45mm wide",
+                                    "source": "picdar"
+                                }
+                            }
+                        ],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2006-03-31T23:00:00.000Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "82c4d17a78148cc7ab4006d5a1d8ddbf9810da72",
+                    "_score": 1,
+                    "_source": {
+                        "id": "82c4d17a78148cc7ab4006d5a1d8ddbf9810da72",
+                        "uploadTime": "2020-06-12T14:51:12.323Z",
+                        "uploadedBy": "stingray",
+                        "lastModified": "2020-06-12T15:04:11.817Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "pxl_churchill_mandela_statues_westminster_001.JPG"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/8/2/c/4/d/1/82c4d17a78148cc7ab4006d5a1d8ddbf9810da72",
+                            "size": 6411306,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 6720,
+                                "height": 4480
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/8/2/c/4/d/1/82c4d17a78148cc7ab4006d5a1d8ddbf9810da72",
+                            "size": 20696,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 171
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "Country/Primary Location Name": "United Kingdom",
+                                "Country/Primary Location Code": "GBR",
+                                "Copyright Notice": "Gavin Rodgers/ Pixel8000",
+                                "Application Record Version": "3",
+                                "Caption/Abstract": "Pic shows: What would Mandela do?\n\nNelson Mandela statue appears to be either removing of placing the box on Winston Churchills statue in Parliament Square today\n\nafter it was actually covered Sadiq Khan ordered the council to cover the memorial due to Black Lives Matter protests\n\n\n\n\npicture by Gavin Rodgers/ Pixel8000",
+                                "Credit": "gavin rodgers/pixel8000",
+                                "City": "London",
+                                "Digital Date Created": "2020:06:12",
+                                "Keywords": "Sadiq Khan, statue, Nelson Mandela, Westminster, Parliament Square, London, protests, race relations",
+                                "Time Created": "14:01:30+0100",
+                                "By-line": "gavin rodgers/pixel8000",
+                                "Urgency": "49",
+                                "Date Time Created Composite": "2020-06-12T13:01:30.000Z",
+                                "Date Created": "2020:06:12"
+                            },
+                            "exif": {
+                                "X Resolution": "300 dots per inch",
+                                "Software": "PhotoShelter http://www.photoshelter.com",
+                                "Make": "Canon",
+                                "Date/Time": "2020:06:12 15:39:59",
+                                "Model": "Canon EOS 5D Mark IV",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Y Resolution": "300 dots per inch"
+                            },
+                            "exifSub": {
+                                "Exif Version": "2.30",
+                                "Exposure Mode": "Auto exposure",
+                                "ISO Speed Ratings": "640",
+                                "Lens Specification": "100-400mm",
+                                "Body Serial Number": "018021000814",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "4480 pixels",
+                                "Lens Serial Number": "9720000826",
+                                "Flash": "Flash did not fire",
+                                "Focal Length": "110 mm",
+                                "Date/Time Original": "2020:06:12 14:01:30",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/499 sec",
+                                "Exif Image Width": "6720 pixels",
+                                "Focal Plane Y Resolution": "32768/61166933 cm",
+                                "Sub-Sec Time Original": "16",
+                                "Exposure Time": "1/500 sec",
+                                "Metering Mode": "Multi-segment",
+                                "Exposure Program": "Shutter priority",
+                                "Exposure Bias Value": "0 EV",
+                                "F-Number": "f/5.0",
+                                "Color Space": "Undefined",
+                                "Sub-Sec Time": "16",
+                                "Lens Model": "EF100-400mm f/4.5-5.6L IS II USM",
+                                "Date/Time Digitized": "2020:06:12 14:01:30",
+                                "Recommended Exposure Index": "640",
+                                "Date/Time Original Composite": "2020-06-12T14:01:30.160Z",
+                                "Aperture Value": "f/5.0",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "cm",
+                                "Sub-Sec Time Digitized": "16",
+                                "Focal Plane X Resolution": "32768/61166933 cm",
+                                "Max Aperture Value": "f/4.6"
+                            },
+                            "xmp": {
+                                "crs:ParametricDarks": "0",
+                                "dc:format": "image/jpeg",
+                                "crs:DefringeGreenHueLo": "40",
+                                "crs:SaturationAdjustmentPurple": "0",
+                                "crs:HasSettings": "True",
+                                "crs:GreenHue": "0",
+                                "photoshop:ColorMode": "3",
+                                "dc:description": [
+                                    "Pic shows: What would Mandela do?\n\nNelson Mandela statue appears to be either removing of placing the box on Winston Churchill’s statue in Parliament Square today\n\nafter it was actually covered Sadiq Khan ordered the council to cover the memorial due to Black Lives Matter protests\n\n\n\n\npicture by Gavin Rodgers/ Pixel8000",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:SaturationAdjustmentAqua": "0",
+                                "crs:UprightVersion": "151388160",
+                                "crs:SharpenDetail": "25",
+                                "crs:GrainAmount": "0",
+                                "xmp:MetadataDate": "2020-06-12T14:39:59.000Z",
+                                "crs:CameraProfile": "Adobe Standard",
+                                "aux:LensSerialNumber": "9720000826",
+                                "crs:WhiteBalance": "As Shot",
+                                "crs:ToneCurveRed": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:ColorNoiseReductionDetail": "50",
+                                "crs:Blacks2012": "-33",
+                                "crs:SaturationAdjustmentBlue": "0",
+                                "xmpMM:DerivedFrom": [
+                                    "{'stRef:instanceID':'xmp.iid:5eb5ca6f-073b-4823-a9e6-f689444584d7'}",
+                                    "{'stRef:documentID':'xmp.did:c2407944-aa6a-45df-9cd6-e408cba2e9e9'}",
+                                    "{'stRef:originalDocumentID':'E83BCB4532750F9B267DF41F7CC37811'}"
+                                ],
+                                "crs:UprightPreview": "False",
+                                "crs:ToneCurveName": "Medium Contrast",
+                                "aux:ImageNumber": "6280",
+                                "dc:date": [
+                                    "2020-06-12T14:01:30.000Z"
+                                ],
+                                "crs:SplitToningShadowSaturation": "0",
+                                "crs:SplitToningShadowHue": "0",
+                                "crs:ParametricHighlightSplit": "75",
+                                "crs:PerspectiveRotate": "0.0",
+                                "crs:PerspectiveUpright": "0",
+                                "photoshop:ICCProfile": "Adobe RGB (1998)",
+                                "crs:PerspectiveX": "0.00",
+                                "crs:DefringePurpleHueLo": "30",
+                                "crs:ToneCurveName2012": "Linear",
+                                "crs:ToneCurvePV2012": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:HueAdjustmentPurple": "0",
+                                "crs:VignetteAmount": "0",
+                                "crs:Exposure2012": "+0.25",
+                                "crs:ParametricShadowSplit": "25",
+                                "crs:LuminanceAdjustmentAqua": "0",
+                                "crs:LuminanceAdjustmentPurple": "0",
+                                "photomechanic:PMVersion": "PM6",
+                                "crs:SplitToningBalance": "0",
+                                "crs:SaturationAdjustmentMagenta": "0",
+                                "crs:Sharpness": "40",
+                                "crs:HueAdjustmentAqua": "0",
+                                "dc:subject": [
+                                    "Sadiq Khan, statue, Nelson Mandela, Westminster, Parliament Square, London, protests, race relations"
+                                ],
+                                "crs:ColorNoiseReductionSmoothness": "50",
+                                "crs:BlueHue": "0",
+                                "crs:DefringeGreenHueHi": "60",
+                                "crs:SaturationAdjustmentOrange": "0",
+                                "crs:HueAdjustmentYellow": "0",
+                                "crs:SplitToningHighlightHue": "0",
+                                "crs:PerspectiveScale": "100",
+                                "crs:HueAdjustmentGreen": "0",
+                                "aux:FlashCompensation": "0/1",
+                                "photomechanic:Prefs": "0:1:0:006280",
+                                "crs:Temperature": "5200",
+                                "crs:ConvertToGrayscale": "False",
+                                "crs:ParametricLights": "0",
+                                "aux:Lens": "EF100-400mm f/4.5-5.6L IS II USM",
+                                "crs:UprightFocalMode": "0",
+                                "photomechanic:Tagged": "False",
+                                "crs:ToneCurvePV2012Green": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:ParametricHighlights": "0",
+                                "crs:OverrideLookVignette": "False",
+                                "crs:SharpenEdgeMasking": "0",
+                                "crs:ToneCurve": [
+                                    "0, 0",
+                                    "32, 22",
+                                    "64, 56",
+                                    "128, 128",
+                                    "192, 196",
+                                    "255, 255"
+                                ],
+                                "crs:SaturationAdjustmentRed": "0",
+                                "crs:Whites2012": "+46",
+                                "crs:Clarity2012": "+14",
+                                "crs:UprightFocalLength35mm": "35",
+                                "xmp:ModifyDate": "2020-06-12T14:39:59.000Z",
+                                "crs:UprightTransformCount": "6",
+                                "crs:UprightCenterNormX": "0.5",
+                                "photoshop:City": "London",
+                                "xmpMM:OriginalDocumentID": "E83BCB4532750F9B267DF41F7CC37811",
+                                "xmp:Rating": "0",
+                                "crs:AutoToneDigestNoSat": "06984843E46C78312DAF35D2B764C928",
+                                "crs:ToneCurvePV2012Blue": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:Look": [
+                                    "{'crs:Parameters':['{'crs:ToneCurvePV2012Blue':['0, 0','255, 255']}','{'crs:ToneCurvePV2012Red':['0, 0','255, 255']}','{'crs:ToneCurvePV2012':['0, 0','22, 16','40, 35','127, 127','224, 230','240, 246','255, 255']}','{'crs:ToneCurvePV2012Green':['0, 0','255, 255']}']}",
+                                    "{'crs:Group':['Profiles']}",
+                                    "{'crs:Parameters':['{'crs:LookTable':'E1095149FDB39D7A057BAB208837E2E1'}','{'crs:CameraProfile':'Adobe Standard'}','{'crs:ConvertToGrayscale':'False'}','{'crs:Version':'12.2.1'}','{'crs:ProcessVersion':'11.0'}']}",
+                                    "{'crs:SupportsMonochrome':'false'}",
+                                    "{'crs:UUID':'B952C231111CD8E0ECCF14B86BAA7077'}",
+                                    "{'crs:Amount':'1.000000'}",
+                                    "{'crs:SupportsOutputReferred':'false'}",
+                                    "{'crs:SupportsAmount':'false'}",
+                                    "{'crs:Copyright':'© 2018 Adobe Systems, Inc.'}",
+                                    "{'crs:Name':'Adobe Color'}",
+                                    "{'crs:Group':[['{'xml:lang':'x-default'}']]}"
+                                ],
+                                "crs:LuminanceAdjustmentRed": "0",
+                                "crs:DefringeGreenAmount": "0",
+                                "crs:PerspectiveVertical": "0",
+                                "crs:HueAdjustmentBlue": "0",
+                                "crs:PerspectiveY": "0.00",
+                                "crs:LensManualDistortionAmount": "0",
+                                "crs:AutoLateralCA": "0",
+                                "crs:LuminanceSmoothing": "0",
+                                "crs:CameraProfileDigest": "661433344C8532AFA5A1E9091401E43C",
+                                "crs:Contrast2012": "+17",
+                                "photoshop:DateCreated": "2020-06-12T14:01:30.000Z",
+                                "photoshop:Credit": "gavin rodgers/pixel8000",
+                                "crs:SaturationAdjustmentYellow": "0",
+                                "xmp:CreateDate": "2020-06-12T14:01:30.000Z",
+                                "crs:LensProfileSetup": "LensDefaults",
+                                "crs:Shadows2012": "+45",
+                                "crs:UprightCenterMode": "0",
+                                "crs:LensProfileEnable": "0",
+                                "aux:LensID": "747",
+                                "aux:ApproximateFocusDistance": "192/10",
+                                "crs:Tint": "+6",
+                                "crs:ParametricMidtoneSplit": "50",
+                                "crs:PerspectiveHorizontal": "0",
+                                "crs:ShadowTint": "0",
+                                "crs:UprightCenterNormY": "0.5",
+                                "dc:rights": [
+                                    "Gavin Rodgers/ Pixel8000",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:HueAdjustmentMagenta": "0",
+                                "crs:AutoToneDigest": "47AB1A2F4B28A8F46A86BB6CA1E72290",
+                                "aux:LensInfo": "100/1 400/1 0/0 0/0",
+                                "crs:ToneCurveBlue": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:LuminanceAdjustmentMagenta": "0",
+                                "crs:ToneCurveGreen": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "photomechanic:ColorClass": "1",
+                                "crs:BlueSaturation": "0",
+                                "crs:LuminanceAdjustmentYellow": "0",
+                                "crs:AlreadyApplied": "True",
+                                "crs:DefringePurpleHueHi": "70",
+                                "crs:PostCropVignetteAmount": "0",
+                                "xmp:Label": "Winner",
+                                "xmpMM:DocumentID": "adobe:docid:photoshop:e34c6534-8d64-9842-81e1-3a10bd6f8fae",
+                                "crs:PerspectiveAspect": "0",
+                                "crs:LuminanceAdjustmentGreen": "0",
+                                "crs:Dehaze": "+4",
+                                "crs:RedSaturation": "0",
+                                "xmpRights:Marked": "True",
+                                "crs:SaturationAdjustmentGreen": "0",
+                                "exifEX:LensModel": "EF100-400mm f/4.5-5.6L IS II USM",
+                                "photoshop:Urgency": "1",
+                                "dc:creator": [
+                                    "gavin rodgers/pixel8000"
+                                ],
+                                "crs:LuminanceAdjustmentOrange": "0",
+                                "crs:Version": "12.2.1",
+                                "crs:ToneCurvePV2012Red": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:Texture": "0",
+                                "crs:ToneMapStrength": "0",
+                                "crs:UprightFourSegmentsCount": "0",
+                                "crs:ParametricShadows": "0",
+                                "crs:HueAdjustmentRed": "0",
+                                "aux:Firmware": "1.0.1",
+                                "crs:GreenSaturation": "0",
+                                "crs:RedHue": "0",
+                                "crs:SplitToningHighlightSaturation": "0",
+                                "aux:SerialNumber": "018021000814",
+                                "crs:DefringePurpleAmount": "0",
+                                "crs:Saturation": "+2",
+                                "crs:HueAdjustmentOrange": "0",
+                                "crs:LuminanceAdjustmentBlue": "0",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 12.2.1 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-06-12T15:38:35+01:00'}",
+                                        "{'stEvt:changed':'/metadata'}",
+                                        "{'stEvt:instanceID':'xmp.iid:940c3657-87c0-44a2-81e0-0a01312ff71e'}"
+                                    ],
+                                    [
+                                        "{'stEvt:parameters':'converted from image/x-canon-cr2 to image/tiff'}",
+                                        "{'stEvt:action':'derived'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-06-12T15:38:36+01:00'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Camera Raw 12.2.1 (Macintosh)'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:c2407944-aa6a-45df-9cd6-e408cba2e9e9'}"
+                                    ],
+                                    [
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:5eb5ca6f-073b-4823-a9e6-f689444584d7'}",
+                                        "{'stEvt:when':'2020-06-12T15:39:59+01:00'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop 21.1 (Macintosh)'}",
+                                        "{'stEvt:action':'saved'}"
+                                    ],
+                                    [
+                                        "{'stEvt:parameters':'from image/tiff to image/jpeg'}",
+                                        "{'stEvt:action':'converted'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'derived'}",
+                                        "{'stEvt:parameters':'converted from image/tiff to image/jpeg'}"
+                                    ],
+                                    [
+                                        "{'stEvt:instanceID':'xmp.iid:7789b156-9aaf-4034-b0d3-9ba1356bb1d1'}",
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop 21.1 (Macintosh)'}",
+                                        "{'stEvt:when':'2020-06-12T15:39:59+01:00'}"
+                                    ]
+                                ],
+                                "Iptc4xmpCore:CountryCode": "GBR",
+                                "crs:Highlights2012": "-64",
+                                "photoshop:Country": "United Kingdom",
+                                "crs:ProcessVersion": "11.0",
+                                "crs:Vibrance": "+15",
+                                "crs:SharpenRadius": "+1.0",
+                                "xmpMM:InstanceID": "xmp.iid:7789b156-9aaf-4034-b0d3-9ba1356bb1d1",
+                                "crs:ColorNoiseReduction": "25"
+                            },
+                            "icc": {
+                                "Profile Size": "560",
+                                "Media White Point": "(0.9505, 1, 1.0891)",
+                                "Red Colorant": "(0.6097, 0.3111, 0.0195)",
+                                "Blue TRC": "0.0085908",
+                                "Version": "2.1.0",
+                                "Tag Count": "10",
+                                "Profile Description": "Adobe RGB (1998)",
+                                "Green Colorant": "(0.2053, 0.6257, 0.0609)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "none",
+                                "Green TRC": "0.0085908",
+                                "Red TRC": "0.0085908",
+                                "Blue Colorant": "(0.1492, 0.0632, 0.7446)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Apple Computer, Inc.",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "ADBE",
+                                "Class": "Display Device",
+                                "Media Black Point": "(0, 0, 0)",
+                                "Profile Date/Time": "1999:06:03 00:00:00",
+                                "Profile Copyright": "Copyright 1999 Adobe Systems Incorporated"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "metadata": {
+                            "dateTaken": "2020-06-12T14:01:30.160Z",
+                            "description": "Pic shows: What would Mandela do?\n\nNelson Mandela statue appears to be either removing of placing the box on Winston Churchill’s statue in Parliament Square today\n\nafter it was actually covered Sadiq Khan ordered the council to cover the memorial due to Black Lives Matter protests\n\n\n\n\npicture by Gavin Rodgers/ Pixel8000",
+                            "credit": "pixel8000",
+                            "byline": "Gavin Rodgers",
+                            "copyright": "Gavin Rodgers/ Pixel8000",
+                            "keywords": [
+                                "Sadiq Khan, statue, Nelson Mandela, Westminster, Parliament Square, London, protests, race relations"
+                            ],
+                            "city": "London",
+                            "country": "United Kingdom",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2020-06-12T14:01:30.160Z",
+                            "description": "Pic shows: What would Mandela do?\n\nNelson Mandela statue appears to be either removing of placing the box on Winston Churchill’s statue in Parliament Square today\n\nafter it was actually covered Sadiq Khan ordered the council to cover the memorial due to Black Lives Matter protests\n\n\n\n\npicture by Gavin Rodgers/ Pixel8000",
+                            "credit": "pixel8000",
+                            "byline": "Gavin Rodgers",
+                            "copyright": "Gavin Rodgers/ Pixel8000",
+                            "keywords": [
+                                "Sadiq Khan, statue, Nelson Mandela, Westminster, Parliament Square, London, protests, race relations"
+                            ],
+                            "city": "London",
+                            "country": "United Kingdom",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [
+                            {
+                                "path": [
+                                    "Daily Edit",
+                                    "Daily edit home"
+                                ],
+                                "pathId": "daily edit/daily edit home",
+                                "description": "Daily edit home",
+                                "actionData": {
+                                    "author": "fiona.shields@guardian.co.uk",
+                                    "date": "2020-06-12T15:04:11.817+00:00"
+                                }
+                            }
+                        ],
+                        "userMetadataLastModified": "2020-06-12T15:04:11.817Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "119960415d35d0f29d86b1513266296535b4d636",
+                    "_score": 1,
+                    "_source": {
+                        "id": "119960415d35d0f29d86b1513266296535b4d636",
+                        "uploadTime": "2020-02-24T09:02:54.358Z",
+                        "uploadedBy": "guy.lane@guardian.co.uk",
+                        "lastModified": "2020-02-24T09:08:18.715Z",
+                        "identifiers": {},
+                        "uploadInfo": {
+                            "filename": "_9DS9316.jpg"
+                        },
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/1/1/9/9/6/0/119960415d35d0f29d86b1513266296535b4d636",
+                            "size": 8349532,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 4788,
+                                "height": 3196
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/1/1/9/9/6/0/119960415d35d0f29d86b1513266296535b4d636",
+                            "size": 9913,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 256,
+                                "height": 171
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "By-line Title": "photographer",
+                                "Country/Primary Location Name": "spain",
+                                "Country/Primary Location Code": "ESP",
+                                "Copyright Notice": "Didier Bizet",
+                                "Coded Character Set": "UTF-8",
+                                "Application Record Version": "4",
+                                "Caption/Abstract": "Azaraya, one of Alicia Jiménez’s reborns. It is a model of the famous kit designer Bonnie Braun that Alicia has redesigned. Kits are purchased at the factory or directly through some kit creators. A kit sold includes a head, a bust, legs and arms that reborn artists assemble and paint. Valencia April 2019.\rAzaraya, un des reborns d’Alicia Jiménez. C’est un modèle de la célèbre créatrice de kits Bonnie Braun qu’Alicia a reborné. Les kits sont achetés en usine ou directement via certains créateurs de kits. Un kit vendu rassemble une tête, un buste, des jambes et bras que les reborn artists assemblent et peignent. Valencia avril 2019.",
+                                "Credit": "Didier Bizet",
+                                "Source": "hans lucas",
+                                "City": "Valencia",
+                                "Digital Date Created": "2019:04:27",
+                                "Keywords": "reborn;reborn doll;reborn dolls;dolls;baby;bebes;nouveau ne;new born;doll;poupee;phenomene;phenomenon;realism;hyper-realistic;reborn artist;mother;parents;mère;parents;fabrication;reborn workshop;silicon;reborn silicon",
+                                "Time Created": "19:46:03+0000",
+                                "By-line": "Didier Bizet",
+                                "Object Name": "baby boom",
+                                "Date Time Created Composite": "2019-04-27T19:46:03.000Z",
+                                "Caption Writer/Editor": "photographer",
+                                "Original Transmission Reference": "babyboom_bizet",
+                                "Date Created": "2019:04:27"
+                            },
+                            "exif": {
+                                "Image Description": "Azaraya, one of Alicia Jiménez’s reborns. It is a model of the famous kit designer Bonnie Braun that Alicia has redesigned. Kits are purchased at the factory or directly through some kit creators. A kit sold includes a head, a bust, legs and arms that reborn artists assemble and paint. Valencia April 2019.\rAzaraya, un des reborns d’Alicia Jiménez. C’est un modèle de la célèbre créatrice de kits Bonnie Braun qu’Alicia a reborné. Les kits sont achetés en usine ou directement via certains créateurs de kits. Un kit vendu rassemble une tête, un buste, des jambes et bras que les reborn artists assemblent et peignent. Valencia avril 2019.",
+                                "X Resolution": "300 dots per inch",
+                                "Software": "Adobe Photoshop CC 2019 (Macintosh)",
+                                "Photometric Interpretation": "RGB",
+                                "Make": "NIKON CORPORATION",
+                                "Image Width": "4788 pixels",
+                                "Samples Per Pixel": "3 samples/pixel",
+                                "Copyright": "Didier Bizet",
+                                "Date/Time": "2020:01:02 17:46:06",
+                                "Model": "NIKON D750",
+                                "Orientation": "Top, left side (Horizontal / normal)",
+                                "Resolution Unit": "Inch",
+                                "Bits Per Sample": "8 8 8 bits/component/pixel",
+                                "Y Resolution": "300 dots per inch",
+                                "Artist": "Didier Bizet",
+                                "Image Height": "3196 pixels"
+                            },
+                            "exifSub": {
+                                "CFA Pattern": "[Red,Green][Green,Blue]",
+                                "Exif Version": "2.31",
+                                "Subject Distance Range": "Unknown",
+                                "Exposure Mode": "Manual exposure",
+                                "ISO Speed Ratings": "2000",
+                                "Lens Specification": "35mm f/1.8",
+                                "Body Serial Number": "6085734",
+                                "Custom Rendered": "Normal process",
+                                "Exif Image Height": "3196 pixels",
+                                "Flash": "Flash did not fire",
+                                "Time Zone": "+02:00",
+                                "White Balance": "Unknown",
+                                "Focal Length": "35 mm",
+                                "Date/Time Original": "2019:04:27 19:46:03",
+                                "White Balance Mode": "Auto white balance",
+                                "Shutter Speed Value": "1/199 sec",
+                                "Exif Image Width": "4788 pixels",
+                                "Gain Control": "Low gain down",
+                                "Sensing Method": "One-chip color area sensor",
+                                "Scene Type": "Directly photographed image",
+                                "Focal Plane Y Resolution": "32768/54886891 cm",
+                                "Sub-Sec Time Original": "32",
+                                "Exposure Time": "1/200 sec",
+                                "Sharpness": "None",
+                                "Metering Mode": "Center weighted average",
+                                "Exposure Program": "Manual control",
+                                "Digital Zoom Ratio": "1",
+                                "Exposure Bias Value": "0 EV",
+                                "F-Number": "f/4.0",
+                                "Color Space": "Undefined",
+                                "Lens Model": "35.0 mm f/1.8",
+                                "Focal Length 35": "35 mm",
+                                "Date/Time Digitized": "2019:04:27 19:46:03",
+                                "Date/Time Original Composite": "2019-04-27T19:46:03.320Z",
+                                "Aperture Value": "f/4.0",
+                                "Sensitivity Type": "Recommended Exposure Index",
+                                "Contrast": "None",
+                                "Scene Capture Type": "Standard",
+                                "Focal Plane Resolution Unit": "cm",
+                                "File Source": "Digital Still Camera (DSC)",
+                                "Sub-Sec Time Digitized": "32",
+                                "Focal Plane X Resolution": "32768/54886891 cm",
+                                "Saturation": "None",
+                                "Max Aperture Value": "f/1.7"
+                            },
+                            "xmp": {
+                                "crs:ParametricDarks": "0",
+                                "dc:format": "image/jpeg",
+                                "crs:DefringeGreenHueLo": "40",
+                                "crs:SaturationAdjustmentPurple": "0",
+                                "crs:CropConstrainToWarp": "0",
+                                "crs:HasSettings": "True",
+                                "crs:GreenHue": "0",
+                                "photoshop:ColorMode": "3",
+                                "dc:description": [
+                                    "Azaraya, one of Alicia Jiménez’s reborns. It is a model of the famous kit designer Bonnie Braun that Alicia has redesigned. Kits are purchased at the factory or directly through some kit creators. A kit sold includes a head, a bust, legs and arms that reborn artists assemble and paint. Valencia April 2019.\rAzaraya, un des reborns d’Alicia Jiménez. C’est un modèle de la célèbre créatrice de kits Bonnie Braun qu’Alicia a reborné. Les kits sont achetés en usine ou directement via certains créateurs de kits. Un kit vendu rassemble une tête, un buste, des jambes et bras que les reborn artists assemblent et peignent. Valencia avril 2019.",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:SaturationAdjustmentAqua": "0",
+                                "crs:UprightVersion": "151388160",
+                                "crs:SharpenDetail": "25",
+                                "crs:GrainAmount": "0",
+                                "xmp:MetadataDate": "2020-01-02T16:46:06.000Z",
+                                "crs:CameraProfile": "Adobe Standard",
+                                "crs:WhiteBalance": "Custom",
+                                "crs:ToneCurveRed": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:ColorNoiseReductionDetail": "50",
+                                "crs:Blacks2012": "+17",
+                                "crs:SaturationAdjustmentBlue": "0",
+                                "xmpMM:DerivedFrom": [
+                                    "{'stRef:documentID':'8ACD7691E7D0DB5C6CB40855D7469AAE'}",
+                                    "{'stRef:originalDocumentID':'8ACD7691E7D0DB5C6CB40855D7469AAE'}"
+                                ],
+                                "crs:UprightPreview": "False",
+                                "crs:ToneCurveName": "Linear",
+                                "aux:ImageNumber": "46087",
+                                "crs:SplitToningShadowSaturation": "0",
+                                "crs:SplitToningShadowHue": "0",
+                                "photoshop:TransmissionReference": "babyboom_bizet",
+                                "crs:ParametricHighlightSplit": "75",
+                                "crs:PerspectiveRotate": "0.0",
+                                "crs:PerspectiveUpright": "0",
+                                "crs:LuminanceNoiseReductionContrast": "0",
+                                "crs:PerspectiveX": "0.00",
+                                "crs:DefringePurpleHueLo": "30",
+                                "crs:ToneCurveName2012": "Linear",
+                                "crs:ToneCurvePV2012": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:HueAdjustmentPurple": "0",
+                                "crs:VignetteAmount": "0",
+                                "crs:Exposure2012": "0.00",
+                                "photoshop:AuthorsPosition": "photographer",
+                                "crs:ParametricShadowSplit": "25",
+                                "crs:LuminanceAdjustmentAqua": "0",
+                                "crs:CropAngle": "0",
+                                "crs:LuminanceAdjustmentPurple": "0",
+                                "crs:SplitToningBalance": "0",
+                                "crs:SaturationAdjustmentMagenta": "0",
+                                "crs:Sharpness": "40",
+                                "crs:HueAdjustmentAqua": "0",
+                                "dc:subject": [
+                                    "reborn",
+                                    "reborn doll",
+                                    "reborn dolls",
+                                    "dolls",
+                                    "baby",
+                                    "bebes",
+                                    "nouveau ne",
+                                    "new born",
+                                    "doll",
+                                    "poupee",
+                                    "phenomene",
+                                    "phenomenon",
+                                    "realism",
+                                    "hyper-realistic",
+                                    "reborn artist",
+                                    "mother",
+                                    "parents",
+                                    "mère",
+                                    "parents",
+                                    "fabrication",
+                                    "reborn workshop",
+                                    "silicon",
+                                    "reborn silicon"
+                                ],
+                                "photoshop:CaptionWriter": "photographer",
+                                "crs:ColorNoiseReductionSmoothness": "50",
+                                "crs:BlueHue": "0",
+                                "crs:HasCrop": "True",
+                                "crs:DefringeGreenHueHi": "60",
+                                "crs:SaturationAdjustmentOrange": "0",
+                                "crs:HueAdjustmentYellow": "0",
+                                "crs:SplitToningHighlightHue": "0",
+                                "crs:PerspectiveScale": "100",
+                                "crs:HueAdjustmentGreen": "0",
+                                "crs:Temperature": "3301",
+                                "crs:ConvertToGrayscale": "False",
+                                "crs:RawFileName": "_9DS9316.NEF",
+                                "crs:ParametricLights": "0",
+                                "aux:Lens": "35.0 mm f/1.8",
+                                "crs:UprightFocalMode": "0",
+                                "crs:ToneCurvePV2012Green": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:LuminanceNoiseReductionDetail": "50",
+                                "crs:ParametricHighlights": "0",
+                                "crs:OverrideLookVignette": "False",
+                                "crs:SharpenEdgeMasking": "32",
+                                "crs:ToneCurve": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:SaturationAdjustmentRed": "0",
+                                "crs:Whites2012": "0",
+                                "crs:Clarity2012": "0",
+                                "crs:UprightFocalLength35mm": "35",
+                                "xmp:ModifyDate": "2020-01-02T16:46:06.000Z",
+                                "crs:UprightTransformCount": "6",
+                                "crs:UprightCenterNormX": "0.5",
+                                "xmpRights:UsageTerms": [
+                                    "All Rights reserved",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "photoshop:City": "Valencia",
+                                "xmpMM:OriginalDocumentID": "8ACD7691E7D0DB5C6CB40855D7469AAE",
+                                "xmp:Rating": "5",
+                                "crs:ToneCurvePV2012Blue": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:Look": [
+                                    "{'crs:Parameters':['{'crs:ToneCurvePV2012Blue':['0, 0','255, 255']}','{'crs:ToneCurvePV2012Red':['0, 0','255, 255']}','{'crs:ToneCurvePV2012':['0, 0','22, 16','40, 35','127, 127','224, 230','240, 246','255, 255']}','{'crs:ToneCurvePV2012Green':['0, 0','255, 255']}']}",
+                                    "{'crs:Group':['Profiles']}",
+                                    "{'crs:Parameters':['{'crs:LookTable':'E1095149FDB39D7A057BAB208837E2E1'}','{'crs:CameraProfile':'Adobe Standard'}','{'crs:ConvertToGrayscale':'False'}','{'crs:Version':'11.3'}','{'crs:ProcessVersion':'11.0'}']}",
+                                    "{'crs:SupportsMonochrome':'false'}",
+                                    "{'crs:UUID':'B952C231111CD8E0ECCF14B86BAA7077'}",
+                                    "{'crs:Amount':'1.000000'}",
+                                    "{'crs:SupportsOutputReferred':'false'}",
+                                    "{'crs:Name':'Adobe Color'}",
+                                    "{'crs:SupportsAmount':'false'}",
+                                    "{'crs:Group':[['{'xml:lang':'x-default'}']]}"
+                                ],
+                                "crs:LuminanceAdjustmentRed": "0",
+                                "crs:DefringeGreenAmount": "0",
+                                "crs:PerspectiveVertical": "0",
+                                "crs:HueAdjustmentBlue": "0",
+                                "crs:PerspectiveY": "0.00",
+                                "crs:LensManualDistortionAmount": "0",
+                                "crs:AutoLateralCA": "0",
+                                "crs:LuminanceSmoothing": "17",
+                                "crs:CameraProfileDigest": "5F02E85A544BE2CCC1DFAA73D311C57C",
+                                "crs:Contrast2012": "0",
+                                "photoshop:DateCreated": "2019-04-27T19:46:03.032Z",
+                                "photoshop:Credit": "Didier Bizet",
+                                "crs:SaturationAdjustmentYellow": "0",
+                                "xmp:CreateDate": "2019-04-27T19:46:03.000Z",
+                                "crs:LensProfileSetup": "LensDefaults",
+                                "crs:Shadows2012": "+19",
+                                "crs:UprightCenterMode": "0",
+                                "crs:CropRight": "0.884268",
+                                "crs:LensProfileEnable": "0",
+                                "aux:LensID": "165",
+                                "aux:ApproximateFocusDistance": "79/100",
+                                "crs:Tint": "+11",
+                                "crs:ParametricMidtoneSplit": "50",
+                                "xmpRights:WebStatement": "hanslucas.com",
+                                "crs:PerspectiveHorizontal": "0",
+                                "crs:ShadowTint": "0",
+                                "crs:UprightCenterNormY": "0.5",
+                                "dc:rights": [
+                                    "Didier Bizet",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:HueAdjustmentMagenta": "0",
+                                "xmp:CreatorTool": "Adobe Photoshop CC 2019 (Macintosh)",
+                                "aux:LensInfo": "350/10 350/10 18/10 18/10",
+                                "crs:ToneCurveBlue": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:LuminanceAdjustmentMagenta": "0",
+                                "photoshop:LegacyIPTCDigest": "CFA151707B37962499516E28485C8B15",
+                                "crs:ToneCurveGreen": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:BlueSaturation": "0",
+                                "crs:LuminanceAdjustmentYellow": "0",
+                                "crs:AlreadyApplied": "True",
+                                "crs:DefringePurpleHueHi": "70",
+                                "crs:PostCropVignetteAmount": "0",
+                                "xmpMM:DocumentID": "xmp.did:d080270a-0a88-4df3-b158-8c47f73340ef",
+                                "crs:PerspectiveAspect": "0",
+                                "crs:LuminanceAdjustmentGreen": "0",
+                                "crs:Dehaze": "0",
+                                "crs:RedSaturation": "0",
+                                "xmpRights:Marked": "True",
+                                "crs:SaturationAdjustmentGreen": "0",
+                                "dc:creator": [
+                                    "Didier Bizet"
+                                ],
+                                "crs:LuminanceAdjustmentOrange": "0",
+                                "crs:Version": "11.3",
+                                "crs:ToneCurvePV2012Red": [
+                                    "0, 0",
+                                    "255, 255"
+                                ],
+                                "crs:Texture": "0",
+                                "Iptc4xmpCore:CreatorContactInfo": [
+                                    "{'Iptc4xmpCore:CiUrlWork':'http://hanslucas.com/dbizet/photo ; http://didierbizet.com'}",
+                                    "{'Iptc4xmpCore:CiEmailWork':'dbizet@orange.fr'}",
+                                    "{'Iptc4xmpCore:CiTelWork':'0033675952033'}",
+                                    "{'Iptc4xmpCore:CiAdrCity':'Paris'}",
+                                    "{'Iptc4xmpCore:CiAdrPcode':'75019'}",
+                                    "{'Iptc4xmpCore:CiAdrCtry':'France'}",
+                                    "{'Iptc4xmpCore:CiAdrExtadr':'30 rue clavel'}"
+                                ],
+                                "crs:ToneMapStrength": "0",
+                                "crs:UprightFourSegmentsCount": "0",
+                                "crs:CropTop": "0.177282",
+                                "crs:ParametricShadows": "0",
+                                "crs:HueAdjustmentRed": "0",
+                                "crs:GreenSaturation": "0",
+                                "crs:CropLeft": "0.088464",
+                                "crs:RedHue": "0",
+                                "dc:title": [
+                                    "baby boom",
+                                    [
+                                        "{'xml:lang':'x-default'}"
+                                    ]
+                                ],
+                                "crs:SplitToningHighlightSaturation": "0",
+                                "aux:SerialNumber": "6085734",
+                                "crs:DefringePurpleAmount": "0",
+                                "crs:Saturation": "0",
+                                "crs:HueAdjustmentOrange": "0",
+                                "crs:LuminanceAdjustmentBlue": "0",
+                                "xmpMM:PreservedFileName": "_9DS9316.NEF",
+                                "xmpMM:History": [
+                                    [
+                                        "{'stEvt:parameters':'converted from image/x-nikon-nef to image/jpeg, saved to new location'}",
+                                        "{'stEvt:action':'derived'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop Lightroom Classic 8.3 (Macintosh)'}",
+                                        "{'stEvt:instanceID':'xmp.iid:d080270a-0a88-4df3-b158-8c47f73340ef'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:when':'2019-06-14T13:15:17+02:00'}"
+                                    ],
+                                    [
+                                        "{'stEvt:action':'saved'}",
+                                        "{'stEvt:when':'2020-01-02T17:46:06+01:00'}",
+                                        "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
+                                        "{'stEvt:changed':'/'}",
+                                        "{'stEvt:instanceID':'xmp.iid:15644f3f-1e61-4033-a456-8b43605ed09b'}"
+                                    ]
+                                ],
+                                "Iptc4xmpCore:CountryCode": "ESP",
+                                "crs:Highlights2012": "0",
+                                "crs:CropBottom": "0.973086",
+                                "photoshop:Country": "spain",
+                                "crs:ProcessVersion": "11.0",
+                                "photoshop:Source": "hans lucas",
+                                "crs:Vibrance": "0",
+                                "crs:SharpenRadius": "+1.0",
+                                "xmpMM:InstanceID": "xmp.iid:15644f3f-1e61-4033-a456-8b43605ed09b",
+                                "crs:ColorNoiseReduction": "25"
+                            },
+                            "icc": {},
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "photometricInterpretation": "RGB",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [
+                                "reborn"
+                            ],
+                            "usageRights": {
+                                "category": "chargeable",
+                                "restrictions": "PHOTO ESSAY ONLY"
+                            },
+                            "lastModified": "2020-02-24T09:08:18.715Z"
+                        },
+                        "metadata": {
+                            "dateTaken": "2019-04-27T19:46:03.320Z",
+                            "description": "Azaraya, one of Alicia Jiménez’s reborns. It is a model of the famous kit designer Bonnie Braun that Alicia has redesigned. Kits are purchased at the factory or directly through some kit creators. A kit sold includes a head, a bust, legs and arms that reborn artists assemble and paint. Valencia April 2019.\rAzaraya, un des reborns d’Alicia Jiménez. C’est un modèle de la célèbre créatrice de kits Bonnie Braun qu’Alicia a reborné. Les kits sont achetés en usine ou directement via certains créateurs de kits. Un kit vendu rassemble une tête, un buste, des jambes et bras que les reborn artists assemblent et peignent. Valencia avril 2019.",
+                            "credit": "Didier Bizet",
+                            "byline": "Didier Bizet",
+                            "bylineTitle": "photographer",
+                            "copyright": "Didier Bizet",
+                            "suppliersReference": "babyboom_bizet",
+                            "source": "hans lucas",
+                            "keywords": [
+                                "mother",
+                                "fabrication",
+                                "reborn dolls",
+                                "phenomenon",
+                                "doll",
+                                "poupee",
+                                "dolls",
+                                "parents",
+                                "hyper-realistic",
+                                "reborn workshop",
+                                "mère",
+                                "realism",
+                                "phenomene",
+                                "reborn artist",
+                                "reborn",
+                                "new born",
+                                "silicon",
+                                "bebes",
+                                "nouveau ne",
+                                "baby",
+                                "reborn doll",
+                                "reborn silicon"
+                            ],
+                            "city": "Valencia",
+                            "country": "Spain",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "dateTaken": "2019-04-27T19:46:03.320Z",
+                            "description": "Azaraya, one of Alicia Jiménez’s reborns. It is a model of the famous kit designer Bonnie Braun that Alicia has redesigned. Kits are purchased at the factory or directly through some kit creators. A kit sold includes a head, a bust, legs and arms that reborn artists assemble and paint. Valencia April 2019.\rAzaraya, un des reborns d’Alicia Jiménez. C’est un modèle de la célèbre créatrice de kits Bonnie Braun qu’Alicia a reborné. Les kits sont achetés en usine ou directement via certains créateurs de kits. Un kit vendu rassemble une tête, un buste, des jambes et bras que les reborn artists assemblent et peignent. Valencia avril 2019.",
+                            "credit": "Didier Bizet",
+                            "byline": "Didier Bizet",
+                            "bylineTitle": "photographer",
+                            "copyright": "Didier Bizet",
+                            "suppliersReference": "babyboom_bizet",
+                            "source": "hans lucas",
+                            "keywords": [
+                                "mother",
+                                "fabrication",
+                                "reborn dolls",
+                                "phenomenon",
+                                "doll",
+                                "poupee",
+                                "dolls",
+                                "parents",
+                                "hyper-realistic",
+                                "reborn workshop",
+                                "mère",
+                                "realism",
+                                "phenomene",
+                                "reborn artist",
+                                "reborn",
+                                "new born",
+                                "silicon",
+                                "bebes",
+                                "nouveau ne",
+                                "baby",
+                                "reborn doll",
+                                "reborn silicon"
+                            ],
+                            "city": "Valencia",
+                            "country": "Spain",
+                            "subjects": [],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {
+                            "category": "chargeable",
+                            "restrictions": "PHOTO ESSAY ONLY"
+                        },
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": [],
+                        "userMetadataLastModified": "2020-02-24T09:08:18.715Z"
+                    }
+                },
+                {
+                    "_index": "images_2024-04-03_15-45-31_e37e3ac",
+                    "_id": "1e8491b56759fdf85c28dd0b02c593ba468ba3b9",
+                    "_score": 1,
+                    "_source": {
+                        "id": "1e8491b56759fdf85c28dd0b02c593ba468ba3b9",
+                        "uploadTime": "2015-07-27T17:37:11.000Z",
+                        "uploadedBy": "DEV Ingest Script",
+                        "identifiers": {
+                            "picdarurn": "PD*1693653"
+                        },
+                        "uploadInfo": {},
+                        "source": {
+                            "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/1/e/8/4/9/1/1e8491b56759fdf85c28dd0b02c593ba468ba3b9",
+                            "size": 301115,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 1534,
+                                "height": 2160
+                            }
+                        },
+                        "thumbnail": {
+                            "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/1/e/8/4/9/1/1e8491b56759fdf85c28dd0b02c593ba468ba3b9",
+                            "size": 17159,
+                            "mimeType": "image/jpeg",
+                            "dimensions": {
+                                "width": 182,
+                                "height": 256
+                            }
+                        },
+                        "fileMetadata": {
+                            "iptc": {
+                                "By-line Title": "Atlas Photography",
+                                "Country/Primary Location Name": "United States",
+                                "Category": "ACE",
+                                "Country/Primary Location Code": "USA",
+                                "Copyright Notice": "Atlas Photography",
+                                "Supplemental Category(s)": "ENT",
+                                "Application Record Version": "2",
+                                "Caption/Abstract": "Casey Chaos, lead singert with the group Amen on the Nautica Stage, in Cleveland Ohio, USA.\r\n\r\n\"Amen's more pissed off than we ever were.\" So says former Sex Pistol Steve Jones of L.A. punk band Amen. The group took shape in the mid-'90s when frontman Casey Chaos hooked up with guitarist Paul Fig and began experimenting with their raw, visceral sound and in-your-face lyrics. Later adding Larkin on drums, Tumor on bass and ex-Snot guitarist Sonny Mayo on guitar, the lineup of Amen was complete. \r\n\r\nThe band signed to Ross Robinson's I Am Records, an imprint of Roadrunner, to record their self -- titled debut. \"Amen\", produced by Robinson, was released in 1999, followed by Amen's sophomore effort, We Have Come For Your Parents, the following year. \r\n\r\nDate Taken: 19/08/2001\r\nPicture Credit: Amy L Weiser/Atlas Photography\r\n\r\nAtlas Photography\r\n20 The Limes\r\nBurniston\r\nNorth Yorkshire\r\nYO13 OEE - England\r\n\r\nTel: +44(0)1723 870659\r\nEmail: atlasphotography@ukonline.co.uk",
+                                "Credit": "Amy L Weiser/Atlas Photography",
+                                "Source": "Atlas Photography",
+                                "City": "Cleveland",
+                                "Keywords": "controversial;vertical;upright;thrash;stage;singing;rock;portrait;playing;performing;outrageous;music;metal;loud;live;heavy",
+                                "By-line": "Atlas Photography",
+                                "Urgency": "48",
+                                "Headline": "Casey Chaos of the group Amen",
+                                "Province/State": "Ohio",
+                                "Object Name": "Casey Chaos of the group Amen",
+                                "Caption Writer/Editor": "SN",
+                                "Date Created": "2001:08:19"
+                            },
+                            "exif": {},
+                            "exifSub": {},
+                            "xmp": {},
+                            "icc": {
+                                "Profile Size": "3144",
+                                "Media White Point": "(0.9505, 1, 1.0891)",
+                                "Device model": "sRGB",
+                                "Red Colorant": "(0.4361, 0.2225, 0.0139)",
+                                "Blue TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Viewing Conditions Description": "Reference Viewing Condition in IEC61966-2.1",
+                                "Luminance": "(76.0365, 80, 87.1246)",
+                                "Viewing Conditions": "view (0x76696577): 36 bytes",
+                                "Version": "2.1.0",
+                                "Tag Count": "17",
+                                "Profile Description": "sRGB IEC61966-2.1",
+                                "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+                                "XYZ values": "0.964 1 0.825",
+                                "Signature": "acsp",
+                                "Device manufacturer": "IEC",
+                                "Device Mfg Description": "IEC http://www.iec.ch",
+                                "Green TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Red TRC": "REDACTED (value longer than 5000 characters, please refer to the metadata stored in the file itself)",
+                                "Blue Colorant": "(0.1431, 0.0606, 0.7141)",
+                                "Color space": "RGB",
+                                "Primary Platform": "Microsoft Corporation",
+                                "Profile Connection Space": "XYZ",
+                                "CMM Type": "Lino",
+                                "Class": "Display Device",
+                                "Measurement": "1931 2° Observer, Backing (0, 0, 0), Geometry Unknown, Flare 1%, Illuminant D65",
+                                "Media Black Point": "(0, 0, 0)",
+                                "Profile Date/Time": "1998:02:09 06:49:00",
+                                "Device Model Description": "IEC 61966-2.1 Default RGB colour space - sRGB",
+                                "Profile Copyright": "Copyright (c) 1998 Hewlett-Packard Company",
+                                "Technology": "CRT"
+                            },
+                            "getty": {},
+                            "colourModel": "RGB",
+                            "colourModelInformation": {
+                                "hasAlpha": "false",
+                                "colorType": "TrueColor",
+                                "bitsPerSample": "8"
+                            }
+                        },
+                        "userMetadata": {
+                            "archived": false,
+                            "labels": [],
+                            "metadata": {
+                                "description": "Casey Chaos, lead singert with the group Amen on the Nautica Stage, in Cleveland Ohio, USA.\n \n \"Amen's more pissed off than we ever were.\" So says former Sex Pistol Steve Jones of L.A. punk band Amen. The group took shape in the mid-'90s when frontman Casey Chaos hooked up with guitarist Paul Fig and began experimenting with their raw, visceral sound and in-your-face lyrics. Later adding Larkin on drums, Tumor on bass and ex-Snot guitarist Sonny Mayo on guitar, the lineup of Amen was complete. \n \n The band signed to Ross Robinson's I Am Records, an imprint of Roadrunner, to record their self -- titled debut. \"Amen\", produced by Robinson, was released in 1999, followed by Amen's sophomore effort, We Have Come For Your Parents, the following year. \n \n Date Taken: 19/08/2001\n Picture Credit: Amy L Weiser/Atlas Photography\n \n Atlas Photography\n 20 The Limes\n Burniston\n North Yorkshire\n YO13 OEE - England\n \n Tel: +44(0)1723 870659\n Email: atlasphotography@ukonline.co.uk\n "
+                            }
+                        },
+                        "metadata": {
+                            "description": "Casey Chaos, lead singert with the group Amen on the Nautica Stage, in Cleveland Ohio, USA.\n \n \"Amen's more pissed off than we ever were.\" So says former Sex Pistol Steve Jones of L.A. punk band Amen. The group took shape in the mid-'90s when frontman Casey Chaos hooked up with guitarist Paul Fig and began experimenting with their raw, visceral sound and in-your-face lyrics. Later adding Larkin on drums, Tumor on bass and ex-Snot guitarist Sonny Mayo on guitar, the lineup of Amen was complete. \n \n The band signed to Ross Robinson's I Am Records, an imprint of Roadrunner, to record their self -- titled debut. \"Amen\", produced by Robinson, was released in 1999, followed by Amen's sophomore effort, We Have Come For Your Parents, the following year. \n \n Date Taken: 19/08/2001\n Picture Credit: Amy L Weiser/Atlas Photography\n \n Atlas Photography\n 20 The Limes\n Burniston\n North Yorkshire\n YO13 OEE - England\n \n Tel: +44(0)1723 870659\n Email: atlasphotography@ukonline.co.uk\n ",
+                            "credit": "Amy L Weiser",
+                            "byline": "Atlas Photography",
+                            "bylineTitle": "Atlas Photography",
+                            "title": "Casey Chaos of the group Amen",
+                            "copyright": "Atlas Photography",
+                            "suppliersReference": "Casey Chaos of the group Amen",
+                            "source": "Atlas Photography",
+                            "keywords": [
+                                "rock",
+                                "stage",
+                                "loud",
+                                "music",
+                                "portrait",
+                                "performing",
+                                "vertical",
+                                "heavy",
+                                "live",
+                                "outrageous",
+                                "playing",
+                                "thrash",
+                                "metal",
+                                "controversial",
+                                "singing",
+                                "upright"
+                            ],
+                            "city": "Cleveland",
+                            "state": "Ohio",
+                            "country": "United States",
+                            "subjects": [
+                                "arts"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "originalMetadata": {
+                            "description": "Casey Chaos, lead singert with the group Amen on the Nautica Stage, in Cleveland Ohio, USA.\r\n\r\n\"Amen's more pissed off than we ever were.\" So says former Sex Pistol Steve Jones of L.A. punk band Amen. The group took shape in the mid-'90s when frontman Casey Chaos hooked up with guitarist Paul Fig and began experimenting with their raw, visceral sound and in-your-face lyrics. Later adding Larkin on drums, Tumor on bass and ex-Snot guitarist Sonny Mayo on guitar, the lineup of Amen was complete. \r\n\r\nThe band signed to Ross Robinson's I Am Records, an imprint of Roadrunner, to record their self -- titled debut. \"Amen\", produced by Robinson, was released in 1999, followed by Amen's sophomore effort, We Have Come For Your Parents, the following year. \r\n\r\nDate Taken: 19/08/2001\r\nPicture Credit: Amy L Weiser/Atlas Photography\r\n\r\nAtlas Photography\r\n20 The Limes\r\nBurniston\r\nNorth Yorkshire\r\nYO13 OEE - England\r\n\r\nTel: +44(0)1723 870659\r\nEmail: atlasphotography@ukonline.co.uk",
+                            "credit": "Amy L Weiser",
+                            "byline": "Atlas Photography",
+                            "bylineTitle": "Atlas Photography",
+                            "title": "Casey Chaos of the group Amen",
+                            "copyright": "Atlas Photography",
+                            "suppliersReference": "Casey Chaos of the group Amen",
+                            "source": "Atlas Photography",
+                            "keywords": [
+                                "rock",
+                                "stage",
+                                "loud",
+                                "music",
+                                "portrait",
+                                "performing",
+                                "vertical",
+                                "heavy",
+                                "live",
+                                "outrageous",
+                                "playing",
+                                "thrash",
+                                "metal",
+                                "controversial",
+                                "singing",
+                                "upright"
+                            ],
+                            "city": "Cleveland",
+                            "state": "Ohio",
+                            "country": "United States",
+                            "subjects": [
+                                "arts"
+                            ],
+                            "peopleInImage": []
+                        },
+                        "usageRights": {},
+                        "originalUsageRights": {},
+                        "exports": [],
+                        "usages": [],
+                        "leases": {
+                            "leases": [],
+                            "lastModified": null
+                        },
+                        "collections": []
+                    }
+                }
+            ]
+        }
+    }
+}
