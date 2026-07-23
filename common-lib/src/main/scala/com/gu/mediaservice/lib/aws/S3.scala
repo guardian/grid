@@ -95,8 +95,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def getObject(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse] = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    logger.info(s"**** looking up s3 object, ${bucket}, ${key}")
-
     client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
   }
   def getObject(bucket: Bucket, key: String): ResponseInputStream[GetObjectResponse] = {
