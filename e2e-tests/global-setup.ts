@@ -35,6 +35,7 @@ import {
 } from './testcontainers/constants';
 import { generateServiceConfig } from './testcontainers/config';
 import { provisionCoreStack } from './testcontainers/provision';
+import { seedElasticsearch } from './testcontainers/seed-elasticsearch';
 import { setEnvironment } from './testcontainers/state';
 
 const LOCALSTACK_SERVICES = 'cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam';
@@ -174,6 +175,12 @@ async function globalSetup(): Promise<void> {
 
   const grid = await gridBuilder.start();
   started.push(grid);
+
+  // --- Seed Elasticsearch with image fixtures ------------------------------
+  // The app creates the `images` index + `Images_Current` alias on startup; seed once the
+  // stack is healthy so searches during the tests return the fixture documents.
+  const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(9200)}`;
+  await seedElasticsearch(esBaseUrl);
 
   // --- CI routing: bundled reverse proxy -----------------------------------
   // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
