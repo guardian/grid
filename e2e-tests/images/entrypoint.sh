@@ -61,4 +61,14 @@ for svc in $SERVICES; do
   pids+=("$!")
 done
 
-sleep 100000
+# Block until the first service exits. During a healthy run the services stay up,
+# so this only returns if one crashed; when that happens, tear the rest down and
+# exit non-zero so the failure surfaces instead of leaving a half-running stack
+# that still looks alive.
+wait -n || true
+echo "A Grid service exited unexpectedly; shutting down the rest." >&2
+for pid in "${pids[@]}"; do
+  kill -TERM "$pid" 2>/dev/null || true
+done
+wait 2>/dev/null || true
+exit 1
