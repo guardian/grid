@@ -6,6 +6,15 @@ import * as fs from 'fs';
 import { URLS_FILE } from './testcontainers/constants';
 import { getEnvironment } from './testcontainers/state';
 
+/** Run a best-effort teardown step, warning (not throwing) so the rest still runs. */
+async function warnOnException(label: string, fn: () => unknown): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    console.warn(`${label}: ${(error as Error).message}`);
+  }
+}
+
 async function globalTeardown(): Promise<void> {
   const environment = getEnvironment();
   if (!environment) {
@@ -15,31 +24,14 @@ async function globalTeardown(): Promise<void> {
   const { containers, network, configDir } = environment;
 
   for (const container of [...containers].reverse()) {
-    try {
-      await container.stop();
-    } catch (error) {
-      // Best effort: keep tearing down the rest of the stack.
-      console.warn(`Failed to stop container: ${(error as Error).message}`);
-    }
+    await warnOnException('Failed to stop container', () => container.stop());
   }
 
-  try {
-    await network.stop();
-  } catch (error) {
-    console.warn(`Failed to stop network: ${(error as Error).message}`);
-  }
-
-  try {
-    fs.rmSync(configDir, { recursive: true, force: true });
-  } catch (error) {
-    console.warn(`Failed to remove config dir: ${(error as Error).message}`);
-  }
-
-  try {
-    fs.rmSync(URLS_FILE, { force: true });
-  } catch (error) {
-    console.warn(`Failed to remove urls file: ${(error as Error).message}`);
-  }
+  await warnOnException('Failed to stop network', () => network.stop());
+  await warnOnException('Failed to remove config dir', () =>
+    fs.rmSync(configDir, { recursive: true, force: true }),
+  );
+  await warnOnException('Failed to remove urls file', () => fs.rmSync(URLS_FILE, { force: true }));
 }
 
 export default globalTeardown;

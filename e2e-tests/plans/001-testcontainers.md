@@ -79,15 +79,17 @@ LocalStack, generates real service config by **reusing the existing
    AWS creds/endpoint env + `AWS_CBOR_DISABLE`, bind-mount `.tmp-config` -> `/etc/grid`,
    expose 9001/9002/9005/9006/9007/9010/9011/9012.
 9. Wait strategies: ES healthy, then kahuna HTTP 200 on 9005 (generous timeout). Export
-   `baseURL` (mapped 9005 host port) via `process.env` + a temp file for teardown.
+   `baseURL` (fixed 9005 host port) via `process.env` + a temp file for teardown.
 
 ### Phase 5 — Teardown & Playwright wiring
 10. `global-teardown.ts`: stop grid-all/ES/LocalStack, remove the network, clean `.tmp-config`.
 11. `playwright.config.ts`: set `globalSetup`/`globalTeardown`, `use.baseURL` from env,
     keep browser projects, bump the global/test timeout for slow boot.
-12. Update `example.spec.ts` to hit the local `baseURL` (kahuna) instead of `playwright.dev`.
+12. Author the smoke scenarios as Gherkin `.feature` files with `playwright-bdd` steps
+    that hit the local `baseURL` (kahuna) instead of `playwright.dev`.
 13. Update `.github/workflows/playwright.yml`: ensure Docker is available and the
-    `grid-all` image is present before tests (build step out of scope — assumed pre-built).
+    `grid-all` image is built before tests; run via `npm test` so `bddgen` generates the
+    test files first. Under `CI=true` a bundled Caddy proxy stands in for dev-nginx.
 
 ## Relevant files
 - `e2e-tests/global-setup.ts` (new) — network, infra, provisioning, config gen, app container
@@ -104,9 +106,9 @@ LocalStack, generates real service config by **reusing the existing
 
 ## Verification
 1. `cd e2e-tests && npm install` succeeds with new deps.
-2. `npx playwright test` starts ES + LocalStack, provisions the CFN stack, seeds buckets,
-   generates config via `service-config.js`, boots grid-all, kahuna responds on 9005,
-   and the smoke test passes.
+2. `npm test` starts ES + LocalStack, provisions the CFN
+   stack, seeds buckets, generates config via `service-config.js`, boots grid-all, kahuna
+   responds on 9005, and the smoke test passes.
 3. Teardown removes all containers/network and `.tmp-config` (verify with `docker ps`).
 4. Re-run to confirm no leaked containers/networks between runs.
 

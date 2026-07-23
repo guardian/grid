@@ -15,21 +15,13 @@ import {
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
+  SERVICE_PORTS,
 } from './constants';
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
 // The services packaged into the grid-all image (see e2e-tests/images/entrypoint.sh).
-const GRID_SERVICES = [
-  'auth',
-  'collections',
-  'cropper',
-  'kahuna',
-  'leases',
-  'media-api',
-  'metadata-editor',
-  'thrall',
-];
+const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 
 type StackProps = Record<string, string>;
 
@@ -39,12 +31,16 @@ type StackProps = Record<string, string>;
  */
 function rewriteEndpoints(conf: string): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
+  // Endpoints baked in by `service-config.js` that must be redirected to the container.
+  const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
+  const legacyLocalstackUrl = 'http://localhost:4576';
+  const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
   return conf
-    .split(`https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`)
+    .split(guardianLocalstackUrl)
     .join(localstackUrl)
-    .split('http://localhost:4576')
+    .split(legacyLocalstackUrl)
     .join(localstackUrl)
-    .split('http://localhost:4566')
+    .split(localLocalstackUrl)
     .join(localstackUrl);
 }
 
@@ -52,11 +48,6 @@ function rewriteEndpoints(conf: string): string {
  * Generate all service config files into `configDir`, reusing `service-config.js`.
  */
 export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so we
-  // don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
-  // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
-  process.env.NO_AUTHENTICATION = 'true';
-
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
@@ -68,6 +59,10 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     DOMAIN,
     EMAIL_DOMAIN,
     AWS_DEFAULT_REGION: REGION,
+    // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so
+    // we don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
+    // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
+    NO_AUTHENTICATION: true,
     coreStackProps,
     es6: {
       ...defaultConfig.es6,
