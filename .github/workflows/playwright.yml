@@ -30,7 +30,7 @@ jobs:
     # :443 to route the https://*.media.<domain> domains to the grid-all container
     # (standing in for the developer's dev-nginx). No extra setup is required.
     - name: Run Playwright tests
-      run: npx playwright test
+      run: npm test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

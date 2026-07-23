@@ -10,13 +10,16 @@ function getCorsAllowedOriginString(config) {
 }
 
 function getCommonConfig(config) {
-  // `NO_AUTH` is a backwards-compatible shorthand that disables both authentication and
-  // authorisation. The two can also be controlled independently via `NO_AUTHENTICATION`
-  // and `NO_AUTHORISATION` (e.g. the e2e tests use local authentication but exercise the
-  // real S3-backed authorisation provider).
-  const isNoAuth = process.env.NO_AUTH === "true";
-  const isNoAuthentication = isNoAuth || process.env.NO_AUTHENTICATION === "true";
-  const isNoAuthorisation = isNoAuth || process.env.NO_AUTHORISATION === "true";
+  // `NO_AUTH` is shorthand that disables both authentication and authorisation.
+  // The two can also be controlled independently via `NO_AUTHENTICATION` and
+  // `NO_AUTHORISATION`.
+  //
+  // Each flag can be supplied on the `config` object or via the equivalent
+  // environment variable (used by the dev `setup.sh` flow).
+  const flag = (name) => config[name] === true || process.env[name] === "true";
+  const isNoAuth = flag("NO_AUTH");
+  const isNoAuthentication = isNoAuth || flag("NO_AUTHENTICATION");
+  const isNoAuthorisation = isNoAuth || flag("NO_AUTHORISATION");
 
   // When the real authorisation provider is in use and a permissions bucket has been
   // provisioned locally (localstack), point the provider at it and enable the local-auth

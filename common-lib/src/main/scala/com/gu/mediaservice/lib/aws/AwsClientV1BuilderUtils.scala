@@ -5,7 +5,6 @@ import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, 
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.gu.mediaservice.lib.logging.GridLogging
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 
 trait AwsClientV1BuilderUtils extends GridLogging {
   def awsLocalEndpoint: Option[String]
