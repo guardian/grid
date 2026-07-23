@@ -682,7 +682,7 @@ class MediaApi(
           logger.info(logMarker, s"No semantic query found in structured query; returning no AI results")
           Future.successful(SearchResults(Nil, total = 0, extraCounts = None))
         case Some(semanticQuery) =>
-          val vecWeight = params.vecWeight.getOrElse(0.8)
+          val vecWeight = params.vecWeight.getOrElse(0.85)
           val outerMarker = logMarker
 
           {
