@@ -20,6 +20,7 @@ import {
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
+// The services packaged into the grid-all image (see e2e-tests/images/entrypoint.sh).
 const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 
 type StackProps = Record<string, string>;
