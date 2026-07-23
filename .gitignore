@@ -36,6 +36,7 @@ image-embedder-lambda/__tests__/embedder/integration/test-data/
 image-embedder-lambda/__tests__/embedder/test-data
 
 # Playwright
+/e2e-tests/.features-gen/
 /e2e-tests/test-results/
 /e2e-tests/playwright-report/
 /e2e-tests/blob-report/

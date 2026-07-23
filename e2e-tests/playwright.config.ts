@@ -1,5 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
+import { defineBddConfig } from 'playwright-bdd';
 import { KAHUNA_PORT } from './testcontainers/constants';
+
+/* Generate Playwright test files from the Gherkin feature files and step definitions.
+   Run via `bddgen` (see package.json scripts) before `playwright test`. */
+const testDir = defineBddConfig({
+  features: './features/**/*.feature',
+  steps: './steps/**/*.ts',
+});
 
 /**
  * Read environment variables from file.
@@ -13,7 +21,7 @@ import { KAHUNA_PORT } from './testcontainers/constants';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir,
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
