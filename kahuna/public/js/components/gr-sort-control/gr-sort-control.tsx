@@ -16,28 +16,35 @@ export interface SortWrapperProps {
   props: SortProps;
 }
 
-const checkForCollection = (query: string): boolean => /~"[a-zA-Z0-9 #\-_.:/]+"/.test(query);
+const checkForCollection = (query:string): boolean => /~"[a-zA-Z0-9 #\-_.://]+"/.test(query);
+
+const deriveSortState = (query: string, orderBy: string, sortOptions: SortDropdownOption[]) => {
+  const hasCollection = checkForCollection(query);
+  if (hasCollection) {
+    const collectionSort = sortOptions.find(o => o.isCollection) || DefaultSortOption;
+    return { hasCollection, selectedSort: collectionSort };
+  }
+
+  const selectedSort = sortOptions.find(o => o.value === orderBy) || DefaultSortOption;
+  return { hasCollection, selectedSort };
+};
 
 const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   const sortOptions = SortOptions;
-  const orderBy = props.orderBy;
-  const query = props.query;
-  const startHasCollection = checkForCollection(query);
-
-  let startSortOption = DefaultSortOption;
-  if (startHasCollection) {
-    if ((sortOptions.filter(o => o.isCollection)).length > 0) {
-      startSortOption = sortOptions.find(o => o.isCollection);
-    }
-  } else {
-    if ((sortOptions.filter(o => o.value === orderBy)).length > 0) {
-      startSortOption = sortOptions.find(o => o.value === orderBy);
-    }
-  }
+  const orderBy = props.orderBy || "";
+  const query = props.query || "";
+  const { hasCollection: startHasCollection, selectedSort: startSortOption } =
+    deriveSortState(query, orderBy, sortOptions);
 
   const [selSortOption, setSortOption] = useState<SortDropdownOption>(startSortOption);
   const [hasCollection, setHasCollection] = useState<boolean>(startHasCollection);
+
+  useEffect(() => {
+    const { hasCollection: nextHasCollection, selectedSort } = deriveSortState(query, orderBy, sortOptions);
+    setHasCollection(nextHasCollection);
+    setSortOption(selectedSort);
+  }, [query, orderBy]);
 
   const onSortSelect = (selOption: SortDropdownOption) => {
     setSortOption(selOption);
@@ -46,11 +53,6 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
 
   // initialisation
   useEffect(() => {
-    const handleLogoClick = (e: any) => {
-      setSortOption(DefaultSortOption);
-      props.onSortSelect(DefaultSortOption);
-    };
-
     const handleQueryChange = (e: any) => {
       const newQuery = e.detail.query ? (" " + e.detail.query) : "";
       const curHasCollec = e.detail.hasCollection ? e.detail.hasCollection : false;
@@ -70,12 +72,10 @@ const SortControl: React.FC<SortWrapperProps> = ({ props }) => {
       }
     };
 
-    window.addEventListener("logoClick", handleLogoClick);
     window.addEventListener("queryChangeEvent", handleQueryChange);
 
     // Clean up the event listener when the component unmounts
     return () => {
-      window.removeEventListener("logoClick", handleLogoClick);
       window.removeEventListener("queryChangeEvent", handleQueryChange);
     };
 

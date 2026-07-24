@@ -28,6 +28,9 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
+
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'util.storage',
@@ -166,10 +169,6 @@ image.controller('ImageCtrl', [
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
 
-    ctrl.maybeReplacedByMediaIds = image.data.usages.data
-      .filter(usage => usage.data.status === "replaced")
-      .map(usage => usage.data.childUsageMetadata.childMediaId);
-
     ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
 
     editsService.canUserEdit(ctrl.image).then(editable => {
@@ -224,9 +223,9 @@ image.controller('ImageCtrl', [
     };
 
     ctrl.shareImage = () => {
-       const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
-       navigator.clipboard.writeText(sharedUrl);
-       globalErrors.trigger('clipboard', sharedUrl);
+      const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
+      navigator.clipboard.writeText(sharedUrl);
+      globalErrors.trigger('clipboard', sharedUrl);
     };
     ctrl.onCropsDeleted = () => {
       // a bit nasty - but it updates the state of the page better than trying to do that in
@@ -239,11 +238,11 @@ image.controller('ImageCtrl', [
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
         const defaultNonFreeFilter = {
           isDefault: true,
-          isNonFree: showPaid ? showPaid : false
+          isNonFree: toNonFreeString(showPaid)
         };
         storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
-          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true
         }));
         scrollPosition.resetToTop();
@@ -292,8 +291,8 @@ image.controller('ImageCtrl', [
             if (largestWidth != crop.master.dimensions.width) {
               const imageId = getImageIdFromCropResource(cropsResource);
               console.log('The largest cropped asset of ' + crop.id + ' available for image ' + imageId +
-              ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
-              'Please correct this inconsistency.');
+                ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
+                'Please correct this inconsistency.');
             }
             crop.downloadLink = largestAsset.downloadLink;
           }
