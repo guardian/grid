@@ -116,12 +116,13 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 isNonFree: toNonFreeString(showPaid)
               };
               storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
-              $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
-              window.dispatchEvent(new CustomEvent("logoClick", {
-                detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
-                bubbles: true
-              }));
-              scrollPosition.resetToTop();
+              $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree}).then(() => {
+                window.dispatchEvent(new CustomEvent("logoClick", {
+                  detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
+                  bubbles: true
+                }));
+                scrollPosition.resetToTop();
+              });
             });
           };
 
