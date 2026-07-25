@@ -19,7 +19,7 @@ same branch (because you need both to test end-to-end).
 
 This enables clean extraction at PR time.
 
-**PR extraction recipe:**
+**PR extraction recipe (default — use when `main` hasn't independently touched the same files):**
 ```bash
 git fetch origin main
 git checkout -b media-api/<gap-name> origin/main
@@ -35,6 +35,45 @@ git checkout mk-next-next-next
 git fetch origin main
 git rebase origin/main   # commit A silently drops (already in main)
 ```
+
+> **Caveat added 2026-07-25 — this recipe assumes the isolated commit still applies
+> cleanly against current `main`. It can stop being true.** `main` moved 63 commits ahead
+> of our merge-base while D3 was in flight, including its own AI-search refactor of
+> `ElasticSearch.scala`/`ElasticSearchModel.scala`/`MediaApi.scala` — the same functions
+> D3's commit (`b52d027`) touched. A dry-run 3-way `merge-tree` of `b52d027` straight onto
+> `origin/main` (base = the commit's own parent) now produces a real `CONFLICT` in
+> `ElasticSearch.scala`, even though merging the *full* `mk-next-next-next` branch (243
+> commits of history/context) into `main` was verified clean. An isolated single-commit
+> cherry-pick is a narrower 3-way diff than a full-branch merge and can conflict where the
+> full merge doesn't — don't assume "the branch merged cleanly" implies "the one commit will
+> cherry-pick cleanly".
+>
+> **Fallback recipe: harvest from the already-merged branch instead of cherry-picking.**
+> Once `mk-next-next-next` has merged current `main` (which resolves the overlap for you —
+> verify it did, per below), don't replay the stale commit's patch. Pull the final,
+> reconciled file states directly:
+> ```bash
+> git fetch origin main
+> git checkout -b media-api/<gap-name> origin/main
+> git checkout mk-next-next-next -- <every file the gap's commit(s) touched under media-api/>
+> git commit -m "..."   # new commit, content-equivalent to the original, conflict-free against main
+> git diff origin/main --stat   # verify only the intended media-api/ files
+> git push -u origin media-api/<gap-name>
+> ```
+> This is guaranteed conflict-free against `origin/main` (it's built by diffing *from*
+> `origin/main`) and functionally correct as long as the merge into `mk-next-next-next` was
+> itself verified (no duplicate/orphaned defs, all call sites of any lifted/renamed shared
+> helper — e.g. `hitToImageEntity` — consistent). The resulting commit has a different
+> hash/patch-id than the original, so it won't "silently drop" via `git rebase`'s patch-id
+> detection later — but on a merge-based branch strategy that's moot: the next `git merge
+> origin/main` into `mk-next-next-next` after the PR lands will be a no-op for those files
+> (content already matches).
+>
+> Before choosing between the two recipes, check cheaply:
+> ```bash
+> git merge-tree --write-tree --merge-base=<commit-A-hash>^ origin/main <commit-A-hash>
+> ```
+> If it exits non-zero / reports `CONFLICT`, use the fallback.
 
 ---
 

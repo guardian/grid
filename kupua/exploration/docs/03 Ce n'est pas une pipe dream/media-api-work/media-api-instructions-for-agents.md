@@ -126,4 +126,7 @@ See `media-api-conventions.md` for full detail and file:line cites.
 27. **Branch/PR discipline.** One Scala commit per gap (even when building several in one session) so
     each cherry-picks cleanly onto `main` as its own PR. One PR doc per Scala commit
     (`phase-3-d3-searchafter-scala-pr.md` is the template). See `media-api-worknotes.md` for the
-    extraction recipe.
+    extraction recipe — **but check the 2026-07-25 caveat there first**: "cherry-picks cleanly"
+    stops being true once `main` independently touches the same files while the gap is in flight
+    (this happened to D3). Dry-run with `merge-tree` before assuming a plain cherry-pick will work;
+    use the harvest-from-merged-branch fallback if it doesn't.
