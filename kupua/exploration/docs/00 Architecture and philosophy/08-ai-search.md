@@ -1,5 +1,14 @@
 # AI Search — Semantic Image Retrieval Without a Mode
 
+> ⚠️ **About to change.** This document describes kupua's *current, direct-ES*
+> AI search. That implementation is being reworked to route through media-api's
+> existing `useAISearch` endpoint (server-side two-request hybrid + More Like
+> This), per [`../ai-search-catching-up-workplan.md`](../ai-search-catching-up-workplan.md).
+> Several claims below are already superseded (notably §3.1's description of the
+> server hybrid algorithm, and the `total === hits.length` invariant). This doc
+> will be heavily amended when that work lands; treat the workplan as the current
+> source of truth until then.
+
 > **Audience:** Staff Engineers reviewing the approach, future agents, and
 > anyone inheriting this codebase.
 >
