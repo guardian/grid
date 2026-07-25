@@ -48,8 +48,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
                                 (implicit ec: ExecutionContext): Future[Unit] =
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = false) { () =>
       for {
-        edits <- editsStore.removeKey(id, Edits.Photoshoot)
-        _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
+        edits <- editsStore.removeKeyV2(id, Edits.Photoshoot)
+        _ <- editsStore.removeKeyV2(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield ()
     }
@@ -135,7 +135,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def getAllImageRightsInPhotoshoot(photoshoot: Photoshoot)
                                    (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] = for {
     imageIds <- getImagesInPhotoshoot(photoshoot)
-    allNonInferredRights <- syndicationStore.batchGet(imageIds, syndicationRightsFieldName)
+    allNonInferredRights <- syndicationStore.batchGetV2(imageIds, syndicationRightsFieldName)
   } yield {
     logger.info(s"Found non-inferred rights for ${allNonInferredRights.size} of ${imageIds.size} images in photoshoot ${photoshoot.title}")
     val mostRecentInferrableRightsMaybe = getMostRecentInferrableSyndicationRights(allNonInferredRights.values.toList)
@@ -144,7 +144,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def getImagesInPhotoshoot(photoshoot: Photoshoot)
                            (implicit ec: ExecutionContext): Future[List[String]] =
-      editsStore.scanForId(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
+      editsStore.scanForIdV2(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
         .recover { case NoItemFound => Nil }
 
   def getChangedRights(before: Map[String, SyndicationRights], after: Map[String, SyndicationRights]): Map[String, Option[SyndicationRights]] = {

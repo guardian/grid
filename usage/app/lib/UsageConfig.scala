@@ -1,9 +1,9 @@
 package lib
 
-import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.net.URI.ensureSecure
+import software.amazon.awssdk.services.iam.IamClient
 
 import scala.util.Try
 
@@ -37,11 +37,11 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
 
   val awsRegionName = string("aws.region")
 
-  private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
+  private val iamClient: IamClient = withAWSCredentialsV2(IamClient.builder()).build()
 
   val postfix: String = if (isDev) {
     try {
-      iamClient.getUser.getUser.getUserName
+      iamClient.getUser.user().userName()
     } catch {
       case e:com.amazonaws.SdkClientException =>
         logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names", e)
