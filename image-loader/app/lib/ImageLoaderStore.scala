@@ -29,14 +29,14 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def getS3Object(key: String)(implicit logMarker: LogMarker): ResponseInputStream[GetObjectResponse] = handleNotFound(key) {
-      clientV2.getObject(
+      client.getObject(
         GetObjectRequest.builder().bucket(config.maybeIngestBucket.get).key(key).build())
   } {
     logger.error(logMarker, s"Attempted to read $key from ingest bucket, but it does not exist.")
   }
 
   def queueS3Object(uploader: String, filename: String, s3Meta: Map[String, String], file: File)(implicit logMarker: LogMarker) = {
-    storeV2(
+    store(
         config.maybeIngestBucket.get,
         s"$uploader/$filename",
         file,
@@ -62,7 +62,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def moveObjectToFailedBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key){
-    clientV2.copyObject(
+    client.copyObject(
       CopyObjectRequest.builder()
         .sourceBucket(config.maybeIngestBucket.get)
         .sourceKey(key)
@@ -76,7 +76,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def deleteObjectFromIngestBucket(key: String)(implicit logMarker: LogMarker) = handleNotFound(key) {
-    clientV2.deleteObject(
+    client.deleteObject(
       DeleteObjectRequest.builder().bucket(config.maybeIngestBucket.get).key(key).build())
     ()
   } {

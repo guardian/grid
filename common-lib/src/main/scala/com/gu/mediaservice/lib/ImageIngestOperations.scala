@@ -47,7 +47,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
       overwrite = true)
 
 
-  private def bulkDeleteV2(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
+  private def bulkDelete(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
     case Nil => Future.successful(Map.empty)
     case _ => Future {
       val objects = keys.map { key =>
@@ -55,7 +55,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
           .key(key)
           .build()
       }.asJava
-      val response = clientV2.deleteObjects(
+      val response = client.deleteObjects(
         DeleteObjectsRequest.builder().bucket(bucket)
           .delete(Delete.builder().objects(objects).build())
           .build()
@@ -68,15 +68,15 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   }
 
   def deleteOriginal(id: String)(implicit logMarker: LogMarker): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
-  def deleteOriginals(ids: Set[String]) = bulkDeleteV2(imageBucket, ids.map(fileKeyFromId).toList)
+  def deleteOriginals(ids: Set[String]) = bulkDelete(imageBucket, ids.map(fileKeyFromId).toList)
   def deleteThumbnail(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
-  def deleteThumbnails(ids: Set[String]) = bulkDeleteV2(thumbnailBucket, ids.map(fileKeyFromId).toList)
+  def deleteThumbnails(ids: Set[String]) = bulkDelete(thumbnailBucket, ids.map(fileKeyFromId).toList)
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
-  def deletePNGs(ids: Set[String]) = bulkDeleteV2(imageBucket, ids.map(optimisedPngKeyFromId).toList)
+  def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
-  def doesOriginalExistV2(id: String): Boolean =
+  def doesOriginalExist(id: String): Boolean =
     try {
-      clientV2.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
+      client.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
       logger.info(s"found ${fileKeyFromId(id)} ")
       true
     } catch {

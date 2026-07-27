@@ -310,7 +310,7 @@ class MediaApi(
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
           asset <- export.assets.find(_.dimensions.exists(_.width == width))
-          s3Res = Try(s3Client.getObjectV2(config.imgPublishingBucket, asset.file))
+          s3Res = Try(s3Client.getObject(config.imgPublishingBucket, asset.file))
           _ = s3Res.failed.foreach { ex =>
             logger.error("Failed to fetch S3 object", ex)
           }
@@ -441,7 +441,7 @@ class MediaApi(
         val apiKey = request.user.accessor
         logger.info(logMarker, s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}")
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = s3Client.getObjectV2(config.imageBucket, image.source.file)
+        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
@@ -494,7 +494,7 @@ class MediaApi(
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
-          new URI(s3Client.signUrlV2(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
             case Some(_) => OptimisedPng
             case _ => Source
           }))

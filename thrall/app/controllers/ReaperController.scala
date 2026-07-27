@@ -68,7 +68,7 @@ class ReaperController(
         interval = INTERVAL,
       ){ () =>
         try {
-          if (store.doesObjectExistV2(reaperBucket, CONTROL_FILE_NAME)) {
+          if (store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
             logger.info("Reaper is paused")
             es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
             es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
@@ -111,7 +111,7 @@ class ReaperController(
     case Some(reaperBucket) => doBatchDelete.map { json =>
       val now = DateTime.now(DateTimeZone.UTC)
       val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-      store.clientV2.putObject(
+      store.client.putObject(
         PutObjectRequest.builder().bucket(reaperBucket).key(key).build(),
         RequestBody.fromString(json.toString()))
       json
@@ -190,14 +190,14 @@ class ReaperController(
     case (None, _) => NotImplemented("'s3.reaper.bucket' not configured in thrall.conf")
     case (_, None) => NotImplemented("'reaper.countPerRun' not configured in thrall.conf")
     case (Some(reaperBucket), Some(countOfImagesToReap)) =>
-      val isPaused = store.doesObjectExistV2(reaperBucket, CONTROL_FILE_NAME)
+      val isPaused = store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)
       val recentRecords = List(now, now.minusDays(1), now.minusDays(2)).flatMap { day =>
         val s3DirName = s3DirNameFromDate(day)
-        val softDeletes = store.clientV2.listObjectsV2(
+        val softDeletes = store.client.listObjectsV2(
             ListObjectsV2Request.builder().bucket(reaperBucket).prefix(s"soft/$s3DirName/").build()
         ).contents().asScala.toList
 
-        val hardDeletes = store.clientV2.listObjectsV2(
+        val hardDeletes = store.client.listObjectsV2(
           ListObjectsV2Request.builder().bucket(reaperBucket).prefix(s"hard/$s3DirName/").build()
         ).contents().asScala.toList
 
@@ -215,7 +215,7 @@ class ReaperController(
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.getObjectAsStringV2(reaperBucket, key) match {
+      store.getObjectAsString(reaperBucket, key) match {
         case Some(res) => Ok(res).as(JSON)
         case None => NotFound
       }
@@ -224,14 +224,14 @@ class ReaperController(
   def pauseReaper = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.clientV2.putObject(PutObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build(), RequestBody.fromString(""))
+      store.client.putObject(PutObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build(), RequestBody.fromString(""))
       Redirect(routes.ReaperController.index)
   }}
 
   def resumeReaper = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.clientV2.deleteObject(DeleteObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build())
+      store.client.deleteObject(DeleteObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build())
       Redirect(routes.ReaperController.index)
   }}
 
