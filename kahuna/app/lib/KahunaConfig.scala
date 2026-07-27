@@ -18,7 +18,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri
 
-  val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
+  override val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 
   val thumbOrigin: String = string("origin.thumb")
   val fullOrigin: String = string("origin.full")
