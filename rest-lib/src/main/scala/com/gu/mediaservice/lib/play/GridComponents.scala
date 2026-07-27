@@ -7,6 +7,8 @@ import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
+import play.api.http.DefaultHttpErrorHandler
+import play.api.http.HttpErrorHandler
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -23,6 +25,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   // next thing is to set up log shipping
   LogConfig.initKinesisLogging(config)
   LogConfig.initLocalLogShipping(config)
+  SentrySupport.init(config)
+  applicationLifecycle.addStopHook(() => SentrySupport.shutdown(config))
 
   def buildInfo: BuildInfo
 
@@ -41,6 +45,12 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
     allowedOrigins = Origins.Matching(config.services.corsAllowedDomains)
   )
+
+  final override lazy val httpErrorHandler: HttpErrorHandler =
+    new SentryHttpErrorHandler(
+      new DefaultHttpErrorHandler(environment, configuration, sourceMapper, Some(router)),
+      config
+    )
 
   lazy val management = new Management(controllerComponents, buildInfo)
 

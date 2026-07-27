@@ -135,6 +135,7 @@ lazy val restLib = project("rest-lib").settings(
     playCore,
     filters,
     pekkoHttpServer,
+    "io.sentry" % "sentry" % "8.23.0",
   ),
 ).dependsOn(commonLib % "compile->compile;test->test")
 
