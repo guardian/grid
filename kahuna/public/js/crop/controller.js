@@ -5,12 +5,14 @@ import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from "../util/crop";
 import {cropOptions} from "../util/constants/cropOptions";
 import {storage as storageModule} from "../util/storage";
+import '../imgops/service';
 
 const crop = angular.module('kahuna.crop.controller', [
   'gr.keyboardShortcut',
   radioList.name,
   cropUtil.name,
-  storageModule.name
+  storageModule.name,
+  'kahuna.imgops'
 ]);
 
 crop.controller('ImageCropCtrl', [
@@ -21,7 +23,7 @@ crop.controller('ImageCropCtrl', [
   'mediaApi',
   'mediaCropper',
   'image',
-  'optimisedImageUri',
+  'imgops',
   'keyboardShortcut',
   'defaultCrop',
   'cropSettings',
@@ -37,7 +39,7 @@ crop.controller('ImageCropCtrl', [
     mediaApi,
     mediaCropper,
     image,
-    optimisedImageUri,
+    imgops,
     keyboardShortcut,
     defaultCrop,
     cropSettings,
@@ -84,7 +86,16 @@ crop.controller('ImageCropCtrl', [
       ctrl.cropType = storageCropType || storageDefaultCropType || defaultCrop.key;
 
       ctrl.image = image;
-      ctrl.optimisedImageUri = optimisedImageUri;
+      ctrl.optimisedImageUri = null;
+      ctrl.imageLoading = true;
+
+      imgops.getFullScreenUri(image).then(uri => {
+        ctrl.optimisedImageUri = uri;
+      });
+
+      ctrl.onCropperReady = () => {
+        ctrl.imageLoading = false;
+      };
 
       ctrl.cropping = false;
 

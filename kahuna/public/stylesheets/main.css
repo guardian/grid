@@ -2025,6 +2025,7 @@ FIXME: what to do with touch devices
 }
 
 .easel__canvas {
+    position: relative;
     height: calc(100vh - 50px); /* viewport - top-bar */
     vertical-align: middle;
     overflow: hidden;
@@ -2032,6 +2033,16 @@ FIXME: what to do with touch devices
 .warning + .easel__canvas { /* when an easel__canvas follows a warning banner */
   height: calc(100vh - 134px); /* viewport - (top-bar + warning) */
   margin: 10px;
+}
+
+.easel__loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #999;
+    font-size: 1.6rem;
+    white-space: nowrap;
 }
 
 .easel__image-container {
