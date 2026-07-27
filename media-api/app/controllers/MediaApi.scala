@@ -494,7 +494,7 @@ class MediaApi(
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
-          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+          new URI(s3Client.signUrlV2(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
             case Some(_) => OptimisedPng
             case _ => Source
           }))
