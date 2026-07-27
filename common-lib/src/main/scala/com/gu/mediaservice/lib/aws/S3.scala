@@ -1,9 +1,5 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.services.s3.model.{Region => _, _}
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
-import com.amazonaws.util.IOUtils
-import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
@@ -55,16 +51,6 @@ object S3Object {
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 
 object S3Metadata {
-  def apply(meta: ObjectMetadata): S3Metadata = {
-    S3Metadata(
-      meta.getUserMetadata.asScala.toMap,
-      S3ObjectMetadata(
-        contentType = Option(meta.getContentType).filterNot(_.toLowerCase == "application/octet-stream").map(MimeType.apply),
-        cacheControl = Option(meta.getCacheControl),
-        lastModified = Option(meta.getLastModified).map(new DateTime(_))
-      )
-    )
-  }
   def apply(meta: HeadObjectResponse): S3Metadata = {
     S3Metadata(
       meta.metadata().asScala.toMap,
@@ -84,7 +70,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type Key = String
   type UserMetadata = Map[String, String]
 
-  lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   lazy val clientV2: S3Client = S3Ops.buildS3ClientV2(config)
   val presigner = S3Presigner.create()
   def signUrlV2(
@@ -117,7 +102,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val req = presigner.presignGetObject(getObjectPresignRequest)
     req.url().toExternalForm
   }
-  
+
   def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
@@ -128,20 +113,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     clientV2.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build())
   }
 
-  def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
-    val content = client.getObject(new GetObjectRequest(bucket, key))
-    val stream = content.getObjectContent
-    try {
-      Some(IOUtils.toString(stream).trim)
-    } catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
-        logger.warn(s"Cannot find key: $key in bucket: $bucket")
-        None
-    }
-    finally {
-      stream.close()
-    }
-  }
   def getObjectAsStringV2(bucket: Bucket, key: String): Option[String] = {
     try {
       val stream = clientV2.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build());
@@ -197,18 +168,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
   }
 
-  def list(bucket: Bucket, prefixDir: String)
-          (implicit ex: ExecutionContext): Future[List[S3Object]] =
-    Future {
-      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")
-      val listing = client.listObjects(req)
-      val summaries = listing.getObjectSummaries.asScala
-      summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
-        case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(bucket, key, summary.getSize, getMetadata(bucket, key)) :: memo
-      }
-    }
-
   def listV2(bucket: Bucket, prefixDir: String)
             (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {
@@ -220,25 +179,11 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       })
     }
 
-  def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
-    val meta = client.getObjectMetadata(bucket, key)
-    S3Metadata(meta)
-  }
-
   def getMetadataV2(bucket: Bucket, key: Key): S3Metadata = {
     val meta = clientV2.headObject(HeadObjectRequest.builder().key(key).bucket(bucket).build())
     S3Metadata(meta)
   }
 
-  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] =
-    client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
-
-  def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
-    val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
-    val listing = client.listObjects(req)
-    val summaries = listing.getObjectSummaries.asScala
-    summaries.headOption.map(_.getKey)
-  }
   def syncFindKeyV2(bucket: Bucket, prefixName: String): Option[Key] = {
     val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixName-").build()
     val objects = clientV2.listObjectsV2(req).contents().asScala.toList
@@ -261,19 +206,6 @@ object S3Ops {
   // TODO make this localstack friendly
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   val s3Endpoint = "s3.amazonaws.com"
-
-  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[String] = None): AmazonS3 = {
-    val builder = config.awsLocalEndpoint match {
-      case Some(_) if config.isDev =>
-        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
-        //  `withPathStyleAccessEnabled` for localstack
-        //  see https://github.com/localstack/localstack/issues/1512
-        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
-      case _ => AmazonS3ClientBuilder.standard()
-    }
-
-    config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
-  }
 
   def buildS3ClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Client = {
     val builder = config.awsLocalEndpoint match {

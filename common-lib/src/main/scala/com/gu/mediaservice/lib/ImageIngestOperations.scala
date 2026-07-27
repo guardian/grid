@@ -74,9 +74,6 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
   def deletePNGs(ids: Set[String]) = bulkDeleteV2(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
-  def doesOriginalExist(id: String): Boolean =
-    client.doesObjectExist(imageBucket, fileKeyFromId(id))
-
   def doesOriginalExistV2(id: String): Boolean =
     try {
       clientV2.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
