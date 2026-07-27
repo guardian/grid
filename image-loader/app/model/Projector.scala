@@ -1,13 +1,14 @@
 package model
 
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.model.GetObjectResponse
+
 import java.io.{File, FileOutputStream}
-import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Ops}
+import com.gu.mediaservice.lib.aws.{Embedder, S3, S3Object}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -19,9 +20,8 @@ import model.upload.UploadRequest
 import org.apache.commons.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
 
-import java.nio.file.Path
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,7 +31,7 @@ object Projector {
   import Uploader.toImageUploadOpsCfg
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication, maybeEmbedder: Option[Embedder])(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth, maybeEmbedder)
+  = new Projector(toImageUploadOpsCfg(config), new S3(config), imageOps, processor, auth, maybeEmbedder)
 }
 
 case class S3FileExtractedMetadata(
@@ -42,12 +42,12 @@ case class S3FileExtractedMetadata(
 )
 
 object S3FileExtractedMetadata {
-  def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
-    val lastModified = new DateTime(s3ObjectMetadata.getLastModified)
-    val userMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+
+  def apply(s3Object: S3Object): S3FileExtractedMetadata = {
+    val lastModified = s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime)
+    val userMetadata = s3Object.metadata.userMetadata
     apply(lastModified, userMetadata)
   }
-
   def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
     val fileUserMetadata = userMetadata.map { case (key, value) =>
       // Fix up the contents of the metadata.
@@ -81,7 +81,7 @@ object S3FileExtractedMetadata {
 }
 
 class Projector(config: ImageUploadOpsCfg,
-                s3: AmazonS3,
+                s3: S3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
                 auth: Authentication,
@@ -95,17 +95,17 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-      if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
+        if (!s3.doesObjectExistV2(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket, s3Key)
+        s3.getObjectV2(config.originalFileBucket, s3Key)
       }(logMarker)
 
       try {
         val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
-        val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
-
+        val lastModifiedInstant = s3Source.response().lastModified()
+        val extractedS3Meta = S3FileExtractedMetadata(new DateTime(lastModifiedInstant.toEpochMilli).withZone(DateTimeZone.UTC), s3Source.response().metadata().asScala.toMap)
         val finalImageFuture = projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
         val finalImage = Await.result(finalImageFuture, Duration.Inf)
 
@@ -116,10 +116,10 @@ class Projector(config: ImageUploadOpsCfg,
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
+  private def getSrcFileDigestForProjection(s3Src: ResponseInputStream[GetObjectResponse], imageId: String, tempFile: File) = {
     val fos = new FileOutputStream(tempFile)
     try {
-      IOUtils.copy(s3Src.getObjectContent, fos)
+      IOUtils.copy(s3Src, fos)
       DigestedFile(tempFile, imageId)
     } finally {
       fos.close()
@@ -159,7 +159,7 @@ class Projector(config: ImageUploadOpsCfg,
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
-                               s3: AmazonS3,
+                               s3: S3,
                                maybeEmbedder: Option[Embedder],
 ) extends GridLogging {
 
@@ -210,16 +210,16 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     bucket: String, key: String, outFile: File
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
-    val doesFileExist = Future { s3.doesObjectExist(bucket, key) } recover { case _ => false }
+    val doesFileExist = Future { s3.doesObjectExistV2(bucket, key) } recover { case _ => false }
     doesFileExist.flatMap {
       case false =>
         logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
         Future.successful(None) // falls back to creating from original file
       case true =>
-        val obj = s3.getObject(new GetObjectRequest(bucket, key))
+        val obj = s3.getObjectV2(bucket, key)
         val fos = new FileOutputStream(outFile)
         try {
-          IOUtils.copy(obj.getObjectContent, fos)
+          IOUtils.copy(obj, fos)
         } finally {
           fos.close()
           obj.close()
