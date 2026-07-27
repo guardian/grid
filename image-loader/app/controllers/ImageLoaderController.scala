@@ -577,7 +577,7 @@ class ImageLoaderController(auth: Authentication,
 
     Future {
       config.maybeImageReplicaBucket match {
-        case _ if store.doesOriginalExist(imageId) =>
+        case _ if store.doesOriginalExistV2(imageId) =>
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))

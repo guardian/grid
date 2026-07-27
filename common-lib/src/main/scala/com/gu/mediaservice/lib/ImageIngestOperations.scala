@@ -7,7 +7,8 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
-import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, ObjectIdentifier}
+import software.amazon.awssdk.core.exception.SdkClientException
+import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, HeadObjectRequest, NoSuchKeyException, ObjectIdentifier}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -75,6 +76,21 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   def doesOriginalExist(id: String): Boolean =
     client.doesObjectExist(imageBucket, fileKeyFromId(id))
+
+  def doesOriginalExistV2(id: String): Boolean =
+    try {
+      clientV2.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
+      logger.info(s"found ${fileKeyFromId(id)} ")
+      true
+    } catch {
+      case _: NoSuchKeyException =>
+        logger.info(s"did not find ${fileKeyFromId(id)} ")
+        false
+      case ex: SdkClientException =>
+        logger.error(s"error calling head on s3 bucket", ex)
+        throw ex
+    }
+
 }
 
 sealed trait ImageWrapper {
