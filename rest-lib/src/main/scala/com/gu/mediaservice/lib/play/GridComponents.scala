@@ -48,7 +48,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   final override lazy val httpErrorHandler: HttpErrorHandler =
     new SentryHttpErrorHandler(
-      new DefaultHttpErrorHandler(environment, configuration, sourceMapper, Some(router)),
+      new DefaultHttpErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router)),
       config
     )
 
