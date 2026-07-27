@@ -44,9 +44,8 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
         meta = s3Meta,
       )
   }
-
+  val presigner = S3Presigner.create()
   def generatePreSignedUploadUrl(filename: String, duration: Duration, uploadedBy: String, mediaId: String): String = {
-    val presigner = S3Presigner.create()
 
     val putObjectRequest = PutObjectRequest.builder()
       .bucket(config.maybeBucketForUIUploads.get).key(s"$uploadedBy/$filename").metadata(Map(
@@ -56,7 +55,6 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
       PutObjectPresignRequest.builder()
         .putObjectRequest(putObjectRequest)
         .signatureDuration(duration)
-
         .build();
 
     val req = presigner.presignPutObject(putObjectPresignRequest)
