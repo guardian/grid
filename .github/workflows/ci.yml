@@ -51,11 +51,17 @@ jobs:
           cache-dependency-path: "cdk/package-lock.json"
       - name: Kahuna (client-side)
         working-directory: ./kahuna
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_RELEASE: ${{ github.sha }}
         run: |
           npm install-clean
           npm run undist
           npm test
           npm run dist
+          npm run sentry:upload-sourcemaps
       - name: install image libs needed for tests
         run: |
           sudo apt-get -y update

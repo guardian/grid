@@ -110,6 +110,9 @@
     <ui-notifications></ui-notifications>
 </div>
 
+<script>
+    window.SENTRY_RELEASE = { id: "@utils.buildinfo.BuildInfo.gitCommitId" };
+</script>
 
 <script src="@routes.Assets.versioned("dist/build.js")"></script>
 
