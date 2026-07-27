@@ -255,17 +255,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
   }
 
-  def doesObjectExistV2(bucket: Bucket, key: String) = {
-    try {
-      clientV2.headObject(
-        HeadObjectRequest.builder().key(key).bucket(bucket).build()
-      )
-      true
-    } catch {
-      case _: NoSuchKeyException => false
-    }
-  }
-
 }
 
 object S3Ops {
