@@ -12,7 +12,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2, ListObjectsV2Request}
 
 import java.io.File
 import java.net.URI
@@ -185,6 +185,17 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
           S3Object(bucket, key, summary.getSize, getMetadata(bucket, key)) :: memo
       }
+    }
+
+  def listV2(bucket: Bucket, prefixDir: String)
+            (implicit ex: ExecutionContext): Future[List[S3Object]] =
+    Future {
+      val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixDir/").build()
+      val listing = clientV2.listObjectsV2(req)
+      val s3Objects = listing.contents().asScala.toList
+      s3Objects.map(s3Object => {
+        S3Object(bucket, s3Object.key(), size = s3Object.size(), metadata = getMetadata(bucket, s3Object.key()))
+      })
     }
 
   def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
