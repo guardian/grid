@@ -215,7 +215,7 @@ class ReaperController(
   def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.getObjectAsString(reaperBucket, key) match {
+      store.getObjectAsStringV2(reaperBucket, key) match {
         case Some(res) => Ok(res).as(JSON)
         case None => NotFound
       }
