@@ -86,7 +86,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   lazy val clientV2: S3Client = S3Ops.buildS3ClientV2(config)
-  val presigner = S3Presigner.create()
+  lazy val presigner = S3Presigner.create()
   def signUrlV2(
                  bucket: Bucket,
                  url: URI,
@@ -117,7 +117,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val req = presigner.presignGetObject(getObjectPresignRequest)
     req.url().toExternalForm
   }
-  
+
   def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
