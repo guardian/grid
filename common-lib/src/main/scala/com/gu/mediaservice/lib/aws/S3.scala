@@ -117,7 +117,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val req = presigner.presignGetObject(getObjectPresignRequest)
     req.url().toExternalForm
   }
-  
+
   def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
