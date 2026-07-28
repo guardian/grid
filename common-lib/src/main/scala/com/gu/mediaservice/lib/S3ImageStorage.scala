@@ -28,10 +28,10 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
     eventualObject
   }
 
-  def deleteImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    logger.info(logMarker, s"Deleted image $id from bucket $bucket")
+  def deleteImage(bucket: String, key: String)(implicit logMarker: LogMarker) = Future {
+    logger.info(logMarker, s"Deleted image $key from bucket $bucket")
     clientV2.deleteObject(
-      DeleteObjectRequest.builder().bucket(bucket).key(id).build())
+      DeleteObjectRequest.builder().bucket(bucket).key(key).build())
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
