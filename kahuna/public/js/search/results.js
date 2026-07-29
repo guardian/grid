@@ -233,6 +233,12 @@ results.controller('SearchResultsCtrl', [
           // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
           ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
+          // Present only when an AI search has no text/similar-image query to
+          // rank by. When set, we show how the filters have narrowed
+          // the pool of images and invite the user to add a query.
+          ctrl.filterPoolCounts = images.$response?.$$state?.value?.actions?.filterPoolCounts;
+          ctrl.filtersOnlyAiSearch = !!ctrl.filterPoolCounts;
+
           ctrl.hasQuery = !!$stateParams.query;
           ctrl.initialSearchUri = images.uri;
           ctrl.embeddableUrl = window.location.href;
@@ -248,6 +254,9 @@ results.controller('SearchResultsCtrl', [
         function initialiseAiResults(images) {
           const totalLength = images.data.length;
           ctrl.imagesAll = new Array(totalLength);
+          // Number of results actually shown (the top k), so we can display
+          // "Best k of N matches" where N is ctrl.totalResults.
+          ctrl.aiResultsShown = totalLength;
 
           // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
           // so we populate the full backing array up front to avoid placeholder rows.
@@ -292,6 +301,8 @@ results.controller('SearchResultsCtrl', [
             initialisePagedResults(images);
             checkForNewImages();
           }
+
+          ctrl.isAiSearch = isAiSearch;
 
           updateLastSearchBoundary();
 
@@ -827,24 +838,27 @@ results.controller('SearchResultsCtrl', [
             });
         };
 
-        const freeImageDeleteListener = $rootScope.$on('images-deleted', (e, images) => {
-            images.forEach(image => {
-                // TODO: should not be needed here, the selection and
-                // results should listen to these events and update
-                // itself outside of any controller
-                ctrl.deselect(image);
+        const imageDeleteHandler = (_, images) => {
+          images.forEach(image => {
+            // TODO: should not be needed here, the selection and
+            // results should listen to these events and update
+            // itself outside of any controller
+            ctrl.deselect(image);
 
-                const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
-                results.removeAt(indexAll);
+            const indexAll = ctrl.imagesAll.findIndex(i => image.data.id === i.data.id);
+            results.removeAt(indexAll);
 
-                updateImageArray(ctrl.images, image);
-                updateImageArray(ctrl.imagesAll, image);
+            updateImageArray(ctrl.images, image);
+            updateImageArray(ctrl.imagesAll, image);
 
-                updatePositions(image);
+            updatePositions(image);
 
-                ctrl.totalResults--;
-            });
-        });
+            ctrl.totalResults--;
+          });
+        };
+
+        const freeImageDeleteListener = $rootScope.$on('images-deleted', imageDeleteHandler);
+        const freeImageUndeleteListener = $rootScope.$on('images-undeleted', imageDeleteHandler);
 
         // Safer than clearing the timeout in case of race conditions
         // FIXME: nicer (reactive?) way to do this?
@@ -913,6 +927,7 @@ results.controller('SearchResultsCtrl', [
             }
             freeUpdatesListener();
             freeImageDeleteListener();
+            freeImageUndeleteListener();
             scopeGone = true;
         });
     }

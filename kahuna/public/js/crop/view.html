@@ -125,6 +125,9 @@
     'circular-mask': ctrl.shouldShowCircularGuideline && ctrl.shouldUseCircularMask
 }">
     <div class="easel__canvas">
+        <div class="easel__loading" ng-if="ctrl.imageLoading">
+            <span>Loading image…</span>
+        </div>
         <div class="easel__image-container" oncontextmenu="return false;">
             <img class="easel__image easel__image--cropper"
                  crossorigin="anonymous"
@@ -135,7 +138,7 @@
                  ui-crop-box-original-width="ctrl.originalWidth"
                  ui-crop-box-original-height="ctrl.originalHeight"
                  ui-crop-box-crop-type="ctrl.cropType"
-
+                 ui-crop-box-on-ready="ctrl.onCropperReady()"
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original-cropping"
                  grid:track-image-loadtime
