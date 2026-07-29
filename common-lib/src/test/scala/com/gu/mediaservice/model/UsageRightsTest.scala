@@ -180,6 +180,20 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
         Some("source")
       )
     }
+
+    it("Pool") {
+      val json = Json.parse(
+        s"""
+        {
+          "category": "pool",
+          "restrictions": "restrictions"
+        }
+      """.stripMargin)
+
+      val usageRights = json.as[UsageRights]
+
+      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("pool"))
+    }
   }
 
 
