@@ -81,20 +81,20 @@ object ItemToMediaUsage {
   }
 
 
-  private def buildFront(metadataMap: Map[String, Any]): Option[FrontUsageMetadata] = {
+  private def buildFront(metadataMap: Map[String, String]): Option[FrontUsageMetadata] = {
     Try {
       FrontUsageMetadata(
-        metadataMap("addedBy").asInstanceOf[String],
-        metadataMap("front").asInstanceOf[String]
+        metadataMap("addedBy"),
+        metadataMap("front")
       )
     }.toOption
   }
 
-  private def buildSyndication(metadataMap: Map[String, Any]): Option[SyndicationUsageMetadata] = {
+  private def buildSyndication(metadataMap: Map[String, String]): Option[SyndicationUsageMetadata] = {
     Try {
       SyndicationUsageMetadata(
-        metadataMap("partnerName").asInstanceOf[String],
-        metadataMap.get("syndicatedBy").map(x => x.asInstanceOf[String])
+        metadataMap("partnerName"),
+        metadataMap.get("syndicatedBy")
       )
     }.toOption
   }
