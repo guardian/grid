@@ -104,6 +104,7 @@ object UsageRights {
     case o: ProgrammesOrganisationOwned => ProgrammesOrganisationOwned.formats.writes(o)
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
+    case o: PrAndThirdParty => PrAndThirdParty.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -120,7 +121,7 @@ object UsageRights {
         case Agency.category => json.asOpt[Agency]
         case CommissionedAgency.category => json.asOpt[CommissionedAgency]
         case PrImage.category => json.asOpt[PrImage]
-        case Handout.category => json.asOpt[Handout]
+        case Handout.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Handout.category)))
         case Screengrab.category => json.asOpt[Screengrab]
         case GuardianWitness.category => json.asOpt[GuardianWitness]
         case OriginalSource.category => json.asOpt[OriginalSource]
@@ -142,6 +143,7 @@ object UsageRights {
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
+        case PrAndThirdParty.category => json.asOpt[PrAndThirdParty]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -616,4 +618,24 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
 
   implicit val formats: Format[ProgrammesAcquisitions] =
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
+}
+
+final case class PrAndThirdParty(restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+
+  override val defaultCost: Option[Cost] = PrAndThirdParty.defaultCost
+}
+
+object PrAndThirdParty extends UsageRightsSpec {
+
+  override val category: String = "pr-and-third-party"
+
+  override def name(config: CommonConfig): String = "Pr & Third Party"
+
+  override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituraries."
+
+  // TODO - check this
+  override val defaultCost: Option[Cost] = None
+
+  implicit val formats: Format[PrAndThirdParty] =
+    UsageRights.subtypeFormat(PrAndThirdParty.category)(Json.format[PrAndThirdParty])
 }
