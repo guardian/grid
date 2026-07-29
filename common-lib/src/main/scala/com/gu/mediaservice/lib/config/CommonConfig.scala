@@ -47,6 +47,12 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val shouldDisplayOrgOwnedCountAndFilterCheckbox: Boolean = boolean("filters.shouldDisplayOrgOwnedCountAndFilterCheckbox")
 
+  // Defaults to false so orgs that haven't wired up the Bedrock/SQS/vector-ES
+  // infrastructure required for AI search don't have it enabled by staying up to date with main.
+  // Shared by media-api (gates the search endpoint) and kahuna (gates the tickbox), so it only
+  // needs setting in one config key.
+  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(false)
+
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
   lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")

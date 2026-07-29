@@ -48,9 +48,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val showDenySyndicationWarning: Option[Boolean] = booleanOpt("showDenySyndicationWarning")
   val showSendToPhotoSales: Option[Boolean] = booleanOpt("showSendToPhotoSales")
-  // Defaults to false so orgs that haven't wired up the Bedrock/SQS/vector-ES
-  // infrastructure required for AI search don't have it enabled by staying up to date with main.
-  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(false)
   val aiSearchResultLimit: Int = intOpt("ai.search.resultLimit").getOrElse(200)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
