@@ -150,6 +150,12 @@ function getKahunaConfig(config){
       |permissionsDefault="allPermissions"
       `;
 
+    // AI search depends on Bedrock/vector-ES infrastructure that isn't wired up for every
+    // org, so it defaults to false (see MediaApiConfig/KahunaConfig) and is only turned on
+    // here for Guardian's own local dev environment.
+    const aiSearchConfig = process.env.BUILD_ORG ? "" : stripMargin`
+        |ai.search.enabled=true`;
+
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
@@ -168,6 +174,7 @@ function getKahunaConfig(config){
         |usageRightsSummary=true
         |${permissionsConfig}
         |${pinboardConfig}
+        |${aiSearchConfig}
         |`;
 }
 
@@ -181,6 +188,12 @@ function getLeasesConfig(config) {
 }
 
 function getMediaApiConfig(config) {
+    // AI search depends on Bedrock/vector-ES infrastructure that isn't wired up for every
+    // org, so it defaults to false (see MediaApiConfig) and is only turned on here for
+    // Guardian's own local dev environment.
+    const aiSearchConfig = process.env.BUILD_ORG ? "" : stripMargin`
+        |ai.search.enabled=true`;
+
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
@@ -199,6 +212,7 @@ function getMediaApiConfig(config) {
         |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
+        |${aiSearchConfig}
         |`;
 }
 
