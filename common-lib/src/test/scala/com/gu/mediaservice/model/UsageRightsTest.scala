@@ -253,6 +253,20 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
       usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("commissioned-agency"))
     }
+
+    it("Public Domain") {
+      val json = Json.parse(
+        s"""
+        {
+          "category": "public-domain",
+          "restrictions": "restrictions"
+        }
+      """.stripMargin)
+
+      val usageRights = json.as[UsageRights]
+
+      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("public-domain"))
+    }
   }
 
 
