@@ -158,6 +158,28 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
       usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("social-media"))
     }
+    // TODO - how do we want to handle mapping these fields?
+    it("Creative Commons") {
+      val json = Json.parse(
+        s"""
+        {
+          "category": "creative-commons",
+          "licence":"CC BY-4.0",
+          "source":"source",
+          "creator":"creator",
+          "contentLink":"link to content",
+          "restrictions": "restrictions"
+        }
+      """.stripMargin)
+
+      val usageRights = json.as[UsageRights]
+
+      usageRights shouldBe PrAndThirdParty(
+        Some("restrictions"),
+        Some("creative-commons"),
+        Some("source")
+      )
+    }
   }
 
 
