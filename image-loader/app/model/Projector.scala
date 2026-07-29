@@ -42,12 +42,7 @@ case class S3FileExtractedMetadata(
 )
 
 object S3FileExtractedMetadata {
-
-  def apply(s3Object: S3Object): S3FileExtractedMetadata = {
-    val lastModified = s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime)
-    val userMetadata = s3Object.metadata.userMetadata
-    apply(lastModified, userMetadata)
-  }
+  
   def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
     val fileUserMetadata = userMetadata.map { case (key, value) =>
       // Fix up the contents of the metadata.
