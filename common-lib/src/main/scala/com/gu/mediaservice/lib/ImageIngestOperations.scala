@@ -74,19 +74,9 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
   def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
-  def doesOriginalExist(id: String): Boolean =
-    try {
-      client.headObject(HeadObjectRequest.builder().bucket(imageBucket).key(fileKeyFromId(id)).build())
-      logger.info(s"found ${fileKeyFromId(id)} ")
-      true
-    } catch {
-      case _: NoSuchKeyException =>
-        logger.info(s"did not find ${fileKeyFromId(id)} ")
-        false
-      case ex: SdkClientException =>
-        logger.error(s"error calling head on s3 bucket", ex)
-        throw ex
-    }
+  def doesOriginalExist(id: String): Boolean = {
+    this.doesObjectExist(imageBucket, id)
+  }
 
 }
 

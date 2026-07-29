@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRe
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
+
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -123,6 +124,10 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
         logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
     }
+  }
+
+  def putString(bucket: String, key: String, fileContents: String) = {
+    client.putObject(PutObjectRequestV2.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
