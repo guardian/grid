@@ -138,7 +138,7 @@ object UsageRights {
         case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
         case CreativeCommons.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CreativeCommons.category)))
         case Composite.category => json.asOpt[Composite]
-        case PublicDomain.category => json.asOpt[PublicDomain]
+        case PublicDomain.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PublicDomain.category)))
         case ProgramPromotional.category => json.asOpt[ProgramPromotional]
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
