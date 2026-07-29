@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.usage
 import com.amazonaws.services.dynamodbv2.document.Item
 import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverter, AttributeConverterProvider, AttributeValueType, DefaultAttributeConverterProvider, EnhancedType}
 import com.gu.mediaservice.model.usage.{ChildUsageMetadata, DigitalUsageMetadata, DownloadUsageMetadata, FrontUsageMetadata, MediaUsage, PrintImageSize, PrintUsageMetadata, SyndicationUsageMetadata, UsageId, UsageStatus, UsageType}
+import com.gu.mediaservice.lib.AttributeValueConverterProvider
 import org.joda.time.DateTime
 import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
@@ -13,19 +14,6 @@ import scala.jdk.CollectionConverters.MapHasAsJava
 import java.math.BigDecimal
 import java.net.URI
 
-object AttributeValueConverterProvider extends AttributeConverterProvider {
-  private val converter = new AttributeConverter[AttributeValue] {
-    override def transformFrom(input: AttributeValue): AttributeValue = input
-    override def transformTo(input: AttributeValue): AttributeValue = input
-    override def attributeValueType(): AttributeValueType = AttributeValueType.M
-    override def `type`(): EnhancedType[AttributeValue] = EnhancedType.of(classOf[AttributeValue])
-  }
-
-  override def converterFor[T](enhancedType: EnhancedType[T]): AttributeConverter[T] = {
-    if (enhancedType.rawClass() == classOf[AttributeValue]) converter.asInstanceOf[AttributeConverter[T]]
-    else null
-  }
-}
 class ItemToMediaUsageTest extends AnyFunSuiteLike {
 
   val lastModifiedMillis = 1700000000000L
@@ -199,7 +187,7 @@ class ItemToMediaUsageTest extends AnyFunSuiteLike {
     val enchancedDoc = EnhancedDocument.builder()
       .attributeConverterProviders(
         AttributeValueConverterProvider,
-        DefaultAttributeConverterProvider.create()
+        AttributeConverterProvider.defaultProvider()
       )
       .putString("usage_id", "usage-123")
       .putString("grouping","group-abc")

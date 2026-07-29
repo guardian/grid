@@ -2,10 +2,11 @@ package com.gu.mediaservice.lib.usage
 
 import java.net.URI
 import com.amazonaws.services.dynamodbv2.document.Item
+import com.gu.mediaservice.lib.AttributeValueConverterProvider
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import software.amazon.awssdk.enhanced.dynamodb.EnhancedType
+import software.amazon.awssdk.enhanced.dynamodb.{DefaultAttributeConverterProvider, EnhancedType}
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 

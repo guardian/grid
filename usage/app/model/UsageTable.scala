@@ -1,5 +1,6 @@
 package model
 
+import com.gu.mediaservice.lib.AttributeValueConverterProvider
 import com.gu.mediaservice.lib.aws.DynamoDB.jsonWithNullAsEmptyString
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
@@ -34,7 +35,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
       imageIndexName,
       AttributeValueType.S
     )
-    .attributeConverterProviders(AttributeConverterProvider.defaultProvider())
+    .attributeConverterProviders(AttributeValueConverterProvider, AttributeConverterProvider.defaultProvider())
     .build()
   lazy val table = dynamo.table(config.usageRecordTable, tableSchema)
 
