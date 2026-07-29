@@ -120,7 +120,7 @@ object UsageRights {
         case Chargeable.category => json.asOpt[Chargeable]
         case Agency.category => json.asOpt[Agency]
         case CommissionedAgency.category => json.asOpt[CommissionedAgency]
-        case PrImage.category => json.asOpt[PrImage]
+        case PrImage.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PrImage.category)))
         case Handout.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Handout.category)))
         case Screengrab.category => json.asOpt[Screengrab]
         case GuardianWitness.category => json.asOpt[GuardianWitness]

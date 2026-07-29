@@ -101,19 +101,35 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
     agencyImage.usageRights should be (Agency("Getty Images"))
   }
 
-  it("should deserialise a legacy category and map to the appropriate category") {
-    val json = Json.parse(
-      s"""
+  describe("deserialise a legacy category and map to the appropriate category") {
+    it("handout") {
+      val json = Json.parse(
+        s"""
         {
           "category": "handout",
           "restrictions": "restrictions"
         }
       """.stripMargin)
 
-    val usageRights = json.as[UsageRights]
+      val usageRights = json.as[UsageRights]
 
-    usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("handout"))
+      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("handout"))
+    }
+    it("PR Image") {
+      val json = Json.parse(
+        s"""
+        {
+          "category": "PR Image",
+          "restrictions": "restrictions"
+        }
+      """.stripMargin)
+
+      val usageRights = json.as[UsageRights]
+
+      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("PR Image"))
+    }
   }
+
 
 }
 
