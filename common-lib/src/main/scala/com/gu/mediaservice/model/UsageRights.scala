@@ -127,7 +127,7 @@ object UsageRights {
         case OriginalSource.category => json.asOpt[OriginalSource]
         case SocialMedia.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(SocialMedia.category)))
         case Bylines.category => json.asOpt[Bylines]
-        case Obituary.category => json.asOpt[Obituary]
+        case Obituary.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Obituary.category)))
         case StaffPhotographer.category => json.asOpt[StaffPhotographer]
         case ContractPhotographer.category => json.asOpt[ContractPhotographer]
         case CommissionedPhotographer.category => json.asOpt[CommissionedPhotographer]
