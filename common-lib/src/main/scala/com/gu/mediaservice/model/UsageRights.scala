@@ -122,10 +122,10 @@ object UsageRights {
         case CommissionedAgency.category => json.asOpt[CommissionedAgency]
         case PrImage.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PrImage.category)))
         case Handout.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Handout.category)))
-        case Screengrab.category => json.asOpt[Screengrab]
+        case Screengrab.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Screengrab.category)))
         case GuardianWitness.category => json.asOpt[GuardianWitness]
         case OriginalSource.category => json.asOpt[OriginalSource]
-        case SocialMedia.category => json.asOpt[SocialMedia]
+        case SocialMedia.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(SocialMedia.category)))
         case Bylines.category => json.asOpt[Bylines]
         case Obituary.category => json.asOpt[Obituary]
         case StaffPhotographer.category => json.asOpt[StaffPhotographer]
@@ -620,7 +620,7 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
 }
 
-final case class PrAndThirdParty(restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+final case class PrAndThirdParty(restrictions: Option[String] = None, legacyCategory: Option[String] = None, source: Option[String] = None) extends UsageRights {
 
   override val defaultCost: Option[Cost] = PrAndThirdParty.defaultCost
 }
