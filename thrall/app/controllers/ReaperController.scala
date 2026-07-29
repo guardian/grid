@@ -111,9 +111,7 @@ class ReaperController(
     case Some(reaperBucket) => doBatchDelete.map { json =>
       val now = DateTime.now(DateTimeZone.UTC)
       val key = s"$deleteType/${s3DirNameFromDate(now)}/$deleteType-${now.toString()}.json"
-      store.clientV2.putObject(
-        PutObjectRequest.builder().bucket(reaperBucket).key(key).build(),
-        RequestBody.fromString(json.toString()))
+      store.putString(reaperBucket, key, json.toString())
       json
     }
   }
@@ -224,7 +222,7 @@ class ReaperController(
   def pauseReaper = auth { config.maybeReaperBucket match {
     case None => NotImplemented("Reaper bucket not configured")
     case Some(reaperBucket) =>
-      store.clientV2.putObject(PutObjectRequest.builder().bucket(reaperBucket).key(CONTROL_FILE_NAME).build(), RequestBody.fromString(""))
+      store.putString(reaperBucket, CONTROL_FILE_NAME, "")
       Redirect(routes.ReaperController.index)
   }}
 
