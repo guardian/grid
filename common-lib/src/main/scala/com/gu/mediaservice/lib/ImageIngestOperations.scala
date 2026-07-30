@@ -73,7 +73,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deleteThumbnails(ids: Set[String]) = bulkDelete(thumbnailBucket, ids.map(fileKeyFromId).toList)
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
   def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
-  
+
   def doesOriginalExist(id: String): Boolean = {
     this.doesObjectExist(imageBucket, fileKeyFromId(id))
   }

@@ -8,7 +8,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, GetObjectRequest, PutObjectRequest}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
@@ -90,7 +90,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val targetExpirationMillis = expiration.getMillis
     val remainingSeconds = Math.max(1, (targetExpirationMillis - nowMillis) / 1000)
 
-    val getObjectRequest = GetObjectRequestV2.builder()
+    val getObjectRequest = GetObjectRequest.builder()
       .bucket(bucket)
       .key(key)
       .responseContentDisposition(contentDisposition)
@@ -108,16 +108,16 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   def getObject(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
-    client.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build())
+    client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
   }
 
   def getObject(bucket: Bucket, key: String): ResponseInputStream[GetObjectResponse] = {
-    client.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build())
+    client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build())
   }
 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
     try {
-      val stream = client.getObject(GetObjectRequestV2.builder().key(key).bucket(bucket).build());
+      val stream = client.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build());
       Some(new String(stream.readAllBytes(), StandardCharsets.UTF_8))
     } catch {
       case e: NoSuchKeyException =>
@@ -127,7 +127,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   }
 
   def putString(bucket: String, key: String, fileContents: String) = {
-    client.putObject(PutObjectRequestV2.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
+    client.putObject(PutObjectRequest.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
@@ -139,7 +139,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       )
       val markers = logMarker ++ fileMarkers
 
-      val reqBuilder = PutObjectRequestV2.builder().key(id).bucket(bucket)
+      val reqBuilder = PutObjectRequest.builder().key(id).bucket(bucket)
       cacheControl.foreach(c => reqBuilder.cacheControl(c))
       mimeType.foreach(m => reqBuilder.contentType(m.name))
       reqBuilder.metadata(meta.asJava)
