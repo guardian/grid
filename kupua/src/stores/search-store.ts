@@ -535,6 +535,17 @@ let _searchGeneration = 0;
 let _seekCooldownUntil = 0;
 
 /**
+ * Re-entrancy guard for _topUpScrollModeBuffer — several call sites can fire
+ * from one user interaction (e.g. a reload triggers both search()'s
+ * outside-buffer fallback and ImageDetail's restoreAroundCursor). A second
+ * concurrent top-up doesn't corrupt state (extendForward/extendBackward
+ * serialise via their own in-flight flags), but it burns its whole step
+ * budget on no-op BLOCKED calls for nothing — this flag lets a later call
+ * bail immediately instead.
+ */
+let _topUpInFlight = false;
+
+/**
  * One-shot flag to suppress the next `restoreAroundCursor` call.
  *
  * When resetToHome runs, its `search()` replaces the deep buffer with
@@ -968,6 +979,117 @@ async function _fillBufferForScrollMode(
 }
 
 // ---------------------------------------------------------------------------
+// Scroll-mode top-up — fills the buffer to full total after a buffer-
+// centering operation (sort-around-focus, restoreAroundCursor) lands it at
+// an arbitrary offset instead of 0.
+//
+// _fillBufferForScrollMode (above) only covers the case where search()'s
+// normal branch lands the buffer at offset 0. The sort-around-focus branch
+// and restoreAroundCursor instead call _loadBufferAroundImage, which
+// centres the buffer on a target image at an arbitrary global offset —
+// neither ever topped up the remainder, so for small (≤ SCROLL_MODE_THRESHOLD)
+// result sets the scrubber stayed stuck thinking it's in seek mode forever.
+// See exploration/docs/worklog-current.md for the investigation.
+// ---------------------------------------------------------------------------
+
+/**
+ * Drives the existing extendForward()/extendBackward() actions to fill the
+ * buffer to [0, total) rather than reimplementing fetch/prepend/eviction —
+ * they already handle prepend compensation and column alignment correctly
+ * (reimplementing that here would risk reintroducing the "swimming" bug
+ * those functions were hardened against).
+ *
+ * Stops if `total` or `_pitGeneration` change (either means a genuinely new
+ * search superseded this landing — a sort-direction toggle keeps `total`
+ * identical but still bumps `_pitGeneration`, so both are checked).
+ * `bufferOffset`/`results` changing as we make our own progress is expected,
+ * not a staleness signal.
+ *
+ * Each extend call shares the same abort controller every other extend
+ * relies on, but `extendForward`/`extendBackward` swallow `AbortError` and
+ * return normally — a concurrent search doesn't stop this loop by itself,
+ * the `total`/`_pitGeneration` guards above do that job. Progress is only
+ * counted when the buffer actually grew; consecutive no-progress calls
+ * (blocked by an in-flight flag, a missing cursor, or a cooldown TOCTOU)
+ * are capped separately so they can't silently burn the whole step budget
+ * before a single real fetch happens. Also bounded by a wall-clock deadline
+ * and a single re-entrancy flag (`_topUpInFlight`) — several call sites can
+ * fire from one interaction (e.g. reload triggers both search()'s fallback
+ * and restoreAroundCursor).
+ */
+async function _topUpScrollModeBuffer(
+  get: () => SearchState,
+): Promise<void> {
+  const myTotal = get().total;
+  if (myTotal <= 0 || myTotal > SCROLL_MODE_THRESHOLD) return;
+  // SCROLL_MODE_THRESHOLD is env-configurable per server and could in theory
+  // exceed BUFFER_CAPACITY. If it does, the scroll-mode gate (total <=
+  // bufferLength) can never be satisfied — bail rather than spin the full
+  // step budget for nothing every time this is called.
+  if (myTotal > BUFFER_CAPACITY) return;
+  if (_topUpInFlight) return;
+  _topUpInFlight = true;
+
+  const myPitGeneration = get()._pitGeneration;
+  const maxSteps = Math.ceil(myTotal / PAGE_SIZE) + 2;
+  const maxConsecutiveNoProgress = 3;
+  const deadline = Date.now() + 15_000;
+  const isStale = () =>
+    get().total !== myTotal || get()._pitGeneration !== myPitGeneration;
+  /** Wait out any active cooldown in one sleep rather than polling. */
+  const waitOutCooldown = async () => {
+    const remaining = _seekCooldownUntil - Date.now();
+    if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+  };
+
+  try {
+    let steps = 0;
+    let noProgress = 0;
+    while (
+      !isStale() &&
+      get().bufferOffset + get().results.length < myTotal &&
+      steps < maxSteps &&
+      noProgress < maxConsecutiveNoProgress &&
+      Date.now() < deadline
+    ) {
+      await waitOutCooldown();
+      if (isStale()) break;
+      const before = get().bufferOffset + get().results.length;
+      await get().extendForward();
+      if (get().bufferOffset + get().results.length > before) {
+        steps++;
+        noProgress = 0;
+      } else {
+        noProgress++;
+      }
+    }
+
+    steps = 0;
+    noProgress = 0;
+    while (
+      !isStale() &&
+      get().bufferOffset > 0 &&
+      steps < maxSteps &&
+      noProgress < maxConsecutiveNoProgress &&
+      Date.now() < deadline
+    ) {
+      await waitOutCooldown();
+      if (isStale()) break;
+      const before = get().bufferOffset;
+      await get().extendBackward();
+      if (get().bufferOffset < before) {
+        steps++;
+        noProgress = 0;
+      } else {
+        noProgress++;
+      }
+    }
+  } finally {
+    _topUpInFlight = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Position map background fetch — lightweight index for indexed scroll mode
 // ---------------------------------------------------------------------------
 
@@ -1246,6 +1368,9 @@ async function _findAndFocusImage(
         _seekTargetGlobalIndex: -1,
         _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
       });
+      // Only the first page landed — top up for small result sets (see
+      // _topUpScrollModeBuffer doc above _fillBufferForScrollMode).
+      void _topUpScrollModeBuffer(get);
     } else {
       trace("sort-around-focus", "t_settled");
       set({ sortAroundFocusStatus: null, loading: false });
@@ -1328,6 +1453,11 @@ async function _findAndFocusImage(
           // transition never happens and scroll would stay stale-deep.
           _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
         });
+        // Only the first page landed (target not found, no surviving
+        // neighbour) — top up for small result sets. This is the dominant
+        // real-world trigger: a phantom/explicit focus from an unrelated
+        // prior query almost never survives into a new filtered query.
+        void _topUpScrollModeBuffer(get);
       } else {
         trace("sort-around-focus", "t_settled");
         set({ sortAroundFocusStatus: null, loading: false });
@@ -1474,6 +1604,12 @@ async function _findAndFocusImage(
           sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
         });
       }
+      // The image was already in the buffer, so nothing was fetched — but
+      // for small result sets the buffer itself may still be partial (e.g.
+      // seekToFocused() firing during the initial two-phase fill). Top up
+      // so the scrubber can enter scroll mode (see function doc above
+      // _fillBufferForScrollMode).
+      void _topUpScrollModeBuffer(get);
     } else {
       // Outside buffer — load a page centered on the image
       trace("sort-around-focus", "t_seeking");
@@ -1590,12 +1726,25 @@ async function _findAndFocusImage(
                 set({ _focusedImageKnownOffset: correctedGlobalIdx });
               }
             }
+            // Scroll-mode top-up: bufferOffset is now final. Must NOT fire
+            // before this correction lands — extendForward()'s first
+            // successful call replaces `results`, which would trip the
+            // staleness guard above and permanently disable the correction,
+            // leaving bufferOffset stuck at the (usually 0) estimate.
+            void _topUpScrollModeBuffer(get);
           })
           .catch((e) => {
             if (e instanceof DOMException && e.name === "AbortError") return;
             console.warn("[sort-around-focus] async offset correction failed:", e);
-            // Non-fatal — buffer data is correct, only scrubber position is off.
+            // Non-fatal — buffer data is correct, only scrubber position is
+            // off. Still top up for small result sets; the estimated offset
+            // is no worse than it was before this fix existed.
+            void _topUpScrollModeBuffer(get);
           });
+      } else {
+        // Offset was exact (position-map hit or synchronous countBefore) —
+        // nothing else will touch bufferOffset, safe to top up immediately.
+        void _topUpScrollModeBuffer(get);
       }
     }
   } catch (e) {
@@ -3629,6 +3778,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         `bufferStart=${buf.bufferStart}, targetLocal=${buf.targetLocalIndex}, ` +
         `hits=${buf.combinedHits.length}`,
       );
+
+      // Scroll-mode top-up: restoreAroundCursor centres the buffer on the
+      // target image rather than filling it — top up for small result sets
+      // (see function doc above _fillBufferForScrollMode/_topUpScrollModeBuffer).
+      void _topUpScrollModeBuffer(get);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
       console.warn("[restoreAroundCursor] Failed, falling back to seek:", e);

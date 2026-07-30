@@ -14,6 +14,70 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 30 July 2026 — Fix scrubber stuck in seek-mode behaviour in scroll mode (buffer never topped up off the main search path)
+
+**Bug:** in scroll mode (≤`SCROLL_MODE_THRESHOLD`=1000 results), the scrubber
+sometimes behaved like seek mode — dragging teleported on pointer-up instead
+of live-scrolling — even though the tier itself was correct. `Scrubber.tsx`
+derives `scrubberMode` from `total <= bufferLength`, so any code path that
+lands the buffer without it ever reaching `total` gets stuck in "seek" until
+an unrelated later search restarts the fill.
+
+**Root cause:** `search()`'s normal path already fires a background
+`_fillBufferForScrollMode` top-up, but four other buffer-placing paths
+didn't: `_findAndFocusImage`'s sort-around-focus branches (found outside
+first page, and the not-found → first-page-fallback path — the latter
+turned out to be the dominant real-world trigger, reached via phantom
+viewport anchors on plain query changes), `restoreAroundCursor` (reload into
+deep image detail with a cached cursor), and `seekToFocused`'s in-buffer
+fast path (arrow-key snap-back). All four can land the buffer at an
+arbitrary non-zero offset, so the fix couldn't just reuse
+`_fillBufferForScrollMode` (forward-only from offset 0) — it needed a
+bidirectional top-up that runs after the buffer-placing call settles, not
+concurrently with it. Sibling bug to the position-map gap fixed 14 April
+2026 (same asymmetry: normal path duplicated, sort-around-focus branch
+wasn't) that was never given the same treatment for the ≤1k tier.
+
+**Fix:** new `_topUpScrollModeBuffer(get)` drives the existing
+`extendForward()`/`extendBackward()` actions in a guarded loop, rather than
+reimplementing fetch/prepend/eviction logic (avoids reintroducing the
+"swimming" bug). Guards: progress-based step counting (only counts real
+fetches, not cooldown waits or no-op early-returns, so transient blocks
+can't silently exhaust the budget), a `_pitGeneration`-aware staleness check
+(catches same-total supersessions like a pure sort toggle), a module-level
+re-entrancy flag, and a 15s wall-clock backstop. Hooked into all four call
+sites; on the sort-around-focus path with an estimated offset, the top-up is
+sequenced to fire only after the async `countBefore` offset correction
+settles — firing it concurrently was found (via independent review) to race
+the correction's own staleness guard and permanently strand `bufferOffset`
+at the estimate under real network latency, even though the buffer contents
+were otherwise correct.
+
+**Testing:** 7 new unit tests in `search-store.test.ts` (one per trigger
+path, plus a race regression, a delayed-`countBefore` regression for the
+offset-correction race, and a progress-vs-attempt step-counting regression),
+and 2 new e2e tests in `scrubber.spec.ts` driving a real scrubber drag to
+confirm live-scroll (not teleport). Full suite: 942 unit tests, 242 e2e
+tests, all green.
+
+**Post-review follow-up:** an independent review of the diff (before commit)
+caught a real latent race (top-up firing concurrently with an async offset
+correction, silently stranding `bufferOffset` at an estimate under real
+network latency — folded into the fix and testing above) plus three
+hardening gaps in the loop's step-budget/staleness logic. Two were assessed
+and deliberately left as code-only fixes without dedicated tests: one
+(same-total supersession via `_pitGeneration`) was found, on careful
+analysis, to be self-healing in this codebase's design — every function the
+loop drives reads store state live rather than from captured state, so a
+stale generation ends up chasing the same destination the new search wants
+anyway; a genuine black-box regression test for it couldn't be constructed
+without contriving an unrealistic scenario. The other (progress-vs-attempt
+step counting, i.e. not letting no-op extend calls burn the retry budget)
+*was* cleanly testable — added as the 7th unit test above, using a
+call-count-based wrapper around `extendForward` to force a deterministic
+no-progress/real-progress pattern, verified red against the pre-fix
+unconditional counting logic and green against the fix.
+
 ### 21 July 2026 — Fix stale suppress flag breaking return-from-detail focus after Home
 
 **Bug report:** Press Home (logo), enter image A, traverse in detail to image K, exit

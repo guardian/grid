@@ -1157,6 +1157,256 @@ describe("scroll mode — buffer fill", () => {
     expect(state()._extendForwardInFlight).toBe(false);
     assertPositionsConsistent("after aborted fill");
   });
+
+  // -------------------------------------------------------------------------
+  // Regression: scroll-mode fill never triggered on the sort-around-focus /
+  // restoreAroundCursor branches — see
+  // exploration/docs/worklog-current.md (session 1-2 investigation).
+  // These branches land the buffer at an arbitrary offset via
+  // _findAndFocusImage/_loadBufferAroundImage but never call
+  // _fillBufferForScrollMode, so the scrubber gets stuck thinking it's in
+  // seek mode forever for datasets ≤ SCROLL_MODE_THRESHOLD.
+  // -------------------------------------------------------------------------
+
+  it("fills entire buffer when reached via sort-around-focus outside first page", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+
+    // Focus an image outside the first page (page 1 = img-0..img-199).
+    actions().setFocusedImageId("img-500");
+
+    // Sort-around-focus: search() called with a focus target not on page 1.
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+
+    // The buffer is now centered on img-500 — but for a total this small,
+    // the scroll-mode fill should still top it up to the full result set
+    // so the scrubber can enter scroll mode (live-drag, no seek needed).
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "buffer fill to full total after sort-around-focus",
+    );
+
+    expect(state().results.length).toBe(700);
+    expect(state().total).toBe(700);
+    assertPositionsConsistent("after sort-around-focus scroll-mode fill");
+  });
+
+  it("corrects bufferOffset before topping up when countBefore is slow (review M2 regression)", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+
+    // Simulate a slow countBefore (real ES over an SSH tunnel, --use-media-api,
+    // a cold cache) — must exceed SEEK_COOLDOWN_MS (100ms), the window within
+    // which the top-up used to fire before the offset correction, silently
+    // locking bufferOffset at the estimate (0) forever. assertPositionsConsistent
+    // alone can't catch this: a uniformly-wrong offset is still internally
+    // consistent, only globally wrong.
+    const originalCountBefore = mock.countBefore.bind(mock);
+    mock.countBefore = (async (...args: Parameters<typeof originalCountBefore>) => {
+      await new Promise((r) => setTimeout(r, 150));
+      return originalCountBefore(...args);
+    }) as typeof originalCountBefore;
+
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+    await waitFor(
+      () => state().results.length === state().total,
+      5000,
+      "buffer fill to full total despite slow countBefore",
+    );
+
+    // The critical assertion: bufferOffset must land on the CORRECTED value,
+    // not stay stuck at the placeholder estimate.
+    expect(state().imagePositions.get("img-500")).toBe(500);
+    expect(state().results.length).toBe(700);
+    assertPositionsConsistent("after slow countBefore + top-up");
+  });
+
+  it("keeps making progress despite intermittent no-op extends (review M3 regression)", async () => {
+    // The old step counter incremented on every loop iteration, including
+    // ones where extendForward() returned without fetching (in-flight flag,
+    // missing cursor, cooldown TOCTOU — all silent no-ops in production).
+    // Simulate that here by making 2 of every 3 extendForward calls a no-op:
+    // total=1000, focused outside first page, needs 4 real forward extends
+    // to finish. At a 2-no-op-per-1-real ratio that's 12 loop iterations —
+    // more than the old code's step budget of 7 (Math.ceil(1000/200)+2),
+    // which counted no-ops against it and gave up after ~2 real steps. The
+    // fixed code only counts real progress against the budget, so the
+    // no-ops (never more than 2 in a row — under the separate
+    // maxConsecutiveNoProgress cap of 3) don't affect it at all.
+    setupSmallDataset(1000);
+    await actions().search();
+
+    const originalExtendForward = actions().extendForward;
+    let callCount = 0;
+    useSearchStore.setState({
+      extendForward: async () => {
+        callCount++;
+        if (callCount % 3 !== 0) return; // 2 no-ops, then 1 real call
+        await originalExtendForward();
+      },
+    });
+
+    try {
+      actions().setFocusedImageId("img-250");
+      await actions().search("img-250");
+
+      await waitFor(
+        () => state().sortAroundFocusStatus === null,
+        3000,
+        "sortAroundFocusStatus clears",
+      );
+      await waitFor(
+        () => state().results.length === state().total,
+        5000,
+        "buffer fill to full total despite intermittent no-op extends",
+      );
+
+      expect(state().results.length).toBe(1000);
+      expect(state().bufferOffset).toBe(0);
+      assertPositionsConsistent("after intermittent no-op extends");
+    } finally {
+      useSearchStore.setState({ extendForward: originalExtendForward });
+    }
+  });
+
+  it("fills entire buffer when reached via sort-around-focus first-page fallback (target not found)", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+
+    // Focus an image that will never exist in any search result — the
+    // target-not-found branch. Unlike the "outside first page" branch above,
+    // this one leaves search()'s original SEARCH_FETCH_COOLDOWN_MS (2s)
+    // cooldown in place instead of resetting it to the short SEEK_COOLDOWN_MS —
+    // exactly the case that exposed a step-budget bug (waiting out the
+    // cooldown was consuming the same counter as real extend attempts,
+    // exhausting the budget before a single real fetch happened).
+    actions().setFocusedImageId("img-nonexistent");
+
+    await actions().search("img-nonexistent");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+
+    // Target not found — degrades to the first-page fallback. Total is
+    // small enough that the buffer should still top up to the full set.
+    await waitFor(
+      () => state().results.length === state().total,
+      5000,
+      "buffer fill to full total after first-page fallback",
+    );
+
+    expect(state().results.length).toBe(700);
+    expect(state().total).toBe(700);
+    assertPositionsConsistent("after first-page-fallback scroll-mode fill");
+  });
+
+  it("fills entire buffer when reached via seekToFocused in-buffer fast path", async () => {
+    setupSmallDataset(700);
+    // Do NOT await the background fill — call seekToFocused() while the
+    // buffer is still partial (200/700, right after the initial page),
+    // same as arrow-key snap-back firing during the two-phase fill window.
+    await actions().search();
+
+    // img-50 is within the current (partial) buffer's [0, 200) range —
+    // this is exactly the isInBuffer fast path in _findAndFocusImage,
+    // which only replaces focus/scroll state and never used to check
+    // whether the buffer itself still needs topping up.
+    actions().setFocusedImageId("img-50");
+    await actions().seekToFocused();
+
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+
+    await waitFor(
+      () => state().results.length === state().total,
+      5000,
+      "buffer fill to full total after in-buffer fast path",
+    );
+
+    expect(state().results.length).toBe(700);
+    expect(state().total).toBe(700);
+    assertPositionsConsistent("after in-buffer-fast-path scroll-mode fill");
+  });
+
+  it("fills entire buffer when reached via restoreAroundCursor (image-detail reload)", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+
+    // Build a real cursor for a deep image, the same way ImageDetail's
+    // cached-offset restore does on reload.
+    const targetId = "img-500";
+    const idResult = await mock.searchAfter(
+      { ...state().params, ids: targetId, length: 1 },
+      null,
+      null,
+    );
+    const cursor = idResult.sortValues[0];
+
+    await actions().restoreAroundCursor(targetId, cursor, 500);
+
+    // As above: total is small enough that the buffer should eventually
+    // cover the whole result set, not stay windowed around the target.
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "buffer fill to full total after restoreAroundCursor",
+    );
+
+    expect(state().results.length).toBe(700);
+    expect(state().total).toBe(700);
+    assertPositionsConsistent("after restoreAroundCursor scroll-mode fill");
+  });
+
+  it("concurrent scroll-mode fill and restoreAroundCursor converges without corruption", async () => {
+    // Mirrors the exact race caught live on TEST: a plain search() kicks
+    // off _fillBufferForScrollMode in the background, and — before it
+    // settles — restoreAroundCursor (fired independently by ImageDetail's
+    // mount effect on reload) replaces results/bufferOffset out from
+    // under it.
+    setupSmallDataset(700);
+    await actions().search();
+
+    const targetId = "img-500";
+    const idResult = await mock.searchAfter(
+      { ...state().params, ids: targetId, length: 1 },
+      null,
+      null,
+    );
+    const cursor = idResult.sortValues[0];
+
+    // Fire concurrently with whatever's left of the in-flight fill —
+    // deliberately not waiting for the fill to settle first.
+    await actions().restoreAroundCursor(targetId, cursor, 500);
+
+    // Whichever mechanism wins individual races, the end state must
+    // converge to the full result set and remain internally consistent —
+    // not permanently stuck at a partial window (the live bug) and not
+    // corrupted (mismatched imagePositions from two writers interleaving).
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "buffer converges to full total despite concurrent writers",
+    );
+    assertPositionsConsistent("after concurrent fill + restoreAroundCursor");
+  });
 });
 
 // ---------------------------------------------------------------------------

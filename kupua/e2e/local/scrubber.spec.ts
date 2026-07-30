@@ -2678,6 +2678,69 @@ test.describe("Scroll mode — buffer fill", () => {
     const scrollTop = await kupua.getScrollTop();
     expect(scrollTop).toBeGreaterThan(0);
   });
+
+  // -------------------------------------------------------------------------
+  // Regression: scroll-mode fill via sort-around-focus / restoreAroundCursor.
+  // These land the buffer at a non-zero offset (centred on a target image)
+  // instead of filling it — previously left the scrubber permanently stuck
+  // acting like seek mode for small result sets. See
+  // exploration/docs/worklog-current.md for the investigation.
+  // -------------------------------------------------------------------------
+
+  test("scrubber enters scroll mode after sort-around-focus lands outside first page", async ({ kupua }) => {
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    const { total } = await kupua.getStoreState();
+    test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
+    test.skip(total < 50, `Total ${total} too small to be meaningful`);
+
+    // Seek partway in and focus an item there — outside the first page of
+    // whatever order the sort change below produces.
+    await kupua.seekTo(0.5);
+    await kupua.focusNthItem(3);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Sort-around-focus: change direction with focus outside page 1.
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+
+    // The fix: buffer tops up to the full (small) result set instead of
+    // staying windowed around the focused image.
+    await kupua.waitForScrollMode(10_000);
+    const state = await kupua.getStoreState();
+    expect(state.resultsLength).toBe(state.total);
+    expect(state.bufferOffset).toBe(0);
+    await kupua.assertPositionsConsistent();
+
+    // Real drag now scrolls content live instead of teleporting.
+    await kupua.dragScrubberTo(0.2);
+    const stateAfter = await kupua.getStoreState();
+    expect(stateAfter.bufferOffset).toBe(0);
+    expect(stateAfter.resultsLength).toBe(stateAfter.total);
+    const scrollTop = await kupua.getScrollTop();
+    expect(scrollTop).toBeGreaterThan(0);
+  });
+
+  test("scrubber enters scroll mode after reload restores deep image detail", async ({ kupua }) => {
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    const { total } = await kupua.getStoreState();
+    test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
+    test.skip(total < 50, `Total ${total} too small to be meaningful`);
+
+    // Seek deep and open detail — writes a sessionStorage offset-cache
+    // entry (kupua:imgOffset:<id>) that survives the reload below.
+    await kupua.seekTo(0.6);
+    await kupua.openDetailForNthItem(2);
+
+    // Reload while viewing detail deep in the list — restoreAroundCursor fires.
+    await kupua.page.reload();
+    await kupua.waitForResults();
+
+    await kupua.waitForScrollMode(10_000);
+    const state = await kupua.getStoreState();
+    expect(state.resultsLength).toBe(state.total);
+    await kupua.assertPositionsConsistent();
+  });
 });
 
 // ===========================================================================
