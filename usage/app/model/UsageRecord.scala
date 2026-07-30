@@ -1,16 +1,20 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateItemExpressionSpec}
-import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
-import com.gu.mediaservice.model.usage._
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 import scala.jdk.CollectionConverters._
+import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateAction, UpdateItemExpressionSpec}
+import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
+import com.gu.mediaservice.lib.dynamo.DynamoElement
+import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
+import software.amazon.awssdk.enhanced.dynamodb.Expression
 
 sealed trait DateRemovedOperation
 case object ClearDateRemoved extends DateRemovedOperation
 case object LeaveDateRemovedUntouched extends DateRemovedOperation
 case class SetDateRemoved(dateRemoved: DateTime) extends DateRemovedOperation
+
 
 case class UsageRecord(
   hashKey: String,
@@ -51,6 +55,87 @@ case class UsageRecord(
       }
     ).flatten.foreach(specBuilder.addUpdate)
     specBuilder.buildForUpdate
+  }
+
+  def toAttributeValueMap(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
+    m.map { case(k, v) =>
+      k -> v.toAttrValue
+    }
+  }.asJava
+  def toExpression: Expression = {
+    val setOps = scala.collection.mutable.ListBuffer.empty[(String, AttributeValue)]
+    val removeOps = scala.collection.mutable.ListBuffer.empty[String]
+    val names = scala.collection.mutable.Map.empty[String, String]
+
+    def setS(field: String, value: String): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().s(value).build()
+    }
+
+    def setN(field: String, value: Long): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().n(value.toString).build()
+    }
+
+    def setM(field: String, value: java.util.Map[String, AttributeValue]): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().m(value).build()
+    }
+
+    mediaId.filter(_.nonEmpty).foreach(setS("media_id", _))
+
+    usageType.foreach(t => setS("usage_type", t.toString))
+
+    mediaType.filter(_.nonEmpty).foreach(setS("media_type", _))
+
+    lastModified.foreach(dt => setN("last_modified", dt.getMillis))
+
+    usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
+
+    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap(p.toDynamoMap)))
+    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toDynamoMap)))
+    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toDynamoMap)))
+    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toDynamoMap)))
+    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toDynamoMap)))
+    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toDynamoMap)))
+
+    dateAdded.foreach(dt => setN("date_added", dt.getMillis))
+
+    dateRemovedOperation match {
+      case ClearDateRemoved =>
+        removeOps += "date_removed"
+
+      case LeaveDateRemovedUntouched =>
+        ()
+
+      case SetDateRemoved(dt) =>
+        setN("date_removed", dt.getMillis)
+    }
+
+    val setExpr =
+      if (setOps.nonEmpty)
+        "SET " + setOps.map { case (v, _) => s"#${v.drop(1)} = $v" }.mkString(", ")
+      else ""
+
+    val removeExpr =
+      if (removeOps.nonEmpty)
+        "REMOVE " + removeOps.map(f => s"$f").mkString(", ")
+      else ""
+
+    val expression =
+      Seq(setExpr, removeExpr).filter(_.nonEmpty).mkString(" ")
+
+    Expression.builder()
+      .expression(expression)
+      .expressionValues(setOps.toMap.asJava)
+      .expressionNames(names.asJava)
+      .build()
   }
 }
 
