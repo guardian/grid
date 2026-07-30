@@ -88,7 +88,7 @@ object AiQueryParts {
 }
 
 // Params for the POST /images/search-after cursor-pagination endpoint.
-// sort: fully-resolved ES sort clause from the client (Option B — server never calls createSort).
+// sort: fully-resolved ES sort clause from the client; server never calls createSort here.
 // sortValues: null-prefixed cursors are allowed; JsNull at index 0 signals null-zone.
 case class SearchAfterParams(
   searchParams: SearchParams,
@@ -114,7 +114,7 @@ object SearchParamsBody {
     def bool(key: String): Option[Boolean] = (body \ key).asOpt[Boolean]
     def strs(key: String): List[String]    = str(key).toList.flatMap(SearchParams.commasToList)
 
-    // inline readOrderBy — private in SearchParams object, duplicated here per convention
+    // inline readOrderBy — private in SearchParams object, duplicated here
     val orderBy = str("orderBy").map { ob =>
       if (ob == "oldest") "uploadTime"
       else if (ob == "newest") "-uploadTime"

@@ -2,9 +2,18 @@
 
 ## Why
 
-Kupua needs cursor-based pagination (search-after) to let users scroll through millions of
-images without the 10,000-hit ES offset wall. Currently kupua hits ES directly. This PR adds
-the server-side half so that traffic can eventually be routed through media-api instead.
+Kupua (the in-development Grid frontend prototype) needs cursor-based pagination
+(search-after) to let users scroll through millions of images without the 100,000-hit ES
+offset wall. Currently kupua hits ES directly. This PR adds the server-side half so that
+traffic can eventually be routed through media-api instead.
+
+This is the first of ~9 planned media-api extensions to support kupua (PIT snapshots,
+multi-get, and others). The conventions established here — POST+JSON for cursor endpoints,
+shared `hitToImageEntity`/`SearchParamsBody` building blocks — will apply to the rest, so
+it's worth settling any disagreement now rather than per-PR later.
+
+This is a net-new route with no existing callers — it carries zero traffic today and has
+zero blast radius on current behaviour until kupua is switched to use it.
 
 ## What
 
@@ -15,19 +24,24 @@ New route: `POST /images/search-after`
 
 **`ElasticSearchModel.scala`** — `SearchAfterParams`, `SearchAfterRawResults`, `SearchParamsBody`
 (parses the POST body: query, date range, label/uploader/category/collections/has/is filters,
-`hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, page size/offset).
+`hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, page size/offset). `payType` is
+always `None` — not sent by kupua (disabled in its UI; cost filtering is a plain free/non-free
+boolean there).
 
 **`ElasticSearch.scala`** — `searchAfter()`: reuses `buildFilterOpt`, applies null-zone
 strip/remap on seek-to-end cursors, validates cursor length, fans into a PIT branch (bypasses
 `prepareSearch` migration dedup filter) or a plain branch. `_source` projection is
 schema-derived at startup (reflection on `Image` fields minus `{embedding, originalMetadata,
-fileMetadata}` plus `fieldAliasConfigs` paths) — cuts payload from ~2.1 MB to ~370 KB per page.
+fileMetadata}` plus `fieldAliasConfigs` paths) — cuts payload from ~1.7 MB to ~370 KB per page.
 `resolveSearchAfterHit` strips the drop-set from a copy of `_source` before `validate[Image]`
 (avoids `JsError` when field aliases touch `fileMetadata` leaves) while keeping the full source
 for alias extraction.
 
-**`QueryBuilder.scala`** — one-line: `dateAddedToCollection` filter widens to also match
-`"-dateAddedToCollection"` (the ascending token kupua sends). See the Kahuna note below.
+**`QueryBuilder.scala`** — two additions: `dateAddedToCollection` filter widens to also match
+`"-dateAddedToCollection"` (the ascending token kupua sends; see the Kahuna note below). Also a
+new `hasRightsAcquiredFilter` (`syndicationRights.rights.acquired` term query) — closes a parity
+gap where kupua's direct-ES path already applied this filter but it was silently dropped when
+routed via media-api.
 
 **`MediaApi.scala`** — `hitToImageEntity` lifted to private method. `searchAfterImages` action
 enriches each hit via the lifted `hitToImageEntity` (→ `imageResponse.create`), with a typed
@@ -73,8 +87,10 @@ before this endpoint carries production browse traffic.
 
 The ~3× slowness versus direct-ES that you may see in local dev is a **separate, dev-only
 artefact**: the elastic4s client → ES leg is uncompressed (~5× the bytes over the same SSH
-tunnel), which does not apply on the production same-VPC link. Full evidence and measurements:
-`phase-3-d3-searchafter-perf-deep-dive.md`.
+tunnel), which does not apply on the production same-VPC link. Independent confirmation: #4784
+(gzip compression on the ES REST client, approved, not yet merged) measured the same shape —
+a 2.4–3.2× win over the SSH tunnel, but no regression (±14 ms, within noise) on TEST's intra-VPC
+link. Once #4784 merges, this local-dev artefact goes away for every endpoint, not just this one.
 
 ## Two decisions for team consideration
 

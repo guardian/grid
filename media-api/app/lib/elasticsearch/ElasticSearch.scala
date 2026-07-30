@@ -581,28 +581,17 @@ class ElasticSearch(
   private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
     if (res.isTimedOut) logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
 
-  // The Image schema is the source of truth for which _source fields exist; we read the field
-  // names off the case class rather than hand-maintaining a list. Over-inclusion is harmless
-  // (ES ignores unknown _source include paths); under-inclusion can't happen. Computed once.
-  // See exploration/docs/.../phase-3-d3-searchafter-payload-perf-findings.md.
+  // Reflection keeps this in sync with Image automatically; over-inclusion is harmless.
   private val imageSourceFields: Seq[String] =
     classOf[Image].getDeclaredFields.toIndexedSeq.map(_.getName)
 
-  // Deliberately dropped from the (kupua-facing) search-after projection: the 1024-dim embedding
-  // vector, the pre-edit metadata copy, and the fileMetadata bulk (EXIF/XMP/ICC/IPTC). The
-  // fileMetadata alias leaves are added back from config.fieldAliasConfigs at call time.
-  // Note: pur:adultContentWarning is included via fieldAliasConfigs (silent alias, both display
-  // flags false) so kupua can compute graphic-image blur client-side without a Painless script.
+  // Heavy fields excluded from this endpoint's payload. fieldAliasConfigs re-adds needed
+  // leaf paths individually (e.g. pur:adultContentWarning, for client-side graphic-image blur).
   private val searchAfterDropFields = Set("embedding", "originalMetadata", "fileMetadata")
 
-  // Search-after-only hit resolver. The search-after projection includes alias leaf paths
-  // (e.g. fileMetadata.icc.Profile Description) but drops the heavy parent objects, so _source
-  // carries a PARTIAL fileMetadata that Image's reader rejects (its iptc/exif/exifSub/xmp
-  // sub-maps are required, not nullable). We strip every dropped field from a copy of the
-  // source before validating as Image (absent -> default, which the reader tolerates), while
-  // keeping the FULL source in the wrapper so ImageResponse.extractAliasFieldValues can still
-  // read the alias leaves. Kept deliberately separate from the shared resolveHit/mapImageFrom
-  // used by production search, which must stay untouched.
+  // _source here is missing the dropped fields, which the strict Image reader rejects.
+  // Strip them from a copy before validating, but keep the full source for alias extraction.
+  // Kept separate from resolveHit/mapImageFrom (production search), which must stay untouched.
   private def resolveSearchAfterHit(hit: SearchHit): Option[SourceWrapper[Image]] = {
     val source   = Json.parse(hit.sourceAsString)
     val forImage = searchAfterDropFields.foldLeft(source.as[JsObject])(_ - _)
@@ -656,15 +645,9 @@ class ElasticSearch(
 
     val baseRequest = params.pitId match {
       case Some(pid) =>
-        // Bypass prepareSearch when a PIT is active. prepareSearch appends a migration dedup
-        // filter (must_not esInfo.migration.migratedTo = <new>) to avoid returning the same
-        // image twice when searching both the current and migration indexes live. With a PIT
-        // that filter is actively harmful: the snapshot already captures the correct merged
-        // view at open-time, but migrated images (which have esInfo.migration.migratedTo set)
-        // would be silently excluded, causing results to shrink progressively as migration
-        // proceeds. Use ElasticDsl.search(Nil) so ES resolves the search target from the PIT
-        // ID directly, with no index list and no migration filter.
-        // See media-api-work/phase-3-minimal-gap-derivation-findings.md §7 obs 5.
+        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
+        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
+        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
         withSearchQueryTimeout(ElasticDsl.search(Nil).query(effectiveQuery)).pit(Pit(pid).keepAlive(1.minute))
       case None =>
         prepareSearch(effectiveQuery)
@@ -738,7 +721,6 @@ class ElasticSearch(
   }
 
   // Re-insert JsNull at the primary sort field position in each sort-values array.
-  // Mirrors remapNullZoneSortValues in kupua/src/dal/null-zone.ts.
   private def remapNullZoneSortValues(
     sortValues:     Seq[Seq[JsValue]],
     fullSortClause: Seq[Sort],

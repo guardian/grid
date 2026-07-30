@@ -675,8 +675,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       // (the cursor's null slot) before querying ES. So in the null zone seekToEnd lands on a
       // field that gets removed, and the surviving tiebreakers (uploadTime, id) are never null
       // — making seekToEnd inert here. This test pins that the combination runs without error and
-      // produces the same disjoint paging as plain null-zone. (deviations.md §33 records the
-      // benign Scala/TS ordering difference behind this no-op.)
+      // produces the same disjoint paging as plain null-zone.
       val twoFieldSort = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
       val threeFieldSort = Seq(
         Json.obj("test_null_zone_primary_field" -> "desc"), // null-zone primary — stripped before ES query

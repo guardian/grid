@@ -23,7 +23,7 @@ object sorts {
 
   // Ascending counterpart for the "-dateAddedToCollection" sort token. Same unmappedType guard.
   // Without this, "-dateAddedToCollection" falls through to parseSortBy → fieldSort on an unmapped
-  // field with no unmappedType → ES error. See sorts companion note + Scala PR doc.
+  // field with no unmappedType → ES error.
   def dateAddedToCollectionAscending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.ASC).unmappedType("date"))
 
   // Flip the direction of every sort entry (used by reverse cursor pagination).
@@ -32,7 +32,7 @@ object sorts {
     case other         => other
   }
 
-  // Deserialise one entry from the client-sent ES sort clause (Option B).
+  // Deserialise one entry from the client-sent ES sort clause.
   // Handles flat {"field":"dir"} and nested-object {"field":{order,missing?,mode?,nested?}} shapes.
   def jsonToSort(entry: JsObject): Sort = {
     val (field, spec) = entry.fields.head
