@@ -78,7 +78,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     client.doesObjectExist(imageBucket, fileKeyFromId(id))
 
   def doesOriginalExistV2(id: String): Boolean = {
-    this.doesObjectExistV2(imageBucket, id)
+    this.doesObjectExistV2(imageBucket, fileKeyFromId(id))
   }
 }
 
