@@ -420,6 +420,10 @@ describe("sort-around-focus — different sorts", () => {
   it("buffer positions are correct after sort-around-focus", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
+    // Non-1 columns so a column-misalignment regression would actually be
+    // observable here too (pins alignBufferStart at the
+    // _loadBufferAroundImage call site, not just the async-correction one).
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
 
     await actions().search();
     actions().setFocusedImageId("img-300");
@@ -428,6 +432,8 @@ describe("sort-around-focus — different sorts", () => {
     await waitFor(() => state().sortAroundFocusStatus === null, 5000, "focus found");
 
     assertPositionsConsistent("after sort-around-focus");
+    expect(state().bufferOffset % 4).toBe(0);
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
 
     // The focused image should be at a known position
     const { imagePositions, focusedImageId } = state();
@@ -1008,6 +1014,80 @@ describe("extendBackward column-trim guard (audit #9)", () => {
     ).toBe(bufferLengthBefore + 2);
     assertPositionsConsistent("after extendBackward with 3-column guard");
   });
+});
+
+// ---------------------------------------------------------------------------
+// Async offset correction — column alignment (buffer-tier sort-around-focus)
+// ---------------------------------------------------------------------------
+
+describe("async offset correction — column alignment (buffer tier)", () => {
+  afterEach(() => {
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+  });
+
+  // Buffer tier (total <= SCROLL_MODE_THRESHOLD) never has a position map,
+  // so _findAndFocusImage always takes the offsetIsEstimate branch: an
+  // initial (wrong) hint-based landing, corrected asynchronously via
+  // countBefore. That correction sets bufferOffset directly with no
+  // column-alignment trim — unlike _loadBufferAroundImage's own initial
+  // landing and seek(), which both already align. The misalignment then
+  // persists through the entire scroll-mode top-up (_topUpScrollModeBuffer)
+  // that follows, since every extendBackward step can only change
+  // bufferOffset by a multiple of columns. Sweeping several adjacent target
+  // IDs (rather than one) is deliberate — whether the bug is hit depends on
+  // `exactOffset - targetLocalIndex` landing on a non-multiple of columns,
+  // which is a property of the target's position, not of any one magic ID.
+  // Sweeping columns too (4, the original repro value, and 6, where
+  // PAGE_SIZE=200 does NOT divide evenly — 200 % 6 === 2) stresses a
+  // different remainder pattern in the top-up's own PAGE_SIZE-sized steps.
+  const targets = ["img-897", "img-898", "img-899", "img-900", "img-901", "img-902"];
+  const columnCounts = [4, 6];
+  const cases = columnCounts.flatMap((columns) => targets.map((t) => [t, columns] as const));
+
+  it.each(cases)(
+    "never leaves bufferOffset misaligned to columns while settling after a sort-around-focus (target=%s, columns=%i)",
+    async (targetId, columns) => {
+      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+      mock = new MockDataSource(958);
+      useSearchStore.setState({ dataSource: mock });
+
+      await actions().search();
+      actions().setFocusedImageId(targetId);
+
+      // Subscribe to record EVERY bufferOffset value the store ever takes,
+      // not just what a polling loop happens to sample — the bug is about
+      // an INTERMEDIATE value during settling, not the final one (which
+      // always reaches exactly 0 either way, aligned trivially), so a gap
+      // in sampling could silently hide a real failure. This gives complete
+      // coverage by construction and needs no timer/sleep.
+      const observed: number[] = [state().bufferOffset];
+      const unsubscribe = useSearchStore.subscribe((s) => {
+        if (s.bufferOffset !== observed[observed.length - 1]) observed.push(s.bufferOffset);
+      });
+
+      try {
+        await actions().search(targetId);
+        await waitFor(
+          () => state().sortAroundFocusStatus === null,
+          3000,
+          "sortAroundFocusStatus clears",
+        );
+        await waitFor(
+          () => state().results.length === state().total && !state()._bufferSelfCorrecting,
+          3000,
+          "scroll-mode top-up settles",
+        );
+      } finally {
+        unsubscribe();
+      }
+
+      const misaligned = observed.filter((o) => o !== 0 && o % columns !== 0);
+      expect(
+        misaligned,
+        `columns=${columns}, observed bufferOffset values during settle: ${observed.join(",")}`,
+      ).toEqual([]);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

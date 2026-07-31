@@ -45,6 +45,7 @@ import { extractSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { alignBufferStart } from "@/lib/buffer-column-align";
 import { addToast } from "@/stores/toast-store";
 import {
   BUFFER_CAPACITY,
@@ -1235,10 +1236,9 @@ async function _loadBufferAroundImage(
   // column for the image's global position.
   const { columns: cols } = getScrollGeometry();
   const rawBufferStart = Math.max(0, exactOffset - backwardResult.hits.length);
-  const trim = cols > 1 ? Math.min(
-    (cols - (rawBufferStart % cols)) % cols,
-    backwardResult.hits.length,
-  ) : 0;
+  const { alignedOffset: bufferStart, trimCount: trim } = alignBufferStart(
+    rawBufferStart, backwardResult.hits.length, cols,
+  );
 
   const bwHits = trim > 0 ? backwardResult.hits.slice(trim) : backwardResult.hits;
   const bwSortValues = trim > 0 ? backwardResult.sortValues.slice(trim) : backwardResult.sortValues;
@@ -1256,7 +1256,6 @@ async function _loadBufferAroundImage(
     ...forwardResult.sortValues,
   ];
 
-  const bufferStart = rawBufferStart + trim;
   const startCursor = combinedSortValues.length > 0
     ? combinedSortValues[0]
     : null;
@@ -1722,15 +1721,48 @@ async function _findAndFocusImage(
             // in the scroll effect may have changed focus to an adjacent image
             // within the same buffer, and the correction is still valid).
             if (state.results !== buf.combinedHits) return;
-            const correctedOffset = Math.max(
+            const rawCorrectedOffset = Math.max(
               0, exactOffset - buf.targetLocalIndex,
             );
+            // Column-align — same trim logic as _loadBufferAroundImage/seek().
+            // Without this, an unaligned bufferOffset here poisons every
+            // subsequent extendBackward() call in the scroll-mode top-up
+            // that follows (below), surfacing as a visible column shift once
+            // the buffer finishes topping up. Never trim past the focused
+            // image's own local index (buf.targetLocalIndex) — the item
+            // being positioned around must never be discarded.
+            const { columns } = getScrollGeometry();
+            const { alignedOffset: correctedOffset, trimCount } = alignBufferStart(
+              rawCorrectedOffset, state.results.length, columns, buf.targetLocalIndex,
+            );
+            const correctedResults = trimCount > 0
+              ? state.results.slice(trimCount)
+              : state.results;
+            // Trimming discards the current first item(s) — startCursor must
+            // be recomputed from the new first item, or subsequent
+            // extendBackward() calls re-fetch and discard the same already-
+            // buffered items forever (bufferOffset gets stuck just above 0).
+            // Falls back to the stale cursor (not null) on any failure to
+            // extract — extendBackward treats a null cursor as a permanent
+            // block (search-store.ts's own BLOCKED check), which would be
+            // strictly worse than the stale-cursor re-fetch/discard cycle
+            // this block exists to avoid.
+            if (trimCount > 0 && !correctedResults[0]) {
+              devLog(
+                `[sort-around-focus] offset correction: new first slot is a placeholder (sparse buffer) — startCursor left unchanged`,
+              );
+            }
+            const newStartCursor = trimCount > 0 && correctedResults[0]
+              ? extractSortValues(correctedResults[0], fp.orderBy) ?? state.startCursor
+              : state.startCursor;
             devLog(
-              `[sort-around-focus] offset corrected: ${buf.bufferStart} → ${correctedOffset} (countBefore=${exactOffset})`,
+              `[sort-around-focus] offset corrected: ${buf.bufferStart} → ${correctedOffset} (countBefore=${exactOffset}${trimCount > 0 ? `, trimmed ${trimCount} for column alignment` : ""})`,
             );
             set({
+              results: correctedResults,
+              startCursor: newStartCursor,
               bufferOffset: correctedOffset,
-              imagePositions: buildPositions(state.results, correctedOffset),
+              imagePositions: buildPositions(correctedResults, correctedOffset),
             });
             // Also update _focusedImageKnownOffset for whichever image is
             // currently focused (may have changed via delta consumption).
@@ -3416,21 +3448,22 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // bufferOffset → localIdx % columns differs from the image's true
       // column position, causing visible column shifts on history restore
       // (which uses the column-aligned _loadBufferAroundImage path).
-      // Same trim logic as _loadBufferAroundImage.
+      // Same trim logic as _loadBufferAroundImage. Skip (not cap) when the
+      // trim would consume the whole page — matches the original guard
+      // here, and the audit-#9 lesson in extendBackward: an edge-case rare
+      // enough to accept staying unaligned rather than risk emptying result.
       const { columns: seekCols } = getScrollGeometry();
-      if (seekCols > 1 && actualOffset % seekCols !== 0) {
-        const seekTrim = (seekCols - (actualOffset % seekCols)) % seekCols;
-        if (seekTrim > 0 && seekTrim < result.hits.length) {
-          result = {
-            ...result,
-            hits: result.hits.slice(seekTrim),
-            sortValues: result.sortValues.slice(seekTrim),
-          };
-          actualOffset += seekTrim;
-          // Adjust backward item count so computeScrollTarget's headroom
-          // detection remains correct.
-          backwardItemCount = Math.max(0, backwardItemCount - seekTrim);
-        }
+      const { trimCount: seekTrim } = alignBufferStart(actualOffset, result.hits.length, seekCols);
+      if (seekTrim > 0 && seekTrim < result.hits.length) {
+        result = {
+          ...result,
+          hits: result.hits.slice(seekTrim),
+          sortValues: result.sortValues.slice(seekTrim),
+        };
+        actualOffset += seekTrim;
+        // Adjust backward item count so computeScrollTarget's headroom
+        // detection remains correct.
+        backwardItemCount = Math.max(0, backwardItemCount - seekTrim);
       }
 
       const startCursor = result.sortValues.length > 0 ? result.sortValues[0] : null;

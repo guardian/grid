@@ -14,6 +14,98 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 31 July 2026 — buffer-tier grid-density column shift after sort-around-focus / restoreAroundCursor
+
+**Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), grid density,
+focusing an image and changing sort order (or reloading in image detail, via
+`restoreAroundCursor`) correctly re-centred the focused image at first, then
+~0.5–1.5s later — while the buffer quietly finished topping up in the
+background via `_topUpScrollModeBuffer` — it visibly shifted sideways by
+roughly one column. Severity varied by luck: sometimes barely perceptible,
+sometimes enough to move the image off-screen, sometimes no visible shift at
+all (this is the F3/F4 fix above, landed the same day — a *different*,
+already-fixed bug; that fix's own top-up mechanism is what made this second,
+pre-existing bug reliably reproducible).
+
+**Root cause:** `_findAndFocusImage`'s async offset-correction callback
+(`search-store.ts`, the `dataSource.countBefore(...).then(...)` block —
+buffer tier never has a position map, so this is the *normal*, not
+edge-case, path for any buffer-tier sort-around-focus with explicit focus)
+computed `correctedOffset = exactOffset - targetLocalIndex` and set
+`bufferOffset` directly, with **no column-alignment trim** — unlike the
+other two sites that land a fresh `bufferOffset` (`_loadBufferAroundImage`'s
+own initial landing, and `seek()`, which even carried a comment: *"Same trim
+logic as `_loadBufferAroundImage`"*). Grid density's virtualizer renders by
+local index (`globalIndex - bufferOffset`), so an item's column is
+`localIndex % columns` — once this landing left `bufferOffset` at a
+non-canonical phase, every subsequent `extendBackward()` step in the
+top-up (which can only change `bufferOffset` by a multiple of `columns`
+without reshuffling every existing item's column) stayed stuck at that same
+wrong phase, until the walk-to-zero's *final* closing prepend — sized to
+whatever remainder was left, not necessarily a multiple of `columns` —
+finally exposed it as a visible reflow. Live-traced with temporary
+instrumentation (embedded browser, TEST): `bufferOffset` sequences like
+`823→623→423→223→23→3→0` (all ≡3 mod 4) vs. clean runs like
+`456→256→56→0` (all ≡0 mod 4) — whether the shift was visible depended
+entirely on whether the landing's remainder happened to be column-aligned
+by luck, matching every symptom variant reported.
+
+**Fix:** extracted the previously-duplicated column-alignment trim math
+(present, slightly differently, in both `_loadBufferAroundImage` and
+`seek()`) into one shared, independently unit-tested pure function,
+`alignBufferStart()` (new file `kupua/src/lib/buffer-column-align.ts`), used
+at all three landing sites — including the one that was missing it. A
+`protectUpTo` parameter caps the trim so the anchor/target item being
+positioned around is never discarded. A second bug found in the same pass:
+the async-correction fix trims `results`, which requires recomputing
+`startCursor` from the new first item — the first version of the fix did
+this via `extractSortValues()` without a `?? state.startCursor` fallback,
+so a failed extraction (any sort clause with an unreadable field) committed
+`startCursor: null`, which `extendBackward` treats as a permanent block —
+caught and fixed in review before commit (see
+`kupua/exploration/docs/zz Archive/R-2026-07-31-buffer-column-align-fix-review.md`).
+
+**Scope, confirmed live:** buffer tier (bug, fixed) and deep-seek tier
+(same `offsetIsEstimate` code path, same missing trim, same fix applies —
+not separately live-verified with a repro that also exercises subsequent
+scrolling near the buffer edge). Confirmed unaffected: true two-tier
+(indexes by global index, no `bufferOffset` subtraction), table density
+(`columns=1` makes the whole class of bug structurally impossible), panel
+toggle for explicit *or* phantom focus (a separate, fetch-layer-independent
+mechanism), Home/logo reset (lands in seek tier), phantom focus on a
+sort-only change (no scroll-preservation attempted at all, by design).
+
+**Residual, accepted, not fixed:** `extendBackward`'s own audit-#9
+skip-guard (see 28 April 2026 entry below) is not provably unreachable —
+it assumes ES always returns a full page (PIT drift/deletions could return
+fewer) and that `columns` doesn't change between landing and the final
+top-up prepend (a window resize or panel toggle mid-settle changes
+`getScrollGeometry().columns`, a live mutable ref). Both are real but rare
+enough (order of hundreds of milliseconds, requires an unlucky resize
+exactly mid-settle) that the reviewed trade-off was to document the
+assumption rather than implement `extendBackward`'s more invasive
+"carry the remainder across calls" alternative design.
+
+**Test:** TDD failing-test-first in `search-store-extended.test.ts` —
+`it.each` sweep of 6 adjacent target IDs × 2 column counts (not one magic
+ID/value), subscribing to every `bufferOffset` transition during settle
+(not time-sampled — a reviewed first version used a 10ms polling loop,
+which could in principle miss the transient it exists to catch); 5/6
+failed pre-fix reproducing the exact bug, all 12 pass post-fix.
+Pure-function property tests for `alignBufferStart` in
+`buffer-column-align.test.ts` (columns 2–6, including the exact live-repro
+numbers as a documentation case). Full unit suite (960/960) and full e2e
+suite (242/242) both green after the fix, again after the `startCursor`
+correction above, and again after the review's fixes below. Reviewed in
+`kupua/exploration/docs/zz Archive/R-2026-07-31-buffer-column-align-fix-review.md`
+— found and fixed one real pre-commit bug (the `startCursor` correction
+above) plus the softened "provably unreachable" wording; recommended
+polish (this test's subscribe conversion, an extra assertion on the
+existing `_loadBufferAroundImage` sort-around-focus test, a `devLog` for a
+sparse-buffer edge case) applied as well. 3 separate live
+embedded-browser repros post-fix (e.g. `824→624→424→224→24→0`, cell
+position pixel-stable throughout).
+
 ### 31 July 2026 — Fix sort-around-focus scroll clobbered by scroll-mode top-up in buffer tier (F3/F4)
 
 **Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), a
