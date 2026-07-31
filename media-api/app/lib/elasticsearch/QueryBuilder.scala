@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.{Agency, PrAndThirdParty}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -52,6 +52,12 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
+      // Searching for the `pr-and-third-party` category should also surface images still stored
+      // under the legacy categories it replaced (agency, handout, screengrab, etc.) - those images
+      // haven't been rewritten in the index, so we expand this into a terms query rather than
+      // relying on an exact match against the new category alone.
+      case Words(value) if field == "category" && value == PrAndThirdParty.category =>
+        filters.terms(resolveFieldPath(field), PrAndThirdParty.allCategories)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)

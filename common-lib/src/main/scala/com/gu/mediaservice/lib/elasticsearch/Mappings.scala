@@ -185,6 +185,7 @@ object Mappings {
     standardAnalysed("suppliers"),
     keywordField("independentType"),
     keywordField("productionCompany"),
+    keywordField("legacyCategory"),
   ))
 
   def syndicationRightsPropertiesMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
