@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import play.api.ConfigLoader
 import play.api.libs.json._
 import scalaz.NonEmptyList
+import scalaz.syntax.std.list._
 
 import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe
@@ -628,6 +629,25 @@ final case class PrAndThirdParty(restrictions: Option[String] = None, legacyCate
 object PrAndThirdParty extends UsageRightsSpec {
 
   override val category: String = "pr-and-third-party"
+
+  // The legacy categories that now get folded into `PrAndThirdParty` on read (see `UsageRights.jsonReads`).
+  // Kept here as the single source of truth so anything that needs to treat these as equivalent to
+  // `pr-and-third-party` (e.g. search) can reuse the same list rather than duplicating it.
+  val legacyCategories: List[String] = List(
+    Agency.category,
+    CommissionedAgency.category,
+    PrImage.category,
+    Handout.category,
+    Screengrab.category,
+    SocialMedia.category,
+    Obituary.category,
+    Pool.category,
+    CrownCopyright.category,
+    CreativeCommons.category,
+    PublicDomain.category
+  )
+
+  val allCategories: NonEmptyList[String] = (category :: legacyCategories).toNel.getOrElse(NonEmptyList(category))
 
   override def name(config: CommonConfig): String = "Pr & Third Party"
 

@@ -121,10 +121,10 @@ object MappingTest {
     )),
     metadata = testImageMetadata,
     originalMetadata = testImageMetadata,
-    usageRights = Agency(
-      supplier = "Karpow Images Inc",
-      suppliersCollection = Some("All The Metadata™"),
-      restrictions = Some("All the time")
+    usageRights = PrAndThirdParty(
+      restrictions = Some("All the time"),
+      legacyCategory = Some("agency"),
+      source = Some("Karpow Images Inc")
     ),
     originalUsageRights = StaffPhotographer(
       photographer = "Barton",
