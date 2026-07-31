@@ -2096,6 +2096,7 @@ FIXME: what to do with touch devices
   right: 0;
   padding: 10px;
   user-select: none;
+  z-index: 1;
 }
 
 
