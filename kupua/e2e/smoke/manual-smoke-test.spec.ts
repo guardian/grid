@@ -289,7 +289,7 @@ test.describe("Smoke — real ES", () => {
 
     // Toggle sort direction
     await kupua.toggleSortDirection();
-    await kupua.page.waitForTimeout(1000);
+    await kupua.waitForSortAroundFocus();
 
     const afterStore = await kupua.getStoreState();
     console.log(`  [S8] After: focused=${afterStore.focusedImageId}, orderBy=${afterStore.orderBy}, error=${afterStore.error}`);
@@ -302,6 +302,14 @@ test.describe("Smoke — real ES", () => {
     const focusedPos = await kupua.getFocusedGlobalPosition();
     console.log(`  [S8] Focused image global position: ${focusedPos}`);
     expect(focusedPos).toBeGreaterThanOrEqual(0);
+
+    // The test name promises "and scrolls to image" — actually verify that,
+    // not just that the store resolved the right target (see F3/F4 in
+    // wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md).
+    expect(await kupua.isFocusedCellVisible()).toBe(true);
+    if (focusedPos > 0) {
+      expect(await kupua.getScrollTop()).toBeGreaterThan(0);
+    }
   });
 
   // ---------------------------------------------------------------------------

@@ -2707,10 +2707,33 @@ test.describe("Scroll mode — buffer fill", () => {
     // The fix: buffer tops up to the full (small) result set instead of
     // staying windowed around the focused image.
     await kupua.waitForScrollMode(10_000);
+    // Explicit settle barrier — waitForScrollMode only confirms the STORE
+    // settled; wait for React to actually commit/paint before checking
+    // scroll/DOM state below. Without this, the assertions' correctness
+    // would depend on incidental delay from the intervening CDP round-trips
+    // and could go falsely green if ever reordered.
+    await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
     const state = await kupua.getStoreState();
     expect(state.resultsLength).toBe(state.total);
     expect(state.bufferOffset).toBe(0);
     await kupua.assertPositionsConsistent();
+
+    // Regression (F3/F4): the top-up above walks bufferOffset back down to
+    // 0 in several steps — this must not clobber the scroll-to-focus effect
+    // that already placed the viewport at the focused item's new position.
+    // Store-level correctness (bufferOffset/resultsLength above) passing is
+    // NOT sufficient proof of this — it must be checked separately.
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    expect(await kupua.isFocusedCellVisible()).toBe(true);
+    const focusedPos = await kupua.getFocusedGlobalPosition();
+    // Sort-direction toggle maps position p -> total-1-p, so a mid-list
+    // start (seekTo(0.5) above) always lands non-zero. Explicit precondition
+    // rather than an `if` — a future change making this 0 should fail loudly,
+    // not silently skip the scrollTop check below.
+    expect(focusedPos).toBeGreaterThan(0);
+    expect(await kupua.getScrollTop()).toBeGreaterThan(0);
 
     // Real drag now scrolls content live instead of teleporting.
     await kupua.dragScrubberTo(0.2);

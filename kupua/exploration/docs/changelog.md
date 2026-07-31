@@ -14,6 +14,56 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 31 July 2026 — Fix sort-around-focus scroll clobbered by scroll-mode top-up in buffer tier (F3/F4)
+
+**Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), a
+sort-around-focus operation (sort direction/field change with an image
+focused, or a search-context-change neighbour fallback) correctly resolved
+the focused image's new position but never scrolled the viewport to it —
+`focusedImageId`/index resolved correctly, `sortAroundFocusGeneration`
+bumped, but `scrollTop` stayed at 0 and the focused cell was absent from
+the DOM.
+
+**Root cause:** a two-effect race in `useScrollEffects.ts` between effect
+#9 (sort-around-focus scroll) and effect #8 (`bufferOffset`→0 "go home"
+guard). `_topUpScrollModeBuffer` (added 30 July, see entry below) walks
+`bufferOffset` back down to 0 in several steps after landing centred on the
+focused image — effect #8 unconditionally treats *any* transition to
+`bufferOffset === 0` as a "go home" event and resets `scrollTop`, with no
+awareness that a sort-around-focus scroll had already been applied for a
+non-zero target. Confirmed via live investigation across all three
+scrolling tiers against real TEST data: buffer tier reproduces the bug
+reliably; two-tier is structurally immune (its index math has no
+`bufferOffset` subtraction); seek tier shares the vulnerable subtraction
+formula but did not reproduce the bug in 4/4 live trials, most likely
+because deep-seek mode's async offset-correction path gives it a
+self-healing mechanism buffer tier lacks. See
+`wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4)
+for the full investigation.
+
+**Fix:** new `_bufferSelfCorrecting` store flag, true only while
+`_topUpScrollModeBuffer` is running, explicitly forced `false` on the two
+genuine new-search landing paths so it can never outlive a buffer
+replacement. Effect #8 skips its scroll reset while the flag is true. No
+tier-specific logic added to either effect — the flag only ever activates
+in buffer tier because `_topUpScrollModeBuffer` itself already gates on
+`total ≤ SCROLL_MODE_THRESHOLD`.
+
+**Testing:** 2 new unit tests in `search-store.test.ts` pin the flag's
+lifecycle deterministically (no browser needed). Strengthened the existing
+(but too-weak) e2e regression test in `scrubber.spec.ts` ("scrubber enters
+scroll mode after sort-around-focus lands outside first page") with
+`scrollTop`/DOM-visibility assertions it previously lacked despite already
+exercising the exact vulnerable scenario — confirmed failing pre-fix,
+passing post-fix. Also strengthened the real-ES-only smoke test S8
+(rarely run) the same way. External review
+(`zz Archive/R-2026-07-31-buffer-self-correcting-fix-review.md`) found the
+design sound but flagged two real gaps, both closed in this session: the
+flag could theoretically outlive a superseding search (fixed above), and
+the new `isFocusedCellVisible()` e2e helper checked DOM presence rather
+than actual viewport intersection (now uses rect intersection against the
+scroll container). Full suite: 944 unit tests, 242 e2e, unaffected.
+
 ### 30 July 2026 — Fix scrubber stuck in seek-mode behaviour in scroll mode (buffer never topped up off the main search path)
 
 **Bug:** in scroll mode (≤`SCROLL_MODE_THRESHOLD`=1000 results), the scrubber

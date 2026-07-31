@@ -704,7 +704,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // always fire. The original twoTier guard was added assuming only case (a)
     // exists, but the position-map-independent twoTier derivation makes
     // case (b) real.
-    if (prev > 0 && bufferOffset === 0) {
+    //
+    // _bufferSelfCorrecting guard: scroll-mode top-up (buffer tier only)
+    // walks bufferOffset back down to 0 in several steps AFTER a
+    // sort-around-focus/restoreAroundCursor scroll already landed the
+    // viewport at a non-zero position — this is internal bookkeeping, not
+    // a "go home" event, and must not clobber that scroll. See F3/F4 in
+    // wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md.
+    if (prev > 0 && bufferOffset === 0 && !useSearchStore.getState()._bufferSelfCorrecting) {
       const el = parentRef.current;
       if (el) {
         el.scrollTop = 0;

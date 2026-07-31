@@ -1197,6 +1197,78 @@ describe("scroll mode — buffer fill", () => {
     assertPositionsConsistent("after sort-around-focus scroll-mode fill");
   });
 
+  it("_bufferSelfCorrecting is true only while the post-sort-around-focus top-up is in flight", async () => {
+    // Review 4.2 (R-2026-07-31-buffer-self-correcting-fix-review.md): pins
+    // the store-side half of the F3/F4 fix's contract deterministically.
+    // The React-commit-ordering half (effect #8 must still see this flag
+    // true on the commit carrying the LAST bufferOffset->0 write) can't be
+    // tested here — see the comment on _topUpScrollModeBuffer's `finally`.
+    setupSmallDataset(700);
+    await actions().search();
+
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+
+    // Landed centred on img-500 (bufferOffset > 0) — top-up hasn't reached
+    // 0 yet, so the flag must be true for effect #8's guard to work.
+    expect(state().bufferOffset).toBeGreaterThan(0);
+    expect(state()._bufferSelfCorrecting).toBe(true);
+
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "buffer fill to full total",
+    );
+
+    // Top-up complete — bufferOffset settled at 0, flag must have cleared
+    // (a stuck `true` would permanently disable effect #8's real "go home"
+    // resets for this tab).
+    expect(state().bufferOffset).toBe(0);
+    expect(state()._bufferSelfCorrecting).toBe(false);
+  });
+
+  it("_bufferSelfCorrecting cannot outlive a genuine new search landing (review 4.1)", async () => {
+    setupSmallDataset(700);
+    await actions().search();
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "sortAroundFocusStatus clears",
+    );
+    // Don't wait for the top-up to finish — fire a brand new search while
+    // it's still in flight (the scenario review §1.4/§3 flagged as only
+    // "safe by accident"). The new landing's own `set()` must force the
+    // flag false itself, not rely on the superseded top-up's `finally`.
+    expect(state()._bufferSelfCorrecting).toBe(true);
+    await actions().search();
+    expect(state()._bufferSelfCorrecting).toBe(false);
+    expect(state().bufferOffset).toBe(0);
+
+    // Let both the new search's own fill AND the superseded top-up's
+    // orphaned promise (detecting staleness via _pitGeneration, then its
+    // `finally`) fully settle before the test ends — `_topUpInFlight` is a
+    // module-level re-entrancy guard (like the cooldown noted on
+    // waitPastCooldown above) that otherwise leaks into the NEXT test and
+    // silently no-ops its own top-up call.
+    await waitFor(
+      () => state().results.length === state().total,
+      3000,
+      "final settle after superseding search",
+    );
+    // This test fires two search() calls, each re-arming the module-level
+    // search cooldown (see waitPastCooldown doc above) — wait it out so the
+    // NEXT test's own extends aren't silently suppressed by a cooldown
+    // this test leaves active.
+    await waitPastCooldown();
+  });
+
   it("corrects bufferOffset before topping up when countBefore is slow (review M2 regression)", async () => {
     setupSmallDataset(700);
     await actions().search();

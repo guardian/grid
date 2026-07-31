@@ -238,6 +238,14 @@ interface SearchState {
    * Views watch this to scroll to the focused image at its new position.
    */
   sortAroundFocusGeneration: number;
+  /**
+   * True while `_topUpScrollModeBuffer` is walking the buffer back to
+   * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
+   * centred it elsewhere. Lets scroll effects distinguish this internal,
+   * already-scrolled self-correction from a genuine "go home" reset (new
+   * search, Home key) that also transitions bufferOffset to 0.
+   */
+  _bufferSelfCorrecting: boolean;
 
   // New images ticker
   newCount: number;
@@ -1029,6 +1037,7 @@ async function _topUpScrollModeBuffer(
   if (myTotal > BUFFER_CAPACITY) return;
   if (_topUpInFlight) return;
   _topUpInFlight = true;
+  useSearchStore.setState({ _bufferSelfCorrecting: true });
 
   const myPitGeneration = get()._pitGeneration;
   const maxSteps = Math.ceil(myTotal / PAGE_SIZE) + 2;
@@ -1086,6 +1095,12 @@ async function _topUpScrollModeBuffer(
     }
   } finally {
     _topUpInFlight = false;
+    // Effect #8 in useScrollEffects.ts must still see _bufferSelfCorrecting=true
+    // on the React commit carrying the LAST bufferOffset->0 write above — this
+    // only holds because that commit is a same-microtask-queue zustand/React
+    // sync-lane flush that runs before this finally's continuation. If either
+    // ever moves off the sync-lane microtask path, this ordering breaks silently.
+    useSearchStore.setState({ _bufferSelfCorrecting: false });
   }
 }
 
@@ -1810,6 +1825,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _phantomFocusImageId: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
+  _bufferSelfCorrecting: false,
 
   newCount: 0,
   newCountSince: null,
@@ -2022,6 +2038,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({
           results: aiResult.hits,
           bufferOffset: 0,
+          _bufferSelfCorrecting: false,
           total: aiResult.hits.length, // KEY invariant: total === buffer size → no pagination
           loading: false,
           took: aiResult.took ?? null,
@@ -2228,6 +2245,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({
           results: result.hits,
           bufferOffset: 0,
+          _bufferSelfCorrecting: false,
           total: result.total,
           loading: false,
           took: result.took ?? null,

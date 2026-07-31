@@ -182,6 +182,34 @@ export class KupuaHelpers {
     });
   }
 
+  /**
+   * Whether the currently focused image's grid/table cell is actually
+   * scrolled into view within the results container (not just correct in
+   * store state, and not just present in the DOM via virtualizer overscan).
+   * Distinguishes "focus resolved to the right target" from "the viewport
+   * was scrolled to show it" — a cell can be store-correct yet fully
+   * off-screen if the scroll-to-focus effect didn't fire. Falls back to
+   * `_phantomFocusImageId` when there's no explicit focus (phantom mode).
+   */
+  async isFocusedCellVisible(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return false;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      if (!cell) return false;
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!container) return false;
+      const cellRect = cell.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom;
+    });
+  }
+
+
+
   /** Get the first visible image ID from the current view. */
   async getFirstVisibleImageId(): Promise<string | null> {
     return this.page.evaluate(() => {
