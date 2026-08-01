@@ -14,6 +14,68 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 August 2026 — extendBackward + resize leaves bufferOffset column-misaligned (M3 wandering follow-up)
+
+**Bug:** `extendBackward()`'s column-trim (added by the 31 July buffer-tier
+column-shift fix below) read the current column count fresh at trim time —
+correct in isolation — but did nothing to reconcile a **pre-existing**
+`bufferOffset` (aligned to the OLD column count) against a **new** one. Any
+resize (panel toggle, window resize, any grid-density change) while
+`bufferOffset > 0` and not a multiple of the new column count, followed by
+**any later** `extendBackward()` call (e.g. the user scrolls up a little),
+could leave `bufferOffset` permanently misaligned to the current column
+count — the same "items shift sideways" symptom class as the already-fixed
+bug, via a different, more common trigger. Confirmed via deterministic
+Vitest reproduction, not a race: `columns=4→6`, `seek(150)` leaves
+`bufferOffset=52` (aligned to 4), a later `extendBackward()` trims to align
+the new prepend to 6 but leaves the resulting offset at `4` (`4 % 6 ≠ 0`).
+
+**Root cause:** the trim only aligned the **prepend count** to the current
+columns, which is only equivalent to aligning the **resulting offset** when
+`bufferOffset` was already a multiple of the current columns on entry — true
+before any resize, false after one.
+
+**Fix:** reused the same `alignBufferStart` primitive already shared by
+`_loadBufferAroundImage`, `seek()`, and the async offset-correction — the
+"future fourth call site" those three's own comments warned about. Aligns to
+`bufferOffset - fetchedCount`, not just `fetchedCount`, so the result is
+provably a multiple of the CURRENT columns regardless of what the columns
+were when `bufferOffset` was first set — a strict generalisation of the
+prior (correct) behaviour when no resize has occurred.
+
+**Review:** independent fresh-agent review
+(`zz Archive/R-2026-08-01-extendbackward-resize-fix-review.md`) approved the
+production change as provably correct, but found the headline "repeated
+resize/extend cycles do not compound drift" test was non-discriminating: 5
+of its 6 cycles were silently skipped by `POST_EXTEND_COOLDOWN_MS` (the
+committed loop only awaited a microtask flush between cycles, well inside
+the 50ms cooldown window), so the test passed vacuously — even against the
+unfixed implementation. The underlying property does hold (verified by the
+reviewer via standalone probes respecting the real cooldown), the test just
+wasn't observing it. Fixed by awaiting past the cooldown between cycles (the
+existing `waitPastCooldown()` helper already used by every other multi-extend
+test in the file) and adding an explicit assertion that at least one cycle
+actually changes `bufferOffset`, so the test can't silently degenerate to a
+no-op again. Also applied: switched the test's corpus to buffer tier (it was
+inadvertently two-tier, the one tier structurally immune to this bug —
+`useDataWindow.ts`'s `findImageIndex` uses the raw global index there, so
+column placement doesn't depend on `bufferOffset`); corrected a stale comment
+on the audit-#9 regression test describing pre-fix arithmetic; strengthened
+the `columns=1` (table density) test to assert a real extend happened, not
+just internal consistency.
+
+**Verification:** full unit suite 980/980 passing (up from 976 — the fixed
+6-cycle test now genuinely exercises all 6 cycles instead of timing out
+vacuously fast); `tsc -b --noEmit` clean.
+
+**Scope:** buffer tier grid density (any resize that changes column count
+while mid-scroll). Confirmed immune: table density (`columns=1`, `x % 1` is
+always `0`); two-tier and seek tier (verified against `useDataWindow.ts` —
+column placement there doesn't depend on `bufferOffset` at all, so this bug
+class is structurally impossible, not just untested). See
+`zz Archive/W-2026-07-31-m3-extendbackward-resize-bug.md` for the full
+original investigation and reproduction detail.
+
 ### 1 August 2026 — panel toggle / window resize progressively shifts the grid viewport (no explicit focus)
 
 **Bug:** toggling the Details (RHS) or Browse (LHS) side panel, or resizing

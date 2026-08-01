@@ -2564,26 +2564,30 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
-      // Trim prepended items to a multiple of the current column count.
-      // When prependCount % columns != 0, ALL existing items shift to
-      // different column positions in the grid — the user sees images
-      // rearranging sideways at the boundary between old and new content.
-      // Trimming from the FRONT (earliest items) preserves the cursor
-      // adjacency: the kept items are adjacent to the existing buffer start.
+      // Column-align the prepend so the resulting bufferOffset is a
+      // multiple of the CURRENT column count — not just so the prepend
+      // COUNT is a multiple of columns. Those are only the same thing if
+      // bufferOffset was already aligned to the current columns; a resize
+      // (panel toggle, window resize) that changes columns while
+      // bufferOffset > 0 breaks that precondition, and trimming to
+      // `hits.length % columns === 0` alone still leaves the resulting
+      // offset misaligned. Same trim primitive as _loadBufferAroundImage,
+      // seek(), and the async offset-correction — this was the "future
+      // fourth call site" those three's own comments warned about
+      // (2026-07-31 wandering M3 follow-up).
       const geo = getScrollGeometry();
-      if (geo.columns > 1 && result.hits.length % geo.columns !== 0) {
-        const excess = result.hits.length % geo.columns;
-        // Guard: only trim when the result stays non-empty after trimming.
-        // When result.hits.length < geo.columns (e.g. the 2 remaining items
-        // before the start of results in a 3-column grid), excess equals
-        // result.hits.length and the slice produces []. That leaves startCursor
-        // unadvanced, so every subsequent extendBackward fetches the same
-        // items and discards them — a permanent block (audit #9).
-        if (result.hits.length > excess) {
-          result.hits = result.hits.slice(excess);
-          result.sortValues = result.sortValues.slice(excess);
-          devLog(`[extendBackward] trimmed ${excess} items to align with ${geo.columns} columns (${result.hits.length + excess} → ${result.hits.length})`);
-        }
+      const rawOffset = bufferOffset - result.hits.length;
+      const { trimCount } = alignBufferStart(rawOffset, result.hits.length, geo.columns);
+      // Guard: only trim when the result stays non-empty after trimming.
+      // When result.hits.length <= trimCount (e.g. the 2 remaining items
+      // before the start of results in a 3-column grid), trimming would
+      // produce []. That leaves startCursor unadvanced, so every subsequent
+      // extendBackward fetches the same items and discards them — a
+      // permanent block (audit #9).
+      if (trimCount > 0 && result.hits.length > trimCount) {
+        result.hits = result.hits.slice(trimCount);
+        result.sortValues = result.sortValues.slice(trimCount);
+        devLog(`[extendBackward] trimmed ${trimCount} items to align bufferOffset with ${geo.columns} columns (${result.hits.length + trimCount} → ${result.hits.length})`);
       }
 
       if (result.hits.length === 0) {

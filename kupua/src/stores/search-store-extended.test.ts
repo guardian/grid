@@ -982,8 +982,13 @@ describe("extendBackward column-trim guard (audit #9)", () => {
 
   it("does not discard all items when hits.length < columns", async () => {
     // Scenario: bufferOffset=2, 3-column grid, backward fetch returns 2 items.
-    // excess = 2 % 3 = 2 → result.hits.slice(2) = [] → early return (bug).
-    // After fix: trim is skipped when it would produce an empty result.
+    // rawOffset = bufferOffset - hits.length = 2 - 2 = 0 -> idealTrim = 0 ->
+    // trimCount = 0 -> the trim branch is skipped entirely (guard condition
+    // `trimCount > 0` is false), so all 2 hits commit and bufferOffset -> 0.
+    // This no longer exercises the "would-empty-the-result" guard directly
+    // (that requires hits.length < columns AND bufferOffset already aligned
+    // to columns on entry, which isn't this setup) but still documents that
+    // a short backward page never gets discarded.
 
     // seek(102) → fetchStart = max(0, 102-100) = 2 → bufferOffset=2 (shallow
     // from/size path, columns=1 at time of seek so no column alignment trim).
@@ -1014,6 +1019,197 @@ describe("extendBackward column-trim guard (audit #9)", () => {
     ).toBe(bufferLengthBefore + 2);
     assertPositionsConsistent("after extendBackward with 3-column guard");
   });
+});
+
+// ---------------------------------------------------------------------------
+// extendBackward + resize (wandering M3 follow-up, 2026-07-31) — FIXED.
+//
+// Originally scoped as "can a resize land exactly during an in-flight
+// extendBackward fetch" (a live-browser race that couldn't be reliably
+// forced through tool round-trip latency). Investigating it here found
+// something broader and NOT a race at all: `extendBackward`'s column-trim
+// (added by the audit #9 / buffer-tier column-shift fix, `dbb332f5f`) read
+// `getScrollGeometry()` fresh at trim time — correct in isolation — but did
+// nothing to reconcile a PRE-EXISTING `bufferOffset` that was aligned to the
+// OLD column count against a NEW one. Any resize (panel toggle, window
+// resize, any grid-density change) that happens while `bufferOffset > 0` and
+// not a multiple of the new column count, followed by ANY later
+// `extendBackward` call (e.g. the user scrolls up a little), used to trim
+// the fetch to align the NEW prepend to the NEW columns without checking
+// that the RESULTING bufferOffset was also aligned — it only was by luck
+// when the fetch happened to reach exactly to the buffer's true start.
+//
+// Fix: reuse the same `alignBufferStart` primitive already shared by
+// `_loadBufferAroundImage`, `seek()`, and the async offset-correction —
+// this was the "future fourth call site" those three's own comments warned
+// about. Aligns to `bufferOffset - fetchedCount`, not just `fetchedCount`,
+// so the result is provably a multiple of the CURRENT columns regardless of
+// what the columns were when `bufferOffset` was first set.
+//
+// User story this closes: a picture editor scrolled partway through a large
+// result set resizes their browser or toggles a side panel, then keeps
+// scrolling — the images already on screen must not visually jump sideways.
+// Exact position preservation across a column-count change is not always
+// possible (different column counts land the same global index in
+// different columns); the requirement is the CLOSEST possible position,
+// and — critically — repeated resize/panel-toggle cycles must not compound
+// into growing drift. A one-time, bounded adjustment per resize is
+// acceptable; an ever-widening divergence is not. The last test below
+// specifically exercises repeated cycles to prove this.
+// ---------------------------------------------------------------------------
+
+describe("extendBackward + resize (wandering M3 follow-up)", () => {
+  afterEach(() => {
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+  });
+
+  it("resize mid-flight: bufferOffset aligns to the post-resize column count, not the pre-fetch one", async () => {
+    mock = new MockDataSource(300);
+    useSearchStore.setState({ dataSource: mock });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    await actions().search();
+    await actions().seek(150);
+    await waitPastCooldown();
+    const bufferOffsetBefore = state().bufferOffset;
+    expect(bufferOffsetBefore, "setup: seek(150) should leave room to extend backward").toBeGreaterThan(0);
+
+    // Intercept searchAfter so the geometry change lands strictly between
+    // fetch-initiation and fetch-resolution.
+    let resolveFetch!: () => void;
+    const fetchBarrier = new Promise<void>((r) => { resolveFetch = r; });
+    const original = mock.searchAfter.bind(mock);
+    mock.searchAfter = async (...args: Parameters<typeof mock.searchAfter>) => {
+      await fetchBarrier;
+      return original(...args);
+    };
+
+    const extendPromise = actions().extendBackward();
+    await flush(); // let extendBackward start and reach the await on searchAfter
+
+    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    resolveFetch();
+    await extendPromise;
+    await flush();
+
+    expect(state().bufferOffset % 6).toBe(0);
+    assertPositionsConsistent("after extendBackward with mid-flight resize");
+  });
+
+  it("no race needed: same fix applies when the resize is fully settled BEFORE extendBackward is even called", async () => {
+    mock = new MockDataSource(300);
+    useSearchStore.setState({ dataSource: mock });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    await actions().search();
+    await actions().seek(150);
+    await waitPastCooldown();
+
+    // Resize fully settles first — this is what an ordinary panel toggle or
+    // window resize looks like while scrolled to a non-edge position. No
+    // race, no timing dependency, no interception needed.
+    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    await flush();
+
+    await actions().extendBackward();
+    await flush();
+
+    expect(state().bufferOffset % 6).toBe(0);
+    assertPositionsConsistent("after extendBackward with settled resize");
+  });
+
+  it("columns=1 (table density) is immune — every offset is trivially aligned", async () => {
+    mock = new MockDataSource(300);
+    useSearchStore.setState({ dataSource: mock });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    await actions().search();
+    await actions().seek(150);
+    await waitPastCooldown();
+    const bufferOffsetBefore = state().bufferOffset;
+    expect(bufferOffsetBefore, "setup: seek(150) should leave room to extend backward").toBeGreaterThan(0);
+
+    // Density switch to table (1 column), fully settled, then extend.
+    registerScrollGeometry({ columns: 1, rowHeight: TABLE_ROW_HEIGHT, isTable: true });
+    await flush();
+
+    await actions().extendBackward();
+    await flush();
+
+    // Confirm a real extend happened (not a no-op) — otherwise the trivial
+    // `x % 1 === 0` alignment claim would pass even against a broken
+    // implementation that never trims/commits anything.
+    expect(state().bufferOffset, "extendBackward should have actually moved bufferOffset").toBeLessThan(bufferOffsetBefore);
+    assertPositionsConsistent("after extendBackward with resize to table density");
+  });
+
+  it("repeated resize/extend cycles do not compound drift — bufferOffset re-aligns to CURRENT columns every time, never drifting further from the last known-good offset", async () => {
+    // Buffer tier (total <= SCROLL_MODE_THRESHOLD), not two-tier — this is
+    // the tier where column placement actually depends on bufferOffset (see
+    // useDataWindow.ts's findImageIndex: two-tier uses the raw global index
+    // and is structurally immune, so a two-tier corpus here would not
+    // exercise the symptom this test exists to rule out).
+    mock = new MockDataSource(999);
+    useSearchStore.setState({ dataSource: mock });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    await actions().search();
+    await actions().seek(800);
+    await waitPastCooldown();
+
+    // Simulate a user repeatedly toggling a side panel (or resizing the
+    // window) between two column counts, scrolling up a little after each
+    // toggle — the exact interleaving a real "closest position, no growing
+    // divergence" user story requires. Record bufferOffset after every
+    // cycle: each one must be exactly aligned to whatever columns is
+    // CURRENT at that point — proving alignment resets every cycle rather
+    // than compounding an ever-larger residual across cycles.
+    //
+    // Each cycle waits past POST_EXTEND_COOLDOWN_MS (via waitPastCooldown)
+    // before the next resize+extend — without this, extendBackward silently
+    // no-ops on cooldown for every cycle after the first, and the test
+    // passes vacuously (review R-2026-08-01-extendbackward-resize-fix-review.md,
+    // concern C1 — confirmed empirically: 5 of 6 cycles never ran).
+    const columnsSequence = [4, 6, 4, 5, 6, 4];
+    const observedOffsets: number[] = [state().bufferOffset];
+
+    for (const columns of columnsSequence) {
+      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+      await flush();
+      await actions().extendBackward();
+      await flush();
+      await waitPastCooldown();
+      observedOffsets.push(state().bufferOffset);
+      expect(
+        state().bufferOffset % columns,
+        `bufferOffset (${state().bufferOffset}) should align to columns=${columns} after this cycle — observed sequence so far: ${observedOffsets.join(", ")}`,
+      ).toBe(0);
+    }
+
+    // The point of this test is a real, non-trivial sequence of extends —
+    // guard against the exact vacuous-pass failure mode found in review
+    // (every cycle blocked by cooldown, offset never actually changing).
+    expect(
+      observedOffsets.some((o, i) => i > 0 && o !== observedOffsets[i - 1]),
+      `at least one cycle must actually change bufferOffset — observed sequence: ${observedOffsets.join(", ")}`,
+    ).toBe(true);
+
+    // bufferOffset must be monotonically non-increasing across the whole
+    // sequence (extendBackward only ever moves it toward 0, never away) —
+    // this is the concrete, testable form of "never gradually degrades":
+    // if alignment were compounding an ever-larger residual, this sequence
+    // would eventually reverse direction or plateau above where a fresh
+    // extend from the current offset should be able to reach.
+    for (let i = 1; i < observedOffsets.length; i++) {
+      expect(
+        observedOffsets[i],
+        `offset must not increase between cycles: ${observedOffsets.join(" → ")}`,
+      ).toBeLessThanOrEqual(observedOffsets[i - 1]);
+    }
+
+    assertPositionsConsistent("after repeated resize/extend cycles");
+  }, 20_000); // 6 cycles x waitPastCooldown (~2.1s each) exceed vitest's 5s default
 });
 
 // ---------------------------------------------------------------------------
