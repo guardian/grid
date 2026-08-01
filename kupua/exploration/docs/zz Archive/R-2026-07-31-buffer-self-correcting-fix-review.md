@@ -9,7 +9,7 @@ Scope reviewed (only these five files; other uncommitted repo changes ignored):
 - `kupua/e2e/shared/helpers.ts`
 - `kupua/e2e/smoke/manual-smoke-test.spec.ts`
 
-Reference (read-only): `wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4).
+Reference (read-only): `W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4).
 
 ---
 

@@ -6,7 +6,7 @@
 `kupua/src/stores/search-store.ts` (`extendBackward`) and
 `kupua/src/stores/search-store-extended.test.ts` (new describe block
 `"extendBackward + resize (wandering M3 follow-up)"`).
-**Context doc:** `exploration/docs/wandering-findings/W-2026-07-31-m3-extendbackward-resize-bug.md`
+**Context doc:** `exploration/docs/zz Archive/W-2026-07-31-m3-extendbackward-resize-bug.md`
 
 ---
 

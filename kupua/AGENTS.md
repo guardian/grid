@@ -111,6 +111,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | API-first architecture | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | HATEOAS/API-first integration plan: endpoints, phased rollout, elastic4s specs |
 | Enrichment strategy | `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` | ES-baseline + Grid API optional enrichment |
 | AI search | `exploration/docs/00 Architecture and philosophy/08-ai-search.md` | KNN semantic search: Bedrock proxy, store branch, UI widget, sort handling, aggregation scoping |
+| Embedded browser playbook | `exploration/docs/embedded-browser-playbook.md` | Accumulated technique notes for driving kupua in the embedded browser. Read before, append after, any browser session |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 > Archived workplans, audits, and handoffs: `exploration/docs/zz Archive/`. Docs inventory: `exploration/docs/docs-inventory-2026-05-07.md`.

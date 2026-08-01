@@ -258,7 +258,7 @@ reliably; two-tier is structurally immune (its index math has no
 formula but did not reproduce the bug in 4/4 live trials, most likely
 because deep-seek mode's async offset-correction path gives it a
 self-healing mechanism buffer tier lacks. See
-`wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4)
+`zz Archive/W-2026-07-31-focus-bookmark-across-tiers.md` (F3/F4)
 for the full investigation.
 
 **Fix:** new `_bufferSelfCorrecting` store flag, true only while

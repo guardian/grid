@@ -7,7 +7,7 @@
 - `kupua/src/lib/grid-scroll-anchor.test.ts` (new)
 - `kupua/src/components/ImageGrid.tsx` (modified)
 - `kupua/e2e/local/ui-features.spec.ts` (modified)
-- Context: `wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md`
+- Context: `W-2026-08-01-panel-toggle-progressive-shift.md`
 
 ---
 
