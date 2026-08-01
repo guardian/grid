@@ -350,6 +350,58 @@ test.describe("Panel toggles", () => {
     await kupua.page.waitForTimeout(300);
     await expect(rightSeparator).not.toBeVisible();
   });
+
+  // ---------------------------------------------------------------------
+  // Regression (2026-08-01): repeated panel toggles without explicit focus
+  // used to progressively shift the grid viewport — see
+  // wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md.
+  // Root cause: the phantom (no-focus) scroll anchor was a synthetic
+  // row-index recomputed from scrollTop at every resize instead of a real,
+  // stable image identity — a full open+close round trip didn't cancel out.
+  // ---------------------------------------------------------------------
+  test("repeated panel toggles without explicit focus do not progressively shift the viewport", async ({ kupua }) => {
+    await kupua.goto();
+
+    // No click — no explicit focus. Scroll down so there's room to drift.
+    await kupua.scrollBy(1500);
+    await kupua.page.waitForTimeout(300);
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    const readAnchor = () =>
+      kupua.page.evaluate(() => {
+        const store = (window as any).__kupua_store__;
+        const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+        const s = store.getState();
+        const anchorId = typeof getAnchor === "function" ? getAnchor() : null;
+        const el = document.querySelector('[aria-label="Image results grid"]');
+        return {
+          anchorId,
+          globalIdx: anchorId ? (s.imagePositions.get(anchorId) ?? null) : null,
+          scrollTop: el ? (el as HTMLElement).scrollTop : 0,
+        };
+      });
+
+    const initial = await readAnchor();
+    expect(initial.anchorId).not.toBeNull();
+
+    const detailsButton = kupua.page.locator('button[aria-label*="Details panel"]');
+    const browseButton = kupua.page.locator('button[aria-label*="Browse panel"]');
+
+    for (let i = 0; i < 3; i++) {
+      await detailsButton.click(); // open RHS
+      await kupua.page.waitForTimeout(200);
+      await detailsButton.click(); // close RHS
+      await kupua.page.waitForTimeout(200);
+      await browseButton.click(); // open LHS
+      await kupua.page.waitForTimeout(200);
+      await browseButton.click(); // close LHS
+      await kupua.page.waitForTimeout(200);
+
+      const after = await readAnchor();
+      expect(after.anchorId, `cycle ${i}: anchor identity must not drift`).toBe(initial.anchorId);
+      expect(after.scrollTop, `cycle ${i}: scrollTop must not progressively shift`).toBe(initial.scrollTop);
+    }
+  });
 });
 
 // ===========================================================================

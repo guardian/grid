@@ -14,6 +14,72 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 1 August 2026 — panel toggle / window resize progressively shifts the grid viewport (no explicit focus)
+
+**Bug:** toggling the Details (RHS) or Browse (LHS) side panel, or resizing
+the browser window, changes `ImageGrid`'s column count. `ImageGrid` captures
+a scroll anchor before the change and restores the equivalent viewport
+position after, so the reflow doesn't visually jump — but this only worked
+correctly when an image was **explicitly focused**. With no focus (phantom
+mode), the fallback computed a synthetic index — "the first image of the row
+nearest viewport centre" — recomputed from the *current* `scrollTop` via
+row-arithmetic at every resize, instead of tracking one real image. That
+synthetic index isn't the same physical anchor across a column-count change,
+so a full open+close panel round trip didn't cancel out: repeated toggles
+compounded a progressive drift. Confirmed live on TEST (all 3 scroll tiers):
+one RHS-panel open+close round trip shifted the tracked anchor and
+`scrollTop` by ~1 row; a second (LHS) round trip shifted it another row, with
+zero user scrolling.
+
+**Root cause:** `ImageGrid.tsx`'s `captureAnchor`, no-focus fallback branch —
+recomputed `centreIdx = centreRow * cols` from `scrollTop`/`clientHeight`
+every `ResizeObserver` callback rather than resolving a real image ID through
+`imagePositions` (as the focused-image branch already did correctly, just
+above it). The phantom viewport anchor (`getViewportAnchorId()`, in
+`useDataWindow.ts` — already continuously tracked regardless of focus mode)
+existed and was simply not being consulted here.
+
+**Fix:** extracted the anchor capture/restore math into a new pure, unit-
+tested module, `kupua/src/lib/grid-scroll-anchor.ts`
+(`resolveAnchorVirtIndex`, `captureAnchorAtIndex`, `restoreAnchorScrollTop`,
+`computeFallbackAnchor` as a last-resort-only path). `ImageGrid.tsx`'s
+`captureAnchor` now tries, in order: the focused image, then the phantom
+viewport anchor (both resolved via `imagePositions`, chained so an
+unresolvable focused ID falls through to the phantom anchor rather than
+skipping straight to the synthetic fallback), then the synthetic fallback
+only when no anchor image is known at all.
+
+**Review:** independent fresh-agent review
+(`zz Archive/R-2026-08-01-panel-toggle-anchor-fix-review.md`, verdict
+"approve with nits") found the module's doc comment and one test comment
+overstated the fix's guarantee as "never compounds" for the phantom-anchor
+case, when it's only *structurally* exact for a stable anchor identity
+(always true for explicit focus; empirically-but-not-provably true for the
+phantom anchor, since `getViewportAnchorId()` is itself re-derived from a
+column-scaled visible range each capture). Reworded both to state this
+precisely. Also applied: chained fallback resolution (focused → phantom
+→ synthetic) instead of `??`-ing the raw IDs so an unresolvable focused ID
+doesn't skip a viable phantom anchor; a `clientHeight<=0` guard against NaN;
+a strengthened regression test (persistent-residual-at-every-checkpoint,
+identical column sequence to its paired id-based test, rather than a single
+weak `not.toBe`); and minor type/comment dedup.
+
+**Verification:** 10 new unit tests in `grid-scroll-anchor.test.ts` (incl. a
+regression test proving the *old* fallback-only approach drifts on the exact
+repro sequence and the new one doesn't); full unit suite 980/980 passing;
+`tsc -b --noEmit` clean; full e2e suite 243/243 passing, including a new
+regression test in `ui-features.spec.ts` (repeated RHS/LHS toggles without
+focus, asserting zero drift); live TEST re-verification across all 3 scroll
+tiers (buffer, two-tier, seek — including seek with a real non-zero
+`bufferOffset`), 4 full toggle cycles plus 3 window-resize cycles, zero
+drift throughout.
+
+**Scope:** `ImageGrid.tsx` (grid density) only — `ImageTable.tsx` (table
+density, `columns=1` always) has no column-count reflow from panel/window
+resize and isn't affected. See
+`zz Archive/W-2026-08-01-panel-toggle-progressive-shift.md` for the full live
+before/after numbers and investigation detail.
+
 ### 31 July 2026 — buffer-tier grid-density column shift after sort-around-focus / restoreAroundCursor
 
 **Bug:** in buffer tier (≤`SCROLL_MODE_THRESHOLD`=1000 results), grid density,

@@ -24,7 +24,7 @@ import {
 } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useDataWindow } from "@/hooks/useDataWindow";
+import { useDataWindow, getViewportAnchorId } from "@/hooks/useDataWindow";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects } from "@/hooks/useScrollEffects";
@@ -47,6 +47,14 @@ import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
 import { SyndicationBadge } from "@/components/SyndicationBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { isImagePotentiallyGraphic } from "@/lib/graphic-image-blur";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
+import {
+  resolveAnchorVirtIndex,
+  captureAnchorAtIndex,
+  computeFallbackAnchor,
+  restoreAnchorScrollTop,
+  type CapturedAnchor,
+} from "@/lib/grid-scroll-anchor";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import type { Image } from "@/types/image";
 import {
@@ -54,10 +62,6 @@ import {
   GRID_MIN_CELL_WIDTH as MIN_CELL_WIDTH,
   GRID_CELL_GAP as CELL_GAP,
 } from "@/constants/layout";
-import {
-  SCROLL_MODE_THRESHOLD,
-  POSITION_MAP_THRESHOLD,
-} from "@/constants/tuning";
 
 // ---------------------------------------------------------------------------
 // Pointer type detection -- coarse = touch device.
@@ -451,8 +455,8 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   // Scroll anchoring: when the column count changes (panel toggle, panel
   // resize, browser window resize), we capture the anchor image's viewport
   // position BEFORE React re-renders, then restore it AFTER in a
-  // useLayoutEffect. The anchor is the focused image (if any), otherwise
-  // the image nearest the viewport centre.
+  // useLayoutEffect. See captureAnchor()'s own doc comment below for the
+  // anchor-preference details.
   // -------------------------------------------------------------------------
 
   const [columns, setColumns] = useState(4);
@@ -463,12 +467,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   columnsRef.current = columns;
 
   // Anchor state: captured in ResizeObserver, consumed in useLayoutEffect
-  const anchorRef = useRef<{
-    /** Flat image index of the anchor image */
-    imageIndex: number;
-    /** Viewport ratio: 0 = top edge, 1 = bottom edge */
-    viewportRatio: number;
-  } | null>(null);
+  const anchorRef = useRef<CapturedAnchor | null>(null);
 
   useEffect(() => {
     const el = parentRef.current;
@@ -513,36 +512,35 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   /**
    * Capture the anchor image and its viewport position.
    * Called from ResizeObserver when column count is about to change.
+   *
+   * Anchor preference: the focused image, else the phantom viewport anchor
+   * (nearest image to viewport centre, tracked continuously regardless of
+   * focus mode) — both are stable image identities resolved via
+   * `imagePositions`. Recomputing a synthetic "first image of the centre
+   * row" index from scrollTop/row arithmetic every resize (the old
+   * phantom-focus behaviour) doesn't track one real image, so a full
+   * open+close panel round trip doesn't cancel out — it compounds a
+   * one-row-ish drift per cycle. See `@/lib/grid-scroll-anchor` and
+   * `wandering-findings/W-2026-08-01-panel-toggle-progressive-shift.md`.
    */
-  function captureAnchor(el: HTMLElement, cols: number): { imageIndex: number; viewportRatio: number } | null {
-    // Prefer the focused image as anchor
-    const fid = focusedImageIdRef.current;
-    if (fid) {
-      const { imagePositions, bufferOffset, total } = useSearchStore.getState();
-      // Derive twoTier from current store state — NOT from the hook scope,
-      // which is stale inside the ResizeObserver closure (useEffect deps=[]).
-      const isTwoTier = POSITION_MAP_THRESHOLD > 0
-        && total > SCROLL_MODE_THRESHOLD
-        && total <= POSITION_MAP_THRESHOLD;
-      const globalIdx = imagePositions.get(fid);
-      if (globalIdx != null && globalIdx >= 0) {
-        // In two-tier mode, the virtualizer uses global indices directly.
-        // In normal mode, use buffer-local indices.
-        const virtIdx = isTwoTier ? globalIdx : globalIdx - bufferOffset;
-        if (virtIdx >= 0) {
-          const rowTop = Math.floor(virtIdx / cols) * ROW_HEIGHT;
-          const ratio = (rowTop - el.scrollTop) / el.clientHeight;
-          return { imageIndex: virtIdx, viewportRatio: ratio };
-        }
-      }
+  function captureAnchor(el: HTMLElement, cols: number): CapturedAnchor | null {
+    const { imagePositions, bufferOffset, total } = useSearchStore.getState();
+    // Derive twoTier from current store state — NOT from the hook scope,
+    // which is stale inside the ResizeObserver closure (useEffect deps=[]).
+    const isTwoTier = isTwoTierFromTotal(total);
+    // Try the focused image first, then fall back to the phantom viewport
+    // anchor if the focused image can't be resolved (e.g. it's outside the
+    // current buffer after a seek) — not just when there's no focus at all.
+    const virtIdx =
+      resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, bufferOffset, isTwoTier) ??
+      resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, bufferOffset, isTwoTier);
+    if (virtIdx != null) {
+      return captureAnchorAtIndex(virtIdx, cols, ROW_HEIGHT, el.scrollTop, el.clientHeight);
     }
 
-    // Fallback: image nearest the viewport centre
-    const centreScroll = el.scrollTop + el.clientHeight / 2;
-    const centreRow = Math.floor(centreScroll / ROW_HEIGHT);
-    const centreIdx = centreRow * cols; // first image in that row
-    const ratio = (centreRow * ROW_HEIGHT - el.scrollTop) / el.clientHeight;
-    return { imageIndex: centreIdx, viewportRatio: ratio };
+    // Last-resort fallback: no known anchor image yet (e.g. before the first
+    // reportVisibleRange call).
+    return computeFallbackAnchor(cols, ROW_HEIGHT, el.scrollTop, el.clientHeight);
   }
 
   // -------------------------------------------------------------------------
@@ -606,10 +604,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
     const el = parentRef.current;
     if (!el) return;
 
-    // Calculate the anchor image's new row position with the new column count
-    const newRowTop = Math.floor(anchor.imageIndex / columns) * ROW_HEIGHT;
-    const targetScroll = newRowTop - anchor.viewportRatio * el.clientHeight;
-    const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, targetScroll));
+    const clamped = restoreAnchorScrollTop(anchor, columns, ROW_HEIGHT, el.clientHeight, el.scrollHeight);
     virtualizer.scrollToOffset(clamped);
   }, [columns, virtualizer]);
 
