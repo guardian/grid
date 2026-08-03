@@ -19,9 +19,9 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
                 (implicit logMarker: LogMarker) = {
     logger.info(logMarker, s"bucket: $bucket, id: $id, meta: $meta")
     val eventualObject = if (overwrite) {
-      store(bucket, id, file, mimeType, meta, cacheSetting)
+      storeV2(bucket, id, file, mimeType, meta, cacheSetting)
     } else {
-      storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting)
+      storeIfNotPresentV2(bucket, id, file, mimeType, meta, cacheSetting)
     }
     eventualObject.onComplete(o => logger.info(logMarker, s"storeImage completed $o"))
     eventualObject
