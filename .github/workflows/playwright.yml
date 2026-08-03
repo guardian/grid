@@ -23,9 +23,19 @@ jobs:
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps chromium
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
     - name: Build CI image
-      working-directory: .
-      run: DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: e2e-tests/images/Dockerfile
+        target: ci
+        tags: grid-e2e-ci
+        push: false
+        load: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
