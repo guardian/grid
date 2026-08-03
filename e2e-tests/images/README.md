@@ -1,32 +1,14 @@
-# Grid all-in-one container
+# Grid e2e container
 
 A single `Dockerfile` produces two single-container images that run eight
 Grid Play services plus Kahuna's frontend, selected with `--target`:
 
-- **CI image** (`--target ci`, tagged `grid-e2e-ci`): stages pre-compiled
-  artefacts and runs them in a production-style JRE. Used by the e2e-tests
-  testcontainers harness.
-- **Local-dev image** (`--target dev`, tagged `grid-e2e-dev`): runs the services
-  under `sbt <svc>/run` (Play dev mode) with the repo bind-mounted, so source
-  changes recompile live. See
-  [Development image (live reload)](#development-image-live-reload) below.
+- **CI image** (`--target ci`, tagged `grid-e2e-ci`): stages pre-compiled artefacts and runs them in a production-style JRE. Used by the e2e-tests testcontainers harness.
+- ** Dev image** (`--target dev`, tagged `grid-e2e-dev`): runs the services under `sbt <svc>/run` (Play dev mode) with the repo bind-mounted, so source changes recompile live. See [Development image (live reload)](#development-image-live-reload) below.
 
 `--target` is required — a plain `docker build` fails with a reminder.
 
-Both expose the same service ports:
-
-| Service           | Port |
-| ----------------- | ---- |
-| `media-api`       | 9001 |
-| `thrall`          | 9002 |
-| `kahuna` (+ UI)   | 9005 |
-| `cropper`         | 9006 |
-| `metadata-editor` | 9007 |
-| `collections`     | 9010 |
-| `auth`            | 9011 |
-| `leases`          | 9012 |
-
-## Build
+## Build for CI
 
 Build from the **repository root** (the build context must be the repo root):
 
@@ -46,7 +28,7 @@ The `grid-e2e-ci` build uses these stages:
    (`graphicsmagick`, `imagemagick`, `pngquant`, `exiftool`, `libgd3`) and the
    staged apps under `/usr/share/<service>`.
 
-## CI configuration
+### Configuration
 
 Configuration is **not** baked into the image. At runtime each service loads
 `/etc/grid/common.conf` and `/etc/grid/<service>.conf` (and reads the stage
@@ -59,10 +41,6 @@ docker run --rm \
   -p 9007:9007 -p 9010:9010 -p 9011:9011 -p 9012:9012 \
   grid-e2e-ci
 ```
-
-The services still need their backing infrastructure (Elasticsearch, S3/
-DynamoDB/Kinesis/SNS/SQS, the image resizer, auth provider) to be reachable —
-see the root `docker-compose.yml` for the local dev topology.
 
 ## Selecting services
 
