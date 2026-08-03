@@ -157,10 +157,6 @@ async function globalSetup(): Promise<void> {
       AWS_REGION: REGION,
       AWS_DEFAULT_REGION: REGION,
       AWS_CBOR_DISABLE: 'true',
-      // Staged Play apps run in prod mode, so an application secret must be provided.
-      // entrypoint.sh appends GRID_JAVA_OPTS to every service. Must be >= 256 bits.
-      GRID_JAVA_OPTS:
-        '-Dplay.http.secret.key=testcontainers-e2e-application-secret-0123456789',
     })
     .withWaitStrategy(Wait.forHttp('/management/healthcheck', KAHUNA_PORT).forStatusCode(200))
     .withStartupTimeout(startupTimeoutMs);
