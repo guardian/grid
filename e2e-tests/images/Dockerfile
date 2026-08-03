@@ -2,20 +2,36 @@
 
 # Single-container image that builds and runs eight Grid Play services
 # (auth, collections, cropper, kahuna, leases, media-api, metadata-editor,
-# thrall) together with Kahuna's compiled frontend.
+# thrall) together with Kahuna's frontend.
 #
-# Build from the repository root:
-#   docker build -f e2e-tests/images/Dockerfile -t grid-all .
+# This one Dockerfile produces two images, selected with `--target`:
 #
-# Runtime configuration is NOT baked into the image. Mount per-environment
+#   * ci (grid-all)  — CI/production style. Stages pre-compiled artefacts
+#                           and runs them under a slim JRE.
+#       docker build --target ci -f e2e-tests/images/Dockerfile -t grid-all .
+#
+#   * dev (grid-dev)      — local development. Runs the services under
+#                           `sbt <svc>/run` (Play dev mode) with the repo
+#                           bind-mounted over /build so host edits recompile live.
+#       docker build --target dev -f e2e-tests/images/Dockerfile -t grid-dev .
+#
+# `--target` is REQUIRED: a plain `docker build` hits the `default` guard stage
+# below and fails with a reminder. See images/README.md for details.
+#
+# Runtime configuration is NOT baked into the ci image. Mount per-environment
 # config (and a stage marker) into /etc/grid at run time, e.g.:
 #   docker run --rm -v "$PWD/my-config:/etc/grid" grid-all
-# See images/README.md for details.
 
-# ---------------------------------------------------------------------------
-# Stage 1: build the Kahuna frontend (webpack production bundle)
-# ---------------------------------------------------------------------------
-FROM node:22.12.0-bookworm AS frontend
+# Shared build args (single source of truth for both images).
+ARG SBT_VERSION=1.10.3
+ARG NODE_VERSION=22.12.0
+# Native tools used by the image processing services (see repo Brewfile). Kept
+# as one arg so the ci and dev stages install the same set.
+ARG NATIVE_PKGS="graphicsmagick imagemagick pngquant libimage-exiftool-perl libgd3"
+
+# Stage: build the Kahuna frontend (webpack production bundle). Uses the official
+# Node image because this throwaway build stage only needs Node + npm.
+FROM node:${NODE_VERSION}-bookworm AS frontend
 
 WORKDIR /build/kahuna
 
@@ -27,12 +43,10 @@ RUN npm ci
 COPY kahuna/ ./
 RUN npm run dist
 
-# ---------------------------------------------------------------------------
-# Stage 2: compile and stage the Play services with sbt
-# ---------------------------------------------------------------------------
-FROM eclipse-temurin:11-jdk-jammy AS backend
+# Stage: shared JDK + sbt toolchain used by both `backend` (prod) and `dev`.
+FROM eclipse-temurin:11-jdk-jammy AS toolchain
 
-ARG SBT_VERSION=1.10.3
+ARG SBT_VERSION
 
 # Install sbt from the official release tarball.
 RUN set -eux; \
@@ -45,6 +59,9 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
+
+# Stage: compile and stage the Play services with sbt (prod path).
+FROM toolchain AS backend
 
 # Copy the full repository (build context is the repo root). A .dockerignore
 # keeps target/, node_modules/ and logs/ out of the context.
@@ -64,20 +81,15 @@ RUN sbt \
       "metadata-editor/stage" \
       "thrall/stage"
 
-# ---------------------------------------------------------------------------
-# Stage 3: slim runtime image with native image tooling and all services
-# ---------------------------------------------------------------------------
-FROM eclipse-temurin:11-jre-jammy AS runtime
+# Stage: slim ci image with native image tooling and all services (grid-all).
+FROM eclipse-temurin:11-jre-jammy AS ci
+
+ARG NATIVE_PKGS
 
 # Native tools used by the image processing services (see repo Brewfile).
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends \
-      graphicsmagick \
-      imagemagick \
-      pngquant \
-      libimage-exiftool-perl \
-      libgd3; \
+    apt-get install -y --no-install-recommends ${NATIVE_PKGS}; \
     rm -rf /var/lib/apt/lists/*
 
 # Staged apps expect their config at /usr/share/<service>/conf/application.conf
@@ -106,3 +118,67 @@ ENV AWS_CBOR_DISABLE=true
 EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# Stage: development image (grid-dev). JDK + sbt + Node + native tooling in a
+# single stage with warmed caches, running services under `sbt <svc>/run`.
+FROM toolchain AS dev
+
+ARG NODE_VERSION
+ARG NATIVE_PKGS
+# Provided automatically by BuildKit (e.g. amd64, arm64).
+ARG TARGETARCH
+
+# xz-utils is needed to unpack the Node tarball; the native tools mirror the
+# ci stage.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends xz-utils ${NATIVE_PKGS}; \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Node (pinned to match kahuna's required version) from the official
+# tarball so `npm run watch` matches local development.
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) node_arch=x64 ;; \
+      arm64) node_arch=arm64 ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fLo /tmp/node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz"; \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -f /tmp/node.tar.xz; \
+    node --version; \
+    npm --version
+
+# Warm the sbt dependency cache (~/.ivy2, ~/.sbt, ~/.cache/coursier). These live
+# under $HOME, so a runtime bind-mount over /build does not shadow them: the
+# first runtime compile only needs to compile sources, not re-resolve deps.
+# Copying just the build definition keeps this layer cached across source edits.
+COPY build.sbt ./
+COPY project/ ./project/
+RUN sbt update
+
+# Warm Kahuna's node_modules. The dockerignore keeps node_modules out of the
+# build context, so this install is not clobbered by the COPY below.
+COPY kahuna/package.json kahuna/package-lock.json ./kahuna/
+RUN cd kahuna && npm ci
+
+# Copy the rest of the source so the image is runnable standalone; a runtime
+# bind-mount of the repo over /build overrides this for live editing.
+COPY . .
+
+COPY e2e-tests/images/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
+RUN chmod +x /usr/local/bin/entrypoint.dev.sh
+
+# The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
+ENV AWS_CBOR_DISABLE=true
+
+# media-api, thrall, kahuna, cropper, metadata-editor, collections, auth, leases
+# plus the JDWP debug port used when GRID_DEBUG is set.
+EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012 5005
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.dev.sh"]
+
+# Stage: default guard. This is the last stage, so a plain `docker build` (no
+# --target) builds it and fails, forcing an explicit `--target ci|dev`.
+FROM eclipse-temurin:11-jre-jammy AS default
+RUN echo 'ERROR: --target is required. Pass --target ci (grid-all) or --target dev (grid-dev) when building the image' >&2; exit 1

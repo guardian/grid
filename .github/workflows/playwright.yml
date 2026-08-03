@@ -27,7 +27,7 @@ jobs:
     # the repository root (the build context must be the repo root).
     - name: Build grid-all image
       working-directory: .
-      run: DOCKER_BUILDKIT=1 docker build -f e2e-tests/images/Dockerfile -t grid-all .
+      run: DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t grid-all .
     # GitHub sets CI=true, so global-setup starts the bundled Caddy reverse proxy on
     # :443 to route the https://*.media.<domain> domains to the grid-all container
     # (standing in for the developer's dev-nginx). No extra setup is required.
