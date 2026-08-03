@@ -1,13 +1,17 @@
 # Grid all-in-one container
 
-This directory provides **two** single-container images that run eight Grid Play
-services plus Kahuna's frontend:
+A single `Dockerfile` produces two single-container images that run eight
+Grid Play services plus Kahuna's frontend, selected with `--target`:
 
-- **CI image** — `Dockerfile`: stages pre-compiled artefacts and runs them in a
-  production-style JRE. Used by the e2e-tests testcontainers harness.
-- **Local-dev image** — `Dockerfile.dev`: runs the services under `sbt <svc>/run`
-  (Play dev mode) with the repo bind-mounted, so source changes recompile live.
-  See [Development image (live reload)](#development-image-live-reload) below.
+- **CI image** (`--target ci`, tagged `grid-all`): stages pre-compiled
+  artefacts and runs them in a production-style JRE. Used by the e2e-tests
+  testcontainers harness.
+- **Local-dev image** (`--target dev`, tagged `grid-dev`): runs the services
+  under `sbt <svc>/run` (Play dev mode) with the repo bind-mounted, so source
+  changes recompile live. See
+  [Development image (live reload)](#development-image-live-reload) below.
+
+`--target` is required — a plain `docker build` fails with a reminder.
 
 Both expose the same service ports:
 
@@ -27,20 +31,22 @@ Both expose the same service ports:
 Build from the **repository root** (the build context must be the repo root):
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -f images/Dockerfile -t grid-all .
+DOCKER_BUILDKIT=1 docker build --target ci -f images/Dockerfile -t grid-all .
 ```
 
-The build has three stages:
+The `grid-all` build uses these stages:
 
-1. **frontend** — `node:22.12.0` builds the Kahuna webpack bundle
-   (`npm ci && npm run dist`).
-2. **backend** — `eclipse-temurin:11-jdk` installs sbt and stages all eight
-   services (`sbt <service>/stage`), packaging the frontend assets into Kahuna.
-3. **runtime** — `eclipse-temurin:11-jre` with the native image tools
+1. **frontend** — the official `node:22.12.0` image builds the Kahuna webpack
+   bundle (`npm ci && npm run dist`).
+2. **toolchain** — `eclipse-temurin:11-jdk` installs sbt (shared with the dev
+   image).
+3. **backend** — from `toolchain`, stages all eight services
+   (`sbt <service>/stage`), packaging the frontend assets into Kahuna.
+4. **ci** — `eclipse-temurin:11-jre` with the native image tools
    (`graphicsmagick`, `imagemagick`, `pngquant`, `exiftool`, `libgd3`) and the
    staged apps under `/usr/share/<service>`.
 
-## Runtime configuration
+## CI configuration
 
 Configuration is **not** baked into the image. At runtime each service loads
 `/etc/grid/common.conf` and `/etc/grid/<service>.conf` (and reads the stage
@@ -71,7 +77,7 @@ If any running service exits, the container stops.
 
 ## Development image (live reload)
 
-`Dockerfile.dev` is for local development: instead of staging compiled
+The `--target dev` build is for local development: instead of staging compiled
 artefacts it runs the services under `sbt <svc>/run` (Play dev mode), so changed
 Scala sources are recompiled on the next request. When `kahuna` is selected its
 webpack bundle is rebuilt continuously via `npm run watch`.
@@ -79,11 +85,14 @@ webpack bundle is rebuilt continuously via `npm run watch`.
 Build from the **repository root**:
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -f e2e-tests/images/Dockerfile.dev -t grid-dev .
+DOCKER_BUILDKIT=1 docker build --target dev -f e2e-tests/images/Dockerfile -t grid-dev .
 ```
 
-The build warms the sbt dependency cache (`sbt update`) and Kahuna's
-`node_modules` (`npm ci`) so the first run only has to compile sources.
+The `dev` stage shares the `toolchain` (JDK + sbt) base with the CI build and
+adds Node (installed from the official tarball to match kahuna's pinned
+version) plus the native image tools. It warms the sbt dependency cache
+(`sbt update`) and Kahuna's `node_modules` (`npm ci`) so the first run only has
+to compile sources.
 
 Run with the repo bind-mounted over `/build` so host edits are picked up live,
 and your DEV config mounted at `/root/.grid`:
