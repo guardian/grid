@@ -9,32 +9,12 @@
 
 set -euo pipefail
 
-# service -> http port
-declare -A PORTS=(
-  [media-api]=9001
-  [thrall]=9002
-  [kahuna]=9005
-  [cropper]=9006
-  [metadata-editor]=9007
-  [collections]=9010
-  [auth]=9011
-  [leases]=9012
-)
-
-SERVICES="auth collections cropper kahuna leases media-api metadata-editor thrall"
+# Shared service list, port map, and shutdown helper.
+source "$(dirname "$0")/entrypoint.common.sh"
 
 pids=()
 
-shutdown() {
-  echo "Shutting down Grid services..."
-  for pid in "${pids[@]}"; do
-    kill -TERM "$pid" 2>/dev/null || true
-  done
-  wait
-  exit 0
-}
-
-trap shutdown TERM INT
+trap 'shutdown_children "${pids[@]}"' TERM INT
 
 for svc in $SERVICES; do
   port="${PORTS[$svc]:-}"
@@ -50,7 +30,6 @@ for svc in $SERVICES; do
   fi
 
   echo "Starting $svc on port $port"
-  # shellcheck disable=SC2086
   "$bin" -Dhttp.port="$port" &
   pids+=("$!")
 done
