@@ -1,10 +1,8 @@
 import * as path from 'path';
 
-/** Repository root (two levels up from this file: e2e-tests/testcontainers/ -> repo). */
 export const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-/** Values mirror dev/.env — only used to shape generated config, not real infra. */
-export const DOMAIN = process.env.GRID_DOMAIN ?? 'local.dev-gutools.co.uk';
+export const DOMAIN = 'local.dev-gutools.co.uk';
 export const EMAIL_DOMAIN = 'guardian.co.uk';
 export const REGION = 'eu-west-1';
 
@@ -18,7 +16,7 @@ export const CORE_STACK_NAME = 'grid-dev-core';
 export const PERMISSIONS_BUCKET = 'permissions-cache';
 
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
-export const GRID_IMAGE = process.env.GRID_IMAGE ?? 'grid-all';
+export const GRID_IMAGE = process.env.GRID_IMAGE ?? 'grid-e2e-ci';
 export const ELASTICSEARCH_IMAGE = 'docker.elastic.co/elasticsearch/elasticsearch:8.18.3';
 export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
 /** Reverse proxy used in CI to stand in for the developer's dev-nginx (see global-setup). */
@@ -28,8 +26,8 @@ export const PROXY_IMAGE = 'caddy:2.8-alpine';
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';
 export const LOCALSTACK_ALIAS = 'localstack';
 export const LOCALSTACK_PORT = 4566;
-/** Network alias the CI reverse proxy uses to reach the grid-all app container. */
-export const GRID_ALIAS = 'grid-all';
+/** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
+export const GRID_ALIAS = 'grid-e2e-ci';
 
 /** service -> http port, from e2e-tests/images/entrypoint.sh. */
 export const SERVICE_PORTS: Record<string, number> = {
@@ -50,4 +48,4 @@ export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 export const URLS_FILE = path.join(__dirname, '..', '.grid-urls.json');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
-export const API_KEY = 'dev-';
+export const API_KEY = 'e2e-dev';
