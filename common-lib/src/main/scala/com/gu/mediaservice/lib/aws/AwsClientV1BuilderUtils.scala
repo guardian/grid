@@ -14,8 +14,8 @@ trait AwsClientV1BuilderUtils extends GridLogging {
 
   def awsCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
+    new EnvironmentVariableCredentialsProvider(),
     InstanceProfileCredentialsProvider.getInstance(),
-    new EnvironmentVariableCredentialsProvider()
   )
 
   final def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
