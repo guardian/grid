@@ -54,8 +54,6 @@ jobs:
         tags: grid-e2e-ci
         push: false
         load: true
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
