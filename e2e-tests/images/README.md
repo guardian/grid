@@ -13,7 +13,7 @@ Grid Play services plus Kahuna's frontend, selected with `--target`:
 Build from the **repository root** (the build context must be the repo root):
 
 ```bash
-DOCKER_BUILDKIT=1 docker build --target <ci|dev> -f images/Dockerfile -t grid-e2e-<ci|dev> .
+DOCKER_BUILDKIT=1 docker build --target <ci|dev> -f e2e-tests/images/Dockerfile -t grid-e2e-<ci|dev> .
 ```
 
 ## Runtime configuration
