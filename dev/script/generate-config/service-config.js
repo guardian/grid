@@ -11,6 +11,10 @@ function getCorsAllowedOriginString(config) {
 
 function getCommonConfig(config) {
   const isNoAuth = process.env.NO_AUTH === "true";
+  // AI search depends on Bedrock/vector-ES infrastructure that isn't wired up for every org,
+  // so it defaults to false (see CommonConfig.scala) and is only turned on here for Guardian's
+  // own local dev environment. Shared by media-api and kahuna via the common config key.
+  const aiSearchEnabled = process.env.BUILD_ORG ? false : true;
   return `domain.root="${config.DOMAIN}"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
@@ -21,6 +25,7 @@ function getCommonConfig(config) {
         |image.record.download=false
         |defaultShouldBlurGraphicImages=true
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
+        |ai.search.enabled=${aiSearchEnabled}
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
         ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}

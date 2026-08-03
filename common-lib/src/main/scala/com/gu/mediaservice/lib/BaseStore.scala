@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, ListObjectsV2Request}
 
 import java.util.concurrent.atomic.AtomicReference
 import java.io.InputStream
@@ -22,18 +23,20 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected val store: AtomicReference[Map[TStoreKey, TStoreVal]] = new AtomicReference(Map.empty)
   protected val lastUpdated: AtomicReference[DateTime] = new AtomicReference(DateTime.now())
 
-  protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
+  protected def getS3Object(key: String): Option[String] = s3.getObjectAsStringV2(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
-    val objects = s3.client
-      .listObjects(bucket).getObjectSummaries.asScala
-      .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
+    val objects = s3.clientV2.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
+      .contents().asScala.toList
+      .filterNot(_.key() == "AMAZON_SES_SETUP_NOTIFICATION")
 
     if (objects.nonEmpty) {
-      val obj = objects.maxBy(_.getLastModified)
-      logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
+      val obj = objects.maxBy(_.lastModified())
+      logger.info(s"Latest key ${obj.key} in bucket $bucket")
 
-      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+      val stream = s3.clientV2.getObject(
+        GetObjectRequest.builder().key(obj.key()).bucket(bucket).build()
+      )
       Some(stream)
     } else {
       logger.error(s"Bucket $bucket is empty")

@@ -32,7 +32,7 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
   }
 
   def queueS3Object(uploader: String, filename: String, s3Meta: Map[String, String], file: File)(implicit logMarker: LogMarker) = {
-    store(
+    storeV2(
         config.maybeIngestBucket.get,
         s"$uploader/$filename",
         file,
