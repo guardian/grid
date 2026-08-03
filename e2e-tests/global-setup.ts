@@ -91,7 +91,7 @@ async function globalSetup(): Promise<void> {
 
   const network = await new Network().start();
 
-  // --- Infrastructure: Elasticsearch + LocalStack --------------------------
+  // --- Infrastructure: Elasticsearch + LocalStack
   const elasticsearch = await new GenericContainer(ELASTICSEARCH_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(ELASTICSEARCH_ALIAS)
@@ -133,13 +133,11 @@ async function globalSetup(): Promise<void> {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
 
-  // --- Application: the pre-built grid-e2e-ci image ---------------------------
-  // All eight services run inside this single container and talk to each other over
-  // its localhost. Each is published on the *fixed* host port its dev-nginx mapping
-  // expects (dev/nginx-mappings.yml), so the developer's dev-nginx routes the
-  // https://*.media.<domain> domains straight into this container. This trades the
-  // previous dynamic-port isolation for compatibility with the existing nginx setup:
-  // it cannot run alongside a locally-running Grid that already owns these ports.
+  // All eight Grid services run inside this single container and talk to each
+  // other over its localhost. Each is published on the fixed host port its
+  // dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
+  // dev-nginx routes the https://*.media.<domain> domains straight into this
+  // container.
   let gridBuilder = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(GRID_ALIAS)
