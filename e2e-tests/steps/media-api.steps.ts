@@ -1,9 +1,6 @@
 import { When, Then, expect, KAHUNA_APP_URL } from './fixtures';
 
 When('I open the Grid application', async ({ page, testContext }) => {
-  // Register the media-api listener before navigating so the request the SPA fires on
-  // load is captured. dev-nginx routes https://api.media.<domain> to the media-api port
-  // on the grid-all container, so this request should be served (200) by the container.
   testContext.mediaApiResponse = page.waitForResponse(
     (response) =>
       response.url().startsWith('https://api.media.') && response.request().method() === 'GET',

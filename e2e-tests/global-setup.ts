@@ -6,7 +6,7 @@
  *   2. Elasticsearch + LocalStack (infrastructure),
  *   3. the CloudFormation core stack + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
- *   5. the pre-built `grid-all` image running all eight services.
+ *   5. the pre-built `grid-e2e-ci` image running all eight services.
  *
  * The Kahuna base URL is exposed to tests via `GRID_BASE_URL`, and the started
  * containers are stashed for `global-teardown.ts`.
@@ -42,7 +42,7 @@ const LOCALSTACK_SERVICES = 'cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,s
 
 /**
  * Build a Caddyfile that reproduces the dev-nginx subdomain routing: each Grid service
- * domain (https://<prefix>.media.<domain>) reverse-proxies to the grid-all container on
+ * domain (https://<prefix>.media.<domain>) reverse-proxies to the grid-e2e-ci container on
  * its in-container port, and the S3 vanity domains proxy to localstack (prepending the
  * real bucket to the path). `tls internal` serves a self-signed cert per site; Playwright
  * runs with `ignoreHTTPSErrors`, so the internal CA does not need to be trusted.
@@ -133,7 +133,7 @@ async function globalSetup(): Promise<void> {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
 
-  // --- Application: the pre-built grid-all image ---------------------------
+  // --- Application: the pre-built grid-e2e-ci image ---------------------------
   // All eight services run inside this single container and talk to each other over
   // its localhost. Each is published on the *fixed* host port its dev-nginx mapping
   // expects (dev/nginx-mappings.yml), so the developer's dev-nginx routes the

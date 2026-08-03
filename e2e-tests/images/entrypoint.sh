@@ -8,7 +8,7 @@
 # forwarded for a clean shutdown.
 #
 # Set GRID_SERVICES to a space-separated subset to run fewer services, e.g.
-#   docker run -e GRID_SERVICES="media-api kahuna" grid-all
+#   docker run -e GRID_SERVICES="media-api kahuna" grid-e2e-ci
 # Extra JVM options can be appended via GRID_JAVA_OPTS.
 
 set -euo pipefail

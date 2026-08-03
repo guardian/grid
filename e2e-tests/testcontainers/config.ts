@@ -20,7 +20,6 @@ import {
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
-// The services packaged into the grid-all image (see e2e-tests/images/entrypoint.sh).
 const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 
 type StackProps = Record<string, string>;
@@ -45,7 +44,7 @@ function rewriteEndpoints(conf: string): string {
 }
 
 /**
- * Generate all service config files into `configDir`, reusing `service-config.js`.
+ * Generate all service config files into `configDir`.
  */
 export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
