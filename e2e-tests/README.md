@@ -13,7 +13,7 @@ and how you reproduce a CI failure locally:
 
 ```bash
 # From the repo root: build the production image the harness runs.
-DOCKER_BUILDKIT=1 docker build --target runtime -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
+DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 
 cd e2e-tests
 npm ci
@@ -30,11 +30,11 @@ Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
 ### 2. Dev (live recompilation)
 
 For iterating on failing tests you can run the services from source with live reload using
-the dev image (`docker build --target dev` from [`images/Dockerfile`](images/Dockerfile)), which runs
+the dev image, which runs
 `sbt <svc>/run` (recompiling on change) and rebuilds Kahuna's webpack bundle via
 `npm run watch`. See [`images/README.md`](images/README.md) for how to build and run it.
 
-Useful loop-level commands:
+Useful commands:
 
 ```bash
 npm run test:headed     # run with a visible browser
