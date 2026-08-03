@@ -108,7 +108,7 @@ RUN set -eux; \
       mkdir -p "/var/log/$svc"; \
     done
 
-COPY e2e-tests/images/entrypoint-common.sh /usr/local/bin/entrypoint-common.sh
+COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
 COPY e2e-tests/images/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
