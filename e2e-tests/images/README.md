@@ -42,17 +42,7 @@ docker run --rm \
   grid-e2e-ci
 ```
 
-## Selecting services
-
-Run a subset via `GRID_SERVICES` (space-separated):
-
-```bash
-docker run --rm -e GRID_SERVICES="media-api kahuna auth" grid-e2e-ci
-```
-
-If any running service exits, the container stops.
-
-## Development image (live reload)
+## Build for development (live reload)
 
 The `--target dev` build is for local development: instead of staging compiled
 artefacts it runs the services under `sbt <svc>/run` (Play dev mode), so changed
@@ -93,13 +83,11 @@ All configurable via environment variables:
 
 | Variable                | Default              | Purpose                                                        |
 | ----------------------- | -------------------- | -------------------------------------------------------------- |
-| `GRID_SERVICES`         | `auth media-api kahuna` | Space-separated services to run.                            |
-| `GRID_EXTRA_CONFIG_DIR` | _(unset)_            | Dir of `<service>.conf` overrides (sets `-DextraConfigDir`).    |
 | `GRID_DEBUG`            | _(unset)_            | If set, opens a JDWP debug server on port `5005` (also `EXPOSE`d). |
 
 ```bash
 docker run --rm -v "$PWD:/build" -v "$HOME/.grid:/root/.grid:ro" \
-  -e GRID_SERVICES="media-api kahuna" -e GRID_DEBUG=1 \
+  -e GRID_DEBUG=1 \
   -p 9001:9001 -p 9005:9005 -p 5005:5005 \
   grid-e2e-dev
 ```
