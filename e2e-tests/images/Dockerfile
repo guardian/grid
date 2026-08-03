@@ -6,21 +6,21 @@
 #
 # This one Dockerfile produces two images, selected with `--target`:
 #
-#   * ci (grid-all)  — CI/production style. Stages pre-compiled artefacts
+#   * ci (grid-e2e-ci)  — CI/production style. Stages pre-compiled artefacts
 #                           and runs them under a slim JRE.
-#       docker build --target ci -f e2e-tests/images/Dockerfile -t grid-all .
+#       docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 #
-#   * dev (grid-dev)      — local development. Runs the services under
+#   * dev (grid-e2e-dev)      — local development. Runs the services under
 #                           `sbt <svc>/run` (Play dev mode) with the repo
 #                           bind-mounted over /build so host edits recompile live.
-#       docker build --target dev -f e2e-tests/images/Dockerfile -t grid-dev .
+#       docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev .
 #
-# `--target` is REQUIRED: a plain `docker build` hits the `default` guard stage
+# `--target` is required: a plain `docker build` hits the `default` guard stage
 # below and fails with a reminder. See images/README.md for details.
 #
-# Runtime configuration is NOT baked into the ci image. Mount per-environment
+# Runtime configuration is not baked into the ci image. Mount per-environment
 # config (and a stage marker) into /etc/grid at run time, e.g.:
-#   docker run --rm -v "$PWD/my-config:/etc/grid" grid-all
+#   docker run --rm -v "$PWD/my-config:/etc/grid" grid-e2e-ci
 
 # Shared build args (single source of truth for both images).
 ARG SBT_VERSION=1.10.3
@@ -81,7 +81,7 @@ RUN sbt \
       "metadata-editor/stage" \
       "thrall/stage"
 
-# Stage: slim ci image with native image tooling and all services (grid-all).
+# Stage: slim ci image with native image tooling and all services (grid-e2e-ci).
 FROM eclipse-temurin:11-jre-jammy AS ci
 
 ARG NATIVE_PKGS
@@ -119,7 +119,7 @@ EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Stage: development image (grid-dev). JDK + sbt + Node + native tooling in a
+# Stage: development image (grid-e2e-dev). JDK + sbt + Node + native tooling in a
 # single stage with warmed caches, running services under `sbt <svc>/run`.
 FROM toolchain AS dev
 
@@ -181,4 +181,4 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.dev.sh"]
 # Stage: default guard. This is the last stage, so a plain `docker build` (no
 # --target) builds it and fails, forcing an explicit `--target ci|dev`.
 FROM eclipse-temurin:11-jre-jammy AS default
-RUN echo 'ERROR: --target is required. Pass --target ci (grid-all) or --target dev (grid-dev) when building the image' >&2; exit 1
+RUN echo 'ERROR: --target is required. Pass --target ci (grid-e2e-ci) or --target dev (grid-e2e-dev) when building the image' >&2; exit 1
