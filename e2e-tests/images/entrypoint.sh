@@ -9,7 +9,6 @@
 #
 # Set GRID_SERVICES to a space-separated subset to run fewer services, e.g.
 #   docker run -e GRID_SERVICES="media-api kahuna" grid-e2e-ci
-# Extra JVM options can be appended via GRID_JAVA_OPTS.
 
 set -euo pipefail
 
@@ -27,7 +26,6 @@ declare -A PORTS=(
 
 DEFAULT_SERVICES="auth collections cropper kahuna leases media-api metadata-editor thrall"
 SERVICES="${GRID_SERVICES:-$DEFAULT_SERVICES}"
-EXTRA_JAVA_OPTS="${GRID_JAVA_OPTS:-}"
 
 pids=()
 
@@ -57,7 +55,7 @@ for svc in $SERVICES; do
 
   echo "Starting $svc on port $port"
   # shellcheck disable=SC2086
-  "$bin" -Dhttp.port="$port" $EXTRA_JAVA_OPTS &
+  "$bin" -Dhttp.port="$port" &
   pids+=("$!")
 done
 

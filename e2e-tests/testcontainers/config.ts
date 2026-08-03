@@ -76,6 +76,14 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
   // Mark the stage as DEV so services load `~/.grid/<app>.conf` (see GridConfigLoader).
   fs.writeFileSync(path.join(configDir, 'stage'), 'DEV');
 
+  // The staged apps run in Play prod mode, which requires an application secret (>= 256
+  // bits). GridConfigLoader loads `common.conf` for every service, so set it once here
+  // rather than injecting it as a JVM option in the container.
+  fs.writeFileSync(
+    path.join(configDir, 'common.conf'),
+    'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
+  );
+
   for (const service of GRID_SERVICES) {
     const conf = serviceConfigs[service];
     if (!conf) {
