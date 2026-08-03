@@ -56,7 +56,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       // under the legacy categories it replaced (agency, handout, screengrab, etc.) - those images
       // haven't been rewritten in the index, so we expand this into a terms query rather than
       // relying on an exact match against the new category alone.
-      case Words(value) if field == "category" && value == PrAndThirdParty.category =>
+      case Words(value) if field == "usageRights.category" && value == PrAndThirdParty.category =>
         filters.terms(resolveFieldPath(field), PrAndThirdParty.allCategories)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
