@@ -16,7 +16,7 @@ export const CORE_STACK_NAME = 'grid-dev-core';
 export const PERMISSIONS_BUCKET = 'permissions-cache';
 
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
-export const GRID_IMAGE = process.env.GRID_IMAGE ?? 'grid-e2e-ci';
+export const GRID_IMAGE = process.env.CI ? 'grid-e2e-ci' : 'grid-e2e-dev';
 export const ELASTICSEARCH_IMAGE = 'docker.elastic.co/elasticsearch/elasticsearch:8.18.3';
 export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
 /** Reverse proxy used in CI to stand in for the developer's dev-nginx (see global-setup). */
