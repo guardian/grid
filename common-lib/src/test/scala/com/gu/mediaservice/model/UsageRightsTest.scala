@@ -46,7 +46,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
     val usageRights = json.as[UsageRights]
 
-    usageRights should be (Agency(supplier, Some(suppliersCollection)))
+    usageRights should be (PrAndThirdParty(None, Some("agency"), None))
   }
 
 
@@ -98,7 +98,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
     noRightsImage.usageRights should be (NoRights)
 
     val agencyImage = agencyJson.as[TestImage]
-    agencyImage.usageRights should be (Agency("Getty Images"))
+    agencyImage.usageRights should be (PrAndThirdParty(None, Some("agency"), None))
   }
 
   describe("deserialise a legacy category and map to the appropriate category") {
@@ -129,7 +129,6 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
       usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("PR Image"))
     }
 
-    // TODO -> figure out how to display source
     it("Screengrab") {
       val json = Json.parse(
         s"""
@@ -158,7 +157,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
       usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("social-media"))
     }
-    // TODO - how do we want to handle mapping these fields?
+
     it("Creative Commons") {
       val json = Json.parse(
         s"""
@@ -238,7 +237,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
       usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("agency"))
     }
-    // TODO - how to handle additional fields
+
     it("Agency - commissioned") {
       val json = Json.parse(
         s"""
@@ -251,7 +250,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
 
       val usageRights = json.as[UsageRights]
 
-      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("commissioned-agency"))
+      usageRights shouldBe PrAndThirdParty(Some("restrictions"), Some("commissioned-agency"), Some("Action Images"))
     }
 
     it("Public Domain") {

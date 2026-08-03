@@ -120,11 +120,11 @@ object UsageRights {
       (category flatMap {
         case Chargeable.category => json.asOpt[Chargeable]
         case Agency.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Agency.category)))
-        case CommissionedAgency.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CommissionedAgency.category)))
+        case CommissionedAgency.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CommissionedAgency.category), source=supplier))
         case PrImage.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PrImage.category)))
         case Handout.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Handout.category)))
         case Screengrab.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Screengrab.category)))
-        case GuardianWitness.category => json.asOpt[GuardianWitness]
+        case GuardianWitness.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(GuardianWitness.category)))
         case OriginalSource.category => json.asOpt[OriginalSource]
         case SocialMedia.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(SocialMedia.category)))
         case Bylines.category => json.asOpt[Bylines]
@@ -138,7 +138,7 @@ object UsageRights {
         case StaffIllustrator.category => json.asOpt[StaffIllustrator]
         case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
         case CreativeCommons.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CreativeCommons.category)))
-        case Composite.category => json.asOpt[Composite]
+        case Composite.category => json.asOpt[Composite].map(composite => PrAndThirdParty(legacyCategory = Some(Composite.category), source = Some(composite.suppliers), restrictions = composite.restrictions))
         case PublicDomain.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PublicDomain.category)))
         case ProgramPromotional.category => json.asOpt[ProgramPromotional]
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
@@ -621,6 +621,7 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
 }
 
+// @TODO: Make 'source' required?
 final case class PrAndThirdParty(restrictions: Option[String] = None, legacyCategory: Option[String] = None, source: Option[String] = None) extends UsageRights {
 
   override val defaultCost: Option[Cost] = PrAndThirdParty.defaultCost
@@ -644,17 +645,18 @@ object PrAndThirdParty extends UsageRightsSpec {
     Pool.category,
     CrownCopyright.category,
     CreativeCommons.category,
-    PublicDomain.category
+    PublicDomain.category,
+    GuardianWitness.category,
+    Composite.category,
   )
 
   val allCategories: NonEmptyList[String] = (category :: legacyCategories).toNel.getOrElse(NonEmptyList(category))
 
-  override def name(config: CommonConfig): String = "Pr & Third Party"
+  override def name(config: CommonConfig): String = "PR & Third Party"
 
   override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituraries."
 
-  // TODO - check this
-  override val defaultCost: Option[Cost] = None
+  override val defaultCost: Option[Cost] = Some(Conditional)
 
   implicit val formats: Format[PrAndThirdParty] =
     UsageRights.subtypeFormat(PrAndThirdParty.category)(Json.format[PrAndThirdParty])

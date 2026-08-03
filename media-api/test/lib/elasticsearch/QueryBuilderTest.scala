@@ -274,6 +274,32 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
   }
 
+  describe("usage rights filter") {
+    it("should map a usage rights filter to legacy categories") {
+      val query = queryBuilder.makeQuery(List(usageRightsFilter)).asInstanceOf[BoolQuery]
+      query.must.size shouldBe 1
+
+      val termsQuery = query.must.head
+
+      termsQuery shouldBe TermsQuery("usageRights.category",
+        List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness")
+      )
+    }
+    it("should map a usage rights filter to legacy categories negation") {
+      val query = queryBuilder.makeQuery(List(Negation(usageRightsFilter))).asInstanceOf[BoolQuery]
+      query.not.size shouldBe 1
+
+      val termsQuery = query.not.head
+
+      termsQuery shouldBe TermsQuery("usageRights.category",
+        List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness")
+      )
+    }
+
+  }
+
   @nowarn("cat=deprecation") // TODO QueryBuilderFn.bytes is deprecated but no upgrade path given
   def asJsonString(query: Query) = {
     new String(QueryBuilderFn.apply(query).bytes)
