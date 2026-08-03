@@ -18,7 +18,10 @@ set -euo pipefail
 REPO=/build
 cd "$REPO"
 
-SERVICES="auth media-api kahuna"
+source "$REPO/e2e-tests/images/entrypoint.common.sh"
+
+# Default to the full production service list; GRID_SERVICES can narrow it.
+SERVICES="${GRID_SERVICES:-$SERVICES}"
 
 # --- Kahuna frontend watcher
 watch_pid=""
@@ -38,12 +41,16 @@ fi
 # --- Assemble the sbt run command
 run_tasks=""
 for svc in $SERVICES; do
-  echo "Running $svc"
+  if [[ -z "${PORTS[$svc]:-}" ]]; then
+    echo "Unknown service '$svc' (no port mapping); skipping." >&2
+    continue
+  fi
+  echo "Will run $svc on port ${PORTS[$svc]}"
   run_tasks="$run_tasks ${svc}/run"
 done
 
 if [[ -z "$run_tasks" ]]; then
-  echo "No valid services selected in '$SERVICES'." >&2
+  echo "No valid services selected in GRID_SERVICES='$SERVICES'." >&2
   exit 1
 fi
 
@@ -52,18 +59,8 @@ SBT_COMMAND="all${run_tasks}"
 
 # --- sbt / JVM options
 SBT_OPTS="${SBT_OPTS:-}"
-if [[ -n "${GRID_DEBUG:-}" ]]; then
-  SBT_OPTS="$SBT_OPTS -jvm-debug 5005"
-fi
 
-shutdown() {
-  echo "Shutting down dev services..."
-  [[ -n "$watch_pid" ]] && kill -TERM "$watch_pid" 2>/dev/null || true
-  [[ -n "${sbt_pid:-}" ]] && kill -TERM "$sbt_pid" 2>/dev/null || true
-  wait 2>/dev/null || true
-  exit 0
-}
-trap shutdown TERM INT
+trap 'shutdown_children "$watch_pid" "${sbt_pid:-}"' TERM INT
 
 echo "Running: sbt $SBT_OPTS \"$SBT_COMMAND\""
 
