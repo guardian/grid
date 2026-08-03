@@ -79,7 +79,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled && getFeatureSwitchActive("enable-ai-search");
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
