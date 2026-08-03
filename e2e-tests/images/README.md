@@ -44,8 +44,7 @@ docker run --rm \
 
 ## Selecting services
 
-Run a subset via `GRID_SERVICES` (space-separated), and append JVM options with
-`GRID_JAVA_OPTS`:
+Run a subset via `GRID_SERVICES` (space-separated):
 
 ```bash
 docker run --rm -e GRID_SERVICES="media-api kahuna auth" grid-e2e-ci
@@ -96,7 +95,6 @@ All configurable via environment variables:
 | ----------------------- | -------------------- | -------------------------------------------------------------- |
 | `GRID_SERVICES`         | `auth media-api kahuna` | Space-separated services to run.                            |
 | `GRID_EXTRA_CONFIG_DIR` | _(unset)_            | Dir of `<service>.conf` overrides (sets `-DextraConfigDir`).    |
-| `GRID_JAVA_OPTS`        | _(unset)_            | Extra JVM options forwarded to the run JVM (as `-J...`).        |
 | `GRID_DEBUG`            | _(unset)_            | If set, opens a JDWP debug server on port `5005` (also `EXPOSE`d). |
 
 ```bash

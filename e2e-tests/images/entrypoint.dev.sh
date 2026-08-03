@@ -12,7 +12,6 @@
 #
 # Environment:
 #   GRID_SERVICES         space-separated services to run (default below)
-#   GRID_JAVA_OPTS        extra JVM options, forwarded to the run JVM
 #   GRID_EXTRA_CONFIG_DIR dir of <service>.conf overrides (sets -DextraConfigDir)
 #   GRID_DEBUG            if non-empty, opens a JDWP debug server on port 5005
 
@@ -78,11 +77,6 @@ if [[ -n "${GRID_EXTRA_CONFIG_DIR:-}" ]]; then
 fi
 if [[ -n "${GRID_DEBUG:-}" ]]; then
   SBT_OPTS="$SBT_OPTS -jvm-debug 5005"
-fi
-if [[ -n "${GRID_JAVA_OPTS:-}" ]]; then
-  for opt in $GRID_JAVA_OPTS; do
-    SBT_OPTS="$SBT_OPTS -J${opt}"
-  done
 fi
 
 shutdown() {
