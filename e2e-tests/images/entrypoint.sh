@@ -6,9 +6,6 @@
 # port is passed explicitly per service via -Dhttp.port. Services run in the
 # background; if any one exits the container stops, and SIGTERM/SIGINT are
 # forwarded for a clean shutdown.
-#
-# Set GRID_SERVICES to a space-separated subset to run fewer services, e.g.
-#   docker run -e GRID_SERVICES="media-api kahuna" grid-e2e-ci
 
 set -euo pipefail
 
@@ -24,8 +21,7 @@ declare -A PORTS=(
   [leases]=9012
 )
 
-DEFAULT_SERVICES="auth collections cropper kahuna leases media-api metadata-editor thrall"
-SERVICES="${GRID_SERVICES:-$DEFAULT_SERVICES}"
+SERVICES="auth collections cropper kahuna leases media-api metadata-editor thrall"
 
 pids=()
 
