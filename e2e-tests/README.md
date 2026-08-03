@@ -39,6 +39,7 @@ Useful commands:
 ```bash
 npm run test:headed     # run with a visible browser
 npm run test:report     # open the last HTML report
+npm run test:ui         # open browser and test suite, run tests at your leisure
 ```
 
 Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),

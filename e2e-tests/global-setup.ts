@@ -91,7 +91,7 @@ async function globalSetup(): Promise<void> {
 
   const network = await new Network().start();
 
-  // --- Infrastructure: Elasticsearch + LocalStack
+  // Infrastructure: Elasticsearch + LocalStack
   const elasticsearch = await new GenericContainer(ELASTICSEARCH_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(ELASTICSEARCH_ALIAS)
@@ -118,7 +118,7 @@ async function globalSetup(): Promise<void> {
       SERVICES: LOCALSTACK_SERVICES,
       DEFAULT_REGION: REGION,
       KINESIS_ERROR_PROBABILITY: '0.0',
-      // Make resource URLs (SQS queues, etc.) resolve via the network alias so the
+      // Make resource URLs resolve via the network alias so the
       // app container can reach them, and keep queue URLs path-style.
       LOCALSTACK_HOST: `${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`,
       SQS_ENDPOINT_STRATEGY: 'path',
@@ -127,7 +127,7 @@ async function globalSetup(): Promise<void> {
     .start();
   started.push(localstack);
 
-  // --- Provisioning + config generation ------------------------------------
+  // Provisioning + config generation
   const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
 
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
@@ -156,7 +156,7 @@ async function globalSetup(): Promise<void> {
       AWS_DEFAULT_REGION: REGION,
       AWS_CBOR_DISABLE: 'true',
     })
-    .withWaitStrategy(Wait.forHttp('/management/healthcheck', KAHUNA_PORT).forStatusCode(200))
+    .withWaitStrategy(Wait.forHttp('/management/healthcheck', MEDIA_API_PORT).forStatusCode(200))
     .withStartupTimeout(startupTimeoutMs);
 
   if (process.env.GRID_DEBUG) {
@@ -170,13 +170,15 @@ async function globalSetup(): Promise<void> {
   const grid = await gridBuilder.start();
   started.push(grid);
 
-  // --- Seed Elasticsearch with image fixtures ------------------------------
+  // Seed Elasticsearch with image fixtures
+  //
   // The app creates the `images` index + `Images_Current` alias on startup; seed once the
   // stack is healthy so searches during the tests return the fixture documents.
   const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(9200)}`;
   await seedElasticsearch(esBaseUrl);
 
-  // --- CI routing: bundled reverse proxy -----------------------------------
+  // CI routing: bundled reverse proxy
+  //
   // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
   // dev-nginx. CI has no dev-nginx, so when running under CI (GitHub Actions sets CI=true)
   // start a Caddy proxy that replays the same subdomain routing and terminates TLS with a
