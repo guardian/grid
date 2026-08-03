@@ -19,10 +19,30 @@ jobs:
     - uses: actions/setup-node@v7
       with:
         node-version: lts/*
+        # Cache the npm download cache, keyed on the e2e-tests lockfile.
+        cache: npm
+        cache-dependency-path: e2e-tests/package-lock.json
     - name: Install dependencies
       run: npm ci
+    # Cache the downloaded Playwright browser binaries. The cache key is tied to
+    # the resolved Playwright version in the lockfile, so a version bump busts it.
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('e2e-tests/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps chromium
+      # On a cache hit the browsers are already present, so only install the OS
+      # dependencies; otherwise download the browsers too.
+      run: |
+        if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+          npx playwright install-deps chromium
+        else
+          npx playwright install --with-deps chromium
+        fi
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Build CI image
