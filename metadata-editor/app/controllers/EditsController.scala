@@ -207,7 +207,7 @@ class EditsController(
 
   def getUsageRights(id: String) = auth.async {
     editsStore.getV2(id).map { dynamoEntry =>
-      val usageRights = (dynamoEntry \ Edits.UsageRights).as[UsageRights]
+      val usageRights = (dynamoEntry \ Edits.UsageRights).as[UsageRightsV2]
       respond(usageRights)
     } recover {
       case NoItemFound => respondNotFound("No usage rights overrides found")
