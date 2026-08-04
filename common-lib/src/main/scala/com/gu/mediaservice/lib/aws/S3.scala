@@ -12,7 +12,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2, ListObjectsV2Request}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, PutObjectRequest, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
 
 import java.io.File
 import java.net.URI
@@ -131,6 +131,10 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     }
   }
 
+  def putString(bucket: String, key: String, fileContents: String) = {
+    clientV2.putObject(PutObjectRequest.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
+  }
+
   def storeV2(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
            (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
@@ -221,6 +225,17 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixName-").build()
     val objects = clientV2.listObjectsV2(req).contents().asScala.toList
     objects.headOption.map(_.key())
+  }
+
+  def doesObjectExistV2(bucket: Bucket, key: String) = {
+    try {
+      clientV2.headObject(
+        HeadObjectRequest.builder().key(key).bucket(bucket).build()
+      )
+      true
+    } catch {
+      case _: NoSuchKeyException => false
+    }
   }
 
 }
