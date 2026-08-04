@@ -55,8 +55,8 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
     )
   }
 
-  ignore ("should serialise to {} from NoRights") {
-    val jsonString = Json.toJson(NoRights).toString()
+  it ("should serialise to {} from NoRights") {
+    val jsonString = Json.toJson(UsageRightsV2("")).toString()
 
     jsonString should be ("{}")
   }

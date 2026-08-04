@@ -25,13 +25,16 @@ object UsageRightsV2 {
         (field, (json \ field).asOpt[String])
       }).collect({ case (k, Some(v)) => k -> v }).toMap
       UsageRightsV2(category, requiredFields ++ optionalFields, Option.when(mappedCategory.isDefined)(c))
-    }).map(JsSuccess(_))
+    })
+      .orElse(if(json == Json.obj()) Some(UsageRightsV2("")) else None)
+      .map(JsSuccess(_))
       .getOrElse(JsError(s"No such usage rights category: ${category.getOrElse("None")}"))
   }
 
   implicit def writes: Writes[UsageRightsV2] = new Writes[UsageRightsV2] {
     override def writes(o: UsageRightsV2): JsValue = {
-      new JsObject(Map("category" -> JsString(o.category)) ++ o.fields.view.mapValues(s => JsString(s)))
+      if(o.category == "") Json.obj()
+      else new JsObject(Map("category" -> JsString(o.category)) ++ o.fields.view.mapValues(s => JsString(s)))
     }
   }
 
