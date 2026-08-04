@@ -21,6 +21,8 @@ class EditsApi(auth: Authentication,
                authorisation: Authorisation,
                override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
+  val usageRightsV2 = config.usageRightsV2
+  implicit val usages: UsageRightsConfiguration = new UsageRightsConfiguration(usageRightsV2)
 
 
     // TODO: add links to the different responses esp. to the reference image
@@ -65,6 +67,9 @@ class EditsApi(auth: Authentication,
 
   def getFilteredUsageRights() = auth { request =>
     filteredUsageRightsResponse(request)
+  }
+  def getUsageRightsConfiguration() = Action { request =>
+    Ok(Json.toJson(usageRightsV2))
   }
 }
 

@@ -60,6 +60,8 @@ class EditsController(
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services, services.metadataBaseUri)(ws)
+  val usageRightsV2 = config.usageRightsV2
+  implicit val usages: UsageRightsConfiguration = new UsageRightsConfiguration(usageRightsV2)
 
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
@@ -221,6 +223,8 @@ class EditsController(
         .map(_ => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
+
+
 
   //TODO - remove as a second step
   def deleteUsageRights(id: String) = auth.async { req =>

@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.aws.{AwsClientV1BuilderUtils, AwsClientV2BuilderUtils, KinesisSenderConfig}
-import com.gu.mediaservice.model.UsageRightsSpec
+import com.gu.mediaservice.model.{UsageRightsConfig, UsageRightsSpec}
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import play.api.{ConfigLoader, Configuration}
@@ -224,6 +224,17 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val agencyPicksIngredients: Option[Map[String, Seq[String]]] =
     configuration.getOptional[Map[String, Seq[String]]]("agencyPicks.ingredients")
   val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
+
+  val usageRightsV2 = getConfigList("usageRightsV2").map(c => {
+    UsageRightsConfig(
+      c.getString("category"),
+      c.getString("name"),
+      c.getString("description"),
+      getStringSet("requiredFields").toList,
+      getStringSet("optionalFields").toList,
+      getStringSet("legacyCategories").toList
+    )
+  })
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegionV2, awsCredentialsV2, awsLocalEndpointUri, isDev, streamName)
 

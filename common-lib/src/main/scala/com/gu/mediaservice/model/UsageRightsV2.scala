@@ -10,13 +10,13 @@ case class UsageRightsV2(
 
 object UsageRightsV2 {
 
-  implicit val jsonReads: Reads[UsageRightsV2] = Reads[UsageRightsV2] { json =>
+  implicit def jsonReads(implicit usages: UsageRightsConfiguration): Reads[UsageRightsV2] = Reads[UsageRightsV2] { json =>
     val category = (json \ "category").asOpt[String]
 
     (category map { c =>
-      val mappedCategory = UsageRightsConfig.invertedMappedCategories.get(c)
+      val mappedCategory = usages.invertedMappedCategories.get(c)
       val category = mappedCategory.getOrElse(c)
-      val config = UsageRightsConfig.byId(c)
+      val config = usages.byId(c)
       val requiredFields = config.requiredFields.map(field => {
         (field, (json \ field).as[String])
       }).toMap
