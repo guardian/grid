@@ -12,7 +12,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2, ListObjectsV2Request}
 
 import java.io.File
 import java.net.URI
@@ -187,8 +187,24 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
       }
     }
 
+  def listV2(bucket: Bucket, prefixDir: String)
+            (implicit ex: ExecutionContext): Future[List[S3Object]] =
+    Future {
+      val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixDir/").build()
+      val listing = clientV2.listObjectsV2(req)
+      val s3Objects = listing.contents().asScala.toList
+      s3Objects.map(s3Object => {
+        S3Object(bucket, s3Object.key(), size = s3Object.size(), metadata = getMetadataV2(bucket, s3Object.key()))
+      })
+    }
+
   def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
     val meta = client.getObjectMetadata(bucket, key)
+    S3Metadata(meta)
+  }
+
+  def getMetadataV2(bucket: Bucket, key: Key): S3Metadata = {
+    val meta = clientV2.headObject(HeadObjectRequest.builder().key(key).bucket(bucket).build())
     S3Metadata(meta)
   }
 
@@ -200,6 +216,11 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val listing = client.listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
     summaries.headOption.map(_.getKey)
+  }
+  def syncFindKeyV2(bucket: Bucket, prefixName: String): Option[Key] = {
+    val req = ListObjectsV2Request.builder().bucket(bucket).prefix(s"$prefixName-").build()
+    val objects = clientV2.listObjectsV2(req).contents().asScala.toList
+    objects.headOption.map(_.key())
   }
 
 }
