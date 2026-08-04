@@ -43,11 +43,12 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
 
     usageRights should be (Agency(supplier, Some(suppliersCollection)))
   }
-
+  implicit val usageConifg = new UsageRightsConfiguration(List(UsageRightsConfig()))
 
   // we have a slight edge case where NoRights is symbolised by `{}`
   it ("should deserialise to NoRights from {}") {
     val json = Json.parse("{}")
+
     val usageRights = json.as[UsageRightsV2]
 
     usageRights should be (
