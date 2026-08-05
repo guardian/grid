@@ -20,9 +20,18 @@ modules:
   - github-copilot
 
 # Optional: Ports to forward
-# forwardPorts:
-#   - 8080  # same port on host and container
-#   - "8000:9000"  # hostPort:containerPort
+forwardPorts:
+  - 9001
+  - 9002
+  - 9003
+  - 9004
+  - 9005
+  - 9006
+  - 9007
+  - 9009
+  - 9010
+  - 9011
+  - 9012
 
 # Optional: Mount directories from host to container
 # mounts:
