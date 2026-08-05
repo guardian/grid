@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 
-# Single-container image that builds and runs eight Grid Play services
-# (auth, collections, cropper, kahuna, leases, media-api, metadata-editor,
-# thrall) together with Kahuna's frontend.
+# Single-container image that builds and runs nine Grid Play services
+# (auth, collections, cropper, image-loader, kahuna, leases, media-api,
+# metadata-editor, thrall) together with Kahuna's frontend.
 #
 # This one Dockerfile produces two images, selected with `--target`:
 #
@@ -75,6 +75,7 @@ RUN sbt \
       "auth/stage" \
       "collections/stage" \
       "cropper/stage" \
+      "image-loader/stage" \
       "kahuna/stage" \
       "leases/stage" \
       "media-api/stage" \
@@ -97,6 +98,7 @@ RUN set -eux; \
 COPY --from=backend /build/auth/target/universal/stage            /usr/share/auth
 COPY --from=backend /build/collections/target/universal/stage     /usr/share/collections
 COPY --from=backend /build/cropper/target/universal/stage         /usr/share/cropper
+COPY --from=backend /build/image-loader/target/universal/stage    /usr/share/image-loader
 COPY --from=backend /build/kahuna/target/universal/stage          /usr/share/kahuna
 COPY --from=backend /build/leases/target/universal/stage          /usr/share/leases
 COPY --from=backend /build/media-api/target/universal/stage       /usr/share/media-api
@@ -104,7 +106,7 @@ COPY --from=backend /build/metadata-editor/target/universal/stage /usr/share/met
 COPY --from=backend /build/thrall/target/universal/stage          /usr/share/thrall
 
 RUN set -eux; \
-    for svc in auth collections cropper kahuna leases media-api metadata-editor thrall; do \
+    for svc in auth collections cropper image-loader kahuna leases media-api metadata-editor thrall; do \
       mkdir -p "/var/log/$svc"; \
     done
 
@@ -115,8 +117,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
 ENV AWS_CBOR_DISABLE=true
 
-# media-api, thrall, kahuna, cropper, metadata-editor, collections, auth, leases
-EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012
+# media-api, thrall, image-loader, kahuna, cropper, metadata-editor, collections, auth, leases
+EXPOSE 9001 9002 9003 9005 9006 9007 9010 9011 9012
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
@@ -173,9 +175,9 @@ RUN chmod +x /usr/local/bin/entrypoint.dev.sh
 # The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
 ENV AWS_CBOR_DISABLE=true
 
-# media-api, thrall, kahuna, cropper, metadata-editor, collections, auth, leases
+# media-api, thrall, image-loader, kahuna, cropper, metadata-editor, collections, auth, leases
 # plus the JDWP debug port used when GRID_DEBUG is set.
-EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012 5005
+EXPOSE 9001 9002 9003 9005 9006 9007 9010 9011 9012 5005
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.dev.sh"]
 

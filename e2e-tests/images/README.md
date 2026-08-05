@@ -1,6 +1,6 @@
 # Grid E2E test images
 
-A single `Dockerfile` produces two single-container images that run eight
+A single `Dockerfile` produces two single-container images that run nine
 Grid Play services plus Kahuna's frontend, selected with `--target`:
 
 - **CI image** (`--target ci`, tagged `grid-e2e-ci`): stages pre-compiled artefacts and runs them in a production-style JRE. Used by the e2e-tests testcontainers harness.

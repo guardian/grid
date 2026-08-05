@@ -6,7 +6,7 @@
  *   2. Elasticsearch + LocalStack (infrastructure),
  *   3. the CloudFormation core stack + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
- *   5. the pre-built `grid-e2e-ci` image running all eight services.
+ *   5. the pre-built `grid-e2e-ci` image running all nine services.
  *
  * The Kahuna base URL is exposed to tests via `GRID_BASE_URL`, and the started
  * containers are stashed for `global-teardown.ts`.
@@ -23,6 +23,7 @@ import {
   ELASTICSEARCH_IMAGE,
   GRID_ALIAS,
   GRID_IMAGE,
+  IMAGE_LOADER_PORT,
   KAHUNA_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_IMAGE,
@@ -51,6 +52,8 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   const appServices: Record<string, number> = {
     [`media.${DOMAIN}`]: SERVICE_PORTS.kahuna,
     [`api.media.${DOMAIN}`]: SERVICE_PORTS['media-api'],
+    [`loader.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
+    [`loader-projection.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
     [`cropper.media.${DOMAIN}`]: SERVICE_PORTS.cropper,
     [`thrall.media.${DOMAIN}`]: SERVICE_PORTS.thrall,
     [`media-metadata.${DOMAIN}`]: SERVICE_PORTS['metadata-editor'],
@@ -133,7 +136,7 @@ async function globalSetup(): Promise<void> {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
 
-  // All eight Grid services run inside this single container and talk to each
+  // All nine Grid services run inside this single container and talk to each
   // other over its localhost. Each is published on the fixed host port its
   // dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
   // dev-nginx routes the https://*.media.<domain> domains straight into this
@@ -199,9 +202,13 @@ async function globalSetup(): Promise<void> {
   const host = grid.getHost();
   const baseUrl = `http://${host}:${grid.getMappedPort(KAHUNA_PORT)}`;
   const mediaApiUrl = `http://${host}:${grid.getMappedPort(MEDIA_API_PORT)}`;
+  const imageLoaderUrl = `http://${host}:${grid.getMappedPort(IMAGE_LOADER_PORT)}`;
 
   process.env.GRID_BASE_URL = baseUrl;
-  fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
+  fs.writeFileSync(
+    URLS_FILE,
+    JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl, imageLoader: imageLoaderUrl }),
+  );
 
   setEnvironment({ network, containers: started, configDir, baseUrl });
 }

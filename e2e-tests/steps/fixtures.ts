@@ -9,6 +9,8 @@ interface GridUrls {
   kahuna: string;
   /** media-api base URL on its fixed host port (for API-level `request` tests). */
   mediaApi: string;
+  /** image-loader base URL on its fixed host port (for API-level `request` tests). */
+  imageLoader: string;
 }
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;

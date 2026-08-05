@@ -33,6 +33,7 @@ export const GRID_ALIAS = 'grid-e2e-ci';
 export const SERVICE_PORTS: Record<string, number> = {
   'media-api': 9001,
   thrall: 9002,
+  'image-loader': 9003,
   kahuna: 9005,
   cropper: 9006,
   'metadata-editor': 9007,
@@ -43,6 +44,7 @@ export const SERVICE_PORTS: Record<string, number> = {
 
 export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
 export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
+export const IMAGE_LOADER_PORT = SERVICE_PORTS['image-loader'];
 
 /** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
 export const URLS_FILE = path.join(__dirname, '..', '.grid-urls.json');
