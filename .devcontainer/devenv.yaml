@@ -1,0 +1,49 @@
+# Devenv project configuration
+# Edit this file to configure your project's devcontainer
+# and then run `devenv generate` to create the devcontainer.json files
+
+# REQUIRED: Change this to your project name
+name: "grid"
+
+# Modules: Built-in functionality
+# - mise: Install and configure mise for dev tools management (https://mise.jdx.dev/)
+# - docker-in-docker: Enable running Docker containers within the devcontainer
+# - scala: Add IDE plugins and jar caching for Scala development
+# - node: Add IDE plugins for Node.js development
+# - github-copilot: Sets up GitHub Copilot for IDE and CLI use (requires the mise module)
+# To disable, comment out or remove items from this list
+modules:
+  - mise
+  - docker-in-docker  # (disabled by default)
+  - scala  # (disabled by default)
+  - node  # (disabled by default)
+  - github-copilot
+
+# Optional: Ports to forward
+# forwardPorts:
+#   - 8080  # same port on host and container
+#   - "8000:9000"  # hostPort:containerPort
+
+# Optional: Mount directories from host to container
+# mounts:
+#   - "source=${localEnv:HOME}/.gu/example,target=/home/vscode/.gu/example,readonly,type=bind,consistency=cached"
+
+# Optional: IDE plugins - shared project plugins like language support
+# plugins:
+#   vscode: []
+#   intellij: []
+
+# Optional: Commands to run after container creation
+# Each command has a 'cmd' field and a 'workingDirectory' field
+# e.g.
+# postCreateCommand:
+#   - cmd: "npm install"
+#     workingDirectory: "."
+#   - cmd: "make setup"
+#     workingDirectory: "/workspaces/project"
+# postStartCommand:
+#   - cmd: "echo 'Container started successfully'"
+#     workingDirectory: "."
+postCreateCommand:
+  - cmd: "sudo apt-get update && sudo apt-get install -y --no-install-recommends nginx graphicsmagick imagemagick pngquant libgd-dev libimage-exiftool-perl procps jq"
+    workingDirectory: "."
