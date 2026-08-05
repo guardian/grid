@@ -226,13 +226,14 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
   val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
 
   val usageRightsV2 = getConfigList("usageRightsV2").map(c => {
+
     UsageRightsConfig(
       c.getString("category"),
       c.getString("name"),
       c.getString("description"),
-      getStringSet("requiredFields").toList,
-      getStringSet("optionalFields").toList,
-      getStringSet("legacyCategories").toList
+      c.getStringList("requiredFields").asScala.toList,
+      c.getStringList("optionalFields").asScala.toList,
+      c.getStringList("legacyCategories").asScala.toList
     )
   })
 
