@@ -8,8 +8,8 @@ case class UsageRightsConfig(
                             description: String,
                             requiredFields: List[String] = Nil,
                             optionalFields: List[String] = Nil,
-                            legacyCategories: List[String] = Nil
-
+                            legacyCategories: List[String] = Nil,
+                            defaultCost: Option[Cost] = Some(Pay)
                      )
 
 object UsageRightsConfig {

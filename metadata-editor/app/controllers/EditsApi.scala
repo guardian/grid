@@ -69,7 +69,9 @@ class EditsApi(auth: Authentication,
     filteredUsageRightsResponse(request)
   }
   def getUsageRightsConfiguration() = Action { request =>
-    Ok(Json.toJson(usageRightsV2))
+    val usageRightsV2 = config.usageRightsV2
+    val usageRightsData = usageRightsV2.map(u =>  CategoryResponse.fromUsageRightsV2(u, config))
+    Ok(Json.toJson(usageRightsData))
   }
 }
 
@@ -101,6 +103,23 @@ object CategoryResponse {
       usageRestrictions = config.customUsageRestrictions.get(u.category),
       usageSpecialInstructions = config.customSpecialInstructions.get(u.category)
   )
+
+  def fromUsageRightsV2(u: UsageRightsConfig, config: EditsConfig) = CategoryResponse (
+    value = u.category,
+    name = u.name,
+    // TODO - extend for cost
+    cost = Pay.toString,
+    description = u.description,
+    // TODO - handle defaultRestrictions
+    defaultRestrictions = None,
+    // TODO - handle caution
+    caution = None,
+    properties = UsageRightsProperty.getPropertiesForSpecV2(u, config.usageRightsConfig),
+    leases = UsageRightsLease.getLeasesForSpecV2(u, config.usageRightsLeases),
+    usageRestrictions = config.customUsageRestrictions.get(u.category),
+    usageSpecialInstructions = config.customSpecialInstructions.get(u.category)
+  )
+
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
 

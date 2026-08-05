@@ -16,6 +16,7 @@ case class UsageRightsLease(
 object UsageRightsLease {
 
   def getLeasesForSpec(u: UsageRightsSpec, leases: Seq[UsageRightsLease]): Seq[UsageRightsLease] = leases.filter(_.category == u.category)
+  def getLeasesForSpecV2(u: UsageRightsConfig, leases: Seq[UsageRightsLease]): Seq[UsageRightsLease] = leases.filter(_.category == u.category)
 
   implicit val writes: Writes[UsageRightsLease] = Json.writes[UsageRightsLease]
 
