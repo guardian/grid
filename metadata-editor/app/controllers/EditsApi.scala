@@ -66,7 +66,9 @@ class EditsApi(auth: Authentication,
   }
 
   def getFilteredUsageRights() = auth { request =>
-    filteredUsageRightsResponse(request)
+    val usageRightsV2 = config.usageRightsV2
+    val usageRightsData = usageRightsV2.map(u =>  CategoryResponse.fromUsageRightsV2(u, config))
+    Ok(Json.toJson(usageRightsData))
   }
   def getUsageRightsConfiguration() = Action { request =>
     val usageRightsV2 = config.usageRightsV2
