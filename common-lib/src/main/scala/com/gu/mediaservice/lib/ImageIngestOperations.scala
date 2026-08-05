@@ -7,7 +7,8 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
-import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, ObjectIdentifier}
+import software.amazon.awssdk.core.exception.SdkClientException
+import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, HeadObjectRequest, NoSuchKeyException, ObjectIdentifier}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -75,6 +76,10 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   def doesOriginalExist(id: String): Boolean =
     client.doesObjectExist(imageBucket, fileKeyFromId(id))
+
+  def doesOriginalExistV2(id: String): Boolean = {
+    this.doesObjectExistV2(imageBucket, fileKeyFromId(id))
+  }
 }
 
 sealed trait ImageWrapper {
