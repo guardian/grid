@@ -43,7 +43,15 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
 
     usageRights should be (Agency(supplier, Some(suppliersCollection)))
   }
-  implicit val usageConifg = new UsageRightsConfiguration(List(UsageRightsConfig()))
+
+  implicit val usageConifg: UsageRightsConfiguration = new UsageRightsConfiguration(List(UsageRightsConfig(
+    "",
+    "Unknown Rights",
+    "Images which we do not currently have the rights to use.",
+    Nil,
+    Nil,
+    Nil
+  )))
 
   // we have a slight edge case where NoRights is symbolised by `{}`
   it ("should deserialise to NoRights from {}") {
@@ -62,17 +70,16 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
     jsonString should be ("{}")
   }
 
-
   // invalid JSON
-  ignore ("should return None if it cannot deserialise the JSON") {
-    val usageRights = invalidJson.asOpt[UsageRights]
+  it ("should return None if it cannot deserialise the JSON") {
+    val usageRights = invalidJson.asOpt[UsageRightsV2]
 
     usageRights should be (None)
   }
 
-  ignore ("should through a `JsResultException` if you try to deserialise thr JSON with `as`") {
+  it ("should through a `JsResultException` if you try to deserialise the JSON with `as`") {
     val jsError = intercept[JsResultException] {
-      invalidJson.as[UsageRights]
+      invalidJson.as[UsageRightsV2]
     }
 
     jsError.errors.headOption.foreach { case (path, errors) =>
