@@ -38,7 +38,7 @@ import software.amazon.awssdk.services.s3.model.{GetObjectRequest, HeadObjectReq
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.MapHasAsScala
@@ -241,6 +241,7 @@ class ImageLoaderController(auth: Authentication,
 
   def getPreSignedUploadUrlsAndTrack: Action[AnyContent] = AuthenticatedAndAuthorised.async { request =>
     val expiration = DateTimeUtils.now().plusHours(1)
+    val signatureDuration = Duration.ofHours(1)
 
     val mediaIdToFilenameMap = request.body.asJson.get.as[Map[String, String]]
 
@@ -250,7 +251,7 @@ class ImageLoaderController(auth: Authentication,
 
       mediaIdToFilenameMap.map{case (mediaId, filename) =>
 
-        val preSignedUrl = store.generatePreSignedUploadUrl(filename, expiration, uploadedBy, mediaId)
+        val preSignedUrl = store.generatePreSignedUploadUrl(filename, signatureDuration, uploadedBy, mediaId)
 
         uploadStatusTable.setStatus(UploadStatusRecord(
           id = mediaId,
