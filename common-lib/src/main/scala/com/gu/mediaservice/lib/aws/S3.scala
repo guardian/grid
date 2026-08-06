@@ -226,7 +226,6 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
     val objects = clientV2.listObjectsV2(req).contents().asScala.toList
     objects.headOption.map(_.key())
   }
-
   def doesObjectExistV2(bucket: Bucket, key: String) = {
     try {
       clientV2.headObject(
