@@ -9,14 +9,23 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import scala.io.Source
 
 object AlamyCleanUp extends App {
-  val GRIDDOMAIN = "test.dev-gutools.co.uk"
+  val GRIDDOMAIN = sys.env.getOrElse("GRIDDOMAIN", throw new RuntimeException("Must set a GRIDDOMAIN env varaible"))
   val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env varaible"))
-  val resource = Source.fromResource("alamy-grid-ids.csv")
-  val ids = resource.getLines().toList
+  val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env varaible"))
+  println(s"Running for stage ${STAGE}")
+  val ids = if(STAGE == "PROD") {
+    println("Running with prod data")
+    val resource = Source.fromResource("alamy-grid-ids.csv")
+    resource.getLines().toList
+  } else {
+    println("Running with test data")
+    List("3b2a8f1845359b84c805634fada85f008e6be297", "278c8c9801a5c8da10f07297289cc3eb26d16ff7", "fd41ca6b9b4ba27cef603bfd127841f6bf537f90")
+  }
+  println(s"Running for ${ids.size} ids")
   val requestBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
-  
+
   val outcomes = ids.zipWithIndex.map({case (id, index) =>
-    println(s"Running for id $id, $index of ${ids.size}")
+    println(s"Running for id $id, ${index + 1} of ${ids.size}")
     // Make an api request to try to delete the image, either successful or
     val client = HttpClient.newHttpClient()
     // attempt a hard delete
