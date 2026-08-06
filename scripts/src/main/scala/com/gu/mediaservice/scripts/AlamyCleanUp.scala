@@ -13,8 +13,9 @@ object AlamyCleanUp extends App {
   val testIds = List("3b2a8f1845359b84c805634fada85f008e6be297", "278c8c9801a5c8da10f07297289cc3eb26d16ff7", "fd41ca6b9b4ba27cef603bfd127841f6bf537f90")
 
   val requestBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
-  testIds.foreach(id => {
-    println(s"Running for id ${id}")
+
+  val outcomes = testIds.zipWithIndex.map({case (id, index) =>
+    println(s"Running for id $id, $index of ${testIds.size}")
     // Make an api request to try to delete the image, either successful or
     val client = HttpClient.newHttpClient()
     // attempt a hard delete
@@ -22,8 +23,11 @@ object AlamyCleanUp extends App {
     val response = client.send(request, BodyHandlers.ofString())
     // check status response, if not 202
     // modify the usage rights
-    response.statusCode() match {
-      case 202 => println(s"Successfully deleted $id")
+    val success: Boolean = response.statusCode() match {
+      case 202 => {
+        println(s"Successfully deleted $id")
+        true
+      }
       case 405 => {
         println(s"Unable to delete $id, setting usages instead")
         val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/usage-rights"))
@@ -31,12 +35,23 @@ object AlamyCleanUp extends App {
         val response = client.send(request, BodyHandlers.ofString())
         if(response.statusCode() == 200) {
           println(s"Successfully set usage rights for $id")
+          true
         } else {
           println(s"Unable to set usage rights for $id, recevied response ${response.statusCode()}")
+          false
         }
       }
-      case _ => println(s"Got unexpected response ${response.statusCode()} calling delete for ${id}")
+      case _ => {
+        println(s"Got unexpected response ${response.statusCode()} calling delete for ${id}")
+        false
+      }
     }
-
+    (success, id)
   })
+
+  val (success, fail) = outcomes.partition({case (b, _) => b})
+  println(s"Successfully processed ${success.size} of  ${testIds.size}")
+  if(fail.nonEmpty) {
+    println(s"Unable to process ${fail.size} ids: \n${fail.map(_._2).mkString("\n")}")
+  }
 }
