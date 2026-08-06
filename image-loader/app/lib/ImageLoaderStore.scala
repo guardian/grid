@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, DeleteObject
 import java.time.Duration
 import scala.jdk.CollectionConverters.MapHasAsJava
 import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.S3Configuration
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
 import lib.ImageLoaderConfig
@@ -44,7 +45,20 @@ class ImageLoaderStore(config: ImageLoaderConfig) extends lib.ImageIngestOperati
         meta = s3Meta,
       )
   }
-  val presigner = S3Presigner.create()
+  val presigner: S3Presigner = {
+    // S3Presigner.builder().s3Client(...) does not propagate credentials/region/endpoint for
+    // signing, so configure it explicitly the same way S3Ops.buildS3ClientV2 configures clientV2.
+    val builder = S3Presigner.builder()
+      .credentialsProvider(config.awsCredentialsV2)
+      .region(config.awsRegionV2)
+
+    config.awsLocalEndpointUri.foreach { endpoint =>
+      builder.endpointOverride(endpoint)
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+    }
+
+    builder.build()
+  }
   def generatePreSignedUploadUrl(filename: String, duration: Duration, uploadedBy: String, mediaId: String): String = {
 
     val putObjectRequest = PutObjectRequest.builder()
