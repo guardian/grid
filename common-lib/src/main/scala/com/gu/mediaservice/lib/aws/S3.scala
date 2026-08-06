@@ -11,11 +11,10 @@ import org.joda.time.{DateTime, DateTimeZone}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.{S3Client, S3Configuration}
 import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
-
 
 import java.io.File
 import java.net.URI
@@ -87,7 +86,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   lazy val clientV2: S3Client = S3Ops.buildS3ClientV2(config)
-  lazy val presigner = S3Presigner.create()
+  lazy val presigner = S3Ops.buildPresignerClientV2(config)
   def signUrlV2(
                  bucket: Bucket,
                  url: URI,
@@ -289,4 +288,19 @@ object S3Ops {
 
     config.withAWSCredentialsV2(builder, localstackAware, maybeRegionOverride).build()
   }
+
+  def buildPresignerClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Presigner = {
+    val builder = S3Presigner.builder()
+      .credentialsProvider(config.awsCredentialsV2)
+      .region(config.awsRegionV2)
+
+    config.awsLocalEndpointUri match {
+      case Some(endpoint) if config.isDev => builder.endpointOverride(endpoint)
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build()).build()
+      case _ => builder.build()
+
+    }
+
+  }
+
 }
