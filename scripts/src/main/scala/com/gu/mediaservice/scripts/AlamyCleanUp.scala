@@ -1,0 +1,42 @@
+package com.gu.mediaservice.scripts
+
+import play.libs.ws.WSClient
+
+import java.net.URI
+import java.net.http.HttpRequest.BodyPublishers
+import java.net.http.HttpResponse.BodyHandlers
+import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+
+object AlamyCleanUp extends App {
+  val GRIDDOMAIN = "test.dev-gutools.co.uk"
+  val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env varaible"))
+  val testIds = List("3b2a8f1845359b84c805634fada85f008e6be297", "278c8c9801a5c8da10f07297289cc3eb26d16ff7", "fd41ca6b9b4ba27cef603bfd127841f6bf537f90")
+
+  val requestBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
+  testIds.foreach(id => {
+    println(s"Running for id ${id}")
+    // Make an api request to try to delete the image, either successful or
+    val client = HttpClient.newHttpClient()
+    // attempt a hard delete
+    val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images/$id")).headers("X-Gu-Media-Key", GRIDKEY).DELETE().build()
+    val response = client.send(request, BodyHandlers.ofString())
+    // check status response, if not 202
+    // modify the usage rights
+    response.statusCode() match {
+      case 202 => println(s"Successfully deleted $id")
+      case 405 => {
+        println(s"Unable to delete $id, setting usages instead")
+        val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/usage-rights"))
+          .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(requestBody).build()
+        val response = client.send(request, BodyHandlers.ofString())
+        if(response.statusCode() == 200) {
+          println(s"Successfully set usage rights for $id")
+        } else {
+          println(s"Unable to set usage rights for $id, recevied response ${response.statusCode()}")
+        }
+      }
+      case _ => println(s"Got unexpected response ${response.statusCode()} calling delete for ${id}")
+    }
+
+  })
+}
