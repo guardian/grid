@@ -9,10 +9,11 @@ import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import scala.io.Source
 
 object AlamyCleanUp extends App {
-  val GRIDDOMAIN = sys.env.getOrElse("GRIDDOMAIN", throw new RuntimeException("Must set a GRIDDOMAIN env varaible"))
-  val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env varaible"))
-  val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env varaible"))
+  val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
+  val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   println(s"Running for stage ${STAGE}")
+  val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
+  println(s"Using DOMAIN $GRIDDOMAIN")
   val ids = if(STAGE == "PROD") {
     println("Running with prod data")
     val resource = Source.fromResource("alamy-grid-ids.csv")
