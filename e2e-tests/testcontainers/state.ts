@@ -6,13 +6,18 @@
  */
 import type { StartedTestContainer } from 'testcontainers';
 import type { StartedNetwork } from 'testcontainers';
+import type { ChildProcess } from 'child_process';
 
 export interface GridEnvironment {
   network: StartedNetwork;
   /** Every started container, in start order. Stopped in reverse on teardown. */
   containers: StartedTestContainer[];
-  /** Absolute path to the generated config directory mounted into the app container. */
-  configDir: string;
+  /** The host `sbt <svc>/run` process running all Grid services (its own process group). */
+  appProcess: ChildProcess;
+  /** The host Caddy reverse-proxy process (its own process group). */
+  caddyProcess: ChildProcess;
+  /** Absolute paths of the generated config files (in `~/.grid`), removed on teardown. */
+  configFiles: string[];
   /** Base URL of the Kahuna UI, e.g. http://localhost:9005 */
   baseUrl: string;
 }

@@ -7,7 +7,8 @@
     "test": "bddgen && playwright test",
     "test:headed": "bddgen && playwright test --headed",
     "test:report": "playwright show-report",
-    "test:ui": "bddgen && playwright test --ui"
+    "test:ui": "bddgen && playwright test --ui",
+    "test:server": "bddgen && playwright run-server --port 3000 --host 0.0.0.0"
   },
   "keywords": [],
   "author": "",

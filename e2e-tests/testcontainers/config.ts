@@ -1,8 +1,9 @@
 /**
  * Reuses the existing dev config generator (`dev/script/generate-config/service-config.js`)
  * to produce per-service Grid config from live CloudFormation stack resources, then
- * rewrites the LocalStack/Elasticsearch endpoints so that they resolve via the
- * Testcontainers network aliases instead of the Guardian dev domains / localhost.
+ * rewrites the LocalStack/Elasticsearch endpoints so that they resolve on the host
+ * (`localhost`) where the Grid services now run, instead of the Guardian dev domains
+ * or the Testcontainers network aliases.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,7 +11,7 @@ import JSON5 from 'json5';
 import {
   DOMAIN,
   EMAIL_DOMAIN,
-  ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_PORT,
   REGION,
@@ -26,27 +27,25 @@ type StackProps = Record<string, string>;
 
 /**
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
- * app container reaches the infrastructure containers over the shared network.
+ * host-run services reach LocalStack on `http://localhost:4566`.
  */
 function rewriteEndpoints(conf: string): string {
-  const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
-  // Endpoints baked in by `service-config.js` that must be redirected to the container.
+  const localstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
+  // Endpoints baked in by `service-config.js` that must be redirected to localhost.
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = 'http://localhost:4576';
-  const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
   return conf
     .split(guardianLocalstackUrl)
     .join(localstackUrl)
     .split(legacyLocalstackUrl)
-    .join(localstackUrl)
-    .split(localLocalstackUrl)
     .join(localstackUrl);
 }
 
 /**
- * Generate all service config files into `configDir`.
+ * Generate all service config files into `configDir` (typically `~/.grid`). Returns the
+ * absolute paths of every file written, so the caller can remove exactly those on teardown.
  */
-export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
+export function generateServiceConfig(configDir: string, coreStackProps: StackProps): string[] {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
@@ -65,7 +64,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     coreStackProps,
     es6: {
       ...defaultConfig.es6,
-      url: `http://${ELASTICSEARCH_ALIAS}:9200`,
+      url: `http://localhost:${ELASTICSEARCH_PORT}`,
     },
   };
 
@@ -73,14 +72,18 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
 
   fs.mkdirSync(configDir, { recursive: true });
 
-  // Mark the stage as DEV so services load `~/.grid/<app>.conf` (see GridConfigLoader).
-  fs.writeFileSync(path.join(configDir, 'stage'), 'DEV');
+  const written: string[] = [];
+  const write = (name: string, contents: string): void => {
+    const file = path.join(configDir, name);
+    fs.writeFileSync(file, contents);
+    written.push(file);
+  };
 
-  // The staged apps run in Play prod mode, which requires an application secret (>= 256
-  // bits). GridConfigLoader loads `common.conf` for every service, so set it once here
-  // rather than injecting it as a JVM option in the container.
-  fs.writeFileSync(
-    path.join(configDir, 'common.conf'),
+  // The services run in Play prod mode, which requires an application secret (>= 256
+  // bits). GridConfigLoader loads `common.conf` for every service, so set it once here.
+  // Stage defaults to DEV (StageIdentifier), so services load `~/.grid/<app>.conf`.
+  write(
+    'common.conf',
     'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
   );
 
@@ -89,6 +92,8 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     if (!conf) {
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
-    fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
+    write(`${service}.conf`, rewriteEndpoints(conf));
   }
+
+  return written;
 }

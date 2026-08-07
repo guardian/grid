@@ -43,17 +43,19 @@ jobs:
         else
           npx playwright install --with-deps chromium
         fi
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Build CI image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: e2e-tests/images/Dockerfile
-        target: ci
-        tags: grid-e2e-ci
-        push: false
-        load: true
+    # The Grid services run on the runner (not in a container) via `sbt <svc>/run`, so the
+    # runner needs the app's native image tools and a reverse proxy that can bind :443.
+    - name: Install app runtime dependencies
+      working-directory: .
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          graphicsmagick imagemagick pngquant libgd-dev libimage-exiftool-perl procps jq
+        # Allow the non-root Caddy proxy to bind :443 for the *.media.<domain> origins.
+        sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+    # Java 11, sbt, Node and Caddy, pinned by the repo's .tool-versions.
+    - name: Set up toolchain (mise)
+      uses: jdx/mise-action@v2
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
