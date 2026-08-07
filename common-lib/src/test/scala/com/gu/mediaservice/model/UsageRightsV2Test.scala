@@ -1,48 +1,19 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.Ignore
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.{JsResultException, Json}
+import play.api.libs.json.{JsResultException, Json, Reads, Writes}
+
+case class TestImageV2(name: String, usageRights: UsageRightsV2)
+object TestImageV2 {
+  implicit def jsonReads(implicit usages: UsageRightsConfiguration): Reads[TestImageV2] = Json.reads[TestImageV2]
+  implicit val jsonWrites: Writes[TestImageV2] = Json.writes[TestImageV2]
+}
 
 class UsageRightsV2Test extends AnyFunSpec with Matchers {
 
   val invalidCategory = "animated-gif"
   val invalidJson = Json.parse(s"""{ "category": "$invalidCategory", "fps": "∞" }""")
-
-
-   ignore("should serialise to JSON correctly")  {
-    val supplier = "Getty Images"
-    val suppliersCollection = "AFP"
-    val restrictions = Some("Don't use this")
-    val usageRights: UsageRights = Agency(supplier, Some(suppliersCollection), restrictions = restrictions)
-
-    val json = Json.toJson(usageRights)
-
-    (json \ "category").as[String] should be (Agency.category)
-    (json \ "supplier").as[String] should be (supplier)
-    (json \ "suppliersCollection").as[String] should be (suppliersCollection)
-    (json \ "restrictions").asOpt[String] should be (restrictions)
-  }
-
-  ignore ("should deserialise from JSON correctly") {
-    val supplier = "Getty Images"
-    val suppliersCollection = "AFP"
-    val category = "agency"
-
-    val json = Json.parse(
-      s"""
-        {
-          "category": "agency",
-          "supplier": "$supplier",
-          "suppliersCollection": "$suppliersCollection"
-        }
-      """.stripMargin)
-
-    val usageRights = json.as[UsageRights]
-
-    usageRights should be (Agency(supplier, Some(suppliersCollection)))
-  }
 
   implicit val usageConifg: UsageRightsConfiguration = new UsageRightsConfiguration(List(UsageRightsConfig(
     "",
@@ -51,7 +22,52 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
     Nil,
     Nil,
     Nil
+  ), UsageRightsConfig(
+    "agency",
+    "Agency - subscription",
+    "Agencies such as Reuters, Press Association, etc. where subscription fees are paid to access and use pictures.",
+    List("supplier"),
+    List("suppliersCollection", "restrictions"),
+    Nil
   )))
+
+   it ("should serialise to JSON correctly")  {
+    val category = "agency"
+    val supplier = "Getty Images"
+    val suppliersCollection = "AFP"
+    val restrictions = Some("Don't use this")
+    val usageRightsV2: UsageRightsV2 = UsageRightsV2(category,
+      Map(
+        "supplier" -> supplier,
+        "suppliersCollection" -> suppliersCollection
+      ) ++ restrictions.map("restrictions" -> _))
+
+    val json = Json.toJson(usageRightsV2)
+
+    (json \ "category").as[String] should be (category)
+    (json \ "supplier").as[String] should be (supplier)
+    (json \ "suppliersCollection").as[String] should be (suppliersCollection)
+    (json \ "restrictions").asOpt[String] should be (restrictions)
+  }
+
+  it ("should deserialise from JSON correctly") {
+    val supplier = "Getty Images"
+    val suppliersCollection = "AFP"
+    val category = "agency"
+
+    val json = Json.parse(
+      s"""
+        {
+          "category": "$category",
+          "supplier": "$supplier",
+          "suppliersCollection": "$suppliersCollection"
+        }
+      """.stripMargin)
+
+    val usageRightsV2 = json.as[UsageRightsV2]
+
+    usageRightsV2 should be (UsageRightsV2(category, Map("supplier" -> supplier, "suppliersCollection" -> suppliersCollection)))
+  }
 
   // we have a slight edge case where NoRights is symbolised by `{}`
   it ("should deserialise to NoRights from {}") {
@@ -87,23 +103,24 @@ class UsageRightsV2Test extends AnyFunSpec with Matchers {
     }
   }
 
-  ignore("should deserialise as a property of a case class") {
-    val noRights = TestImage("test", NoRights)
-    val agency = TestImage("test", Agency("Getty Images"))
+  it ("should deserialise as a property of a case class") {
+    val noRights = TestImageV2("test", UsageRightsV2(""))
+    val agency = TestImageV2("test", UsageRightsV2("agency", Map("supplier" -> "Getty Images")))
 
-    (Json.toJson(noRights) \ "usageRights").get should be (NoRights.jsonVal)
+    (Json.toJson(noRights) \ "usageRights").get should be (Json.obj())
     (Json.toJson(agency) \ "usageRights" \ "supplier").as[String] should be ("Getty Images")
+    (Json.toJson(agency) \ "usageRights" \ "category").as[String] should be ("agency")
   }
 
-  ignore ("should serialise as a property of a case class") {
+  it ("should serialise as a property of a case class") {
     val noRightsJson = Json.parse("""{ "name": "Test Image", "usageRights": {} }""")
     val agencyJson = Json.parse("""{ "name": "Test Image", "usageRights": { "category": "agency", "supplier": "Getty Images" } }""")
 
-    val noRightsImage = noRightsJson.as[TestImage]
-    noRightsImage.usageRights should be (NoRights)
+    val noRightsImage = noRightsJson.as[TestImageV2]
+    noRightsImage.usageRights should be (UsageRightsV2(""))
 
-    val agencyImage = agencyJson.as[TestImage]
-    agencyImage.usageRights should be (Agency("Getty Images"))
+    val agencyImage = agencyJson.as[TestImageV2]
+    agencyImage.usageRights should be (UsageRightsV2("agency", Map("supplier" -> "Getty Images")))
   }
 
   ignore("deserialise a legacy category and map to the appropriate category") {

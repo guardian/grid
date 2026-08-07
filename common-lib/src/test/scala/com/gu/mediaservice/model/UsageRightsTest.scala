@@ -4,7 +4,6 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json._
 
-
 case class TestImage(name: String, usageRights: UsageRights)
 object TestImage {
   implicit val jsonReads: Reads[TestImage] = Json.reads[TestImage]
