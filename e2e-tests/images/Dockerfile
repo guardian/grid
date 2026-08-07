@@ -109,8 +109,8 @@ RUN set -eux; \
     done
 
 COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
-COPY e2e-tests/images/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY e2e-tests/images/entrypoint.ci.sh /usr/local/bin/entrypoint.ci.sh
+RUN chmod +x /usr/local/bin/entrypoint.ci.sh
 
 # The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
 ENV AWS_CBOR_DISABLE=true
@@ -118,7 +118,7 @@ ENV AWS_CBOR_DISABLE=true
 # media-api, thrall, kahuna, cropper, metadata-editor, collections, auth, leases
 EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.ci.sh"]
 
 # Stage: development image (grid-e2e-dev). JDK + sbt + Node + native tooling in a
 # single stage with warmed caches, running services under `sbt <service>/run`.

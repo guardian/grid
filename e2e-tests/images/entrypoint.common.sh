@@ -2,7 +2,7 @@
 #
 # Shared definitions for the Grid container entrypoints (ci and dev).
 #
-# Sourced by entrypoint.sh and entrypoint.dev.sh to provide a single source of
+# Sourced by entrypoint.ci.sh and entrypoint.dev.sh to provide a single source of
 # truth for the service list, their http ports, and the graceful-shutdown trap.
 
 # service -> http port
