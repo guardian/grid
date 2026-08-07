@@ -170,6 +170,21 @@ query.controller('SearchQueryCtrl', [
     // see manageDefaultNonFree() below for why this is needed.
     let clearDefaultNonFreeFilterTimeout;
 
+    function disarmDefaultNonFreeFilter() {
+      if (clearDefaultNonFreeFilterTimeout) {
+        $timeout.cancel(clearDefaultNonFreeFilterTimeout);
+        clearDefaultNonFreeFilterTimeout = undefined;
+      }
+      const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+      if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
+        storage.setJs(
+          "defaultNonFreeFilter",
+          {isDefault: false, isNonFree: defaultNonFreeFilter.isNonFree},
+          true
+        );
+      }
+    }
+
     function manageDefaultNonFree() {
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
@@ -396,6 +411,7 @@ query.controller('SearchQueryCtrl', [
     }
 
     function selectMyUploads(myUploadsChecked) {
+      disarmDefaultNonFreeFilter();
       ctrl.filterMyUploads = myUploadsChecked;
       syncMyUploadsProps();
       watchSearchChange(ctrl.filter, "selectMyUploads");
@@ -439,6 +455,7 @@ query.controller('SearchQueryCtrl', [
 
     //-permissions filter-
     function updatePermissionsChips (permissionsSel, showChargeable) {
+      disarmDefaultNonFreeFilter();
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
       ctrl.filter.nonFree = toNonFreeString(showChargeable);
@@ -446,9 +463,22 @@ query.controller('SearchQueryCtrl', [
     }
 
     function chargeableChange (showChargeable) {
+      disarmDefaultNonFreeFilter();
       ctrl.filter.nonFree = toNonFreeString(showChargeable);
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
+
+    ctrl.onNonFreeCheckboxChange = function() {
+      disarmDefaultNonFreeFilter();
+    };
+
+    ctrl.onUploadedByMeCheckboxChange = function() {
+      disarmDefaultNonFreeFilter();
+    };
+
+    ctrl.onOrgOwnedCheckboxChange = function() {
+      disarmDefaultNonFreeFilter();
+    };
 
     let pfOpts = PermissionsConf.permissionsOptions();
     let defOptVal = PermissionsConf.permissionsDefaultOpt();
