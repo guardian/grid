@@ -11,7 +11,7 @@
 #       docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 #
 #   * dev (grid-e2e-dev)      — local development. Runs the services under
-#                           `sbt <svc>/run` (Play dev mode) with the repo
+#                           `sbt <service>/run` (Play dev mode) with the repo
 #                           bind-mounted over /build so host edits recompile live.
 #       docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev .
 #
@@ -104,8 +104,8 @@ COPY --from=backend /build/metadata-editor/target/universal/stage /usr/share/met
 COPY --from=backend /build/thrall/target/universal/stage          /usr/share/thrall
 
 RUN set -eux; \
-    for svc in auth collections cropper kahuna leases media-api metadata-editor thrall; do \
-      mkdir -p "/var/log/$svc"; \
+    for service in auth collections cropper kahuna leases media-api metadata-editor thrall; do \
+      mkdir -p "/var/log/$service"; \
     done
 
 COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
@@ -121,7 +121,7 @@ EXPOSE 9001 9002 9005 9006 9007 9010 9011 9012
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Stage: development image (grid-e2e-dev). JDK + sbt + Node + native tooling in a
-# single stage with warmed caches, running services under `sbt <svc>/run`.
+# single stage with warmed caches, running services under `sbt <service>/run`.
 FROM toolchain AS dev
 
 ARG NODE_VERSION
