@@ -1,8 +1,3 @@
-/**
- * Provisions the Grid core infrastructure inside LocalStack: applies the CloudFormation
- * core stack, waits for completion, reads the created resource names, and seeds the
- * buckets with the config files the services expect (mirroring dev/script/setup.sh).
- */
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -29,6 +24,11 @@ function clients(endpoint: string) {
   return { cfn, s3 };
 }
 
+/**
+ * Provisions the Grid core infrastructure inside LocalStack: applies the CloudFormation
+ * core stack, waits for completion, reads the created resource names, and seeds the
+ * buckets with the config files the services expect (similar to dev/script/setup.sh).
+ */
 async function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
   const templateBody = fs.readFileSync(
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
