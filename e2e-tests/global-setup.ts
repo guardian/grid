@@ -38,7 +38,16 @@ import { provisionCoreStack } from './testcontainers/provision';
 import { seedElasticsearch } from './testcontainers/seed-elasticsearch';
 import { setEnvironment } from './testcontainers/state';
 
-const LOCALSTACK_SERVICES = 'cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam';
+const LOCALSTACK_SERVICES = [
+    "cloudformation",
+    "cloudwatch",
+    "dynamodb",
+    "kinesis",
+    "s3",
+    "sns",
+    "sqs",
+    "iam",
+].join(",");
 
 /**
  * Build a Caddyfile that reproduces the dev-nginx subdomain routing: each Grid service
