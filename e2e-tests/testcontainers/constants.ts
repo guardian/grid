@@ -29,7 +29,7 @@ export const LOCALSTACK_PORT = 4566;
 /** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
 export const GRID_ALIAS = 'grid-e2e-ci';
 
-/** service -> http port, from e2e-tests/images/entrypoint.sh. */
+/** service -> http port, from e2e-tests/images/entrypoint.ci.sh. */
 export const SERVICE_PORTS: Record<string, number> = {
   'media-api': 9001,
   thrall: 9002,
