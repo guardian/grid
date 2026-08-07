@@ -31,6 +31,9 @@ object UsageRightsMetadataMapper {
         ImageMetadata(byline = Some(u.creator),      credit = Some(u.creator), imageType = Some("Illustration"))
       case u: CommissionedIllustrator  =>
         ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some("Illustration"))
+      case u: GnmOwned                 =>
+        ImageMetadata(byline = Some(u.creator),      credit = u.publication, imageType = Some(u.usageRightsImageType))
+        // @TODO: Do we want to map copyright here?
       case u: Composite                => ImageMetadata(credit = Some(u.suppliers), imageType = Some("Composite"))
       case u: Screengrab               => ImageMetadata(credit = u.source)
     }

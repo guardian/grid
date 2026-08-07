@@ -56,7 +56,8 @@ object UsageRights {
 
   val photographer: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
   val illustrator: NonEmptyList[UsageRightsSpec] = NonEmptyList(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
-  val whollyOwned: NonEmptyList[UsageRightsSpec] = photographer append illustrator
+  // @TODO: This is quite hacky, for querying `is:gnm-owned-photo` and `is:gnm-owned-illustration` we'll need to look into image type under an image with usageRights set to `GnmOwned`
+  val whollyOwned: NonEmptyList[UsageRightsSpec] = photographer append illustrator append NonEmptyList(GnmOwned)
 
   // this is a convenience method so that we use the same formatting for all subtypes
   // i.e. use the standard `Json.writes`. I still can't find a not have to pass the `f:Format[T]`
@@ -106,6 +107,7 @@ object UsageRights {
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
     case o: PrAndThirdParty => PrAndThirdParty.formats.writes(o)
+    case o: GnmOwned => GnmOwned.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -127,16 +129,19 @@ object UsageRights {
         case GuardianWitness.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(GuardianWitness.category)))
         case OriginalSource.category => json.asOpt[OriginalSource]
         case SocialMedia.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(SocialMedia.category)))
-        case Bylines.category => json.asOpt[Bylines]
+        // case Bylines.category => json.asOpt[Bylines]
+        // @TODO: Should usageRightsImageType and creator be optional on GnmOwned to allow for backwards compatibility?
+        case Bylines.category => json.asOpt[GnmOwned].map(gmnOwned => gmnOwned.copy(usageRightsImageType = "", creator = "", legacyCategory = Some(Bylines.category)))
         case Obituary.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Obituary.category)))
-        case StaffPhotographer.category => json.asOpt[StaffPhotographer]
-        case ContractPhotographer.category => json.asOpt[ContractPhotographer]
-        case CommissionedPhotographer.category => json.asOpt[CommissionedPhotographer]
+        case StaffPhotographer.category => json.asOpt[StaffPhotographer].map(sp => GnmOwned(usageRightsImageType = "Photograph", creator = sp.photographer, publication = Some(sp.publication), restrictions = sp.restrictions, legacyCategory = Some(StaffPhotographer.category)))
+        // case ContractPhotographer.category => json.asOpt[ContractPhotographer]
+        case ContractPhotographer.category => json.asOpt[ContractPhotographer].map(cp => GnmOwned(usageRightsImageType = "Photograph", creator = cp.photographer, publication = cp.publication, restrictions = cp.restrictions, legacyCategory = Some(ContractPhotographer.category)))
+        case CommissionedPhotographer.category => json.asOpt[CommissionedPhotographer].map(cp => GnmOwned(usageRightsImageType = "Photograph", creator = cp.photographer, publication = cp.publication, restrictions = cp.restrictions, legacyCategory = Some(CommissionedPhotographer.category)))
         case Pool.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(Pool.category)))
         case CrownCopyright.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CrownCopyright.category)))
-        case ContractIllustrator.category => json.asOpt[ContractIllustrator]
-        case StaffIllustrator.category => json.asOpt[StaffIllustrator]
-        case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
+        case ContractIllustrator.category => json.asOpt[ContractIllustrator].map(ci => GnmOwned(usageRightsImageType = "Illustration", creator = ci.creator, publication = ci.publication, restrictions = ci.restrictions, legacyCategory = Some(ContractIllustrator.category)))
+        case StaffIllustrator.category => json.asOpt[StaffIllustrator].map(si => GnmOwned(usageRightsImageType = "Illustration", creator = si.creator, restrictions = si.restrictions, legacyCategory = Some(StaffIllustrator.category)))
+        case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator].map(ci => GnmOwned(usageRightsImageType = "Illustration", creator = ci.creator, publication = ci.publication, restrictions = ci.restrictions, legacyCategory = Some(CommissionedIllustrator.category)))
         case CreativeCommons.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(CreativeCommons.category)))
         case Composite.category => json.asOpt[Composite].map(composite => PrAndThirdParty(legacyCategory = Some(Composite.category), source = Some(composite.suppliers), restrictions = composite.restrictions))
         case PublicDomain.category => json.asOpt[PrAndThirdParty].map(pr => pr.copy(legacyCategory = Some(PublicDomain.category)))
@@ -145,6 +150,7 @@ object UsageRights {
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
         case PrAndThirdParty.category => json.asOpt[PrAndThirdParty]
+        case GnmOwned.category => json.asOpt[GnmOwned]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -660,4 +666,39 @@ object PrAndThirdParty extends UsageRightsSpec {
 
   implicit val formats: Format[PrAndThirdParty] =
     UsageRights.subtypeFormat(PrAndThirdParty.category)(Json.format[PrAndThirdParty])
+}
+
+// Make usageRightsImageType a string literal?
+final case class GnmOwned(usageRightsImageType: String, creator: String, publication: Option[String] = None, restrictions: Option[String] = None, legacyCategory: Option[String] = None) extends UsageRights {
+
+  override val defaultCost: Option[Cost] = GnmOwned.defaultCost
+}
+
+object GnmOwned extends UsageRightsSpec {
+
+  override val category: String = "gnm-owned"
+
+  // The legacy categories that now get folded into `GnmOwned` on read (see `UsageRights.jsonReads`).
+  // Kept here as the single source of truth so anything that needs to treat these as equivalent to
+  // `gnm-owned` (e.g. search) can reuse the same list rather than duplicating it.
+  val legacyCategories: List[String] = List(
+    StaffPhotographer.category,
+    ContractPhotographer.category,
+    CommissionedPhotographer.category,
+    StaffIllustrator.category,
+    ContractIllustrator.category,
+    CommissionedIllustrator.category,
+    Bylines.category,
+  )
+
+  val allCategories: NonEmptyList[String] = (category :: legacyCategories).toNel.getOrElse(NonEmptyList(category))
+
+  override def name(config: CommonConfig): String = "GNM Owned"
+
+  override def description(config: CommonConfig): String = "A photograph or illustration commissioned by the Guardian, regardless of whether the contributor was staff, contract or freelance."
+
+  override val defaultCost: Option[Cost] = Some(Free)
+
+  implicit val formats: Format[GnmOwned] =
+    UsageRights.subtypeFormat(GnmOwned.category)(Json.format[GnmOwned])
 }

@@ -1,12 +1,12 @@
 function stripMargin(template, ...args) {
-    const result = template.reduce((acc, part, i) => acc + args[i - 1] + part);
-    return result.replace(/\r?(\n)\s*\|/g, '$1');
+  const result = template.reduce((acc, part, i) => acc + args[i - 1] + part);
+  return result.replace(/\r?(\n)\s*\|/g, "$1");
 }
 
 function getCorsAllowedOriginString(config) {
   return config.security.corsAllowedOrigins
-    .map(origin => `${origin}.${config.DOMAIN}`)
-    .join(',');
+    .map((origin) => `${origin}.${config.DOMAIN}`)
+    .join(",");
 }
 
 function getCommonConfig(config) {
@@ -27,8 +27,8 @@ function getCommonConfig(config) {
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |ai.search.enabled=${aiSearchEnabled}
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
-        ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
-        ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
+        ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ""}
+        ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ""}
         |sqs.ingest.queue.url="${config.coreStackProps.IngestSqsQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |s3.ingest.bucket="${config.coreStackProps.IngestQueueBucket}"
         |s3.fail.bucket="${config.coreStackProps.IngestQueueFailBucket}"
@@ -46,20 +46,26 @@ function getCommonConfig(config) {
         |  "Action Images"
         |]
         |usageRightsConfigProvider.config.externalStaffPhotographers=[{
-        |  name="Example publication",
-        |  photographers=["Example External Photographer"],
+        |  name="Publication A",
+        |  photographers=["Publication A External Photographer 1", "Publication A External Photographer 2"],
         |}]
         |usageRightsConfigProvider.config.internalStaffPhotographers=[{
-        |  name="Example publication",
-        |  photographers=["Example Internal Photographer"]
+        |  name="Publication A",
+        |  photographers=["Publication A Internal Photographer"]
         |}]
         |usageRightsConfigProvider.config.contractedPhotographers=[{
-        |  name="Example publication",
-        |  photographers=["Example Contracted Photographer"]
+        |  name="Publication A",
+        |  photographers=["Publication A Contracted Photographer"]
+        |}, {
+        |  name="Publication B",
+        |  photographers=["Publication B Contracted Photographer"]
         |}]
         |usageRightsConfigProvider.config.contractIllustrators=[{
-        |  name="Example publication",
-        |  photographers=["Example Contracted Illustrator"]
+        |  name="Publication A",
+        |  photographers=["Publication A Contracted Illustrator 1", "Publication A Contracted Illustrator 2"]
+        |}, {
+        |  name="Publication B",
+        |  photographers=["Publication B Contracted Illustrator"]
         |}]
         |usageRightsConfigProvider.config.staffIllustrators=["Example Staff Illustrator"]
         |agencyPicks.ingredients={
@@ -94,7 +100,7 @@ function getAuthConfig(config) {
 }
 
 function getCollectionsConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
         |dynamo.table.collections="CollectionsTable"
@@ -105,7 +111,7 @@ function getCollectionsConfig(config) {
 }
 
 function getCropperConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |publishing.image.bucket="${config.coreStackProps.ImageOriginBucket}"
         |publishing.image.host="public.media.${config.DOMAIN}"
@@ -116,7 +122,7 @@ function getCropperConfig(config) {
 }
 
 function getImageLoaderConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
@@ -133,10 +139,11 @@ function getImageLoaderConfig(config) {
         |`;
 }
 
-function getKahunaConfig(config){
-
-    // `BUILD_ORG` env variable should be set for non-Guardian orgs, e.g. bbc
-    const pinboardConfig = process.env.BUILD_ORG ? "" : stripMargin`
+function getKahunaConfig(config) {
+  // `BUILD_ORG` env variable should be set for non-Guardian orgs, e.g. bbc
+  const pinboardConfig = process.env.BUILD_ORG
+    ? ""
+    : stripMargin`
         |security.connectSources = [
         |  "wss://*.iot.${config.AWS_DEFAULT_REGION}.amazonaws.com",
         |  "https://*.appsync-api.${config.AWS_DEFAULT_REGION}.amazonaws.com"
@@ -150,12 +157,12 @@ function getKahunaConfig(config){
         |  }
         |]`;
 
-    const permissionsConfig = stripMargin`
+  const permissionsConfig = stripMargin`
       |usePermissionsFilter=false
       |permissionsDefault="allPermissions"
       `;
 
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
         |origin.thumb="localstack.media.${config.DOMAIN}"
@@ -177,7 +184,7 @@ function getKahunaConfig(config){
 }
 
 function getLeasesConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |dynamo.tablename.leasesTable="LeasesTable"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
@@ -186,7 +193,7 @@ function getLeasesConfig(config) {
 }
 
 function getMediaApiConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
@@ -208,7 +215,7 @@ function getMediaApiConfig(config) {
 }
 
 function getMetadataEditorConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
         |dynamo.table.edits="EditsTable"
@@ -221,7 +228,7 @@ function getMetadataEditorConfig(config) {
 }
 
 function getThrallConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
@@ -237,7 +244,7 @@ function getThrallConfig(config) {
 }
 
 function getUsageConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |capi.live.url="${config.guardian.capi.live.url}"
         |capi.preview.url="${config.guardian.capi.preview.url}"
@@ -264,19 +271,19 @@ function getGridProdConfig(config) {
 }
 
 module.exports = {
-    getCoreConfigs: (config) => {
-        return {
-            auth: getAuthConfig(config),
-            collections: getCollectionsConfig(config),
-            cropper: getCropperConfig(config),
-            'image-loader': getImageLoaderConfig(config),
-            kahuna: getKahunaConfig(config),
-            leases: getLeasesConfig(config),
-            'media-api': getMediaApiConfig(config),
-            'metadata-editor': getMetadataEditorConfig(config),
-            thrall: getThrallConfig(config),
-            usage: getUsageConfig(config)
-        };
-    },
-    getUseLocalAuthConfig: (config) => getGridProdConfig(config)
+  getCoreConfigs: (config) => {
+    return {
+      auth: getAuthConfig(config),
+      collections: getCollectionsConfig(config),
+      cropper: getCropperConfig(config),
+      "image-loader": getImageLoaderConfig(config),
+      kahuna: getKahunaConfig(config),
+      leases: getLeasesConfig(config),
+      "media-api": getMediaApiConfig(config),
+      "metadata-editor": getMetadataEditorConfig(config),
+      thrall: getThrallConfig(config),
+      usage: getUsageConfig(config),
+    };
+  },
+  getUseLocalAuthConfig: (config) => getGridProdConfig(config),
 };

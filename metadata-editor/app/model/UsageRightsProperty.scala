@@ -16,7 +16,12 @@ case class UsageRightsProperty(
   options: Option[List[String]] = None,
   optionsMap: Option[Map[String, List[String]]] = None,
   optionsMapKey: Option[String] = None,
-  examples: Option[String] = None
+  examples: Option[String] = None,
+  // @TODO: This is a bit gross :(
+  // For properties whose options depend on more than one other field (e.g. GnmOwned's "creator"
+  // depends on both "usageRightsImageType" and "publication"), optionsMap is instead keyed by the
+  // joined values of these fields, in order, separated by "|".
+  optionsMapKeys: Option[List[String]] = None,
 )
 
 
@@ -147,6 +152,57 @@ object UsageRightsProperty {
     case PrAndThirdParty => List(
       requiredStringField("source", "Source", examples = Some("Getty Images, Corbis, Reuters")),
     )
+
+    case GnmOwned =>
+      val photographersByPublication: OptionsMap = p.allPhotographers.map(pub => pub.name -> sortList(pub.photographers.map(_.name))).toMap
+      // @TODO: staffIllustrators need to have a publication set - until then they're offered
+      // regardless of the chosen publication, alongside contractIllustrators.photographers
+      val illustratorsByPublication: OptionsMap = p.contractIllustrators.map(pub => pub.name -> sortList(pub.photographers.map(_.name))).toMap
+
+      val publicationsWithPhotographers = sortList(photographersByPublication.keys.toList)
+      val publicationsWithIllustrators = sortList(illustratorsByPublication.keys.toList)
+      val allPublications = sortList((publicationsWithPhotographers ++ publicationsWithIllustrators).distinct)
+
+      // Keyed by the selected "usageRightsImageType", reusing the existing optionsMap/optionsMapKey
+      // dependent-dropdown mechanism (normally keyed by "publication") so the publication options
+      // update based on whether Photograph, Illustration or Composite is selected.
+      val publicationsByImageType: OptionsMap = Map(
+        "Photograph" -> publicationsWithPhotographers,
+        "Illustration" -> publicationsWithIllustrators,
+        "Composite" -> allPublications
+      )
+
+      def creatorsFor(imageType: String, publication: String): List[String] = imageType match {
+        case "Photograph" => photographersByPublication.getOrElse(publication, Nil)
+        case "Illustration" => sortList((illustratorsByPublication.getOrElse(publication, Nil) ++ p.staffIllustrators).distinct)
+        case "Composite" => sortList((photographersByPublication.getOrElse(publication, Nil) ++ illustratorsByPublication.getOrElse(publication, Nil) ++ p.staffIllustrators).distinct)
+        case _ => Nil
+      }
+
+      // Keyed by "<usageRightsImageType>|<publication>", so the creator options are filtered by both
+      // the selected image type and the selected publication.
+      val creatorsByImageTypeAndPublication: OptionsMap = (for {
+        imageType <- List("Photograph", "Illustration", "Composite")
+        publication <- allPublications
+      } yield s"$imageType|$publication" -> creatorsFor(imageType, publication)).toMap
+
+      List(
+        UsageRightsProperty(
+          "usageRightsImageType", "Image Type", "string", required = true,
+          // @TODO: Can we tighten this list somewhere so it's consistent with metadata image type
+          // @TODO: Add 'Computer Generated'?
+          options = Some(List("Photograph", "Illustration", "Composite")),
+        ),
+        UsageRightsProperty(
+          "publication", "Publication", "string", required = true,
+          optionsMap = Some(publicationsByImageType), optionsMapKey = Some("usageRightsImageType")
+        ),
+        UsageRightsProperty(
+          "creator", "Creator", "string", required = true,
+          optionsMap = Some(creatorsByImageTypeAndPublication),
+          optionsMapKeys = Some(List("usageRightsImageType", "publication"))
+        )
+      )
 
     case _ => List()
   }

@@ -149,6 +149,14 @@ usageRightsEditor.controller(
           }
       };
       ctrl.getOptionsMapFor = property => {
+          // A property can depend on more than one other field's value (e.g. GnmOwned's "creator"
+          // depends on both "usageRightsImageType" and "publication"). In that case optionsMap is
+          // keyed by the joined values of optionsMapKeys, in order, separated by "|".
+          if (property.optionsMapKeys && property.optionsMapKeys.length > 0) {
+              const compositeKey = property.optionsMapKeys.map(key => ctrl.model[key]).join('|');
+              return property.optionsMap[compositeKey] || [];
+          }
+
           const key = ctrl.category
                           .properties
                           .find(prop => prop.name === property.optionsMapKey)

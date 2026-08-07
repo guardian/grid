@@ -126,10 +126,12 @@ object MappingTest {
       legacyCategory = Some("agency"),
       source = Some("Karpow Images Inc")
     ),
-    originalUsageRights = StaffPhotographer(
-      photographer = "Barton",
-      publication = "Bricking It (The Lego Times)",
-      restrictions = Some("Not before June")
+    originalUsageRights = GnmOwned(
+      usageRightsImageType = "Photograph",
+      creator = "Barton",
+      publication = Some("Bricking It (The Lego Times)"),
+      restrictions = Some("Not before June"),
+      legacyCategory = Some("staff-photographer")
     ),
     exports = List(
       Crop(
