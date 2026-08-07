@@ -19,6 +19,10 @@ modules:
   - node  # (disabled by default)
   - github-copilot
 
+features:
+  desktop-lite:
+    webPort: "6080"
+
 # Optional: Ports to forward
 forwardPorts:
   - 9001
@@ -32,6 +36,7 @@ forwardPorts:
   - 9010
   - 9011
   - 9012
+  - 6080 # playwright noVNC
 
 # Optional: Mount directories from host to container
 # mounts:
@@ -55,4 +60,8 @@ forwardPorts:
 #     workingDirectory: "."
 postCreateCommand:
   - cmd: "sudo apt-get update && sudo apt-get install -y --no-install-recommends nginx graphicsmagick imagemagick pngquant libgd-dev libimage-exiftool-perl procps jq"
+    workingDirectory: "."
+  # Allow the (non-root) e2e reverse proxy (Caddy) to bind :443 for the
+  # https://*.media.<domain> browser origins without root. Persist across restarts.
+  - cmd: "echo 'net.ipv4.ip_unprivileged_port_start=443' | sudo tee /etc/sysctl.d/99-grid-e2e.conf && sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443"
     workingDirectory: "."
