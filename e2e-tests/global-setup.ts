@@ -55,6 +55,41 @@ const LOCALSTACK_SERVICES = [
  * its in-container port, and the S3 vanity domains proxy to localstack (prepending the
  * real bucket to the path). `tls internal` serves a self-signed cert per site; Playwright
  * runs with `ignoreHTTPSErrors`, so the internal CA does not need to be trusted.
+ *
+ * Example output:
+ *
+ * {
+ *         auto_https disable_redirects
+ * }
+ *
+ * media.local.dev-gutools.co.uk {
+ *         tls internal
+ *         reverse_proxy localhost:9005
+ * }
+ *
+ * api.media.local.dev-gutools.co.uk {
+ *         tls internal
+ *         reverse_proxy localhost:9001
+ * }
+ *
+ * # ... etc for other similar services
+ *
+ * images.media.local.dev-gutools.co.uk {
+ *         tls internal
+ *         rewrite * /grid-dev-core-imagebucket-2b34bef1{uri}
+ *         reverse_proxy localhost:4566
+ * }
+ *
+ * public.media.local.dev-gutools.co.uk {
+ *         tls internal
+ *         rewrite * /grid-dev-core-imageoriginbucket-e8cd1fec{uri}
+ *         reverse_proxy localhost:4566
+ * }
+ *
+ * localstack.media.local.dev-gutools.co.uk {
+ *         tls internal
+ *         reverse_proxy localhost:4566
+ * }
  */
 function buildCaddyfile(coreStackProps: Record<string, string>): string {
   const appServices: Record<string, number> = {
