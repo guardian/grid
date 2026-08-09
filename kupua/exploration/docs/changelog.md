@@ -14,6 +14,64 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 9 August 2026 — CQL query with a quoted, colon-containing field key corrupted on load/reload
+
+**Bug (reported vs. Kahuna parity):** pasting a URL with a quoted field key
+containing a reserved char — e.g. `?query="fileMetadata.xmp.dc:creator":"Alicia Canter"`
+(the key needs quoting because of the embedded `:`) — produced a malformed
+chip, a corrupted URL, and no results. Kahuna handles the identical URL
+correctly.
+
+**Root cause 1 — `CqlSearchInput.tsx`'s "effective query" derivation:** after
+the CQL editor's own (correct) serialization, a regex meant to strip quotes
+CQL adds purely to protect a trailing space assumed whitespace was the
+*only* reason `@guardian/cql` would quote a key/value. In reality the
+library quotes on whitespace **or** any reserved char (`: ( )` — see its
+`shouldQuoteFieldValue`/`hasReservedChar`). The regex stripped the quotes
+off the colon-containing key, turning `"fileMetadata.xmp.dc:creator"` into
+`fileMetadata.xmp.dc:creator` — now ambiguous with the field-value
+separator.
+
+**Root cause 2 — `router.ts`'s `plainParseSearch`:** a second, independent
+bug in URL-param parsing. A leftover heuristic (from before kupua had its
+own URL serialiser) stripped a leading+trailing `"` pair from any param
+value, to clean up stale `JSON.stringify`-wrapped bookmarks (`nonFree=true`
+→ `nonFree="true"`). This misfired on any CQL query that legitimately
+starts and ends with `"` — not just the colon-key case above, but even a
+single bare quoted phrase (`"Alicia Canter"`) — silently changing search
+semantics on reload.
+
+**Fix:** (1) extracted the quote-preservation logic in `CqlSearchInput.tsx`
+into a pure, unit-tested `deriveEffectiveQuery()` (`lib/cql-effective-query.ts`);
+widened its "keep quotes" check to CQL's actual reserved-char set, not just
+whitespace. (2) Per user decision, deleted the stale-bookmark quote-stripping
+heuristic in `plainParseSearch` entirely rather than trying to special-case
+CQL queries — kupua is pre-launch with no legacy bookmarks to protect.
+Extracted `plainParseSearch`/`plainStringifySearch` out of `router.ts` into
+`lib/plain-search-serializer.ts` so the pure function is unit-testable
+without pulling in the full route tree (which has side effects like a
+global keydown listener). Confirmed Kahuna-URL compatibility (root `/` and
+`/images/:imageId` redirects) is unaffected — it never depended on this
+heuristic.
+
+**Process:** both fixes were TDD (failing test reproducing the exact
+corruption → fix → passing test) — the router bug was only caught by an
+e2e test simulating the real paste→load→reload round-trip; a unit test on
+`CqlSearchInput` alone couldn't have seen it, since the corruption happened
+one layer up in URL parsing.
+
+**Verification:** 992 unit tests passing (+12 new: `cql-effective-query.test.ts`,
+`plain-search-serializer.test.ts`), 244/244 Playwright e2e passing (+1 new:
+`e2e/local/cql-search-quoting.spec.ts`, a regression test for the exact
+paste/reload repro).
+
+**Not fixed (by design):** a related cosmetic-only observation — Firefox's
+address bar decodes `%22` back to a literal `"` for readability on reload
+while Chrome doesn't, while both keep `%20` (space) encoded regardless. This
+is browser omnibox rendering behaviour, not something either app's code
+produces or controls — the served/pushed URL is identically percent-encoded
+in both apps. No action taken.
+
 ### 1 August 2026 — extendBackward + resize leaves bufferOffset column-misaligned (M3 wandering follow-up)
 
 **Bug:** `extendBackward()`'s column-trim (added by the 31 July buffer-tier

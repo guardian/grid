@@ -19,6 +19,7 @@ import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
 import { buildTypeaheadFields } from "@/lib/typeahead-fields";
 import { isMobile } from "@/lib/is-mobile";
+import { deriveEffectiveQuery } from "@/lib/cql-effective-query";
 
 // ---------------------------------------------------------------------------
 // Theme — matches kupua's dark palette
@@ -230,26 +231,8 @@ export function CqlSearchInput({
         // pressing + inserts a bare ":", selecting a field produces "credit:",
         // etc.  Sending them upstream would trigger URL/search updates with
         // meaningless fragments that reset results to 0.
-        // In CQL normalised form complete chips are always "key:value" (no
-        // space between colon and value), so ":(?=\s|$)" identifies incomplete
-        // chips reliably.  Matches kahuna's renderQuery .filter(item => item.value).
-        const effective = detail.queryStr
-          // Strip incomplete chip expressions (key: with no value)
-          // [\w#~@]* covers plain fields (credit), shortcuts (#label, ~collection),
-          // and nested fields (usages@platform, usages@status, etc.)
-          .replace(/[+\-]?[\w#~@]*:(?=\s|$)/g, "")
-          // CQL wraps text in quotes when it contains whitespace. A trailing
-          // space alone (e.g. user typed "climate ") triggers quoting that
-          // adds no search meaning.  Strip these — keep only quotes around
-          // real multi-word phrases (and trim trailing space within them).
-          // Matches kahuna's renderQuery which re-renders from AST values
-          // (no CQL quoting) and trims the result.
-          .replace(/"([^"]*)"/g, (_match: string, inner: string) => {
-            const trimmed = inner.trim();
-            return trimmed.includes(" ") ? `"${trimmed}"` : trimmed;
-          })
-          .replace(/\s{2,}/g, " ")
-          .trim();
+        // Matches kahuna's renderQuery `.filter(item => item.value)`.
+        const effective = deriveEffectiveQuery(detail.queryStr);
 
         if (effective !== lastEffectiveQueryRef.current) {
           lastEffectiveQueryRef.current = effective;
