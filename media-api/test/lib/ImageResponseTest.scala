@@ -1,5 +1,6 @@
 package lib
 
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
@@ -7,6 +8,7 @@ import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar.mock
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
@@ -44,6 +46,8 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
       override def stop(): Future[_] = Future.successful(())
     }
   ))
+
+  val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"
@@ -133,5 +137,28 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.isEmpty shouldEqual true
+  }
+
+  describe("updateRightsAndRestrictions ->") {
+    describe("should transform the following categories:") {
+      it("handout") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map("category" ->  JsString("handout"),
+              "restrictions" -> JsString("restrictions"))
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map("category" ->  JsString("pr-and-third-party"),
+            "legacyCategory" -> JsString("handout"),
+            "restrictions" -> JsString("restrictions"))
+          )
+        )
+      }
+    }
   }
 }

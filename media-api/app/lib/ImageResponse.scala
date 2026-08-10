@@ -294,7 +294,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     }
   }
 
-  private def updateRightsAndRestrictions(source: JsValue): Reads[JsObject] = {
+  private[lib] def updateRightsAndRestrictions(source: JsValue): Reads[JsObject] = {
     val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
     val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
     (source \ "usageRights" \ "category") match {
