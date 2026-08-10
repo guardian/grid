@@ -66,6 +66,10 @@ object UsageRightsProperty {
   private def photographerField(photographers: List[PublicationPhotographers], key: String) =
     requiredStringField("photographer", "Photographer",
       optionsMap = Some(publicationListToMap(photographers)), optionsMapKey = Some(key))
+  
+  private def creatorField(creators: List[PublicationPhotographers], key: String) =
+    requiredStringField("creator", "Creator",
+      optionsMap = Some(publicationListToMap(creators)), optionsMapKey = Some(key))
 
   private def illustratorField(illustrators: List[PublicationPhotographers], key: String) =
     requiredStringField("creator", "Illustrator",
@@ -147,6 +151,17 @@ object UsageRightsProperty {
     case PRAndThirdParty => List(
       requiredStringField("source", "Source", examples = Some("Getty Images, Corbis, Reuters")),
     )
+
+    case PublisherOwnedPhotograph => List(
+      publicationField(required = true, optionsFromPublicationList(p.allPhotographers)),
+      creatorField(sortPublicationList(p.allPhotographers), "publication")
+    )
+
+    case PublisherOwnedIllustration => List(
+      publicationField(required = true, optionsFromPublicationList(p.contractIllustrators)),
+      creatorField(sortPublicationList(p.contractIllustrators), "publication")
+    )
+
     case _ => List()
   }
 }
