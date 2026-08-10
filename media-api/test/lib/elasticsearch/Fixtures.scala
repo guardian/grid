@@ -19,9 +19,12 @@ trait Fixtures {
     "es6.replicas" -> 0,
     "field.aliases" -> Seq.empty,
     "usageRights" -> Map(
-      "applicable" -> List(),
-      "showVersion2" -> false
+      "applicable" -> List()
     ),
+    "usageRightsV2" -> Map(
+      "applicable" -> List()
+    ),
+    "showUsageRightsV2" -> false,
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
   )
   val NOT_USED_IN_TEST = "not used in test"

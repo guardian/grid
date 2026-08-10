@@ -23,16 +23,26 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
+  private def createMediaApiConfig(overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
+    val configMap = commonConfigurations.foldLeft(Map[String, Any]())((acc, next) => {
+      val (nextKey, nextValue) = next
+      if(overrides.contains(nextKey)) acc.updated(nextKey, overrides(nextKey))
+      else acc.updated(nextKey, nextValue)
+    })
+
+    new MediaApiConfig(GridConfigResources(
+      Configuration.from(configMap),
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    ))
+  }
+
   private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
 
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+  private val mediaApiConfig = createMediaApiConfig()
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
@@ -274,8 +284,10 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
   }
 
-  describe("usage rights filter") {
-    ignore("should map a usage rights filter to legacy categories") {
+  describe("usage rights v2 filter") {
+    val queryBuilder  = new QueryBuilder(matchFields, () => Nil, createMediaApiConfig(Map("showUsageRightsV2" -> true)))
+
+    it("should map a usage rights filter to legacy categories") {
       val query = queryBuilder.makeQuery(List(usageRightsFilter)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
 
@@ -283,10 +295,12 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       termsQuery shouldBe TermsQuery("usageRights.category",
         List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
-          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness")
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness",
+          "composite"
+        )
       )
     }
-    ignore("should map a usage rights filter to legacy categories negation") {
+    it("should map a usage rights filter to legacy categories negation") {
       val query = queryBuilder.makeQuery(List(Negation(usageRightsFilter))).asInstanceOf[BoolQuery]
       query.not.size shouldBe 1
 
@@ -294,7 +308,9 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       termsQuery shouldBe TermsQuery("usageRights.category",
         List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
-          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness")
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness",
+          "composite"
+        )
       )
     }
 

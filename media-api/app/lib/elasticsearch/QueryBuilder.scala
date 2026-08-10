@@ -53,7 +53,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
 
-      case Words(value) if config.usageRightsV2 && field == "usageRights.category" && value == PRAndThirdParty.category =>
+      case Words(value) if config.showUsageRightsV2 && field == "usageRights.category" && value == PRAndThirdParty.category =>
         filters.terms(resolveFieldPath(field), PRAndThirdParty.allCategories)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
