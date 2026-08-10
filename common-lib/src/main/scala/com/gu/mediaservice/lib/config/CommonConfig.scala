@@ -218,7 +218,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
    * Depending on the type it will be loaded differently using reflection. Companion objects will be looked up
    * and the singleton instance added to the list.
    */
-  val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
+  val usageRightsV2 = configuration.get[Option[Boolean]]("usageRights.showVersion2").getOrElse(false)
+  val applicableUsageRights: Seq[UsageRightsSpec] = if(usageRightsV2) configuration.get[Seq[UsageRightsSpec]]("usageRightsV2.applicable")  else configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
   val stdUserExcludedUsageRights = getStringSet("usageRights.stdUserExcluded")
 
   val agencyPicksIngredients: Option[Map[String, Seq[String]]] =
