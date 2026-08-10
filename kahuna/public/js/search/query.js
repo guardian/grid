@@ -195,6 +195,7 @@ query.controller('SearchQueryCtrl', [
           syncMyUploadsProps();
         }
         ctrl.filter.orgOwned = false;
+        ctrl.useAISearch = false;
         Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         raiseFilterChangeEvent(ctrl.filter);
 
@@ -475,6 +476,10 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.onOrgOwnedCheckboxChange = function() {
+      disarmDefaultNonFreeFilter();
+    };
+
+    ctrl.onAISearchCheckboxChange = function() {
       disarmDefaultNonFreeFilter();
     };
 
