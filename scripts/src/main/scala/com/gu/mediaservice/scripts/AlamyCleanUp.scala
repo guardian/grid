@@ -20,8 +20,8 @@ object AlamyCleanUp extends App {
     List("3b2a8f1845359b84c805634fada85f008e6be297", "278c8c9801a5c8da10f07297289cc3eb26d16ff7", "fd41ca6b9b4ba27cef603bfd127841f6bf537f90")
   }
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN with ${ids.size} ids")
-  val requestBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
-
+  val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
+  val labelBody = BodyPublishers.ofString("""{"data":["a2g"]}""")
   val outcomes = ids.zipWithIndex.map({case (id, index) =>
     println(s"Running for id $id, ${index + 1} of ${ids.size}")
     // Make an api request to try to delete the image, either successful or
@@ -37,13 +37,23 @@ object AlamyCleanUp extends App {
         true
       }
       case 405 => {
-        println(s"Unable to delete $id, setting usages instead")
+        println(s"Unable to delete $id, setting usages instead and labels")
         val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/usage-rights"))
-          .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(requestBody).build()
+          .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(usagesBody).build()
         val response = client.send(request, BodyHandlers.ofString())
         if(response.statusCode() == 200) {
           println(s"Successfully set usage rights for $id")
-          true
+          val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/labels"))
+            .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").POST(labelBody).build()
+          val response = client.send(request, BodyHandlers.ofString())
+          if(response.statusCode() == 200) {
+            println(s"Successfully set a label for $id")
+            true
+          }
+          else {
+            println(s"Unable to set label for $id, received response ${response.statusCode()}")
+            false
+          }
         } else {
           println(s"Unable to set usage rights for $id, recevied response ${response.statusCode()}")
           false
