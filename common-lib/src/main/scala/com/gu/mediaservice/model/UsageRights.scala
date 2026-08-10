@@ -634,8 +634,26 @@ object PRAndThirdParty extends UsageRightsSpec {
   override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituraries."
 
   // TODO - check this
-  override val defaultCost: Option[Cost] = None
+  override val defaultCost: Option[Cost] = Some(Conditional)
 
   implicit val formats: Format[PRAndThirdParty] =
     UsageRights.subtypeFormat(PRAndThirdParty.category)(Json.format[PRAndThirdParty])
+
+  val legacyCategories: List[String] = List(
+    Agency.category,
+    CommissionedAgency.category,
+    PrImage.category,
+    Handout.category,
+    Screengrab.category,
+    SocialMedia.category,
+    Obituary.category,
+    Pool.category,
+    CrownCopyright.category,
+    CreativeCommons.category,
+    PublicDomain.category,
+    GuardianWitness.category,
+    Composite.category,
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
 }

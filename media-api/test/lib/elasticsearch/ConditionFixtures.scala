@@ -8,7 +8,7 @@ trait ConditionFixtures {
   val fieldPhraseMatchCondition = Match(SingleField("afield"), Phrase("avalue"))
   val wordsMatchCondition = Match(SingleField("awordfield"), Words("foo bar"))
   val anotherFieldPhraseMatchCondition = Match(SingleField("anotherfield"), Phrase("anothervalue"))
-
+  val usageRightsFilter = Match(SingleField("usageRights.category"), Words("pr-and-third-party"))
   val dateRangeStart: DateTime = new DateTime(2016, 1, 1, 0, 0).withZone(DateTimeZone.UTC)
   val dateRangeEnd: DateTime = dateRangeStart.plusHours(1)
   val dateMatchCondition = Match(SingleField("adatefield"), DateRange(dateRangeStart, dateRangeEnd))
