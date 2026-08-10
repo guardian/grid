@@ -7,16 +7,20 @@ import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
-import org.joda.time.{DateTime, DateTimeZone, Duration}
+import org.joda.time.{DateTime, DateTimeZone}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, PutObjectRequest, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
+import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, GetObjectRequest => GetObjectRequestV2, PutObjectRequest => PutObjectRequestV2}
+import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
+
 
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.time.Duration
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -83,17 +87,36 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   lazy val clientV2: S3Client = S3Ops.buildS3ClientV2(config)
-
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = cachableExpiration(), imageType: ImageFileType = Source): String = {
-    // get path and remove leading `/`
-    val key: Key = url.getPath.drop(1)
+  lazy val presigner = S3Presigner.create()
+  def signUrlV2(
+                 bucket: Bucket,
+                 url: URI,
+                 image: Image,
+                 expiration: DateTime = cachableExpiration(),
+                 imageType: ImageFileType = Source
+               ): String = {
+    // Fix key extraction (use stripPrefix to avoid corrupting relative paths)
+    val key: Key = url.getPath.stripPrefix("/")
 
     val contentDisposition = getContentDisposition(image, imageType, config.shortenDownloadFilename)
 
-    val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
+    val nowMillis = System.currentTimeMillis()
+    val targetExpirationMillis = expiration.getMillis
+    val remainingSeconds = Math.max(1, (targetExpirationMillis - nowMillis) / 1000)
 
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
-    client.generatePresignedUrl(request).toExternalForm
+    val getObjectRequest = GetObjectRequestV2.builder()
+      .bucket(bucket)
+      .key(key)
+      .responseContentDisposition(contentDisposition)
+      .build()
+
+    val getObjectPresignRequest = GetObjectPresignRequest.builder()
+      .getObjectRequest(getObjectRequest)
+      .signatureDuration(Duration.ofSeconds(remainingSeconds))
+      .build()
+
+    val req = presigner.presignGetObject(getObjectPresignRequest)
+    req.url().toExternalForm
   }
 
   def getObjectV2(bucket: Bucket, url: URI): ResponseInputStream[GetObjectResponse]= {
@@ -132,7 +155,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   }
 
   def putString(bucket: String, key: String, fileContents: String) = {
-    clientV2.putObject(PutObjectRequest.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
+    clientV2.putObject(PutObjectRequestV2.builder().bucket(bucket).key(key).build(), RequestBody.fromString(fileContents))
   }
 
   def storeV2(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
