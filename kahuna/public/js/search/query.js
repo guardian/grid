@@ -26,7 +26,6 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
-import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
 const isNonFreeString = (val) => val === 'true';
@@ -86,7 +85,7 @@ query.controller('SearchQueryCtrl', [
     let lastUploadedByEventKey;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled;
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;

@@ -38,7 +38,7 @@ class ThrallController(
 
   private val numberFormatter: Long => String = java.text.NumberFormat.getIntegerInstance().format
 
-  def index = withLoginRedirectAsync {
+  def index = withLoginRedirectAsync { implicit request =>
     val countDocsInIndex = OptionalFutureRunner.run(es.countImages) _
     for {
       currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
@@ -68,7 +68,7 @@ class ThrallController(
 
   def upsertProjectPage(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
     imageId match {
-      case Some(id) if store.doesOriginalExist(id) =>
+      case Some(id) if store.doesOriginalExistV2(id) =>
         gridClient.getProjectionDiff(id, auth.innerServiceCall).map {
           case None => NotFound("couldn't generate projection for that image!!")
           case Some(diff) => Ok(views.html.previewUpsertProject(id, Json.prettyPrint(diff)))
@@ -101,7 +101,7 @@ class ThrallController(
     }
   }
 
-  def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+  def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     Paging.withPaging(maybePage) { paging =>
       es.migrationStatus match {
         case running: Running =>

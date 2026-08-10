@@ -7,7 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.{AttributeValue, DeleteItemRequest, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
-import com.gu.mediaservice.lib.aws.DynamoDB.{deleteExpr, setExpr}
+import com.gu.mediaservice.lib.aws.DynamoDB.{deleteExpr, jsonWithNullAsEmptyString, setExpr}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
@@ -15,8 +15,9 @@ import play.api.libs.json._
 import software.amazon.awssdk.enhanced.dynamodb._
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model
+import software.amazon.awssdk.enhanced.dynamodb.model.{BatchGetItemEnhancedRequest, ReadBatch}
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, ReturnValue => ReturnValueV2}
+import software.amazon.awssdk.services.dynamodb.model.{UpdateItemRequest, AttributeValue => AttributeValueV2, QueryRequest => QueryRequestV2, ReturnValue => ReturnValueV2}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -131,6 +132,60 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def setAddV2(id: String, key: String, value: List[String])(implicit ex: ExecutionContext): Future[JsObject] = Future {
     updateV2(id, DynamoDB.addExpr(key, lastModifiedKey), AttributeValueV2.fromSs(value.asJava))
   }
+
+  def batchGetV2(ids: List[String], attributeKey: String)(implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
+    val chunks =
+      ids.grouped(100).toList.zipWithIndex
+
+    Future
+      .traverse(chunks) { case (chunk, idx) =>
+        logger.info(s"Fetching records for chunk $idx of ${chunks.size}")
+        Future {
+
+          val readBatchBuilder =
+            ReadBatch.builder(classOf[EnhancedDocument])
+              .mappedTableResource(table2)
+
+          chunk.foreach { id =>
+            readBatchBuilder.addGetItem(
+              Key.builder()
+                .partitionValue(id)
+                .build()
+            )
+          }
+
+          val results =
+            dynamo2.batchGetItem(
+              BatchGetItemEnhancedRequest.builder()
+                .readBatches(readBatchBuilder.build())
+                .build()
+            )
+
+          results
+            .resultsForTable(table2)
+            .asScala
+            .toList
+            .flatMap { doc =>
+
+              logger.info(s"Obtained document $doc")
+
+              val json = asJsObject(doc)
+
+              val maybeT =
+                (json \ attributeKey).asOpt[T]
+
+              logger.info(s"Obtained a T of $maybeT from json $json")
+
+              maybeT.map(
+                doc.getString(IdKey) -> _
+              )
+            }
+            .toMap
+        }
+      }
+      .map(_.foldLeft(Map.empty[String, T])(_ ++ _))
+  }
+
   def batchGet(ids: List[String], attributeKey: String)
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
     val keyChunkList = ids
@@ -200,6 +255,36 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     items map (a => a.getString("id"))
   }
 
+  def scanForIdV2(
+                 indexName: String,
+                 keyName: String,
+                 key: String
+               )(implicit ex: ExecutionContext): Future[List[String]] =
+    Future {
+
+      val response =
+        client2.query(
+          QueryRequestV2.builder()
+            .tableName(tableName)
+            .indexName(indexName)
+            .keyConditionExpression(s"$keyName = :key")
+            .expressionAttributeValues(
+              Map(
+                ":key" ->
+                  AttributeValueV2.builder()
+                    .s(key)
+                    .build()
+              ).asJava
+            )
+            .projectionExpression("id")
+            .build()
+        )
+
+      response.items().asScala.toList.map { item =>
+        item.get("id").s()
+      }
+    }
+
   private def updateRequestBuilder(id: String, expression: String) = {
     UpdateItemRequest.builder()
       .key(Map(IdKey -> AttributeValueV2.fromS(id)).asJava)
@@ -257,21 +342,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
   def asJsObject(outcome: UpdateItemOutcome): JsObject =
     Option(outcome.getItem) map asJsObject getOrElse Json.obj()
 
-  // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
-  // around the community. This guard keeps the introduction of `null` fairly
-  // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
-  // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
-  // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
-  def mapJsValue(jsValue: JsValue)(f: JsValue => JsValue): JsValue = jsValue match {
-    case JsObject(items) => JsObject(items.map{ case (k, v) => k -> mapJsValue(v)(f) })
-    case JsArray(items) => JsArray(items.map(f))
-    case value => f(value)
-  }
 
-  def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
-    case JsNull => JsString("")
-    case value => value
-  }
 
 }
 
@@ -362,4 +433,20 @@ object DynamoDB {
   def generateExpression(baseExpression: String, lastModifiedKey: Option[String]) = {
     lastModifiedKey.fold(baseExpression)(lastModifiedKey => s"$baseExpression SET $lastModifiedKey = :$lastModifiedKey")
   }
+
+  // FIXME: Dynamo accepts `null`, but not `""`. This is a well documented issue
+  // around the community. This guard keeps the introduction of `null` fairly
+  // fenced in this Dynamo play area. `null` is continual and big annoyance with AWS libs.
+  // see: https://forums.aws.amazon.com/message.jspa?messageID=389032
+  // see: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DataModel.html
+  def mapJsValue(jsValue: JsValue)(f: JsValue => JsValue): JsValue = jsValue match {
+    case JsObject(items) => JsObject(items.map{ case (k, v) => k -> mapJsValue(v)(f) })
+    case JsArray(items) => JsArray(items.map(f))
+    case value => f(value)
+  }
+  def jsonWithNullAsEmptyString(jsValue: JsValue): JsValue = mapJsValue(jsValue) {
+    case JsNull => JsString("")
+    case value => value
+  }
+  
 }

@@ -15,6 +15,6 @@ class MetadataSqsMessageConsumer(config: EditsConfig, metadataEditorMetrics: Met
     }
 
   def processDeletedImage(message: JsValue) = Future {
-      withImageId(message)(id => store.deleteItem(id))
+      withImageId(message)(id => store.deleteItemV2(id))
   }
 }
