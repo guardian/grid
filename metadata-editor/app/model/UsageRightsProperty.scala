@@ -144,6 +144,9 @@ object UsageRightsProperty {
       requiredStringField("productionCompany", "Production Company", examples = Some("Example production"))
     )
 
+    case PRAndThirdParty => List(
+      requiredStringField("source", "Source", examples = Some("Getty Images, Corbis, Reuters")),
+    )
     case _ => List()
   }
 }
