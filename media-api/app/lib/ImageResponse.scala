@@ -24,6 +24,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   extends EditsResponse with GridLogging {
 
   implicit val usageQuotas: UsageQuota = usageQuota
+  val showUsageRightsV2 = config.usageRightsV2
 
   object Costing extends CostCalculator {
     override val freeSuppliers: List[String] = config.usageRightsConfig.freeSuppliers
@@ -117,7 +118,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
-      .flatMap(_.transform(updateRightsAndRestrictions(source)))
+      .flatMap(json => if(showUsageRightsV2) json.transform(updateRightsAndRestrictions(source)) else JsSuccess(json))
       .get
 
     val links: List[Link] = tier match {

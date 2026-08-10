@@ -80,7 +80,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         val existsQ = boolQuery().filter(existsQuery(resolveFieldPath(field)))
         if (booleanValueOf(v).equalsIgnoreCase("true")) existsQ else boolQuery().not(existsQ)
 
-      case Words(value) if field == "usageRights.category" && value == PRAndThirdParty.category =>
+      case Words(value) if config.usageRightsV2 && field == "usageRights.category" && value == PRAndThirdParty.category =>
         filters.terms(resolveFieldPath(field), PRAndThirdParty.allCategories)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
