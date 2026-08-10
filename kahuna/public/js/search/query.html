@@ -3,7 +3,8 @@
         ng-if="searchQuery.shouldDisplayAISearchOption">
         <label>
             <input type="checkbox"
-                   ng-model="searchQuery.useAISearch"/>
+                   ng-model="searchQuery.useAISearch"
+                   ng-change="searchQuery.onAISearchCheckboxChange()"/>
             AI search
         </label>
     </span>
