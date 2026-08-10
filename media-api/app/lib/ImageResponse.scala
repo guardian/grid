@@ -117,6 +117,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
       .flatMap(_.transform(updateCustomSpecialInstructions(source)))
       .flatMap(_.transform(updateCustomUsageRestrictions(source)))
+      .flatMap(_.transform(updateRightsAndRestrictions(source)))
       .get
 
     val links: List[Link] = tier match {
@@ -289,6 +290,20 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         } else {
           __.json.update(__.read[JsObject])
         }
+      case _ => __.json.update(__.read[JsObject])
+    }
+  }
+
+  private def updateRightsAndRestrictions(source: JsValue): Reads[JsObject] = {
+    val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
+    val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
+    (source \ "usageRights" \ "category") match {
+      case JsDefined(c) if PRAndThirdParty.legacyCategories.contains(c.as[String]) =>
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ Json.obj("category" -> PRAndThirdParty.category, "legacyCategory" -> c.as[String])
+            ++ supplier.fold(Json.obj())(s => Json.obj("source" -> s))
+            ++ suppliers.fold(Json.obj())(s => Json.obj("source" -> s))
+          ))
       case _ => __.json.update(__.read[JsObject])
     }
   }
