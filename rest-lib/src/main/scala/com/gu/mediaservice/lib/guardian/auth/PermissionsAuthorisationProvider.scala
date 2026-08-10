@@ -20,12 +20,12 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
 
   private val permissions: PermissionsProvider = config.awsLocalEndpoint match {
     case Some(_) if config.isDev && config.useLocalAuth =>
-      val provider = new S3PermissionsProvider(permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3Client(config)))
+      val provider = new S3PermissionsProvider(permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3ClientV2(config)))
       provider.start()
       provider
     case _ =>
       val permissionsStage = if(config.isProd) { "PROD" } else { "CODE" }
-      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentials, permissionsBucket))
+      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentialsV2, permissionsBucket))
   }
 
   override def initialise(): Unit = {

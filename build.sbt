@@ -91,7 +91,7 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "editorial-permissions-client" % "4.0.0",
+    "com.gu" %% "editorial-permissions-client" % "7.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
@@ -125,7 +125,7 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
-    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
+    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test,
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )
