@@ -297,6 +297,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   private[lib] def updateRightsAndRestrictions(source: JsValue): Reads[JsObject] = {
     val supplier = (source \ "usageRights" \ "supplier").asOpt[String]
     val suppliers = (source \ "usageRights" \ "suppliers").asOpt[String]
+    val photographer = (source \ "usageRights" \ "photographer").asOpt[String]
     (source \ "usageRights" \ "category") match {
       case JsDefined(c) if PRAndThirdParty.legacyCategories.contains(c.as[String]) =>
         (__ \ "usageRights").json.update(__.read[JsObject]
@@ -304,6 +305,14 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
             ++ supplier.fold(Json.obj())(s => Json.obj("source" -> s))
             ++ suppliers.fold(Json.obj())(s => Json.obj("source" -> s))
           ))
+        case JsDefined(c) if PublisherOwnedPhotograph.legacyCategories.contains(c.as[String]) =>
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ Json.obj("category" -> PublisherOwnedPhotograph.category, "legacyCategory" -> c.as[String])
+            ++ photographer.fold(Json.obj())(s => Json.obj("creator" -> s))
+          ))
+        case JsDefined(c) if PublisherOwnedIllustration.legacyCategories.contains(c.as[String]) =>
+        (__ \ "usageRights").json.update(__.read[JsObject]
+          .map(_ ++ Json.obj("category" -> PublisherOwnedIllustration.category, "legacyCategory" -> c.as[String])))
       case _ => __.json.update(__.read[JsObject])
     }
   }

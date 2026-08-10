@@ -180,7 +180,9 @@ object UsageRightsConfigProvider {
 
   def flattenPublicationList(companies: List[PublicationPhotographers]): List[PublicationPhotographers] = companies
     .groupBy(_.name)
-    .map { case (group, companies) => PublicationPhotographers(group, companies.flatMap(company => company.photographers)) }
+    .map { case (group, companies) =>
+      PublicationPhotographers(group, companies.flatMap(company => company.photographers).distinct)
+    }
     .toList
 }
 
