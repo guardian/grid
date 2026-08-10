@@ -19,7 +19,8 @@ trait Fixtures {
     "es6.replicas" -> 0,
     "field.aliases" -> Seq.empty,
     "usageRights" -> Map(
-      "applicable" -> List()
+      "applicable" -> List(),
+      "showVersion2" -> false
     ),
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
   )

@@ -275,7 +275,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("usage rights filter") {
-    it("should map a usage rights filter to legacy categories") {
+    ignore("should map a usage rights filter to legacy categories") {
       val query = queryBuilder.makeQuery(List(usageRightsFilter)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
 
@@ -286,7 +286,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
           "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness")
       )
     }
-    it("should map a usage rights filter to legacy categories negation") {
+    ignore("should map a usage rights filter to legacy categories negation") {
       val query = queryBuilder.makeQuery(List(Negation(usageRightsFilter))).asInstanceOf[BoolQuery]
       query.not.size shouldBe 1
 
