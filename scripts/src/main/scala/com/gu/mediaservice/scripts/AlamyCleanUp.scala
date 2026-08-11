@@ -55,7 +55,7 @@ object AlamyCleanUp extends App {
             false
           }
         } else {
-          println(s"Unable to set usage rights for $id, recevied response ${response.statusCode()}")
+          println(s"Unable to set usage rights for $id, received response ${response.statusCode()}")
           false
         }
       }
