@@ -126,80 +126,91 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
   }
 
   describe("updateRightsAndRestrictions") {
-
-    it("maps category to pr-and-third-party and retains original as legacyCategory") {
-      val inputJson = Json.obj(
-        "usageRights" -> Json.obj("category" -> "handout")
-      )
-      val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
-
-      result shouldBe a[JsSuccess[_]]
-      result.get shouldBe Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "pr-and-third-party",
-          "legacyCategory" -> "handout"
+    describe("Mapping legacy categories to pr-and-third-party as defined in PRAndThirdParty") {
+      it("maps category to pr-and-third-party and retains original as legacyCategory") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj("category" -> "handout")
         )
-      )
-    }
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
 
-    it("preserves additional existing fields intact") {
-      val inputJson = Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "creative-commons",
-          "licence" -> "CC BY-4.0",
-          "creator" -> "creator",
-          "restrictions" -> "restrictions"
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "handout"
+          )
         )
-      )
-      val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+      }
 
-      result.get shouldBe Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "pr-and-third-party",
-          "legacyCategory" -> "creative-commons",
-          "licence" -> "CC BY-4.0",
-          "creator" -> "creator",
-          "restrictions" -> "restrictions"
+      it("preserves additional existing fields intact") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "creative-commons",
+            "licence" -> "CC BY-4.0",
+            "creator" -> "creator",
+            "restrictions" -> "restrictions"
+          )
         )
-      )
-    }
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
 
-    it("maps single supplier field to source") {
-      val inputJson = Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "agency",
-          "supplier" -> "Action Images"
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "creative-commons",
+            "licence" -> "CC BY-4.0",
+            "creator" -> "creator",
+            "restrictions" -> "restrictions"
+          )
         )
-      )
-      val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+      }
 
-      result.get shouldBe Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "pr-and-third-party",
-          "legacyCategory" -> "agency",
-          "supplier" -> "Action Images",
-          "source" -> "Action Images"
+      it("maps single supplier field to source") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "agency",
+            "supplier" -> "Action Images"
+          )
         )
-      )
-    }
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
 
-    it("maps plural suppliers field to source") {
-      val inputJson = Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "composite",
-          "suppliers" -> "supplier1 and supplier2"
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "agency",
+            "supplier" -> "Action Images",
+            "source" -> "Action Images"
+          )
         )
-      )
-      val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+      }
 
-      result.get shouldBe Json.obj(
-        "usageRights" -> Json.obj(
-          "category" -> "pr-and-third-party",
-          "legacyCategory" -> "composite",
-          "suppliers" -> "supplier1 and supplier2",
-          "source" -> "supplier1 and supplier2"
+      it("maps plural suppliers field to source") {
+        val inputJson = Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "composite",
+            "suppliers" -> "supplier1 and supplier2"
+          )
         )
-      )
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+
+        result.get shouldBe Json.obj(
+          "usageRights" -> Json.obj(
+            "category" -> "pr-and-third-party",
+            "legacyCategory" -> "composite",
+            "suppliers" -> "supplier1 and supplier2",
+            "source" -> "supplier1 and supplier2"
+          )
+        )
+      }
+      it("does not map a category that is not in the legacyCategories list") {
+        val inputJson = Json.obj("usageRights" -> Json.obj("category" -> "chargeable"))
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+        result.get shouldBe inputJson
+      }
+      it("leaves usageRights untouched when category field is missing") {
+        val inputJson = Json.obj("usageRights" -> Json.obj("restrictions" -> "restrictions"))
+        val result = inputJson.transform(imageResponse.updateRightsAndRestrictions(inputJson))
+        result.get shouldBe inputJson
+      }
     }
   }
 }
