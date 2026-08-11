@@ -14,6 +14,60 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 11 August 2026 — `search()` now cancels stale in-flight `searchAfter` requests (workplan: `zz Archive/search-request-cancellation-workplan.md`)
+
+Typing a query with several natural pauses (e.g. `has:"fileMetadata.xmp.photoshop:Source"`
+built up field-by-field), Filters panel open, could leave 4+ full search cascades
+running concurrently and the store unsettled for 18+ seconds — root cause: `search()`'s
+`dataSource.searchAfter(...)` call was the one call site in `search-store.ts` that never
+received an `AbortSignal` (every other caller — extend, seek, range-walk — already
+passed one). A superseded search's *result* was discarded via the `_searchGeneration`
+counter, but the request itself kept running server- and client-side, competing for the
+same connections/CPU as the search the user actually wanted.
+
+**Fix:** pass `signal` (the existing `_rangeAbortController.signal`, reusing the
+abort-old-then-new pattern already used elsewhere in this file) into that `searchAfter`
+call. Hardened the catch block to swallow both stale-generation and `AbortError`
+rejections silently — the media-api path (`apiSearchAfter`) throws a real `AbortError`
+on cancellation, unlike the direct-ES path's internal catch-and-return-empty-result.
+
+**TDD:** new unit test in `search-store.test.ts` asserts a superseded call's
+`AbortSignal` actually fires (`signal.aborted === true`), not just that its result gets
+discarded — confirmed failing before the fix, passing after. Full unit suite green.
+
+**Live verification against real TEST data, both modes:**
+- **Direct-ES:** 3-pause repro (`fileMetadata` → pause → `.` → pause → `xmp.` → pause →
+  finish). Post-fix: store settles in ~1ms after typing stops (vs 18+s pre-fix), 3 of 4
+  superseded `searchAfter` calls show genuine `net::ERR_ABORTED` in the real network
+  layer, not just client-side discard.
+- **`--use-media-api` (StranglerAdapter):** same repro. Fix reverted: 4 calls fired, 0
+  aborted (reproduces the original bug exactly). Fix restored: 3 of 4 aborted, confirmed
+  via real `net::ERR_ABORTED`. Confirms the fix is genuinely mode-agnostic.
+
+**Follow-up gap, measured not just asserted:** `openPit`/`countWithTickers` (the other
+two calls in the same `Promise.all`) have no `signal` param at all in the
+`ImageDataSource` interface. Monkey-patched both and reran the repro — both completed to
+100% every time, including calls clearly superseded by a later pause. Full interface
+audit: every other `ImageDataSource` method already carries `signal?: AbortSignal`;
+`openPit`/`countWithTickers`-inside-`search()` are the only remaining keystroke-hot gap
+(the rest — bare `search()`, `count()`, `getById()`, singular `getAggregation()` — are
+dead code or one-shot calls, not exercised by rapid typing). Also found:
+`strangler-adapter.ts` doesn't route `openPit`/`closePit`/`countWithTickers` through
+media-api at all today — they fall straight through to `this.es.*`. Recorded as a
+concrete design requirement for the planned media-api PIT endpoints (phase-3
+d7-d8-d9): give these two methods a `signal` param before/alongside writing the real
+implementations, not as a retrofit. Not implemented in this pass — tracked as a
+follow-up. Full evidence and narrative: `zz Archive/search-request-cancellation-workplan.md` §10.
+
+**Incidental fix:** `dal/index.ts`'s barrel export was missing `AggregationRequest`
+(present in `dal/types.ts`, never re-exported) — a pre-existing gap, unrelated to the
+above, surfaced by the IDE while working in this area. One-line fix.
+
+**Sandbox note:** the e2e run for this change hit 2 failures in `scrubber.spec.ts`
+("settle-window"/"swim" timing assertions) inside the sandboxed terminal; both passed
+84/84 clean on an unsandboxed rerun. Sandboxed execution isn't reliable for
+frame/scroll-timing-sensitive Playwright specs — noted in repo memory.
+
 ### 11 August 2026 — Dynamic field typeahead + `has:`-triggered facets (design: `cql-arbitrary-field-paths-typeahead.md`, archived design/review docs)
 
 Shipped both capabilities from the design doc: (1) value-typeahead for

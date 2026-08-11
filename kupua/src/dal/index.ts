@@ -10,6 +10,7 @@ export type {
   SortValues,
   AggregationResult,
   AggregationBucket,
+  AggregationRequest,
   AggregationsResult,
   FilterAggRequest,
   UsageFilterAggRequest,

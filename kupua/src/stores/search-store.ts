@@ -2175,6 +2175,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             : { ...params, length: PAGE_SIZE, trackTotalHits: true },
           null, // no cursor — first page
           null, // no PIT — index-prefixed /{index}/_search
+          signal, // cancel this request if a newer search() supersedes it
         ),
         // Fire ticker aggs in parallel with the first page.
         // countWithTickers uses size:0 so it doesn't compete with the main
@@ -2389,6 +2390,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
       }
     } catch (e) {
+      // A superseded search's searchAfter is now cancelled via `signal`
+      // (previously only the result was discarded via _searchGeneration,
+      // leaving the request running server-side). apiSearchAfter's fetch
+      // rejects with AbortError on cancellation (unlike the direct-ES path,
+      // which swallows it internally) — bail out silently rather than
+      // surfacing it as a search failure.
+      if (_searchGeneration !== myGeneration) return;
+      if (e instanceof DOMException && e.name === "AbortError") return;
       set({
         error: e instanceof Error ? e.message : "Search failed",
         loading: false,

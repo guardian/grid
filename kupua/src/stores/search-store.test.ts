@@ -834,6 +834,50 @@ describe("abort / concurrent safety", () => {
     expect(state().bufferOffset).toBe(0);
     assertPositionsConsistent("after search-during-extend");
   });
+
+  it("a superseded search's searchAfter request is actually cancelled via AbortSignal, not just its result discarded", async () => {
+    mock = new MockDataSource(100);
+    useSearchStore.setState({ dataSource: mock });
+
+    // Intercept searchAfter to capture the first call's signal and hold it
+    // in-flight until released, so we can inspect abort state before it
+    // resolves.
+    let firstSignal: AbortSignal | undefined;
+    let resolveFirst!: () => void;
+    const firstBarrier = new Promise<void>((r) => { resolveFirst = r; });
+    let callCount = 0;
+    const original = mock.searchAfter.bind(mock);
+    mock.searchAfter = async (...args: Parameters<typeof mock.searchAfter>) => {
+      callCount++;
+      if (callCount === 1) {
+        firstSignal = args[3];
+        await firstBarrier;
+      }
+      return original(...args);
+    };
+
+    const search1 = actions().search("slow-query");
+    await flush();
+
+    expect(firstSignal).toBeDefined();
+    expect(firstSignal!.aborted).toBe(false);
+
+    // Fire a second search — the first request must be aborted, not merely
+    // superseded by the generation counter.
+    const search2 = actions().search("fast-query");
+    await search2;
+
+    expect(firstSignal!.aborted).toBe(true);
+
+    // Release the first (now-aborted) call and confirm it doesn't corrupt
+    // the second search's state.
+    resolveFirst();
+    await search1;
+    await flush();
+
+    expect(state().total).toBe(100);
+    expect(state().error).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
