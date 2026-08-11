@@ -14,9 +14,16 @@ import {
   type CqlExpr,
   type CqlField,
 } from "@guardian/cql";
+import { getFieldPath } from "./cql";
 
-// Reuse the same parser settings as the main CQL module
+// Reuse the same parser settings as the main CQL module (operators/groups
+// disabled, matching the widget in CqlSearchInput.tsx) — without this, this
+// parser silently falls back to the library's defaults for those settings,
+// which could parse a query differently than how the widget would have let
+// the user compose it in the first place.
 const parser = createParser({
+  operators: false,
+  groups: false,
   shortcuts: {
     "#": "label",
     "~": "collection",
@@ -79,7 +86,10 @@ function matchField(
   query: string
 ): FoundTerm | undefined {
   const fieldKey = field.key.literal ?? field.key.lexeme;
-  const fieldValue = field.value?.literal ?? field.value?.lexeme;
+  // Same fallback collectByKey uses when deriving targetValue — without it,
+  // a field with no value at all (field.value undefined) compares
+  // `undefined !== ""` against itself and is wrongly reported as "no match".
+  const fieldValue = field.value?.literal ?? field.value?.lexeme ?? "";
 
   if (
     fieldKey.toLowerCase() !== targetKey.toLowerCase() ||
@@ -105,6 +115,16 @@ function matchField(
   const end = (field.value?.end ?? field.key.end) + 1;
 
   return { negated, start, end };
+}
+
+/**
+ * Chars that force quoting in CQL — mirrors @guardian/cql's own reserved-char
+ * set (see cql-effective-query.ts's shouldQuoteFieldValue/hasReservedChar
+ * comment). Applies to both keys and values: a raw ES path used as a CQL key
+ * (e.g. "fileMetadata.xmp.dc:creator") needs the same quoting a value would.
+ */
+function shouldQuote(s: string): boolean {
+  return /[\s:()]/.test(s);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,9 +168,10 @@ export function upsertFieldTerm(
   value: string,
   negated: boolean
 ): string {
-  const quotedValue = value.includes(" ") ? `"${value}"` : value;
+  const quotedKey = shouldQuote(key) ? `"${key}"` : key;
+  const quotedValue = shouldQuote(value) ? `"${value}"` : value;
   const prefix = negated ? "-" : "";
-  const desired = `${prefix}${key}:${quotedValue}`;
+  const desired = `${prefix}${quotedKey}:${quotedValue}`;
 
   const existing = findFieldTerm(query, key, value);
 
@@ -235,5 +256,64 @@ function collectInBinary(
 ): void {
   collectByKey(binary.left, key, query, out);
   if (binary.right) collectInBinary(binary.right.binary, key, query, out);
+}
+
+/**
+ * Find all `has:"<field>"` clause targets in a query (deduped by resolved ES
+ * path). Used to detect which fields a dynamic facet section should be
+ * rendered for.
+ *
+ * Returns both the raw literal (what the user typed, e.g. a short alias
+ * like "croppedBy" — needed for building click-to-filter CQL chip text,
+ * which must round-trip through the same alias) and the resolved ES path
+ * (e.g. "exports.author" — needed for the actual aggregation request,
+ * since `has:` itself filters on `getFieldPath(value)`, not the raw
+ * literal — review finding F3: without this resolution, an aliased has:
+ * target's facet aggregated on the wrong, unmapped path and never
+ * appeared).
+ */
+export function findHasFieldTargets(
+  query: string,
+): { raw: string; esPath: string }[] {
+  if (!query.trim()) return [];
+
+  const result = parser(query);
+  if (!result.queryAst?.content) return [];
+
+  // Keyed by esPath so has:croppedBy and has:"exports.author" (same
+  // underlying field, different raw forms) dedupe to one facet.
+  const out = new Map<string, string>();
+  collectHasTargetsInBinary(result.queryAst.content, out);
+  return Array.from(out, ([esPath, raw]) => ({ raw, esPath }));
+}
+
+function collectHasTargetsInBinary(binary: CqlBinary, out: Map<string, string>): void {
+  collectHasTargetsInExpr(binary.left, out);
+  if (binary.right) collectHasTargetsInBinary(binary.right.binary, out);
+}
+
+function collectHasTargetsInExpr(expr: CqlExpr, out: Map<string, string>): void {
+  switch (expr.content.type) {
+    case "CqlField": {
+      const field = expr.content;
+      const key = field.key.literal ?? field.key.lexeme;
+      // A negated -has:X filters to docs that do NOT have field X — an
+      // aggregation on X over that result set is guaranteed to return zero
+      // buckets. Never a useful facet target, always a wasted request.
+      if (key.toLowerCase() === "has" && expr.polarity !== "NEGATIVE") {
+        const value = field.value?.literal ?? field.value?.lexeme;
+        // Keep the first raw form seen for a given resolved path — stable
+        // regardless of which alias/full-path spelling appears later.
+        if (value && !out.has(getFieldPath(value))) out.set(getFieldPath(value), value);
+      }
+      break;
+    }
+    case "CqlBinary":
+      collectHasTargetsInBinary(expr.content, out);
+      break;
+    case "CqlGroup":
+      collectHasTargetsInBinary(expr.content.content, out);
+      break;
+  }
 }
 

@@ -17,9 +17,10 @@ import {
 } from "@guardian/cql";
 import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
-import { buildTypeaheadFields } from "@/lib/typeahead-fields";
+import { buildTypeaheadFields, buildDynamicFieldFallback } from "@/lib/typeahead-fields";
 import { isMobile } from "@/lib/is-mobile";
 import { deriveEffectiveQuery } from "@/lib/cql-effective-query";
+import { queryStrFromAst } from "@/lib/cql-ast-serialize";
 
 // ---------------------------------------------------------------------------
 // Theme — matches kupua's dark palette
@@ -155,9 +156,26 @@ export function CqlSearchInput({
   }, []);
 
   // Build typeahead from DAL — memoised so we don't rebuild on every render
+  //
+  // liveQueryRef: written by LazyTypeahead on every getSuggestions call with
+  // the query serialized from the LIVE AST it's just been given. getParams
+  // (below) prefers this over the search store's committed query, which
+  // lags behind by one event — the store only updates once our own
+  // queryChange listener runs, which happens after the widget's own
+  // suggestion pass. Without this, a field whose key was free text a
+  // moment ago (e.g. a quoted ES path just turned into a chip by typing
+  // ":") gets its value-suggestion aggregation wrongly scoped by that
+  // stale, pre-chip free-text content — self-defeating the very
+  // aggregation meant to inspect that field. See deviations.md.
+  const liveQueryRef = useRef<string | undefined>(undefined);
   const typeahead = useMemo(() => {
     const getAggs = () => aggregationsRef.current;
-    const getParams = () => useSearchStore.getState().params;
+    const getParams = () => {
+      const params = useSearchStore.getState().params;
+      return liveQueryRef.current !== undefined
+        ? { ...params, query: liveQueryRef.current || undefined }
+        : params;
+    };
     const getTickerCounts = () => tickerCountsRef.current;
     const getIsFilterCounts = () => isFilterCountsRef.current;
     const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams, getTickerCounts, getIsFilterCounts);
@@ -188,7 +206,8 @@ export function CqlSearchInput({
         "TEXT"
       );
     });
-    return new LazyTypeahead(fields, hiddenFieldIds);
+    const dynamicFieldFallback = buildDynamicFieldFallback(dataSource, getParams);
+    return new LazyTypeahead(fields, hiddenFieldIds, dynamicFieldFallback, liveQueryRef);
   }, [dataSource]);
 
   // Register custom element + create instance
@@ -226,13 +245,21 @@ export function CqlSearchInput({
         // Always update the content indicator (drives the clear button)
         onHasContentRef.current?.(detail.queryStr.trim().length > 0);
 
+        // Re-derive the query string from the AST ourselves rather than
+        // trusting detail.queryStr — @guardian/cql's own serialiser has a
+        // quoting bug for plain phrases containing reserved chars (e.g.
+        // `"hello:world"` loses its quotes). See cql-ast-serialize.ts.
+        const queryStr = detail.queryAst
+          ? queryStrFromAst(detail.queryAst)
+          : detail.queryStr;
+
         // Strip incomplete CQL chip expressions (key: with no value) before
         // reporting to parent. These appear while composing a new chip —
         // pressing + inserts a bare ":", selecting a field produces "credit:",
         // etc.  Sending them upstream would trigger URL/search updates with
         // meaningless fragments that reset results to 0.
         // Matches kahuna's renderQuery `.filter(item => item.value)`.
-        const effective = deriveEffectiveQuery(detail.queryStr);
+        const effective = deriveEffectiveQuery(queryStr);
 
         if (effective !== lastEffectiveQueryRef.current) {
           lastEffectiveQueryRef.current = effective;

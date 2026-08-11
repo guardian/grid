@@ -1,5 +1,5 @@
-<\!-- AGENT PROTOCOL
-STOP\! If you do NOT see your own "🤖 Agent check-in" entry at the bottom of the
+<!-- AGENT PROTOCOL
+STOP! If you do NOT see your own "🤖 Agent check-in" entry at the bottom of the
 Session Log that YOU wrote in THIS conversation, you are a NEW agent.
 Follow the Fresh Agent Protocol in copilot-instructions.md:
   1. Say "Hi, I'm a fresh agent."
@@ -12,7 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-
+None — awaiting next task.
 
 ## Session Log
 
+(empty)

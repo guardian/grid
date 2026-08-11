@@ -11,13 +11,13 @@
  * See kupua/exploration/docs/zz Archive/panels-plan.md §Facet Filters for the full design.
  */
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
-import { findFieldTerm, upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
+import { findFieldTerm, upsertFieldTerm, findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import { trace } from "@/lib/perceived-trace";
 import { formatCount } from "@/lib/format-count";
@@ -41,6 +41,14 @@ const FACET_FIELDS: readonly FieldDefinition[] = FIELD_REGISTRY.filter(
 
 /** Max buckets shown before "show more" (matches AGG_DEFAULT_SIZE in store). */
 const INITIAL_VISIBLE = 10;
+
+/**
+ * Minimal shape FacetSection actually needs — lets a dynamic, unregistered
+ * field path (from a `has:` clause) be rendered through the same component
+ * as registry-backed facets without needing a full FieldDefinition (id,
+ * accessor, defaultWidth, fieldType, etc. don't apply to it).
+ */
+type FacetFieldLike = Pick<FieldDefinition, "id" | "label" | "cqlKey" | "esSearchPath" | "formatter" | "formatterIsDisplayOnly">;
 
 // ---------------------------------------------------------------------------
 // AggCircuitBreaker — shows "Refresh (slow)" button when agg circuit is open.
@@ -79,10 +87,19 @@ export function FacetFilters() {
   const expandedAggsLoading = useSearchStore((s) => s.expandedAggsLoading);
   const fetchExpandedAgg = useSearchStore((s) => s.fetchExpandedAgg);
   const collapseExpandedAgg = useSearchStore((s) => s.collapseExpandedAgg);
+  const dynamicFacetBuckets = useSearchStore((s) => s.dynamicFacetBuckets);
 
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const currentQuery = searchParams.query ?? "";
+
+  // Field paths targeted by has: clauses in the current query — one facet
+  // section per field, only rendered once its bucket data has arrived.
+  // esPath is the resolved ES path (matches how dynamicFacetBuckets/
+  // expandedAggs are keyed); raw is what the user typed (e.g. a short
+  // alias like "croppedBy"), used for the CQL chip text a value click adds.
+  const dynamicFacetFields = useMemo(() => findHasFieldTargets(currentQuery), [currentQuery]);
+
 
   // Scroll-anchor ref: when a facet value is clicked, we snapshot the
   // clicked button's viewport offset. After React re-renders with new agg
@@ -170,9 +187,10 @@ export function FacetFilters() {
   // Render
   // ------------------------------------------------------------------
 
-  const hasFacetBuckets = FACET_FIELDS.some(
-    (f) => (aggregations?.fields[f.esSearchPath as string]?.buckets?.length ?? 0) > 0,
-  );
+  const hasFacetBuckets =
+    FACET_FIELDS.some(
+      (f) => (aggregations?.fields[f.esSearchPath as string]?.buckets?.length ?? 0) > 0,
+    ) || Object.keys(dynamicFacetBuckets).length > 0;
 
   return (
     <div ref={containerRef} className="py-1">
@@ -225,6 +243,23 @@ export function FacetFilters() {
           onFacetClick={handleFacetClick}
         />
       ))}
+      {/* Dynamic facets — one per has:"<field>" clause in the query, for
+          arbitrary field paths outside the field registry (e.g.
+          fileMetadata.xmp.*). Reuses FacetSection: same click, expand, and
+          hide-if-empty behaviour as static facets. */}
+      {dynamicFacetFields.map(({ raw, esPath }) => (
+        <FacetSection
+          key={esPath}
+          field={{ id: esPath, label: raw, cqlKey: raw, esSearchPath: esPath }}
+          buckets={dynamicFacetBuckets[esPath] ?? []}
+          expandedBuckets={expandedAggs[esPath]?.buckets}
+          expandedLoading={expandedAggsLoading.has(esPath)}
+          onShowMore={() => fetchExpandedAgg(esPath)}
+          onCollapse={() => collapseExpandedAgg(esPath)}
+          currentQuery={currentQuery}
+          onFacetClick={handleFacetClick}
+        />
+      ))}
       {total === 0 && !hasFacetBuckets && (
         <div className="px-3 py-4 text-xs text-grid-text-dim text-center">
           No results to filter
@@ -239,7 +274,7 @@ export function FacetFilters() {
 // ---------------------------------------------------------------------------
 
 interface FacetSectionProps {
-  field: FieldDefinition;
+  field: FacetFieldLike;
   buckets: AggregationBucket[];
   expandedBuckets: AggregationBucket[] | undefined;
   expandedLoading: boolean;
@@ -501,7 +536,7 @@ function UsageFacetSection({ currentQuery, usageFilterCounts, onUsageClick }: Us
     return !(count === 0 && !isActive && !isExcluded);
   });
 
-  if (visibleOptions.length === 0 && !usageFilterCounts) return null;
+  if (visibleOptions.length === 0) return null;
 
   return (
     <div className="pb-2">

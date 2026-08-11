@@ -21,7 +21,13 @@ import { getOverQuotaSuppliers } from "@/lib/cost/quota-store";
 // CQL Parser instance — configure shortcuts like kahuna does
 // ---------------------------------------------------------------------------
 
+// operators/groups disabled to match the widget in CqlSearchInput.tsx —
+// without this, this parser silently falls back to the library's defaults
+// for those settings, which could parse a query differently than how the
+// widget would have let the user compose it in the first place.
 const parser = createParser({
+  operators: false,
+  groups: false,
   shortcuts: {
     "#": "label",
     "~": "collection",
@@ -77,7 +83,7 @@ const FIELD_ALIASES: Record<string, string> = {
 };
 
 /** Resolve a short field name to the full ES path (mirrors Scala getFieldPath) */
-function getFieldPath(field: string): string {
+export function getFieldPath(field: string): string {
   if (METADATA_FIELDS.has(field)) return `metadata.${field}`;
   if (USAGE_RIGHTS_FIELDS.has(field)) return `usageRights.${field}`;
   if (EDITS_FIELDS.has(field)) return `userMetadata.${field}`;

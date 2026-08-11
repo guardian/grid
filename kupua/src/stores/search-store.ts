@@ -26,6 +26,7 @@ import type {
   SortValues,
   AggregationsResult,
   AggregationResult,
+  AggregationBucket,
   SortDistribution,
   SearchAfterResult,
   TickerCountResult,
@@ -40,6 +41,8 @@ import { buildSortClause, parseSortField, createDataSource } from "@/dal";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
+import { isolateAggregationFailure } from "@/lib/safe-aggregation";
+import { findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
 import { extractSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
@@ -374,6 +377,15 @@ interface SearchState {
   isFilterCounts: Record<string, number> | null;
   /** Nested-filter agg counts for usages (platform:digital, platform:print, status:published, etc.). */
   usageFilterCounts: Record<string, number> | null;
+  /**
+   * Buckets for arbitrary, unregistered field paths referenced by a `has:`
+   * clause in the current query — keyed by ES field path. Fetched as
+   * isolated single-field requests alongside the static AGG_FIELDS batch
+   * (never merged into it — a non-aggregatable field must not take down
+   * unrelated facets). Absent key = no data (not fetched, empty, or the
+   * field isn't aggregatable).
+   */
+  dynamicFacetBuckets: Record<string, AggregationBucket[]>;
 
   // --- Sort distribution for scrubber (tooltip + track ticks) ---
   /** Pre-fetched distribution for the current sort field (keyword or date). */
@@ -1892,6 +1904,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   expandedAggsLoading: new Set(),
   isFilterCounts: null,
   usageFilterCounts: null,
+  dynamicFacetBuckets: {},
 
   // Sort distribution state (scrubber tooltip + ticks)
   sortDistribution: null,
@@ -3934,12 +3947,38 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     ];
 
     try {
-      const result = await dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests, usageFilterRequests);
+      // esPath is the resolved ES path (has: itself filters on
+      // getFieldPath(value), so the facet must aggregate on the same
+      // resolved path or it silently never appears — review finding F3).
+      // dynamicFacetBuckets/expandedAggs are keyed by esPath throughout,
+      // matching how static facets are always keyed by their ES path.
+      const dynamicFields = findHasFieldTargets(callParams.query ?? "").filter(
+        ({ esPath }) => !AGG_FIELDS.some((af) => af.field === esPath),
+      );
+
+      const [result, dynamicEntries] = await Promise.all([
+        dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests, usageFilterRequests),
+        // Isolated, one field per request — never merged into the batch above.
+        // A non-aggregatable has: target must not take down the static facets.
+        Promise.all(dynamicFields.map(async ({ esPath }) => {
+          const buckets = await isolateAggregationFailure(
+            async () => (await dataSource.getAggregations(callParams, [{ field: esPath, size: AGG_DEFAULT_SIZE }], _aggAbortController!.signal)).fields[esPath]?.buckets,
+            undefined,
+          );
+          return [esPath, buckets] as const;
+        })),
+      ]);
+
+      const dynamicFacetBuckets: Record<string, AggregationBucket[]> = {};
+      for (const [esPath, buckets] of dynamicEntries) {
+        if (buckets?.length) dynamicFacetBuckets[esPath] = buckets;
+      }
 
       const elapsed = performance.now() - startTime;
 
       set({
         aggregations: result,
+        dynamicFacetBuckets,
         aggTook: result.took ?? null,
         aggFetchDuration: result.fetchDuration ?? null,
         aggLoading: false,

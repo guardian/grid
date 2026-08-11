@@ -59,9 +59,21 @@ export function AccordionSection({ sectionId, title, headerRight, children }: Ac
 
   return (
     <div>
-      <button
+      {/* Not a <button> — headerRight (e.g. AggCircuitBreaker) can render its
+          own <button>, and <button> cannot contain a nested <button> (invalid
+          HTML, React hydration warning). role="button" + explicit keyboard
+          handling keeps it accessible. */}
+      <div
+        role="button"
+        tabIndex={0}
         className="flex items-center gap-1 w-full px-1.5 h-9 border-b border-grid-separator text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
         onClick={() => toggleSection(sectionId)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSection(sectionId);
+          }
+        }}
         aria-expanded={isOpen}
         aria-controls={`section-${sectionId}`}
       >
@@ -90,7 +102,7 @@ export function AccordionSection({ sectionId, title, headerRight, children }: Ac
             {headerRight}
           </span>
         )}
-      </button>
+      </div>
       {isOpen && (
         <div id={`section-${sectionId}`}>
           {children}

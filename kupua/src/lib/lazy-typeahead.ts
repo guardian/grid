@@ -30,6 +30,14 @@ import {
   CqlBinary,
   CqlExpr,
 } from "@guardian/cql";
+import { queryStrFromAst } from "@/lib/cql-ast-serialize";
+
+/** Value-suggestion resolver for a field with no static `TypeaheadField`. */
+export type DynamicFieldFallback = (
+  fieldId: string,
+  value: string,
+  signal?: AbortSignal,
+) => Promise<TextSuggestionOption[] | undefined>;
 
 // ---------------------------------------------------------------------------
 // Inlined from @guardian/cql's lang/utils.ts — the package doesn't expose
@@ -93,18 +101,47 @@ export class LazyTypeahead extends Typeahead {
   private _fields: TypeaheadField[];
   private _fieldOptions: TextSuggestionOption[];
   private _abortController: AbortController | undefined;
+  private _dynamicFieldFallback?: DynamicFieldFallback;
+  private _liveQueryRef?: { current: string | undefined };
 
   /**
    * @param fields          All typeahead fields (key + value resolvers).
    * @param hiddenFieldIds  Field IDs that have value resolvers but should
    *                        NOT appear in key suggestions (e.g. colourModel).
+   * @param dynamicFieldFallback  Called only when the typed key doesn't match
+   *                        any static field AND looks like a real ES path
+   *                        (contains a `.`) — attempts value suggestions for
+   *                        arbitrary, unregistered field paths (e.g.
+   *                        fileMetadata.xmp.dc:creator). Returns undefined
+   *                        when the field isn't aggregatable or has no data.
+   * @param liveQueryRef    Written on every getSuggestions call with the
+   *                        CURRENT query, serialized from the live AST
+   *                        we're given — not the search store's committed
+   *                        query, which lags behind by one event (the
+   *                        store only updates once our own `queryChange`
+   *                        listener runs, which happens after the widget's
+   *                        own suggestion pass). Callers whose resolvers
+   *                        self-scope via getParams() should have their
+   *                        getParams() implementation prefer this ref's
+   *                        value over the store's, so a field that was
+   *                        free text a moment ago (e.g. a quoted ES path
+   *                        just turned into a chip key) doesn't get its
+   *                        aggregation wrongly scoped by that stale,
+   *                        pre-chip free-text content. See deviations.md.
    */
-  constructor(fields: TypeaheadField[], hiddenFieldIds?: Set<string>) {
+  constructor(
+    fields: TypeaheadField[],
+    hiddenFieldIds?: Set<string>,
+    dynamicFieldFallback?: DynamicFieldFallback,
+    liveQueryRef?: { current: string | undefined },
+  ) {
     super(fields);
     this._fields = fields;
     this._fieldOptions = fields
       .filter((f) => !hiddenFieldIds?.has(f.id))
       .map((f) => f.toSuggestionOption());
+    this._dynamicFieldFallback = dynamicFieldFallback;
+    this._liveQueryRef = liveQueryRef;
   }
 
   // -----------------------------------------------------------------------
@@ -113,11 +150,20 @@ export class LazyTypeahead extends Typeahead {
 
   public override getSuggestions(
     program: CqlQuery,
-    signal?: AbortSignal
+    // Accepted to match the parent's override signature, but deliberately
+    // NOT forwarded to suggestField below — see the comment on
+    // abortController.signal for why.
+    _signal?: AbortSignal
   ): Promise<TypeaheadSuggestion[]> {
     return new Promise((resolve, reject) => {
       // Abort any in-flight request (matches parent behaviour)
       this._abortController?.abort();
+
+      if (this._liveQueryRef) {
+        this._liveQueryRef.current = program.content
+          ? queryStrFromAst(program)
+          : undefined;
+      }
 
       if (!program.content) {
         return resolve([]);
@@ -130,8 +176,27 @@ export class LazyTypeahead extends Typeahead {
       });
 
       const cqlFields = getCqlFieldsFromBinary(program.content);
+      // Use OUR OWN abortController.signal, not the widget's external
+      // `_signal` — the widget aborts its signal on its own internal
+      // schedule (opaque to us), which can race ahead of and cancel a
+      // still-relevant, still-current fetch even though nothing newer has
+      // actually superseded it from our own bookkeeping's point of view.
+      // Our own controller already gets aborted above whenever a NEWER
+      // getSuggestions call truly supersedes this one.
+      //
+      // NOTE — this signal only actually cancels the dynamic-field
+      // fallback path (buildDynamicFieldFallback threads it through to
+      // dataSource.getAggregations). Registered static fields' resolvers
+      // (CqlSearchInput.tsx's `cqlResolver`) are wrapped as a single-arg
+      // `async (_fieldName: string) => ...` that drops the second `signal`
+      // parameter entirely, and `scopedAgg` (typeahead-fields.ts) doesn't
+      // pass a signal to `getAggregations` at all — so static-field
+      // aggregations remain uncancellable on rapid keystrokes regardless
+      // of this fix. Review finding F5: fixing that would mean changing
+      // the static resolver signature and scopedAgg's call, a separate
+      // and larger change not made here.
       const promises = cqlFields.map((field) =>
-        this.suggestField(field, signal)
+        this.suggestField(field, abortController.signal)
       );
 
       Promise.all(promises)
@@ -164,6 +229,18 @@ export class LazyTypeahead extends Typeahead {
     const resolver = this._fields.find((f) => f.id === fieldId);
 
     if (!resolver) {
+      // Unregistered key — try the dynamic fallback only for paths that
+      // look like real ES field paths (dotted). Bare typos of registered
+      // field names (no dot) skip the round-trip entirely. Fields that ARE
+      // registered but resolver-less (city, country, ...) are found above
+      // and never reach here — they keep showing no value suggestions with
+      // no wasted round-trip, same as today.
+      if (this._dynamicFieldFallback && fieldId.includes(".")) {
+        const dynamicSuggestions = await this._dynamicFieldFallback(fieldId, valueStr, signal);
+        if (dynamicSuggestions?.length) {
+          return [...keySuggestions, this.buildValueSuggestion(key, value, dynamicSuggestions)];
+        }
+      }
       return keySuggestions;
     }
 
@@ -174,17 +251,22 @@ export class LazyTypeahead extends Typeahead {
 
     const valueSuggestions = await maybeValueSuggestions;
 
-    return [
-      ...keySuggestions,
-      {
-        from: value ? value.start - 1 : key.end, // extend backwards into chipKey's ':'
-        to: value ? value.end : key.end,
-        position: "chipValue" as const,
-        suggestions: valueSuggestions,
-        type: "TEXT" as const,
-        suffix: " ",
-      },
-    ];
+    return [...keySuggestions, this.buildValueSuggestion(key, value, valueSuggestions)];
+  }
+
+  private buildValueSuggestion(
+    key: { end: number },
+    value: { start: number; end: number } | undefined,
+    suggestions: TextSuggestionOption[],
+  ): TypeaheadSuggestion {
+    return {
+      from: value ? value.start - 1 : key.end, // extend backwards into chipKey's ':'
+      to: value ? value.end : key.end,
+      position: "chipValue" as const,
+      suggestions,
+      type: "TEXT" as const,
+      suffix: " ",
+    };
   }
 
   private suggestKey(

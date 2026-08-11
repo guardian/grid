@@ -22,6 +22,8 @@ import type {
 } from "@/dal/types";
 import { gridConfig } from "./grid-config";
 import { FIELDS_BY_CQL_KEY } from "./field-registry";
+import { isolateAggregationFailure } from "./safe-aggregation";
+import { removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
 import {
   PHOTOGRAPHER_CATEGORIES,
@@ -106,18 +108,21 @@ function bucketFilter(
  * E.g. stripFieldFromQuery("credit", 'cats credit:"John Smith" dogs')
  *   → "cats dogs"
  */
-function stripFieldFromQuery(cqlKey: string, query: string): string {
+export function stripFieldFromQuery(cqlKey: string, query: string): string {
   // Matches: optional +/- prefix, the field key, colon, then either a
-  // quoted value or a non-whitespace run.
+  // quoted value or a (possibly empty) non-whitespace run — `\S*`, not
+  // `\S+`: a chip with no value yet (e.g. "credit:" right after selecting
+  // the key suggestion, nothing typed after the colon) must still match,
+  // or it's never stripped and ends up used as a literal free-text filter.
   const pattern = new RegExp(
-    `[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:(?:"[^"]*"|\\S+)`,
+    `[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:(?:"[^"]*"|\\S*)`,
     "gi",
   );
   return query.replace(pattern, "").replace(/\s{2,}/g, " ").trim();
 }
 
 /** Returns true if the query string contains a filter for the given CQL key. */
-function queryContainsField(cqlKey: string, query: string | undefined): boolean {
+export function queryContainsField(cqlKey: string, query: string | undefined): boolean {
   if (!query) return false;
   const pattern = new RegExp(
     `(?:^|\\s)[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`,
@@ -193,17 +198,19 @@ export function buildTypeaheadFields(
    *  (still scoped by other filters) rather than only X. */
   async function scopedAgg(field: string, size: number = 50, cqlKey?: string): Promise<AggregationResult> {
     const params = getParams?.();
-    if (params) {
-      let adjustedParams = params;
-      if (cqlKey && params.query && queryContainsField(cqlKey, params.query)) {
-        const stripped = stripFieldFromQuery(cqlKey, params.query);
-        adjustedParams = { ...params, query: stripped || undefined };
+    return isolateAggregationFailure(async () => {
+      if (params) {
+        let adjustedParams = params;
+        if (cqlKey && params.query && queryContainsField(cqlKey, params.query)) {
+          const stripped = stripFieldFromQuery(cqlKey, params.query);
+          adjustedParams = { ...params, query: stripped || undefined };
+        }
+        const result = await dataSource.getAggregations(adjustedParams, [{ field, size }]);
+        return result.fields[field] ?? { buckets: [], total: 0 };
       }
-      const result = await dataSource.getAggregations(adjustedParams, [{ field, size }]);
-      return result.fields[field] ?? { buckets: [], total: 0 };
-    }
-    // No params callback — fall back to unscoped (match_all)
-    return dataSource.getAggregation(field, undefined, size);
+      // No params callback — fall back to unscoped (match_all)
+      return dataSource.getAggregation(field, undefined, size);
+    }, { buckets: [], total: 0 });
   }
 
   // Field aliases from config that have search hints.
@@ -528,3 +535,47 @@ function flattenCollectionPathIds(root: CollectionNode): string[] {
   walk(root);
   return ids;
 }
+
+// ---------------------------------------------------------------------------
+// Dynamic field fallback — value suggestions for arbitrary, unregistered
+// field paths (e.g. fileMetadata.xmp.dc:creator). Only invoked by
+// LazyTypeahead when no static TypeaheadField matches the typed key — a
+// field that's registered but resolver-less (city, country, etc.) is still
+// found by that lookup and never reaches here, so it keeps showing no value
+// suggestions with no wasted round-trip, same as today.
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the fallback resolver passed to `LazyTypeahead`. Attempts an
+ * isolated single-field terms aggregation on the literal typed field path —
+ * no upfront mapping-type check. Success (>=1 bucket) shows value
+ * suggestions; failure (non-aggregatable field, bad path, ES error) or an
+ * empty result shows none, identical to how already-excluded text fields
+ * (byline, city, ...) behave.
+ */
+export function buildDynamicFieldFallback(
+  dataSource: ImageDataSource,
+  getParams?: () => SearchParams,
+): (fieldId: string, value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[] | undefined> {
+  return async (fieldId, value, signal) => {
+    const params = getParams?.();
+    if (!params) return undefined;
+    // Strip the field's own chip(s) first — otherwise, once the user has
+    // typed a value, the live-committed query already filters on this same
+    // field, and the aggregation ends up self-referentially scoped to
+    // whatever's currently typed instead of the field's full distribution
+    // (confirmed live: typing "London" then editing it kept showing only
+    // matches for the in-progress partial value). Same fix scopedAgg already
+    // applies for static fields, via the parser-based helper (regex-based
+    // stripFieldFromQuery doesn't handle quoted keys like this one can be).
+    const scopedQuery = params.query ? removeAllFieldTerms(params.query, fieldId) : params.query;
+    const adjustedParams = scopedQuery !== params.query ? { ...params, query: scopedQuery || undefined } : params;
+    const buckets = await isolateAggregationFailure(
+      async () => (await dataSource.getAggregations(adjustedParams, [{ field: fieldId, size: 50 }], signal)).fields[fieldId]?.buckets,
+      undefined,
+    );
+    if (!buckets?.length) return undefined;
+    return bucketFilter(value, buckets);
+  };
+}
+

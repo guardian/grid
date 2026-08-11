@@ -19,6 +19,13 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
+import type {
+  SearchParams,
+  AggregationRequest,
+  AggregationsResult,
+  FilterAggRequest,
+  UsageFilterAggRequest,
+} from "@/dal";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -2082,6 +2089,58 @@ describe("fetchAggregations", () => {
     await actions().fetchAggregations(true);
     // No hang — if we get here, the promise resolved
     expect(state().aggLoading).toBe(false);
+  });
+
+  it("fetches has: target fields in isolation — a failing dynamic field doesn't break the static batch", async () => {
+    // Simulates the real ES failure mode (confirmed empirically): a terms
+    // agg on a non-aggregatable field 400s the whole request. The dynamic
+    // fetch must run each has: target as its own request so metadata.city
+    // failing has zero effect on the static aggregations batch or on the
+    // OTHER has: target (fileMetadata.xmp.dc:creator), which succeeds.
+    class IsolationTestDataSource extends MockDataSource {
+      async getAggregations(
+        _params: SearchParams,
+        fields: AggregationRequest[],
+        _signal?: AbortSignal,
+        _isFilters?: FilterAggRequest[],
+        _usageFilters?: UsageFilterAggRequest[],
+      ): Promise<AggregationsResult> {
+        if (fields.length > 1) {
+          // The static AGG_FIELDS batch call.
+          return {
+            fields: {
+              "usageRights.category": { buckets: [{ key: "staff-photographer", count: 3 }], total: 3 },
+            },
+          };
+        }
+        const [{ field }] = fields;
+        if (field === "metadata.city") {
+          throw new Error("Fielddata is disabled on [metadata.city] — simulated non-aggregatable field");
+        }
+        if (field === "fileMetadata.xmp.dc:creator") {
+          return { fields: { [field]: { buckets: [{ key: "Jane Doe", count: 2 }], total: 2 } } };
+        }
+        return { fields: {} };
+      }
+    }
+
+    mock = new IsolationTestDataSource(50);
+    useSearchStore.setState({
+      dataSource: mock,
+      params: {
+        ...state().params,
+        query: 'has:"metadata.city" has:"fileMetadata.xmp.dc:creator"',
+      },
+    });
+
+    await actions().fetchAggregations(true);
+
+    expect(state().dynamicFacetBuckets["fileMetadata.xmp.dc:creator"]).toEqual([
+      { key: "Jane Doe", count: 2 },
+    ]);
+    expect(state().dynamicFacetBuckets["metadata.city"]).toBeUndefined();
+    // The static batch must be unaffected by the failing dynamic field.
+    expect(state().aggregations?.fields["usageRights.category"]?.buckets).toHaveLength(1);
   });
 });
 

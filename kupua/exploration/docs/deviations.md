@@ -997,6 +997,55 @@ reverting the URL.  This part is unrelated to the remount and still applies
 to every external-update caller.
 
 
+### 14a. `cql-ast-serialize.ts` reimplements @guardian/cql's AST→string serialiser (quoting bug workaround)
+
+**What:** A plain quoted phrase containing a reserved char with no
+whitespace — e.g. `"hello:world"`, or a raw ES field path used as a phrase
+like `"fileMetadata.xmp.dc:subject"` — loses its quotes the moment the
+`<cql-input>` widget reports it via `queryChange`, then gets mis-parsed as
+a `key:value` chip the next time that text is read (e.g. on the very next
+keystroke, or merely focusing the field). Reproduces with zero kupua code
+involved — a bare `document.createElement("cql-input")` with `value` set
+once shows the same corruption on its first `queryChange` event.
+
+**Root cause (confirmed against @guardian/cql's real source, not just the
+minified bundle):** `interpreter.ts`'s `strFromExpr`, in the `CqlStr` case,
+only re-quotes when `hasWhitespace(searchExpr)` is true. Its own chip
+key/value serialiser (`strFromField`, a few lines below) correctly checks
+`shouldQuoteFieldValue` = `hasWhitespace || hasReservedChar` (reserved =
+`:()"`). The two should use the same predicate — a bare colon is exactly
+as dangerous in a plain phrase as in a chip value, since the scanner
+treats an unquoted colon as chip syntax everywhere. No test or design note
+anywhere documents this as intentional; `interpreter.spec.ts` has a test
+titled "should escape reserved characters in quoted strings" that only
+covers escaped embedded quote chars, not colons — a gap, not a decision.
+
+**Workaround:** `kupua/src/lib/cql-ast-serialize.ts` — a corrected,
+drop-in reimplementation of the same AST→string logic (same public
+`@guardian/cql` AST types: `CqlQuery`/`CqlBinary`/`CqlExpr`/`CqlGroup`/
+`CqlField`/`CqlStr`), with the one predicate fixed. `CqlSearchInput.tsx`
+uses `queryStrFromAst(detail.queryAst)` in place of trusting
+`detail.queryStr` directly (falling back to `detail.queryStr` only when
+`queryAst` is absent, e.g. a parse-error state).
+
+**Why kahuna doesn't hit this:** kahuna never trusts `queryStr` either —
+it builds its own `StructuredQuery` model from `queryAst`, using each
+string token's raw `.lexeme` (verbatim original text, quotes included)
+rather than re-deriving from `searchExpr`. Kupua's fix takes the same
+"don't trust the library's own re-serialisation" lesson without adopting
+kahuna's `StructuredQuery` array model, which kupua's string-based
+downstream code (facets, typeahead, `cql-query-edit.ts`) doesn't need.
+
+**Upstream fix proposed:** one-line change in `@guardian/cql`'s
+`interpreter.ts` — use `shouldQuoteFieldValue` instead of `hasWhitespace`
+for the `CqlStr` case. PR not yet opened as of this writing; once merged
+and kupua upgrades past the fixed version, delete `cql-ast-serialize.ts`
+and its test, and revert `CqlSearchInput.tsx` to reading `detail.queryStr`
+directly.
+
+**Status:** Not filed upstream yet — planned.
+
+
 ### 14. Typeahead resolver strips own field from query via regex (workaround for missing CQL context)
 
 **What:** When the user edits a chip value (e.g. clears `credit:John Smith`
@@ -1034,6 +1083,7 @@ are unaffected. Once available, `stripFieldFromQuery` and
 |---|---|---|---|
 | Polarity change not re-rendering | ~~Remount component (§13)~~ | Fix internal diff (`sameContentMarkup`) | **Fixed in 1.8.6** ([#121](https://github.com/guardian/cql/pull/121)) |
 | Resolver gets self-referential aggs | Regex-strip field from query (this §) | Resolver receives `ResolverContext` | Not filed |
+| Quoted phrase with `:`/`(`/`)`/`"` loses quotes on serialise, mis-parsed as a chip next read | Reimplement AST→string serialiser (§14a) | One-line fix: use `shouldQuoteFieldValue` not `hasWhitespace` for `CqlStr` in `interpreter.ts` | Planned, not filed |
 | `+`/`-` not triggering on mobile | — | Add `handleTextInput` fallback | PR #125 open |
 | Popover dead space below suggestions | — | `pointer-events: none` on container | PR #126 open |
 | Blur resets caret to position 0 | Capture-phase blur + microtask restore (§19 lib) | `preserveCaretOnBlur` option | Not filed |

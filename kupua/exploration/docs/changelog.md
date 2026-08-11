@@ -14,6 +14,77 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 11 August 2026 — Dynamic field typeahead + `has:`-triggered facets (design: `cql-arbitrary-field-paths-typeahead.md`, archived design/review docs)
+
+Shipped both capabilities from the design doc: (1) value-typeahead for
+arbitrary/unregistered ES field paths (esp. `fileMetadata.*`, 2,452+ leaf
+paths, none individually registerable), fetched via an isolated
+single-field aggregation with graceful per-field failure
+(`isolateAggregationFailure`, `lib/safe-aggregation.ts`); (2) a
+`has:`-triggered dynamic Filters-panel facet section, reusing the static
+`FacetSection` component.
+
+**Live browser testing against real TEST data (1.3M images) surfaced a
+run of bugs the unit/e2e suites didn't catch** — all fixed, TDD
+throughout, full suite green after each:
+
+- **Kahuna-parity regression:** a quoted field key/value containing a
+  reserved char (`:()"`) was corrupted on load/focus — `@guardian/cql`'s
+  own `CqlStr` AST→string serializer only re-quotes on whitespace, never
+  on reserved chars (a real upstream bug, not a kupua one). Worked around
+  in a new `lib/cql-ast-serialize.ts` (corrected reimplementation of the
+  one buggy function); also fixed upstream in
+  `guardian/cql` PR **[#138](https://github.com/guardian/cql/pull/138)**
+  (branch `mk-claude-fix-cqlstr-quoting`, commit `627a320`), open,
+  awaiting review/merge. **Once merged and kupua upgrades past the fixed
+  `@guardian/cql` version, delete `cql-ast-serialize.ts`** and revert
+  `CqlSearchInput.tsx`'s `handleQueryChange` to trust `detail.queryStr`
+  directly (see deviations.md §14a).
+- A second, independent bug in `router.ts`'s `plainParseSearch` stripped a
+  leading+trailing `"` pair from any URL param (a stale pre-kupua-router
+  heuristic) — misfired on any legitimately-quoted CQL query. Deleted
+  outright (pre-launch, no legacy bookmarks to protect).
+- Several "chip with no value yet" bugs, same failure shape, three
+  different implementations: `deriveEffectiveQuery`'s incomplete-chip
+  regex missing dots and mid-quote anchoring (`cql-effective-query.ts`);
+  `matchField`'s `undefined`/`""` mismatch against its own caller
+  (`cql-query-edit.ts`); `stripFieldFromQuery`'s `\S+` (one-or-more)
+  instead of `\S*` (`typeahead-fields.ts`, this one a genuine regression
+  introduced by the `liveQueryRef` fix below, exposing a previously-
+  dormant sibling). Each left an empty-value chip as literal free-text,
+  starving the aggregation to zero buckets.
+- A store-staleness race: the widget's ProseMirror update cycle calls
+  `getSuggestions` before kupua's own store-sync listener runs, so
+  resolvers briefly read one keystroke stale. Fixed via `LazyTypeahead`
+  taking an optional `liveQueryRef`, written from the AST serializer at
+  the top of `getSuggestions`, before any resolver runs — both static and
+  dynamic resolvers benefited with zero changes to either.
+- `has:` targets weren't resolved through field aliases
+  (`croppedBy`→`exports.author` etc.), so an aliased `has:` facet
+  aggregated on the wrong path and never appeared. `findHasFieldTargets`
+  now returns `{ raw, esPath }`, deduped by resolved `esPath`; negated
+  `-has:` clauses (always zero buckets by construction) are now skipped
+  entirely instead of wasting a request.
+
+**Independent fresh-agent code review** (bug-hunt mindset, report-only)
+caught one already-fixed regression (convergent confirmation) plus 4 real
+S2/S3 findings, all fixed as above; a documentation-only comment
+correction; and an 8-item appendix of explicitly out-of-scope
+observations. Two low-risk appendix items fixed on follow-up: dynamic
+facet buckets weren't included in the "any facets to show" check
+(`FacetFilters.tsx`), and `cql-query-edit.ts`/`cql.ts`'s parser instances
+now explicitly disable `operators`/`groups` to match the widget instead
+of silently inheriting the library's defaults. The remaining appendix
+items were deliberately left: two need a product/UX decision (stale
+aggregations shown silently on fetch failure; quote-normalisation
+changing phrase-match to best-fields-match — pre-existing, not from this
+work), the rest are low-value edge cases or an already-documented
+tradeoff (deviations.md §14, regex-based field stripping).
+
+**Verification:** full unit suite 1043/1043 passing throughout; two full
+e2e runs (244/244 each) at different points in the fix sequence, all
+green.
+
 ### 9 August 2026 — CQL query with a quoted, colon-containing field key corrupted on load/reload
 
 **Bug (reported vs. Kahuna parity):** pasting a URL with a quoted field key

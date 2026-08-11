@@ -10,10 +10,25 @@
  */
 export function deriveEffectiveQuery(queryStr: string): string {
   return queryStr
-    // Strip incomplete chip expressions (key: with no value)
-    // [\w#~@]* covers plain fields (credit), shortcuts (#label, ~collection),
-    // and nested fields (usages@platform, usages@status, etc.)
-    .replace(/[+\-]?[\w#~@]*:(?=\s|$)/g, "")
+    // Strip incomplete chip expressions (key: with no value).
+    // [\w#~@.]* covers plain fields (credit), shortcuts (#label,
+    // ~collection), nested fields (usages@platform, usages@status, etc.),
+    // and unquoted dotted ES paths (fileMetadata.iptc.Category) — without
+    // the dot, only the last dot-segment before the colon matched here
+    // (e.g. just "Category:"), leaving the rest of the path
+    // ("fileMetadata.iptc.") behind as a mangled, orphaned fragment instead
+    // of stripping the whole incomplete chip. The "([^"]*)" alternative
+    // covers a QUOTED key (e.g. a raw ES path like
+    // fileMetadata.xmp.dc:subject, quoted because it contains a colon) —
+    // without it, only the bare trailing colon matched here, leaving the
+    // quoted key behind as an orphaned free-text phrase instead of being
+    // stripped like the unquoted case. The leading `(?<=^|\s)` lookbehind
+    // anchors the match to a token boundary — without it, the pattern can
+    // match "word:" starting mid-quote (e.g. "note:" inside the phrase
+    // `"note: hello"`, since the lookahead only checks for a trailing
+    // space/end, which an ordinary phrase containing "word: " also
+    // satisfies) — silently turning a phrase search into free text.
+    .replace(/(?<=^|\s)[+\-]?(?:"[^"]*"|[\w#~@.]*):(?=\s|$)/g, "")
     // CQL wraps a key/value in quotes when it contains whitespace or one of
     // its reserved chars (`:`, `(`, `)` — see @guardian/cql's
     // shouldQuoteFieldValue/hasReservedChar). A trailing space alone (e.g.
