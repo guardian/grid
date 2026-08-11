@@ -2192,7 +2192,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // INVARIANT: no further awaits between this check and the final set()
       // block below. If you add an await, repeat this check after it —
       // the mechanism doesn't fail loudly when violated.
-      if (_searchGeneration !== myGeneration) return;
+      if (_searchGeneration !== myGeneration) {
+        // Close this PIT now rather than leaving it to expire on its own
+        // keepAlive — cheap and bounded per-call, but adds up across many
+        // concurrent users each opening a PIT per stale keystroke pause.
+        if (newPitId) dataSource.closePit(newPitId);
+        return;
+      }
 
       // On popstate restore with a frozenUntil, reuse the original freeze
       // timestamp so the ticker correctly counts new images since the

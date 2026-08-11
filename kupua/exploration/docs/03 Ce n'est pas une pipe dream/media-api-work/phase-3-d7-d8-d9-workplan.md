@@ -257,6 +257,20 @@ the same assumption D3 already relies on.
 - [ ] `--use-media-api` scroll/seek session opens its PIT via the server and paginates correctly.
 - [ ] Route ordering verified (`DELETE /images/pit/x` is NOT matched as `deleteImage("pit")`).
 
+**Addendum (12 August 2026, from `search-request-cancellation-workplan.md` §10):**
+- `closePit` must gracefully no-op on a PIT id that's unfamiliar, already-expired, or was
+  never used for a real search — kupua's store now proactively closes a superseded
+  search's PIT (opened, then immediately superseded before ever being needed), so
+  `closePit` will be called in more scenarios than a naive design might assume. This
+  should not surface as an error to the client — mirrors the already-accepted, already-
+  caught `DELETE .../_pit` 404 on the direct-ES path today.
+- Give `openPit`/`countWithTickers` a `signal` param on the TS/Scala surface for
+  consistency with the rest of the interface. Not urgent — a spike found these calls
+  usually complete faster than a realistic typing pause in kupua's current dev/TEST
+  environment, so client-side cancellation would rarely fire — but that finding is
+  latency-dependent and may not hold at production scale (JVM GC pauses, ES thread-pool
+  queueing under many concurrent users). Cheap to include now, expensive to retrofit later.
+
 ---
 
 ## 4. D9 — `POST /images/mget`

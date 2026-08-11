@@ -206,16 +206,52 @@ time**, including calls that were clearly superseded by a later pause — unlike
 mostly-cancelled `searchAfter`. This is a live, reproducible demonstration that the §4
 gap is real and has the same shape as the bug just fixed, not a theoretical concern.
 
+**Update (12 August 2026) — §4 resolved differently than originally recommended.**
+A follow-up spike (raw latency measurement, both local ES and over the TEST SSH tunnel)
+found that `openPit`/`countWithTickers` typically complete (4–17ms local; ~130–190ms over
+the tunnel) *faster* than a realistic typing pause — meaning in today's dev/TEST
+environment, adding client-side `AbortSignal` cancellation to these two calls would
+rarely have anything genuinely in-flight to interrupt. The "100% completion" measured
+above turned out to be calls that had **already finished** before being superseded, not
+calls that failed to cancel while still in flight — a materially different (and smaller)
+problem than `searchAfter`'s.
+
+**What was actually built instead:** `search()` now explicitly closes a superseded
+search's own PIT (`if (_searchGeneration !== myGeneration) { if (newPitId)
+dataSource.closePit(newPitId); return; }`) rather than leaving it to expire on its
+`keepAlive` ("1m"). This directly targets the real, Elastic-confirmed resource cost of
+PIT accumulation at scale (open PITs block segment merges and hold heap; see Elastic's
+own Point-in-Time docs) without any interface changes, any orphan-PIT race (we always
+have the id in hand), and works identically in both direct-ES and `--use-media-api`
+modes today (confirmed: `StranglerAdapter.openPit`/`closePit` both still forward straight
+to `this.es.*`, unaffected by media-api mode). Verified via unit test
+(`search-store-pit.test.ts`, asserts a stale search's PIT gets closed with the correct
+id) and live against real TEST data in direct-ES mode (5 `closePit` calls fired during
+the 3-pause repro; one closed a PIT id that did not match the currently-stored state
+`pitId` — the signature of this new code path firing, distinct from the pre-existing
+"close the previous settled search's PIT" mechanism).
+
 **New finding, relevant to the planned media-api PIT endpoints** (see
 `03 Ce n'est pas une pipe dream/media-api-work/phase-3-d7-d8-d9-workplan.md`):
 `strangler-adapter.ts` shows `openPit`, `closePit`, and `countWithTickers` are **not
 routed through media-api at all today** — they fall straight through to `this.es.*`
-(direct ES), regardless of `--use-media-api` mode. Combined with the full
-`ImageDataSource` interface audit (every method except `search()`, `count()`,
-`getById()`, singular `getAggregation()`, `openPit()`, `closePit()` already carries
-`signal?: AbortSignal`, and of those six only `openPit`/`countWithTickers`-inside-
-`search()` are keystroke-hot — the rest are dead code or one-shot calls), this is
-recorded here as a concrete design requirement for whoever builds those endpoints:
-**give `openPit`/`countWithTickers` a `signal` parameter in the `ImageDataSource`
-interface before or alongside writing the real media-api implementations**, not as a
-retrofit after the fact. Not implemented in this pass — tracked as a follow-up.
+(direct ES), regardless of `--use-media-api` mode.
+
+**Revised recommendation (supersedes the original "give openPit/countWithTickers a
+signal param" ask above):** adding `AbortSignal` support to `openPit`/`countWithTickers`
+on the TS side is no longer considered urgent or clearly valuable — today's evidence
+says it would rarely fire. But the reasoning behind that conclusion is itself
+latency-dependent (measured against dev/TEST timing, not 2000-user production load with
+JVM GC pauses and ES thread-pool queueing), so it's downgraded to "cheap, no-regret,
+worth doing eventually" rather than dropped. Two concrete, low-cost asks for whoever
+builds the media-api PIT endpoints:
+1. Accept a `signal` param on the Scala/TS surface for `openPit`/`countWithTickers`
+   consistent with the rest of the interface — cheap to include now, expensive to retrofit
+   later, even if it goes unused for a while.
+2. **More concretely required:** the D8 `DELETE /images/pit/:pitId` endpoint must handle
+   being called on a PIT id that's unfamiliar, already-expired, or was never used for a
+   real search — the store's new stale-PIT-close behavior means `closePit` now fires in
+   more scenarios than before, including PITs that were opened and immediately
+   superseded. This should be a graceful no-op/idempotent close, not an error — mirrors
+   the already-accepted, already-caught `DELETE .../_pit` 404 behavior on direct-ES today.
+

@@ -1,4 +1,4 @@
-<!-- AGENT PROTOCOL
+ <!-- AGENT PROTOCOL
 STOP! If you do NOT see your own "🤖 Agent check-in" entry at the bottom of the
 Session Log that YOU wrote in THIS conversation, you are a NEW agent.
 Follow the Fresh Agent Protocol in copilot-instructions.md:

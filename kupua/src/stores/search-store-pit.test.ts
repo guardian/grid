@@ -154,3 +154,32 @@ describe("P2-4: _pitGeneration bumps synchronously", () => {
     expect(state()._pitGeneration).toBe(gen0 + 2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 4 — superseded search closes its own PIT instead of leaving it to expire
+// ---------------------------------------------------------------------------
+
+describe("Superseded search closes its PIT", () => {
+  it("closes a stale search's PIT once it resolves after being superseded", async () => {
+    const closeSpy = vi.spyOn(mock, "closePit");
+    let resolveFirst!: (id: string) => void;
+    const firstBarrier = new Promise<string>((r) => { resolveFirst = r; });
+    let call = 0;
+    mock.openPit = vi.fn(async () => {
+      call++;
+      return call === 1 ? firstBarrier : "fresh-pit-id";
+    });
+
+    const search1 = actions().search("stale-query");
+    const search2 = actions().search("fresh-query"); // supersedes search1
+    await search2;
+
+    resolveFirst("stale-pit-id"); // search1's openPit resolves after being superseded
+    await search1;
+
+    expect(closeSpy).toHaveBeenCalledWith("stale-pit-id");
+    // The winner's own PIT must not be closed by the loser's cleanup.
+    expect(closeSpy).not.toHaveBeenCalledWith("fresh-pit-id");
+    expect(state().pitId).toBe("fresh-pit-id");
+  });
+});

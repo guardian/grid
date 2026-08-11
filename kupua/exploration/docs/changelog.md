@@ -14,6 +14,26 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 12 August 2026 — `search()` closes a superseded search's own PIT explicitly (follow-up to 11 Aug fix)
+
+Follow-up to the 11 August `searchAfter` cancellation fix, addressing the `openPit`/
+`countWithTickers` gap flagged then. A latency spike (raw ES timing, local + over the
+TEST tunnel) found these two calls typically complete *faster* than a realistic typing
+pause — so adding `AbortSignal` cancellation to them, as originally recommended, would
+rarely have anything genuinely in-flight to interrupt. Built the better-targeted fix
+instead: `search()` now explicitly closes a superseded search's own PIT
+(`if (_searchGeneration !== myGeneration) { if (newPitId) dataSource.closePit(newPitId); return; }`)
+rather than leaving it to expire on its `keepAlive`. No interface changes, no orphan-PIT
+race (id is always in hand), works identically in both direct-ES and `--use-media-api`
+(neither routes PIT lifecycle through media-api yet). Verified via unit test
+(`search-store-pit.test.ts`) and live against real TEST data: 5 `closePit` calls fired
+during the 3-pause repro, one closing a PIT id that didn't match the current stored
+`pitId` — proof the new path fired, distinct from the pre-existing cleanup. Full
+reasoning and evidence: `zz Archive/search-request-cancellation-workplan.md` §10 update;
+also added a `closePit`-idempotency requirement + downgraded (not dropped) `signal`-param
+suggestion to `03 Ce n'est pas une pipe dream/media-api-work/phase-3-d7-d8-d9-workplan.md`
+for whoever builds the real media-api PIT endpoints.
+
 ### 11 August 2026 — `search()` now cancels stale in-flight `searchAfter` requests (workplan: `zz Archive/search-request-cancellation-workplan.md`)
 
 Typing a query with several natural pauses (e.g. `has:"fileMetadata.xmp.photoshop:Source"`
