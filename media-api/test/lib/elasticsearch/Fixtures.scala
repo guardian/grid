@@ -18,7 +18,6 @@ trait Fixtures {
   // Config keys needed by MediaApiConfig that aren't part of CommonConfigFixtures' common keys
   val MEDIA_API_EXTRA_CONFIG_IN_TEST: Map[String, Any] = Map(
     "aws.region" -> "eu-west-1",
-    "content.web.baseUrl" -> "not used in test",
     "capi.live.url" -> "not used in test",
     "capi.apiKey" -> "not used in test",
     "capi.preview.role" -> "not used in test",

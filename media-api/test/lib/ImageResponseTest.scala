@@ -14,37 +14,37 @@ import play.api.libs.json._
 import scala.concurrent.Future
 
 class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with CommonConfigFixtures{
-
-  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ Map(
-      "field.aliases" -> List(
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
-          "alias" -> "orgProgrammeMaker",
-          "label" -> "Organization Programme Maker",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
-          "alias" -> "auxLens",
-          "label" -> "Aux Lens",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
-          "alias" -> "captionWriter",
-          "label" -> "Caption Writer / Editor",
-          "displaySearchHint" -> true
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
-          "alias" -> "c2paMetadataAvailable",
-          "label" -> "C2PA Metadata Available",
-          "displaySearchHint" -> true,
-          "matchViaExistence" -> true
-        )
+  val ELASTIC_SEARCH_CONFIG = Map(
+    "field.aliases" -> List(
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
+        "alias" -> "orgProgrammeMaker",
+        "label" -> "Organization Programme Maker",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
+        "alias" -> "auxLens",
+        "label" -> "Aux Lens",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
+        "alias" -> "captionWriter",
+        "label" -> "Caption Writer / Editor",
+        "displaySearchHint" -> true
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
+        "alias" -> "c2paMetadataAvailable",
+        "label" -> "C2PA Metadata Available",
+        "displaySearchHint" -> true,
+        "matchViaExistence" -> true
       )
-    )),
+    )
+  )
+  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
+    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ ELASTIC_SEARCH_CONFIG),
     null,
     new ApplicationLifecycle {
       override def addStopHook(hook: () => Future[_]): Unit = {}
