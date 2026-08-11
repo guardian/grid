@@ -6,7 +6,7 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax.Negation
-import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
@@ -19,14 +19,11 @@ import play.api.inject.ApplicationLifecycle
 import scala.annotation.nowarn
 import scala.concurrent.Future
 
-class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures {
+class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures with CommonConfigFixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-
-  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
-
-  private val mediaApiConfig = createMediaApiConfig(commonConfigurations)
+  private val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations))
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 

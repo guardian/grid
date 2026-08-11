@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.ReadOnly
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.config.CommonConfigFixtures
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
@@ -17,8 +18,8 @@ import play.api.libs.json._
 
 import scala.concurrent.Future
 
-class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
-  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ Map(
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with CommonConfigFixtures{
+  val ELASTIC_SEARCH_CONFIG = Map(
     "field.aliases" -> List(
       Map(
         "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
@@ -37,12 +38,20 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
         "alias" -> "captionWriter",
         "label" -> "Caption Writer / Editor",
         "displaySearchHint" -> true
-      ))) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
+      )))
 
-  val mediaApiConfig = createMediaApiConfig(commonConfigurations)
+  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
+    Configuration.from(commonConfigurations ++ ELASTIC_SEARCH_CONFIG),
+    null,
+    new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+      override def stop(): Future[_] = Future.successful(())
+    }
+  ))
 
   val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
   implicit val logMarker: LogMarker = mock[LogMarker]
+
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"

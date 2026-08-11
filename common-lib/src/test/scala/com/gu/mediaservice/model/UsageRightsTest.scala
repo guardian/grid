@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, CommonConfigWithElastic}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json._
@@ -11,7 +12,7 @@ object TestImage {
   implicit val jsonWrites: Writes[TestImage] = Json.writes[TestImage]
 }
 
-class UsageRightsTest extends AnyFunSpec with Matchers {
+class UsageRightsTest extends AnyFunSpec with Matchers with CommonConfigFixtures {
 
   val invalidCategory = "animated-gif"
   val invalidJson = Json.parse(s"""{ "category": "$invalidCategory", "fps": "∞" }""")
@@ -101,6 +102,15 @@ class UsageRightsTest extends AnyFunSpec with Matchers {
     agencyImage.usageRights should be (Agency("Getty Images"))
   }
 
+  it("Chargeable name should be Pay to use when usageRights.showV2 is true") {
+    val commonConfig = new CommonConfigWithElastic(createGridResourcesConfig(commonConfigurations, Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List()))))
+    Chargeable.name(commonConfig) shouldBe "Pay to use"
+  }
+
+  it("Chargeable name should be Chargeable supplied / on spec to use when usageRights.showV2 is false") {
+    val commonConfig = new CommonConfigWithElastic(createGridResourcesConfig(commonConfigurations))
+    Chargeable.name(commonConfig) shouldBe "Chargeable supplied / on spec"
+  }
 }
 
 

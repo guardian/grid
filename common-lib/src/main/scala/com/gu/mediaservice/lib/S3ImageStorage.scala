@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
+import software.amazon.awssdk.services.s3.model.{DeleteObjectRequest, HeadObjectRequest, ListObjectsV2Request}
 
 import java.io.File
 import scala.jdk.CollectionConverters._
@@ -27,20 +28,25 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
     eventualObject
   }
 
-  def deleteImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    client.deleteObject(bucket, id)
-    logger.info(logMarker, s"Deleted image $id from bucket $bucket")
+  def deleteImage(bucket: String, key: String)(implicit logMarker: LogMarker) = Future {
+    logger.info(logMarker, s"Deleted image $key from bucket $bucket")
+    clientV2.deleteObject(
+      DeleteObjectRequest.builder().bucket(bucket).key(key).build())
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    val objectVersion = client.getObjectMetadata(bucket, id).getVersionId
-    client.deleteVersion(bucket, id, objectVersion)
+    val objectVersion = clientV2.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
+    clientV2.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
     logger.info(logMarker, s"Deleted image $id from bucket $bucket (version: $objectVersion)")
   }
 
   def deleteFolder(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-		val files = client.listObjects(bucket, id).getObjectSummaries.asScala
-		files.foreach(file => client.deleteObject(bucket, file.getKey))
+    val files = clientV2.listObjectsV2(
+      ListObjectsV2Request.builder().bucket(bucket).prefix(id).build()
+    ).contents().asScala.toList
+    files.foreach(file => clientV2.deleteObject(
+      DeleteObjectRequest.builder().bucket(bucket).key(file.key()).build()
+    ))
 		logger.info(logMarker, s"Deleting images in folder $id from bucket $bucket")
 	}
 
