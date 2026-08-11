@@ -19,7 +19,8 @@ trait Fixtures {
     "es6.replicas" -> 0,
     "field.aliases" -> Seq.empty,
     "usageRights" -> Map(
-      "applicable" -> List()
+      "applicable" -> List(),
+      "showV2" -> false
     ),
     "aws.region" -> "eu-west-1",
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
