@@ -139,8 +139,8 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     extractedFields.isEmpty shouldEqual true
   }
 
-  describe("updateRightsAndRestrictions ->") {
-    describe("should transform the following categories:") {
+  describe("updateRightsAndRestrictions") {
+    describe("should map the following categories to pr-and-third-party and set the legacyCategory with the original category name and maintain old fields") {
       it("handout") {
         val inputJson = Json.obj(
           "usageRights" -> JsObject(
@@ -329,61 +329,6 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
           )
         )
       }
-
-      it("agency") {
-        val inputJson = Json.obj(
-          "usageRights" -> JsObject(
-            Map(
-              "category" -> JsString("agency"),
-              "supplier" -> JsString("Action Images"),
-              "suppliersCollection" -> JsString("collection"),
-              "restrictions" -> JsString("restrictions")
-            )
-          )
-        )
-        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
-        val result: JsResult[JsObject] = inputJson.transform(transformer)
-        result shouldBe a[JsSuccess[_]]
-        result.get shouldBe Json.obj(
-          "usageRights" -> JsObject(
-            Map(
-              "category" -> JsString("pr-and-third-party"),
-              "legacyCategory" -> JsString("agency"),
-              "supplier" -> JsString("Action Images"),
-              "suppliersCollection" -> JsString("collection"),
-              "restrictions" -> JsString("restrictions"),
-              "source" -> JsString("Action Images")
-            )
-          )
-        )
-      }
-
-      it("commissioned-agency") {
-        val inputJson = Json.obj(
-          "usageRights" -> JsObject(
-            Map(
-              "category" -> JsString("commissioned-agency"),
-              "supplier" -> JsString("Action Images"),
-              "restrictions" -> JsString("restrictions")
-            )
-          )
-        )
-        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
-        val result: JsResult[JsObject] = inputJson.transform(transformer)
-        result shouldBe a[JsSuccess[_]]
-        result.get shouldBe Json.obj(
-          "usageRights" -> JsObject(
-            Map(
-              "category" -> JsString("pr-and-third-party"),
-              "legacyCategory" -> JsString("commissioned-agency"),
-              "supplier" -> JsString("Action Images"),
-              "restrictions" -> JsString("restrictions"),
-              "source" -> JsString("Action Images")
-            )
-          )
-        )
-      }
-
       it("public-domain") {
         val inputJson = Json.obj(
           "usageRights" -> JsObject(
@@ -406,7 +351,107 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
           )
         )
       }
-      // TODO - guardian witness, and composite
+      it("guardian-witness") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("guardian-witness"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("guardian-witness"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+      describe("For legacy categories that have a supplier or suppliers field, these should be mapped to source") {
+        it("composite") {
+          val inputJson = Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("composite"),
+                "restrictions" -> JsString("restrictions"),
+                "suppliers" -> JsString("supplier1 and supplier2")
+              )
+            )
+          )
+          val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+          val result: JsResult[JsObject] = inputJson.transform(transformer)
+          result shouldBe a[JsSuccess[_]]
+          result.get shouldBe Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("pr-and-third-party"),
+                "legacyCategory" -> JsString("composite"),
+                "restrictions" -> JsString("restrictions"),
+                "suppliers" -> JsString("supplier1 and supplier2"),
+                "source" -> JsString("supplier1 and supplier2")
+              )
+            )
+          )
+        }
+        it("agency") {
+          val inputJson = Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("agency"),
+                "supplier" -> JsString("Action Images"),
+                "suppliersCollection" -> JsString("collection"),
+                "restrictions" -> JsString("restrictions")
+              )
+            )
+          )
+          val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+          val result: JsResult[JsObject] = inputJson.transform(transformer)
+          result shouldBe a[JsSuccess[_]]
+          result.get shouldBe Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("pr-and-third-party"),
+                "legacyCategory" -> JsString("agency"),
+                "supplier" -> JsString("Action Images"),
+                "suppliersCollection" -> JsString("collection"),
+                "restrictions" -> JsString("restrictions"),
+                "source" -> JsString("Action Images")
+              )
+            )
+          )
+        }
+        it("commissioned-agency") {
+          val inputJson = Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("commissioned-agency"),
+                "supplier" -> JsString("Action Images"),
+                "restrictions" -> JsString("restrictions")
+              )
+            )
+          )
+          val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+          val result: JsResult[JsObject] = inputJson.transform(transformer)
+          result shouldBe a[JsSuccess[_]]
+          result.get shouldBe Json.obj(
+            "usageRights" -> JsObject(
+              Map(
+                "category" -> JsString("pr-and-third-party"),
+                "legacyCategory" -> JsString("commissioned-agency"),
+                "supplier" -> JsString("Action Images"),
+                "restrictions" -> JsString("restrictions"),
+                "source" -> JsString("Action Images")
+              )
+            )
+          )
+        }
+      }
     }
   }
 }
