@@ -146,7 +146,7 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
       )
       val json = Json.toJson(image)
       val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
-      val mediaApiConfig = createMediaApiConfig(commonConfigurations, Map("showUsageRightsV2" -> true))
+      val mediaApiConfig = createMediaApiConfig(commonConfigurations, Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List())))
 
       val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
 

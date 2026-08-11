@@ -25,12 +25,9 @@ trait Fixtures {
     "es6.replicas" -> 0,
     "field.aliases" -> Seq.empty,
     "usageRights" -> Map(
-      "applicable" -> List()
+      "applicable" -> List(),
+      "showV2" -> false
     ),
-    "usageRightsV2" -> Map(
-      "applicable" -> List()
-    ),
-    "showUsageRightsV2" -> false,
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig",
     "domain.root" -> "domain"
   )
@@ -177,14 +174,11 @@ trait Fixtures {
   }
 
   def createMediaApiConfig(commonConfigurations: Map[String, Any], overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
-    val configMap = commonConfigurations.foldLeft(Map[String, Any]())((acc, next) => {
-      val (nextKey, nextValue) = next
-      if(overrides.contains(nextKey)) acc.updated(nextKey, overrides(nextKey))
-      else acc.updated(nextKey, nextValue)
-    })
+    val config = Configuration.from(overrides)
+      .withFallback(Configuration.from(commonConfigurations))
 
     new MediaApiConfig(GridConfigResources(
-      Configuration.from(configMap),
+      config,
       null,
       new ApplicationLifecycle {
         override def addStopHook(hook: () => Future[_]): Unit = {}
