@@ -159,6 +159,254 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
           )
         )
       }
+      it("PR Image") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("PR Image"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("PR Image"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("screengrab") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("screengrab"),
+              "source" -> JsString("source"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("screengrab"),
+              "source" -> JsString("source"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("social-media") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("social-media"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("social-media"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("creative-commons") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("creative-commons"),
+              "licence" -> JsString("CC BY-4.0"),
+              "source" -> JsString("source"),
+              "creator" -> JsString("creator"),
+              "contentLink" -> JsString("link to content"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("creative-commons"),
+              "licence" -> JsString("CC BY-4.0"),
+              "source" -> JsString("source"),
+              "creator" -> JsString("creator"),
+              "contentLink" -> JsString("link to content"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("pool") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pool"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("pool"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("crown-copyright") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("crown-copyright"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("crown-copyright"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("obituary") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("obituary"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("obituary"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+
+      it("agency") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("agency"),
+              "supplier" -> JsString("Action Images"),
+              "suppliersCollection" -> JsString("collection"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("agency"),
+              "supplier" -> JsString("Action Images"),
+              "suppliersCollection" -> JsString("collection"),
+              "restrictions" -> JsString("restrictions"),
+              "source" -> JsString("Action Images")
+            )
+          )
+        )
+      }
+
+      it("commissioned-agency") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("commissioned-agency"),
+              "supplier" -> JsString("Action Images"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("commissioned-agency"),
+              "supplier" -> JsString("Action Images"),
+              "restrictions" -> JsString("restrictions"),
+              "source" -> JsString("Action Images")
+            )
+          )
+        )
+      }
+
+      it("public-domain") {
+        val inputJson = Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("public-domain"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+        val transformer = imageResponse.updateRightsAndRestrictions(inputJson)
+        val result: JsResult[JsObject] = inputJson.transform(transformer)
+        result shouldBe a[JsSuccess[_]]
+        result.get shouldBe Json.obj(
+          "usageRights" -> JsObject(
+            Map(
+              "category" -> JsString("pr-and-third-party"),
+              "legacyCategory" -> JsString("public-domain"),
+              "restrictions" -> JsString("restrictions")
+            )
+          )
+        )
+      }
+      // TODO - guardian witness, and composite
     }
   }
 }
