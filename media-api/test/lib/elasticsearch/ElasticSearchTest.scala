@@ -3,7 +3,7 @@ package lib.elasticsearch
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -26,7 +26,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
+class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar with CommonConfigFixtures{
 
   implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
@@ -37,11 +37,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     override def stop(): Future[_] = Future.successful(())
   }
 
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null,
-    applicationLifecycle
-  ))
+  private val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations))
   private val actorSystem: ActorSystem = ActorSystem()
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig, actorSystem, applicationLifecycle)
   val elasticConfig = ElasticSearchConfig(

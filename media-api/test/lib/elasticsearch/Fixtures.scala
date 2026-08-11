@@ -14,34 +14,6 @@ trait Fixtures {
   val staffPhotographer = StaffPhotographer("Tom Jenkins", "The Guardian")
   val agency = Agency("ACME")
   val screengrab = Screengrab(None, None)
-  val USED_CONFIGS_IN_TEST = Map(
-    "es6.shards" -> 0,
-    "es6.replicas" -> 0,
-    "field.aliases" -> Seq.empty,
-    "usageRights" -> Map(
-      "applicable" -> List(),
-      "showV2" -> false
-    ),
-    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
-  )
-  val NOT_USED_IN_TEST = "not used in test"
-  val MOCK_CONFIG_KEYS = Seq(
-    "auth.keystore.bucket",
-    "persistence.identifier",
-    "thrall.kinesis.stream.name",
-    "thrall.kinesis.lowPriorityStream.name",
-    "domain.root",
-    "s3.config.bucket",
-    "s3.usagemail.bucket",
-    "quota.store.key",
-    "es.index.aliases.current",
-    "es.index.aliases.migration",
-    "es6.url",
-    "s3.image.bucket",
-    "s3.thumb.bucket",
-    "grid.stage",
-    "grid.appName"
-  )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
     deleteTime = DateTime.parse("2021-12-21T11:22:33Z"),
