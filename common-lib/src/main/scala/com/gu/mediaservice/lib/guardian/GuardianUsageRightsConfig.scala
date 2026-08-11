@@ -1,11 +1,18 @@
 package com.gu.mediaservice.lib.guardian
 
 import com.gu.mediaservice.lib.config.{PublicationPhotographer, PublicationPhotographers, UsageRightsConfigProvider}
+import com.typesafe.config.ConfigFactory
 import org.joda.time.LocalDate
+
+import scala.util.Try
 
 object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
   private val ObserverPublication = "The Observer"
   private val GuardianPublication = "The Guardian"
+
+  // @TODO: this only reflects the classpath application.conf - it won't pick up local dev overrides
+  private val showUsageRightsV2: Boolean =
+    Try(ConfigFactory.load().getBoolean("usageRights.showV2")).getOrElse(false)
 
   val externalStaffPhotographers: List[PublicationPhotographers] = List(
     PublicationPhotographers(GuardianPublication, List(
@@ -128,7 +135,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       PublicationPhotographer("Ben Jennings"),
       //Past
       PublicationPhotographer("Steve Bell"),
-    )),
+    ) ++ (if (showUsageRightsV2) List(PublicationPhotographer("Guardian Design")) else Nil)),
     PublicationPhotographers(ObserverPublication, List(
       PublicationPhotographer("Chris Riddell"),
       PublicationPhotographer("David Foldvari"),

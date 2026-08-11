@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{Agency, PRAndThirdParty}
+import com.gu.mediaservice.model.{Agency, PRAndThirdParty, PublisherOwnedIllustration, PublisherOwnedPhotograph}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -16,6 +16,16 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency], config: MediaApiConfig) extends ImageFields with GridLogging {
+
+  // Searching for one of these categories should also surface images still stored under the legacy
+  // categories it replaced (agency, handout, staff-photographer, etc.) - those images haven't been
+  // rewritten in the index, so we expand the search into a terms query across all of them rather
+  // than relying on an exact match against the new category alone.
+  private val legacyCategoryExpansions: Map[String, NonEmptyList[String]] = Map(
+    PRAndThirdParty.category -> PRAndThirdParty.allCategories,
+    PublisherOwnedPhotograph.category -> PublisherOwnedPhotograph.allCategories,
+    PublisherOwnedIllustration.category -> PublisherOwnedIllustration.allCategories
+  )
 
   def resolveFieldPath(field: String): String = {
     config.fieldAliasConfigs.find(_.alias == field) match {
@@ -53,8 +63,8 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
 
-      case Words(value) if config.showUsageRightsV2 && field == "usageRights.category" && value == PRAndThirdParty.category =>
-        filters.terms(resolveFieldPath(field), PRAndThirdParty.allCategories)
+      case Words(value) if config.showUsageRightsV2 && field == usageRightsField("category") && legacyCategoryExpansions.contains(value) =>
+        filters.terms(resolveFieldPath(field), legacyCategoryExpansions(value))
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
