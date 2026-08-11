@@ -1,12 +1,18 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.config.GridConfigResources
+
 import java.net.URI
 import java.util.UUID
-
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
+import lib.MediaApiConfig
 import org.joda.time.DateTime
+import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.Future
 
 trait Fixtures {
 
@@ -25,7 +31,8 @@ trait Fixtures {
       "applicable" -> List()
     ),
     "showUsageRightsV2" -> false,
-    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
+    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig",
+    "domain.root" -> "domain"
   )
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(
@@ -33,7 +40,6 @@ trait Fixtures {
     "persistence.identifier",
     "thrall.kinesis.stream.name",
     "thrall.kinesis.lowPriorityStream.name",
-    "domain.root",
     "s3.config.bucket",
     "s3.usagemail.bucket",
     "quota.store.key",
@@ -168,6 +174,23 @@ trait Fixtures {
       None,
       lastModified = date
     )
+  }
+
+  def createMediaApiConfig(commonConfigurations: Map[String, Any], overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
+    val configMap = commonConfigurations.foldLeft(Map[String, Any]())((acc, next) => {
+      val (nextKey, nextValue) = next
+      if(overrides.contains(nextKey)) acc.updated(nextKey, overrides(nextKey))
+      else acc.updated(nextKey, nextValue)
+    })
+
+    new MediaApiConfig(GridConfigResources(
+      Configuration.from(configMap),
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    ))
   }
 
 }

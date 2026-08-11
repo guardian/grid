@@ -1,7 +1,9 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.ReadOnly
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
@@ -16,38 +18,31 @@ import play.api.libs.json._
 import scala.concurrent.Future
 
 class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
+  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ Map(
+    "field.aliases" -> List(
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
+        "alias" -> "orgProgrammeMaker",
+        "label" -> "Organization Programme Maker",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
+        "alias" -> "auxLens",
+        "label" -> "Aux Lens",
+        "displaySearchHint" -> false
+      ),
+      Map(
+        "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
+        "alias" -> "captionWriter",
+        "label" -> "Caption Writer / Editor",
+        "displaySearchHint" -> true
+      ))) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
 
-  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ Map(
-      "field.aliases" -> List(
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
-          "alias" -> "orgProgrammeMaker",
-          "label" -> "Organization Programme Maker",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.xmp.aux:Lens",
-          "alias" -> "auxLens",
-          "label" -> "Aux Lens",
-          "displaySearchHint" -> false
-        ),
-        Map(
-          "elasticsearchPath" -> "fileMetadata.iptc.Caption Writer/Editor",
-          "alias" -> "captionWriter",
-          "label" -> "Caption Writer / Editor",
-          "displaySearchHint" -> true
-        )
-      )
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+  val mediaApiConfig = createMediaApiConfig(commonConfigurations)
 
   val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+  implicit val logMarker: LogMarker = mock[LogMarker]
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"
@@ -123,6 +118,48 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     extractedFields.contains("orgProgrammeMaker" -> JsString("xmp programme maker")) shouldEqual true
     extractedFields.contains("auxLens" -> JsString("xmp aux lens")) shouldEqual true
     extractedFields.contains("captionWriter" -> JsString("the editor")) shouldEqual true
+  }
+
+  describe("create") {
+    it("should not apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to false" ) {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "agency"
+     }
+    it("should  apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to true") {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+      val mediaApiConfig = createMediaApiConfig(commonConfigurations, Map("showUsageRightsV2" -> true))
+
+      val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "pr-and-third-party"
+    }
   }
 
   describe("updateRightsAndRestrictions") {
