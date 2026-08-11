@@ -266,7 +266,8 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("usage rights v2 filter") {
-    val queryBuilder  = new QueryBuilder(matchFields, () => Nil, createMediaApiConfig(commonConfigurations, Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List()))))
+    val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations, SHOW_USAGE_RIGHTS_V2))
+    val queryBuilder  = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
     it("should map a usage rights filter to legacy categories") {
       val query = queryBuilder.makeQuery(List(usageRightsFilter)).asInstanceOf[BoolQuery]

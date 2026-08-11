@@ -34,6 +34,8 @@ trait CommonConfigFixtures {
     "grid.appName"
   )
 
+  val SHOW_USAGE_RIGHTS_V2 = Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List()))
+
   val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
 
   def createGridResourcesConfig(commonConfigurations: Map[String, Any], overrides: Map[String, Any] = Map[String, Any]()) = {

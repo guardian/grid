@@ -103,7 +103,7 @@ class UsageRightsTest extends AnyFunSpec with Matchers with CommonConfigFixtures
   }
 
   it("Chargeable name should be Pay to use when usageRights.showV2 is true") {
-    val commonConfig = new CommonConfigWithElastic(createGridResourcesConfig(commonConfigurations, Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List()))))
+    val commonConfig = new CommonConfigWithElastic(createGridResourcesConfig(commonConfigurations, SHOW_USAGE_RIGHTS_V2))
     Chargeable.name(commonConfig) shouldBe "Pay to use"
   }
 

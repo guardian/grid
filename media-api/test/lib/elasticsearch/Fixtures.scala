@@ -145,18 +145,5 @@ trait Fixtures {
     )
   }
 
-  def createMediaApiConfig(commonConfigurations: Map[String, Any], overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
-    val config = Configuration.from(overrides)
-      .withFallback(Configuration.from(commonConfigurations))
-
-    new MediaApiConfig(GridConfigResources(
-      config,
-      null,
-      new ApplicationLifecycle {
-        override def addStopHook(hook: () => Future[_]): Unit = {}
-        override def stop(): Future[_] = Future.successful(())
-      }
-    ))
-  }
 
 }
