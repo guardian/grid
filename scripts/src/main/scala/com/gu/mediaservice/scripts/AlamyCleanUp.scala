@@ -37,7 +37,7 @@ object AlamyCleanUp extends App {
         true
       }
       case 405 => {
-        println(s"Unable to delete $id, setting usages instead and labels")
+        println(s"Unable to delete $id, setting usages and labels instead")
         val request = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$id/usage-rights"))
           .headers("X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(usagesBody).build()
         val response = client.send(request, BodyHandlers.ofString())
