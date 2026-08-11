@@ -180,7 +180,7 @@ final case class Chargeable(restrictions: Option[String] = None) extends UsageRi
 object Chargeable extends UsageRightsSpec {
   val category = "chargeable"
   val defaultCost = Some(Pay)
-  def name(commonConfig: CommonConfig) = "Pay to use"
+  def name(commonConfig: CommonConfig) = if(commonConfig.showUsageRightsV2) "Pay to use" else "Chargeable supplied / on spec"
   def description(commonConfig: CommonConfig) =
     s"Images acquired by or supplied to ${commonConfig.staffPhotographerOrganisation} that do not fit other categories in ${commonConfig.systemName} and " +
       "therefore fees will be payable per use. Unless negotiated otherwise, fees should be based on " +
