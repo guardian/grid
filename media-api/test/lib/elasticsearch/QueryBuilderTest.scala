@@ -6,7 +6,7 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax.{Match, Negation, Phrase, SingleField, Words}
-import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
@@ -19,20 +19,11 @@ import play.api.inject.ApplicationLifecycle
 import scala.annotation.nowarn
 import scala.concurrent.Future
 
-class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures {
+class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures with CommonConfigFixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
-
-  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
-
-  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+  
+  private val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST))
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
@@ -136,7 +127,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
     it("any field words queries should be applied to all of the match fields with best fields type and fuzziness, operator and analyzers set") {
       val mediaApiConfigWithFuzzySearch = new MediaApiConfig(GridConfigResources(
-        Configuration.from(commonConfigurations ++ Map("search.fuzziness.enabled" -> true)),
+        Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ Map("search.fuzziness.enabled" -> true)),
         null,
         new ApplicationLifecycle {
           override def addStopHook(hook: () => Future[_]): Unit = {}
@@ -193,7 +184,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       "matchViaExistence" -> true
     )
     val configWithC2paAlias = new MediaApiConfig(GridConfigResources(
-      Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(c2paFieldAliasConfig))),
+      Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ Map("field.aliases" -> Seq(c2paFieldAliasConfig))),
       null,
       new ApplicationLifecycle {
         override def addStopHook(hook: () => Future[_]): Unit = {}

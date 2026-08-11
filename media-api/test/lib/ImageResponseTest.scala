@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
@@ -13,10 +13,10 @@ import play.api.libs.json._
 
 import scala.concurrent.Future
 
-class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with CommonConfigFixtures{
 
   val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ Map(
+    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ Map(
       "field.aliases" -> List(
         Map(
           "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
@@ -44,7 +44,7 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
           "matchViaExistence" -> true
         )
       )
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    )),
     null,
     new ApplicationLifecycle {
       override def addStopHook(hook: () => Future[_]): Unit = {}

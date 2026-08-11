@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
 import com.gu.mediaservice.lib.VectorUtils.{firstBasisVector, vectorWithCosineSimilarity}
-import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -29,6 +29,7 @@ class HybridSearchTest extends AnyFunSpec
   with Eventually
   with ElasticSearchExecutions
   with Fixtures
+  with CommonConfigFixtures
   with MockitoSugar {
 
   private val index = "images"
@@ -39,7 +40,7 @@ class HybridSearchTest extends AnyFunSpec
   }
 
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST),
     null,
     applicationLifecycle
   ))
