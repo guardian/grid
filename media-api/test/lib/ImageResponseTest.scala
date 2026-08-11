@@ -1,7 +1,9 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.ReadOnly
 import com.gu.mediaservice.lib.aws.S3
-import com.gu.mediaservice.lib.config.{CommonConfigFixtures, GridConfigResources}
+import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
@@ -15,8 +17,8 @@ import play.api.libs.json._
 
 import scala.concurrent.Future
 
-class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with CommonConfigFixtures{
-  val ELASTIC_SEARCH_CONFIG = Map(
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
+  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ Map(
     "field.aliases" -> List(
       Map(
         "elasticsearchPath" -> "fileMetadata.xmp.org:ProgrammeMaker",
@@ -42,19 +44,12 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with Comm
         "label" -> "C2PA Metadata Available",
         "displaySearchHint" -> true,
         "matchViaExistence" -> true
-      )
-    )
-  )
-  val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(commonConfigurations ++ MEDIA_API_EXTRA_CONFIG_IN_TEST ++ ELASTIC_SEARCH_CONFIG),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
-  ))
+      ))) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
+
+  val mediaApiConfig = createMediaApiConfig(commonConfigurations)
 
   val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+  implicit val logMarker: LogMarker = mock[LogMarker]
 
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"
@@ -175,6 +170,48 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures with Comm
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(false)) shouldEqual true
+  }
+
+  describe("create") {
+    it("should not apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to false" ) {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "agency"
+     }
+    it("should  apply the updateRightsAndRestrictions transformation when showUsageRightsV2 is set to true") {
+      val image = createImage(
+        id = "test-image",
+        agency
+      )
+      val json = Json.toJson(image)
+      val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+      val mediaApiConfig = createMediaApiConfig(commonConfigurations, Map("showUsageRightsV2" -> true))
+
+      val imageResponse = new ImageResponse(mediaApiConfig, mock[S3], mock[UsageQuota])
+
+      val (data, _, _) = imageResponse.create("id",
+        sourceWrapper,
+        withWritePermission = false,
+        withDeleteImagePermission = false,
+        withDeleteCropsOrUsagePermission = false,
+        included = Nil,
+        tier = ReadOnly)
+
+      (data \ "usageRights" \ "category").as[String] shouldBe "pr-and-third-party"
+    }
   }
 
   describe("updateRightsAndRestrictions") {

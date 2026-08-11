@@ -23,26 +23,10 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-  private def createMediaApiConfig(overrides: Map[String, Any] = Map[String, Any]()): MediaApiConfig = {
-    val configMap = commonConfigurations.foldLeft(Map[String, Any]())((acc, next) => {
-      val (nextKey, nextValue) = next
-      if(overrides.contains(nextKey)) acc.updated(nextKey, overrides(nextKey))
-      else acc.updated(nextKey, nextValue)
-    })
-
-    new MediaApiConfig(GridConfigResources(
-      Configuration.from(configMap),
-      null,
-      new ApplicationLifecycle {
-        override def addStopHook(hook: () => Future[_]): Unit = {}
-        override def stop(): Future[_] = Future.successful(())
-      }
-    ))
-  }
 
   private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
 
-  private val mediaApiConfig = createMediaApiConfig()
+  private val mediaApiConfig = createMediaApiConfig(commonConfigurations)
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
