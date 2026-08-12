@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.metadata
 
-import com.amazonaws.services.dynamodbv2.model.BatchWriteItemResult
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.ImageStatusRecord
 import org.scanamo._

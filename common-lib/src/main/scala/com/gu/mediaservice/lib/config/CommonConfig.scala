@@ -47,6 +47,12 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
 
   val shouldDisplayOrgOwnedCountAndFilterCheckbox: Boolean = boolean("filters.shouldDisplayOrgOwnedCountAndFilterCheckbox")
 
+  // Defaults to false so orgs that haven't wired up the Bedrock/SQS/vector-ES
+  // infrastructure required for AI search don't have it enabled by staying up to date with main.
+  // Shared by media-api (gates the search endpoint) and kahuna (gates the tickbox), so it only
+  // needs setting in one config key.
+  val aiSearchEnabled: Boolean = booleanOpt("ai.search.enabled").getOrElse(false)
+
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
   lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
@@ -219,7 +225,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV1B
     configuration.getOptional[Map[String, Seq[String]]]("agencyPicks.ingredients")
   val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegionV2, awsCredentialsV2, awsLocalEndpointUri, isDev, streamName)
 
   final def getOptionalStringSet(key: String): Option[Set[String]] = Try {
     configuration.getOptional[Seq[String]](key)

@@ -749,7 +749,7 @@ class MediaApi(
       }
     }
 
-    if (_searchParams.useAISearch.contains(true)) {
+    if (_searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
       // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
       // Everything else is handled by performAiSearchAndRespond, which falls back to
       // filter-pool counts when there's no query to rank by.

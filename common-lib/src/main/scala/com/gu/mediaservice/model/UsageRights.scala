@@ -158,7 +158,7 @@ case object NoRights
   val category = ""
   val defaultCost = None
   val restrictions = None
-  def name(commonConfig: CommonConfig) = "No Rights"
+  def name(commonConfig: CommonConfig) = "Unknown Rights"
   def description(commonConfig: CommonConfig) =
     "Images which we do not currently have the rights to use."
 

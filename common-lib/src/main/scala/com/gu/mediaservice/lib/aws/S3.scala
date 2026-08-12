@@ -12,7 +12,6 @@ import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRe
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
-
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -72,9 +71,8 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
   type UserMetadata = Map[String, String]
 
   lazy val client: S3Client = S3Ops.buildS3Client(config)
-  lazy val presigner = S3Presigner.create()
-  def signUrl(
-
+  lazy val presigner = S3Ops.buildPresignerClientV2(config)
+  def signUrlV2(
                  bucket: Bucket,
                  url: URI,
                  image: Image,
@@ -222,4 +220,19 @@ object S3Ops {
 
     config.withAWSCredentialsV2(builder, localstackAware, maybeRegionOverride).build()
   }
+
+  def buildPresignerClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Presigner = {
+    val builder = S3Presigner.builder()
+      .credentialsProvider(config.awsCredentialsV2)
+      .region(config.awsRegionV2)
+
+    config.awsLocalEndpointUri match {
+      case Some(endpoint) if config.isDev => builder.endpointOverride(endpoint)
+        .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build()).build()
+      case _ => builder.build()
+
+    }
+
+  }
+
 }
