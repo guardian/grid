@@ -3,8 +3,6 @@ package model
 import java.io.File
 import java.net.URI
 import java.util.{Date, UUID}
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.S3
