@@ -1,18 +1,11 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.config.GridConfigResources
-
 import java.net.URI
 import java.util.UUID
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
-import lib.MediaApiConfig
 import org.joda.time.DateTime
-import play.api.Configuration
-import play.api.inject.ApplicationLifecycle
-
-import scala.concurrent.Future
 
 trait Fixtures {
 
