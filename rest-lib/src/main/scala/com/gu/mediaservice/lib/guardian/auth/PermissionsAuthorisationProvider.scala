@@ -20,7 +20,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
 
   private val permissions: PermissionsProvider = config.awsLocalEndpoint match {
     case Some(_) if config.isDev && config.useLocalAuth =>
-      val provider = new S3PermissionsProvider(permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3ClientV2(config)))
+      val provider = new S3PermissionsProvider(permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3Client(config)))
       provider.start()
       provider
     case _ =>

@@ -20,9 +20,9 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
                 (implicit logMarker: LogMarker) = {
     logger.info(logMarker, s"bucket: $bucket, id: $id, meta: $meta")
     val eventualObject = if (overwrite) {
-      storeV2(bucket, id, file, mimeType, meta, cacheSetting)
+      store(bucket, id, file, mimeType, meta, cacheSetting)
     } else {
-      storeIfNotPresentV2(bucket, id, file, mimeType, meta, cacheSetting)
+      storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting)
     }
     eventualObject.onComplete(o => logger.info(logMarker, s"storeImage completed $o"))
     eventualObject
@@ -30,21 +30,21 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
 
   def deleteImage(bucket: String, key: String)(implicit logMarker: LogMarker) = Future {
     logger.info(logMarker, s"Deleted image $key from bucket $bucket")
-    clientV2.deleteObject(
+    client.deleteObject(
       DeleteObjectRequest.builder().bucket(bucket).key(key).build())
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    val objectVersion = clientV2.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
-    clientV2.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
+    val objectVersion = client.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
+    client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
     logger.info(logMarker, s"Deleted image $id from bucket $bucket (version: $objectVersion)")
   }
 
   def deleteFolder(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    val files = clientV2.listObjectsV2(
+    val files = client.listObjectsV2(
       ListObjectsV2Request.builder().bucket(bucket).prefix(id).build()
     ).contents().asScala.toList
-    files.foreach(file => clientV2.deleteObject(
+    files.foreach(file => client.deleteObject(
       DeleteObjectRequest.builder().bucket(bucket).key(file.key()).build()
     ))
 		logger.info(logMarker, s"Deleting images in folder $id from bucket $bucket")

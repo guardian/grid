@@ -68,7 +68,7 @@ class ThrallController(
 
   def upsertProjectPage(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
     imageId match {
-      case Some(id) if store.doesOriginalExistV2(id) =>
+      case Some(id) if store.doesOriginalExist(id) =>
         gridClient.getProjectionDiff(id, auth.innerServiceCall).map {
           case None => NotFound("couldn't generate projection for that image!!")
           case Some(diff) => Ok(views.html.previewUpsertProject(id, Json.prettyPrint(diff)))

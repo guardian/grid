@@ -472,7 +472,7 @@ class Uploader(
           val mediaId = imageUpload.image.id
           logger.info(logMarker, s"Copying $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket")
           try {
-            store.clientV2.copyObject(
+            store.client.copyObject(
               CopyObjectRequest.builder()
                 .sourceBucket(config.imageBucket)
                 .sourceKey(fileKeyFromId(mediaId))
