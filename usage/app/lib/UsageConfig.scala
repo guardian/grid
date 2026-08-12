@@ -3,6 +3,7 @@ package lib
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.net.URI.ensureSecure
+import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.iam.IamClient
 
 import scala.util.Try
@@ -43,7 +44,7 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
     try {
       iamClient.getUser.user().userName()
     } catch {
-      case e:com.amazonaws.SdkClientException =>
+      case e: SdkClientException =>
         logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names", e)
         "tempcredentials"
     }
