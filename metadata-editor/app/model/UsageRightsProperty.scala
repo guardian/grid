@@ -36,6 +36,9 @@ object UsageRightsProperty {
   val props: List[(UsageRightsSpec, UsageRightsConfigProvider) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
+  val propsV2: List[(UsageRightsConfig, UsageRightsConfigProvider) => List[UsageRightsProperty]] =
+    List(categoryUsageRightsPropertiesV2)
+
   def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = Map(publications
     .map(p => p.name -> p.photographers.map(_.name)): _*)
 
@@ -45,6 +48,7 @@ object UsageRightsProperty {
   def optionsFromPublicationList(publications: List[PublicationPhotographers]): Options = sortList(publicationListToMap(publications).keys.toList)
 
   def getPropertiesForSpec(u: UsageRightsSpec, p: UsageRightsConfigProvider): List[UsageRightsProperty] = props.flatMap(f => f(u, p))
+  def getPropertiesForSpecV2(u: UsageRightsConfig, p: UsageRightsConfigProvider): List[UsageRightsProperty] = propsV2.flatMap(f => f(u, p))
 
   private def requiredStringField(
     name: String,
@@ -145,5 +149,15 @@ object UsageRightsProperty {
     )
 
     case _ => List()
+  }
+
+  def categoryUsageRightsPropertiesV2(u: UsageRightsConfig, p: UsageRightsConfigProvider) = {
+    u.requiredFields.flatMap(r => {
+      List(UsageRightsProperty(r, r, "text", true))
+    }) ++
+      u.optionalFields.flatMap(r => {
+        List(UsageRightsProperty(r, r, "text", false))
+      })
+
   }
 }
