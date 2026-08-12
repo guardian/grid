@@ -1,8 +1,7 @@
 package com.gu.mediaservice.lib.usage
 
 import java.net.URI
-import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.mediaservice.lib.AttributeValueConverterProvider
+
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -14,36 +13,6 @@ import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object ItemToMediaUsage {
-
-  def transform(item: Item): MediaUsage = {
-    MediaUsage(
-      UsageId(item.getString("usage_id")),
-      item.getString("grouping"),
-      item.getString("media_id"),
-      UsageType(item.getString("usage_type")),
-      item.getString("media_type"),
-      UsageStatus(item.getString("usage_status")),
-      Option(item.getMap[Any]("print_metadata"))
-        .map(_.asScala.toMap).flatMap(buildPrint),
-      Option(item.getMap[String]("digital_metadata"))
-        .map(_.asScala.toMap).flatMap(buildDigital),
-      Option(item.getMap[String]("syndication_metadata"))
-        .map(_.asScala.toMap).flatMap(buildSyndication),
-      Option(item.getMap[String]("front_metadata"))
-        .map(_.asScala.toMap).flatMap(buildFront),
-      Option(item.getMap[String]("download_metadata"))
-        .map(_.asScala.toMap).flatMap(buildDownload),
-      Option(item.getMap[String]("child_metadata"))
-        .map(_.asScala.toMap).flatMap(buildChild),
-      new DateTime(item.getLong("last_modified")),
-      Try {
-        item.getLong("date_added")
-      }.toOption.map(new DateTime(_)),
-      Try {
-        item.getLong("date_removed")
-      }.toOption.map(new DateTime(_))
-    )
-  }
   def transform(doc: EnhancedDocument): MediaUsage = {
     MediaUsage(
       UsageId(doc.getString("usage_id")),
@@ -106,30 +75,6 @@ object ItemToMediaUsage {
         metadataMap("webTitle"),
         metadataMap("sectionId"),
         metadataMap.get("composerUrl").map(x => URI.create(x))
-      )
-    }.toOption
-  }
-
-  private def buildPrint(metadataMap: Map[String, Any]): Option[PrintUsageMetadata] = {
-    type JStringNumMap = java.util.LinkedHashMap[String, java.math.BigDecimal]
-    Try {
-      PrintUsageMetadata(
-        sectionName = metadataMap.apply("sectionName").asInstanceOf[String],
-        issueDate = metadataMap.get("issueDate").map(_.asInstanceOf[String])
-          .map(ISODateTimeFormat.dateTimeParser().parseDateTime).get,
-        pageNumber = metadataMap.apply("pageNumber").asInstanceOf[java.math.BigDecimal].intValue,
-        storyName = metadataMap.apply("storyName").asInstanceOf[String],
-        publicationCode = metadataMap.apply("publicationCode").asInstanceOf[String],
-        publicationName = metadataMap.apply("publicationName").asInstanceOf[String],
-        layoutId = metadataMap.get("layoutId").map(_.asInstanceOf[java.math.BigDecimal].intValue),
-        edition = metadataMap.get("edition").map(_.asInstanceOf[java.math.BigDecimal].intValue),
-        size = metadataMap.get("size")
-          .map(_.asInstanceOf[JStringNumMap])
-          .map(m => PrintImageSize(m.get("x").intValue, m.get("y").intValue)),
-        orderedBy = metadataMap.get("orderedBy").map(_.asInstanceOf[String]),
-        sectionCode = metadataMap.apply("sectionCode").asInstanceOf[String],
-        notes = metadataMap.get("notes").map(_.asInstanceOf[String]),
-        source = metadataMap.get("source").map(_.asInstanceOf[String])
       )
     }.toOption
   }
