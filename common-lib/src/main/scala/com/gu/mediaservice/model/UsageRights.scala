@@ -105,6 +105,7 @@ object UsageRights {
     case o: ProgrammesAcquisitions => ProgrammesAcquisitions.formats.writes(o)
     case o: ProgrammesIndependents => ProgrammesIndependents.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
+    case o: PRAndThirdParty => PRAndThirdParty.formats.writes(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] = Reads[UsageRights] { json =>
@@ -142,6 +143,7 @@ object UsageRights {
         case ProgrammesOrganisationOwned.category => json.asOpt[ProgrammesOrganisationOwned]
         case ProgrammesAcquisitions.category => json.asOpt[ProgrammesAcquisitions]
         case ProgrammesIndependents.category => json.asOpt[ProgrammesIndependents]
+        case PRAndThirdParty.category => json.asOpt[PRAndThirdParty]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -616,4 +618,41 @@ object ProgrammesAcquisitions extends UsageRightsSpec {
 
   implicit val formats: Format[ProgrammesAcquisitions] =
     UsageRights.subtypeFormat(ProgrammesAcquisitions.category)(Json.format[ProgrammesAcquisitions])
+}
+
+final case class PRAndThirdParty(restrictions: Option[String] = None, source: Option[String] = None) extends UsageRights {
+
+  override val defaultCost: Option[Cost] = PRAndThirdParty.defaultCost
+}
+
+object PRAndThirdParty extends UsageRightsSpec {
+
+  override val category: String = "pr-and-third-party"
+
+  override def name(config: CommonConfig): String = "PR & third party"
+
+  override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituaries."
+
+  override val defaultCost: Option[Cost] = Some(Conditional)
+
+  implicit val formats: Format[PRAndThirdParty] =
+    UsageRights.subtypeFormat(PRAndThirdParty.category)(Json.format[PRAndThirdParty])
+
+  val legacyCategories: List[String] = List(
+    Agency.category,
+    CommissionedAgency.category,
+    PrImage.category,
+    Handout.category,
+    Screengrab.category,
+    SocialMedia.category,
+    Obituary.category,
+    Pool.category,
+    CrownCopyright.category,
+    CreativeCommons.category,
+    PublicDomain.category,
+    GuardianWitness.category,
+    Composite.category,
+  )
+
+  val allCategories: NonEmptyList[String] = NonEmptyList.fromSeq(category, legacyCategories)
 }

@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.Agency
+import com.gu.mediaservice.model.{Agency, PRAndThirdParty}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -52,6 +52,9 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
+
+      case Words(value) if config.showUsageRightsV2 && field == "usageRights.category" && value == PRAndThirdParty.category =>
+        filters.terms(resolveFieldPath(field), PRAndThirdParty.allCategories)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)

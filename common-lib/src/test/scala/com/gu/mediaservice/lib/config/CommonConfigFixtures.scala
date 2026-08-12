@@ -13,7 +13,8 @@ trait CommonConfigFixtures {
       "applicable" -> List(),
       "showV2" -> false
     ),
-    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
+    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig",
+    "domain.root" -> "domain"
   )
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(
@@ -21,7 +22,6 @@ trait CommonConfigFixtures {
     "persistence.identifier",
     "thrall.kinesis.stream.name",
     "thrall.kinesis.lowPriorityStream.name",
-    "domain.root",
     "s3.config.bucket",
     "s3.usagemail.bucket",
     "quota.store.key",
@@ -33,6 +33,8 @@ trait CommonConfigFixtures {
     "grid.stage",
     "grid.appName"
   )
+
+  val SHOW_USAGE_RIGHTS_V2 = Map("usageRights" -> Map("showV2" -> true, "applicableV2" -> List()))
 
   val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
 

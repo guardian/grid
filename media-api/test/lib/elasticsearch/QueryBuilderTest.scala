@@ -22,7 +22,7 @@ import scala.concurrent.Future
 class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures with CommonConfigFixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
-  
+
   private val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations))
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
@@ -263,6 +263,39 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     it("should return the right elasticsearchPath"){
       queryBuilder.resolveFieldPath("credit") shouldBe "metadata.credit"
     }
+  }
+
+  describe("usage rights v2 filter") {
+    val mediaApiConfig = new MediaApiConfig(createGridResourcesConfig(commonConfigurations, SHOW_USAGE_RIGHTS_V2))
+    val queryBuilder  = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
+
+    it("should map a usage rights filter to legacy categories") {
+      val query = queryBuilder.makeQuery(List(usageRightsFilter)).asInstanceOf[BoolQuery]
+      query.must.size shouldBe 1
+
+      val termsQuery = query.must.head
+
+      termsQuery shouldBe TermsQuery("usageRights.category",
+        List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness",
+          "composite"
+        )
+      )
+    }
+    it("should map a usage rights filter to legacy categories negation") {
+      val query = queryBuilder.makeQuery(List(Negation(usageRightsFilter))).asInstanceOf[BoolQuery]
+      query.not.size shouldBe 1
+
+      val termsQuery = query.not.head
+
+      termsQuery shouldBe TermsQuery("usageRights.category",
+        List("pr-and-third-party", "agency", "commissioned-agency", "PR Image", "handout", "screengrab",
+          "social-media", "obituary", "pool", "crown-copyright", "creative-commons", "public-domain", "guardian-witness",
+          "composite"
+        )
+      )
+    }
+
   }
 
   @nowarn("cat=deprecation") // TODO QueryBuilderFn.bytes is deprecated but no upgrade path given

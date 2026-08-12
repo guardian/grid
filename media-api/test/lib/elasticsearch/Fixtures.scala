@@ -2,7 +2,6 @@ package lib.elasticsearch
 
 import java.net.URI
 import java.util.UUID
-
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
@@ -138,5 +137,6 @@ trait Fixtures {
       lastModified = date
     )
   }
+
 
 }
