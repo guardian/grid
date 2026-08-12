@@ -28,7 +28,7 @@ object S3Vectors {
 }
 
 class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
-  extends AwsClientV2BuilderUtils {
+  extends AwsClientBuilderUtils {
 
   import S3Vectors.DeletionStatus
 
@@ -38,10 +38,10 @@ class S3Vectors(config: CommonConfig)(implicit ec: ExecutionContext)
   override def isDev: Boolean = config.isDev
 
   // The S3 Vector Store is not yet available in eu-west-1, so we are using eu-central-1 because it's closest to us.
-  override def awsRegionV2: Region = Region.EU_CENTRAL_1
+  override def awsRegion: Region = Region.EU_CENTRAL_1
 
   val client: S3VectorsClient = {
-    withAWSCredentialsV2(S3VectorsClient.builder())
+    withAWSCredentials(S3VectorsClient.builder())
       .build()
   }
 

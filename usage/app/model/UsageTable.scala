@@ -25,7 +25,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
   val imageIndexName = "media_id"
 
 
-  lazy val client: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val client: DynamoDbClient = config.withAWSCredentials(DynamoDbClient.builder()).build()
   lazy val dynamo: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()
   lazy val tableSchema = TableSchema.documentSchemaBuilder()
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)

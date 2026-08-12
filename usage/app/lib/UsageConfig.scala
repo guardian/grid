@@ -38,7 +38,7 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
 
   val awsRegionName = string("aws.region")
 
-  private val iamClient: IamClient = withAWSCredentialsV2(IamClient.builder()).build()
+  private val iamClient: IamClient = withAWSCredentials(IamClient.builder()).build()
 
   val postfix: String = if (isDev) {
     try {

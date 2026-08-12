@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import scala.concurrent.{ExecutionContext, Future}
 
 class SoftDeletedMetadataTable(config: CommonConfig) {
-  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  val client = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
 
   private val softDeletedMetadataTable = Table[ImageStatusRecord](config.softDeletedMetadataTable)
 

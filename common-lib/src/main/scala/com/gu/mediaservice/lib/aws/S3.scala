@@ -218,13 +218,13 @@ object S3Ops {
       case _ => S3Client.builder()
     }
 
-    config.withAWSCredentialsV2(builder, localstackAware, maybeRegionOverride).build()
+    config.withAWSCredentials(builder, localstackAware, maybeRegionOverride).build()
   }
 
   def buildPresignerClientV2(config: CommonConfig, localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S3Presigner = {
     val builder = S3Presigner.builder()
-      .credentialsProvider(config.awsCredentialsV2)
-      .region(config.awsRegionV2)
+      .credentialsProvider(config.awsCredentials)
+      .region(config.awsRegion)
 
     config.awsLocalEndpointUri match {
       case Some(endpoint) if config.isDev => builder.endpointOverride(endpoint)

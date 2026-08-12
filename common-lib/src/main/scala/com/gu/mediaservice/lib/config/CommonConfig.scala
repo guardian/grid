@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-import com.gu.mediaservice.lib.aws.{AwsClientV2BuilderUtils, KinesisSenderConfig}
+import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
 import com.gu.mediaservice.model.UsageRightsSpec
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -13,7 +13,7 @@ import java.util.UUID
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV2BuilderUtils with StrictLogging {
+abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBuilderUtils with StrictLogging {
   val configuration: Configuration = resources.configuration
   final val stackName = "media-service"
 
@@ -25,7 +25,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV2B
   val isProd: Boolean = stage == "PROD"
   override val isDev: Boolean = stage == "DEV"
 
-  override val awsRegionV2: Region = Region.of(stringDefault("aws.region", "eu-west-1"))
+  override val awsRegion: Region = Region.of(stringDefault("aws.region", "eu-west-1"))
 
   val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint").filter(_.nonEmpty) else None
   override val awsLocalEndpointUri: Option[URI] = awsLocalEndpoint.map(new URI(_))
@@ -226,7 +226,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientV2B
     configuration.getOptional[Map[String, Seq[String]]]("agencyPicks.ingredients")
   val agencyPicksColour: String = stringDefault("agencyPicks.colour", "#7d0068")
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegionV2, awsCredentialsV2, awsLocalEndpointUri, isDev, streamName)
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpointUri, isDev, streamName)
 
   final def getOptionalStringSet(key: String): Option[Set[String]] = Try {
     configuration.getOptional[Seq[String]](key)
