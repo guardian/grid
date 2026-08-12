@@ -7,8 +7,8 @@ import org.joda.time.{DateTime, DateTimeZone}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, GetObjectRequest, PutObjectRequest}
+import software.amazon.awssdk.services.s3.{S3Client, S3Configuration}
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsV2Request, NoSuchKeyException, PutObjectRequest}
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
@@ -72,7 +72,7 @@ class S3(config: CommonConfig) extends GridLogging with ContentDisposition with 
 
   lazy val client: S3Client = S3Ops.buildS3Client(config)
   lazy val presigner = S3Ops.buildPresignerClientV2(config)
-  def signUrlV2(
+  def signUrl(
                  bucket: Bucket,
                  url: URI,
                  image: Image,
