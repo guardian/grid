@@ -629,11 +629,10 @@ object PRAndThirdParty extends UsageRightsSpec {
 
   override val category: String = "pr-and-third-party"
 
-  override def name(config: CommonConfig): String = "PR & Third Party"
+  override def name(config: CommonConfig): String = "PR & third party"
 
-  override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituraries."
+  override def description(config: CommonConfig): String = "Images received from PRs or as handouts, by default you must explain the restrictions that apply. Also use this category for social media posts, screen grabs, agency commissions and obituaries."
 
-  // TODO - check this
   override val defaultCost: Option[Cost] = Some(Conditional)
 
   implicit val formats: Format[PRAndThirdParty] =
