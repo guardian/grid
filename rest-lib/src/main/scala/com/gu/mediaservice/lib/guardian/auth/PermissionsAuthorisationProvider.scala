@@ -57,6 +57,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       case DeleteCropsOrUsages => hasPermission(Permissions.DeleteCrops)
       case ShowPaid => hasPermission(Permissions.ShowPaid)
       case Pinboard => hasPermission(Permissions.Pinboard)
+      case UploadImages if config.enforceUploadImagesPermissions => true // @TODO: Check for permissions
       case UploadImages => true
       case ArchiveImages => true
     }
