@@ -25,7 +25,7 @@ object Bedrock {
 }
 
 class Bedrock(config: CommonConfig)
-  extends AwsClientV2BuilderUtils {
+  extends AwsClientBuilderUtils {
 
   // TODO: figure out what the more usual pattern for turning off localstack behaviour is
   override def awsLocalEndpointUri: Option[URI] = None
@@ -33,7 +33,7 @@ class Bedrock(config: CommonConfig)
   override def isDev: Boolean = config.isDev
 
   val client: BedrockRuntimeClient = {
-    withAWSCredentialsV2(BedrockRuntimeClient.builder())
+    withAWSCredentials(BedrockRuntimeClient.builder())
       .build()
   }
 

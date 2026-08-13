@@ -25,7 +25,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       provider
     case _ =>
       val permissionsStage = if(config.isProd) { "PROD" } else { "CODE" }
-      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentialsV2, permissionsBucket))
+      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion.toString, config.awsCredentials, permissionsBucket))
   }
 
   override def initialise(): Unit = {

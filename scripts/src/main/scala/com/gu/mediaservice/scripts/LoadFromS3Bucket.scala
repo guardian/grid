@@ -1,11 +1,12 @@
 package com.gu.mediaservice.scripts
 
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
 import org.apache.http.impl.client.HttpClients
+import software.amazon.awssdk.auth.credentials.{AwsCredentialsProviderChain, InstanceProfileCredentialsProvider, ProfileCredentialsProvider}
+import software.amazon.awssdk.core.ResponseInputStream
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, GetObjectResponse, ListObjectsV2Request}
 
 import scala.jdk.CollectionConverters._
 
@@ -18,24 +19,40 @@ object LoadFromS3Bucket {
       case _ => sys.error("Usage: LoadFromS3Bucket <bucket name> <loader endpoint>")
     }
 
-    lazy val awsCredentials = new AWSCredentialsProviderChain(
-      new ProfileCredentialsProvider("media-service"),
-      InstanceProfileCredentialsProvider.getInstance()
+    lazy val awsCredentials = AwsCredentialsProviderChain.of(
+      ProfileCredentialsProvider.create("media-service"),
+      InstanceProfileCredentialsProvider.create()
     )
 
-    val client = AmazonS3ClientBuilder.standard().withCredentials(awsCredentials).build()
+    val client: S3Client = S3Client.builder()
+      .credentialsProvider(awsCredentials)
+      .build()
 
-    val keys = client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
+    val keys = client.listObjectsV2(
+      ListObjectsV2Request.builder().bucket(bucket).build()
+    ).contents().asScala.map(_.key)
 
     val httpClient = HttpClients.createDefault
 
     for (key <- keys) {
-      val obj = client.getObject(bucket, key)
+      val getObjectRequest = GetObjectRequest.builder()
+        .bucket(bucket)
+        .key(key)
+        .build()
+
+      val objStream: ResponseInputStream[GetObjectResponse] = client.getObject(getObjectRequest)
+      val length = objStream.response().contentLength()
+
       val postReq = new HttpPost(loaderEndpoint)
-      val length = obj.getObjectMetadata.getContentLength
-      val entity = new InputStreamEntity(obj.getObjectContent, length, ContentType.DEFAULT_BINARY)
+      val entity = new InputStreamEntity(objStream, length, ContentType.DEFAULT_BINARY)
       postReq.setEntity(entity)
-      httpClient.execute(postReq).close()
+
+      try {
+        httpClient.execute(postReq).close()
+      } finally {
+        objStream.close()
+      }
+
       println(s"Loaded image $key")
     }
 
