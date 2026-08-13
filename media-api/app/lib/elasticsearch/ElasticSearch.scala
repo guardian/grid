@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -9,6 +10,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
+import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -24,8 +26,8 @@ import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
-import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary, ImageUsagesBySupplier, ImageUsagesBySupplierResult}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -480,6 +482,66 @@ class ElasticSearch(
       import r.result
       logSearchQueryIfTimedOut(search, result)
       SupplierUsageSummary(supplier, result.hits.total.value)
+    }
+  }
+
+  def imageUsagesBySupplier(
+    id: String,
+    structuredQuery: List[Condition] = List.empty,
+    offset: Int = 0,
+    length: Int = 10
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ImageUsagesBySupplierResult] = {
+    if (offset + length > 10000)
+      return Future.failed(new IllegalArgumentException(s"offset + length cannot exceed 10000 (Elasticsearch result window limit)"))
+
+    val supplier = Agencies.get(id)
+    val supplierName = supplier.supplier
+
+    val qualifyingStatuses = Set[UsageStatus](PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
+    val qualifyingPlatforms = Set[UsageType](PrintUsage, DigitalUsage)
+
+    val haveQualifyingStatus = termsQuery("usages.status", qualifyingStatuses.map(_.toString))
+    val haveQualifyingPlatform = termsQuery("usages.platform", qualifyingPlatforms.map(_.toString))
+
+    // e.g. usages@<added:2026-07-31 usages@>added:2026-07-01 - each date bound is inclusive,
+    // and since they all apply within the same nested "usages" entry, multiple bounds combine into a range.
+    val dateAddedRanges = structuredQuery.collect {
+      case Nested(SingleField("usages"), SingleField("dateAdded"), DateRange(start, end)) => (start, end)
+    }
+    val maybeDateAddedRange = dateAddedRanges match {
+      case Nil => None
+      case ranges =>
+        val from = ranges.map(_._1).maxBy(_.getMillis)
+        val to = ranges.map(_._2).minBy(_.getMillis)
+        Some((from, to))
+    }
+
+    val qualifyingUsageClauses = List(haveQualifyingStatus, haveQualifyingPlatform) ++
+      maybeDateAddedRange.map { case (from, to) => rangeQuery("usages.dateAdded").gte(printDateTime(from)).lte(printDateTime(to)) }
+    val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(qualifyingUsageClauses))
+
+    val beSupplier = termQuery("usageRights.supplier", supplierName)
+
+    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
+
+    val search = prepareSearch(query).trackTotalHits(true).from(offset).size(length)
+
+    def isQualifyingUsage(usage: Usage): Boolean =
+      qualifyingStatuses.contains(usage.status) &&
+        qualifyingPlatforms.contains(usage.platform) &&
+        maybeDateAddedRange.forall { case (from, to) =>
+          usage.dateAdded.exists(dateAdded => !dateAdded.isBefore(from) && !dateAdded.isAfter(to))
+        }
+
+    executeAndLog(search, s"$id image usages by supplier search").map { r =>
+      import r.result
+      logSearchQueryIfTimedOut(search, result)
+      val images = result.hits.hits.toList
+        .flatMap(resolveHit)
+        .map(sourceWrapperImage => sourceWrapperImage.instance)
+        .map(image => ImageUsagesBySupplier(image.id, supplierName, image.usages.filter(isQualifyingUsage)))
+        .distinctBy(_.id)
+      ImageUsagesBySupplierResult(images, result.totalHits)
     }
   }
 
