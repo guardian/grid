@@ -453,6 +453,19 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
       // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      
+      const { nonFree, uploadedByMe } = ctrl.filter;
+      let nonFreeCheck = nonFree;
+      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
+        nonFreeCheck = defaultShowPaid;
+      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = undefined;
+      }
+      ctrl.filter.nonFree = nonFreeCheck;
+
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
+      
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
