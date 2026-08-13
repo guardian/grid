@@ -17,6 +17,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import lib.Api.{getNextLink, getPrevLink}
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
@@ -543,7 +544,6 @@ class MediaApi(
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
-
   def imageSearch() = auth.async { implicit request =>
     val shouldFlagGraphicImages = request.cookies.get("SHOULD_BLUR_GRAPHIC_IMAGES")
       .map(_.value).getOrElse(config.defaultShouldBlurGraphicImages.toString) == "true"
@@ -575,12 +575,15 @@ class MediaApi(
         )
       )
       imageEntities = hits map (hitToImageEntity _).tupled
-      prevLink = getPrevLink(searchParams)
-      nextLink = getNextLink(searchParams, totalCount)
+      // Updated here to make the images-usages pagination work
+      // but I would suggest leaving the behaviour in this endpoint the same
+      // as before, so that the changes only affect the new endpoint
+      prevLink = getPrevLink(searchParams, "search")
+      nextLink = getNextLink(searchParams, totalCount, "search")
       links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), extraCounts, links)
 
-    val _searchParams = SearchParams(request)
+    val _searchParams = SearchParams(request, defaultPageSize = 10)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
 
@@ -795,41 +798,6 @@ class MediaApi(
         Some((source.instance, imageData, imageLinks, imageActions))
 
       case _ => None
-    }
-  }
-
-  private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
-    // Enforce a toDate to exclude new images since the current request
-    val toDate = searchParams.until.getOrElse(DateTime.now)
-
-    val paramMap: Map[String, String] = SearchParams.toStringMap(searchParams) ++ Map(
-      "offset" -> updatedOffset.toString,
-      "length" -> length.toString,
-      "toDate" -> printDateTime(toDate)
-    )
-
-    paramMap.foldLeft(UriTemplate()){ (acc, pair) => acc.expandAny(pair._1, pair._2)}.toString
-  }
-
-  private def getPrevLink(searchParams: SearchParams): Option[Link] = {
-    val prevOffset = List(searchParams.offset - searchParams.length, 0).max
-    if (searchParams.offset > 0) {
-      // adapt length to avoid overlapping with current
-      val prevLength = List(searchParams.length, searchParams.offset - prevOffset).min
-      val prevUrl = getSearchUrl(searchParams, prevOffset, prevLength)
-      Some(Link("prev", prevUrl))
-    } else {
-      None
-    }
-  }
-
-  private def getNextLink(searchParams: SearchParams, totalCount: Long): Option[Link] = {
-    val nextOffset = searchParams.offset + searchParams.length
-    if (nextOffset < totalCount) {
-      val nextUrl = getSearchUrl(searchParams, nextOffset, searchParams.length)
-      Some(Link("next", nextUrl))
-    } else {
-      None
     }
   }
 

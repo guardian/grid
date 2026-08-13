@@ -200,7 +200,7 @@ object SearchParams {
     else orderByRaw
   }
 
-  def apply(request: Authentication.Request[Any]): SearchParams = {
+  def apply(request: Authentication.Request[Any], defaultPageSize: Int): SearchParams = {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
@@ -222,7 +222,7 @@ object SearchParams {
       structuredQuery,
       request.getQueryString("ids").map(_.split(",").toList),
       request.getQueryString("offset") flatMap parseIntFromQuery getOrElse 0,
-      request.getQueryString("length") flatMap parseIntFromQuery getOrElse 10,
+      request.getQueryString("length") flatMap parseIntFromQuery getOrElse defaultPageSize,
       request.getQueryString("orderBy") map readOrderBy,
       request.getQueryString("since") flatMap parseDateFromQuery,
       request.getQueryString("until") flatMap parseDateFromQuery,

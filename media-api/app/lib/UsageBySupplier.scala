@@ -1,16 +1,17 @@
 package lib
 
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.usage.Usage
-import play.api.libs.json.{Json, OFormat}
+import play.api.libs.json.{Json, OWrites}
 
 case class UsageBySupplier(id: String, supplier: Option[String], usages: List[Usage])
 object UsageBySupplier {
-  implicit val jsonFormat: OFormat[UsageBySupplier] = Json.format[UsageBySupplier]
+  implicit val jsonWrites: OWrites[UsageBySupplier] = Json.writes[UsageBySupplier]
 
 }
-
-case class Response(total: Long, images: Seq[UsageBySupplier])
 
 object Response {
-  implicit val jsonFormat: OFormat[Response] = Json.format[Response]
+  implicit val jsonWrites: OWrites[Response] = Json.writes[Response]
 }
+
+case class Response(total: Long, images: Seq[UsageBySupplier], list: List[Link])

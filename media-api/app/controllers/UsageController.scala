@@ -7,8 +7,9 @@ import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.model.usage.Usage
+import lib.Api.{getNextLink, getPrevLink}
 import lib._
-import lib.elasticsearch.{ElasticSearch, SearchParams}
+import lib.elasticsearch.{ElasticSearch, SearchParams, SearchResults}
 import play.api.libs.json.{Json, OFormat}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
@@ -94,14 +95,18 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
   }
 
   def imageIdsBySupplier() = auth.async { implicit request =>
-    val _searchParams = SearchParams(request)
+    val searchParams = SearchParams(request, defaultPageSize = 100)
     for {
-      res <- elasticSearch.search(_searchParams)
+      res <- elasticSearch.search(searchParams)
       items = res.hits.map({ case (_, sourceWrapperImage) =>
         val image = sourceWrapperImage.instance
         UsageBySupplier(image.id, image.metadata.source, image.usages)}
       )
-      response = Response(res.total, items)
+      totalCount = res.total
+      prevLink = getPrevLink(searchParams, "images-usages")
+      nextLink = getNextLink(searchParams, totalCount, "images-usages")
+      links = List(prevLink, nextLink).flatten
+      response = Response(totalCount, items, links)
     }
     yield Ok(Json.toJson(response))
   }
