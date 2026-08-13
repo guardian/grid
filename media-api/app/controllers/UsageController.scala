@@ -6,8 +6,10 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Agencies
+import com.gu.mediaservice.model.usage.Usage
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, SearchParams}
+import play.api.libs.json.{Json, OFormat}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -89,5 +91,18 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
           logger.error(logMarker, "quota access failed", e)
           respondError(InternalServerError, "unknown-error", e.toString)
       }
+  }
+
+  def imageIdsBySupplier() = auth.async { implicit request =>
+    val _searchParams = SearchParams(request)
+    for {
+      res <- elasticSearch.search(_searchParams)
+      items = res.hits.map({ case (_, sourceWrapperImage) =>
+        val image = sourceWrapperImage.instance
+        UsageBySupplier(image.id, image.metadata.source, image.usages)}
+      )
+      response = Response(res.total, items)
+    }
+    yield Ok(Json.toJson(response))
   }
 }

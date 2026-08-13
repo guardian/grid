@@ -28,7 +28,6 @@ DELETE  /images/:id                                                 controllers.
 DELETE  /images/:id/hard-delete                                     controllers.MediaApi.hardDeleteImage(id: String)
 PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
 GET     /images                                                     controllers.MediaApi.imageSearch()
-
 # completion
 GET     /suggest/metadata/credit                                    controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 GET     /suggest/metadata/photoshoot                                controllers.SuggestionController.suggestPhotoshoot(q: Option[String], size: Option[Int])
@@ -38,7 +37,7 @@ GET     /usage/suppliers                                            controllers.
 GET     /usage/suppliers/:id                                        controllers.UsageController.forSupplier(id: String)
 GET     /usage/quotas                                               controllers.UsageController.quotas
 GET     /usage/quotas/:id                                           controllers.UsageController.quotaForImage(id: String)
-
+GET     /images-usages                                              controllers.UsageController.imageIdsBySupplier()
 # configuration
 GET     /configuration/crop-variations                              controllers.ConfigurationController.cropVariations
 
