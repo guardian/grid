@@ -736,7 +736,7 @@ textarea.ng-invalid {
     display: inline-flex;
     flex-direction: row;
     align-items: center;
-    border-left: 2px solid #565656;
+    border-left: 1px solid #565656;
     height: 50px;
 }
 
@@ -745,7 +745,7 @@ textarea.ng-invalid {
 }
 
 .top-bar-item:last-child {
-    border-right: 2px solid #565656;
+    border-right: 1px solid #565656;
 }
 
 .top-bar-item__form {
@@ -953,7 +953,7 @@ textarea.ng-invalid {
     border: 1px solid #999;
     box-sizing: border-box;
 
-    min-width: 300px;
+    min-width: 270px;
     flex-grow: 1;
 }
 
@@ -980,7 +980,7 @@ textarea.ng-invalid {
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
-  margin-left: 25px;
+  margin-left: 10px;
   align-items: center; /* vertical align all filters */
 }
 
@@ -1050,7 +1050,7 @@ textarea.ng-invalid {
     }
 }
 
-@media screen and (max-width: 1380px) {
+@media screen and (max-width: 1400px) {
     .search__modifier-toggle {
         display: flex;
         flex-direction: row;
