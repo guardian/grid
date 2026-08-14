@@ -34,6 +34,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
     };
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
+    ctrl.uploadImagesPermissionSupportEmailLink = window._clientConfig.uploadImagesPermissionSupportEmail;
     ctrl.systemName = window._clientConfig.systemName;
 
     mediaApi.canUserUpload().then(canUpload => {
