@@ -7,16 +7,16 @@ import software.amazon.awssdk.regions.Region
 
 import java.net.URI
 
-trait AwsClientV2BuilderUtils extends GridLogging {
+trait AwsClientBuilderUtils extends GridLogging {
   def awsLocalEndpointUri: Option[URI]
   def isDev: Boolean
 
-  def awsRegionV2: Region = Region.EU_WEST_1
+  def awsRegion: Region = Region.EU_WEST_1
 
-  def awsCredentialsV2: AwsCredentialsProvider = DefaultCredentialsProvider.builder().profileName("media-service").build()
+  def awsCredentials: AwsCredentialsProvider = DefaultCredentialsProvider.builder().profileName("media-service").build()
 
-  final def withAWSCredentialsV2[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S = {
-    val credentialedBuilder = builder.credentialsProvider(awsCredentialsV2).region(maybeRegionOverride.getOrElse(awsRegionV2))
+  final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true, maybeRegionOverride: Option[Region] = None): S = {
+    val credentialedBuilder = builder.credentialsProvider(awsCredentials).region(maybeRegionOverride.getOrElse(awsRegion))
 
     awsLocalEndpointUri match {
       case Some(endpoint) if localstackAware =>

@@ -18,17 +18,17 @@ import org.joda.time.DateTime
 import java.net.URI
 
 case class KinesisSenderConfig(
-  override val awsRegionV2: Region,
-  override val awsCredentialsV2: AwsCredentialsProvider,
+  override val awsRegion: Region,
+  override val awsCredentials: AwsCredentialsProvider,
   override val awsLocalEndpointUri: Option[URI],
   override val isDev: Boolean,
   streamName: String
-) extends AwsClientV2BuilderUtils
+) extends AwsClientBuilderUtils
 
 class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
 
-  private def getKinesisClient = config.withAWSCredentialsV2(KinesisClient.builder()).build()
+  private def getKinesisClient = config.withAWSCredentials(KinesisClient.builder()).build()
 
   private lazy val kinesisClient: KinesisClient = getKinesisClient
 

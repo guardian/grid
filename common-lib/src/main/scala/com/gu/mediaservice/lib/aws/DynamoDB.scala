@@ -24,7 +24,7 @@ object NoItemFound extends Throwable("item not found")
   * @tparam T The type of this table
   */
 class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Option[String] = None) extends GridLogging {
-  lazy val client: DynamoDbClient = config.withAWSCredentialsV2(DynamoDbClient.builder()).build()
+  lazy val client: DynamoDbClient = config.withAWSCredentials(DynamoDbClient.builder()).build()
   lazy val dynamo: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()
   lazy val tableSchema = TableSchema.documentSchemaBuilder()
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), IdKey, AttributeValueType.S)
@@ -277,5 +277,5 @@ object DynamoDB {
     case JsNull => JsString("")
     case value => value
   }
-  
+
 }

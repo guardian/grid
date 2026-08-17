@@ -3,8 +3,6 @@ package controllers
 
 import java.net.URI
 import java.net.URLDecoder.decode
-
-import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
@@ -22,6 +20,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{BaseController, ControllerComponents}
+import software.amazon.awssdk.awscore.exception.AwsServiceException
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.compat._
@@ -131,7 +130,7 @@ class EditsController(
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => labelsCollection(id, edits.labels.toSet))
           .map { case (uri, l) => respondCollection(l) } recover {
-            case _: AmazonServiceException => BadRequest
+            case _: AwsServiceException => BadRequest
           }
     )
   }
