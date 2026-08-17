@@ -1,16 +1,18 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.xspec.{ExpressionSpecBuilder, UpdateItemExpressionSpec}
-import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import scala.jdk.CollectionConverters._
 import com.gu.mediaservice.model.usage._
 
-import scala.jdk.CollectionConverters._
+import com.gu.mediaservice.lib.dynamo.DynamoElement
 import org.joda.time.DateTime
+import software.amazon.awssdk.enhanced.dynamodb.Expression
 
 sealed trait DateRemovedOperation
 case object ClearDateRemoved extends DateRemovedOperation
 case object LeaveDateRemovedUntouched extends DateRemovedOperation
 case class SetDateRemoved(dateRemoved: DateTime) extends DateRemovedOperation
+
 
 case class UsageRecord(
   hashKey: String,
@@ -29,28 +31,85 @@ case class UsageRecord(
   childUsageMetadata: Option[ChildUsageMetadata] = None,
   dateAdded: Option[DateTime] = None
 ) {
-  def toXSpec: UpdateItemExpressionSpec = {
-    val specBuilder = new ExpressionSpecBuilder
-    List(
-      mediaId.filter(_.nonEmpty).map(S("media_id").set(_)),
-      usageType.map(usageType => S("usage_type").set(usageType.toString)),
-      mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
-      lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
-      usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
-      printUsageMetadata.map(_.toMap).map(map => M("print_metadata").set(map.asJava)),
-      digitalUsageMetadata.map(_.toMap).map(map => M("digital_metadata").set(map.asJava)),
-      syndicationUsageMetadata.map(_.toMap).map(map => M("syndication_metadata").set(map.asJava)),
-      frontUsageMetadata.map(_.toMap).map(map => M("front_metadata").set(map.asJava)),
-      downloadUsageMetadata.map(_.toMap).map(map => M("download_metadata").set(map.asJava)),
-      childUsageMetadata.map(_.toMap).map(map => M("child_metadata").set(map.asJava)),
-      dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
-      dateRemovedOperation match {
-        case ClearDateRemoved => Some(N("date_removed").remove)
-        case LeaveDateRemovedUntouched => None
-        case SetDateRemoved(dateRemoved) => Some(N("date_removed").set(dateRemoved.getMillis))
-      }
-    ).flatten.foreach(specBuilder.addUpdate)
-    specBuilder.buildForUpdate
+  def toAttributeValueMap(m: Map[String, DynamoElement]):java.util.Map[String, AttributeValue] = {
+    m.map { case(k, v) =>
+      k -> v.toAttrValue
+    }
+  }.asJava
+  def toExpression: Expression = {
+    val setOps = scala.collection.mutable.ListBuffer.empty[(String, AttributeValue)]
+    val removeOps = scala.collection.mutable.ListBuffer.empty[String]
+    val names = scala.collection.mutable.Map.empty[String, String]
+
+    def setS(field: String, value: String): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().s(value).build()
+    }
+
+    def setN(field: String, value: Long): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().n(value.toString).build()
+    }
+
+    def setM(field: String, value: java.util.Map[String, AttributeValue]): Unit = {
+      val name = s"#$field"
+      val valueKey = s":$field"
+      names += name -> field
+      setOps += valueKey -> AttributeValue.builder().m(value).build()
+    }
+
+    mediaId.filter(_.nonEmpty).foreach(setS("media_id", _))
+
+    usageType.foreach(t => setS("usage_type", t.toString))
+
+    mediaType.filter(_.nonEmpty).foreach(setS("media_type", _))
+
+    lastModified.foreach(dt => setN("last_modified", dt.getMillis))
+
+    usageStatus.filter(_.nonEmpty).foreach(setS("usage_status", _))
+
+    printUsageMetadata.foreach(p => setM("print_metadata", toAttributeValueMap(p.toDynamoMap)))
+    digitalUsageMetadata.foreach(m => setM("digital_metadata", toAttributeValueMap(m.toDynamoMap)))
+    syndicationUsageMetadata.foreach(m => setM("syndication_metadata", toAttributeValueMap(m.toDynamoMap)))
+    frontUsageMetadata.foreach(m => setM("front_metadata", toAttributeValueMap(m.toDynamoMap)))
+    downloadUsageMetadata.foreach(m => setM("download_metadata", toAttributeValueMap(m.toDynamoMap)))
+    childUsageMetadata.foreach(m => setM("child_metadata", toAttributeValueMap(m.toDynamoMap)))
+
+    dateAdded.foreach(dt => setN("date_added", dt.getMillis))
+
+    dateRemovedOperation match {
+      case ClearDateRemoved =>
+        removeOps += "date_removed"
+
+      case LeaveDateRemovedUntouched =>
+        ()
+
+      case SetDateRemoved(dt) =>
+        setN("date_removed", dt.getMillis)
+    }
+
+    val setExpr =
+      if (setOps.nonEmpty)
+        "SET " + setOps.map { case (v, _) => s"#${v.drop(1)} = $v" }.mkString(", ")
+      else ""
+
+    val removeExpr =
+      if (removeOps.nonEmpty)
+        "REMOVE " + removeOps.map(f => s"$f").mkString(", ")
+      else ""
+
+    val expression =
+      Seq(setExpr, removeExpr).filter(_.nonEmpty).mkString(" ")
+
+    Expression.builder()
+      .expression(expression)
+      .expressionValues(setOps.toMap.asJava)
+      .expressionNames(names.asJava)
+      .build()
   }
 }
 

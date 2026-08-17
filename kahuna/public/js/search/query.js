@@ -26,7 +26,6 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
-import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -79,7 +78,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled;
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
