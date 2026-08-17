@@ -470,7 +470,7 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
-    
+
     let aiSearchInitialised = false;
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
