@@ -12,7 +12,6 @@ Start there (its top banner has the build status + standing constraints). Do not
 |------|------------|
 | `phase-3-minimal-gap-derivation-findings.md` | **The plan.** Status banner + 20-method classification + post-D3 standing constraints. |
 | `phase-3-d7-d8-d9-workplan.md` | **Next to build.** Detailed workplan for the three searchAfter companions (countWithTickers, PIT, mget). |
-| `phase-3-d3-searchafter-post-pr-review.md` | **Live.** Triage of the 10 Copilot review comments on PR #4849, verdicts with cites, open decisions, port/reply procedure. |
 | `phase-3-d3-searchafter-scala-pr.md` | PR-description template for media-api Scala commits (one per gap). |
 | `phase-3-d3-searchafter-sort-companion-workplan.md` | The deferred **Option A** sort design + its migration trigger. Live until Option A is built or abandoned. |
 | `phase-3-d3-searchafter-perf-deep-dive.md` | Evidence-based perf analysis — the doc to discuss with engineers (lean envelope writer = the unbuilt prod lever). |
@@ -26,6 +25,9 @@ D3 is shipped (`49cae4bb7` + `b52d027da`); B1/B2 are done. The build history, co
 superseded perf docs, and the Phase-1/2/2.5 research inputs now live in the archive:
 
 - `phase-3-d3-searchafter-{workplan,worklog,code-review,code-review-final,payload-perf-findings,perf-review,fileMetadata-aliases-companion-workplan}.md`
+- `phase-3-d3-searchafter-post-pr-review.md` — the 10 Copilot comments on PR #4849, all actioned.
+  **§D-6 is the one to read before touching the PIT branch** (the `_shard_doc` truncation looks
+  like a bug and is not; it was “fixed” and reverted). D8 links to it.
 - `phase-3-b1-*`, `phase-3-b2-*` (B-bucket workplans — complete)
 - `phase-3-minimal-gap-derivation-handoff.md`
 - `phase-1-*`, `phase-2-*`, `phase-2.5-b2-hunt-*` (research inputs — subsumed by the findings doc)

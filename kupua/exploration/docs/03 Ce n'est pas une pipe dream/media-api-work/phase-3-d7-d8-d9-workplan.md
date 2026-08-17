@@ -278,7 +278,7 @@ PIT, and `searchAfter` truncates it away. That truncation is deliberate and corr
 cursors outlive the PIT (kupua persists them and retries without a PIT on 404/410, where a
 `_shard_doc` value is rejected with a 400), and client-synthesised cursors could never
 contain one. It was measured, "fixed", and reverted. Full reasoning:
-`phase-3-d3-searchafter-post-pr-review.md` §D-6.
+`zz Archive/media-api-work/phase-3-d3-searchafter-post-pr-review.md` §D-6.
 
 ---
 

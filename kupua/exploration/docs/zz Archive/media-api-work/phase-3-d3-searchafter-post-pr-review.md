@@ -2,11 +2,19 @@
 
 **PR:** [guardian/grid#4849](https://github.com/guardian/grid/pull/4849) — `mk-api-1of9-searchAfter` → `main`
 **Review:** Copilot AI, 10 comments, all severity *Medium*, against commit `38ae5b4`.
-**Status:** triaged 2026-08-17. **Batch A done** on `mk-next-next-next` (not yet ported to the
-PR branch). Batch B and C outstanding.
+**Status:** ✅ **COMPLETE — archived 2026-08-18.** All 10 comments actioned and answered on the
+PR. Eight resolved (six fixed, one refuted with evidence, one declined as pre-existing); **#9
+and #10 remain open on the PR as team decisions** — they are deliberately left unresolved
+there so a human reviewer sees them, and the PR is the live venue for them, not this doc.
 
-Work is done on `mk-next-next-next` (where tests and the running app exist), then
-ported to the PR branch. See §4–§5.
+| Where | Commits |
+|---|---|
+| `mk-next-next-next` | `73e28fe21` (Batch A Scala), `26bc587f7` (docs), `c7b5f4551` (Batch B Scala), `6eb08e5ae` (docs) |
+| `mk-api-1of9-searchAfter` (PR #4849) | `fe882dc88` (Batch A), `594e49eea` (Batch B) — both pushed |
+
+Both ports were plain cherry-picks; `git merge-tree` dry-runs came back clean each time, so
+the harvest fallback in `media-api-worknotes.md` was not needed. Full suite green on the PR
+branch after each (216/216).
 
 ---
 
@@ -185,34 +193,42 @@ existing test asserts a 500/passthrough for these inputs before changing them.
 
 ---
 
-## 5. Porting to the PR branch
+## 5. Porting to the PR branch — ✅ DONE (both batches, plain cherry-pick)
 
 Per `media-api-worknotes.md`, and its 2026-07-25 caveat: `main` has independently refactored
-the same files, and a plain cherry-pick of D3's original commit already conflicts. Assume
-the **harvest** recipe, verify with `merge-tree` first:
+the same files, and a plain cherry-pick of D3's original commit already conflicts. So the
+dry-run was run before each port:
 
 ```bash
-git merge-tree --write-tree --merge-base=<commit>^ origin/main <commit>
+git merge-tree --write-tree --merge-base=<commit>^ origin/mk-api-1of9-searchAfter <commit>
 ```
 
-Non-zero / `CONFLICT` → don't replay the patch; check the reconciled file states out of
-`mk-next-next-next` onto a branch built from the PR head, commit, push. Every commit must
-touch **only** files under `media-api/` — verify with `git diff --stat` before pushing.
+**Both came back clean (exit 0)**, so the default recipe applied and the harvest fallback was
+not needed. Each cherry-pick touched only the intended `media-api/` files (verified with
+`git diff --stat` against the PR head), and the full suite was re-run on the PR branch after
+each — its base differs, since it carries a merge from `main`.
+
+> Do not assume this stays true. Re-run the dry-run for any future port; the caveat that
+> caught D3 is about `main` moving, not about these particular commits.
 
 ---
 
-## 6. Replying to the review comments
+## 6. Replying to the review comments — ✅ DONE
 
-Each Copilot comment is resolved individually on the *Files changed* tab. Convention for
-this PR:
+Each comment was answered individually on the *Files changed* tab. Convention used, worth
+reusing:
 
-- **Fixed (Batch A/B):** reply naming the commit that fixes it and the test that covers it,
-  then *Resolve conversation*. Copilot's own suggested changesets should not be committed
-  blind — several are close but not identical to what we'll write.
-- **Won't fix / not a regression (#6):** reply with the cite showing the GET path is
-  identical, offer the follow-up PR, then resolve.
-- **Deferred to the team (#9, #10):** reply linking this doc's §3, leave the conversation
-  **open** so a human reviewer sees the open question. Do not resolve.
+- **Fixed (#2, #4, #5, #7, #8, #3):** reply naming the commit and the test covering it, then
+  *Resolve conversation*.
+- **Investigated and refuted (#1):** reply with the measurement, the reverted attempt, and the
+  reasoning, then resolve. See §D-6.
+- **Declined as pre-existing (#6):** reply with the cite showing the GET path is byte-identical,
+  offering a separate follow-up PR, then resolve.
+- **Team decisions (#9, #10):** replied with the options and **left open** deliberately.
 
-Copilot is not a required reviewer — its comments do not block merge. Resolving is about
-signal to the human reviewer, not about satisfying the bot.
+Copilot's own suggested changesets were **not** committed blind. Several were close but not
+right — notably #4's `Future(...).flatten`, which papers over the synchronous throw instead of
+removing it and would have missed the null-zone throw site entirely.
+
+Copilot is not a required reviewer, so resolving is signal to the human reviewer rather than a
+merge gate.

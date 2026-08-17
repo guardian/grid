@@ -43,6 +43,9 @@ export interface TypeaheadSuggestion {
   count?: number;
 }
 
+/** Suggestion handed to @guardian/cql, whose TextSuggestionOption requires the key to exist. */
+type LabelledSuggestion = Omit<TypeaheadSuggestion, "label"> & { label: string | undefined };
+
 export interface TypeaheadFieldDef {
   fieldName: string;
   resolver?: ((value: string) => Promise<TypeaheadSuggestion[]>) | string[];
@@ -556,7 +559,7 @@ function flattenCollectionPathIds(root: CollectionNode): string[] {
 export function buildDynamicFieldFallback(
   dataSource: ImageDataSource,
   getParams?: () => SearchParams,
-): (fieldId: string, value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[] | undefined> {
+): (fieldId: string, value: string, signal?: AbortSignal) => Promise<LabelledSuggestion[] | undefined> {
   return async (fieldId, value, signal) => {
     const params = getParams?.();
     if (!params) return undefined;
@@ -575,7 +578,8 @@ export function buildDynamicFieldFallback(
       undefined,
     );
     if (!buckets?.length) return undefined;
-    return bucketFilter(value, buckets);
+    // cql's TextSuggestionOption declares `label` present-but-nullable, so the key must exist.
+    return bucketFilter(value, buckets).map((s) => ({ ...s, label: s.label }));
   };
 }
 

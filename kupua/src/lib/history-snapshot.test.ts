@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// SessionStorageSnapshotStore needs a real Storage. Node only exposes sessionStorage as a
+// global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
 import { describe, it, expect, beforeEach } from "vitest";
 import { MapSnapshotStore, SessionStorageSnapshotStore } from "./history-snapshot";
 import type { HistorySnapshot } from "./history-snapshot";
@@ -89,6 +92,13 @@ describe("SessionStorageSnapshotStore", () => {
   beforeEach(() => {
     sessionStorage.clear();
     store = new SessionStorageSnapshotStore();
+  });
+
+  // Without the jsdom docblock these tests pass on Node >=25 (which exposes
+  // sessionStorage globally) and fail on the Node 20/22 the project supports.
+  // This makes that misconfiguration fail the same way everywhere.
+  it("runs in a DOM environment rather than relying on Node globals", () => {
+    expect(typeof window).toBe("object");
   });
 
   it("get returns undefined for unknown key", () => {

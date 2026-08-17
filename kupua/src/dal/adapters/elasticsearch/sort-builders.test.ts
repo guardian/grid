@@ -11,7 +11,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildSortClause, SORT_FIELD_EXTRACTORS } from "./sort-builders";
+import { buildSortClause, reverseSortClause, SORT_FIELD_EXTRACTORS } from "./sort-builders";
+import { SORTABLE_FIELDS } from "@/lib/field-registry";
 
 describe("buildSortClause", () => {
   // -----------------------------------------------------------------------
@@ -270,6 +271,45 @@ describe("buildSortClause", () => {
       { uploadTime: "asc" },
       { id: "asc" },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// media-api wire contract
+// ---------------------------------------------------------------------------
+// POST /images/search-after returns 422 for a sort clause that is empty, names more
+// than one field in an entry, or uses a direction other than asc/desc. The direct-ES
+// path tolerates all three, so without these assertions a change here would keep
+// every other test green and only break --use-media-api.
+
+describe("buildSortClause — media-api wire contract", () => {
+  // Derived from the registry so a newly sortable field is covered automatically.
+  const tokens: (string | undefined)[] = [
+    undefined,
+    ...Object.values(SORTABLE_FIELDS).flatMap((key) => [key, `-${key}`]),
+    "dateAddedToCollection",
+    "-dateAddedToCollection",
+  ];
+
+  function assertWireSafe(clauses: Record<string, unknown>[], token: string) {
+    expect(clauses.length, `${token}: sort clause must not be empty`).toBeGreaterThan(0);
+
+    for (const clause of clauses) {
+      const keys = Object.keys(clause);
+      expect(keys.length, `${token}: entry must name exactly one field, got [${keys.join(", ")}]`).toBe(1);
+
+      const spec = clause[keys[0]];
+      const order = typeof spec === "string" ? spec : (spec as { order?: unknown }).order;
+      expect(["asc", "desc"], `${token}: bad direction on ${keys[0]}`).toContain(order);
+    }
+  }
+
+  it.each(tokens)("orderBy=%s produces a wire-safe clause", (token) => {
+    assertWireSafe(buildSortClause(token), String(token));
+  });
+
+  it.each(tokens)("orderBy=%s stays wire-safe after reverseSortClause", (token) => {
+    assertWireSafe(reverseSortClause(buildSortClause(token)), String(token));
   });
 });
 

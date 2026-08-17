@@ -14,6 +14,57 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 18 August 2026 — kupua test infrastructure: unit tests were passing for the wrong reason
+
+Three unrelated problems found while auditing kupua's own tests after the media-api review
+work (PR #4849) was finished. None were caused by that work — the four commits it produced
+contain zero `.ts`/`.tsx` files — but the audit is what surfaced them.
+
+**The unit suite was green for the wrong reason, and only on some machines.** `vite.config.ts`
+declares no `environment` under `test:`, so vitest runs in its default **node** environment
+and nothing supplies DOM globals. `history-snapshot.test.ts` and `image-offset-cache.test.ts`
+call `sessionStorage` directly, so whether they pass depends entirely on the **Node version**:
+Node 25 exposes `sessionStorage` as a stable global (verified with
+`node -p "typeof sessionStorage"` → `object`, no flags, empty `NODE_OPTIONS`), while Node 22 —
+the minimum kupua's own `engines` field allows — does not. Result: 1045/1045 green for the
+agent on v25.8.1, 13 failures for the user on v22.12.0, same commit. Fixed with
+`// @vitest-environment jsdom` docblocks on the two files; jsdom was already installed and in
+`devDependencies`, just never wired up. `selection-store.test.ts` needed nothing — it already
+stubs storage via `vi.stubGlobal` and documents "Environment: Vitest/Node (no DOM)".
+
+Also added a deterministic guard to both files — `expect(typeof window).toBe("object")` — and
+confirmed it is load-bearing by temporarily deleting a docblock: the guard failed
+(`'undefined' to be 'object'`) while the other 12 tests carried on passing on Node 25. That is
+the whole point. A misconfiguration that previously failed only for developers on older Node
+now fails identically everywhere, including for whoever introduced it.
+
+**`npm run build` was broken and no test could have caught it.** `tsc -b` failed on
+`CqlSearchInput.tsx`: `@guardian/cql`'s `TextSuggestionOption.label` is `string | undefined`
+(present but nullable) while kupua's `TypeaheadSuggestion.label` is `label?:` (may be absent
+entirely) — the key must exist, which is a narrower complaint than "label is optional".
+Adapted at the boundary in `buildDynamicFieldFallback` with a `LabelledSuggestion` type and
+`{ ...s, label: s.label }`, rather than making `label` required across kupua and rippling into
+every producer. Most likely surfaced by `f483a8659` (dependency bump; the lockfile was
+regenerated wholesale, so the exact version delta is unreadable).
+
+> **Lesson worth keeping: `vitest run` does not typecheck.** Vitest strips types via esbuild,
+> so a fully green unit suite says nothing about whether kupua compiles. `npm --prefix kupua
+> run build` is a separate check and needs running separately.
+
+**Wire-contract tests added** for the 422s the media-api work introduced. `POST
+/images/search-after` now rejects a sort clause that is empty, names more than one field per
+entry, or uses a direction other than `asc`/`desc` — and nothing on the kupua side pinned any
+of that. The direct-ES path tolerates all three, so a future change to `buildSortClause` (a
+compound clause, a new direction token, an alias expanding to two keys) would have kept every
+existing test green and broken only `--use-media-api`. `sort-builders.test.ts` now derives its
+token list from `SORTABLE_FIELDS`, so a newly sortable field is covered automatically rather
+than relying on someone remembering, and asserts all three invariants for both
+`buildSortClause` and `reverseSortClause`. `grid-api-search-adapter.test.ts` asserts the POST
+body always carries a non-empty `sort`, including when `orderBy` is absent.
+
+**Verification:** `npm --prefix kupua test` → **1131/1131** (was 1045);
+`npm --prefix kupua run build` passes; `npm --prefix kupua run test:e2e` → **244/244** in 9.4m.
+
 ### 17 August 2026 — media-api `searchAfter` Part 5: post-PR-review fixes, batch 2 (one real bug, one refuted claim)
 
 Second batch from the Copilot review on [PR #4849](https://github.com/guardian/grid/pull/4849).

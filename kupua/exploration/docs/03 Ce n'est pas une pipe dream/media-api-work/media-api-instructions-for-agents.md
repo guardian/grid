@@ -109,7 +109,11 @@ See `media-api-conventions.md` for full detail and file:line cites.
     `ElasticDsl.search(Nil).query(q).pit(...)` (still apply `withSearchQueryTimeout`) — the migration
     dedup filter from `prepareSearch` must NOT be applied to a PIT (it shrinks results mid-migration).
     When D8 builds `POST /images/pit`, open the PIT across both `imagesCurrentAlias` and the running
-    migration index. Cite: `ElasticSearch.searchAfter` PIT branch; `phase-3-d3-searchafter-scala-pr.md`.
+    migration index. **Do NOT "fix" the `_shard_doc` truncation in `searchAfter`** — ES appends an
+    implicit tiebreaker under a PIT and the code drops it on purpose, because cursors outlive the PIT
+    and client-synthesised cursors cannot contain one. It has already been measured, "fixed" and
+    reverted once; read `zz Archive/media-api-work/phase-3-d3-searchafter-post-pr-review.md` §D-6
+    before touching it. Cite: `ElasticSearch.searchAfter` PIT branch; `phase-3-d3-searchafter-scala-pr.md`.
 
 25. **Image-returning endpoints reuse the lean projection + strip-before-validate.** `_source` is the
     schema-derived `Image` field set minus `{embedding, originalMetadata, fileMetadata}` plus

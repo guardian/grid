@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+// storeImageOffset/getImageOffset need a real Storage. Node only exposes sessionStorage as a
+// global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   buildSearchKey,
@@ -171,6 +174,12 @@ describe("extractSortValues", () => {
 describe("storeImageOffset / getImageOffset", () => {
   beforeEach(() => {
     sessionStorage.clear();
+  });
+
+  // See the jsdom docblock at the top of this file: without it these tests pass
+  // only on Node >=25, silently skipping coverage for supported Node versions.
+  it("runs in a DOM environment rather than relying on Node globals", () => {
+    expect(typeof window).toBe("object");
   });
 
   it("round-trips offset + cursor + searchKey", () => {

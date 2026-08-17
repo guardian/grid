@@ -388,3 +388,48 @@ describe("F-1 regression: apiSearchAfter must not write enrichment store", () =>
     expect(useEnrichmentStore.getState().data.has("visible-img-1")).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// media-api wire contract
+// ---------------------------------------------------------------------------
+// The server rejects a search-after request whose sort clause is missing or empty
+// with a 422. Nothing else asserts what actually goes on the wire.
+
+describe("apiSearchAfter request body — media-api wire contract", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("always sends a non-empty sort array", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeApiResponse("img-1"),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    const init = fetchMock.mock.calls[0][1] as { body: string };
+    const body = JSON.parse(init.body) as { sort?: unknown };
+
+    expect(Array.isArray(body.sort)).toBe(true);
+    expect((body.sort as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it("sends a non-empty sort array even when orderBy is absent", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makeApiResponse("img-1"),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { orderBy: _orderBy, ...noOrderBy } = probeParams;
+    await apiSearchAfter(noOrderBy, null, null, undefined, false, false);
+
+    const init = fetchMock.mock.calls[0][1] as { body: string };
+    const body = JSON.parse(init.body) as { sort?: unknown };
+
+    expect(Array.isArray(body.sort)).toBe(true);
+    expect((body.sort as unknown[]).length).toBeGreaterThan(0);
+  });
+});
