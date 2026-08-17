@@ -14,9 +14,9 @@ ported to the PR branch. See §4–§5.
 
 | # | Comment (short) | File | Verdict | Batch | State |
 |---|---|---|---|---|---|
-| 1 | PIT `_shard_doc` tiebreaker dropped by `.take(sortLen)` | `ElasticSearch.scala` | Unverified claim, untestable path today — **run the experiment** | B | open |
+| 1 | PIT `_shard_doc` tiebreaker dropped by `.take(sortLen)` | `ElasticSearch.scala` | **Refuted** — truncation is deliberate and correct (D-6) | B | ✅ investigated, no code change |
 | 2 | Missing `syndicationReviewQueueFixMapping` runtime mapping | `ElasticSearch.scala` | **Real** parity gap with `search()` | A | ✅ done |
-| 3 | Null-zone `existsQuery` not nested-aware | `ElasticSearch.scala` | **Real** parity bug (kupua's own client does it right) | B | open |
+| 3 | Null-zone `existsQuery` not nested-aware | `ElasticSearch.scala` | **Real** parity bug (kupua's own client does it right) | B | ✅ done |
 | 4 | Validation throws synchronously → 500 not 422 | `MediaApi.scala` | **Real** | A | ✅ done |
 | 5 | `jsonToSort` shape assumptions (empty obj, missing `order`) | `sorts.scala` | **Real** | A | ✅ done |
 | 6 | `usageStatus`/`syndicationStatus` throw → 500 | `ElasticSearchModel.scala` | **Pre-existing** on GET path — not a regression | C | open (reply only) |
@@ -77,6 +77,9 @@ endpoint. So both are pure contract questions with no current caller at risk.
 
 ### D-1 — #1 PIT `_shard_doc`: settle by experiment, not by argument (RECOMMENDED)
 
+Superseded by **D-6** — the experiment was run. Keeping the reasoning here because the method
+(settle by measurement, not argument) is the reusable part.
+
 The question "does ES append `_shard_doc` and then reject a short cursor?" is cheap to
 answer: the Docker-backed integration test can open a PIT directly via elastic4s, page
 twice, and assert. That test is *also* the test the fix would need. So:
@@ -92,7 +95,45 @@ Amending the D7/D8/D9 workplan instead is tempting (less work now) but only corr
 affected code were unwritten — it isn't. Either way, the D8 workplan gets an addendum
 noting the cursor contract, since D8 is what makes the PIT path reachable.
 
-**Status:** agreed approach — run the experiment before deciding.
+**Status:** DONE — see D-6 for the outcome.
+
+### D-6 — the PIT cursor contract: `_shard_doc` is dropped ON PURPOSE (SETTLED, 2026-08-17)
+
+> Read this before touching the PIT branch — including whoever builds D8. It looks like a
+> bug from every angle except the one that matters.
+
+**Measured, not argued.** A Docker-backed test opened a PIT and inspected the raw response:
+ES 8.18 **does** append an implicit `_shard_doc` tiebreaker — `hit.sort` has 3 values against
+a 2-field client clause. So the reviewer's premise is correct.
+
+**But the predicted consequence does not occur.** ES does *not* reject a shorter
+`search_after`; it accepts it and compares the client's prefix. A two-page PIT walk works
+today, unchanged.
+
+**The tempting "fix" is wrong.** Preserving the tiebreaker (and widening the length check to
+`n+1`) was implemented, went green, and was then reverted, because:
+
+1. **Cursors outlive the PIT.** Kupua persists them in the store as `endCursor`/`startCursor`
+   and retries *without* a PIT when one expires (`es-adapter.ts` catch on 404/410). A
+   `_shard_doc` value in a non-PIT `search_after` is rejected by ES with a 400. Kupua's own
+   direct-ES adapter strips the tiebreaker for exactly this reason and says so in a comment
+   (`es-adapter.ts:1025-1035`) — the Scala was already consistent with the client.
+2. **Synthesised cursors become impossible.** `buildSeekCursorAnchors`
+   (`search-store.ts:874`) and the null-zone cursor (`search-store.ts:3071`) are built
+   client-side from estimates. A client cannot invent a `_shard_doc` ordinal, so an `n+1`
+   requirement would 422 every seek and every null-zone entry.
+
+**The actual contract, now documented in code and pinned by tests:** the cursor is always the
+client's sort-clause length. That is safe **provided the client's sort ends in a unique
+tiebreaker** — kupua's `buildSortClause` always appends `id`. Violate that precondition and
+documents tied on the clause can be skipped at a page boundary; a deliberately non-unique
+sort was measured losing 8 of 27 documents. That is a caller requirement, not a server bug,
+and the server cannot detect field uniqueness.
+
+**Tests that hold the line:** `PIT: a two-page cursor walk over a point-in-time snapshot`
+(asserts ES returns n+1 while our cursor is n — so a future ES change surfaces immediately)
+and `PIT: a full cursor walk loses no documents when the sort clause ends in a unique
+tiebreaker`.
 
 ### D-2 — #10 `include=fileMetadata`: deferred to the team
 

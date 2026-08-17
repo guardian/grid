@@ -14,6 +14,53 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 August 2026 — media-api `searchAfter` Part 5: post-PR-review fixes, batch 2 (one real bug, one refuted claim)
+
+Second batch from the Copilot review on [PR #4849](https://github.com/guardian/grid/pull/4849).
+Two comments, both about cursor mechanics. One was a genuine bug; the other was a correct
+diagnosis with the wrong conclusion, and investigating it properly mattered more than
+"fixing" it would have. Verdicts and cites:
+`03 Ce n'est pas une pipe dream/media-api-work/phase-3-d3-searchafter-post-pr-review.md`.
+
+**Fixed — null-zone `exists` was not nested-aware.** When the primary sort field lives inside
+a nested type, the null-zone filter `must_not exists(field)` was built as a root-level
+`existsQuery`. A root-level exists cannot match a parent document for a field inside a
+`nested` mapping, so the `must_not` excluded nothing and images that *do* have the field
+leaked into the null zone — meaning they were returned twice across a full scroll. This is
+reachable from a real kupua sort: `usagesDateAdded` sorts on `usages.dateAdded` with
+`nested: { path: "usages" }`, and `usages` is a genuine `NestedField` in
+`Mappings.usagesMapping`. The fix reads the nested path off the primary `FieldSort` and wraps
+the exists in a `nestedQuery`, falling back to the flat form otherwise. Red-first showed 8
+usage-bearing fixtures (`test-image-2/3/9/10/11/12`, `persisted-because-usage`, a UUID
+handout) leaking before the fix and none after. Kupua's own direct-ES adapter already did
+this correctly (`es-adapter.ts`), so this closes a port gap rather than inventing behaviour.
+
+**Refuted — the PIT `_shard_doc` tiebreaker is dropped on purpose.** The reviewer's premise
+checked out under measurement: ES 8.18 *does* append an implicit `_shard_doc` to the sort
+array of every hit under a point-in-time snapshot (raw `hit.sort` length 3 against a 2-field
+client clause). The predicted consequence did not: ES does **not** reject a shorter
+`search_after`, it accepts it and compares the client's prefix, so a two-page PIT walk
+already worked. A "fix" preserving the tiebreaker was written, went green, and was then
+reverted after reading kupua's own adapter, which strips the same value deliberately and
+explains why — **cursors outlive the PIT.** Kupua persists them as `endCursor`/`startCursor`
+and retries *without* a PIT when one expires (404/410); a `_shard_doc` value in a non-PIT
+`search_after` is rejected by ES with a 400. Preserving it would also have 422'd every
+client-synthesised cursor (`buildSeekCursorAnchors`, the null-zone estimate cursor), which
+cannot contain a shard ordinal the client has no way to know. Net result: no behaviour
+change, a comment stating the contract, and two tests pinning it. The contract does carry a
+caller requirement — the sort clause must end in a unique tiebreaker, which
+`buildSortClause` guarantees by always appending `id`; a deliberately non-unique sort was
+measured losing 8 of 27 documents. Recorded as decision **D-6**, with a pointer from the
+D7/D8/D9 workplan because D8 is where it will next look like a live bug.
+
+**Testing.** Three new integration tests (two PIT, one nested null-zone).
+`TZ=UTC sbt "media-api/test"` → **216/216 green**. No kupua/TS change needed for either
+item: the PIT outcome is a no-op, and the nested fix makes media-api match what kupua's
+direct-ES path already did. Verified in the app (`--use-TEST` + `--use-media-api`) by
+sorting on Usages Added and inspecting the first ~2,500 images at the null-zone boundary —
+no usage-bearing images present. That confirms end-to-end wiring; the differential evidence
+is the integration test.
+
 ### 17 August 2026 — media-api `searchAfter` Part 4: first batch of post-PR-review fixes (PR #4849)
 
 Copilot was asked for an extra review on [PR #4849](https://github.com/guardian/grid/pull/4849)

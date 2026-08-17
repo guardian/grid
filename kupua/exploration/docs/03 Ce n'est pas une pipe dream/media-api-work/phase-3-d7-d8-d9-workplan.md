@@ -271,6 +271,15 @@ the same assumption D3 already relies on.
   latency-dependent and may not hold at production scale (JVM GC pauses, ES thread-pool
   queueing under many concurrent users). Cheap to include now, expensive to retrofit later.
 
+**Addendum (17 August 2026) — do NOT "fix" the PIT cursor tiebreaker.** D8 makes the PIT
+branch of `searchAfter` reachable for the first time, so this will look like a live bug the
+moment you exercise it: ES appends an implicit `_shard_doc` to every hit's sort array under a
+PIT, and `searchAfter` truncates it away. That truncation is deliberate and correct —
+cursors outlive the PIT (kupua persists them and retries without a PIT on 404/410, where a
+`_shard_doc` value is rejected with a 400), and client-synthesised cursors could never
+contain one. It was measured, "fixed", and reverted. Full reasoning:
+`phase-3-d3-searchafter-post-pr-review.md` §D-6.
+
 ---
 
 ## 4. D9 — `POST /images/mget`
