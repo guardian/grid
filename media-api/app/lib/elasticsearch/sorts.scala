@@ -34,13 +34,19 @@ object sorts {
 
   // Deserialise one entry from the client-sent ES sort clause.
   // Handles flat {"field":"dir"} and nested-object {"field":{order,missing?,mode?,nested?}} shapes.
+  // Malformed client input must surface as InvalidUriParams (→ 422), never as a raw JSON/collection
+  // exception, so every shape assumption below is checked rather than assumed.
   def jsonToSort(entry: JsObject): Sort = {
+    if (entry.fields.size != 1)
+      throw InvalidUriParams(s"each sort entry must name exactly one field, got ${entry.fields.size}")
     val (field, spec) = entry.fields.head
     spec match {
       case JsString(dir) =>
         fieldSort(field).order(orderOf(dir))
       case obj: JsObject =>
-        val base        = fieldSort(field).order(orderOf((obj \ "order").as[String]))
+        val order       = (obj \ "order").asOpt[String]
+          .getOrElse(throw InvalidUriParams(s"missing or non-string sort order for field $field"))
+        val base        = fieldSort(field).order(orderOf(order))
         val withMissing = (obj \ "missing").asOpt[String].fold(base)(base.missing)
         val withMode    = (obj \ "mode").asOpt[String].fold(withMissing)(m => withMissing.mode(sortModeOf(m)))
         (obj \ "nested" \ "path").asOpt[String].fold(withMode: Sort)(p => withMode.nested(NestedSort(Some(p))))
@@ -49,8 +55,11 @@ object sorts {
     }
   }
 
-  private def orderOf(s: String): SortOrder =
-    if (s == "desc") SortOrder.DESC else SortOrder.ASC
+  private def orderOf(s: String): SortOrder = s match {
+    case "asc"  => SortOrder.ASC
+    case "desc" => SortOrder.DESC
+    case other  => throw InvalidUriParams(s"unrecognised sort order: $other")
+  }
 
   private def sortModeOf(s: String): SortMode = s match {
     case "min"    => SortMode.Min
