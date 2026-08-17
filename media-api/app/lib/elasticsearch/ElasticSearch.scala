@@ -631,11 +631,18 @@ class ElasticSearch(
     val isNullZone = params.sortValues.exists(_.headOption.contains(JsNull))
 
     val (effectiveSortValues, workingSort, extraMustNot) = if (isNullZone) {
-      val sv           = params.sortValues.get
-      val primaryField = baseSorts.collectFirst { case fs: FieldSort => fs.field }
+      val sv          = params.sortValues.get
+      val primarySort = baseSorts.collectFirst { case fs: FieldSort => fs }
         .getOrElse(throw InvalidUriParams("cannot detect primary sort field for null-zone cursor"))
+      val primaryField = primarySort.field
       val nzSort   = effectiveSortClause.filterNot { case fs: FieldSort => fs.field == primaryField; case _ => false }
-      val nzFilter = boolQuery().withNot(existsQuery(primaryField))
+      // A root-level exists on a field inside a nested type matches no parent document, so the
+      // must_not would exclude nothing and images that have the field would leak into the null zone.
+      val nzExists = primarySort.nested.flatMap(_.path) match {
+        case Some(path) => nestedQuery(path, existsQuery(primaryField))
+        case None       => existsQuery(primaryField)
+      }
+      val nzFilter = boolQuery().withNot(nzExists)
       (Some(sv.tail), nzSort, Some(nzFilter))
     } else {
       (params.sortValues, effectiveSortClause, None)
@@ -694,6 +701,11 @@ class ElasticSearch(
       .sourceInclude(projectionIncludes.head, projectionIncludes.tail: _*)
 
     executeAndLog(projected, "search-after").map { r =>
+      // A PIT search's hit.sort carries an extra implicit _shard_doc tiebreaker. It is dropped
+      // deliberately: cursors outlive the PIT (clients persist them, and retry without a PIT when
+      // one expires), and a PIT-specific value in a non-PIT search_after is rejected by ES. Callers
+      // must therefore end their sort clause with a unique tiebreaker such as id, or documents tied
+      // on the clause can be skipped at a page boundary.
       val sortLen = workingSort.length
 
       val (rawHits, rawSortValues) = r.result.hits.hits.toSeq.flatMap { hit =>

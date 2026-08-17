@@ -11,6 +11,9 @@ import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.Index
+import com.sksamuel.elastic4s.requests.searches.Pit
+import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
@@ -18,7 +21,7 @@ import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.{JsNull, JsNumber, JsString, Json}
+import play.api.libs.json.{JsNull, JsNumber, JsString, JsValue, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
@@ -608,6 +611,44 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       page2.hits.map(_._1).toSet.intersect(page1.hits.map(_._1).toSet) shouldBe empty
     }
 
+    it("null-zone with a nested primary sort excludes images that have the sorted field") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      // usages is a nested type, so a root-level exists(usages.dateAdded) matches no parent
+      // document. The null-zone must_not would then exclude nothing, and images that DO have
+      // usages would leak into the null zone — i.e. be returned twice across the full walk.
+      val twoFieldSort = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      val nestedPrimarySort = Seq(
+        Json.obj("usages.dateAdded" -> Json.obj(
+          "order"   -> "desc",
+          "mode"    -> "max",
+          "missing" -> "_last",
+          "nested"  -> Json.obj("path" -> "usages"),
+        )),
+        Json.obj("uploadTime" -> "desc"),
+        Json.obj("id"         -> "asc"),
+      )
+
+      val page1 = Await.result(ES.searchAfter(SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 1),
+        sort         = twoFieldSort,
+        sortValues   = None,
+        pitId        = None,
+      )), fiveSeconds)
+
+      val nullZoneCursor = Some(JsNull +: page1.nextSortValues.get)
+
+      val nullZone = Await.result(ES.searchAfter(SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = expectedNumberOfImages + 10, countAll = Some(false)),
+        sort         = nestedPrimarySort,
+        sortValues   = nullZoneCursor,
+        pitId        = None,
+      )), fiveSeconds)
+
+      nullZone.hits should not be empty
+      nullZone.hits.filter(_._2.instance.usages.nonEmpty).map(_._1) shouldBe empty
+    }
+
     it("reverse: first page with reverse=true returns opposite end of corpus from forward") {
       implicit val logMarker: LogMarker = MarkerMap()
 
@@ -719,6 +760,86 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       page2.hits.size shouldBe pageSize
       page2.hits.map(_._1).toSet.intersect(page1.hits.map(_._1).toSet) shouldBe empty
+    }
+
+    it("PIT: a two-page cursor walk over a point-in-time snapshot") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val pitId = Await.result(
+        client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id),
+        fiveSeconds
+      )
+
+      val pageSize = 3
+
+      val page1 = Await.result(ES.searchAfter(SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = pageSize),
+        sort         = sortClause,
+        sortValues   = None,
+        pitId        = Some(pitId),
+      )), fiveSeconds)
+
+      page1.hits.size shouldBe pageSize
+      page1.nextSortValues shouldBe defined
+      page1.pitId shouldBe defined
+
+      // ES appends an implicit _shard_doc tiebreaker to every hit's sort array under a PIT, but the
+      // cursor we hand back deliberately omits it: cursors outlive the PIT (clients persist them and
+      // retry without a PIT once it expires) and a _shard_doc value in a non-PIT search_after is
+      // rejected by ES. This pins both halves of that contract.
+      val rawSortLength = Await.result(
+        client.execute(
+          ElasticDsl.search(Nil)
+            .query(matchAllQuery())
+            .pit(Pit(pitId).keepAlive(1.minute))
+            .sortBy(fieldSort("uploadTime").order(SortOrder.DESC), fieldSort("id").order(SortOrder.ASC))
+            .size(1)
+        ).map(_.result.hits.hits.head.sort.getOrElse(Seq.empty).length),
+        fiveSeconds
+      )
+      rawSortLength shouldBe sortClause.length + 1
+      page1.nextSortValues.get.length shouldBe sortClause.length
+
+      val page2 = Await.result(ES.searchAfter(SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = pageSize, countAll = Some(false)),
+        sort         = sortClause,
+        sortValues   = page1.nextSortValues,
+        pitId        = page1.pitId,
+      )), fiveSeconds)
+
+      page2.hits.size shouldBe pageSize
+      page2.hits.map(_._1).toSet.intersect(page1.hits.map(_._1).toSet) shouldBe empty
+    }
+
+    it("PIT: a full cursor walk loses no documents when the sort clause ends in a unique tiebreaker") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      // Dropping the _shard_doc tiebreaker is only safe because the client's own sort ends in a
+      // unique field (id). This walks the whole corpus a page at a time to prove nothing is skipped
+      // or repeated at a page boundary — which is what would happen if `id` were absent.
+      val pitId = Await.result(
+        client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id),
+        fiveSeconds
+      )
+
+      val pageSize = 3
+
+      def walk(cursor: Option[Seq[JsValue]], acc: Seq[String], pages: Int): Seq[String] = {
+        val page = Await.result(ES.searchAfter(SearchAfterParams(
+          searchParams = SearchParams(tier = Internal, length = pageSize, countAll = Some(false)),
+          sort         = sortClause,
+          sortValues   = cursor,
+          pitId        = Some(pitId),
+        )), fiveSeconds)
+
+        if (page.hits.isEmpty || pages > 30) acc
+        else walk(page.nextSortValues, acc ++ page.hits.map(_._1), pages + 1)
+      }
+
+      val walked = walk(None, Seq.empty, 0)
+
+      walked.size shouldBe expectedNumberOfImages
+      walked.distinct.size shouldBe expectedNumberOfImages
     }
 
     it("cursor-length-mismatch → Future.failed(InvalidUriParams)") {
