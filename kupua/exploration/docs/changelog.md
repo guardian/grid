@@ -14,6 +14,66 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 17 August 2026 — media-api `searchAfter` Part 4: first batch of post-PR-review fixes (PR #4849)
+
+Copilot was asked for an extra review on [PR #4849](https://github.com/guardian/grid/pull/4849)
+(the extracted D3 `searchAfter` Scala) and returned 10 comments, all severity *Medium*. Triaged
+into three batches — full verdicts, cites and open decisions in
+`03 Ce n'est pas une pipe dream/media-api-work/phase-3-d3-searchafter-post-pr-review.md`. This
+entry covers **Batch A**: five mechanical fixes, no behaviour change for any existing caller,
+developed and tested here before porting to the PR branch.
+
+**Fixed (all in media-api, cursor path only — Kahuna's `createSort`/`parseSortBy`/`imageSearch`
+untouched):**
+- **Validation errors were 500s, not 422s.** `searchAfter` threw `InvalidUriParams`
+  *synchronously*, before any `Future` existed, so the controller's `.recover` never saw it.
+  Body moved to a private `searchAfterQuery`; the public `searchAfter` now converts the throw
+  to a failed Future. That also let the odd `return Future.failed(...)` cursor-length guard
+  become a plain `throw`, so all four validation sites behave identically. (The cursor-length
+  case was the one that *did* work — which is exactly why the existing "cursor-mismatch → 422"
+  test passed and hid the rest.)
+- **`jsonToSort` trusted its input.** An empty sort entry threw `NoSuchElementException`; a
+  missing or non-string `order` threw `JsResultException`; extra fields were silently dropped.
+  Now shape-checked, all failures → `InvalidUriParams`.
+- **`orderOf` treated anything ≠ `"desc"` as ascending** — a typo like `decs` produced
+  valid-looking but wrongly-ordered results. Now strictly `asc`/`desc`.
+- **Empty `sort` clause accepted.** A cursor endpoint with no deterministic sort returns an
+  unusable continuation cursor. Now rejected.
+- **Missing syndication runtime mapping.** `search()` attaches
+  `syndicationReviewQueueFixMapping` (a Painless runtime field) when querying the
+  review queue with the fix flag on; `searchAfter` built the *same filter* but never declared
+  the field. ES doesn't error on an unmapped field in a `term` query — it just matches nothing —
+  so the `must_not` clause silently evaporated and images with an active deny-syndication lease
+  could reappear in the review queue, differing from Kahuna's answer for the same query with no
+  error and no log line. Root cause is `leases.leases` being a plain (non-nested) object array,
+  so ES flattens `access` and `endDate` into unpaired lists; the runtime field walks leases
+  one-at-a-time and restores the pairing.
+
+**Testing.** Red-first throughout, and it turned the reviewer's claims into evidence: the
+pre-fix run produced exactly the predicted `NoSuchElementException` / `JsResultException`, the
+silently-accepted `"decs"`, and a stack trace of `jsonToSort` throwing straight out of
+`searchAfter`. New `SortsTest.scala` (9 cases, no Docker, ~1s) plus 4 new `ElasticSearchTest`
+cases and a third ES instance with the runtime-fields flag on. `TZ=UTC sbt "media-api/test"` →
+**213/213 green**; no existing test needed changing.
+
+**No kupua/TS change needed.** `buildSortClause`/`reverseSortClause` always emit exactly one
+field per clause object, only `asc`/`desc`, and never an empty clause — so none of the new 422s
+are reachable from the real client. Confirmed by running the app (`--use-TEST` +
+`--use-media-api`): behaving as expected.
+
+**Known weak test, deliberately.** The syndication runtime-mapping test passes with *and*
+without the fix: the runtime field only diverges from the flat clause on multi-lease documents,
+and every fixture has a single lease. Making it non-vacuous needs a new multi-lease fixture in
+the shared `ElasticSearchTestBase.images`, which would shift hardcoded counts across several
+existing syndication tests — disproportionate for a six-line parity fix whose equivalence to
+`search()` is obvious by inspection. Noted as such for the PR reply. Interesting corollary:
+kupua's direct-ES path deliberately skips this runtime field (the browser can't deploy
+Painless — documented deviation in `es-adapter.ts`), so routing via media-api with this fix
+makes kupua *more* correct than its own direct-ES path.
+
+**Still open:** Batch B (PIT `_shard_doc` tiebreaker, nested-aware null-zone `exists`) and
+Batch C (three API-contract questions for the team). See the post-PR-review doc.
+
 ### 12 August 2026 — `search()` closes a superseded search's own PIT explicitly (follow-up to 11 Aug fix)
 
 Follow-up to the 11 August `searchAfter` cancellation fix, addressing the `openPit`/
