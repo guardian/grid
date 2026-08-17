@@ -604,7 +604,16 @@ class ElasticSearch(
   }
 
   def searchAfter(params: SearchAfterParams)
-                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] = {
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] =
+    // Sort/cursor validation below throws before any Future exists, and the controller only recovers
+    // failed futures — an escaping throw would surface as a 500 rather than the intended 422.
+    try searchAfterQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def searchAfterQuery(params: SearchAfterParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] = {
+    if (params.sort.isEmpty)
+      throw InvalidUriParams("sort must be a non-empty array; cursor pagination needs a deterministic sort")
+
     val rawQuery: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
     val filterOpt: Option[Query] =
       queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
@@ -634,8 +643,8 @@ class ElasticSearch(
 
     effectiveSortValues.foreach { sv =>
       if (sv.length != workingSort.length)
-        return Future.failed(InvalidUriParams(
-          s"sortValues length ${sv.length} must equal sort clause length ${workingSort.length}"))
+        throw InvalidUriParams(
+          s"sortValues length ${sv.length} must equal sort clause length ${workingSort.length}")
     }
 
     val effectiveQuery: Query = extraMustNot match {
@@ -653,7 +662,17 @@ class ElasticSearch(
         prepareSearch(effectiveQuery)
     }
 
+    // Same conditional runtime mapping search() applies: without it the review-queue filter's
+    // hasActiveDenySyndicationLease term is unmapped and silently matches nothing.
+    val runtimeMappings =
+      if (params.searchParams.syndicationStatus.contains(AwaitingReviewForSyndication) &&
+          config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
+        Seq(syndicationFilter.syndicationReviewQueueFixMapping)
+      else
+        Seq.empty
+
     val withSort = baseRequest
+      .runtimeMappings(runtimeMappings)
       .size(params.searchParams.length)
       .sortBy(workingSort)
       .trackTotalHits(params.searchParams.countAll.getOrElse(true))

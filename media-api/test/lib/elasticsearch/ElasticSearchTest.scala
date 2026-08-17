@@ -86,6 +86,19 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   private lazy val ESWithFieldAliases =
     new ElasticSearch(mediaApiConfigWithFieldAliases, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler])
 
+  // A third instance with the syndication review-queue runtime-fields fix enabled, so the
+  // search-after path can be compared against search() with the runtime mapping in play.
+  private val mediaApiConfigWithRuntimeFieldsFix = new MediaApiConfig(GridConfigResources(
+    Configuration.from(USED_CONFIGS_IN_TEST ++ Map(
+      "syndication.review.useRuntimeFieldsFix" -> true
+    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    null,
+    applicationLifecycle
+  ))
+
+  private lazy val ESWithRuntimeFieldsFix =
+    new ElasticSearch(mediaApiConfigWithRuntimeFieldsFix, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler])
+
   private val expectedNumberOfImages = images.size
 
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
@@ -724,6 +737,79 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         // InvalidUriParams.message field (not getMessage — that returns null in Throwable)
         ex.asInstanceOf[InvalidUriParams].message should include("sortValues length")
       }
+    }
+
+    it("empty sort clause → Future.failed(InvalidUriParams)") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      // Without a sort clause there is no deterministic order and the returned cursor is unusable,
+      // so the request must be rejected rather than silently relevance-ordered.
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = Nil,
+        sortValues   = None,
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("sort")
+      }
+    }
+
+    it("malformed sort order → Future.failed(InvalidUriParams), not a synchronous throw") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = Seq(Json.obj("uploadTime" -> "decs")),
+        sortValues   = None,
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("decs")
+      }
+    }
+
+    it("malformed sort mode → Future.failed(InvalidUriParams), not a synchronous throw") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      // Guards the 422 contract: sort deserialisation runs before any Future exists, so an escaping
+      // throw would bypass the controller's recover and surface as a 500.
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = Seq(Json.obj("uploadTime" -> Json.obj("order" -> "desc", "mode" -> "bogus"))),
+        sortValues   = None,
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("bogus")
+      }
+    }
+
+    it("applies the syndication review-queue runtime mapping, matching search()") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val searchParams = SearchParams(
+        tier              = Internal,
+        length            = expectedNumberOfImages + 10,
+        syndicationStatus = Some(AwaitingReviewForSyndication),
+      )
+
+      val viaSearch = Await.result(ESWithRuntimeFieldsFix.search(searchParams), fiveSeconds)
+      val viaCursor = Await.result(ESWithRuntimeFieldsFix.searchAfter(SearchAfterParams(
+        searchParams = searchParams,
+        sort         = sortClause,
+        sortValues   = None,
+        pitId        = None,
+      )), fiveSeconds)
+
+      viaCursor.total shouldBe viaSearch.total
+      viaCursor.hits.map(_._1).toSet shouldBe viaSearch.hits.map(_._1).toSet
     }
 
     it("dateAddedToCollection both orders apply pathHierarchy filter when hierarchy condition present") {
