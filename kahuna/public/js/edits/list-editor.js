@@ -114,7 +114,7 @@ listEditor.controller('ListEditorCtrl', [
           }
       };
 
-      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
       const batchAddEvent = 'events:batch-apply:add-all';
       const batchRemoveEvent = 'events:batch-apply:remove-all';
