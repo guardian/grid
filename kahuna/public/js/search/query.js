@@ -479,8 +479,6 @@ query.controller('SearchQueryCtrl', [
       // exactly once via the getSession() -> watchSearchChange path, so emitting here on init would double-count.
       if (aiSearchInitialised) {
         emitQueryTelemetry();
-      } else {
-        resolveNonFree();
       }
       aiSearchInitialised = true;
 
