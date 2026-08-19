@@ -1016,8 +1016,13 @@ export function computeTrackTicksWithNullZone(
   // Start with covered-zone ticks (existing logic)
   const coveredTicks = computeTrackTicks(orderBy, total, bufferOffset, results, sortDist);
 
+  const sortKey = resolvePrimarySortKey(orderBy);
   const coveredCount = sortDist?.coveredCount;
-  if (coveredCount == null || coveredCount < 0 || coveredCount >= total) {
+  // uploadTime is universal (every image has one — see fetchNullZoneDistribution's
+  // matching skip in search-store.ts) — never render a null zone for it, even if
+  // coveredCount/total disagree by a doc or two (they're fetched independently,
+  // so a live index can make them momentarily inconsistent).
+  if (sortKey === "uploadTime" || coveredCount == null || coveredCount < 0 || coveredCount >= total) {
     // No null zone — return covered ticks as-is
     return coveredTicks;
   }
@@ -1027,7 +1032,6 @@ export function computeTrackTicksWithNullZone(
   // When coveredCount === 0, the entire result set is null-zone: position 0
   // maps to topPx=0 (top of track), so the "No [fieldname]" label appears
   // at the top of the scrubber, anchored to the start of the null zone.
-  const sortKey = resolvePrimarySortKey(orderBy);
   const fieldName = sortKey ? getSortFieldDisplayName(sortKey) : "value";
   const boundaryTick: TrackTick = {
     position: coveredCount,

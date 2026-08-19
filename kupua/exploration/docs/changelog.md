@@ -14,6 +14,43 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 19 August 2026 — Scrubber: phantom null-zone on uploadTime sort in `--use-media-api` mode
+
+**Bug report:** in `--use-media-api` mode, the scrubber sometimes showed a tiny red
+null-zone at the very bottom of the track under the default (uploadTime) sort — even
+though every image has `uploadTime` and never shows a null-zone in direct-ES mode.
+
+**Diagnosis.** `computeTrackTicksWithNullZone`'s gate is pure arithmetic:
+`coveredCount >= total` → no null zone. `total` is refreshed from every `searchAfter`
+call (in media-api mode, the real Scala server's response); `sortDistribution.coveredCount`
+is fetched lazily on first scrubber interaction via a separate, un-PIT-anchored client-side
+ES aggregation (`getDateDistribution`, still direct-ES even in media-api mode — `StranglerAdapter`
+never overrides it). Live-verified on TEST (`kupua.media.local.dev-gutools.co.uk`): with no
+`until=` pin, `total=1,322,424` vs `coveredCount=1,322,423` (reproducible 1-doc gap); with
+`until=2026-03-04T00:00:00Z` pinned, both read exactly `1,242,366`. Confirms the two numbers
+are captured at different moments against a live, continuously-mutating index — not a filter
+mismatch. The gap is small enough (±1 doc) to be irrelevant for any *other* date sort's null
+zone (granularity is loose there already), but for uploadTime it's the difference between
+"no null zone" and "phantom null zone", since the field is universal
+(`fetchNullZoneDistribution` already encodes this: `if (!sortKey || sortKey === "uploadTime") return;`
+in `search-store.ts`) — that invariant just wasn't threaded into the tick-rendering gate.
+
+**Fix:** `computeTrackTicksWithNullZone` (`sort-context.ts`) now resolves `sortKey` via
+`resolvePrimarySortKey(orderBy)` and short-circuits before the `coveredCount`/`total`
+comparison when `sortKey === "uploadTime"`. `interpolateNullZoneSortLabel` needed no change —
+`nullZoneDistribution` is never populated for uploadTime, so it was already unreachable there.
+Mode-agnostic (pure UI function, no signature change); no-op in direct-ES mode.
+
+**Testing.** New unit test (`sort-context.test.ts` A6): asserts no boundary tick for both
+`"-uploadTime"` and the defaulted (`undefined`) sort with `coveredCount = total - 1`.
+Full `e2e/local/scrubber.spec.ts` run (84 tests) — no regressions.
+
+**Considered but rejected (for now):** PIT-anchoring `getDateDistribution`/`getKeywordDistribution`
+to the same snapshot as `total` — would close the same race for genuinely-sparse date sorts
+too (`dateTaken`, `lastModified`), not just uploadTime. Rejected as not worth the added
+complexity (PIT plumbing + expiry/fallback handling in two more call sites) given those
+fields' null-zone boundary is already coarse-grained and a ±1 doc jitter there is invisible.
+
 ### 18 August 2026 — kupua test infrastructure: unit tests were passing for the wrong reason
 
 Three unrelated problems found while auditing kupua's own tests after the media-api review

@@ -66,6 +66,17 @@ describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
     const nonBoundary = result.find((t) => !t.boundary && t.position === 15);
     expect(nonBoundary).toBeDefined();
   });
+
+  it("A6: uploadTime sort never shows a boundary tick, even when coveredCount < total " +
+     "(total/coveredCount are fetched independently and can drift by a doc or two " +
+     "on a live index — uploadTime is universal, so this must never render as a null zone)", () => {
+    const sortDist: SortDistribution = { buckets: [], coveredCount: 9 };
+    const explicit = computeTrackTicksWithNullZone("-uploadTime", 10, 0, [], sortDist, null);
+    expect(explicit.some((t) => t.boundary)).toBe(false);
+
+    const defaulted = computeTrackTicksWithNullZone(undefined, 10, 0, [], sortDist, null);
+    expect(defaulted.some((t) => t.boundary)).toBe(false);
+  });
 });
 
 describe("interpolateSortLabel — binary search property (Part B)", () => {
