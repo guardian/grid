@@ -59,7 +59,7 @@ If you haven't used the `--with-local-auth` flag, you'll begin a Google authenti
 
 If you have used the `--no-auth` flag you'll be signed in automatically as John Doe (with no oauth flow) and will have ALL permissions.
 
-# Auth Failed Errors 
+### Auth Failed Errors 
 Sometimes you will see a red notification relating to a failure to auth.  Visiting:
 
 https://media.test.dev-gutools.co.uk/search
