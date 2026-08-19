@@ -19,10 +19,6 @@ modules:
   - node  # (disabled by default)
   - github-copilot
 
-features:
-  desktop-lite:
-    webPort: "6080"
-
 # Optional: Ports to forward
 forwardPorts:
   - 9001
@@ -36,7 +32,7 @@ forwardPorts:
   - 9010
   - 9011
   - 9012
-  - 6080 # playwright noVNC
+  - 6080
 
 # Optional: Mount directories from host to container
 # mounts:
