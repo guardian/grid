@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage._
 import com.gu.mediaservice.testlib.ElasticSearchDockerBase
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
@@ -144,6 +145,17 @@ trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
 
+    // Agency image with an "unknown" status usage just now - unknown usages should still
+    // count towards the supplier usage summary, alongside "published" usages.
+    createImageForSyndication(
+      id = "test-image-agency-unknown-status",
+      rightsAcquired = false,
+      None,
+      None,
+      usageRights = agency,
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, UnknownUsageStatus, date = DateTime.now.minusDays(1)))
+    ),
+
     // Screen grab with rights acquired, not eligible for syndication review
     createImageForSyndication(
       id = "test-image-11",
@@ -187,5 +199,30 @@ trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with
     //        )
     //      )
     //    )
+
+    // Fixtures for ES.imageUsagesBySupplier: a dedicated supplier ("test-wire" isn't in Agencies.all,
+    // so Agencies.get("test-wire").supplier falls back to == "test-wire").
+    createImage("usages-by-supplier-qualified-published-digital", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-15")))),
+    createImage("usages-by-supplier-qualified-unknown-print", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, PrintUsage, UnknownUsageStatus, DateTime.parse("2020-06-16")))),
+    createImage("usages-by-supplier-qualified-removed-digital", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, RemovedUsageStatus, DateTime.parse("2020-06-17")))),
+    createImage("usages-by-supplier-non-qualifying-status", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, DateTime.parse("2020-06-18")))),
+    createImage("usages-by-supplier-non-qualifying-platform", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, SyndicationUsage, PublishedUsageStatus, DateTime.parse("2020-06-19")))),
+    createImage("usages-by-supplier-wrong-supplier", Agency("other-wire"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-20")))),
+    // Has two qualifying usages plus one non-qualifying usage (wrong status) - checks distinctBy(_.id)
+    // collapses to a single result, and that only the qualifying usages are returned (not the non-qualifying one).
+    createImage("usages-by-supplier-multi-usage", Agency("test-wire"),
+      usages = List(
+        createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-01")),
+        createUsage(ComposerUsageReference, PrintUsage, RemovedUsageStatus, DateTime.parse("2020-06-25")),
+        createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, DateTime.parse("2020-06-10"))
+      )),
+    createImage("usages-by-supplier-out-of-date-range", Agency("test-wire"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-08-01"))))
   )
 }
