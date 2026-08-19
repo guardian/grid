@@ -96,7 +96,11 @@ async function globalSetup(): Promise<void> {
 
   // Build Kahuna's frontend bundle, then run all eight services on the host under
   // `sbt <svc>/run` (Play dev mode). Each binds its fixed port (dev/nginx-mappings.yml).
+  console.log("Building frontend");
   await buildKahunaFrontend();
+  console.log("Frontend built");
+
+  console.log("Starting Grid services");
   const app = startGridApp();
 
   // The host processes have no Testcontainers-style reaper, so if bringing the stack up
@@ -107,12 +111,15 @@ async function globalSetup(): Promise<void> {
     // Play dev mode compiles each service on its first request, so waiting on the
     // healthchecks both triggers compilation and confirms readiness.
     await waitForServices(startupTimeoutMs);
+    console.log("Services up")
 
     // Seed Elasticsearch with image fixtures
     //
     // The app creates the `images` index + `Images_Current` alias on startup; seed once the
     // services are healthy so searches during the tests return the fixture documents.
+    console.log("Seeding Elasticsearch");
     await seedElasticsearch(`http://localhost:${ELASTICSEARCH_PORT}`);
+    console.log("Elasticsearch seeded");
 
     // Browser routing
     //
