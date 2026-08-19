@@ -3,6 +3,7 @@ package lib.elasticsearch
 import org.apache.pekko.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.formatting.printDateTime
+import org.joda.time.DateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -10,7 +11,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
+import com.gu.mediaservice.model.usage.{Usage}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -27,7 +28,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryB
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
 import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary, ImageUsagesBySupplier, ImageUsagesBySupplierResult}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -460,7 +461,7 @@ class ElasticSearch(
     }
   )
 
-  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierUsageSummary] = {
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierQuotaCount] = {
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -481,7 +482,35 @@ class ElasticSearch(
     executeAndLog(search, s"$id usage search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
-      SupplierUsageSummary(supplier, result.hits.total.value)
+      SupplierQuotaCount(supplier, result.hits.total.value)
+    }
+  }
+
+  def quotaCountBySupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierQuotaCount] = {
+    val supplier = Agencies.get(id)
+    val supplierName = supplier.supplier
+
+    val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
+    val beInLastPeriod = rangeQuery("usages.dateAdded").gte(s"now-${numDays}d/d").lt("now/d")
+    val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
+
+    val beSupplier = termQuery("usageRights.supplier", supplierName)
+    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
+
+    val search = prepareSearch(query).trackTotalHits(true).size(10000) // @TODO: Where do we set this limit?
+
+    val dateRange = Some((DateTime.now.minusDays(numDays), DateTime.now))
+
+    executeAndLog(search, s"$id quota count by supplier search").map { r =>
+      import r.result
+      logSearchQueryIfTimedOut(search, result)
+      val count = result.hits.hits.toList
+        .flatMap(resolveHit)
+        .map(_.instance.usages)
+        .map(UsageStore.quotaCountForUsages(_, dateRange))
+        .sum
+      SupplierQuotaCount(supplier, count)
     }
   }
 
@@ -497,11 +526,8 @@ class ElasticSearch(
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
-    val qualifyingStatuses = Set[UsageStatus](PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
-    val qualifyingPlatforms = Set[UsageType](PrintUsage, DigitalUsage)
-
-    val haveQualifyingStatus = termsQuery("usages.status", qualifyingStatuses.map(_.toString))
-    val haveQualifyingPlatform = termsQuery("usages.platform", qualifyingPlatforms.map(_.toString))
+    val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
 
     // e.g. usages@<added:2026-07-31 usages@>added:2026-07-01 - each date bound is inclusive,
     // and since they all apply within the same nested "usages" entry, multiple bounds combine into a range.
@@ -530,20 +556,13 @@ class ElasticSearch(
 
     val search = prepareSearch(query).trackTotalHits(true).from(offset).size(length)
 
-    def isQualifyingUsage(usage: Usage): Boolean =
-      qualifyingStatuses.contains(usage.status) &&
-        qualifyingPlatforms.contains(usage.platform) &&
-        maybeDateAddedRange.forall { case (from, to) =>
-          usage.dateAdded.exists(dateAdded => !dateAdded.isBefore(from) && !dateAdded.isAfter(to))
-        }
-
     executeAndLog(search, s"$id image usages by supplier search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
       val images = result.hits.hits.toList
         .flatMap(resolveHit)
         .map(sourceWrapperImage => sourceWrapperImage.instance)
-        .map(image => ImageUsagesBySupplier(image.id, image.usageRights, image.usages.filter(isQualifyingUsage)))
+        .map(image => ImageUsagesBySupplier(image.id, image.usageRights, image.usages.filter(UsageStore.isQualifyingUsage(_, maybeDateAddedRange))))
         .distinctBy(_.id)
       ImageUsagesBySupplierResult(images, result.totalHits)
     }

@@ -6,6 +6,7 @@ import java.util.Properties
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
+import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, UnknownUsageStatus, Usage, UsageStatus, UsageType}
 import javax.mail.Session
 import javax.mail.internet.{MimeBodyPart, MimeMultipart}
 import org.apache.commons.mail.util.MimeMessageUtils
@@ -30,30 +31,30 @@ object SupplierUsageQuota {
   )(SupplierUsageQuota.apply _)
 }
 
-case class SupplierUsageSummary(agency: Agency, count: Long)
-object SupplierUsageSummary {
-  implicit val customReads: Reads[SupplierUsageSummary] = (
+case class SupplierQuotaCount(agency: Agency, count: Long)
+object SupplierQuotaCount {
+  implicit val customReads: Reads[SupplierQuotaCount] = (
     (__ \ "Supplier").read[String].map(Agency(_)) ~
     (__ \ "Usage").read[Long]
-  )(SupplierUsageSummary.apply _)
+  )(SupplierQuotaCount.apply _)
 
-  implicit val writes: Writes[SupplierUsageSummary] = (
+  implicit val writes: Writes[SupplierQuotaCount] = (
     (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
     (__ \ "count").write[Long]
-  )(unlift(SupplierUsageSummary.unapply))
+  )(unlift(SupplierQuotaCount.unapply))
 }
 
-case class UsageStatus(
+case class SupplierUsageStatus(
   exceeded: Boolean,
   fractionOfQuota: Float,
-  usage: SupplierUsageSummary,
+  usage: SupplierQuotaCount,
   quota: Option[SupplierUsageQuota]
 )
-object UsageStatus {
-  implicit val writes: Writes[UsageStatus] = Json.writes[UsageStatus]
+object SupplierUsageStatus {
+  implicit val writes: Writes[SupplierUsageStatus] = Json.writes[SupplierUsageStatus]
 }
 
-case class StoreAccess(store: Map[String, UsageStatus], lastUpdated: DateTime)
+case class StoreAccess(store: Map[String, SupplierUsageStatus], lastUpdated: DateTime)
 object StoreAccess {
   import play.api.libs.json.JodaWrites._
 
@@ -61,6 +62,33 @@ object StoreAccess {
 }
 
 object UsageStore extends GridLogging {
+  val countQualifyingStatuses: Set[UsageStatus] = Set(PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
+  val countQualifyingPlatforms: Set[UsageType] = Set(PrintUsage, DigitalUsage)
+  val countPeriodInDays: Int = 30
+
+  def isQualifyingUsage(usage: Usage, dateRange: Option[(DateTime, DateTime)]): Boolean =
+    countQualifyingStatuses.contains(usage.status) &&
+      countQualifyingPlatforms.contains(usage.platform) &&
+      dateRange.forall { case (from, to) =>
+        usage.dateAdded.exists(d => !d.isBefore(from) && !d.isAfter(to))
+      }
+
+  // Applies the quota counting logic per image per the quota-count instructions:
+  // - Each Composer usage counts as 1; if any exist, Fronts and Print on the same image are not counted additionally.
+  // - Multiple Fronts count as 1 in total.
+  // - Multiple Print usages each count separately.
+  def quotaCountForUsages(usages: List[Usage], dateRange: Option[(DateTime, DateTime)]): Int = {
+    val qualifyingUsages = usages.filter(isQualifyingUsage(_, dateRange))
+    val composerCount = qualifyingUsages.count(u => u.platform == DigitalUsage && u.references.exists(_.`type` == ComposerUsageReference))
+    if (composerCount > 0) {
+      composerCount
+    } else {
+      val hasFront = qualifyingUsages.exists(u => u.platform == DigitalUsage && u.references.exists(_.`type` == FrontUsageReference))
+      val printCount = qualifyingUsages.count(_.platform == PrintUsage)
+      (if (hasFront) 1 else 0) + printCount
+    }
+  }
+
   def extractEmail(stream: InputStream): List[String] = {
     val s = Session.getDefaultInstance(new Properties())
     val message = MimeMessageUtils.createMimeMessage(s, stream)
@@ -88,7 +116,7 @@ object UsageStore extends GridLogging {
     }
   }
 
-  def csvParser(list: List[String]): List[SupplierUsageSummary] = {
+  def csvParser(list: List[String]): List[SupplierQuotaCount] = {
     def stripQuotes(s: String): String = s
       .stripSuffix("\"")
       .stripPrefix("\"")
@@ -108,7 +136,7 @@ object UsageStore extends GridLogging {
       case Some("Cpro Name" :: "Id" :: Nil) =>
         lines.tail.map {
           case supplier :: count :: Nil =>
-            SupplierUsageSummary(Agency(supplier), count.toInt)
+            SupplierQuotaCount(Agency(supplier), count.toInt)
 
           case _ =>
             logger.error("CSV body error. Expected 2 columns")
@@ -132,10 +160,10 @@ class UsageStore(
   bucket: String,
   config: MediaApiConfig,
   quotaStore: QuotaStore
-)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) with GridLogging {
+)(implicit val ec: ExecutionContext) extends BaseStore[String, SupplierUsageStatus](bucket, config) with GridLogging {
   import UsageStore._
 
-  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
+  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[SupplierUsageStatus] = {
     usageRights match {
       case agency: Agency => Future.successful(store.get().getOrElse(agency.supplier, { throw NoUsageQuota() }))
       case _ => Future.failed(new Exception("Image is not supplied by Agency"))
@@ -154,7 +182,7 @@ class UsageStore(
     store.set(fetchUsage)
   }
 
-  private def fetchUsage: Map[String, UsageStatus] = {
+  private def fetchUsage: Map[String, SupplierUsageStatus] = {
     logger.info("Updating usage store")
 
     val maybeLines: Option[List[String]] = getLatestS3Stream.map(extractEmail)
@@ -163,9 +191,9 @@ class UsageStore(
       case None => Map.empty
       case Some(lines) =>
         logger.info(s"Last usage file has ${lines.length} lines")
-        val summary: List[SupplierUsageSummary] = csvParser(lines)
+        val summary: List[SupplierQuotaCount] = csvParser(lines)
 
-        def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
+        def copyAgency(supplier: SupplierQuotaCount, id: String) = Agencies.all.get(id)
           .map(a => supplier.copy(agency = a))
           .getOrElse(supplier)
 
@@ -184,12 +212,12 @@ class UsageStore(
           .groupBy(_.agency.supplier)
           .view
           .mapValues(_.head)
-          .mapValues((summary: SupplierUsageSummary) => {
+          .mapValues((summary: SupplierQuotaCount) => {
             val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
             val exceeded = quota.exists(q => summary.count > q.count)
             val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
 
-            UsageStatus(
+            SupplierUsageStatus(
               exceeded,
               fractionOfQuota,
               summary,
