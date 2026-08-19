@@ -1,13 +1,12 @@
 package com.gu.mediaservice.lib.logging
 
 import java.net.InetSocketAddress
-
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
 import net.logstash.logback.appender.LogstashTcpSocketAppender
-import com.amazonaws.util.EC2MetadataUtils
 import com.gu.logback.appender.kinesis.KinesisAppender
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.aws.EC2MetadataUtils
 import net.logstash.logback.encoder.LogstashEncoder
 import net.logstash.logback.layout.LogstashLayout
 import org.slf4j.{LoggerFactory, Logger => SLFLogger}
@@ -27,8 +26,7 @@ object LogConfig {
   case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
 
   private def makeCustomFields(config: CommonConfig): String = {
-    val instanceId = Option(EC2MetadataUtils.getInstanceId).getOrElse("unknown")
-
+    val instanceId: String = if(config.isDev) "unknown" else EC2MetadataUtils.getInstanceId.getOrElse("unknown")
     Json.toJson(Map(
       "stack" -> config.stackName,
       "stage" -> config.stage.toUpperCase,

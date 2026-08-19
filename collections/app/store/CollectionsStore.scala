@@ -18,7 +18,7 @@ case class Record(id: String, collection: Collection)
 
 class CollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
   override val tableName: FieldName = config.collectionsTable
-  lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  lazy val client: DynamoDbAsyncClient = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)
