@@ -59,7 +59,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     elasticSearch.quotaCountBySupplier(id, UsageStore.countPeriodInDays)
-      .map((s: SupplierUsageQuota) => respond(s))
+      .map((s: SupplierQuotaCount) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)
       }
