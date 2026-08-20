@@ -512,7 +512,8 @@ class ElasticSearch(
       case Nil => None
       case ranges =>
         val from = ranges.map(_._1).maxBy(_.getMillis)
-        val to = ranges.map(_._2).minBy(_.getMillis)
+        // `<date` is parsed as midnight of that day; extend to end of day to make the bound inclusive
+        val to = ranges.map(_._2).minBy(_.getMillis).withTime(23, 59, 59, 999)
         Some((from, to))
     }
 
@@ -520,7 +521,10 @@ class ElasticSearch(
       maybeDateAddedRange.map { case (from, to) => rangeQuery("usages.dateAdded").gte(printDateTime(from)).lte(printDateTime(to)) }
     val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(qualifyingUsageClauses))
 
-    val beSupplier = termQuery("usageRights.supplier", supplierName)
+    val beSupplier = boolQuery().should(
+      termQuery("usageRights.supplier", supplierName),
+      matchQuery("usageRights.suppliers", supplierName)
+    ).minimumShouldMatch(1)
 
     val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
 
@@ -539,7 +543,7 @@ class ElasticSearch(
       val images = result.hits.hits.toList
         .flatMap(resolveHit)
         .map(sourceWrapperImage => sourceWrapperImage.instance)
-        .map(image => ImageUsagesBySupplier(image.id, supplierName, image.usages.filter(isQualifyingUsage)))
+        .map(image => ImageUsagesBySupplier(image.id, image.usageRights, image.usages.filter(isQualifyingUsage)))
         .distinctBy(_.id)
       ImageUsagesBySupplierResult(images, result.totalHits)
     }

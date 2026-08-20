@@ -174,14 +174,15 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         "usages-by-supplier-qualified-unknown-print",
         "usages-by-supplier-qualified-removed-digital",
         "usages-by-supplier-multi-usage",
-        "usages-by-supplier-out-of-date-range"
+        "usages-by-supplier-out-of-date-range",
+        "usages-by-supplier-composite"
       )
 
       val result = Await.result(ES.imageUsagesBySupplier("test-wire", length = 100), fiveSeconds)
 
       result.total shouldBe expectedIds.size
       result.images.map(_.id).toSet shouldBe expectedIds
-      result.images.foreach(_.supplier shouldBe "test-wire")
+      result.images.filterNot(_.id == "usages-by-supplier-composite").foreach(_.supplier shouldBe "test-wire")
 
       // wrong supplier, non-qualifying status and non-qualifying platform are all excluded
       result.images.map(_.id) should not contain "usages-by-supplier-wrong-supplier"
@@ -227,7 +228,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         "usages-by-supplier-qualified-published-digital",
         "usages-by-supplier-qualified-unknown-print",
         "usages-by-supplier-qualified-removed-digital",
-        "usages-by-supplier-multi-usage"
+        "usages-by-supplier-multi-usage",
+        "usages-by-supplier-composite"
       )
 
       // pagination: paging through with a small length shouldn't drop or duplicate results
@@ -235,15 +237,27 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val pages = (0 until 3).map { page =>
         Await.result(ES.imageUsagesBySupplier("test-wire", offset = page * pageSize, length = pageSize), fiveSeconds)
       }
-      pages.map(_.images.size) shouldBe Seq(2, 2, 1)
-      pages.foreach(_.total shouldBe 5)
+      pages.map(_.images.size) shouldBe Seq(2, 2, 2)
+      pages.foreach(_.total shouldBe 6)
       pages.flatMap(_.images.map(_.id)).toSet shouldBe Set(
         "usages-by-supplier-qualified-published-digital",
         "usages-by-supplier-qualified-unknown-print",
         "usages-by-supplier-qualified-removed-digital",
         "usages-by-supplier-multi-usage",
-        "usages-by-supplier-out-of-date-range"
+        "usages-by-supplier-out-of-date-range",
+        "usages-by-supplier-composite"
       )
+    }
+
+    it("includes composite images whose suppliers field contains the given supplier name") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val result = Await.result(ES.imageUsagesBySupplier("test-wire", length = 100), fiveSeconds)
+
+      val compositeResult = result.images.find(_.id == "usages-by-supplier-composite")
+      compositeResult shouldBe defined
+      // supplier field is populated from usageRights.suppliers for composite images
+      compositeResult.get.supplier shouldBe "test-wire, other-supplier"
     }
   }
 
