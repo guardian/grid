@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearc
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
-import com.gu.mediaservice.model.usage.PublishedUsageStatus
+import com.gu.mediaservice.model.usage.{PublishedUsageStatus, RemovedUsageStatus, UnknownUsageStatus}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import lib.querysyntax._
@@ -152,16 +152,98 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       implicit val logMarker: LogMarker = MarkerMap()
 
       val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
-      publishedAgencyImages.size shouldBe 2
+      publishedAgencyImages.size shouldBe 7
 
       // Reporting date range is implemented as round down to last full day
       val withinReportedDateRange = publishedAgencyImages.filter(i => i.usages.
         exists(u => u.dateAdded.exists(_.isBefore(DateTime.now.withTimeAtStartOfDay()))))
-      withinReportedDateRange.size shouldBe 1
+      withinReportedDateRange.size shouldBe 6
 
       val results = Await.result(ES.usageForSupplier("ACME", 5), fiveSeconds)
 
       results.count shouldBe 1
+    }
+  }
+
+  describe("images usages by supplier") {
+    it("only returns images with a qualifying usage status/platform for the given supplier, with the full usages list and supplier populated per item") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val expectedIds = Set(
+        "usages-by-supplier-qualified-published-digital",
+        "usages-by-supplier-qualified-unknown-print",
+        "usages-by-supplier-qualified-removed-digital",
+        "usages-by-supplier-multi-usage",
+        "usages-by-supplier-out-of-date-range"
+      )
+
+      val result = Await.result(ES.imageUsagesBySupplier("test-wire", length = 100), fiveSeconds)
+
+      result.total shouldBe expectedIds.size
+      result.images.map(_.id).toSet shouldBe expectedIds
+      result.images.foreach(_.supplier shouldBe "test-wire")
+
+      // wrong supplier, non-qualifying status and non-qualifying platform are all excluded
+      result.images.map(_.id) should not contain "usages-by-supplier-wrong-supplier"
+      result.images.map(_.id) should not contain "usages-by-supplier-non-qualifying-status"
+      result.images.map(_.id) should not contain "usages-by-supplier-non-qualifying-platform"
+
+      // distinctBy(_.id) collapses multiple qualifying usages into one result. Only the qualifying
+      // usages should be returned - the non-qualifying (pending status) usage on this image is excluded.
+      val multiUsageResult = result.images.find(_.id == "usages-by-supplier-multi-usage").get
+      multiUsageResult.usages should have size 2
+      multiUsageResult.usages.map(_.status) should contain theSameElementsAs List(PublishedUsageStatus, RemovedUsageStatus)
+    }
+
+    it("only returns usages within the requested date range on a matching image, excluding out-of-range usages on the same image") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val dateRangeQuery = List(Nested(
+        SingleField("usages"),
+        SingleField("dateAdded"),
+        DateRange(DateTime.parse("2020-06-20"), DateTime.parse("2020-06-30"))
+      ))
+
+      // the multi-usage image has one qualifying usage in range (2020-06-25, removed/print) and
+      // one qualifying usage out of range (2020-06-01, published/digital) - only the in-range one should be returned.
+      val result = Await.result(ES.imageUsagesBySupplier("test-wire", dateRangeQuery, length = 100), fiveSeconds)
+
+      val multiUsageResult = result.images.find(_.id == "usages-by-supplier-multi-usage").get
+      multiUsageResult.usages should have size 1
+      multiUsageResult.usages.head.status shouldBe RemovedUsageStatus
+    }
+
+    it("applies an inclusive date range filter on usages.dateAdded and paginates the results") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val dateRangeQuery = List(Nested(
+        SingleField("usages"),
+        SingleField("dateAdded"),
+        DateRange(DateTime.parse("2020-06-01"), DateTime.parse("2020-06-30"))
+      ))
+
+      val filteredResult = Await.result(ES.imageUsagesBySupplier("test-wire", dateRangeQuery, length = 100), fiveSeconds)
+      filteredResult.images.map(_.id).toSet shouldBe Set(
+        "usages-by-supplier-qualified-published-digital",
+        "usages-by-supplier-qualified-unknown-print",
+        "usages-by-supplier-qualified-removed-digital",
+        "usages-by-supplier-multi-usage"
+      )
+
+      // pagination: paging through with a small length shouldn't drop or duplicate results
+      val pageSize = 2
+      val pages = (0 until 3).map { page =>
+        Await.result(ES.imageUsagesBySupplier("test-wire", offset = page * pageSize, length = pageSize), fiveSeconds)
+      }
+      pages.map(_.images.size) shouldBe Seq(2, 2, 1)
+      pages.foreach(_.total shouldBe 5)
+      pages.flatMap(_.images.map(_.id)).toSet shouldBe Set(
+        "usages-by-supplier-qualified-published-digital",
+        "usages-by-supplier-qualified-unknown-print",
+        "usages-by-supplier-qualified-removed-digital",
+        "usages-by-supplier-multi-usage",
+        "usages-by-supplier-out-of-date-range"
+      )
     }
   }
 

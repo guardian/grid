@@ -6,8 +6,11 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Agencies
+import com.gu.mediaservice.model.usage.Usage
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, InvalidUriParams, SearchParams}
+import lib.elasticsearch.SearchParams.parseIntFromQuery
+import lib.querysyntax.Parser
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -89,5 +92,30 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
           logger.error(logMarker, "quota access failed", e)
           respondError(InternalServerError, "unknown-error", e.toString)
       }
+  }
+
+  def imageUsagesBySupplier(id: String) = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "images-by-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "supplierId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val structuredQuery = request.getQueryString("q").map(Parser.run).getOrElse(List.empty)
+    val searchParams = SearchParams(request)
+
+    SearchParams.validate(searchParams) match {
+      case Left(errors) =>
+        Future.successful(respondError(BadRequest, InvalidUriParams.errorKey, errors.map(_.message).mkString(", ")))
+      case Right(_) =>
+        elasticSearch.imageUsagesBySupplier(id, structuredQuery, searchParams.offset, searchParams.length)
+          .map { result =>
+            respondCollection(result.images, Some(searchParams.offset.toLong), Some(result.total))
+          }
+          .recover {
+            case e: IllegalArgumentException => respondError(BadRequest, InvalidUriParams.errorKey, e.getMessage)
+            case e => respondError(InternalServerError, "unknown-error", e.toString)
+          }
+    }
   }
 }
