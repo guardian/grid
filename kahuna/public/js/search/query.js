@@ -244,20 +244,15 @@ query.controller('SearchQueryCtrl', [
       }
     }
 
-    // eslint-disable-next-line complexity
-    function watchSearchChange(newFilter, sender) {
+    function updateShowPaidStorage(newFilter, sender) {
       let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
       if (sender && sender == "filterChange" && !newFilter.nonFree) {
         showPaid = ctrl.user.permissions.showPaid;
       }
       storage.setJs("isNonFree", showPaid, true);
+    }
 
-      // check for taken date sort contradiction
-      const curCollectionSearch = ctrl.collectionSearch;
-      ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
-      const oldCollection = getCollection();
-      const newCollection = storeCollection(newFilter.query);
-
+    function resolveOrderBy(newFilter, sender, newCollection, oldCollection) {
       if (ctrl.usePermissionsFilter) {
         if (sender && ctrl.ordering["orderBy"] != $stateParams.orderBy) {
           ctrl.ordering["orderBy"] = $stateParams.orderBy;
@@ -269,34 +264,59 @@ query.controller('SearchQueryCtrl', [
           ctrl.ordering["orderBy"] = prior ? prior : ctrl.ordering["orderBy"];
         }
       }
-      let sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : DefaultSortOption.value;
+      const sortBy = ctrl.ordering["orderBy"] ? ctrl.ordering["orderBy"] : DefaultSortOption.value;
       storage.setJs("orderBy", sortBy);
+    }
+
+    // Normalise the tri-state nonFree flag (boolean | stringified boolean | undefined),
+    // persist it back onto ctrl.filter, and return the resolved value.
+    function resolveNonFree() {
+      let nonFreeCheck = ctrl.filter.nonFree;
+      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        nonFreeCheck = storage.getJs("defaultIsNonFree", true);
+      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = undefined;
+      }
+      ctrl.filter.nonFree = nonFreeCheck;
+      return nonFreeCheck;
+    }
+
+    function emitQueryTelemetry() {
+      const nonFreeCheck = resolveNonFree();
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, ctrl.filter.uploadedByMe, ctrl.useAISearch);
+    }
+
+    function navigateToResults(wasCollectionSearch) {
+      if (ctrl.collectionSearch && !wasCollectionSearch) {
+        storage.setJs("orderBy", CollectionSortOption.value);
+        ctrl.ordering["orderBy"] = CollectionSortOption.value;
+        raiseQueryChangeEvent(ctrl.filter.query, wasCollectionSearch, CollectionSortOption.value);
+        $state.go('search.results', {...ctrl.filter, orderBy: CollectionSortOption.value});
+      } else {
+        raiseQueryChangeEvent(ctrl.filter.query, wasCollectionSearch, ctrl.ordering["orderBy"]);
+        $state.go('search.results', {...ctrl.filter, orderBy: ctrl.ordering["orderBy"]});
+      }
+    }
+
+    function watchSearchChange(newFilter, sender) {
+      updateShowPaidStorage(newFilter, sender);
+
+      // check for taken date sort contradiction
+      const wasCollectionSearch = ctrl.collectionSearch;
+      ctrl.collectionSearch = newFilter.query ? checkForCollection(newFilter.query) : false;
+      const oldCollection = getCollection();
+      const newCollection = storeCollection(newFilter.query);
+
+      resolveOrderBy(newFilter, sender, newCollection, oldCollection);
 
       //--update filter elements--
       manageUploadedBy(newFilter, sender);
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
 
-      const { nonFree, uploadedByMe } = ctrl.filter;
-      let nonFreeCheck = nonFree;
-      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
-        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid;
-      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
-        nonFreeCheck = undefined;
-      }
-      ctrl.filter.nonFree = nonFreeCheck;
+      emitQueryTelemetry();
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
-      if (ctrl.collectionSearch && !curCollectionSearch) {
-        storage.setJs("orderBy", CollectionSortOption.value);
-        ctrl.ordering["orderBy"] = CollectionSortOption.value;
-        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: CollectionSortOption.value}});
-      } else {
-        raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
-        $state.go('search.results', {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}});
-      }
+      navigateToResults(wasCollectionSearch);
     }
 
     //-my uploads-
@@ -450,9 +470,18 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
+
+    let aiSearchInitialised = false;
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
-      // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle.
+      // We only emit telemetry on an actual toggle though - the load-time search event is emitted
+      // exactly once via the getSession() -> watchSearchChange path, so emitting here on init would double-count.
+      if (aiSearchInitialised) {
+        emitQueryTelemetry();
+      }
+      aiSearchInitialised = true;
+
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
@@ -524,11 +553,6 @@ query.controller('SearchQueryCtrl', [
 
         watchSearchChange(ctrl.filter, "userPermissions");
     });
-
-
-
-    const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
 }]);
 
 query.directive('searchQuery', [function() {
