@@ -28,7 +28,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryB
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
 import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -492,24 +492,31 @@ class ElasticSearch(
 
     val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
     val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
-    val beInLastPeriod = rangeQuery("usages.dateAdded").gte(s"now-${numDays}d/d").lt("now/d")
+    // lt("now+1d/d") instead of lte("now") so it's request-cacheable within the same day
+    val beInLastPeriod = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lt("now+1d/d")
     val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
 
-    val beSupplier = termQuery("usageRights.supplier", supplierName)
+    val beSupplier = boolQuery().should(
+      termQuery("usageRights.supplier", supplierName),
+      matchQuery("usageRights.suppliers", supplierName)
+    ).minimumShouldMatch(1)
     val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
 
-    val search = prepareSearch(query).trackTotalHits(true).size(10000) // @TODO: Where do we set this limit?
+    val maxSize = 10000
+    val search = prepareSearch(query).size(maxSize).fetchSource(false).sourceInclude("usages")
 
-    val dateRange = Some((DateTime.now.minusDays(numDays), DateTime.now))
+    val dateRange = Some((DateTime.now.minusDays(numDays).withTimeAtStartOfDay().plusMillis(1), DateTime.now))
 
     executeAndLog(search, s"$id quota count by supplier search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
-      val count = result.hits.hits.toList
-        .flatMap(resolveHit)
-        .map(_.instance.usages)
-        .map(UsageStore.quotaCountForUsages(_, dateRange))
-        .sum
+      val hits = result.hits.hits.toList
+      if (hits.size >= maxSize)
+        logger.warn(logMarker, s"quotaCountBySupplier for $id hit the $maxSize document limit — quota count may be incomplete")
+      val count = hits.map { hit =>
+        val usages = (Json.parse(hit.sourceAsString) \ "usages").asOpt[List[Usage]].getOrElse(Nil)
+        UsageStore.quotaCountForUsages(usages, dateRange)
+      }.sum
       SupplierQuotaCount(supplier, count)
     }
   }
