@@ -243,6 +243,16 @@ interface SearchState {
    */
   sortAroundFocusGeneration: number;
   /**
+   * Incremented each time the async offset-correction (deep-seek/buffer-tier
+   * estimate path in `_findAndFocusImage`) lands and rewrites `bufferOffset`/
+   * `imagePositions` (and possibly trims `results` for column alignment).
+   * Effect #9 watches this alongside `sortAroundFocusGeneration` so it can
+   * re-apply the same saved ratio/delta once the corrected position is known
+   * — the initial scroll (fired on the generation bump) used the pre-
+   * correction estimate and may be off by up to one row/column.
+   */
+  _offsetCorrectionGeneration: number;
+  /**
    * True while `_topUpScrollModeBuffer` is walking the buffer back to
    * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
    * centred it elsewhere. Lets scroll effects distinguish this internal,
@@ -1499,12 +1509,16 @@ async function _findAndFocusImage(
     // Three paths, fast → slow:
     // A. Position map available → O(n) scan (~<1ms for 65k strings).
     // B. Position map miss → synchronous countBefore (stale map edge case).
-    // C. No position map (>65k deep-seek mode) → SKIP countBefore entirely.
-    //    Use offset=0 as placeholder, load the buffer immediately (Step 3),
-    //    then correct bufferOffset asynchronously when countBefore resolves.
-    //    This eliminates the 2-5s bottleneck on large datasets — the buffer
-    //    data is correct (uses sort-value cursors, not offsets), only the
-    //    scrubber thumb and position counter are temporarily wrong.
+    // C. No position map (deep-seek >65k, OR buffer tier ≤1k — neither ever
+    //    has one) → SKIP countBefore entirely. Use offset=0/hint as a
+    //    placeholder, load the buffer immediately (Step 3), then correct
+    //    bufferOffset asynchronously when countBefore resolves. This
+    //    eliminates the 2-5s bottleneck for true deep-seek (buffer tier's own
+    //    countBefore would be cheap, ~5-10ms, but shares this path anyway —
+    //    see _offsetCorrectionGeneration in useScrollEffects.ts for why that's
+    //    safe). The buffer data is correct throughout (uses sort-value
+    //    cursors, not offsets); only the scrubber thumb and position counter
+    //    are temporarily wrong until the correction lands.
     if (combinedSignal.aborted) return;
     let offset: number;
     let offsetIsEstimate = false;
@@ -1569,12 +1583,14 @@ async function _findAndFocusImage(
         `countBefore=${offset}`,
       );
     } else {
-      // No position map → >65k results (deep-seek mode). countBefore would
-      // take 2-5s. Use hintOffset if available (e.g. saved from when the user
-      // focused the image), otherwise 0 as placeholder. Correct asynchronously.
+      // No position map — either true deep-seek (>65k, countBefore would take
+      // 2-5s) or buffer tier (≤1k, countBefore would be cheap, but this
+      // branch doesn't special-case it — see the Step 2 comment above). Use
+      // hintOffset if available (e.g. saved from when the user focused the
+      // image), otherwise 0 as placeholder. Correct asynchronously.
       // NOTE: effectiveHint is null when fallbackFirstPage is provided (query
-      // changed) — stale hints from a different query are dangerous even in
-      // deep-seek mode (they may exceed the new total).
+      // changed) — stale hints from a different query are dangerous regardless
+      // of tier (they may exceed the new total).
       offset = effectiveHint ?? 0;
       offsetIsEstimate = true;
       devLog(
@@ -1775,6 +1791,12 @@ async function _findAndFocusImage(
               startCursor: newStartCursor,
               bufferOffset: correctedOffset,
               imagePositions: buildPositions(correctedResults, correctedOffset),
+              // Tells Effect #9 to re-apply its saved ratio/delta against the
+              // now-corrected position — the initial scroll used the estimate.
+              // Bumped unconditionally, even when trimCount === 0 above (no
+              // visible shift to correct) — bufferOffset itself still moved,
+              // and the re-fire is a cheap no-op recompute, not worth gating.
+              _offsetCorrectionGeneration: get()._offsetCorrectionGeneration + 1,
             });
             // Also update _focusedImageKnownOffset for whichever image is
             // currently focused (may have changed via delta consumption).
@@ -1869,6 +1891,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _phantomFocusImageId: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
+  _offsetCorrectionGeneration: 0,
   _bufferSelfCorrecting: false,
 
   newCount: 0,

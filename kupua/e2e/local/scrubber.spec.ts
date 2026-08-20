@@ -2744,6 +2744,88 @@ test.describe("Scroll mode — buffer fill", () => {
     expect(scrollTop).toBeGreaterThan(0);
   });
 
+  // ---------------------------------------------------------------------
+  // Regression: repeated sort toggles silently drift the focused cell by
+  // a row. Root cause: _findAndFocusImage's async countBefore
+  // offset-correction (the estimate-then-correct path, taken whenever no
+  // position map exists — buffer tier AND deep-seek, not just deep-seek
+  // despite the code's own comment) can trim `results` for column
+  // alignment. That trim shifts the focused cell's rendered local index
+  // with no scrollTop compensation, because Effect #9 (useScrollEffects.ts)
+  // never re-fired for it. Whether a given toggle needs a trim (and thus
+  // shows the drift) is deterministic per (focused image, sort pair,
+  // column count) — not random per attempt — so this sweeps several
+  // distinct focus points rather than repeating one, mirroring the
+  // it.each pattern in buffer-column-align.test.ts. See
+  // exploration/docs/changelog.md and worklog-current.md for the full
+  // investigation.
+  // ---------------------------------------------------------------------
+  // Indices 5 and 9 are known (empirically, on this seed corpus) to hit a
+  // non-column-aligned correction offset; 2 is a control that doesn't — kept
+  // deliberately narrow rather than a wider "chosen by hope" sweep. If the
+  // seed data ever changes, a control silently starting to trigger the bug
+  // just means more real coverage, not a broken test.
+  for (const nth of [2, 5, 9]) {
+    test(`sort toggle preserves focused cell row position (focus index ${nth})`, async ({ kupua }) => {
+      await kupua.ensureExplicitMode();
+      await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+      const { total } = await kupua.getStoreState();
+      test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
+      test.skip(total < 50, `Total ${total} too small to be meaningful`);
+
+      await kupua.seekTo(0.5);
+      await kupua.focusNthItem(nth);
+      const focusedId = await kupua.getFocusedImageId();
+      test.skip(focusedId === null, `No item at index ${nth} for this result set`);
+
+      const cellTopBefore = await kupua.getFocusedCellTop();
+      const cellLeftBefore = await kupua.getFocusedCellLeft();
+      expect(cellTopBefore).not.toBeNull();
+
+      // Toggle direction, then back — the focused cell must return to
+      // (approximately) the same row on each leg, not drift by a row.
+      for (let leg = 0; leg < 2; leg++) {
+        const genBefore = await kupua.getOffsetCorrectionGeneration();
+        await kupua.toggleSortDirection();
+        await kupua.waitForSortAroundFocus(15_000);
+        // sortAroundFocusStatus clears at the initial estimate-based landing,
+        // before the async offset correction (the actual mechanism under
+        // test) has even fired — wait for the correction explicitly. Buffer
+        // tier always takes the estimate path (no position map), so this is
+        // expected to land on every leg here, not a maybe.
+        await kupua.waitForOffsetCorrection(genBefore, 15_000);
+        await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }));
+
+        expect(await kupua.getFocusedImageId()).toBe(focusedId);
+        expect(await kupua.isFocusedCellVisible()).toBe(true);
+        const cellTopAfter = await kupua.getFocusedCellTop();
+        expect(cellTopAfter, `leg ${leg + 1}: focused cell not found`).not.toBeNull();
+        // Tolerance covers geometry rounding, not a full row (GRID_ROW_HEIGHT
+        // is ~300px locally) — a one-row silent shift is exactly the bug
+        // this test guards against.
+        expect(
+          Math.abs(cellTopAfter! - cellTopBefore!),
+          `leg ${leg + 1}: focused cell row shifted (before=${cellTopBefore}, after=${cellTopAfter})`,
+        ).toBeLessThan(20);
+        if (leg === 1) {
+          // Back to the original sort order — column should match exactly
+          // too, not just row. Catches a sub-row (partial) trim that shifts
+          // column without crossing a row boundary, which the top-only check
+          // above can't see. Only meaningful on this leg: leg 0 lands on a
+          // genuinely different sort order, where column isn't expected to
+          // match by design (only the viewport ratio/row is preserved).
+          const cellLeftAfter = await kupua.getFocusedCellLeft();
+          expect(
+            Math.abs(cellLeftAfter! - cellLeftBefore!),
+            `leg ${leg + 1}: focused cell column shifted (before=${cellLeftBefore}, after=${cellLeftAfter})`,
+          ).toBeLessThan(20);
+        }
+      }
+    });
+  }
+
   test("scrubber enters scroll mode after reload restores deep image detail", async ({ kupua }) => {
     await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
     const { total } = await kupua.getStoreState();

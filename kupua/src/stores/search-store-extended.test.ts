@@ -87,6 +87,7 @@ beforeEach(() => {
     focusedImageId: null,
     sortAroundFocusStatus: null,
     sortAroundFocusGeneration: 0,
+    _offsetCorrectionGeneration: 0,
     _extendForwardInFlight: false,
     _extendBackwardInFlight: false,
     _lastPrependCount: 0,
@@ -469,6 +470,70 @@ describe("sort-around-focus — different sorts", () => {
 
     // Image was in first page — no seek needed
     expect(state()._seekGeneration).toBe(genBefore);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// _offsetCorrectionGeneration — signals the scroll effect that the async
+// countBefore offset-correction landed, so it can re-apply the persisted
+// viewport ratio. Without this, a column-alignment trim during the
+// correction silently shifts the rendered focused cell by a row with no
+// scrollTop compensation (see changelog / worklog-current.md).
+// ---------------------------------------------------------------------------
+
+describe("_offsetCorrectionGeneration — async offset correction signal", () => {
+  afterEach(() => {
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+  });
+
+  it("bumps when the async correction lands (whether or not it needs a trim)", async () => {
+    mock = new MockDataSource(500);
+    useSearchStore.setState({ dataSource: mock });
+    // Non-1 columns so a column-misalignment regression would be observable.
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+
+    await actions().search();
+    actions().setFocusedImageId("img-300");
+    const genBefore = state()._offsetCorrectionGeneration;
+
+    await actions().search("img-300");
+    await waitFor(() => state().sortAroundFocusStatus === null, 5000, "focus found");
+    // The correction is async (fires after the initial estimate-based
+    // landing) — wait for it to actually land rather than trusting the
+    // status flag alone (it clears before the correction resolves).
+    await waitFor(
+      () => state()._offsetCorrectionGeneration > genBefore,
+      5000,
+      "offset correction lands",
+    );
+
+    // The bump is unconditional — it fires whether or not this particular
+    // correction needed a column-alignment trim (see search-store.ts).
+    // Whether a trim happens is a property of the specific target/columns
+    // numbers (not guaranteed for img-300/columns=4 — verified empirically,
+    // it doesn't trim here), not something this test controls. The trim
+    // mechanism itself is covered by buffer-column-align.test.ts
+    // (alignBufferStart) and the e2e sweep in scrubber.spec.ts (real trims
+    // observed at focus indices 5 and 9 on the local seed corpus).
+    expect(state()._offsetCorrectionGeneration).toBeGreaterThan(genBefore);
+    expect(state().bufferOffset % 4).toBe(0);
+  });
+
+  it("does NOT bump on an ordinary extendForward/extendBackward", async () => {
+    await actions().search();
+    await actions().seek(5000);
+    await waitPastCooldown();
+    const genBefore = state()._offsetCorrectionGeneration;
+
+    await actions().extendForward();
+    await flush();
+    await actions().extendBackward();
+    await flush();
+
+    // Guards against reintroducing the "re-fires on every extend" perf
+    // regression the 23 May 2026 fix eliminated — this counter must only
+    // move for a genuine async offset correction, never for routine extends.
+    expect(state()._offsetCorrectionGeneration).toBe(genBefore);
   });
 });
 

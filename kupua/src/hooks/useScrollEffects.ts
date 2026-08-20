@@ -730,23 +730,37 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // -------------------------------------------------------------------------
   // 9. Sort-around-focus generation — scroll to focused image at new position
   // -------------------------------------------------------------------------
+  //
+  // Must stay a useLayoutEffect, not useEffect/rAF. The async offset
+  // correction below can shift the focused cell's rendered position (trim
+  // shortens `results` from the front) with no scrollTop change of its own —
+  // content moves under a stationary viewport. Compensating in the same
+  // pre-paint commit is what makes that invisible; deferring it to a later
+  // frame would trade a silent drift for a visible one-row jump.
 
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
+  // Bumped when the async offset-correction (deep-seek/buffer-tier estimate
+  // path) lands, after the fact, with the corrected bufferOffset/imagePositions
+  // (and possibly a trimmed `results`). This is the precise signal for "the
+  // initial scroll below used an estimate, please redo it" — see search-store.ts.
+  const offsetCorrectionGeneration = useSearchStore(
+    (s) => s._offsetCorrectionGeneration,
+  );
   // Track which generation was handled by snap-back delta consumption.
-  // When async offset correction re-fires this effect (via findImageIndex
-  // dep change), we must skip the normal scroll-to-focus to avoid flashing
-  // from "center" to "start".
+  // When async offset correction re-fires this effect, we must skip the
+  // normal scroll-to-focus to avoid flashing from "center" to "start".
   const snapBackHandledGenRef = useRef(0);
 
   // Persist the sort-focus ratio across re-fires within the same generation.
-  // In deep-seek mode (>65k), _findAndFocusImage uses a placeholder offset
-  // (bufferOffset=0) and corrects it async via countBefore. The correction
-  // changes findImageIndex → re-fires this effect. Without the ref, the
-  // ratio is already consumed and the re-fire falls to align:"start",
-  // losing the viewport row. With the ref, the re-fire recomputes scroll
-  // from the correct pixel coordinates using the same ratio.
+  // In deep-seek mode (>65k) and buffer tier (≤1k) — neither has a position
+  // map — _findAndFocusImage uses a placeholder/estimated offset and corrects
+  // it async via countBefore. The correction bumps offsetCorrectionGeneration
+  // → re-fires this effect. Without the ref, the ratio is already consumed
+  // and the re-fire falls to align:"start", losing the viewport row. With the
+  // ref, the re-fire recomputes scroll from the correct pixel coordinates
+  // using the same ratio.
   const sortFocusRatioRef = useRef<number | null>(null);
   const sortFocusRatioGenRef = useRef(0);
   // Persist the phantom focus image ID across re-fires within the same
@@ -755,12 +769,18 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // ID, the re-fire bails (both focusedImageId and _phantomFocusImageId are
   // null) and the corrected pixel position is never applied.
   const phantomIdRef = useRef<string | null>(null);
-  // Track the results array reference at the time of the first successful
-  // scroll for this generation. Async offset correction re-fires DON'T
-  // change results (only bufferOffset + imagePositions), so the ref stays
-  // the same → re-fire is allowed. Buffer extends DO change results →
-  // ref mismatch → re-fire is skipped (prevents scroll teleport).
-  const scrollAppliedResultsRef = useRef<readonly unknown[] | null>(null);
+  // Last offsetCorrectionGeneration this effect has already handled for the
+  // CURRENT sortAroundFocusGeneration. Distinguishes "a real correction just
+  // landed" (re-apply the saved ratio/delta) from "effect re-ran for an
+  // unrelated reason" (no-op). Ordinary buffer extends never bump either
+  // generation counter, so they can't reach this effect at all — no separate
+  // "was this a buffer extend" guard is needed. This holds because the deps
+  // below are generation-only in practice: findImageIndex is frozen with []
+  // deps (useDataWindow.ts) and virtualizer/parentRef are stable identities
+  // from TanStack Virtual/the ref object — if either ever stops being stable,
+  // this effect would re-fire on unrelated renders with only this ref as
+  // protection against a scroll teleport.
+  const handledCorrectionGenRef = useRef(0);
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
@@ -775,14 +795,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       sortFocusRatioRef.current = moduleRatio;
       phantomIdRef.current = store._phantomFocusImageId;
       sortFocusRatioGenRef.current = sortAroundFocusGeneration;
-      scrollAppliedResultsRef.current = null; // reset for new generation
-    } else if (scrollAppliedResultsRef.current !== null &&
-               scrollAppliedResultsRef.current !== store.results) {
-      // Same generation, but the results array reference changed.
-      // This is a buffer extend (not async offset correction — offset
-      // correction only changes bufferOffset + imagePositions, not results).
-      // Skip re-fire to prevent scroll teleport back to the focused image.
+      handledCorrectionGenRef.current = offsetCorrectionGeneration; // baseline
+    } else if (handledCorrectionGenRef.current === offsetCorrectionGeneration) {
+      // Same generation, no new correction landed — effect re-ran for an
+      // unrelated reason (or already handled this correction). No-op.
       return;
+    } else {
+      handledCorrectionGenRef.current = offsetCorrectionGeneration;
     }
 
     const id = store.focusedImageId ?? phantomIdRef.current;
@@ -850,12 +869,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
 
-    // Record which results array this scroll was applied against.
-    // Re-fires with the same results (async offset correction) are
-    // allowed. Re-fires with a different results (buffer extends)
-    // are blocked above to prevent scroll teleport.
-    scrollAppliedResultsRef.current = store.results;
-  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]);
+    // Record the offsetCorrectionGeneration this scroll was applied against.
+    // A later mismatch (a genuine offset correction landing) is allowed to
+    // re-fire and reapply the ratio/delta; routine extends never touch this
+    // counter, so they can't trigger a scroll teleport back to the focus.
+    handledCorrectionGenRef.current = offsetCorrectionGeneration;
+  }, [sortAroundFocusGeneration, offsetCorrectionGeneration, findImageIndex, virtualizer, parentRef]);
 
   // -------------------------------------------------------------------------
   // 10. Density-focus: mount restore + unmount save

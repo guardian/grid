@@ -14,6 +14,79 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 20 August 2026 — Focused cell "climbs and disappears" on repeated sort toggle (buffer & seek tier)
+
+**Bug report:** with an image explicitly focused (sort-around-focus) or phantom-focused
+(query-widening promotion), repeatedly toggling sort order made the focused cell drift
+upward in the viewport by roughly one row per toggle, eventually scrolling off the top of
+the screen entirely; the next toggle it reappeared, then drifted off again. Reproduced live
+via the embedded browser in buffer tier (≤1000 results, `since=`/`until=` narrowed) and
+seek/deep-seek tier (>65,000 results), across both explicit and phantom focus, and via
+arrow-snap-back after a seek.
+
+**Root cause.** `_findAndFocusImage` (`search-store.ts`) estimates the buffer offset
+immediately for any search where no position map exists (buffer tier ≤1000 AND
+seek/deep-seek tier >65000 — despite an inline comment claiming "deep-seek only"; two-tier
+1000–65000 always has a position map and does a synchronous `countBefore` instead, so it's
+immune). A subsequent async `countBefore` call corrects that estimate and, via
+`alignBufferStart()`, can trim `results` for column alignment — silently shifting the local
+render index of the already-focused cell. Effect #9 in `useScrollEffects.ts` (the
+`useLayoutEffect` that scrolls to the sort-around-focus target) was supposed to re-fire when
+this correction landed, via an inline comment claiming it does so "via `findImageIndex` dep
+change" — but `findImageIndex` was frozen to `useCallback(..., [])` by the unrelated 23 May
+2026 perf fix (to stop it re-firing on every buffer extend), so nothing ever triggered a
+re-fire. Live-verified with temporary `devLog` instrumentation (since removed): effect #9
+fires exactly once per sort-around-focus generation and never again, regardless of a later
+correction landing. The "disappears / reappears at top / disappears again" cycle was effect
+#9's own edge-clamp (`itemY < 0 → target = rowTop`) silently absorbing the accumulated,
+uncompensated drift each time it crossed row 0.
+
+**Fix.** Added a new store field, `_offsetCorrectionGeneration: number`, bumped inside the
+same atomic `set()` call as `results`/`startCursor`/`bufferOffset`/`imagePositions` in the
+async correction callback. Effect #9 now subscribes to this counter directly (via a new
+`handledCorrectionGenRef`, replacing the old `scrollAppliedResultsRef` results-array-identity
+guard, which had silently stopped working after the 31 Jul 2026 column-alignment fix started
+changing `results` on corrections) and re-applies the persisted scroll ratio/delta whenever
+the counter changes without a fresh `sortAroundFocusGeneration`. Ordinary
+`extendForward`/`extendBackward` never touch this counter, so the 23 May 2026 "don't re-fire
+on every extend" perf guarantee is untouched. Also corrected the misleading "deep-seek only"
+comments near the `offsetIsEstimate` branch to note it also covers buffer tier.
+
+**Testing.** New unit tests in `search-store-extended.test.ts` (`_offsetCorrectionGeneration
+— async offset correction signal`): bump-on-correction and no-bump-on-ordinary-extend. New
+parameterized e2e regression test in `scrubber.spec.ts` ("Scroll mode — buffer fill" ›
+"sort toggle preserves focused cell row position", focus indices 2/5/9 — indices chosen to
+include both a correction-hitting and a control case on the local 10k-doc seed corpus), using
+a new `waitForOffsetCorrection` helper (`e2e/shared/helpers.ts`) that polls the new counter
+directly rather than relying on a curated store-state snapshot. Full suite: unit
+1134/1134 pass; e2e 247/247 pass (including the new regression test at all three focus
+indices). Verified immune: two-tier (synchronous `countBefore`, no post-render trim) and
+`restoreAroundCursor`/image-detail reload (always synchronous by construction). Perf:
+before/after comparison via `run-audit.mjs` showed no measurable regression (deltas within
+the noise floor established by unrelated runs); the "before" baseline was captured with the
+temporary `devLog` instrumentation still present (removed before the "after" run) — a known,
+accepted imperfection in that comparison, not re-baselined.
+
+**Review.** An independent review pass raised several points; accepted and folded in above:
+corrected "deep-seek only" comments (also true of buffer tier), a test-geometry-leak fix (a
+`registerScrollGeometry` reset moved to `afterEach` so it runs even if a test throws), and a
+`beforeEach` counter-reset consistency fix. One "blocking" finding (that the e2e regression
+test's wait mechanism might not actually be observing the fix) was pushed back on with direct
+evidence from this session (an accidental RED→GREEN via a temporarily-reverted stash) but the
+underlying suggestion — hardening the wait into an explicit polling helper rather than a bare
+timeout — was implemented anyway (`waitForOffsetCorrection`). While implementing the review
+amendments, introduced and then found+fixed a real bug: `getStoreState()` (the existing
+curated e2e helper) doesn't expose `_offsetCorrectionGeneration`, so an initial version of the
+test read `undefined` for `genBefore`, making the wait always time out regardless of whether
+the fix worked; fixed by adding a dedicated `getOffsetCorrectionGeneration()` helper.
+
+**Scope.** This is fix "A" of a two-part plan. A stops the drift by making the existing
+async-correction-then-compensate path actually compensate. A separate, deferred fix "B"
+(routing buffer tier through a synchronous `countBefore` like two-tier already does, removing
+the vulnerable window at the root instead of compensating for it) is intentionally not part of
+this change — it touches a perf-sensitive boundary condition (buffer tier vs. true deep-seek,
+where `countBefore` costs 2-5s) and needs its own dedicated session, tests, and review.
+
 ### 19 August 2026 — Scrubber: phantom null-zone on uploadTime sort in `--use-media-api` mode
 
 **Bug report:** in `--use-media-api` mode, the scrubber sometimes showed a tiny red

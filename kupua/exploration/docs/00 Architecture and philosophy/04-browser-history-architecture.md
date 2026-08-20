@@ -245,18 +245,25 @@ image's natural column position. Without this, the column was determined by
 
 ### Scroll teleport prevention
 
-Buffer extends (from normal scrolling after restore) rebuild `imagePositions` →
-new `findImageIndex` callback ref → Effect #9 re-fires. Without a guard, the
-persisted `viewportRatio` would cause re-positioning back to the anchor.
+`findImageIndex` (`useDataWindow.ts`) reads `imagePositions` imperatively via
+`getState()` and has a stable `useCallback(..., [])` — a deliberate 23 May 2026
+perf fix so ordinary buffer extends never change its reference. Effect #9's
+dependency array is `[sortAroundFocusGeneration, _offsetCorrectionGeneration,
+findImageIndex, virtualizer, parentRef]`, so a plain extend (which changes
+neither generation counter, and never the stable `findImageIndex`) does not
+re-fire the effect at all — there is nothing to teleport.
 
-Fix: `scrollAppliedResultsRef` in Effect #9 tracks the `results` array reference.
-After the first successful scroll, it records `store.results`. On re-fire:
-- Same reference → offset correction (allowed — needed for async countBefore).
-- Different reference → buffer extend (blocked — prevents teleport).
-- New generation → ref reset.
+The one thing that *should* re-fire the effect after the initial
+sort-around-focus landing is the async offset-correction: `handledCorrectionGenRef`
+tracks `_offsetCorrectionGeneration`, a store counter bumped only inside that
+correction's `set()` call. On re-fire:
+- New `sortAroundFocusGeneration` → fresh sort-around-focus landing (re-apply ratio, baseline the ref).
+- Same generation, counter changed → offset correction landed (re-apply ratio).
+- Same generation, counter unchanged → the effect didn't fire for this reason at all (guard is defensive).
 
-Key insight: async offset correction changes `bufferOffset` + `imagePositions`
-but NOT the `results` array reference. Extends change `results` (new array).
+(This replaces an earlier `scrollAppliedResultsRef` results-array-identity
+approach, which broke once the 31 Jul 2026 column-alignment fix made async
+corrections trim `results` too — see `changelog.md`, 20 August 2026 entry.)
 
 ## Case-specific popstate behaviour
 
@@ -327,7 +334,7 @@ re-fire a search (dedup guard strips them before serialising).
 | `src/lib/orchestration/history-key.ts` | `mintKupuaKey`, `getCurrentKupuaKey`, `withCurrentKupuaKey`, `withFreshKupuaKey`, `synthesiseKupuaKeyIfAbsent` |
 | `src/lib/history-snapshot.ts` | `HistorySnapshot` type, `SnapshotStore` interface + impls, `PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD` |
 | `src/lib/build-history-snapshot.ts` | `buildHistorySnapshot()` — reads store + DOM to build snapshot |
-| `src/hooks/useScrollEffects.ts` | Effect #9 (sort-around-focus scroll), `saveSortFocusRatio`, `scrollAppliedResultsRef` |
+| `src/hooks/useScrollEffects.ts` | Effect #9 (sort-around-focus scroll), `saveSortFocusRatio`, `handledCorrectionGenRef` |
 | `src/stores/search-store.ts` | `_loadBufferAroundImage` (column alignment), `_findAndFocusImage`, sort-around-focus |
 | `src/lib/search-params-schema.ts` | `URL_PARAM_KEYS`, `URL_DISPLAY_KEYS` |
 | `src/lib/reset-to-home.ts` | `resetToHome()`, `suppressNextRestore` |

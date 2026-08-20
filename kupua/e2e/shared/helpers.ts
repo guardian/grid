@@ -208,6 +208,48 @@ export class KupuaHelpers {
     });
   }
 
+  /**
+   * Pixel top of the focused cell relative to the results container, or
+   * null if there's no focus or the cell isn't in the DOM. Used to assert
+   * the focused cell stays at the same row across an operation (e.g. a
+   * sort toggle) rather than just "somewhere visible" — a silent one-row
+   * shift still passes `isFocusedCellVisible()`.
+   */
+  async getFocusedCellTop(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return null;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!cell || !container) return null;
+      return cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    });
+  }
+
+  /**
+   * Pixel left of the focused cell relative to the results container, or
+   * null if there's no focus or the cell isn't in the DOM. Companion to
+   * `getFocusedCellTop()` — a partial (sub-row) trim can shift a cell to a
+   * different column without crossing a row boundary, which the top check
+   * alone wouldn't catch.
+   */
+  async getFocusedCellLeft(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store?.getState();
+      const id = s?.focusedImageId ?? s?._phantomFocusImageId;
+      if (!id) return null;
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      if (!cell || !container) return null;
+      return cell.getBoundingClientRect().left - container.getBoundingClientRect().left;
+    });
+  }
+
 
 
   /** Get the first visible image ID from the current view. */
@@ -871,6 +913,39 @@ export class KupuaHelpers {
         const s = store.getState();
         return s.sortAroundFocusStatus === null && !s.loading;
       },
+      { timeout },
+    );
+  }
+
+  /**
+   * Read `_offsetCorrectionGeneration` directly — not part of
+   * `getStoreState()`'s curated snapshot. Pair with `waitForOffsetCorrection`.
+   */
+  async getOffsetCorrectionGeneration(): Promise<number> {
+    return this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState()._offsetCorrectionGeneration ?? 0;
+    });
+  }
+
+  /**
+   * Wait for the async offset-correction (deep-seek/buffer-tier estimate
+   * path) to land, by polling `_offsetCorrectionGeneration` for a change
+   * from `previousGen`. `waitForSortAroundFocus` alone is NOT sufficient for
+   * this — `sortAroundFocusStatus` clears at the initial, pre-correction
+   * landing, before `countBefore` has even been called. Callers that need
+   * the corrected bufferOffset/imagePositions (not just the estimate) must
+   * capture the generation via `getOffsetCorrectionGeneration()` beforehand
+   * and wait on it here.
+   */
+  async waitForOffsetCorrection(previousGen: number, timeout = 15_000) {
+    await this.page.waitForFunction(
+      (prev) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        return store.getState()._offsetCorrectionGeneration > prev;
+      },
+      previousGen,
       { timeout },
     );
   }

@@ -896,3 +896,66 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 6
 | JB3 | facet-click | 72 | 1028 | 2056 | 2056 | 1035 |
 | JB4 | scrubber-scroll | — | — | — | 39 | — |
 | JB5 | fullscreen-exit | — | — | — | 66 | — |
+
+---
+
+## [short] Before pos preservation fix (6f81f3523 (dirty), 2026-08-20)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 372 | 372 | — |
+| PP2 | sort-no-focus | 64 | — | 303 | 303 | — |
+| PP3 | sort-around-focus | 67 | 328 | 653 | 653 | 324 |
+| PP4 | sort-around-focus | 66 | 324 | 719 | 719 | 383 |
+| PP5 | filter-toggle | 61 | 371 | — | 628 | 256 |
+| PP6 | density-swap | — | — | — | 239 | — |
+| PP7 | scrubber-seek | 1 | — | 753 | 753 | — |
+| PP7b | scrubber-seek | 2 | — | 775 | 775 | — |
+| PP7c | scrubber-scroll | — | — | — | 139 | — |
+| PP8 | search | 0 | 268 | 845 | 845 | 577 |
+| PP9 | search | 0 | — | 282 | 282 | — |
+| PP10 | position-map | — | — | — | 2792 | — |
+| PP6b | density-swap | — | — | — | 309 | — |
+| PP6c | density-swap | — | — | — | 283 | — |
+
+---
+
+## [long] Before pos preservation fix (6f81f3523 (dirty), 2026-08-20)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 282 | 282 | — |
+| JA2 | open-detail | — | — | — | 127 | — |
+| JA3 | metadata-click | 59 | 1088 | 1448 | 1448 | 404 |
+| JB1 | search | 0 | — | 342 | 342 | — |
+| JB2 | facet-click | 73 | — | 842 | 842 | — |
+| JB3 | facet-click | 60 | 394 | 1312 | 1312 | 925 |
+| JB4 | scrubber-scroll | — | — | — | 40 | — |
+| JB5 | fullscreen-exit | — | — | — | 72 | — |
+
+---
+
+## [short] After pos preservation fix (6f81f3523 (dirty), 2026-08-20)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 2 | — | 377 | 377 | — |
+| PP2 | sort-no-focus | 63 | — | 311 | 311 | — |
+| PP3 | sort-around-focus | 64 | 319 | 655 | 655 | 351 |
+| PP4 | sort-around-focus | 64 | 327 | 673 | 673 | 346 |
+| PP5 | filter-toggle | 60 | 368 | — | 683 | 269 |
+| PP6 | density-swap | — | — | — | 191 | — |
+| PP7 | scrubber-seek | 1 | — | 673 | 673 | — |
+| PP7b | scrubber-seek | 1 | — | 763 | 763 | — |
+| PP7c | scrubber-scroll | — | — | — | 133 | — |
+| PP8 | search | 0 | 264 | 789 | 789 | 526 |
+| PP9 | search | 0 | — | 282 | 283 | — |
+| PP10 | position-map | — | — | — | 2677 | — |
+| PP6b | density-swap | — | — | — | 316 | — |
+| PP6c | density-swap | — | — | — | 273 | — |
