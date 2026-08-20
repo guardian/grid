@@ -293,8 +293,8 @@ query.controller('SearchQueryCtrl', [
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
 
-      emitQueryTelemetry()
-      
+      emitQueryTelemetry();
+
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
