@@ -11,7 +11,8 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.gu.mediaservice.model.usage.{Usage}
+import com.gu.mediaservice.model.usage.{ComposerUsageReference, FrontUsageReference, Usage}
+import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -490,10 +491,10 @@ class ElasticSearch(
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
-    val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    val haveQualifyingStatus   = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
     val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
-    // lt("now+1d/d") instead of lte("now") so it's request-cacheable within the same day
-    val beInLastPeriod = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lt("now+1d/d")
+    // lt("now+1d/d") instead of lte("now") so the query is day-rounded and fully request-cacheable
+    val beInLastPeriod      = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lt("now+1d/d")
     val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
 
     val beSupplier = boolQuery().should(
@@ -502,20 +503,43 @@ class ElasticSearch(
     ).minimumShouldMatch(1)
     val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
 
-    val maxSize = 10000
-    val search = prepareSearch(query).size(maxSize).fetchSource(false).sourceInclude("usages")
+    // Nested sub-filter aggs classify qualifying usages per image by type,
+    // mirroring the UsageStore.quotaCountForUsages logic in ES.
+    val composerFilter = boolQuery().must(
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", ComposerUsageReference.toString)
+    )
+    val frontsFilter = boolQuery().must(
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", FrontUsageReference.toString)
+    )
+    val printFilter = termQuery("usages.platform", PrintUsage.toString)
 
-    val dateRange = Some((DateTime.now.minusDays(numDays).withTimeAtStartOfDay().plusMillis(1), DateTime.now))
+    val byImageAgg = termsAgg("by_image", "id").size(10000)
+      .subAggregations(
+        nestedAggregation("usages_agg", "usages")
+          .subAggregations(
+            filterAgg("qualifying", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
+              .subAggregations(
+                filterAgg("composer", composerFilter),
+                filterAgg("fronts", frontsFilter),
+                filterAgg("print", printFilter)
+              )
+          )
+      )
+
+    val search = prepareSearch(query).size(0).aggs(byImageAgg)
 
     executeAndLog(search, s"$id quota count by supplier search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
-      val hits = result.hits.hits.toList
-      if (hits.size >= maxSize)
-        logger.warn(logMarker, s"quotaCountBySupplier for $id hit the $maxSize document limit — quota count may be incomplete")
-      val count = hits.map { hit =>
-        val usages = (Json.parse(hit.sourceAsString) \ "usages").asOpt[List[Usage]].getOrElse(Nil)
-        UsageStore.quotaCountForUsages(usages, dateRange)
+      val count = result.aggregations.result[Terms]("by_image").buckets.map { bucket =>
+        val qualifying    = bucket.nested("usages_agg").filter("qualifying")
+        val composerCount = qualifying.filter("composer").docCount.toInt
+        val frontsCount   = qualifying.filter("fronts").docCount.toInt
+        val printCount    = qualifying.filter("print").docCount.toInt
+        if (composerCount > 0) composerCount
+        else (if (frontsCount > 0) 1 else 0) + printCount
       }.sum
       SupplierQuotaCount(supplier, count)
     }
