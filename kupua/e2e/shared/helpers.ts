@@ -42,6 +42,41 @@ export const test = base.extend<{ kupua: KupuaHelpers }>({
 
 export { expect };
 
+/**
+ * Poll the nth match of `selector` until the same `data-image-id` occupies
+ * that position for 3 consecutive checks, then return it.
+ *
+ * During table cold-load+seek, rows transition skeleton → pending →
+ * enriched at different rates, and `selector` (which requires the
+ * `cursor-pointer` class) only matches enriched rows — so its nth match
+ * can be a *different physical row* on every check until enrichment
+ * catches up past position n. Returning a stable id lets callers click by
+ * identity (`[data-image-id="..."]`) instead of re-querying `.nth(n)`,
+ * which would be racing the same churn again.
+ */
+export async function waitForStableNthImageId(
+  page: Page,
+  selector: string,
+  n: number,
+  timeout = 10_000,
+): Promise<string> {
+  const locator = page.locator(selector).nth(n);
+  const start = Date.now();
+  let lastId: string | null = null;
+  let stableCount = 0;
+  while (Date.now() - start < timeout) {
+    const id = await locator.getAttribute("data-image-id").catch(() => null);
+    if (id && id === lastId) {
+      if (++stableCount >= 3) return id;
+    } else {
+      stableCount = 0;
+    }
+    lastId = id;
+    await page.waitForTimeout(50);
+  }
+  throw new Error(`waitForStableNthImageId: no stable element at position ${n} within ${timeout}ms`);
+}
+
 // ---------------------------------------------------------------------------
 // Helper class
 // ---------------------------------------------------------------------------
@@ -842,19 +877,12 @@ export class KupuaHelpers {
 
   /** Click the Nth visible row/cell to focus it (0-based). */
   async focusNthItem(n: number) {
-    if (await this.isGridView()) {
-      // Grid: click the nth cell-like div
-      const cells = this.page.locator(
-        '[aria-label="Image results grid"] [class*="cursor-pointer"]'
-      );
-      await cells.nth(n).click();
-    } else {
-      // Table: click the nth data row (skip header)
-      const dataRows = this.page.locator(
-        '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]'
-      );
-      await dataRows.nth(n).click();
-    }
+    const isGrid = await this.isGridView();
+    const selector = isGrid
+      ? '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      : '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]';
+    const id = await waitForStableNthImageId(this.page, selector, n);
+    await this.page.locator(`${selector}[data-image-id="${id}"]`).click();
     await this.page.waitForTimeout(100);
   }
 

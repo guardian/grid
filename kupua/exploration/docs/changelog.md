@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 August 2026 — `focusNthItem` clicked by position in a set that could reorder mid-click
+
+**Bug.** The e2e helper `focusNthItem` (and a duplicated inline copy inside a
+test-only anchor helper) selected the Nth row to click via `.nth(n)` on a
+locator scoped to `[class*="cursor-pointer"]`. Rows that haven't finished
+rendering (a skeleton placeholder, then a lightweight "pending" preview before
+the full cell content mounts) don't carry that class, so while a batch of rows
+was transitioning through those states at different rates, the *set* `.nth(n)`
+counted over kept changing size and membership — position `n` could name a
+different physical row from one moment to the next, including mid-click.
+
+**Fix.** Added `waitForStableNthImageId`: poll position `n` until the same
+`data-image-id` occupies it for three consecutive checks, then click/read that
+element by its id instead of re-querying by position. This is immune to the
+underlying set changing shape, since it locks onto a specific element's
+identity rather than trusting a position to keep meaning the same thing.
+
+Full habitual e2e suite re-run green (247/247) before and after, including
+every spec that seeks and then immediately calls `focusNthItem` in table
+density. No existing test needed updating.
+
 ### 21 August 2026 — `aria-rowindex` was buffer-local instead of table-global
 
 **Bug.** `ImageTable.tsx` rendered `aria-rowindex` from `virtualRow.index` alone
