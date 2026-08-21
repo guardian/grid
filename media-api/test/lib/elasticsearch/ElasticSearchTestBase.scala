@@ -207,7 +207,7 @@ trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with
     createImage("usages-by-supplier-qualified-unknown-print", Agency("test-wire"),
       usages = List(createUsage(ComposerUsageReference, PrintUsage, UnknownUsageStatus, DateTime.parse("2020-06-16")))),
     createImage("usages-by-supplier-qualified-removed-digital", Agency("test-wire"),
-      usages = List(createUsage(ComposerUsageReference, DigitalUsage, RemovedUsageStatus, DateTime.parse("2020-06-17")))),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, RemovedUsageStatus, DateTime.parse("2020-06-30T23:59:59")))),
     createImage("usages-by-supplier-non-qualifying-status", Agency("test-wire"),
       usages = List(createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, DateTime.parse("2020-06-18")))),
     createImage("usages-by-supplier-non-qualifying-platform", Agency("test-wire"),
@@ -223,6 +223,9 @@ trait ElasticSearchTestBase extends AnyFunSpec with ElasticSearchDockerBase with
         createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, DateTime.parse("2020-06-10"))
       )),
     createImage("usages-by-supplier-out-of-date-range", Agency("test-wire"),
-      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-08-01"))))
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-07-01")))),
+    // Composite image whose `suppliers` field contains "test-wire" alongside another supplier
+    createImage("usages-by-supplier-composite", Composite("test-wire, other-supplier"),
+      usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.parse("2020-06-15"))))
   )
 }
