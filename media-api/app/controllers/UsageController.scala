@@ -21,8 +21,6 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  val numberOfDayInPeriod = 30
-
   def bySupplier = auth.async { implicit request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "usage-by-supplier",
@@ -30,9 +28,9 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     Future.sequence(
-      Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
+      Agencies.all.keys.map(elasticSearch.usageForSupplier(_, UsageStore.countPeriodInDays)))
         .map(_.toList)
-        .map((s: List[SupplierUsageSummary]) => respond(s))
+        .map((s: List[SupplierQuotaCount]) => respond(s))
         .recover {
           case e => respondError(InternalServerError, "unknown-error", e.toString)
         }
@@ -45,15 +43,29 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
-      .map((s: SupplierUsageSummary) => respond(s))
+    elasticSearch.usageForSupplier(id, UsageStore.countPeriodInDays)
+      .map((s: SupplierQuotaCount) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)
       }
 
   }
 
-  def usageStatusForImage(id: String)(implicit logMarker: LogMarker): Future[UsageStatus] = for {
+  def quotaCountForSupplier(id: String) = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "quota-count-for-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "supplierId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.quotaCountBySupplier(id, UsageStore.countPeriodInDays)
+      .map((s: SupplierQuotaCount) => respond(s))
+      .recover {
+        case e => respondError(InternalServerError, "unknown-error", e.toString)
+      }
+  }
+
+  def usageStatusForImage(id: String)(implicit logMarker: LogMarker): Future[SupplierUsageStatus] = for {
     imageOption <- elasticSearch.getImageById(id)
 
     image <- Future { imageOption.get }
@@ -72,7 +84,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     usageStatusForImage(id)
-      .map((u: UsageStatus) => respond(u))
+      .map((u: SupplierUsageStatus) => respond(u))
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
         case e => respondError(InternalServerError, "unknown-error", e.toString)
