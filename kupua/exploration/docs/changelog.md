@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 21 August 2026 — `aria-rowindex` was buffer-local instead of table-global
+
+**Bug.** `ImageTable.tsx` rendered `aria-rowindex` from `virtualRow.index` alone
+at three sites (the enriched row, the skeleton placeholder, and the "pending"
+fallback row), while `aria-rowcount` correctly reflected the full result count.
+`virtualRow.index` is only the row's position within the rendered buffer, not
+the corpus, so on a large result set a screen reader seeking to the middle was
+told it was near row 1 of a million-plus-row table. ARIA defines
+`aria-rowindex` as the row's index within the *full* table specifically so
+virtualised grids can express position when only a window is rendered — this
+attribute's entire purpose was defeated.
+
+**Fix.** Threaded a `rowIndexOffset` prop through `TableBody`/`EnrichedTableRow`,
+computed as `twoTier ? 0 : bufferOffset`. In two-tier mode the virtualizer
+already spans the full result count, so the row index is already global; in
+normal mode it needs the buffer offset added. All three `aria-rowindex` sites
+now use `rowIndexOffset + virtualRow.index + 2`.
+
+No existing test (unit or e2e) asserted on this attribute, so nothing needed
+updating; full unit suite re-run green after the change.
+
 ### 20 August 2026 — Focused cell "climbs and disappears" on repeated sort toggle (buffer & seek tier)
 
 **Bug report:** with an image explicitly focused (sort-around-focus) or phantom-focused

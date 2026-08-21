@@ -257,6 +257,8 @@ interface EnrichedTableRowProps {
   handleTickClick: (imageId: string, e: React.MouseEvent) => void;
   /** Busts memo when column visibility changes. */
   visibleColumnCount: number;
+  /** Added to virtualRow.index for aria-rowindex — 0 in two-tier mode (already global), else bufferOffset. */
+  rowIndexOffset: number;
 }
 
 const EnrichedTableRow = memo(function EnrichedTableRow({
@@ -271,6 +273,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
   handleTickClick,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- only used to bust memo
   visibleColumnCount: _visColCount,
+  rowIndexOffset,
 }: EnrichedTableRowProps) {
   const enriched = useEnrichedImage(image);
   const handleTickBound = useCallback(
@@ -285,7 +288,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
       role="row"
       data-image-id={image.id}
       data-cell-id={image.id}
-      aria-rowindex={virtualRow.index + 2}
+      aria-rowindex={rowIndexOffset + virtualRow.index + 2}
       aria-selected={isFocused}
       className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
         isFocused
@@ -380,6 +383,8 @@ interface TableBodyProps {
   visibleColumnCount: number;
   /** Look up the image at a global index (may be undefined if not loaded). */
   getImage: (index: number) => Image | undefined;
+  /** Added to virtualRow.index for aria-rowindex — 0 in two-tier mode (already global), else bufferOffset. */
+  rowIndexOffset: number;
 }
 
 const TableBody = memo(function TableBody({
@@ -393,6 +398,7 @@ const TableBody = memo(function TableBody({
   inSelectionMode,
   visibleColumnCount,
   getImage,
+  rowIndexOffset,
 }: TableBodyProps) {
   // Animation state
   const arrivingImageIds = useSearchStore((s) => s._arrivingImageIds);
@@ -421,7 +427,7 @@ const TableBody = memo(function TableBody({
             <div
               key={`placeholder-${virtualRow.index}`}
               role="row"
-              aria-rowindex={virtualRow.index + 2}
+              aria-rowindex={rowIndexOffset + virtualRow.index + 2}
               className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30"
               style={{
                 height: `${virtualRow.size}px`,
@@ -451,7 +457,7 @@ const TableBody = memo(function TableBody({
             <div
               key={`pending-${virtualRow.index}`}
               role="row"
-              aria-rowindex={virtualRow.index + 2}
+              aria-rowindex={rowIndexOffset + virtualRow.index + 2}
               className="absolute left-0 right-0 flex items-center border-b border-grid-separator/30 text-xs text-grid-text-dim truncate"
               style={{
                 height: `${virtualRow.size}px`,
@@ -487,6 +493,7 @@ const TableBody = memo(function TableBody({
             handleRowClick={handleRowClick}
             handleTickClick={handleTickClick}
             visibleColumnCount={visibleColumnCount}
+            rowIndexOffset={rowIndexOffset}
           />
         );
       })}
@@ -1579,6 +1586,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
           inSelectionMode={inSelectionMode}
           visibleColumnCount={visibleColIds.length}
           getImage={getImage}
+          rowIndexOffset={twoTier ? 0 : bufferOffset}
         />
       </div>
 
