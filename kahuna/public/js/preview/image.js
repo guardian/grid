@@ -172,7 +172,8 @@ image.directive('uiPreviewImage', function() {
             image: '=',
             isSelected: '=',
             hideInfo: '=',
-            selectionMode: '='
+            selectionMode: '=',
+            nnnObject: '='
         },
         // extra actions can be transcluded in
         transclude: true,

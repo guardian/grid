@@ -34,7 +34,7 @@
     </ul>
 
     <a ng-if="! ctrl.selectionMode" class="preview__link"
-       ui-sref="image({imageId: ctrl.image.data.id})"
+       ui-sref="image({imageId: ctrl.image.data.id, nnnObject: ctrl.nnnObject})"
        data-cy="image-preview-link"
        ui-drag-data="ctrl.image | asImageDragData"
        title="{{::ctrl.imageDescription}}"
