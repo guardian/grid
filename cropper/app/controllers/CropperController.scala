@@ -2,6 +2,7 @@ package controllers
 
 import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, ControllerComponents}
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -16,7 +17,6 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
 import org.joda.time.DateTime
-import play.api.libs.ws.WSClient
 
 import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,8 +30,9 @@ case object ApiRequestFailed extends Exception("Failed to fetch the source")
 class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications,
                         config: CropperConfig,
                         override val controllerComponents: ControllerComponents,
-                        ws: WSClient, authorisation: Authorisation)(implicit val ec: ExecutionContext)
-  extends BaseController with MessageSubjects with ArgoHelpers {
+                        authorisation: Authorisation,
+                        gridClient: GridClient)(implicit val ec: ExecutionContext)
+  extends BaseController with MessageSubjects with ArgoHelpers with MediaApiUrls {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -163,7 +164,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   )(implicit logMarker: LogMarker): Future[(String, Crop)] = {
 
     for {
-      _ <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
+      _ <- verify(isMediaApiImageUri(exportRequest.uri, config.apiUri), InvalidSource)
       apiImage <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
       _ <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
@@ -183,39 +184,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     } yield (id, finalCrop)
   }
 
-  // TODO: lame, parse into URI object and compare host instead
-  def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
-
-  def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[SourceImage] = {
-
-    case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
-
-    val baseRequest = ws.url(uri)
-      .withQueryStringParameters("include" -> "fileMetadata")
-
-    val request = onBehalfOfPrincipal(baseRequest)
-
-    val responseFuture = request.get().map { r =>
-      HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
-    }
-
-    responseFuture recoverWith {
-      case NonFatal(e) =>
-        logger.warn(s"HTTP request to fetch source failed: $e")
-        Future.failed(ApiRequestFailed)
-    }
-
-    for (resp <- responseFuture)
-    yield {
-      if (resp.status == 404) {
-        throw ImageNotFound
-      } else if (resp.status != 200) {
-        logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
-        throw ApiRequestFailed
-      } else {
-        resp.json.as[SourceImage]
-      }
-    }
+  private def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[SourceImage] = {
+    gridClient.getSourceImage(imageIdFrom(uri), onBehalfOfPrincipal)
   }
 
   def verify(cond: => Boolean, error: Throwable): Future[Unit] =
