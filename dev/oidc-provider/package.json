@@ -12,7 +12,7 @@
     "oidc-provider": "^9.8.3"
   },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^30.4.2"
   },
   "type": "module"
 }
