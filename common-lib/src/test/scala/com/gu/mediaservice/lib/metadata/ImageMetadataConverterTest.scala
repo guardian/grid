@@ -340,6 +340,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
 
   it("should clean up 'just date' dates into iso format") {
     ImageMetadataConverter.cleanDate("2014-12-16") shouldBe "2014-12-16T00:00:00.000Z"
+    ImageMetadataConverter.cleanDate("2014-08-20") shouldBe "2014-08-20T00:00:00.000Z"
   }
 
   it("should clean up iso dates with seconds into iso format") {

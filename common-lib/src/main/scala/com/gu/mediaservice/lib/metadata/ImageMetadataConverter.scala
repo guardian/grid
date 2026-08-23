@@ -144,13 +144,13 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss.SSS 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
 
+    // TODO these group of formatters are locale dependent. Is this intentional?
     DateTimeFormat.forPattern("yyyyMMdd"),
     DateTimeFormat.forPattern("yyyyMM"),
     DateTimeFormat.forPattern("yyyyddMM"),
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
     DateTimeFormat.forPattern("yyyy:MM:dd"),
-    DateTimeFormat.forPattern("yyyy-MM-dd"),
 
     // 2014-12-16 - Maybe it's just a date
     // no timezone provided so force UTC rather than use the machine's timezone
