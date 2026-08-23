@@ -303,6 +303,17 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
         images
       }));
     });
+
+    // If the user hits Escape, emit an event representing
+    // "0 crops created". The embedding application (parent)
+    // can respond to the event by closing its Grid dialog.
+    document.addEventListener('keydown', (keyEvent) => {
+      if (keyEvent.code === 'Escape') {
+        postMessage({
+          images:[]
+        })
+      }
+    })
 }]);
 
 
