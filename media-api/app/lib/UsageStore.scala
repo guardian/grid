@@ -108,7 +108,7 @@ object UsageStore extends GridLogging {
       case Some("Cpro Name" :: "Id" :: Nil) =>
         lines.tail.map {
           case supplier :: count :: Nil =>
-            SupplierUsageSummary(Agency(supplier), count.toInt)
+            SupplierUsageSummary(Agency(supplier), count.replaceAll(",", "").toInt)
 
           case _ =>
             logger.error("CSV body error. Expected 2 columns")
