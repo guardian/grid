@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.gu.mediaservice.model.usage.{Usage}
+import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, PrintUsage, Usage}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -490,33 +490,80 @@ class ElasticSearch(
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
-    val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    val haveQualifyingStatus   = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
     val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
-    val beInLastPeriod = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lte("now")
-    val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
+    // lt("now+1d/d") instead of lte("now") so the query is day-rounded and fully request-cacheable
+    val beInLastPeriod         = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lt("now+1d/d")
 
     val beSupplier = boolQuery().should(
       termQuery("usageRights.supplier", supplierName),
       matchQuery("usageRights.suppliers", supplierName)
     ).minimumShouldMatch(1)
-    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
 
-    val maxSize = 10000
-    val search = prepareSearch(query).size(maxSize).fetchSource(false).sourceInclude("usages")
+    val hasQualifyingComposer = nestedQuery("usages", boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", ComposerUsageReference.toString)
+    ))
+    val hasQualifyingFronts = nestedQuery("usages", boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", FrontUsageReference.toString)
+    ))
+    val haveQualifyingUsage = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
 
-    val dateRange = Some((DateTime.now.minusDays(numDays).withTimeAtStartOfDay().plusMillis(1), DateTime.now))
+    val supplierQuery = boolQuery().must(matchAllQuery()).filter(beSupplier, hasQualifyingComposer)
 
-    executeAndLog(search, s"$id quota count by supplier search").map { r =>
-      import r.result
-      logSearchQueryIfTimedOut(search, result)
-      val hits = result.hits.hits.toList
-      if (hits.size >= maxSize)
-        logger.warn(logMarker, s"quotaCountBySupplier for $id hit the $maxSize document limit — quota count may be incomplete")
-      val count = hits.map { hit =>
-        val usages = (Json.parse(hit.sourceAsString) \ "usages").asOpt[List[Usage]].getOrElse(Nil)
-        UsageStore.quotaCountForUsages(usages, dateRange)
-      }.sum
-      SupplierQuotaCount(supplier, count)
+    // Query 1: filter supplier images, then count qualifying composer usage records directly
+    // within the nested context — no document-level composer filter needed.
+    val composerUsageFilter = boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", ComposerUsageReference.toString)
+    )
+    val composerSearch = prepareSearch(supplierQuery).size(0)
+      .aggs(
+        nestedAggregation("usages_nested", "usages")
+          .subAggregations(
+            filterAgg("qualifying_composer", composerUsageFilter)
+              .subAggregations(valueCountAgg("count", "usages.platform"))
+          )
+      )
+
+    // Query 2: images WITHOUT composer usages — NOT hasQualifyingComposer at query level so ES
+    // applies it once and can use the filter cache, rather than re-evaluating per-doc inside an agg.
+    // Fronts: 1 per image (docCount); print: count of individual usage records.
+    val noComposerQuery = boolQuery().must(matchAllQuery()).filter(
+      boolQuery().must(beSupplier, haveQualifyingUsage).withNot(hasQualifyingComposer)
+    )
+    val printUsageFilter = boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", PrintUsage.toString)
+    )
+    val noComposerSearch = prepareSearch(noComposerQuery).size(0)
+      .aggs(
+        filterAgg("has_fronts", hasQualifyingFronts),
+        nestedAggregation("usages_nested", "usages")
+          .subAggregations(
+            filterAgg("qualifying_print", printUsageFilter)
+              .subAggregations(valueCountAgg("count", "usages.platform"))
+          )
+      )
+
+    // Run both queries in parallel — they are independent
+    val composerFuture   = executeAndLog(composerSearch, s"$id quota count: composer search")
+    // val noComposerFuture = executeAndLog(noComposerSearch, s"$id quota count: non-composer search")
+
+    for {
+      composerResult   <- composerFuture
+      // noComposerResult <- noComposerFuture
+    } yield {
+      logSearchQueryIfTimedOut(composerSearch, composerResult.result)
+      // logSearchQueryIfTimedOut(noComposerSearch, noComposerResult.result)
+      val composerQuota = composerResult.result.aggregations.nested("usages_nested").filter("qualifying_composer").valueCount("count").value.toInt
+      // val frontsQuota   = noComposerResult.result.aggregations.filter("has_fronts").docCount.toInt
+      // val printQuota    = noComposerResult.result.aggregations.nested("usages_nested").filter("qualifying_print").valueCount("count").value.toInt
+      SupplierQuotaCount(supplier, composerQuota)
     }
   }
 

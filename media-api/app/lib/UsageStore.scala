@@ -64,7 +64,7 @@ object StoreAccess {
 object UsageStore extends GridLogging {
   val countQualifyingStatuses: Set[UsageStatus] = Set(PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
   val countQualifyingPlatforms: Set[UsageType] = Set(PrintUsage, DigitalUsage)
-  val countPeriodInDays: Int = 30
+  val countPeriodInDays: Int = 3000
 
   def isQualifyingUsage(usage: Usage, dateRange: Option[(DateTime, DateTime)]): Boolean =
     countQualifyingStatuses.contains(usage.status) &&
