@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
-import play.api.http.DefaultHttpErrorHandler
 import play.api.http.HttpErrorHandler
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
@@ -25,10 +24,17 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   // next thing is to set up log shipping
   LogConfig.initKinesisLogging(config)
   LogConfig.initLocalLogShipping(config)
-  SentrySupport.init(config)
   applicationLifecycle.addStopHook(() => SentrySupport.shutdown(config))
 
   def buildInfo: BuildInfo
+
+  // Sentry is initialised lazily rather than in this constructor because it needs
+  // `buildInfo.gitCommitId` as the release, and `buildInfo` is a subclass `val` that
+  // has not been initialised while this base class's constructor runs. It is forced
+  // via `httpErrorHandler` below, which Play evaluates once the application is built
+  // (i.e. after the subclass constructor has completed).
+  private lazy val sentryInitialised: Unit =
+    SentrySupport.init(config, buildInfo.gitCommitId)
 
   implicit val ec: ExecutionContext = executionContext
 
@@ -46,11 +52,10 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     allowedOrigins = Origins.Matching(config.services.corsAllowedDomains)
   )
 
-  final override lazy val httpErrorHandler: HttpErrorHandler =
-    new SentryHttpErrorHandler(
-      new DefaultHttpErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router)),
-      config
-    )
+  final override lazy val httpErrorHandler: HttpErrorHandler = {
+    sentryInitialised
+    new SentryHttpErrorHandler(environment, configuration, devContext.map(_.sourceMapper), Some(router), config)
+  }
 
   lazy val management = new Management(controllerComponents, buildInfo)
 
