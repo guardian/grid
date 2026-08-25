@@ -39,7 +39,9 @@
     <link rel="reauth-uri" href="@reauthUri" />
     <link rel="auth-uri" href="@kahunaConfig.authUri" />
 
-    @kahunaConfig.sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
+    @if(kahunaConfig.sentryEnabled) {
+        @kahunaConfig.sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
+    }
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 
     <style>
