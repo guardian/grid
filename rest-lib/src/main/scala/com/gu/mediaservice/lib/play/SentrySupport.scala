@@ -2,7 +2,11 @@ package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.config.CommonConfig
 import io.sentry.{Sentry, SentryOptions}
+import play.api.http.DefaultHttpErrorHandler
 import play.api.mvc.{RequestHeader, Result}
+import play.api.routing.Router
+import play.api.{Configuration, Environment}
+import play.core.SourceMapper
 
 import scala.concurrent.Future
 
@@ -10,14 +14,14 @@ object SentrySupport {
   private def isEnabled(config: CommonConfig): Boolean =
     config.sentryEnabled && config.sentryDsn.nonEmpty
 
-  def init(config: CommonConfig): Unit = {
+  def init(config: CommonConfig, release: String): Unit = {
     for {
       dsn <- config.sentryDsn if config.sentryEnabled
     } Sentry.init((options: SentryOptions) => {
       options.setDsn(dsn)
       options.setEnvironment(config.sentryEnvironment)
       options.setServerName(config.appName)
-      options.setRelease(sys.env.getOrElse("SENTRY_RELEASE", sys.env.getOrElse("BUILD_VCS_NUMBER", "unknown")))
+      options.setRelease(release)
       options.setTag("app", config.appName)
       options.setTag("stage", config.stage)
     })
@@ -35,24 +39,28 @@ object SentrySupport {
         scope.setTag("method", request.method)
         scope.setTag("path", request.path)
         request.attrs.get(RequestLoggingFilter.requestUuidKey).foreach(scope.setTag("requestId", _))
-        if (request.rawQueryString.nonEmpty) {
-          scope.setExtra("queryString", request.rawQueryString)
-        }
-
+        // Deliberately NOT attaching the raw query string. Grid query strings can contain
+        // search terms and, occasionally, sensitive tokens, so sending them to Sentry risks
+        // leaking PII. `path` + `requestId` are enough to correlate an event with the request
+        // logs (which already record the query string) without that risk.
         Sentry.captureException(exception)
       }
     }
   }
 }
 
-class SentryHttpErrorHandler(delegate: play.api.http.HttpErrorHandler, config: CommonConfig)
-  extends play.api.http.HttpErrorHandler {
+class SentryHttpErrorHandler(
+  environment: Environment,
+  configuration: Configuration,
+  sourceMapper: Option[SourceMapper],
+  router: => Option[Router],
+  config: CommonConfig
+) extends DefaultHttpErrorHandler(environment, configuration, sourceMapper, router) {
 
-  override def onClientError(request: RequestHeader, statusCode: Int, message: String): Future[Result] =
-    delegate.onClientError(request, statusCode, message)
-
+  // Client (4xx) errors are handled by the default implementation. We only intercept
+  // server (5xx) errors to report them to Sentry, then defer to the default rendering.
   override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = {
     SentrySupport.captureException(config, request, exception)
-    delegate.onServerError(request, exception)
+    super.onServerError(request, exception)
   }
 }
