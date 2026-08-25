@@ -65,12 +65,12 @@ sentry.config(['$provide', function ($provide) {
             // Don't send failed HTTP requests as that's mostly just
             // noise we already get in other logs
             if (!isHttpError(exception)) {
-        Sentry.withScope(scope => {
-          if (cause) {
-            scope.setExtra('angularCause', cause);
-          }
-          Sentry.captureException(exception);
-        });
+                Sentry.withScope(scope => {
+                    if (cause) {
+                        scope.setExtra('angularCause', cause);
+                    }
+                    Sentry.captureException(exception);
+                });
             }
         };
     }]);
