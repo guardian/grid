@@ -1,4 +1,4 @@
-java                   corretto-11.0.24.8.1
-nodejs                 22.12.0
+java corretto-11.0.24.8.1
+nodejs 22.12.0
 github:guardian/devenv 20260721-123412
-sbt                    latest
+sbt latest
