@@ -12,7 +12,7 @@ modules:
   - github-copilot
 
 features:
-  - ghcr.io/devcontainers/features/aws-cli:1.1.4
+  ghcr.io/devcontainers/features/aws-cli:1.1.4: {}
 
 # Optional: Ports to forward
 forwardPorts:
