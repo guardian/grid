@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearc
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
-import com.gu.mediaservice.model.usage.{PublishedUsageStatus, RemovedUsageStatus, UnknownUsageStatus}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus, RemovedUsageStatus, SyndicationUsage, UnknownUsageStatus, ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import lib.querysyntax._
@@ -162,6 +162,167 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val results = Await.result(ES.usageForSupplier("ACME", 5), fiveSeconds)
 
       results.count shouldBe 1
+    }
+  }
+
+  // Saves images for a single quota test and deletes them by ID afterwards, leaving the
+  // shared image set (loaded in beforeAll) untouched.
+  private def withQuotaImages[A](images: Seq[Image])(test: => A): A = {
+    implicit val logMarker: LogMarker = MarkerMap()
+    Await.ready(saveImages(images), 1.minute)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages + images.size)
+    try test finally {
+      val deletes = images.map(i => executeAndLog(deleteById(index, i.id), s"Deleting quota test image ${i.id}"))
+      Await.ready(Future.sequence(deletes), fiveSeconds)
+      eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+    }
+  }
+
+  describe("quotaCountBySupplier") {
+    // "quota-agency" is not in Agencies.all so Agencies.get("quota-agency").supplier falls back to "quota-agency"
+    val supplier = "quota-agency"
+    val inRange  = DateTime.now.minusDays(15)
+    val numDays  = 30
+
+    it("counts a single composer usage as 1") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-composer-1", Agency(supplier),
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("counts multiple composer usages on the same image individually") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-composer-2", Agency(supplier),
+        usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(ComposerUsageReference, DigitalUsage, UnknownUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+      }
+    }
+
+    it("counts multiple fronts usages on the same image as 1") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-fronts-multi", Agency(supplier),
+        usages = List(
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(FrontUsageReference, DigitalUsage, RemovedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("counts each qualifying print usage individually") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-print-multi", Agency(supplier),
+        usages = List(
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, inRange),
+          createUsage(InDesignUsageReference, PrintUsage, RemovedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+      }
+    }
+
+    it("composer precedence: only counts composer usages when an image has both composer and fronts usages") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-composer-and-fronts", Agency(supplier),
+        usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        // fronts usage must not be counted — if it were, result would be 2
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("composer precedence: only counts composer usages when an image has both composer and print usages") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-composer-and-print", Agency(supplier),
+        usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        // print usage must not be counted — if it were, result would be 2
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("counts both fronts (as 1) and print (per usage) when there are no composer usages") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-fronts-and-print", Agency(supplier),
+        usages = List(
+          createUsage(FrontUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(InDesignUsageReference, PrintUsage, PublishedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 2
+      }
+    }
+
+    it("returns 0 when all usages are outside the date range") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-out-of-range", Agency(supplier),
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, DateTime.now.minusDays(31)))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+      }
+    }
+
+    it("excludes usages with a non-qualifying status") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-pending-status", Agency(supplier),
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PendingUsageStatus, inRange))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+      }
+    }
+
+    it("excludes usages with a non-qualifying platform") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-syndication-platform", Agency(supplier),
+        usages = List(createUsage(ComposerUsageReference, SyndicationUsage, PublishedUsageStatus, inRange))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+      }
+    }
+
+    it("excludes images belonging to a different supplier") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-wrong-supplier", Agency("completely-different-agency"),
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 0
+      }
+    }
+
+    it("includes Composite images matched via the usageRights.suppliers field") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-composite", Composite(s"$supplier, other-supplier"),
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange))))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 1
+      }
+    }
+
+    it("qualifies all three counting statuses: published, unknown, and removed") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val images = Seq(createImage("qc-all-statuses", Agency(supplier),
+        usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, inRange),
+          createUsage(ComposerUsageReference, DigitalUsage, UnknownUsageStatus, inRange),
+          createUsage(ComposerUsageReference, DigitalUsage, RemovedUsageStatus, inRange)
+        )))
+      withQuotaImages(images) {
+        Await.result(ES.quotaCountBySupplier(supplier, numDays), fiveSeconds).count shouldBe 3
+      }
     }
   }
 

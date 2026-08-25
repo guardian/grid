@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchCl
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
-import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
+import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
@@ -27,7 +27,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryB
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
 import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary, ImageUsagesBySupplier, ImageUsagesBySupplierResult}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
 import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -460,7 +460,7 @@ class ElasticSearch(
     }
   )
 
-  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierUsageSummary] = {
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierQuotaCount] = {
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -481,7 +481,86 @@ class ElasticSearch(
     executeAndLog(search, s"$id usage search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
-      SupplierUsageSummary(supplier, result.hits.total.value)
+      SupplierQuotaCount(supplier, result.hits.total.value)
+    }
+  }
+
+  def quotaCountBySupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[SupplierQuotaCount] = {
+    val supplier = Agencies.get(id)
+    val supplierName = supplier.supplier
+
+    val haveQualifyingStatus   = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    // lt("now+1d/d") instead of lte("now") so the query is day-rounded and fully request-cacheable
+    val beInLastPeriod         = rangeQuery("usages.dateAdded").gt(s"now-${numDays}d/d").lt("now+1d/d")
+    val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
+    val haveQualifyingUsage    = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, beInLastPeriod))
+
+    val beSupplier = boolQuery().should(
+      termQuery("usageRights.supplier", supplierName),
+      matchQuery("usageRights.suppliers", supplierName)
+    ).minimumShouldMatch(1)
+    val query = boolQuery().must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveQualifyingUsage))
+
+
+    // Usage-level filters for counting inside the nested aggregation context
+    val composerUsageFilter = boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", ComposerUsageReference.toString)
+    )
+    val frontsUsageFilter = boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", DigitalUsage.toString),
+      termQuery("usages.references.type", FrontUsageReference.toString)
+    )
+    val printUsageFilter = boolQuery().must(
+      haveQualifyingStatus, beInLastPeriod,
+      termQuery("usages.platform", PrintUsage.toString)
+    )
+    // Document-level filters: classify images by which quota bucket they fall into.
+    val hasQualifyingComposer = nestedQuery("usages", composerUsageFilter)
+    val hasQualifyingFronts = nestedQuery("usages", frontsUsageFilter)
+    val hasQualifyingPrint = nestedQuery("usages", printUsageFilter)
+
+    val imagesWithComposer = hasQualifyingComposer
+    val imagesWithFrontsButNoComposer = boolQuery().must(hasQualifyingFronts).withNot(hasQualifyingComposer)
+    val imagesWithPrintButNoComposer  = boolQuery().must(hasQualifyingPrint).withNot(hasQualifyingComposer)
+
+    // Quota counting logic per image:
+    // - Each Composer usage counts as 1; if any exist, Fronts and Print on the same image are not counted additionally.
+    // - Multiple Fronts count as 1 in total.
+    // - Multiple Print usages each count separately.
+    // Three mutually exclusive aggregations:
+    //  1. Images with composer: sum of composer usage counts
+    //  2. Images with fronts, no composer: count of images (each image contributes 1)
+    //  3. Images with print, no composer:  sum of print usage counts
+    val composerQuotaAgg = filterAgg("has_composer", imagesWithComposer)
+      .subAggregations(
+        nestedAggregation("usages_agg", "usages")
+          .subAggregations(
+            filterAgg("qualifying", composerUsageFilter)
+          )
+      )
+    val frontsQuotaAgg = filterAgg("fronts_no_composer", imagesWithFrontsButNoComposer)
+    val printQuotaAgg  = filterAgg("print_no_composer", imagesWithPrintButNoComposer)
+      .subAggregations(
+        nestedAggregation("usages_agg", "usages")
+          .subAggregations(
+            filterAgg("qualifying", printUsageFilter)
+          )
+      )
+
+    val search = prepareSearch(query).size(0).aggs(composerQuotaAgg, frontsQuotaAgg, printQuotaAgg)
+
+    executeAndLog(search, s"$id quota count by supplier search").map { r =>
+      import r.result
+      logSearchQueryIfTimedOut(search, result)
+      val aggs          = result.aggregations
+      val composerQuota = aggs.filter("has_composer").nested("usages_agg").filter("qualifying").docCount.toInt
+      val frontsQuota   = aggs.filter("fronts_no_composer").docCount.toInt
+      val printQuota    = aggs.filter("print_no_composer").nested("usages_agg").filter("qualifying").docCount.toInt
+      logger.info(s"Quota count for supplier $supplierName in last $numDays days: composer=$composerQuota, fronts=$frontsQuota, print=$printQuota")
+      SupplierQuotaCount(supplier, composerQuota + frontsQuota + printQuota)
     }
   }
 
@@ -497,11 +576,8 @@ class ElasticSearch(
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
-    val qualifyingStatuses = Set[UsageStatus](PublishedUsageStatus, UnknownUsageStatus, RemovedUsageStatus)
-    val qualifyingPlatforms = Set[UsageType](PrintUsage, DigitalUsage)
-
-    val haveQualifyingStatus = termsQuery("usages.status", qualifyingStatuses.map(_.toString))
-    val haveQualifyingPlatform = termsQuery("usages.platform", qualifyingPlatforms.map(_.toString))
+    val haveQualifyingStatus = termsQuery("usages.status", UsageStore.countQualifyingStatuses.map(_.toString))
+    val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
 
     // e.g. usages@<added:2026-07-31 usages@>added:2026-07-01 - each date bound is inclusive,
     // and since they all apply within the same nested "usages" entry, multiple bounds combine into a range.
@@ -531,8 +607,8 @@ class ElasticSearch(
     val search = prepareSearch(query).trackTotalHits(true).from(offset).size(length)
 
     def isQualifyingUsage(usage: Usage): Boolean =
-      qualifyingStatuses.contains(usage.status) &&
-        qualifyingPlatforms.contains(usage.platform) &&
+      UsageStore.countQualifyingStatuses.contains(usage.status) &&
+        UsageStore.countQualifyingPlatforms.contains(usage.platform) &&
         maybeDateAddedRange.forall { case (from, to) =>
           usage.dateAdded.exists(dateAdded => !dateAdded.isBefore(from) && !dateAdded.isAfter(to))
         }
