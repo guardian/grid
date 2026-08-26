@@ -356,19 +356,20 @@ object GettyXmpParser extends ImageProcessor {
     * Credit in the description may use "via" as a separator (e.g. "AFP via Getty Images")
     * while the metadata credit uses "/" (e.g. "AFP/Getty Images"), so we normalise both before comparing.
     */
+
+  private def doByLinesMatch(byline: Option[String], descByline: String): Boolean = {
+    byline.exists(b => normalise(b) == normalise(descByline))
+  }
+  private def doCreditsMatch(credit: Option[String], descCredits: String): Boolean = {
+    val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
+
+    credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
+  }
   def cleanDescription(description: String, byline: Option[String], credit: Option[String]): String = {
     PhotoByPattern.findFirstMatchIn(description).map(_.subgroups) match {
-      case Some(before :: descByline :: descCredits :: trailing :: Nil) =>
-        val bylineMatches = byline.exists(b => normalise(b) == normalise(descByline))
-
-        // Normalise "via" → "/" so "AFP via Getty Images" matches credit "AFP/Getty Images"
-        val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
-        val creditMatches = credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
-
-        if (bylineMatches && creditMatches) {
+      case Some(before :: descByline :: descCredits :: trailing :: Nil)
+        if doByLinesMatch(byline, descByline) && doCreditsMatch(credit, descCredits) =>
           List(before, trailing).filter(_.nonEmpty).mkString(" ")
-        }
-        else description
       case _ => description
     }
   }
