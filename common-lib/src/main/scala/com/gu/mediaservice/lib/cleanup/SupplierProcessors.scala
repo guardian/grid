@@ -463,28 +463,20 @@ object GettyXmpParser extends ImageProcessor {
     * credit string in the description, ensuring correctness.
     */
   def fixMisplacedBylineCredit(
-    description: String,
+    description: Option[String],
     byline: Option[String],
     credit: Option[String]
   ): (Option[String], Option[String]) = {
-    (byline, credit, PhotoByPattern.findFirstMatchIn(description).map(_.subgroups)) match {
-      case (Some(currentByline), Some(currentCredit), Some(_ :: descByline :: descCredits :: _ :: Nil)) =>
-        val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
-
-        // If current byline already matches the description byline, no fix needed
-        if (normalise(currentByline) == normalise(descByline)) {
-          (byline, credit)
-        } else {
-          // Try: prepend current byline to current credit and see if it matches the description credits
-          val candidateCredit = s"$currentByline/$currentCredit"
-          if (normalise(candidateCredit) == normalise(normalisedDescCredits)) {
-            (Some(descByline), Some(candidateCredit))
-          } else {
-            (byline, credit)
-          }
-        }
-      case _ => (byline, credit)
-    }
+    val fixedBylineAndCredit = for {
+      PhotoByPattern(_, descriptionByline, descriptionCredits, _) <- description
+      currentByline <- byline
+      currentCredit <- credit
+      if normalise(currentByline) != normalise(descriptionByline)
+      normalisedDescriptionCredits = descriptionCredits.replaceAll("(?i)\\s+via\\s+", "/")
+      candidateCredit = s"$currentByline/$currentCredit"
+      if normalise(candidateCredit) == normalise(normalisedDescriptionCredits)
+    } yield (Some(descriptionByline), Some(candidateCredit))
+    fixedBylineAndCredit.getOrElse((byline, credit))
   }
 
   /**
@@ -503,21 +495,18 @@ object GettyXmpParser extends ImageProcessor {
     cleaned.byline.getOrElse(byline)
   }
 
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
 
-      // Fix misplaced byline/credit before cleaning description
-      val (rawFixedByline, fixedCredit) = image.metadata.description.map(d =>
-        fixMisplacedBylineCredit(d, image.metadata.byline, image.metadata.credit)
-      ).getOrElse((image.metadata.byline, image.metadata.credit))
+      val (rawFixedByline, fixedCredit) = fixMisplacedBylineCredit(image.metadata.description, image.metadata.byline, image.metadata.credit)
 
       val sanitizeDescription: String => String =
         ((d: String) => cleanDescription(d, rawFixedByline, fixedCredit)) andThen
           ((d: String) => cleanLocationDatePrefix(d, image.metadata))
 
-      // If byline was extracted from description, run standard byline cleaners on it
       val bylineWasExtracted = rawFixedByline != image.metadata.byline
       val fixedByline = if (bylineWasExtracted) rawFixedByline.map(cleanExtractedByline) else rawFixedByline
 
