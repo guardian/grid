@@ -365,14 +365,16 @@ object GettyXmpParser extends ImageProcessor {
 
     credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
   }
+
   def cleanDescription(description: String, byline: Option[String], credit: Option[String]): String = {
     PhotoByPattern.findFirstMatchIn(description).map(_.subgroups) match {
       case Some(before :: descByline :: descCredits :: trailing :: Nil)
         if doByLinesMatch(byline, descByline) && doCreditsMatch(credit, descCredits) =>
-          List(before, trailing).filter(_.nonEmpty).mkString(" ")
+          val cleanedDescription = List(before, trailing).filter(_.nonEmpty).mkString(" ").trim
+          cleanedDescription
       case _ => description
     }
-  }
+}
 
   // Matches: "LOC1, LOC2 - MONTH DAY:" or "LOC1, LOC2 - MONTH DAY, YEAR:" or "LOC1, LOC2 - MON DAY, YEAR - "
   private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?:\:\s*|-\s+)(.*)$""".r
@@ -392,55 +394,61 @@ object GettyXmpParser extends ImageProcessor {
     * and the date matches dateTaken (±1 day for timezone, but only within the same month).
     * Prefers not cleaning over risking incorrect cleaning.
     */
+
+    private def doesLocalMatch(locationFields: List[String], loc1: String, loc2: String) = {
+      // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
+      // Check direct match first, then fall back to suffix match preserving the prefix.
+      val loc1ExactMatch = locationFields.exists(_.equalsIgnoreCase(loc1))
+      val loc1SuffixMatch = locationFields.exists(f => loc1.toLowerCase.endsWith(f.toLowerCase))
+      val loc2ExactMatch = locationFields.exists(_.equalsIgnoreCase(loc2))
+      loc1ExactMatch || loc1SuffixMatch || loc2ExactMatch
+    }
+
+  private def doesDateMatch(dateTaken: Option[DateTime], monthStr: String, day: Int, yearOpt: Option[Int]): Boolean = {
+    (for {
+      dt <- dateTaken
+      month <- monthNumbers.get(monthStr)
+    } yield {
+      // Allow ±1 day for timezone differences, but only within the same month
+      val monthMatch = dt.getMonthOfYear == month
+      val dayMatch = Math.abs(dt.getDayOfMonth - day) <= 1
+      val yearMatch = yearOpt.forall(_ == dt.getYear)
+      monthMatch && dayMatch && yearMatch
+    }).getOrElse(false)
+  }
+
+  private def prefixLocationToRetain(locationFields: List[String], loc1: String) = {
+    val loc1SuffixMatch = locationFields.find(f => loc1.toLowerCase.endsWith(f.toLowerCase))
+    loc1SuffixMatch.map(field => {
+      loc1.substring(0, loc1.length - field.length).trim
+    }).filter(_.nonEmpty)
+  }
+
+
   def cleanLocationDatePrefix(
     description: String,
-    dateTaken: Option[DateTime],
-    subLocation: Option[String],
-    city: Option[String],
-    state: Option[String],
-    country: Option[String]
-  ): String = {
-    LocationDatePrefix.findFirstMatchIn(description) match {
-      case Some(m) =>
-        val loc1 = m.group(1).trim
-        val loc2 = m.group(2).trim
-        val monthStr = m.group(3).toLowerCase
-        val day = m.group(4).toInt
-        val yearOpt = Option(m.group(5)).map(_.toInt)
-        val rest = m.group(6)
+    metadata: ImageMetadata
+  ): String= {
+    description match {
+      case LocationDatePrefix(location1, location2, month, dayOfMonth, year, rest) =>
+        val loc1 = location1.trim
+        val loc2 = location2.trim
+        val monthStr = month.toLowerCase
+        val day = dayOfMonth.toInt
+        val yearOpt = Option(year).map(_.toInt)
 
-        val locationFields = List(subLocation, city, state, country).flatten
+        val locationFields = List(metadata.subLocation, metadata.city, metadata.state, metadata.country).flatten
+        val locationMatches = doesLocalMatch(locationFields, loc1, loc2)
+        val dateMatches = doesDateMatch(metadata.dateTaken, monthStr, day, yearOpt)
 
-        // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
-        // Check direct match first, then fall back to suffix match preserving the prefix.
-        val loc1Direct = locationFields.exists(_.equalsIgnoreCase(loc1))
-        val loc1SuffixField = if (!loc1Direct)
-          locationFields.find(f => loc1.toLowerCase.endsWith(f.toLowerCase))
-        else None
-        val loc1Matches = loc1Direct || loc1SuffixField.isDefined
-        val loc2Matches = locationFields.exists(_.equalsIgnoreCase(loc2))
-        val locationMatches = loc1Matches || loc2Matches
+        Option.when(locationMatches && dateMatches) {
+          prefixLocationToRetain(locationFields, location1) match {
+            case Some(prefix) => s"$prefix $rest"
+            case None => rest
+          }
+        }.getOrElse(description)
 
-        val dateMatches = for {
-          dt <- dateTaken
-          month <- monthNumbers.get(monthStr)
-        } yield {
-          // Allow ±1 day for timezone differences, but only within the same month
-          val monthMatch = dt.getMonthOfYear == month
-          val dayMatch = Math.abs(dt.getDayOfMonth - day) <= 1
-          val yearMatch = yearOpt.forall(_ == dt.getYear)
-          monthMatch && dayMatch && yearMatch
-        }
-
-        if (locationMatches && dateMatches.contains(true)) {
-          // Preserve any content before the location (e.g. "***BESTPIX***")
-          val leading = loc1SuffixField.map { f =>
-            loc1.substring(0, loc1.length - f.length).trim
-          }.filter(_.nonEmpty)
-          leading.map(l => s"$l $rest").getOrElse(rest)
-        }
-        else description
-      case None => description
+      case _ => description
     }
   }
 
@@ -509,8 +517,7 @@ object GettyXmpParser extends ImageProcessor {
       // Clean description using raw (uncleaned) byline so matching still works against description text
       val cleanedDescription = image.metadata.description
         .map(d => cleanDescription(d, rawFixedByline, fixedCredit))
-        .map(d => cleanLocationDatePrefix(d, image.metadata.dateTaken,
-          image.metadata.subLocation, image.metadata.city, image.metadata.state, image.metadata.country))
+        .map(d => cleanLocationDatePrefix(d, image.metadata))
 
       // If byline was extracted from description, run standard byline cleaners on it
       val bylineWasExtracted = rawFixedByline != image.metadata.byline
