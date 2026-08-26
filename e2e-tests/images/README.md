@@ -1,6 +1,6 @@
 c# Grid E2E test images
 
-A single `Dockerfile` produces two single-container images that run eight
+A single `Dockerfile` produces two single-container images that run nine
 Grid Play services plus Kahuna's frontend. You can select between CI and local-dev images using the `--target` parameter:
 - **CI image** (`--target ci`, tagged `grid-e2e-ci`): stages pre-compiled artefacts and runs them in a production-style JRE. Used by the e2e-tests testcontainers harness.
 - **Local-dev image** (`--target dev`, tagged `grid-e2e-dev`): runs the services under `sbt <svc>/run` (Play dev mode) with the repo bind-mounted, so source changes recompile live. See [Development image (live reload)](#development-image-live-reload) below.
@@ -24,7 +24,7 @@ from `/etc/grid/stage`; defaults to `DEV`). Mount your environment's config with
 ```bash
 docker run --rm \
   -v "$PWD/my-config:/etc/grid:ro" \
-  -p 9001:9001 -p 9002:9002 -p 9005:9005 -p 9006:9006 \
+  -p 9001:9001 -p 9002:9002 -p 9003:9003 -p 9005:9005 -p 9006:9006 \
   -p 9007:9007 -p 9010:9010 -p 9011:9011 -p 9012:9012 \
   grid-e2e-[ci|dev]
 ```
