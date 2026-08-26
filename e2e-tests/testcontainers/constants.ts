@@ -22,6 +22,16 @@ export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
 /** Reverse proxy used in CI to stand in for the developer's dev-nginx (see global-setup). */
 export const PROXY_IMAGE = 'caddy:2.8-alpine';
 
+/**
+ * imgops: standalone nginx on-the-fly image resizer, built from dev/imgops at setup time.
+ * Its nginx.conf proxies to the `localstack` alias on 4566, so it shares the stack network.
+ * Published on IMGOPS_PORT, the fixed host port dev-nginx maps `media-imgops` to.
+ */
+export const IMGOPS_ALIAS = 'imgops';
+export const IMGOPS_PORT = 9008;
+export const IMGOPS_CONTEXT = path.join(REPO_ROOT, 'dev', 'imgops');
+export const IMGOPS_NGINX_CONF = path.join(IMGOPS_CONTEXT, 'nginx.conf');
+
 /** Network aliases the app container uses to reach the infrastructure containers. */
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';
 export const LOCALSTACK_ALIAS = 'localstack';

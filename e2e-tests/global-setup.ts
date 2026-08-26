@@ -3,7 +3,7 @@
  *
  * Boots the full local Grid stack with Testcontainers:
  *   1. a shared network,
- *   2. Elasticsearch + LocalStack (infrastructure),
+ *   2. Elasticsearch + LocalStack + imgops (infrastructure),
  *   3. the CloudFormation core stack + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
  *   5. the pre-built `grid-e2e-ci` image running all nine services.
@@ -23,6 +23,10 @@ import {
   ELASTICSEARCH_IMAGE,
   GRID_ALIAS,
   GRID_IMAGE,
+  IMGOPS_ALIAS,
+  IMGOPS_CONTEXT,
+  IMGOPS_NGINX_CONF,
+  IMGOPS_PORT,
   KAHUNA_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_IMAGE,
@@ -127,6 +131,11 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
     `localstack.media.${DOMAIN} {\n\ttls internal\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
   );
 
+  // On-the-fly image resizing (optimised / full-screen views) -> the imgops container.
+  blocks.push(
+    `media-imgops.${DOMAIN} {\n\ttls internal\n\treverse_proxy ${IMGOPS_ALIAS}:80\n}`,
+  );
+
   return `${blocks.join('\n\n')}\n`;
 }
 
@@ -171,6 +180,21 @@ async function globalSetup(): Promise<void> {
     .withStartupTimeout(120_000)
     .start();
   started.push(localstack);
+
+  // imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
+  // the `localstack` alias on 4566, so it shares this network. Published on the fixed host
+  // port dev-nginx maps `media-imgops` to; in CI the Caddy proxy routes to it instead. The
+  // Dockerfile doesn't bake in nginx.conf (docker-compose bind-mounts it), so copy it in.
+  const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build();
+  const imgops = await imgopsImage
+    .withNetwork(network)
+    .withNetworkAliases(IMGOPS_ALIAS)
+    .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
+    .withExposedPorts({ container: 80, host: IMGOPS_PORT })
+    .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
+    .withStartupTimeout(120_000)
+    .start();
+  started.push(imgops);
 
   // Provisioning + config generation
   const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
