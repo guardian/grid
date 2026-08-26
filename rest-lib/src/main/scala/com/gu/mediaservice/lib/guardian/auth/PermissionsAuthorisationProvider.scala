@@ -25,7 +25,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       provider
     case _ =>
       val permissionsStage = if(config.isProd) { "PROD" } else { "CODE" }
-      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentials, permissionsBucket))
+      PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion.toString, config.awsCredentials, permissionsBucket))
   }
 
   override def initialise(): Unit = {
@@ -57,6 +57,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       case DeleteCropsOrUsages => hasPermission(Permissions.DeleteCrops)
       case ShowPaid => hasPermission(Permissions.ShowPaid)
       case Pinboard => hasPermission(Permissions.Pinboard)
+      case UploadImages if config.enforceUploadImagesPermission => hasPermission(Permissions.UploadImages)
       case UploadImages => true
       case ArchiveImages => true
     }

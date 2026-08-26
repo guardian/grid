@@ -1,8 +1,12 @@
 package lib
 
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, STSAssumeRoleSessionCredentialsProvider}
-import com.amazonaws.services.securitytoken.{AWSSecurityTokenService, AWSSecurityTokenServiceClientBuilder}
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
+import software.amazon.awssdk.services.sts.StsClient
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
+
 import com.gu.contentapi.client._
 import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
 
@@ -47,16 +51,21 @@ class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: Sche
 trait IAMAuthContentApiClient extends ContentApiClient {
   protected val config: UsageConfig
 
-  lazy val sts: AWSSecurityTokenService = AWSSecurityTokenServiceClientBuilder.standard()
-    .withRegion(config.awsRegionName)
+  lazy val sts: StsClient = StsClient.builder()
+    .region(Region.of(config.awsRegionName))
     .build()
 
-  lazy val capiCredentials: AWSCredentialsProvider =
-    config.capiPreviewRole.map(
-      new STSAssumeRoleSessionCredentialsProvider.Builder(_, "capi")
-        .withStsClient(sts)
+  private lazy val sessionId: String = "session-" + Math.random()
+  lazy val capiCredentials: AwsCredentialsProvider =
+    config.capiPreviewRole.map(arn => {
+
+      val assumeRoleRequest = AssumeRoleRequest.builder().roleArn(arn).roleSessionName(sessionId).build()
+
+      StsAssumeRoleCredentialsProvider.builder()
+        .refreshRequest(assumeRoleRequest)
+        .stsClient(sts)
         .build()
-    ).getOrElse(new ProfileCredentialsProvider("capi")) // will be used if stream is ever run locally (unusual)
+    }).getOrElse(ProfileCredentialsProvider.create("capi")) // will be used if stream is ever run locally (unusual)
 
   abstract override def get(
     url: String,

@@ -4,7 +4,7 @@ import java.util.concurrent.Executors
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import org.apache.pekko.actor.ActorSystem
-import com.amazonaws.services.sqs.model.{Message => SQSMessage}
+import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
@@ -57,7 +57,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
     f.foreach { _ => deleteMessage(msg) }
 
   private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {
-    val result = Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody))
+    val result = Json.fromJson[SNSMessage](Json.parse(sqsMessage.body()))
     logParseErrors(result)
     result.asOpt
   }
