@@ -429,27 +429,26 @@ object GettyXmpParser extends ImageProcessor {
     description: String,
     metadata: ImageMetadata
   ): String= {
-    description match {
+    val cleanedDescription = description match {
       case LocationDatePrefix(location1, location2, month, dayOfMonth, year, rest) =>
         val loc1 = location1.trim
         val loc2 = location2.trim
         val monthStr = month.toLowerCase
         val day = dayOfMonth.toInt
-        val yearOpt = Option(year).map(_.toInt)
-
         val locationFields = List(metadata.subLocation, metadata.city, metadata.state, metadata.country).flatten
-        val locationMatches = doesLocalMatch(locationFields, loc1, loc2)
-        val dateMatches = doesDateMatch(metadata.dateTaken, monthStr, day, yearOpt)
-
-        Option.when(locationMatches && dateMatches) {
-          prefixLocationToRetain(locationFields, location1) match {
-            case Some(prefix) => s"$prefix $rest"
-            case None => rest
-          }
-        }.getOrElse(description)
-
-      case _ => description
+        val yearOpt = Option(year).map(_.toInt)
+        for {
+          day <- Option(day)
+          if doesLocalMatch(locationFields, loc1, loc2)
+          if doesDateMatch(metadata.dateTaken, monthStr, day, yearOpt)
+        } yield {
+          prefixLocationToRetain(locationFields, loc1)
+            .map(prefix => s"$prefix $rest")
+            .getOrElse(rest)
+        }
+      case _ => None
     }
+    cleanedDescription.getOrElse(description)
   }
 
   /**
@@ -514,10 +513,9 @@ object GettyXmpParser extends ImageProcessor {
         fixMisplacedBylineCredit(d, image.metadata.byline, image.metadata.credit)
       ).getOrElse((image.metadata.byline, image.metadata.credit))
 
-      // Clean description using raw (uncleaned) byline so matching still works against description text
-      val cleanedDescription = image.metadata.description
-        .map(d => cleanDescription(d, rawFixedByline, fixedCredit))
-        .map(d => cleanLocationDatePrefix(d, image.metadata))
+      val sanitizeDescription: String => String =
+        ((d: String) => cleanDescription(d, rawFixedByline, fixedCredit)) andThen
+          ((d: String) => cleanLocationDatePrefix(d, image.metadata))
 
       // If byline was extracted from description, run standard byline cleaners on it
       val bylineWasExtracted = rawFixedByline != image.metadata.byline
@@ -527,7 +525,7 @@ object GettyXmpParser extends ImageProcessor {
         usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one
         metadata = image.metadata.copy(
-          description = cleanedDescription,
+          description = image.metadata.description.map(sanitizeDescription),
           byline = fixedByline,
           credit = Some(fixedCredit.getOrElse("Getty Images")),
           suppliersReference = getSuppliersReference(image)
