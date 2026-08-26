@@ -33,6 +33,7 @@ export const GRID_ALIAS = 'grid-e2e-ci';
 export const SERVICE_PORTS: Record<string, number> = {
   'media-api': 9001,
   thrall: 9002,
+  'image-loader': 9003,
   kahuna: 9005,
   cropper: 9006,
   'metadata-editor': 9007,
