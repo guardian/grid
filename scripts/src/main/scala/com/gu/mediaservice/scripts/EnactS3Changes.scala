@@ -1,14 +1,10 @@
 package com.gu.mediaservice.scripts
 
 import java.io._
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream}
 import play.api.libs.json.{JsObject, JsValue, Json, OWrites}
 
 import scala.io.Source
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
-import com.amazonaws.services.s3.model.AmazonS3Exception
 import org.joda.time.{DateTime, Duration}
 import com.gu.mediaservice.lib.JsonValueCodecJsValue.jsValueCodec
 import com.github.plokhotnyuk.jsoniter_scala.core._

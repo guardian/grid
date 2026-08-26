@@ -6,7 +6,7 @@ import play.api.libs.json.{JsValue, Json}
 import software.amazon.awssdk.services.sns.SnsClient
 import software.amazon.awssdk.services.sns.model.PublishRequest
 class SNS(config: CommonConfig, topicArn: String) extends GridLogging {
-  lazy val client = config.withAWSCredentialsV2(SnsClient.builder()).build()
+  lazy val client = config.withAWSCredentials(SnsClient.builder()).build()
 
   def publish(message: JsValue, subject: String): Unit = {
     val result = client.publish(PublishRequest.builder().topicArn(topicArn).message(Json.stringify(message)).subject(subject).build())

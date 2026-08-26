@@ -77,7 +77,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.797"
-val awsSdkV2Version = "2.46.13"
+val awsSdkV2Version = "2.49.5"
 val elastic4sVersion = "8.19.1"
 val awsKclVersion = "3.4.3"
 val okHttpVersion = "3.12.1"
@@ -91,15 +91,14 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "editorial-permissions-client" % "4.0.0",
+    "com.gu" %% "editorial-permissions-client" % "7.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
-    "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
-    "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "software.amazon.awssdk" % "iam" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "software.amazon.awssdk" % "sns" % awsSdkV2Version,
     "software.amazon.awssdk" % "sqs" % awsSdkV2Version,
+    "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
+    "software.amazon.awssdk" % "imds" % awsSdkV2Version,
     "nl.gn0s1s" %% "elastic4s-core" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "nl.gn0s1s" %% "elastic4s-domain" % elastic4sVersion,
@@ -125,7 +124,7 @@ lazy val commonLib = project("common-lib").settings(
     "software.amazon.awssdk" % "bedrockruntime" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3vectors" % awsSdkV2Version,
     ws,
-    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test
+    "org.testcontainers" % "elasticsearch" % "1.21.4" % Test,
   ),
   dependencyOverrides += "ch.qos.logback" % "logback-classic" % "1.2.13" % Test
 )

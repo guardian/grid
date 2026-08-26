@@ -12,7 +12,7 @@ import scala.concurrent.Future
 
 class UploadStatusTable(config: ImageLoaderConfig) {
 
-  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  val client = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
   val scanamo = ScanamoAsync(client)
   private val uploadStatusTable = Table[UploadStatusRecord](config.uploadStatusTable)
 

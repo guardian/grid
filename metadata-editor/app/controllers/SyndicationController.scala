@@ -24,7 +24,7 @@ class SyndicationController(auth: Authentication,
   override val metadataBaseUri: String = config.services.metadataBaseUri
 
   def getPhotoshoot(id: String) = auth.async {
-    editsStore.getV2(id).map(dynamoEntry => {
+    editsStore.get(id).map(dynamoEntry => {
       (dynamoEntry \ Edits.Photoshoot).toOption match {
         case Some(photoshoot) => respond(photoshoot.as[Photoshoot])
         case None => respondNotFound("No photoshoot found")
