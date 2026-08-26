@@ -266,13 +266,25 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
 
 object ApParser extends ImageProcessor {
-  val TrailingSlashAp = "(?i)^(.+)/ap$".r
-  val TrailingViaAp = "(?i)^(.+)\\s+via ap$".r
-  val ApImagesCredit = "(?i)^ap images.*".r
-  val BareInvision = "(?i)^invision(\\s+for\\s+.+)?$".r
+  private object Patterns {
+    val TrailingSlashAp: Regex = "(?i)^(.+)/ap$".r
+    val TrailingViaAp: Regex = "(?i)^(.+)\\s+via ap$".r
+    val ApImagesCredit: Regex = "(?i)^ap images.*".r
+    val BareInvision: Regex = "(?i)^invision(\\s+for\\s+.+)?$".r
+    val FrSource: Regex = "(?i)^FR\\d{1,7}(\\s+AP)?$".r
+
+    val ApPhotoTrailer: Regex = """(?s)(.*?)\s*\(AP Photo/([^)]+)\)(.*)""".r
+    val PhotoByViaApTrailer: Regex = """(?s)(.*?)\s*\(Photo by ([^)]+?)\s+via AP([^)]*)\)(.*)""".r
+    val ViaApTrailer: Regex = """(?s)(.*?)\s*\(([^)]+?)\s+via AP([^)]*)\)(.*)""".r
+    val PhotoByTrailer: Regex = """(?s)(.*?)\s*\(Photo by ([^)]+)\)(.*)""".r
+  }
+
+  private sealed trait ApCredit
+  private case class StandardApCredit(partnerFromCredit: Option[String]) extends ApCredit
+  private case object ApImagesCredit extends ApCredit
 
   /** Normalise a string for fuzzy matching: strip diacritics, lowercase, collapse whitespace/dots */
-  def normalise(s: String): String =
+  private def normaliseForMatching(s: String): String =
     Normalizer.normalize(s, Normalizer.Form.NFD)
       .replaceAll("\\p{M}", "")
       .toLowerCase
@@ -280,29 +292,26 @@ object ApParser extends ImageProcessor {
       .replaceAll("\\s+", " ")
       .trim
 
-  def getSuppliersReference(image: Image) = {
+  private def getSuppliersReference(image: Image) = {
     image.fileMetadata.readXmpHeadStringProp("plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
     // This is also available in a more structured way
     // https://github.com/guardian/grid/pull/3328#issuecomment-849080100
     // But that field is json so let's not.
   }
 
-  // Source values that should never become intermediary in Credit
-  val sourceIgnoreList: Set[String] = Set(
+  // Generic AP source labels do not identify a distribution partner.
+  private val sourceIgnoreList: Set[String] = Set(
     "ap", "associated press", "ap files", "aptn", "wire",
     "mlbpv ap", "file", "files", "str",
     "print", "digital camera", "ho", "agoev"
-  ).map(normalise)
+  ).map(normaliseForMatching)
 
   // Words stripped from description tokens before matching (e.g. "Kremlin Pool Photo" → "Kremlin")
-  val noiseWords: Set[String] = Set("file", "pool", "ap", "photo")
+  private val noiseWords: Set[String] = Set("file", "pool", "ap", "photo")
 
-  // FR-pattern sources (e.g. "FR159526 AP", "FR172078") → treat as plain AP (no intermediary)
-  val FrSource = "(?i)^FR\\d{1,7}(\\s+AP)?$".r
-
-  // Source rename map: maps raw Source values to the desired display name for Credit.
+  // Maps raw Source values to the AP partner name displayed in Credit.
   // Keys are normalised at creation time for case-insensitive lookup.
-  val sourceRenameMap: Map[String, String] = Map(
+  private val sourcePartnerNames: Map[String, String] = Map(
     "CP" -> "The Canadian Press",
     "DPA" -> "dpa",
     "KEYSTONE" -> "Keystone",
@@ -339,56 +348,67 @@ object ApParser extends ImageProcessor {
     "Getty" -> "Getty Images",
     "Olympic Information Services OIS" -> "OIS/IOC",
     "SHIYO" -> "Yomiuri Shimbun"
-  ).map { case (k, v) => normalise(k) -> v }
+  ).map { case (k, v) => normaliseForMatching(k) -> v }
 
   /** Strip "Pool" from any position in a source string, cleaning up leftover delimiters */
   private def stripPool(source: String): String =
     source.replaceAll("(?i)\\bpool\\b", "").replaceAll("^[\\s/]+|[\\s/]+$", "").trim
 
   private def isIgnoredSource(source: String): Boolean = {
-    val normalisedSource = normalise(source)
-    sourceIgnoreList.contains(normalisedSource) || FrSource.findFirstMatchIn(source).isDefined
+    val normalisedSource = normaliseForMatching(source)
+    sourceIgnoreList.contains(normalisedSource) || Patterns.FrSource.findFirstMatchIn(source).isDefined
   }
 
-  private def getPoolIntermediary(source: String): Option[String] = {
+  private def partnerFromPoolSource(source: String): Option[String] = {
     val sourceWithoutPool = stripPool(source)
-    val normalisedSource = normalise(sourceWithoutPool)
+    val normalisedSource = normaliseForMatching(sourceWithoutPool)
 
     if (normalisedSource.isEmpty || sourceIgnoreList.contains(normalisedSource)) None
-    else sourceRenameMap.get(normalisedSource).orElse(Some(sourceWithoutPool))
+    else sourcePartnerNames.get(normalisedSource).orElse(Some(sourceWithoutPool))
   }
 
-  /** Determine intermediary name from Source field */
-  def getIntermediary(source: Option[String]): Option[String] = source.flatMap { src =>
-    val trimmedSource = src.trim
-    val normalisedSource = normalise(trimmedSource)
+  /** The agency, collection, or organization whose image AP is distributing. */
+  private def partnerFromSource(source: Option[String]): Option[String] = source.flatMap { rawSource =>
+    val source = rawSource.trim
+    val normalisedSource = normaliseForMatching(source)
 
-    if (isIgnoredSource(trimmedSource)) None
-    else sourceRenameMap.get(normalisedSource)
+    if (isIgnoredSource(source)) None
+    else sourcePartnerNames.get(normalisedSource)
       .orElse {
-        if (normalisedSource.contains("pool")) getPoolIntermediary(trimmedSource)
-        else Some(trimmedSource)
+        if (normalisedSource.contains("pool")) partnerFromPoolSource(source)
+        else Some(source)
       }
   }
 
-  // Description patterns for AP credit trailers
-  val ApPhotoPattern = """(?s)(.*?)\s*\(AP Photo/([^)]+)\)(.*)""".r
-  val PhotoByViaApPattern = """(?s)(.*?)\s*\(Photo by ([^)]+?)\s+via AP([^)]*)\)(.*)""".r
-  val ViaApPattern = """(?s)(.*?)\s*\(([^)]+?)\s+via AP([^)]*)\)(.*)""".r
-  val PhotoByPattern = """(?s)(.*?)\s*\(Photo by ([^)]+)\)(.*)""".r
+  private def partnerFromSource(image: Image): Option[String] =
+    partnerFromSource(image.metadata.source).filterNot { partner =>
+      image.metadata.byline.exists(byline => sameForMatching(byline, partner))
+    }
+
+  private def sameForMatching(left: String, right: String): Boolean =
+    normaliseForMatching(left) == normaliseForMatching(right)
+
+  private def classifyCredit(credit: String): Option[ApCredit] = credit match {
+    case c if isApCredit(c)                  => Some(StandardApCredit(None))
+    case c @ Patterns.BareInvision(_)        => Some(StandardApCredit(Some(c)))
+    case Patterns.TrailingSlashAp(partner)   => Some(StandardApCredit(Some(partner.trim)))
+    case Patterns.TrailingViaAp(partner)     => Some(StandardApCredit(Some(partner.trim)))
+    case Patterns.ApImagesCredit()           => Some(ApImagesCredit)
+    case _                                   => None
+  }
 
   /** Extract (before, tokens, after) from a description if it contains a recognised AP credit trailer */
   private def extractTrailer(description: String): Option[(String, String, String)] =
     description match {
-      case ApPhotoPattern(before, tokens, after)         => Some((before, tokens, after))
-      case PhotoByViaApPattern(before, tokens, _, after) => Some((before, tokens, after))
-      case ViaApPattern(before, tokens, _, after)        => Some((before, tokens, after))
-      case PhotoByPattern(before, tokens, after)         => Some((before, tokens, after))
+      case Patterns.ApPhotoTrailer(before, tokens, after)         => Some((before, tokens, after))
+      case Patterns.PhotoByViaApTrailer(before, tokens, _, after) => Some((before, tokens, after))
+      case Patterns.ViaApTrailer(before, tokens, _, after)        => Some((before, tokens, after))
+      case Patterns.PhotoByTrailer(before, tokens, after)         => Some((before, tokens, after))
       case _ => None
     }
 
   /** Clean AP description credit trailer after verifying tokens appear in byline/credit */
-  def cleanDescription(image: Image, description: String): String =
+  private def cleanDescription(image: Image, description: String): String =
     extractTrailer(description) match {
       case Some((before, tokens, after)) if descriptionTokensAccountedFor(image, tokens) =>
         (before.trim + " " + after.trim).trim
@@ -398,7 +418,7 @@ object ApParser extends ImageProcessor {
   private def meaningfulDescriptionTokens(descTokens: String): Seq[String] =
     descTokens
       .split("[/,]")
-      .map(normalise)
+      .map(normaliseForMatching)
       .map(_.split("\\s+").filterNot(noiseWords.contains).mkString(" "))
       .toList
       .filter(_.nonEmpty)
@@ -408,79 +428,68 @@ object ApParser extends ImageProcessor {
       image.metadata.byline,
       image.metadata.credit,
       image.metadata.source,
-      getIntermediary(image.metadata.source)
-    ).flatten.map(normalise)
+      partnerFromSource(image.metadata.source)
+    ).flatten.map(normaliseForMatching)
 
-  private def isIntermediaryAlias(token: String, intermediary: Option[String]): Boolean =
-    sourceRenameMap
+  private def isPartnerAlias(token: String, partner: Option[String]): Boolean =
+    sourcePartnerNames
       .get(token)
-      .map(normalise)
-      .exists(renamed => intermediary.contains(renamed))
+      .map(normaliseForMatching)
+      .exists(canonicalName => partner.contains(canonicalName))
 
   /** Check if all meaningful tokens from a description credit trailer are accounted for in the image metadata. */
-  def descriptionTokensAccountedFor(image: Image, descTokens: String): Boolean = {
+  private def descriptionTokensAccountedFor(image: Image, descTokens: String): Boolean = {
     val metadataValues = normalisedMetadataValues(image)
-    val intermediary = getIntermediary(image.metadata.source).map(normalise)
+    val partner = partnerFromSource(image.metadata.source).map(normaliseForMatching)
 
     meaningfulDescriptionTokens(descTokens).forall { token =>
-      metadataValues.exists(_.contains(token)) || isIntermediaryAlias(token, intermediary)
+      metadataValues.exists(_.contains(token)) || isPartnerAlias(token, partner)
     }
   }
 
-  def isApCredit(credit: String): Boolean = {
+  private def isApCredit(credit: String): Boolean = {
     val lc = credit.toLowerCase.trim
     lc == "ap" || lc == "associated press" || lc == "ap photo"
   }
 
-  def isBareInvisionCredit(credit: String): Boolean =
-    BareInvision.findFirstMatchIn(credit).isDefined
+  private def cleanDescription(image: Image): Option[String] =
+    image.metadata.description.map(description => cleanDescription(image, description))
 
-  def isTrailingApCredit(credit: String): Boolean =
-    TrailingSlashAp.findFirstMatchIn(credit).isDefined
+  private def applyStandardApMetadata(
+    image: Image,
+    partnerFromCredit: Option[String]
+  ): Image = {
+    val partner = partnerFromSource(image).orElse(partnerFromCredit)
+    val canonicalCredit = partner.fold("AP")(_ + "/AP")
 
-  def isViaApCredit(credit: String): Boolean =
-    TrailingViaAp.findFirstMatchIn(credit).isDefined
-
-  def isApImagesCredit(credit: String): Boolean =
-    ApImagesCredit.findFirstMatchIn(credit).isDefined
-
-  def apply(image: Image): Image = {
-    val credit = image.metadata.credit.getOrElse("").trim
-    val sourceIntermediary = for {
-      i <- getIntermediary(image.metadata.source)
-      if !image.metadata.byline.exists(b => normalise(b) == normalise(i))
-    } yield i
-
-    val creditIntermediary = credit match {
-      case TrailingSlashAp(before) => Some(before.trim)
-      case TrailingViaAp(before)   => Some(before.trim)
-      case c if isBareInvisionCredit(c) => Some(c)
-      case _ => None
-    }
-    val intermediary = sourceIntermediary.orElse(creditIntermediary)
-    val newCredit = intermediary.fold("AP") { i => s"$i/AP" }
-    val newDescription = image.metadata.description.map(desc => cleanDescription(image, desc))
-
-    credit match {
-      case c if isApCredit(c) | isBareInvisionCredit(c) | isTrailingApCredit(c) | isViaApCredit(c)  => image.copy(
-        usageRights = Agency("AP", intermediary),
-        metadata = image.metadata.copy(
-          description = newDescription,
-          suppliersReference = getSuppliersReference(image),
-          credit = Some(newCredit)
-        )
+    image.copy(
+      usageRights = Agency("AP", partner),
+      metadata = image.metadata.copy(
+        credit = Some(canonicalCredit),
+        description = cleanDescription(image),
+        suppliersReference = getSuppliersReference(image)
       )
-      case c if isApImagesCredit(c) =>
-        image.copy(
-          usageRights = Agency("AP", Some("AP Images")),
-          metadata = image.metadata.copy(
-            description = newDescription,
-            suppliersReference = getSuppliersReference(image)
-          )
-        )
-      case _ => image
-    }
+    )
   }
+
+  private def applyApImagesMetadata(image: Image): Image =
+    image.copy(
+      usageRights = Agency("AP", Some("AP Images")),
+      metadata = image.metadata.copy(
+        description = cleanDescription(image),
+        suppliersReference = getSuppliersReference(image)
+      )
+    )
+
+  def apply(image: Image): Image =
+    classifyCredit(image.metadata.credit.getOrElse("").trim) match {
+      case Some(StandardApCredit(partnerFromCredit)) =>
+        applyStandardApMetadata(image, partnerFromCredit)
+      case Some(ApImagesCredit) =>
+        applyApImagesMetadata(image)
+      case None =>
+        image
+    }
 }
 
 object CorbisParser extends ImageProcessor {

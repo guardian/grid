@@ -310,8 +310,8 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("AP Images for Delta Air Lines"))
     }
 
-    // === Source-based intermediary in Credit ===
-    it("should set intermediary from Source field and clean description") {
+    // === Source-based AP partner in Credit ===
+    it("should set the AP partner from Source and clean the description") {
       val image = createImageFromMetadata("credit" -> "AP", "source" -> "DPA",
         "byline" -> "Kay Nietfeld",
         "description" -> "Some event. (Kay Nietfeld/dpa via AP)")
@@ -328,21 +328,21 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
     }
 
     // === Source ignore list ===
-    it("should NOT set intermediary for ignored Source 'Wire'") {
+    it("should NOT set an AP partner for ignored Source 'Wire'") {
       val image = createImageFromMetadata("credit" -> "Associated Press", "source" -> "Wire")
       val processedImage = applyProcessors(image)
       processedImage.metadata.credit should be(Some("AP"))
     }
 
     // === FR-pattern sources ===
-    it("should NOT set intermediary for FR-pattern Source (e.g. FR159526 AP)") {
+    it("should NOT set an AP partner for FR-pattern Source (e.g. FR159526 AP)") {
       val image = createImageFromMetadata("credit" -> "AP", "source" -> "FR159526 AP")
       val processedImage = applyProcessors(image)
       processedImage.metadata.credit should be(Some("AP"))
     }
 
     // === Pool handling ===
-    it("should NOT set intermediary for Pool AP and should clean description") {
+    it("should NOT set an AP partner for Pool AP and should clean the description") {
       val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool AP",
         "byline" -> "Hiro Komae",
         "description" -> "PM speaks. (AP Photo/Hiro Komae, Pool)")
@@ -351,14 +351,14 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("PM speaks."))
     }
 
-    it("should set intermediary for Pool AFP source (strip Pool, keep AFP)") {
+    it("should set AFP as the AP partner for Pool AFP source") {
       val image = createImageFromMetadata("credit" -> "AP", "source" -> "Pool AFP")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("AP", Some("AFP")))
       processedImage.metadata.credit should be(Some("AFP/AP"))
     }
 
-    it("should NOT set intermediary for POOL alone") {
+    it("should NOT set an AP partner for POOL alone") {
       val image = createImageFromMetadata("credit" -> "AP", "source" -> "POOL")
       val processedImage = applyProcessors(image)
       processedImage.metadata.credit should be(Some("AP"))
@@ -445,7 +445,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       }
     }
 
-    it("should NOT use Source as intermediary when it matches the Byline") {
+    it("should NOT use Source as the AP partner when it matches the Byline") {
       val image = createImageFromMetadata(
         "credit" -> "AP", "source" -> "Athena Walsh",
         "byline" -> "Athena Walsh",
@@ -465,7 +465,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("Protesters march."))
     }
 
-    it("should clean description when token is a rename-map alias for the intermediary (AAP Image → AAP)") {
+    it("should clean the description when a token is an alias for the AP partner (AAP Image → AAP)") {
       val image = createImageFromMetadata(
         "credit" -> "AP", "source" -> "AAP",
         "byline" -> "Mick Tsikas",
