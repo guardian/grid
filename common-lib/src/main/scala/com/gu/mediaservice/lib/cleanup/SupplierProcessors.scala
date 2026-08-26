@@ -507,8 +507,13 @@ object GettyXmpParser extends ImageProcessor {
         ((d: String) => cleanDescription(d, rawFixedByline, fixedCredit)) andThen
           ((d: String) => cleanLocationDatePrefix(d, image.metadata))
 
-      val bylineWasExtracted = rawFixedByline != image.metadata.byline
-      val fixedByline = if (bylineWasExtracted) rawFixedByline.map(cleanExtractedByline) else rawFixedByline
+
+      val fixedByline = (image.metadata.byline, rawFixedByline) match {
+        case (original, Some(extracted)) if !original.contains(extracted) =>
+          Some(cleanExtractedByline(extracted))
+        case (_, fallback) =>
+          fallback
+      }
 
       image.copy(
         usageRights = gettyAgencyWithCollection(collectionField),
