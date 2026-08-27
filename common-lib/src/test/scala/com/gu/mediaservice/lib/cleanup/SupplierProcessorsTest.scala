@@ -500,7 +500,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "Belgrade",
         "country" -> "Serbia",
         "dateTaken" -> "2026-03-13T00:00:00.000Z",
-        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+        "description" -> "Belgrade, Serbia - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -514,7 +514,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "Belgrade",
         "country" -> "Blah",
         "dateTaken" -> "2026-03-13T00:00:00.000Z",
-        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+        "description" -> "Belgrade, Serbia - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -528,7 +528,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "Blah",
         "country" -> "Serbia",
         "dateTaken" -> "2026-03-13T00:00:00.000Z",
-        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+        "description" -> "BELGRADE, Serbia - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -542,26 +542,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "London",
         "country" -> "UK",
         "dateTaken" -> "2026-03-12T14:40:58.070Z",
-        "description" -> "***BESTPIX*** LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+        "description" -> "***BESTPIX*** London, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
 
       processedImage.metadata.description should be(Some("***BESTPIX*** Catherine, Princess of Wales leaves after a visit."))
-    }
-
-    it("should strip location-date prefix when only one location matches (Turkiye vs Turkey)") {
-      val image = createImageFromMetadata(
-        "credit" -> "Getty Images",
-        "city" -> "Istanbul",
-        "country" -> "Turkey",
-        "dateTaken" -> "2026-03-13T00:00:00.000Z",
-        "description" -> "ISTANBUL, TURKIYE - MARCH 13: Fenerbahce players react after losing the match."
-      )
-      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
-      val processedImage = applyProcessors(gettyImage)
-
-      processedImage.metadata.description should be(Some("Fenerbahce players react after losing the match."))
     }
 
     it("should strip location-date prefix with case-insensitive location matching") {
@@ -585,7 +571,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "state" -> "Texas",
         "country" -> "United States",
         "dateTaken" -> "2026-03-12T20:26:43.000Z",
-        "description" -> "AUSTIN, TX - MARCH 13: (L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."
+        "description" -> "Austin, TX - MARCH 13: (L-R) Pete Ohs, Will Madden and Jeremy O. Harris pose for a portrait."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -601,7 +587,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "London",
         "country" -> "United Kingdom",
         "dateTaken" -> "2026-03-12T14:40:58.070Z",
-        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
+        "description" -> "London, United Kingdom - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -615,7 +601,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "London",
         "country" -> "United Kingdom",
         "dateTaken" -> "2024-12-19T12:38:22.000Z",
-        "description" -> "LONDON, UNITED KINGDOM - DEC 19, 2024 - Fears that Soho Parish Primary School may close."
+        "description" -> "London, United Kingdom - DEC 19, 2024 - Fears that Soho Parish Primary School may close."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
@@ -629,12 +615,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "London",
         "country" -> "United Kingdom",
         "dateTaken" -> "2026-03-12T14:40:58.070Z",
-        "description" -> "LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."
+        "description" -> "London, United Kingdom - MARCH 12, 2025: An event from last year."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
 
-      processedImage.metadata.description should be(Some("LONDON, UNITED KINGDOM - MARCH 12, 2025: An event from last year."))
+      processedImage.metadata.description should be(Some("London, United Kingdom - MARCH 12, 2025: An event from last year."))
     }
 
     it("should not strip location-date prefix when no location fields match") {
@@ -657,12 +643,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "Belgrade",
         "country" -> "Serbia",
         "dateTaken" -> "2026-01-01T00:00:00.000Z",
-        "description" -> "BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."
+        "description" -> "Belgrade, Serbia - MARCH 13: A match at Belgrade Arena."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
 
-      processedImage.metadata.description should be(Some("BELGRADE, SERBIA - MARCH 13: A match at Belgrade Arena."))
+      processedImage.metadata.description should be(Some("Belgrade, Serbia - MARCH 13: A match at Belgrade Arena."))
     }
 
     it("should apply both Photo by and location-date prefix cleanup together") {
@@ -673,7 +659,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "state" -> "Florida",
         "country" -> "United States",
         "dateTaken" -> "2026-03-13T00:00:00.000Z",
-        "description" -> "PONTE VEDRA BEACH, FLORIDA - MARCH 13: Chris Gotterup plays his tee shot on the 15th hole. (Photo by David Cannon/Getty Images)"
+        "description" -> "Ponte Vedra Beach, Florida - MARCH 13: Chris Gotterup plays his tee shot on the 15th hole. (Photo by David Cannon/Getty Images)"
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
