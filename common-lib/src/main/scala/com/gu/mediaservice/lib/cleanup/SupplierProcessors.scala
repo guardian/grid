@@ -398,13 +398,11 @@ object GettyXmpParser extends ImageProcessor {
     val caseInsensitiveExists = (list: List[String], value: String) => list.exists(_.equalsIgnoreCase(value))
     val caseInsensitiveSuffixMatch = (list: List[String], value: String) => list.find(f => value.toLowerCase.endsWith(f.toLowerCase))
 
-
     private def doesLocalMatch(locationFields: List[String], loc1: String, loc2: String) = {
       // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
       // Check direct match first, then fall back to suffix match preserving the prefix.
-      caseInsensitiveExists(locationFields, loc1) ||
-      caseInsensitiveSuffixMatch(locationFields, loc1).nonEmpty ||
-      caseInsensitiveExists(locationFields, loc2)
+        caseInsensitiveSuffixMatch(locationFields, loc1).nonEmpty ||
+        caseInsensitiveExists(locationFields, loc2)
     }
 
   private def doesDateMatch(dateTaken: Option[DateTime], monthStr: String, day: Int, yearOpt: Option[Int]): Boolean = {

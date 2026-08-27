@@ -508,11 +508,39 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
     }
 
+    it("should strip location-date prefix when city and date matches") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Belgrade",
+        "country" -> "Blah",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
+    }
+
+    it("should strip location-date prefix when country and date matches") {
+      val image = createImageFromMetadata(
+        "credit" -> "Getty Images",
+        "city" -> "Blah",
+        "country" -> "Serbia",
+        "dateTaken" -> "2026-03-13T00:00:00.000Z",
+        "description" -> "BELGRADE, SERBIA - MARCH 13: Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."
+      )
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
+      val processedImage = applyProcessors(gettyImage)
+
+      processedImage.metadata.description should be(Some("Saras Jasikevicius, head coach of Fenerbahce Beko follows the Euroleague match."))
+    }
+
     it("should strip location-date prefix but preserve leading content like ***BESTPIX***") {
       val image = createImageFromMetadata(
         "credit" -> "Getty Images",
         "city" -> "London",
-        "country" -> "United Kingdom",
+        "country" -> "UK",
         "dateTaken" -> "2026-03-12T14:40:58.070Z",
         "description" -> "***BESTPIX*** LONDON, UNITED KINGDOM - MARCH 12, 2026: Catherine, Princess of Wales leaves after a visit."
       )
