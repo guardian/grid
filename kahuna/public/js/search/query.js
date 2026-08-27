@@ -26,7 +26,6 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
-import {getFeatureSwitchActive} from "../components/gr-feature-switch-panel/gr-feature-switch-panel";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -79,7 +78,7 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
     ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
 
-    ctrl.shouldDisplayAISearchOption = getFeatureSwitchActive("enable-ai-search");
+    ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled;
     if (!ctrl.shouldDisplayAISearchOption) {
       ctrl.useAISearch = false;
       ctrl.vecWeight = undefined;
@@ -245,6 +244,22 @@ query.controller('SearchQueryCtrl', [
       }
     }
 
+    function resolveNonFree() {
+      let nonFreeCheck = ctrl.filter.nonFree;
+      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        nonFreeCheck = storage.getJs("defaultIsNonFree", true);
+      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = undefined;
+      }
+      ctrl.filter.nonFree = nonFreeCheck;
+      return nonFreeCheck;
+    }
+
+    function emitQueryTelemetry() {
+      const nonFreeCheck = resolveNonFree();
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, ctrl.filter.uploadedByMe, ctrl.useAISearch);
+    }
+
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       let showPaid = newFilter.nonFree ? newFilter.nonFree : false;
@@ -278,17 +293,8 @@ query.controller('SearchQueryCtrl', [
       manageDefaultNonFree(newFilter);
       manageOrgOwnedSetting(newFilter);
 
-      const { nonFree, uploadedByMe } = ctrl.filter;
-      let nonFreeCheck = nonFree;
-      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
-        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid;
-      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
-        nonFreeCheck = undefined;
-      }
-      ctrl.filter.nonFree = nonFreeCheck;
+      emitQueryTelemetry();
 
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe, ctrl.useAISearch);
       if (ctrl.collectionSearch && !curCollectionSearch) {
         storage.setJs("orderBy", CollectionSortOption.value);
         ctrl.ordering["orderBy"] = CollectionSortOption.value;
@@ -451,9 +457,20 @@ query.controller('SearchQueryCtrl', [
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
         $state.go('search.results', {...ctrl.filter, orderBy: newVal});
     }));
+
+    let aiSearchInitialised = false;
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
-      // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle.
+      // We only emit telemetry on an actual toggle though - the load-time search event is emitted
+      // exactly once via the getSession() -> watchSearchChange path, so emitting here on init would double-count.
+      if (aiSearchInitialised) {
+        emitQueryTelemetry();
+      } else {
+        resolveNonFree();
+      }
+      aiSearchInitialised = true;
+
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,

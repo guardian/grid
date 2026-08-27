@@ -233,6 +233,12 @@ results.controller('SearchResultsCtrl', [
           // FIXME: https://github.com/argo-rest/theseus has forced us to co-opt the actions field for this
           ctrl.tickerCounts = images.$response?.$$state?.value?.actions?.tickerCounts;
 
+          // Present only when an AI search has no text/similar-image query to
+          // rank by. When set, we show how the filters have narrowed
+          // the pool of images and invite the user to add a query.
+          ctrl.filterPoolCounts = images.$response?.$$state?.value?.actions?.filterPoolCounts;
+          ctrl.filtersOnlyAiSearch = !!ctrl.filterPoolCounts;
+
           ctrl.hasQuery = !!$stateParams.query;
           ctrl.initialSearchUri = images.uri;
           ctrl.embeddableUrl = window.location.href;
@@ -248,6 +254,9 @@ results.controller('SearchResultsCtrl', [
         function initialiseAiResults(images) {
           const totalLength = images.data.length;
           ctrl.imagesAll = new Array(totalLength);
+          // Number of results actually shown (the top k), so we can display
+          // "Best k of N matches" where N is ctrl.totalResults.
+          ctrl.aiResultsShown = totalLength;
 
           // AI search returns a single fixed result set rather than a paged/lazy-loaded one,
           // so we populate the full backing array up front to avoid placeholder rows.
@@ -292,6 +301,8 @@ results.controller('SearchResultsCtrl', [
             initialisePagedResults(images);
             checkForNewImages();
           }
+
+          ctrl.isAiSearch = isAiSearch;
 
           updateLastSearchBoundary();
 
