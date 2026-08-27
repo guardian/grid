@@ -542,7 +542,7 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "city" -> "Alkmaar",
         "country" -> "Netherlands",
         "dateTaken" -> "2026-03-12T20:26:43.000Z",
-        "description" -> "Alkmaar, Netherlands - March 12: Troy Parrott of AZ Alkmaar celebrates the late second goal."
+        "description" -> "alkmaar, netherlands - March 12: Troy Parrott of AZ Alkmaar celebrates the late second goal."
       )
       val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "123")))
       val processedImage = applyProcessors(gettyImage)
