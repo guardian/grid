@@ -395,13 +395,16 @@ object GettyXmpParser extends ImageProcessor {
     * Prefers not cleaning over risking incorrect cleaning.
     */
 
+    val caseInsensitiveExists = (list: List[String], value: String) => list.exists(_.equalsIgnoreCase(value))
+    val caseInsensitiveEndsWith = (list: List[String], value: String) => list.exists(_.toLowerCase.endsWith(value.toLowerCase))
+    val caseInsensitiveSuffixMatch = (list: List[String], value: String) => list.find(_.toLowerCase.endsWith(value.toLowerCase))
+
     private def doesLocalMatch(locationFields: List[String], loc1: String, loc2: String) = {
       // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
       // Check direct match first, then fall back to suffix match preserving the prefix.
-      val loc1ExactMatch = locationFields.exists(_.equalsIgnoreCase(loc1))
-      val loc1SuffixMatch = locationFields.exists(f => loc1.toLowerCase.endsWith(f.toLowerCase))
-      val loc2ExactMatch = locationFields.exists(_.equalsIgnoreCase(loc2))
-      loc1ExactMatch || loc1SuffixMatch || loc2ExactMatch
+      caseInsensitiveExists(locationFields, loc1) ||
+      caseInsensitiveEndsWith(locationFields, loc1) ||
+      caseInsensitiveExists(locationFields, loc2)
     }
 
   private def doesDateMatch(dateTaken: Option[DateTime], monthStr: String, day: Int, yearOpt: Option[Int]): Boolean = {
@@ -418,7 +421,7 @@ object GettyXmpParser extends ImageProcessor {
   }
 
   private def prefixLocationToRetain(locationFields: List[String], loc1: String) = {
-    val loc1SuffixMatch = locationFields.find(f => loc1.toLowerCase.endsWith(f.toLowerCase))
+    val loc1SuffixMatch = caseInsensitiveSuffixMatch(locationFields, loc1)
     loc1SuffixMatch.map(field => {
       loc1.substring(0, loc1.length - field.length).trim
     }).filter(_.nonEmpty)
