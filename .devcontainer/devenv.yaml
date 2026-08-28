@@ -41,3 +41,5 @@ forwardPorts:
 postCreateCommand:
   - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
     workingDirectory: "."
+  - cmd: "npm ci"
+    workingDirectory: "./e2e-tests"
