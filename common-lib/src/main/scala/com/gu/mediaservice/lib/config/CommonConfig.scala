@@ -34,6 +34,10 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
+  val sentryEnabled: Boolean = boolean("sentry.enabled")
+  val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
+  val sentryEnvironment: String = stringDefault("sentry.environment", stage.toLowerCase)
+
   val thrallKinesisStream = string("thrall.kinesis.stream.name")
   val thrallKinesisLowPriorityStream = string("thrall.kinesis.lowPriorityStream.name")
 

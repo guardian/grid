@@ -134,6 +134,7 @@ lazy val restLib = project("rest-lib").settings(
     playCore,
     filters,
     pekkoHttpServer,
+    "io.sentry" % "sentry" % "8.23.0",
   ),
 ).dependsOn(commonLib % "compile->compile;test->test")
 
@@ -231,7 +232,13 @@ def maybeLocalGit(): Option[String] = {
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) orElse maybeLocalGit() getOrElse "unknown")
+    // `gitCommitId` is used as the Sentry release for both the backend and the Kahuna
+    // frontend, and must match the release the frontend sourcemaps are uploaded under in
+    // CI (`SENTRY_RELEASE: ${{ github.sha }}`). We therefore prefer `GITHUB_SHA` (identical
+    // to `github.sha`) so the values are guaranteed to match. `BUILD_VCS_NUMBER` (TeamCity,
+    // now deprecated) is retained as a first choice for any remaining legacy builds and can
+    // be removed once TeamCity is fully retired. Falls back to the local git SHA for dev.
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) orElse Option(System.getenv("GITHUB_SHA")) orElse maybeLocalGit() getOrElse "unknown")
   ),
   buildInfoPackage := "utils.buildinfo",
   buildInfoOptions := Seq(
