@@ -38,7 +38,7 @@ function getCommonConfig(config) {
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
-        |image.record.download=false
+        |image.record.download=true
         |defaultShouldBlurGraphicImages=true
         |filters.shouldDisplayOrgOwnedCountAndFilterCheckbox=true
         |ai.search.enabled=${aiSearchEnabled}
