@@ -22,21 +22,32 @@ export const module = angular.module('gr.imageUsage', [
 
 module.controller('grImageUsageCtrl', [
   '$scope',
+  '$rootScope',
   '$state',
   'inject$',
   '$window',
   'imageUsagesService',
 
-  function ($scope, $state, inject$, $window, imageUsagesService) {
+  function ($scope, $rootScope, $state, inject$, $window, imageUsagesService) {
 
     const ctrl = this;
+
+    const bindUsages = (image) => {
+      const usages = imageUsagesService.getUsages(image);
+      const usages$ = usages.groupedByState$
+        .map((grouped) => grouped
+          .map(list => list.sortBy(usage => usage.get('dateAdded')).reverse())
+          .toJS()
+        );
+      inject$($scope, usages$, ctrl, 'usages');
+      inject$($scope, usages.count$, ctrl, 'usagesCount');
+      inject$($scope, usages.hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
+    };
 
     ctrl.$onInit = () => {
       ctrl.showSendToPhotoSales = $window._clientConfig.showSendToPhotoSales;
 
-      const usages = imageUsagesService.getUsages(ctrl.image);
-      const usages$ = usages.groupedByState$.map((u) => u.toJS());
-      const usagesCount$ = usages.count$;
+      bindUsages(ctrl.image);
 
       // TODO match on `platform` rather than `type` as `platform` includes more detail
       ctrl.usageTypeToName = (usageType) => {
@@ -72,17 +83,18 @@ module.controller('grImageUsageCtrl', [
       };
 
       ctrl.onUsagesDeleted = () => {
-        // a bit nasty - but it updates the state of the page better than trying to do that in
-        // the client.
         $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
       };
 
-      const hasSyndicationUsages$ =
-        imageUsagesService.getUsages(ctrl.image).hasSyndicationUsages$;
+      const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+        const maybeUpdatedImage = updatedImages.find(u => u.data.id === ctrl.image.data.id);
+        if (maybeUpdatedImage) {
+          ctrl.image = maybeUpdatedImage;
+          bindUsages(ctrl.image);
+        }
+      });
 
-      inject$($scope, usages$, ctrl, 'usages');
-      inject$($scope, usagesCount$, ctrl, 'usagesCount');
-      inject$($scope, hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
+      $scope.$on('$destroy', freeImagesUpdateListener);
     };
   }]);
 
