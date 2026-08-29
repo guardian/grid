@@ -14,6 +14,49 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 August 2026 — Backspace/arrow shortcuts silently swallowed when search input keeps focus into detail (F10)
+
+**Bug.** If the CQL search input held DOM focus at the moment image detail
+became the active view via a history-restored (not clicked) navigation —
+e.g. browser back out of detail, then forward back into it — nothing
+blurred the input. It stayed focused behind the (`aria-hidden`,
+`pointer-events-none`) overlay. `CqlSearchInput.tsx`'s own keydown handler
+calls `stopImmediatePropagation()` on any unmodified key to keep typing
+trapped in the box, so Backspace/ArrowLeft/ArrowRight never reached
+`ImageDetail.tsx`'s document-level shortcut listener. Detail silently
+failed to close (or traverse) — no error, no visual signal.
+
+Reproduced live against TEST in both click-to-open and click-to-focus
+modes; confirmed the bug requires only "search input focused" +
+"non-click navigation into detail" — the originally suspected
+reload-then-forward path was one way to reach that state, not a
+precondition. Also confirmed `ArrowRight` (image traversal) is swallowed
+identically, matching the class of bug rather than a single-key defect.
+
+**Fix.** Added `inert={showImageDetail || undefined}` alongside the
+existing `aria-hidden` on the hidden background container in
+`routes/search.tsx`. `inert` is the platform primitive for "nothing in
+this subtree is focusable or receives input" — per spec, setting it
+forcibly blurs any focused descendant, so the search input loses focus the
+moment detail becomes active, regardless of how that transition happened.
+This also incidentally fixes the sibling ArrowLeft/Right-trapping variant.
+Chose this over patching `stopImmediatePropagation`/the editable-target
+guard because those two are entangled (removing one without the other
+flips the bug rather than fixing it) and because the real invariant needed
+is structural, not per-key.
+
+Verified no existing behaviour depended on restoring focus to a specific
+element on detail close (`closeDetail()` is just `history.back()`), and
+that the container was already `pointer-events-none` + `aria-hidden` while
+detail is open — `inert` overlaps those, adds nothing new for mouse/AT
+users, and fixes a pre-existing invalid-ARIA state (a focused descendant
+inside `aria-hidden`).
+
+**Test.** Added `e2e/local/browser-history.spec.ts` — "Backspace closes
+detail re-entered via forward while search input holds focus". Confirmed
+red (timeout in `waitForDetailClosed`) before the fix, green after. Full
+suites re-run clean: 1154/1154 unit, 248/248 e2e.
+
 ### 29 August 2026 — Keyword-sorted deep seek: dead bisection deleted, cached-distribution fast path added
 
 **Bug (regression, commit `61b042101`, 2026-04-04).** Deep seek under a

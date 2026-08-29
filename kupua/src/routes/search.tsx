@@ -212,6 +212,10 @@ function SearchPage() {
             : "contents"
         }
         aria-hidden={showImageDetail || undefined}
+        // Also blurs the search input if it holds focus when detail opens
+        // via history restore (not a click) — otherwise its own keydown
+        // trap silently swallows ImageDetail's Backspace/arrow shortcuts.
+        inert={showImageDetail || undefined}
       >
         <SearchBar />
         <StatusBar />

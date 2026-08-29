@@ -349,6 +349,32 @@ test.describe("Browser back/forward — image detail", () => {
     expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
   });
 
+  test("Backspace closes detail re-entered via forward while search input holds focus", async ({ kupua }) => {
+    // Regression test: if the search input already has focus when a
+    // history-restored (not clicked) navigation re-enters image detail,
+    // nothing blurs it — Backspace was swallowed by the search input's own
+    // keydown trap before ever reaching ImageDetail's close handler.
+    await kupua.goto();
+
+    const imageId = await kupua.openDetailForNthItem(0);
+    await kupua.page.goBack();
+    await kupua.waitForDetailClosed();
+
+    // Simulate the search input already holding focus (e.g. from typing,
+    // or autofocus-on-reload) at the moment detail reopens.
+    await kupua.page.locator("cql-input").click();
+
+    await kupua.page.goForward();
+    await kupua.page.waitForFunction(
+      () => new URL(window.location.href).searchParams.has("image"),
+      { timeout: 5000 },
+    );
+    expect(await kupua.getDetailImageId()).toBe(imageId);
+
+    await kupua.closeDetailViaBackspace();
+    expect(await kupua.getDetailImageId()).toBeNull();
+  });
+
   test("SPA open-close cycle does not accumulate phantom history entries", async ({ kupua }) => {
     // Regression test: unconditional deep-link synthesis was inserting a
     // bare-list entry on every SPA-navigated detail open, creating phantom
