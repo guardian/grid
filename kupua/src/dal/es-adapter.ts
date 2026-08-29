@@ -1401,6 +1401,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     field: string,
     percentile: number,
     signal?: AbortSignal,
+    scope?: Array<{ field: string; value: string }>,
   ): Promise<number | null> {
     const nestedPath = NESTED_SORT_FIELDS[field];
     const percentilesAgg = {
@@ -1410,9 +1411,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
         tdigest: { compression: 200 },
       },
     };
+    // Structured equality scope, compiled to exact `term` filters — never
+    // spliced into params.query as CQL text (a `"` in the value would
+    // silently zero out the query; see keyword-sorts workplan §5).
+    const query = scope && scope.length > 0
+      ? {
+          bool: {
+            must: [buildQuery(params)],
+            filter: scope.map((s) => ({ term: { [s.field]: s.value } })),
+          },
+        }
+      : buildQuery(params);
     const body: Record<string, unknown> = {
       size: 0,
-      query: buildQuery(params),
+      query,
       aggs: nestedPath
         ? { nested_agg: { nested: { path: nestedPath }, aggs: { pct: percentilesAgg } } }
         : { pct: percentilesAgg },

@@ -219,6 +219,133 @@ describe("findKeywordSortValue mid-walk error (audit #20)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Keyword-sorted seek fix — countBefore sentinel query shape (T4) and
+// estimateSortValue scope → term filter (T6).
+//
+// See exploration/docs/scroll-and-position-preservation-testing-4.1-
+// keyword-sorts-workplan.md §2, §5, §9. The regression (commit 61b042101)
+// anchored the uploadTime secondary sort field at Number.MAX_SAFE_INTEGER,
+// which countBefore turns into an equality range no real document can ever
+// satisfy — collapsing the id-probe bisection this fix deletes into a
+// no-op. T4 pins that query shape directly so the mechanism can't silently
+// regress; a stronger, real-data proof (constant count across id probes)
+// lives in mock-data-source.test.ts.
+// ---------------------------------------------------------------------------
+
+/** Recursively find the first `range: { [field]: {...} }` clause in a query body. */
+function findRangeEquality(
+  obj: unknown,
+  field: string,
+): { gte: unknown; lte: unknown } | null {
+  if (obj == null || typeof obj !== "object") return null;
+  const rec = obj as Record<string, unknown>;
+  if (rec.range && typeof rec.range === "object") {
+    const range = (rec.range as Record<string, unknown>)[field];
+    if (range && typeof range === "object") {
+      const r = range as Record<string, unknown>;
+      if ("gte" in r && "lte" in r) return { gte: r.gte, lte: r.lte };
+    }
+  }
+  for (const key of Object.keys(rec)) {
+    const found = findRangeEquality(rec[key], field);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Recursively find the first `term: { [field]: value }` clause in a query body. */
+function findTermFilter(obj: unknown, field: string): unknown {
+  if (obj == null || typeof obj !== "object") return undefined;
+  const rec = obj as Record<string, unknown>;
+  if (rec.term && typeof rec.term === "object" && field in (rec.term as Record<string, unknown>)) {
+    return (rec.term as Record<string, unknown>)[field];
+  }
+  for (const key of Object.keys(rec)) {
+    const found = findTermFilter(rec[key], field);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+function requestBody(callIndex = 0): Record<string, unknown> {
+  const call = vi.mocked(global.fetch).mock.calls[callIndex];
+  return JSON.parse((call[1] as RequestInit).body as string);
+}
+
+describe("countBefore sentinel query shape (keyword-sorts workplan T4)", () => {
+  it("emits an unsatisfiable equality range for a sentinel-anchored secondary field", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ count: 5 }));
+
+    await ds.countBefore(
+      { orderBy: "-credit" },
+      ["AAP", Number.MAX_SAFE_INTEGER, "000000000000"],
+    );
+
+    const equality = findRangeEquality(requestBody(), "uploadTime");
+    expect(equality).not.toBeNull();
+    // gte === lte === MAX_SAFE_INTEGER — no real document can ever match
+    // this, which is why the deleted id-bisection was a no-op.
+    expect(equality!.gte).toBe(Number.MAX_SAFE_INTEGER);
+    expect(equality!.lte).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("emits a satisfiable equality range for a real secondary value", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ count: 5 }));
+
+    const realUploadTime = 1_700_000_000_000;
+    await ds.countBefore(
+      { orderBy: "-credit" },
+      ["AAP", realUploadTime, "000000000000"],
+    );
+
+    const equality = findRangeEquality(requestBody(), "uploadTime");
+    expect(equality).not.toBeNull();
+    expect(equality!.gte).toBe(realUploadTime);
+    expect(equality!.lte).toBe(realUploadTime);
+  });
+});
+
+describe("estimateSortValue scope → term filter (keyword-sorts workplan T6)", () => {
+  it("compiles scope to an exact term filter", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse({ aggregations: { pct: { values: { "50.0": 123 } } } }),
+    );
+
+    await ds.estimateSortValue({}, "uploadTime", 50, undefined, [
+      { field: "metadata.credit", value: "AAP" },
+    ]);
+
+    expect(findTermFilter(requestBody(), "metadata.credit")).toBe("AAP");
+  });
+
+  it("passes a value containing a double quote through unaffected (workplan §5 — CQL text-splicing silently drops these)", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse({ aggregations: { pct: { values: { "50.0": 123 } } } }),
+    );
+
+    const trickyValue = 'Getty Images for Sean "Diddy" Combs';
+    await ds.estimateSortValue({}, "uploadTime", 50, undefined, [
+      { field: "metadata.credit", value: trickyValue },
+    ]);
+
+    expect(findTermFilter(requestBody(), "metadata.credit")).toBe(trickyValue);
+  });
+
+  it("passes a value containing a backslash through unaffected", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse({ aggregations: { pct: { values: { "50.0": 123 } } } }),
+    );
+
+    const trickyValue = "UNRWA \\ apaimages/Avalon";
+    await ds.estimateSortValue({}, "uploadTime", 50, undefined, [
+      { field: "metadata.credit", value: trickyValue },
+    ]);
+
+    expect(findTermFilter(requestBody(), "metadata.credit")).toBe(trickyValue);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // searchByAi — KNN query shape + result mapping
 // ---------------------------------------------------------------------------
 

@@ -28,6 +28,7 @@ import type {
   AggregationResult,
   AggregationBucket,
   SortDistribution,
+  SortDistBucket,
   SearchAfterResult,
   TickerCountResult,
   FilterAggRequest,
@@ -900,6 +901,35 @@ function buildSeekCursorAnchors(
     }
   }
   return cursor;
+}
+
+/**
+ * Binary-search a cached SortDistribution for the bucket covering a global
+ * position. Returns null if the position is outside the covered range —
+ * either the distribution is absent, or (at high cardinality) truncated,
+ * see keyword-sorts workplan §11 Q1.
+ */
+function findBucketAtPosition(
+  dist: SortDistribution,
+  position: number,
+): SortDistBucket | null {
+  const { buckets } = dist;
+  if (buckets.length === 0 || position < 0) return null;
+
+  let lo = 0;
+  let hi = buckets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >>> 1;
+    if (buckets[mid].startPosition <= position) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+
+  const bucket = buckets[lo];
+  if (position >= bucket.startPosition + bucket.count) return null;
+  return bucket;
 }
 
 // ---------------------------------------------------------------------------
@@ -3192,15 +3222,72 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             actualOffset = countBefore;
           }
         } else if (!result) {
-          // Keyword sorts — percentile estimation unavailable.
-          // Composite aggregation to walk unique values and find the
-          // value at the target position. O(unique_values/1000) ES
-          // requests — typically 2-10 for real-world data.
+          // Keyword sorts — percentile estimation on the raw field is
+          // unavailable (ES rejects `percentiles` on keyword fields).
           const { field: pField } = parseSortField(sortClause[0]);
 
-          if (pField && dataSource.findKeywordSortValue) {
+          // Fast path: the cached sort distribution (already fetched above
+          // for coveredCount) already tells us the exact bucket — no need
+          // to walk the vocabulary again. A miss means the distribution
+          // doesn't cover this position (absent, or truncated at high
+          // cardinality — see keyword-sorts workplan §11 Q1), so fall
+          // through to the composite-walk path below.
+          const bucket = pField && dist ? findBucketAtPosition(dist, fetchStart) : null;
+
+          if (pField && bucket) {
+            const posInBucket = fetchStart - bucket.startPosition;
+            // uploadTime fallback is always desc for keyword sorts
+            // (see buildSortClause) — position 0 in the bucket is the
+            // most recent upload, regardless of the primary field's
+            // own asc/desc direction.
+            const pctInBucket = Math.max(0.01, Math.min(99.99,
+              (1 - posInBucket / Math.max(1, bucket.count)) * 100,
+            ));
+
             devLog(
-              `[seek] keyword strategy: field=${pField}, target=${fetchStart}, ` +
+              `[seek] keyword strategy: cached distribution, field=${pField}, ` +
+              `bucket=${bucket.key} (${bucket.count} docs), target=${fetchStart}`,
+            );
+
+            const uploadTimeEstimate = await dataSource.estimateSortValue(
+              params,
+              "uploadTime",
+              pctInBucket,
+              signal,
+              [{ field: pField, value: bucket.key }],
+            );
+
+            if (signal.aborted) return;
+
+            // _count rejects a fractional epoch (tdigest returns a float) —
+            // round before using it as a cursor. If the scoped percentile
+            // is unavailable, land at the bucket start instead of
+            // re-walking the vocabulary — no worse than today.
+            const searchAfterValues: SortValues = uploadTimeEstimate != null
+              ? [bucket.key, Math.round(uploadTimeEstimate), ""]
+              : buildSeekCursorAnchors(sortClause, bucket.key);
+
+            result = await dataSource.searchAfter(
+              { ...params, length: PAGE_SIZE },
+              searchAfterValues,
+              effectivePitId,
+              signal,
+            );
+
+            // Verify actual position via countBefore. Accept — no
+            // refinement loop (iterating the percentile was measured to
+            // oscillate; see keyword-sorts workplan §4).
+            if (result.hits.length > 0 && result.sortValues.length > 0) {
+              if (signal.aborted) return;
+              const landedSortValues = result.sortValues[0];
+              actualOffset = await dataSource.countBefore(params, landedSortValues, signal);
+            }
+          } else if (pField && dataSource.findKeywordSortValue) {
+            // Composite aggregation to walk unique values and find the
+            // value at the target position. O(unique_values/1000) ES
+            // requests — typically 2-10 for real-world data.
+            devLog(
+              `[seek] keyword strategy: composite-walk fallback, field=${pField}, target=${fetchStart}, ` +
               `dir=${primaryDir}, total=${total}`,
             );
             const keywordValue = await dataSource.findKeywordSortValue(
@@ -3246,110 +3333,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                   `[seek] countBefore=${countBefore}, landedSortValues=${JSON.stringify(landedSortValues)}, ` +
                   `target was ${fetchStart}, drift=${Math.abs(countBefore - fetchStart)}`,
                 );
-              }
-
-              // -----------------------------------------------------------------
-              // Refinement: if we landed far from the target (large keyword
-              // bucket — e.g. 400k docs all with credit "PA"), binary-search
-              // on the tiebreaker field to find a precise cursor.
-              //
-              // Binary search using countBefore (a single _count query per
-              // iteration, ~5-10ms each). The tiebreaker is always the `id`
-              // field (40-char hex SHA-1), uniformly distributed.
-              // ~20 binary search steps → ~200ms total.
-              // -----------------------------------------------------------------
-              const drift = fetchStart - actualOffset;
-              if (Math.abs(drift) > PAGE_SIZE && result.hits.length > 0 && result.sortValues.length > 0) {
-                // Identify the tiebreaker field (last sort clause — always `id`)
-                const lastClause = sortClause[sortClause.length - 1];
-                const { field: tiebreakerField } = parseSortField(lastClause);
-
-                if (tiebreakerField === "id") {
-                  devLog(
-                    `[seek] large bucket drift=${drift}, refining via binary search on id...`,
-                  );
-
-                  // Binary search bounds: hex values for the id field.
-                  // IDs are 40-char hex SHA-1 hashes (chars 0-9, a-f).
-                  // We interpolate on the first 12 hex chars (~48 bits).
-                  let loNum = 0;
-                  let hiNum = 0xffffffffffff; // 12 hex "f"s
-                  const MAX_BISECT = 50;
-                  let bestCursor: SortValues = searchAfterValues;
-                  let bestOffset = actualOffset;
-
-                  for (let step = 0; step < MAX_BISECT; step++) {
-                    if (signal.aborted) return;
-
-                    if (hiNum - loNum <= 1) break; // converged
-
-                    const midNum = Math.floor((loNum + hiNum) / 2);
-                    const mid = midNum.toString(16).padStart(12, "0");
-
-                    // Build cursor with the keyword value + interpolated id
-                    const probeCursor: SortValues = [...searchAfterValues];
-                    probeCursor[probeCursor.length - 1] = mid;
-
-                    const count = await dataSource.countBefore(
-                      params,
-                      probeCursor,
-                      signal,
-                    );
-
-                    if (step < 5 || step % 5 === 0) {
-                      devLog(
-                        `[seek] bisect step ${step}: mid=${mid}, count=${count}, ` +
-                        `target=${fetchStart}, gap=${count - fetchStart}`,
-                      );
-                    }
-
-                    if (count <= fetchStart) {
-                      loNum = midNum;
-                      if (count > bestOffset) {
-                        bestOffset = count;
-                        bestCursor = probeCursor;
-                      }
-                    } else {
-                      hiNum = midNum;
-                    }
-
-                    // Close enough — within PAGE_SIZE of target
-                    if (Math.abs(count - fetchStart) <= PAGE_SIZE) {
-                      bestOffset = count;
-                      bestCursor = probeCursor;
-                      devLog(
-                        `[seek] binary search converged at step ${step + 1}: ` +
-                        `count=${count}, target=${fetchStart}, gap=${Math.abs(count - fetchStart)}`,
-                      );
-                      break;
-                    }
-                  }
-
-                  if (signal.aborted) return;
-
-                  // Fetch the actual page from the converged cursor
-                  const refinedResult = await dataSource.searchAfter(
-                    { ...params, length: PAGE_SIZE },
-                    bestCursor,
-                    effectivePitId,
-                    signal,
-                  );
-
-                  if (refinedResult.hits.length > 0) {
-                    result = refinedResult;
-                    actualOffset = bestOffset;
-                    devLog(
-                      `[seek] binary search refinement complete: ` +
-                      `actualOffset=${actualOffset}, target=${fetchStart}`,
-                    );
-                  }
-                } else {
-                  // Non-id tiebreaker (shouldn't happen with current sort configs).
-                  console.warn(
-                    `[seek] large drift=${drift} but tiebreaker is "${tiebreakerField}", not "id". ` +
-                    `Binary search not applicable — results may be approximate.`,
-                  );
-                }
               }
 
               // If we landed far from the target and the target is near the

@@ -30,6 +30,7 @@ import type {
   FilterAggRequest,
   UsageFilterAggRequest,
   SortDistribution,
+  SortDistBucket,
   IdRangeResult,
   CountWithTickersResult,
 } from "./types";
@@ -42,6 +43,24 @@ import { detectNullZoneCursor, remapNullZoneSortValues } from "./null-zone";
 // ---------------------------------------------------------------------------
 
 const CREDITS = ["Getty", "Reuters", "AP", "EPA", "PA"];
+
+/**
+ * Opt-in skewed credit distribution — mirrors the real PA/AAP shape (a
+ * handful of huge buckets instead of an even split), so a mock corpus can
+ * exercise within-bucket drift/refinement. Repeats every 100 images.
+ * `AAP` alone is 45% of the corpus — deliberately far larger than
+ * PAGE_SIZE (200), or there is no drift to test.
+ */
+const SKEWED_CREDITS: readonly string[] = ["AAP", "Getty", "Reuters", "AP", "EPA", "PA", "Alamy", "Rex"];
+const SKEWED_THRESHOLDS = [45, 65, 80, 88, 93, 97, 99, 100]; // cumulative %, sums to 100
+
+function skewedCreditForIndex(index: number): string {
+  const pos = index % 100;
+  for (let i = 0; i < SKEWED_THRESHOLDS.length; i++) {
+    if (pos < SKEWED_THRESHOLDS[i]) return SKEWED_CREDITS[i];
+  }
+  return SKEWED_CREDITS[SKEWED_CREDITS.length - 1];
+}
 
 const BASE_DATE = new Date("2020-01-01T00:00:00Z").getTime();
 const END_DATE = new Date("2026-01-01T00:00:00Z").getTime();
@@ -61,11 +80,12 @@ function makeImage(
   index: number,
   total: number,
   sparseFields?: SparseFieldConfig[],
+  skewedCredits?: boolean,
 ): Image {
   // Spread dates linearly across the total range
   const fraction = total > 1 ? index / (total - 1) : 0;
   const uploadTime = new Date(BASE_DATE + fraction * (END_DATE - BASE_DATE)).toISOString();
-  const credit = CREDITS[index % CREDITS.length];
+  const credit = skewedCredits ? skewedCreditForIndex(index) : CREDITS[index % CREDITS.length];
 
   // By default, lastModified = uploadTime (all images have it)
   let lastModified: string | undefined = uploadTime;
@@ -138,6 +158,53 @@ function sortValuesForImage(
   return values;
 }
 
+/**
+ * Field-level comparison for countBefore's tuple walk — mirrors ES semantics:
+ * missing values always sort last, regardless of direction.
+ * Returns -1 if `imgVal` sorts before `cursorVal`, 1 if after, 0 if tied.
+ */
+function compareSortValue(
+  imgVal: string | number | null,
+  cursorVal: string | number | null,
+  direction: "asc" | "desc",
+): number {
+  if (imgVal == null && cursorVal == null) return 0;
+  if (imgVal == null) return 1; // missing sorts last → img is "after" cursor
+  if (cursorVal == null) return -1; // any real value sorts before a null cursor
+  const raw =
+    typeof imgVal === "string" && typeof cursorVal === "string"
+      ? imgVal.localeCompare(cursorVal)
+      : (imgVal as number) - (cursorVal as number);
+  if (raw === 0) return 0;
+  const before = direction === "desc" ? raw > 0 : raw < 0;
+  return before ? -1 : 1;
+}
+
+/**
+ * Lexicographic comparison of two sort-value tuples across the whole sort
+ * clause — the mock analogue of es-adapter's countBefore `should` clauses.
+ * Field 0 decides unless tied, then field 1, etc. Does NOT resolve either
+ * tuple back to a real document first, so a synthetic/sentinel cursor
+ * compares exactly as it would against a live cluster (keyword-sorts
+ * workplan §9.0.2) — this is what makes the sentinel bug reproducible.
+ */
+function compareSortTuples(
+  imgTuple: SortValues,
+  cursorTuple: SortValues,
+  sortClause: Record<string, unknown>[],
+): number {
+  for (let i = 0; i < sortClause.length && i < cursorTuple.length; i++) {
+    const { direction } = parseSortField(sortClause[i]);
+    const cmp = compareSortValue(
+      imgTuple[i] as string | number | null,
+      cursorTuple[i] as string | number | null,
+      (direction as "asc" | "desc") ?? "asc",
+    );
+    if (cmp !== 0) return cmp;
+  }
+  return 0;
+}
+
 // ---------------------------------------------------------------------------
 // Filter helpers — extraFilter support for null-zone queries
 // ---------------------------------------------------------------------------
@@ -183,9 +250,20 @@ function imageMatchesFilter(
 // Mock data source
 // ---------------------------------------------------------------------------
 
+/** Opt-in behaviours for MockDataSource — see individual fields for details. */
+export interface MockDataSourceOptions {
+  /** Use the skewed (uneven) credit distribution instead of the default even cycle. */
+  skewedCredits?: boolean;
+  /** Cap getKeywordDistribution to this many buckets, simulating truncation
+   *  at high cardinality (the real adapter caps at 5 pages / 50k values). */
+  distributionCap?: number;
+}
+
 export class MockDataSource implements ImageDataSource {
   readonly totalImages: number;
   readonly sparseFields?: SparseFieldConfig[];
+  private readonly skewedCredits?: boolean;
+  private readonly distributionCap?: number;
   private _images: Map<number, Image> = new Map();
 
   /** IDs to treat as "removed" — searchAfter with ids= won't find them. */
@@ -194,9 +272,16 @@ export class MockDataSource implements ImageDataSource {
   /** Track how many ES requests this mock has served (for load testing). */
   requestCount = 0;
 
-  constructor(totalImages = 10_000, sparseFields?: SparseFieldConfig[]) {
+  constructor(totalImages = 10_000, sparseFields?: SparseFieldConfig[], options?: MockDataSourceOptions) {
     this.totalImages = totalImages;
     this.sparseFields = sparseFields;
+    this.skewedCredits = options?.skewedCredits;
+    this.distributionCap = options?.distributionCap;
+  }
+
+  /** True when a non-default sort needs the (expensive) full-corpus ordering — sparse fields or a skewed keyword distribution. */
+  private get _hasCustomSortSource(): boolean {
+    return !!(this.sparseFields?.length || this.skewedCredits);
   }
 
   /** Get or create the image at a given index. */
@@ -204,7 +289,7 @@ export class MockDataSource implements ImageDataSource {
     if (index < 0 || index >= this.totalImages) return undefined;
     let img = this._images.get(index);
     if (!img) {
-      img = makeImage(index, this.totalImages, this.sparseFields);
+      img = makeImage(index, this.totalImages, this.sparseFields, this.skewedCredits);
       this._images.set(index, img);
     }
     return img;
@@ -310,8 +395,8 @@ export class MockDataSource implements ImageDataSource {
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
 
-    // For non-default sorts with sparse fields, we need to sort properly
-    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
+    // For non-default sorts with sparse fields or a skewed distribution, we need to sort properly
+    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
       : null;
@@ -386,7 +471,7 @@ export class MockDataSource implements ImageDataSource {
     const effectiveCursor = nz ? nz.strippedCursor : searchAfterValues;
     const sortClause = nz ? nz.sortOverride : buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = (!isDefaultSort || nz) && this.sparseFields?.length;
+    const needsCustomSort = (!isDefaultSort || nz) && this._hasCustomSortSource;
 
     // When null-zone cursor is detected, use filtered+sorted indices.
     // This simulates ES's `must_not: { exists: { field } }` narrowing.
@@ -452,19 +537,18 @@ export class MockDataSource implements ImageDataSource {
     let cursorSortedPos: number;
 
     if (cursorId === "" && effectiveCursor.length >= 1) {
-      // Estimated cursor (no ID) — find position by timestamp.
-      // The first element of effectiveCursor is the uploadTime estimate.
-      const targetTs = effectiveCursor[0] as number;
+      // Estimated cursor (no real id) — find position by general sort-tuple
+      // comparison (see compareSortTuples), NOT by assuming the estimate
+      // lives at cursor[0]. Handles both the original 2-element
+      // [uploadTimeEstimate, ""] shape (numeric/date deep-seek, null-zone)
+      // and a cursor with real leading values followed by one estimated
+      // axis (e.g. a keyword-sort bucket's [creditValue, uploadTimeEst, ""]).
       if (sortedIndices) {
-        // Binary-ish search: find the position where uploadTime crosses targetTs
-        cursorSortedPos = -1; // will be set below
+        cursorSortedPos = -1;
         for (let i = 0; i < sortedIndices.length; i++) {
           const img = this.getImageAt(sortedIndices[i])!;
-          const ts = new Date(img.uploadTime).getTime();
-          // For desc sort, find last position where ts >= targetTs
-          // For asc sort, find last position where ts <= targetTs
-          const uploadDir = sortClause[0] && Object.values(sortClause[0])[0];
-          if (uploadDir === "desc" ? ts >= targetTs : ts <= targetTs) {
+          const imgTuple = sortValuesForImage(img, sortClause);
+          if (compareSortTuples(imgTuple, effectiveCursor, sortClause) <= 0) {
             cursorSortedPos = i;
           } else {
             break;
@@ -473,6 +557,7 @@ export class MockDataSource implements ImageDataSource {
         if (cursorSortedPos < 0) cursorSortedPos = 0;
       } else {
         // No custom sort — estimate by timestamp fraction
+        const targetTs = effectiveCursor[0] as number;
         const fraction = (targetTs - BASE_DATE) / (END_DATE - BASE_DATE);
         cursorSortedPos = Math.floor(fraction * this.totalImages);
       }
@@ -532,35 +617,84 @@ export class MockDataSource implements ImageDataSource {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
 
-    if (!needsCustomSort) {
-      // Simple path: use the id to find the index (original behaviour)
+    if (isDefaultSort && !this.sparseFields?.length) {
+      // Simple path: use the id to find the index (original behaviour) —
+      // left untouched, relied on by the large default-sort test surface.
       const id = sortValues[sortValues.length - 1] as string;
       const [, idx] = this.findById(id);
       return idx >= 0 ? idx : 0;
     }
 
-    // Sort-aware path: find the target's position in the sorted order
+    // General path: true lexicographic sort-tuple comparison against the
+    // given cursor (see compareSortTuples). Unlike the old "resolve the
+    // cursor's id back to a real document" approach, this compares the
+    // cursor's VALUES directly field-by-field, so a synthetic cursor
+    // (e.g. a sentinel-anchored probe) behaves exactly like it would
+    // against a live cluster.
     const sortClause = buildSortClause(params.orderBy);
-    const sortedIndices = this.getSortedIndices(sortClause);
-    const id = sortValues[sortValues.length - 1] as string;
-    const [, origIdx] = this.findById(id);
-    if (origIdx < 0) return 0;
+    let count = 0;
+    for (let i = 0; i < this.totalImages; i++) {
+      const img = this.getImageAt(i)!;
+      const imgTuple = sortValuesForImage(img, sortClause);
+      if (compareSortTuples(imgTuple, sortValues, sortClause) < 0) count++;
+    }
+    return count;
+  }
 
-    const sortedPos = sortedIndices.indexOf(origIdx);
-    return sortedPos >= 0 ? sortedPos : 0;
+  /** Scope-match helper for estimateSortValue's `scope` parameter. */
+  private _imageMatchesScope(img: Image, scope: { field: string; value: string }): boolean {
+    if (scope.field === "metadata.credit") return img.metadata?.credit === scope.value;
+    return false;
   }
 
   async estimateSortValue(
     _params: SearchParams,
-    _field: string,
+    field: string,
     percentile: number,
+    _signal?: AbortSignal,
+    scope?: Array<{ field: string; value: string }>,
   ): Promise<number | null> {
     this.requestCount++;
-    // Linear interpolation of timestamp range
-    const fraction = percentile / 100;
-    return BASE_DATE + fraction * (END_DATE - BASE_DATE);
+
+    if (!scope || scope.length === 0) {
+      // Unscoped — linear interpolation of the synthetic timestamp range.
+      // Existing behaviour, relied on by the date/numeric deep-seek tests.
+      // Mirrors the real ES adapter: a `percentiles` agg on a keyword field
+      // (e.g. metadata.credit) fails there and returns null — the mock must
+      // fail the same way, or the store never falls through to the keyword
+      // branch this fix adds.
+      if (field !== "uploadTime" && field !== "lastModified") return null;
+      const fraction = percentile / 100;
+      return BASE_DATE + fraction * (END_DATE - BASE_DATE);
+    }
+
+    // Scoped — restrict to docs matching every {field, value} pair, find
+    // the TRUE value at the requested percentile within that subset, then
+    // perturb it deterministically (never random — a flaky tolerance test
+    // is worse than no test) by a bounded ~0.7% of the subset, matching
+    // the ±2,133-on-321,741 (~0.66%) drift measured live against TEST.
+    // Fractional on purpose: production code must round this before using
+    // it as a cursor (see workplan §6 "hard constraint: fractional epochs").
+    if (field !== "uploadTime") return null; // only uploadTime is scoped by this fix
+
+    const times: number[] = [];
+    for (let i = 0; i < this.totalImages; i++) {
+      const img = this.getImageAt(i)!;
+      if (scope.every((s) => this._imageMatchesScope(img, s))) {
+        times.push(new Date(img.uploadTime).getTime());
+      }
+    }
+    if (times.length === 0) return null;
+    times.sort((a, b) => a - b);
+
+    const clamped = Math.max(0, Math.min(100, percentile));
+    const trueIdx = Math.min(times.length - 1, Math.floor((clamped / 100) * times.length));
+
+    const driftSteps = Math.max(1, Math.round(times.length * 0.007));
+    const driftIdx = Math.max(0, Math.min(times.length - 1, trueIdx + driftSteps));
+
+    return times[driftIdx] + 0.5;
   }
 
   async findKeywordSortValue(
@@ -614,8 +748,40 @@ export class MockDataSource implements ImageDataSource {
     };
   }
 
-  async getKeywordDistribution(): Promise<SortDistribution | null> {
-    return null;
+  async getKeywordDistribution(
+    _params: SearchParams,
+    field: string,
+    direction: "asc" | "desc",
+    _signal?: AbortSignal,
+  ): Promise<SortDistribution | null> {
+    this.requestCount++;
+    if (field !== "metadata.credit") return null;
+
+    const counts = new Map<string, number>();
+    for (let i = 0; i < this.totalImages; i++) {
+      const img = this.getImageAt(i)!;
+      const credit = img.metadata?.credit;
+      if (credit == null) continue;
+      counts.set(credit, (counts.get(credit) ?? 0) + 1);
+    }
+
+    const keys = Array.from(counts.keys()).sort((a, b) =>
+      direction === "desc" ? b.localeCompare(a) : a.localeCompare(b),
+    );
+    // Deliberately partial when distributionCap is set — simulates
+    // truncation at high cardinality (real cap: 5 pages / 50k values),
+    // so the store's composite-walk fallback branch is reachable in tests.
+    const cappedKeys = this.distributionCap != null ? keys.slice(0, this.distributionCap) : keys;
+
+    const buckets: SortDistBucket[] = [];
+    let cumulative = 0;
+    for (const key of cappedKeys) {
+      const count = counts.get(key)!;
+      buckets.push({ key, count, startPosition: cumulative });
+      cumulative += count;
+    }
+
+    return { buckets, coveredCount: cumulative };
   }
 
   async fetchPositionIndex(
@@ -627,7 +793,7 @@ export class MockDataSource implements ImageDataSource {
 
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
+    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
 
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
@@ -672,7 +838,7 @@ export class MockDataSource implements ImageDataSource {
     const HARD_CAP = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
-    const needsCustomSort = !isDefaultSort && this.sparseFields?.length;
+    const needsCustomSort = !isDefaultSort && this._hasCustomSortSource;
     const sortedIndices = needsCustomSort
       ? this.getSortedIndices(sortClause)
       : null;

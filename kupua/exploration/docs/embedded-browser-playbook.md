@@ -696,3 +696,91 @@ session). Only escalate to a real finding if a future session finds a case
 that keeps moving past 3-4 cycles instead of settling, or if it's ever seen to
 affect **explicit** focus (unaffected in every trial so far — always exact,
 always rendered).
+
+---
+
+## 6. Probing the data layer directly (ES questions without a tunnel or curl)
+
+**[!] PRECONDITION — this whole section only works when the app is running against
+a real cluster**, i.e. started with `./kupua/scripts/start.sh --use-TEST` (or
+`--use-TEST --use-media-api`). In default local mode the "cluster" is Docker ES
+with ~10k synthetic docs, where every interesting question (large keyword buckets,
+skewed distributions, deep seek, tdigest error) is unanswerable by construction —
+you will get confident, precise, *meaningless* numbers. Check what you are pointed
+at before drawing any conclusion: `store.getState().total` in the tens of thousands
+means local, ~1.3M means TEST. Also note `--use-media-api` changes `dataSource` to
+the `StranglerAdapter`, which delegates most methods to ES but routes `searchAfter`
+through the Scala server — so method-level timings are not comparable across the
+two modes.
+
+**[!] BE KIND TO THE CLUSTER. TEST is not PROD, but it is shared, real
+infrastructure serving other people's work.** Everything in this section issues
+genuine ES queries against a multi-million-document index, and some of them are
+expensive: composite-aggregation walks (`findKeywordSortValue`,
+`getKeywordDistribution`) page through the entire term space, and `_count` with a
+deep range chain scans a lot. Rules of thumb:
+- **Never loop probes unbounded.** Cap any exploratory loop at a handful of
+  iterations and put the cap in the code, not in your intentions. A 50-step
+  bisection you fire "just to see" is 50 real queries.
+- **Batch into one `page.evaluate` and run them sequentially inside it**, rather
+  than firing parallel bursts — one probe at a time is both kinder and gives
+  cleaner timings.
+- **Read-only only.** No `index`, `delete`, `bulk`, `update`, `create` — ever,
+  against any non-local ES. The adapter has an `assertReadOnly` guard; do not
+  look for ways around it.
+- **Stop as soon as the question is answered.** These probes are for settling a
+  specific design question, not for open-ended browsing of the corpus.
+
+**[V] `store.getState().dataSource` is the live `ElasticsearchDataSource` and every
+method is callable from `page.evaluate`.** This turns the embedded browser into a
+read-only ES console against whatever cluster the app is pointed at — no SSH tunnel,
+no curl, no auth juggling, and the query is built by the app's own code so you are
+testing the real path, not an approximation. Confirmed present (2026-08-28):
+`search`, `searchRange`, `count`, `countWithTickers`, `getById`, `getAggregation`,
+`getAggregations`, `openPit`, `closePit`, `searchAfter`, `searchByAi`, `countBefore`,
+`estimateSortValue`, `findKeywordSortValue`, `getKeywordDistribution`,
+`getDateDistribution`, `fetchPositionIndex`, `getByIds`, `getIdRange`.
+Enumerate with `Object.getOwnPropertyNames(Object.getPrototypeOf(ds))`.
+
+Invaluable for answering "would this fix actually work?" *before* writing code —
+you can execute a proposed algorithm end-to-end against 1.3M real docs in one
+tool call and measure it. Keep to read-only methods on non-local ES.
+
+**[F] Do NOT trust `total` from a direct `ds.search(...)` call — it comes back `0`.**
+Cost a wasted turn and produced a completely false conclusion ("CQL scoping returns
+zero results for every key") before the unscoped control also returned 0 and gave
+the game away. `hits` is populated correctly; only `total` is wrong in this call
+shape. **Always include an unscoped control probe in the same batch** so an
+artifact of your own call shape can't masquerade as a finding. Use `ds.count(params)`
+when you need an actual count.
+
+**[V] `store.getState().sortDistribution` is a free, exact position map for keyword
+and date sorts.** `{ buckets: [{ key, count, startPosition }], coveredCount }`,
+cached per query+sort. Verified against `countBefore` on TEST: `startPosition` is
+in the *same coordinate space* and matched byte-for-byte. Answers "what is at
+position N" with zero ES calls. Caveat: it is a snapshot and drifts from a live
+index by a handful of docs (saw ±15 on a 1.3M corpus over a few minutes) — fine for
+positioning, not for exact counts.
+
+**[V] Round-trip budgeting through the dev proxy / SSH tunnel: a single `_count`
+costs 86–276ms (~140ms typical).** Worth knowing before proposing anything
+iterative: a "cheap" 40-step binary search is ~5.5 seconds of wall clock, not the
+~200ms an ES-side timing would suggest. Time algorithms by **round-trip count**,
+and prefer one aggregation over many small probes.
+
+**[V] Timing individual DAL calls works fine with `performance.now()` inside a
+single `page.evaluate`** — batch several probes into one call and return an array
+of `{label, value, ms}`. Far cheaper than one tool call per probe, and the
+relative timings stay comparable because they share a network context.
+
+**[\!] ES accepts a fractional epoch in `search_after` but rejects it in `_count`.**
+`estimateSortValue` returns a tdigest float (e.g. `1674057953780.8923`). Feeding it
+to `countBefore` gives `400 failed to parse date field … with format [epoch_millis]`,
+while `searchAfter` swallows it happily. If you are probing a sort-value cursor by
+hand, `Math.round()` it first or you will misattribute the 400 to your query shape.
+
+**[V] Reproducing a suspected bug at the DAL level is much stronger evidence than
+reproducing it through the UI**, and much faster — no scrubber geometry, no
+virtualiser settling, no seek cooldowns. If a finding can be stated as "this ES
+call returns the wrong number", prove it there first, then only go to the UI to
+confirm the user-visible consequence.

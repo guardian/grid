@@ -1603,21 +1603,21 @@ test.describe("Bug #7 — Keyword sort seek", () => {
     expect(ratio).toBeLessThan(0.65);
     await kupua.assertPositionsConsistent();
 
-    // Telemetry: verify findKeywordSortValue used the composite path
-    // and completed efficiently (≤ 5 pages for local 10k data)
+    // Telemetry: verify the seek used the keyword strategy. Local sample
+    // data has few enough unique credits (~769 over 10k docs) that the
+    // cached sort distribution is complete, so seek takes the fast
+    // cached-distribution bucket lookup (see keyword-sorts workplan §6)
+    // instead of walking the vocabulary via findKeywordSortValue — that
+    // composite-walk fallback only engages when the distribution is absent
+    // or truncated (high cardinality, e.g. Credit on TEST/PROD).
     // In two-tier mode, the position-map fast path is used instead of the
     // keyword strategy, so these console logs won't be present.
     const isTwoTier = await kupua.isTwoTierMode();
     if (!isTwoTier) {
-      const kwLogs = kupua.getConsoleLogs(/findKeywordSortValue/);
+      const kwLogs = kupua.getConsoleLogs(/keyword strategy/);
       expect(kwLogs.length).toBeGreaterThan(0);
-      const foundLog = kwLogs.find((l) => l.includes("found"));
-      expect(foundLog).toBeDefined();
-      const pageMatch = foundLog?.match(/at page (\d+)/);
-      if (pageMatch) {
-        const pages = parseInt(pageMatch[1], 10);
-        expect(pages).toBeLessThanOrEqual(5);
-      }
+      const cachedLog = kwLogs.find((l) => l.includes("cached distribution"));
+      expect(cachedLog).toBeDefined();
     }
   });
 
@@ -1675,18 +1675,16 @@ test.describe("Bug #7 — Keyword sort seek", () => {
 
   // Bug #18 — Keyword sort seek accuracy.
   //
-  // Context: keyword seek uses findKeywordSortValue (composite agg) to find
-  // the keyword value at the target position, then search_after from there.
-  // When a keyword bucket is much larger than PAGE_SIZE (e.g. 400k "PA" docs
-  // on TEST), binary search on the `id` tiebreaker refines the cursor —
-  // but that path only triggers when drift > PAGE_SIZE.
-  //
-  // The local sample data has ~769 unique credits (high cardinality), so
-  // each bucket is small (~13 docs average). findKeywordSortValue lands
-  // within PAGE_SIZE of the target, and binary search refinement is NOT
-  // needed. This is fine — the test validates seek accuracy via the ratio
-  // assertion, which is the user-visible outcome. Binary search refinement
-  // is covered by smoke test S10 on TEST (where large buckets exist).
+  // Context: keyword seek's landing position comes from either the cached
+  // sort distribution (bucket lookup + a scoped percentile within it — the
+  // fast path used locally, since ~769 unique credits over 10k docs is a
+  // complete, cheap-to-cache distribution) or, when that distribution is
+  // absent/truncated (high cardinality, e.g. Credit on TEST/PROD), the
+  // composite-walk fallback (findKeywordSortValue). Neither path refines
+  // further — see keyword-sorts workplan §6 for why iterating was rejected
+  // (it was measured to oscillate). This test validates seek accuracy via
+  // the ratio assertion, which is the user-visible outcome, on TEST-scale
+  // large-bucket behaviour via smoke test S10.
   //
   // NOTE: PIT race condition (stale PIT from concurrent search) is NOT
   // testable locally — local ES skips PIT entirely. That bug class is

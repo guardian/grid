@@ -392,6 +392,10 @@ export interface ImageDataSource {
    * @param field — the primary sort field (e.g. "uploadTime").
    * @param percentile — the target percentile (0–100).
    * @param signal — optional AbortSignal for cancellation.
+   * @param scope — optional equality constraints (compiled to `term` filters),
+   *   e.g. narrowing a percentile to docs where `metadata.credit === "AAP"`.
+   *   Structured data, never spliced into `params.query` — see keyword-sorts
+   *   workplan §5 (query-text scoping silently drops results containing `"`).
    * @returns The estimated field value at that percentile, or null if unavailable.
    */
   estimateSortValue(
@@ -399,6 +403,7 @@ export interface ImageDataSource {
     field: string,
     percentile: number,
     signal?: AbortSignal,
+    scope?: Array<{ field: string; value: string }>,
   ): Promise<number | null>;
 
   /**

@@ -14,6 +14,76 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 August 2026 — Keyword-sorted deep seek: dead bisection deleted, cached-distribution fast path added
+
+**Bug (regression, commit `61b042101`, 2026-04-04).** Deep seek under a
+keyword sort (Credit, Source, etc.) refined its landing position with a
+binary search over the `id` tiebreaker field. That commit anchored the
+`uploadTime` secondary sort field at a sentinel (`Number.MAX_SAFE_INTEGER`
+desc / `0` asc) when building the seek cursor. `countBefore`'s equality
+condition for a preceding field is `range: { gte: v, lte: v }` — no real
+document's `uploadTime` ever equals the sentinel, so every `should` clause
+depending on the `id` probe collapsed to a constant. The bisection ran its
+full ~50-step budget every time without ever converging early (was ~11
+steps/~4s before the regression; became ~9–15s and a ~33%-of-corpus miss).
+No unit test caught it because `MockDataSource` couldn't reproduce it —
+see below.
+
+**Fix (narrow scope — see `exploration/docs/scroll-and-position-preservation-
+testing-4.1-keyword-sorts-workplan.md` for the full investigation).**
+
+- Deleted the dead `id` bisection block and `MAX_BISECT` in
+  `search-store.ts`'s `seek()`.
+- Added a fast path: when the cached `sortDistribution` (already fetched for
+  `coveredCount`) covers the seek target, binary-search it for the exact
+  bucket, then issue one `estimateSortValue` call **scoped** to that bucket's
+  keyword value (a new optional `scope?: Array<{ field, value }>` param,
+  compiled to an ES `term` filter — never spliced into CQL query text, which
+  silently drops results when the value contains a `"`), round the estimate
+  (`_count` rejects a fractional epoch; `search_after` doesn't), then one
+  `searchAfter` + one `countBefore`. No refinement loop — iterating the
+  percentile was measured to oscillate.
+- When the distribution is absent or doesn't cover the target (e.g. Credit/
+  Source on PROD, which exceed the 50k-bucket cache cap), falls back to the
+  pre-existing composite-walk (`findKeywordSortValue`) path, unchanged
+  except the bisection is gone — no worse than before this fix.
+- Measured effect (workplan §1): ~54 ES calls / 9–15s / 33% miss → 3–5 calls
+  / <1s / ~0.16% miss on TEST-scale data. On PROD (>50k-cardinality keyword
+  fields), only the within-bucket refinement applies; finding *which* bucket
+  a position falls in beyond the cache cap remains unsolved and is
+  explicitly out of scope (recorded in the workplan as a future oracle-driven
+  design, not attempted here).
+
+**Why no test caught the regression.** `MockDataSource` was structurally
+incapable of reproducing it: `getKeywordDistribution()` always returned
+`null`, `countBefore()` resolved the cursor's `id` back to a real document
+instead of comparing the cursor's sort-tuple *values*, `estimateSortValue()`
+ignored `field` (returning a valid timestamp even when asked to estimate a
+keyword field, which real ES 400s on), and the default credit-cycling corpus
+never produced a bucket larger than `PAGE_SIZE`. Fixed the mock first
+(`skewedCredits` option producing a ~45%-share bucket; general lexicographic
+`countBefore`; real per-bucket `getKeywordDistribution` with an optional
+truncation cap; scope-aware `estimateSortValue` with deterministic bounded
+drift) — this alone made the sentinel bug directly reproducible
+(`mock-data-source.test.ts`), independent of the store fix.
+
+**Test-impact note:** `MockDataSource`'s non-default-sort ordering logic was
+previously gated on `sparseFields` being configured, so a keyword sort with
+no sparse fields silently fell through to default-sort behaviour (id ==
+position). Broadened the gate (`_hasCustomSortSource`) to include
+`skewedCredits`, and generalized `searchAfter`'s "estimated cursor" position
+lookup from assuming index-0-is-uploadTime to a full sort-tuple comparison
+(needed for a 3-element `[creditValue, uploadTimeEstimate, ""]` cursor, not
+just the original 2-element `[uploadTimeEstimate, ""]` shape). Updated one
+e2e assertion (`scrubber.spec.ts` "seek to middle works under Credit sort")
+that asserted `findKeywordSortValue` telemetry — local sample data (~769
+credits/10k docs) now takes the new cached-distribution fast path instead,
+so the log it checked for no longer appears; asserts the new devLog instead.
+
+Full suites green: 1154/1154 unit (56→58 files: added
+`search-store-keyword-seek.test.ts`, `mock-data-source.test.ts`), 247/247
+habitual e2e, including the reused Bug #7/#14/#18 keyword-sort specs.
+
 ### 21 August 2026 — `focusNthItem` clicked by position in a set that could reorder mid-click
 
 **Bug.** The e2e helper `focusNthItem` (and a duplicated inline copy inside a

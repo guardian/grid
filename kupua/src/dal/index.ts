@@ -15,6 +15,7 @@ export type {
   FilterAggRequest,
   UsageFilterAggRequest,
   SortDistribution,
+  SortDistBucket,
   TickerCountResult,
   CountWithTickersResult,
 } from "./types";
