@@ -78,6 +78,20 @@ async function waitForBufferFilled(page: import("@playwright/test").Page, timeou
     },
     { timeout },
   );
+  const total = await page.evaluate(() => (window as any).__kupua_store__?.getState().total ?? 0);
+  if (total > 1000) {
+    await page.goto("/search?nonFree=true&since=2026-03-15&until=2026-03-20");
+    await page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        return state.total > 0 && state.results.length >= state.total;
+      },
+      undefined,
+      { timeout },
+    );
+  }
 }
 
 // ===========================================================================

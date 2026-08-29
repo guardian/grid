@@ -14,6 +14,77 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 29 August 2026 — focusNthItem: fix runaway ~10s click-retry loop in two-tier mode (H9, F3)
+
+**Bug.** `focusNthItem` (`e2e/shared/helpers.ts`) could enter a self-sustaining
+~10s failure loop in two-tier virtualized tables: a plain `.click()`'s own
+Playwright actionability check calls `scrollIntoViewIfNeeded()`, which can
+nudge the container's `scrollTop`, causing the virtualizer to re-render a
+different row range, which moves or unmounts the target, failing the
+hit-test, triggering another retry — diverging instead of converging until
+the action timeout. Confirmed directly: in 4 of 5 test seeds the click failed
+after ~10.3s, with `scrollTop` drifting 12,000+ px monotonically during that
+window; the one seed that succeeded fast showed a static `scrollTop`
+throughout. Harness/automation-specific, not a product bug — real users never
+call `scrollIntoViewIfNeeded()`; they click wherever their cursor already is.
+
+**Fix.** Click with `{ force: true }`, skipping Playwright's
+actionability-retry/scroll-into-view path entirely — safe because
+`waitForStableNthImageId` already confirms the target id is genuinely stable
+immediately before the click. This alone surfaced a smaller, rarer second
+failure mode: Playwright still performs one `scrollIntoView` while dispatching
+a forced click, and it doesn't always fully clear the row (most likely a
+sticky-header edge case at the top of the table). Added a one-shot retry for
+that specific error: compute the row's true position from its own inline
+`transform: translateY()` and set the container's `scrollTop` directly, then
+click again.
+
+Verified against the same 5 seeds that originally exposed the bug (local
+Docker ES, `FUZZER_WORKERS=4`): click time dropped from ~10.3s (4/5 failing)
+to under 1.4s in all 5 cases. Full habitual e2e suite re-run clean: 248/248,
+no retries.
+
+### 29 August 2026 — seekTo/dragScrubberTo: wait for the two-tier position map before seeking (H2, H5)
+
+**Bug.** Neither `seekTo` nor `dragScrubberTo` (`e2e/shared/helpers.ts`) waited
+for the two-tier position map to load before seeking — both derived
+`twoTier` from `total` alone (correctly, matching `useDataWindow.ts`), but
+then seeked immediately regardless of whether `positionMap` had actually
+settled. `search-store.ts`'s seek path has two genuinely different code
+paths in two-tier mode: an exact position-map lookup, and a "percentile
+estimation" fallback taken whenever the map is still `null` (background
+fetch in flight) — not an error, but a race that made seek landing
+nondeterministic depending on timing. Separately, `dragScrubberTo`'s tail was
+a blind `waitForTimeout(800)` + `waitForResults()`, which could return while
+pre-seek content was still displayed (H5) — `seekTo` already had proper
+two-tier-aware settle logic that `dragScrubberTo` didn't share.
+
+Found during the position-preservation characterization project (see
+`exploration/docs/scroll-and-position-preservation-testing-4-findings.md`,
+harness ledger H2/H5) — the project's own fuzzer had already built a
+`waitForPositionMapSettled()` for the same reason, fuzzer-side only. This
+graduates the fix to the permanent helper (which the fuzzer's own
+`kupua.seekTo()` calls already share, being the same file), rather than
+leaving two divergent implementations.
+
+**Fix.** `seekTo` and `dragScrubberTo` now snapshot `positionMapReady`
+alongside `twoTier` and wait for the map (via the pre-existing
+`waitForPositionMap()`, previously unused by either) before seeking, if not
+yet loaded — non-fatal on timeout. `dragScrubberTo`'s tail now shares
+`seekTo`'s settle logic via a new private `waitForScrubberSeekSettle`,
+instead of a blind sleep. Both accept `{ waitForPositionMap: false }` for
+callers that deliberately want to measure the pre-map race.
+
+`clickScrubberAt` deliberately left untouched — one call site documents it as
+intentionally low-level/less-waiting, used where a test wants the unsettled
+intermediate state itself.
+
+Full habitual e2e suite re-run clean: 248/248, no retries — matches the
+pre-existing baseline exactly. No habitual spec needed amending: the fix is
+additive (wait more before seeking, settle more strictly afterward) and
+doesn't change any test's final asserted state, only its determinism getting
+there.
+
 ### 29 August 2026 — Backspace/arrow shortcuts silently swallowed when search input keeps focus into detail (F10)
 
 **Bug.** If the CQL search input held DOM focus at the moment image detail

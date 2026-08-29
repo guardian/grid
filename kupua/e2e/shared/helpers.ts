@@ -464,54 +464,67 @@ export class KupuaHelpers {
   }
 
   /**
-   * Click scrubber and wait for seek to fully complete (no loading, no error,
-   * positions consistent). Stricter version of clickScrubberAt.
-   *
-   * Two-tier aware: in indexed mode, clicking the scrubber sets scrollTop
-   * directly (no ES call). A debounced scroll-seek fires ~200ms later to
-   * reposition the buffer. We wait for _seekGeneration to bump (meaning the
-   * scroll-seek actually completed), unless the target is already in the
-   * buffer (no seek needed).
+   * Snapshot store state needed to interpret a scrubber interaction:
+   * whether two-tier virtualisation is active (matches useDataWindow.ts's
+   * derivation — based on `total` alone, NOT positionMap, since the
+   * coordinate-space decision doesn't depend on whether the map has
+   * loaded) and whether the position map has already settled.
    */
-  async seekTo(ratio: number, timeout?: number) {
-    const trackBox = await this.scrubber.boundingBox();
-    if (!trackBox) throw new Error("Scrubber track not visible");
-
-    // Snapshot state before click — needed to detect two-tier scroll-seek.
-    //
-    // twoTier is derived from total range (matching the app logic in
-    // useDataWindow.ts), NOT from positionMap. The position map is a
-    // performance optimisation; the coordinate-space decision (twoTier)
-    // is based on total alone. This avoids a race where the position map
-    // hasn't loaded yet but the scrubber is already in scroll mode.
+  private async snapshotScrubberState() {
     const SCROLL_MODE_THRESHOLD = 1000;
     const POSITION_MAP_THRESHOLD = 65_000;
-    const before = await this.page.evaluate(
+    return this.page.evaluate(
       ({ smThresh, pmThresh }: { smThresh: number; pmThresh: number }) => {
         const store = (window as any).__kupua_store__;
-        if (!store) return { twoTier: false, seekGen: 0, bufferOffset: 0, bufferLen: 0, total: 0 };
+        if (!store) return { twoTier: false, seekGen: 0, positionMapReady: false };
         const s = store.getState();
         return {
           twoTier: pmThresh > 0 && s.total > smThresh && s.total <= pmThresh,
           seekGen: s._seekGeneration,
-          bufferOffset: s.bufferOffset,
-          bufferLen: s.results.length,
-          total: s.total,
+          positionMapReady: s.positionMap !== null,
         };
       },
       { smThresh: SCROLL_MODE_THRESHOLD, pmThresh: POSITION_MAP_THRESHOLD },
     );
+  }
 
-    const x = trackBox.x + trackBox.width / 2;
-    const y = trackBox.y + ratio * trackBox.height;
-    await this.page.mouse.click(x, y);
+  /**
+   * H2: in two-tier mode, a seek issued before the position map has loaded
+   * silently takes a different code path in search-store.ts (percentile
+   * estimation instead of the exact position-map lookup) — not an error,
+   * but a race that makes seek landing nondeterministic depending on
+   * timing. Waiting here (bounded, non-fatal on timeout — a two-tier
+   * corpus always fetches a map by design, but we never hang a test on it)
+   * removes that race for every caller. Callers that deliberately want to
+   * measure the race itself opt out via `waitForPositionMap: false`.
+   */
+  private async ensurePositionMapIfTwoTier(
+    before: { twoTier: boolean; positionMapReady: boolean },
+    waitForPositionMap: boolean,
+  ) {
+    if (before.twoTier && waitForPositionMap && !before.positionMapReady) {
+      await this.waitForPositionMap().catch(() => {
+        // Timed out — proceed anyway. The seek-settle wait below still
+        // waits for the seek itself to complete, whichever code path it took.
+      });
+    }
+  }
 
+  /**
+   * Wait for a two-tier scroll-seek (or plain seek) triggered by a scrubber
+   * interaction to settle. Shared by seekTo and dragScrubberTo (H5) so both
+   * wait identically instead of one using a bare timeout.
+   */
+  private async waitForScrubberSeekSettle(
+    before: { twoTier: boolean; seekGen: number },
+    timeout?: number,
+  ) {
     if (before.twoTier) {
-      // In two-tier mode, the click sets scrollTop directly. A debounced
-      // scroll-seek (200ms) will fire if the target is outside the buffer.
-      // We always wait for _seekGeneration to bump. If the target was
-      // actually in the buffer (no scroll-seek needed), we time out after
-      // 3s and carry on — correctness > speed.
+      // In two-tier mode, the interaction sets scrollTop directly. A
+      // debounced scroll-seek (200ms) will fire if the target is outside
+      // the buffer. We always wait for _seekGeneration to bump. If the
+      // target was actually in the buffer (no scroll-seek needed), we time
+      // out after 3s and carry on — correctness > speed.
       const seekTimeout = Math.min(timeout ?? 15_000, 3000);
       try {
         await this.page.waitForFunction(
@@ -562,6 +575,35 @@ export class KupuaHelpers {
       // Extra settle time for React re-render
       await this.page.waitForTimeout(200);
     }
+  }
+
+  /**
+   * Click scrubber and wait for seek to fully complete (no loading, no error,
+   * positions consistent). Stricter version of clickScrubberAt.
+   *
+   * Two-tier aware: in indexed mode, clicking the scrubber sets scrollTop
+   * directly (no ES call). A debounced scroll-seek fires ~200ms later to
+   * reposition the buffer. We wait for _seekGeneration to bump (meaning the
+   * scroll-seek actually completed), unless the target is already in the
+   * buffer (no seek needed).
+   *
+   * `opts.waitForPositionMap` (default true): wait for the two-tier position
+   * map to settle before seeking, if not yet loaded (H2 — see
+   * ensurePositionMapIfTwoTier). Set to false only to deliberately measure
+   * the pre-map race.
+   */
+  async seekTo(ratio: number, timeout?: number, opts?: { waitForPositionMap?: boolean }) {
+    const trackBox = await this.scrubber.boundingBox();
+    if (!trackBox) throw new Error("Scrubber track not visible");
+
+    const before = await this.snapshotScrubberState();
+    await this.ensurePositionMapIfTwoTier(before, opts?.waitForPositionMap ?? true);
+
+    const x = trackBox.x + trackBox.width / 2;
+    const y = trackBox.y + ratio * trackBox.height;
+    await this.page.mouse.click(x, y);
+
+    await this.waitForScrubberSeekSettle(before, timeout);
   }
 
   /**
@@ -690,8 +732,14 @@ export class KupuaHelpers {
   /**
    * Drag the scrubber thumb to a target ratio (0 = top, 1 = bottom).
    * This simulates a real pointer drag on the thumb element.
+   *
+   * Two-tier and position-map aware, mirroring seekTo (H2/H5): waits for the
+   * position map before dragging if not yet loaded, and waits for the
+   * resulting seek to settle properly afterward instead of a bare
+   * `waitForTimeout` (which could return while pre-seek content was still
+   * displayed).
    */
-  async dragScrubberTo(ratio: number) {
+  async dragScrubberTo(ratio: number, opts?: { waitForPositionMap?: boolean }) {
     const track = this.scrubber;
     const thumb = this.scrubberThumb;
 
@@ -700,6 +748,9 @@ export class KupuaHelpers {
 
     const thumbBox = await thumb.boundingBox();
     if (!thumbBox) throw new Error("Scrubber thumb not visible");
+
+    const before = await this.snapshotScrubberState();
+    await this.ensurePositionMapIfTwoTier(before, opts?.waitForPositionMap ?? true);
 
     // Start from thumb center
     const startX = thumbBox.x + thumbBox.width / 2;
@@ -719,9 +770,7 @@ export class KupuaHelpers {
     }
     await this.page.mouse.up();
 
-    // Wait for seek to complete
-    await this.page.waitForTimeout(800);
-    await this.waitForResults();
+    await this.waitForScrubberSeekSettle(before);
   }
 
   /** Click on the scrubber track at a given ratio (0 = top, 1 = bottom). */
@@ -875,14 +924,55 @@ export class KupuaHelpers {
   // Focus
   // -------------------------------------------------------------------------
 
-  /** Click the Nth visible row/cell to focus it (0-based). */
+  /**
+   * Click the Nth visible row/cell to focus it (0-based).
+   *
+   * F3: a plain `.click()` here can enter a runaway ~10s failure loop in
+   * two-tier mode — Playwright's own actionability check calls
+   * `scrollIntoViewIfNeeded()`, which can nudge the virtualized container's
+   * scrollTop, causing the virtualizer to re-render a different row range,
+   * which moves/unmounts the target, which fails the hit-test, which
+   * retries, diverging instead of converging. `force: true` skips that
+   * retry path entirely — safe here because `waitForStableNthImageId`
+   * already confirmed the target id is genuinely stable immediately before
+   * this call.
+   *
+   * `force: true` alone can still fail fast with "outside of the viewport"
+   * — Playwright's own scrollIntoView doesn't always fully clear the row
+   * (e.g. left partly behind the sticky table header). One deterministic
+   * correction using the row's own `translateY` (rather than the browser's
+   * scrollIntoView heuristic) resolves this in practice; retried once.
+   */
   async focusNthItem(n: number) {
     const isGrid = await this.isGridView();
+    const containerSelector = isGrid
+      ? '[aria-label="Image results grid"]'
+      : '[aria-label="Image results table"]';
     const selector = isGrid
-      ? '[aria-label="Image results grid"] [class*="cursor-pointer"]'
-      : '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]';
+      ? `${containerSelector} [class*="cursor-pointer"]`
+      : `${containerSelector} [role="row"][class*="cursor-pointer"]`;
     const id = await waitForStableNthImageId(this.page, selector, n);
-    await this.page.locator(`${selector}[data-image-id="${id}"]`).click();
+    const rowSelector = `${selector}[data-image-id="${id}"]`;
+    const target = this.page.locator(rowSelector);
+    try {
+      await target.click({ force: true });
+    } catch (e) {
+      if (!(e instanceof Error) || !e.message.includes("outside of the viewport")) throw e;
+      await this.page.evaluate(
+        ({ containerSel, rowSel }) => {
+          const container = document.querySelector(containerSel);
+          const row = document.querySelector(rowSel);
+          if (!container || !row) return;
+          const match = /translateY\(([\d.]+)px\)/.exec(row.style.transform || "");
+          if (!match) return;
+          const rowTop = parseFloat(match[1]);
+          const rowHeight = row.getBoundingClientRect().height;
+          container.scrollTop = rowTop - container.clientHeight / 2 + rowHeight / 2;
+        },
+        { containerSel: containerSelector, rowSel: rowSelector },
+      );
+      await target.click({ force: true });
+    }
     await this.page.waitForTimeout(100);
   }
 

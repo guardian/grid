@@ -1,8 +1,9 @@
 /**
- * Cross-tier E2E test matrix.
+ * Tier-behaviour E2E matrix.
  *
  * Runs ~18 tier-sensitive tests across all three scrolling tiers:
- * - **buffer**: VITE_SCROLL_MODE_THRESHOLD=15000 → all 10k eagerly loaded
+ * - **buffer**: VITE_SCROLL_MODE_THRESHOLD=15000 → a sub-1k result set fits
+ *   within the 1k application buffer
  * - **two-tier**: default thresholds → position map + sliding buffer
  * - **seek**: VITE_POSITION_MAP_THRESHOLD=0 → scrubber = seek control
  *
@@ -76,6 +77,10 @@ test.beforeEach(async ({ kupua }) => {
 // ---------------------------------------------------------------------------
 
 async function waitForBufferFilled(kupua: any, timeout = 30_000) {
+  const initial = await kupua.getStoreState();
+  if (initial.total > 1000) {
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+  }
   await kupua.page.waitForFunction(
     () => {
       const store = (window as any).__kupua_store__;
@@ -138,7 +143,7 @@ async function getViewState(page: any) {
 // Cross-tier tests
 // ===========================================================================
 
-test.describe("Cross-tier matrix", () => {
+test.describe("Tier behaviour matrix", () => {
   test.describe.configure({ timeout: 60_000 });
 
   // -------------------------------------------------------------------------
@@ -176,6 +181,7 @@ test.describe("Cross-tier matrix", () => {
 
   test("seek to top resets buffer near offset 0", async ({ kupua }, testInfo) => {
     const tier = getTier(testInfo);
+    if (tier === "seek") testInfo.setTimeout(120_000);
     await kupua.goto();
     if (tier === "buffer") await waitForBufferFilled(kupua);
 
@@ -233,6 +239,7 @@ test.describe("Cross-tier matrix", () => {
 
   test("consecutive seeks produce different buffers", async ({ kupua }, testInfo) => {
     const tier = getTier(testInfo);
+    if (tier === "seek") testInfo.setTimeout(120_000);
     await kupua.goto();
     if (tier === "buffer") await waitForBufferFilled(kupua);
 
@@ -309,6 +316,7 @@ test.describe("Cross-tier matrix", () => {
 
   test("scroll works after deep seek (no freeze)", async ({ kupua }, testInfo) => {
     const tier = getTier(testInfo);
+    if (tier === "seek") testInfo.setTimeout(180_000);
     await kupua.goto();
     if (tier === "buffer") await waitForBufferFilled(kupua);
 

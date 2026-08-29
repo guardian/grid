@@ -18,6 +18,7 @@
  */
 
 import { test, expect, KupuaHelpers } from "../shared/helpers";
+import { waitForSettle } from "../shared/drift-flash-probes";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, GRID_CELL_GAP } from "@/constants/layout";
 import { recordResult } from "./smoke-report";
 
@@ -270,25 +271,6 @@ async function captureProbe(
       MIN_CELL_WIDTH: GRID_MIN_CELL_WIDTH,
     },
   );
-}
-
-/** Wait for search + sort-around-focus to settle. */
-async function waitForSettle(
-  page: import("@playwright/test").Page,
-  timeout = 30_000,
-) {
-  await page.waitForFunction(
-    () => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return false;
-      const s = store.getState();
-      return !s.loading && !s.sortAroundFocusStatus && s.results.length > 0;
-    },
-    undefined,
-    { timeout },
-  );
-  // Extra settle for scroll effects and virtualiser
-  await page.waitForTimeout(2000);
 }
 
 /**

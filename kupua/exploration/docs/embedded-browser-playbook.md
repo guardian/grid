@@ -625,6 +625,26 @@ through silently discards everything after the failing line, including a
 `return` statement you were relying on to see partial progress — so this
 class of mistake also costs you the diagnostic output, not just the action.
 
+**[V] `run_playwright_code`'s outer script body is plain JS, not TypeScript —
+TS-only syntax (e.g. `foo as Bar` casts) throws a `SyntaxError` before your
+code ever runs (2026-08-29).** Write the outer script and every
+`page.evaluate` callback as plain JS (no type annotations, no `as` casts).
+
+**[V] A long-running in-page probe (MutationObserver + polling over several
+seconds) can run entirely inside ONE `page.evaluate` call, including its own
+wait, and this is the right pattern — not multiple tool round-trips
+(2026-08-29).** Set up the observer/`setInterval` sampler, `await new
+Promise(resolve => setTimeout(resolve, 10_500))` *inside* the same callback,
+then tear down and `return` the collected data — all in one call with
+`timeoutMs` raised to cover it (e.g. 15000 for a 10.5s in-page wait). This
+avoids the "don't run other commands while something is in flight" trap
+entirely, since nothing is left running across tool calls. **But summarize
+before returning** — returning raw per-sample arrays from a ~150ms-interval,
+10s probe produced 100–130KB dumps that got written to a side file instead of
+shown inline. Compute unique values / transition points / bucket sums inside
+the same evaluate (or immediately after, in the outer script) and return only
+that.
+
 **[V] `page.setViewportSize({ width, height })` works directly for resize
 testing (M3) — no special handling needed.** Confirmed against the live TEST
 app: resizing mid-fetch (immediately after firing `store.seek()` or a large
