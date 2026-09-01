@@ -1,0 +1,45 @@
+# Devenv project configuration
+# Edit this file to configure your project's devcontainer
+# and then run `devenv generate` to create the devcontainer.json files
+
+name: "grid"
+
+# Modules: Built-in functionality
+modules:
+  - mise
+  - docker-in-docker
+  - scala
+  - github-copilot
+
+features:
+  ghcr.io/devcontainers/features/aws-cli:1.1.4: {}
+
+# Optional: Ports to forward
+forwardPorts:
+  - 9001
+  - 9002
+  - 9003
+  - 9004
+  - 9005
+  - 9006
+  - 9007
+  - 9009
+  - 9010
+  - 9011
+  - 9012
+  - 6080
+
+# Optional: Mount directories from host to container
+# mounts:
+#   - "source=${localEnv:HOME}/.gu/example,target=/home/vscode/.gu/example,readonly,type=bind,consistency=cached"
+
+# Optional: IDE plugins - shared project plugins like language support
+# plugins:
+#   vscode: []
+#   intellij: []
+
+postCreateCommand:
+  - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
+    workingDirectory: "."
+  - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npm ci'
+    workingDirectory: "./e2e-tests"

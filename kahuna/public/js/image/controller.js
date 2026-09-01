@@ -190,9 +190,6 @@ image.controller('ImageCtrl', [
       const usageTab = ctrl.tabs.find(_ => _.key === 'usages');
       usageTab.value = `Usages (${value > 0 ? value : 'None'})`;
       usageTab.disabled = value === 0;
-
-      // stop watching
-      freeUsageCountWatch();
     });
 
     // TODO: we should be able to rely on ctrl.crop.id instead once
@@ -319,6 +316,7 @@ image.controller('ImageCtrl', [
       const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
       if (maybeUpdatedImage) {
         ctrl.image = maybeUpdatedImage;
+        ctrl.usagesCount = ctrl.image.data.usages.data.length;
       }
     });
 
@@ -340,5 +338,6 @@ image.controller('ImageCtrl', [
       freeImagesUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();
+      freeUsageCountWatch();
     });
   }]);
