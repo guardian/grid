@@ -32,17 +32,25 @@ module.controller('grImageUsageCtrl', [
 
     const ctrl = this;
 
-    const bindUsages = (image) => {
+    const statusOrder = ['pending', 'published', 'unknown', 'removed', 'downloaded'];
+
+    function bindUsages(image) {
       const usages = imageUsagesService.getUsages(image);
       const usages$ = usages.groupedByState$
         .map((grouped) => grouped
           .map(list => list.sortBy(usage => usage.get('dateAdded')).reverse())
+          .sortBy((_, status) => {
+            const index = statusOrder.indexOf(status);
+            return index === -1 ? statusOrder.length : index;
+          })
           .toJS()
         );
-      inject$($scope, usages$, ctrl, 'usages');
+      inject$($scope, usages$.do(grouped => {
+        ctrl.hasMultipleStatusGroups = Object.keys(grouped).length > 1;
+      }), ctrl, 'usages');
       inject$($scope, usages.count$, ctrl, 'usagesCount');
       inject$($scope, usages.hasSyndicationUsages$, ctrl, 'hasSyndicationUsages');
-    };
+    }
 
     ctrl.$onInit = () => {
       ctrl.showSendToPhotoSales = $window._clientConfig.showSendToPhotoSales;
@@ -116,6 +124,16 @@ module.controller('grImageUsageListCtrl', [
   function (imageUsagesService) {
     const ctrl = this;
 
+    const collapseThreshold = 10;
+
+    ctrl.$onInit = () => {
+      ctrl.isCollapsed = ctrl.usages.length > collapseThreshold && ctrl.hasMultipleStatusGroups;
+    };
+
+    ctrl.toggle = () => {
+      ctrl.isCollapsed = !ctrl.isCollapsed;
+    };
+
     ctrl.formatTimestamp = (timestamp) => {
       return moment(timestamp).fromNow();
     };
@@ -137,7 +155,8 @@ module.directive('grImageUsageList', [function () {
     bindToController: true,
     scope: {
       type: '=',
-      usages: '='
+      usages: '=',
+      hasMultipleStatusGroups: '<'
     }
   };
 }]);
