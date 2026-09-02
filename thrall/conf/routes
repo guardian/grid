@@ -28,7 +28,8 @@ POST   /resumeReaper                                  controllers.ReaperControll
 
 # image takedown
 
-GET    /imageTakedown                                 controllers.ImageTakedownController.index
+GET    /imageTakedown                                 controllers.ImageTakedownController.index(imageId: Option[String])
+POST   /imageTakedown                                 controllers.ImageTakedownController.takedownImage
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

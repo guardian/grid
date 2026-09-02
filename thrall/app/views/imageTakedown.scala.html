@@ -1,3 +1,5 @@
+@import helper._
+@(imageId: Option[String], capiResults: List[String])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -11,5 +13,27 @@
                 <a href="@routes.ThrallController.index">&lt; back to Thrall Dashboard</a>
             </span>
         </nav>
+        <main>
+        <h1>Image Takedown</h1>
+
+        @if(imageId.isEmpty) {
+            <h2>Query CAPI for Content Using Image</h2>
+            @form(routes.ImageTakedownController.takedownImage) {
+                @CSRF.formField
+                <label for="imageId">Image ID:</label>
+                <input type="text" id="imageId" name="imageId">
+                <input type="submit" value="Submit">
+                }
+        }else {
+            <h2>Results for @imageId.get from CAPI</h2>
+            <ul>
+                @for(capiResult <- capiResults) {
+                    <li>@{capiResult}</li>
+                }
+            </ul>
+        }
+        </main>
+
+
     </body>
 </html>
