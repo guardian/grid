@@ -38,7 +38,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
-  val imageTakeDownController = new ImageTakedownController(auth, services, controllerComponents)
+  val imageTakeDownController = new ImageTakedownController(liveContentApi, auth, services, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, controller, imageTakeDownController, management, InnerServiceStatusCheckController, assets)
 }

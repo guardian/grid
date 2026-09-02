@@ -1,16 +1,18 @@
 package lib
 
+import com.gu.contentapi.client.{BackoffStrategy, ContentApiClient, GuardianContentClient, IAMEncoder, IAMSigner, RetryableContentApiClient, ScheduledExecutor}
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
 import software.amazon.awssdk.services.sts.StsClient
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
-
-import com.gu.contentapi.client._
-import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
+import com.gu.contentapi.client.model.{HttpResponse, ItemQuery, SearchQuery}
+import com.gu.contentapi.client.model.v1.SearchResponse
+import model.ContentWithImages
 
 import java.net.URI
+import scala.collection.Searching.SearchResult
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,6 +24,13 @@ abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor:
       .showFields("firstPublicationDate,isLive,internalComposerCode")
       .showElements("image,cartoon")
       .showAtoms("media")
+  }
+
+  def imageSearch(imageId: String): SearchQuery = {
+    SearchQuery()
+      .q(imageId)
+      .queryFields("body,main,thumbnail")
+      .showBlocks("all")
   }
 }
 

@@ -1,5 +1,6 @@
 @import helper._
-@(imageId: Option[String], capiResults: List[String])(implicit request: RequestHeader)
+@import model.ContentWithImages
+@(imageId: Option[String], capiResults: List[ContentWithImages])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -23,7 +24,12 @@
             <h2>Results for @imageId.get from CAPI</h2>
             <ul>
                 @for(capiResult <- capiResults) {
-                    <li>@{capiResult}</li>
+                    <li>@{capiResult.contentId}</li>
+                    @for(capiImage <- capiResult.imageIds) {
+                        <ul>
+                            <li>@capiImage</li>
+                        </ul>
+                    }
                 }
             </ul>
         }

@@ -3,15 +3,30 @@ package controllers
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
+import model.ContentWithImages
 import play.api.mvc.ControllerComponents
 
-class ImageTakedownController(override val auth: Authentication,
+import scala.concurrent.{ExecutionContext, Future}
+
+class ImageTakedownController(liveContentApi: LiveContentApi,
+                               override val auth: Authentication,
                               override val services: Services,
                               override val controllerComponents: ControllerComponents
+                             )(
+                               implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
 
-    def index(imageId: Option[String]) = withLoginRedirect { implicit request =>
-        Ok(views.html.imageTakedown(imageId, List("1", "2")))
+    def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
+      imageId.map(id => {
+        val imageSearchQ = liveContentApi.imageSearch(id)
+        for {
+          searchResult <- liveContentApi.getResponse(imageSearchQ)
+        } yield {
+          val contentWithImages = ContentWithImages.processImageSearch(searchResult)
+          Ok(views.html.imageTakedown(Some(id), contentWithImages.toList))
+        }
+      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil))))
+
     }
 
   def takedownImage = withLoginRedirect { implicit request =>
