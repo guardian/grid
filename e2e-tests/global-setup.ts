@@ -236,10 +236,9 @@ async function globalSetup(): Promise<void> {
       AWS_CBOR_DISABLE: 'true',
     })
     .withWaitStrategy(
-      Wait.forAll([
-        Wait.forHttp('/management/healthcheck', MEDIA_API_PORT).forStatusCode(200),
-        Wait.forHttp('/management/healthcheck', SERVICE_PORTS['image-loader']).forStatusCode(200),
-      ]),
+      Wait.forAll(Object.values(SERVICE_PORTS).map(port =>
+        Wait.forHttp('/management/healthcheck', port).forStatusCode(200),
+      ))
     )
     .withStartupTimeout(startupTimeoutMs);
 
