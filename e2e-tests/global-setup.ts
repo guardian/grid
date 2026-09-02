@@ -34,6 +34,7 @@ import {
   MEDIA_API_PORT,
   PROXY_IMAGE,
   REGION,
+  REPO_ROOT,
   SERVICE_PORTS,
   URLS_FILE,
 } from './testcontainers/constants';
@@ -220,6 +221,9 @@ async function globalSetup(): Promise<void> {
       // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
       { source: configDir, target: '/root/.grid', mode: 'ro' },
       { source: configDir, target: '/etc/grid', mode: 'ro' },
+      // Outside CI the grid-e2e-dev image runs services under sbt; mount the repo
+      // over /build so host edits recompile live.
+      ...(process.env.CI ? [] : [{ source: REPO_ROOT, target: '/build', mode: 'rw' as const }]),
     ])
     .withEnvironment({
       AWS_ACCESS_KEY_ID: 'test',
