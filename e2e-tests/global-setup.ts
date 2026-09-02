@@ -113,7 +113,10 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   const imageBuckets: Record<string, string> = {
     [`images.media.${DOMAIN}`]: coreStackProps.ImageBucket,
     [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket,
+    [`localstack.media.${DOMAIN}`]: coreStackProps.IngestQueueBucket
   };
+
+  console.log({coreStackProps})
 
   const blocks: string[] = [];
 

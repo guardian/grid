@@ -30,6 +30,21 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint").filter(_.nonEmpty) else None
   override val awsLocalEndpointUri: Option[URI] = awsLocalEndpoint.map(new URI(_))
 
+  // Endpoint baked into presigned URLs handed to the browser. Distinct from `aws.local.endpoint`
+  // (used by the S3 client for container-internal calls) because the browser cannot resolve the
+  // container-network host. Falls back to `aws.local.endpoint` when unset.
+  println("PRESIGN ENDPOINTS")
+  println(stringOpt("aws.local.presigningEndpoint"))
+  println(awsLocalEndpoint)
+  val awsLocalPresigningEndpointUri: Option[URI] =
+    if (isDev) stringOpt("aws.local.presigningEndpoint")
+      .filter(_.nonEmpty)
+      .orElse(awsLocalEndpoint)
+      .map(new URI(_))
+    else None
+
+  println(awsLocalPresigningEndpointUri)
+
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
