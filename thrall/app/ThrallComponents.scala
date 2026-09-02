@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
-import controllers.{AssetsComponents, HealthCheck, ReaperController, ThrallController}
+import controllers.{AssetsComponents, HealthCheck, ImageTakedownController, ReaperController, ThrallController}
 import lib._
 import lib.elasticsearch._
 import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
@@ -91,5 +91,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, InnerServiceStatusCheckController, assets)
+  val imageTakeDownController = new ImageTakedownController(auth, services, controllerComponents)
+  override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, imageTakeDownController, healthCheckController, management, InnerServiceStatusCheckController, assets)
 }

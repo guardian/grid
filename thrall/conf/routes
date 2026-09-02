@@ -26,6 +26,10 @@ DELETE /doBatchHardReap                               controllers.ReaperControll
 POST   /pauseReaper                                   controllers.ReaperController.pauseReaper
 POST   /resumeReaper                                  controllers.ReaperController.resumeReaper
 
+# image takedown
+
+GET    /imageTakedown                                 controllers.ImageTakedownController.index
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
