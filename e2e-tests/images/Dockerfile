@@ -1,14 +1,14 @@
 # syntax=docker/dockerfile:1
 
-# Single-container image that builds and runs nine Grid Play services
+# Single-container image that builds and runs all Grid Play services under test
 # (auth, collections, cropper, image-loader, kahuna, leases, media-api,
 # metadata-editor, thrall) together with Kahuna's frontend.
 #
 # This one Dockerfile produces two images, selected with `--target`:
 #
-#   * ci (grid-e2e-ci)  — CI/production style. Stages pre-compiled artefacts
-#                           and runs them under a slim JRE.
-#       docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
+#   * ci (grid-e2e-ci)  — CI/production style. Stages pre-compiled artefacts and
+#                           runs them under a slim JRE. docker build --target ci
+#       -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 #
 #   * dev (grid-e2e-dev)      — local development. Runs the services under
 #                           `sbt <service>/run` (Play dev mode) with the repo

@@ -209,7 +209,7 @@ async function globalSetup(): Promise<void> {
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
 
-  // All nine Grid services run inside this single container and talk to each
+  // All Grid services under test run inside this single container and talk to each
   // other over its localhost. Each is published on the fixed host port its
   // dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
   // dev-nginx routes the https://*.media.<domain> domains straight into this

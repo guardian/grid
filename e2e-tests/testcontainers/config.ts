@@ -47,7 +47,6 @@ function rewriteEndpoints(conf: string): string {
   // presigned URLs are handed to the browser, which can only reach LocalStack via the
   // `localstack.media.<domain>` vanity domain (dev-nginx locally, the Caddy proxy in CI).
   // Sign against that host so the URLs resolve outside the container network.
-  console.log(`${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`);
   return `${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`;
 }
 
@@ -97,6 +96,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     if (!conf) {
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
+
     fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
   }
 }
