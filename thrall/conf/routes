@@ -26,10 +26,6 @@ DELETE /doBatchHardReap                               controllers.ReaperControll
 POST   /pauseReaper                                   controllers.ReaperController.pauseReaper
 POST   /resumeReaper                                  controllers.ReaperController.resumeReaper
 
-# image takedown
-
-GET    /imageTakedown                                 controllers.ImageTakedownController.index(imageId: Option[String])
-POST   /imageTakedown                                 controllers.ImageTakedownController.takedownImage
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

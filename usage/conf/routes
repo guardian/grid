@@ -12,10 +12,17 @@ POST    /usages/child                                   controllers.UsageApi.set
 PUT     /usages/status/update/:mediaId/*usageId         controllers.UsageApi.updateUsageStatus(mediaId: String, usageId: String)
 GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 
+# image takedown
+
+GET    /imageTakedown                                   controllers.ImageTakedownController.index(imageId: Option[String])
+POST   /imageTakedown                                   controllers.ImageTakedownController.takedownImage
+
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest
 GET     /management/whoAmI                              com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
+
+GET     /assets/*file                                   controllers.Assets.versioned(path="/public", file: Asset)
 
 # Shoo robots away
 GET     /robots.txt                                     com.gu.mediaservice.lib.management.Management.disallowRobots
