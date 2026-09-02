@@ -142,13 +142,13 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
 }
 
 async function globalSetup(): Promise<void> {
-  const started: StartedTestContainer[] = [];
+  const toStart: Promise<StartedTestContainer>[] = [];
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
 
   const network = await new Network().start();
 
   // Infrastructure: Elasticsearch + LocalStack
-  const elasticsearch = await new GenericContainer(ELASTICSEARCH_IMAGE)
+  const elasticsearch = new GenericContainer(ELASTICSEARCH_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(ELASTICSEARCH_ALIAS)
     .withEnvironment({
@@ -162,9 +162,9 @@ async function globalSetup(): Promise<void> {
     )
     .withStartupTimeout(180_000)
     .start();
-  started.push(elasticsearch);
+  toStart.push(elasticsearch);
 
-  const localstack = await new LocalstackContainer(LOCALSTACK_IMAGE)
+  const localstack = new LocalstackContainer(LOCALSTACK_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(LOCALSTACK_ALIAS)
     // Pin to the fixed host port dev-nginx expects for the S3 vanity domains
@@ -181,14 +181,14 @@ async function globalSetup(): Promise<void> {
     })
     .withStartupTimeout(120_000)
     .start();
-  started.push(localstack);
+  toStart.push(localstack);
 
   // imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
   // the `localstack` alias on 4566, so it shares this network.
   const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(IMGOPS_IMAGE, {
     deleteOnExit: false,
   });
-  const imgops = await imgopsImage
+  const imgops = imgopsImage
     .withNetwork(network)
     .withNetworkAliases(IMGOPS_ALIAS)
     .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
@@ -196,13 +196,34 @@ async function globalSetup(): Promise<void> {
     .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
     .withStartupTimeout(120_000)
     .start();
-  started.push(imgops);
+  toStart.push(imgops);
+
+  await Promise.all(toStart);
 
   // Provisioning + config generation
-  const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
+  const coreStackProps = await provisionCoreStack((await localstack).getConnectionUri());
 
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
+
+  // CI routing: bundled reverse proxy
+  //
+  // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
+  // dev-nginx. CI has no dev-nginx, so when running under CI (GitHub Actions sets CI=true)
+  // start a Caddy proxy that replays the same subdomain routing and terminates TLS with a
+  // self-signed cert, published on the standard https port the domains resolve to.
+  if (process.env.CI) {
+    const proxy = new GenericContainer(PROXY_IMAGE)
+      .withNetwork(network)
+      .withExposedPorts({ container: 443, host: 443 })
+      .withCopyContentToContainer([
+        { content: buildCaddyfile(coreStackProps), target: '/etc/caddy/Caddyfile' },
+      ])
+      .withWaitStrategy(Wait.forListeningPorts())
+      .withStartupTimeout(60_000)
+      .start();
+    toStart.push(proxy);
+  }
 
   // All Grid services under test run inside this single container and talk to each
   // other over its localhost. Each is published on the fixed host port its
@@ -245,34 +266,17 @@ async function globalSetup(): Promise<void> {
     });
   }
 
+  const started: StartedTestContainer[] = await Promise.all(toStart);
   const grid = await gridBuilder.start();
   started.push(grid);
 
+  const startedESContainer = await elasticsearch;
   // Seed Elasticsearch with image fixtures
   //
   // The app creates the `images` index + `Images_Current` alias on startup; seed once the
   // stack is healthy so searches during the tests return the fixture documents.
-  const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(9200)}`;
+  const esBaseUrl = `http://${startedESContainer.getHost()}:${startedESContainer.getMappedPort(9200)}`;
   await seedElasticsearch(esBaseUrl);
-
-  // CI routing: bundled reverse proxy
-  //
-  // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
-  // dev-nginx. CI has no dev-nginx, so when running under CI (GitHub Actions sets CI=true)
-  // start a Caddy proxy that replays the same subdomain routing and terminates TLS with a
-  // self-signed cert, published on the standard https port the domains resolve to.
-  if (process.env.CI) {
-    const proxy = await new GenericContainer(PROXY_IMAGE)
-      .withNetwork(network)
-      .withExposedPorts({ container: 443, host: 443 })
-      .withCopyContentToContainer([
-        { content: buildCaddyfile(coreStackProps), target: '/etc/caddy/Caddyfile' },
-      ])
-      .withWaitStrategy(Wait.forListeningPorts())
-      .withStartupTimeout(60_000)
-      .start();
-    started.push(proxy);
-  }
 
   const host = grid.getHost();
   const baseUrl = `http://${host}:${grid.getMappedPort(KAHUNA_PORT)}`;
