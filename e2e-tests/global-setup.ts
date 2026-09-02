@@ -6,7 +6,7 @@
  *   2. Elasticsearch + LocalStack + imgops (infrastructure),
  *   3. the CloudFormation core stack + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
- *   5. the pre-built `grid-e2e-ci` image running all nine services.
+ *   5. the pre-built `grid-e2e-ci` image running the Grid services under test.
  *
  * The Kahuna base URL is exposed to tests via `GRID_BASE_URL`, and the started
  * containers are stashed for `global-teardown.ts`.
@@ -113,11 +113,8 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   // S3 vanity domains that omit the bucket -> localstack, with the bucket prepended.
   const imageBuckets: Record<string, string> = {
     [`images.media.${DOMAIN}`]: coreStackProps.ImageBucket,
-    [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket,
-    [`localstack.media.${DOMAIN}`]: coreStackProps.IngestQueueBucket
+    [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket
   };
-
-  console.log({coreStackProps})
 
   const blocks: string[] = [];
 
@@ -187,9 +184,7 @@ async function globalSetup(): Promise<void> {
   started.push(localstack);
 
   // imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
-  // the `localstack` alias on 4566, so it shares this network. Published on the fixed host
-  // port dev-nginx maps `media-imgops` to; in CI the Caddy proxy routes to it instead. The
-  // Dockerfile doesn't bake in nginx.conf (docker-compose bind-mounts it), so copy it in.
+  // the `localstack` alias on 4566, so it shares this network.
   const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(IMGOPS_IMAGE, {
     deleteOnExit: false,
   });
