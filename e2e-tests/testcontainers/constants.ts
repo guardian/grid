@@ -31,6 +31,8 @@ export const IMGOPS_ALIAS = 'imgops';
 export const IMGOPS_PORT = 9008;
 export const IMGOPS_CONTEXT = path.join(REPO_ROOT, 'dev', 'imgops');
 export const IMGOPS_NGINX_CONF = path.join(IMGOPS_CONTEXT, 'nginx.conf');
+/** Stable tag for the imgops image so it persists across runs and Docker reuses cached layers. */
+export const IMGOPS_IMAGE = 'grid-e2e-imgops';
 
 /** Network aliases the app container uses to reach the infrastructure containers. */
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';

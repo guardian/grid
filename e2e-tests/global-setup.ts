@@ -25,6 +25,7 @@ import {
   GRID_IMAGE,
   IMGOPS_ALIAS,
   IMGOPS_CONTEXT,
+  IMGOPS_IMAGE,
   IMGOPS_NGINX_CONF,
   IMGOPS_PORT,
   KAHUNA_PORT,
@@ -189,7 +190,9 @@ async function globalSetup(): Promise<void> {
   // the `localstack` alias on 4566, so it shares this network. Published on the fixed host
   // port dev-nginx maps `media-imgops` to; in CI the Caddy proxy routes to it instead. The
   // Dockerfile doesn't bake in nginx.conf (docker-compose bind-mounts it), so copy it in.
-  const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build();
+  const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(IMGOPS_IMAGE, {
+    deleteOnExit: false,
+  });
   const imgops = await imgopsImage
     .withNetwork(network)
     .withNetworkAliases(IMGOPS_ALIAS)
