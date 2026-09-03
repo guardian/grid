@@ -1,7 +1,8 @@
 @import helper._
 @import model.ContentWithImages
 @import com.gu.mediaservice.model.Crop
-@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop])(implicit request: RequestHeader)
+@import com.gu.mediaservice.model.usage.Usage
+@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -22,8 +23,11 @@
                 <input type="submit" value="Submit">
                 }
         }else {
-            <h2>Results for @imageId.get from CAPI</h2>
-            <ul>
+            @if(capiResults.isEmpty) {
+                <p>No content found in CAPI for image ID: @imageId.get</p>
+            } else {
+                <p>Found @capiResults.size content items in CAPI for image ID: @imageId.get</p>
+                <ul>
                 @for(capiResult <- capiResults) {
                     <li>@{capiResult.contentId}</li>
                     @for(capiImage <- capiResult.imageIds) {
@@ -32,13 +36,32 @@
                         </ul>
                     }
                 }
-            </ul>
-            <h2>Existing Crops</h2>
-            <ul>
+                </ul>
+            }
+            @if(crops.isEmpty) {
+                <p>No crops found for image ID: @imageId.get</p>
+            } else {
+                <p>Found @crops.size crops for image ID: @imageId.get</p>
+                <ul>
                 @for(crop <- crops) {
                     <li>@{crop.id}</li>
                 }
-            </ul>
+                </ul>
+                <button>Delete crops</button>
+            }
+            @if(usages.isEmpty) {
+                <p>No usages found for image ID: @imageId.get</p>
+            } else {
+                <p>Found @usages.size usages for image ID: @imageId.get</p>
+                <ul>
+                @for(usage <- usages) {
+                    <li>@{usage.id}</li>
+                }
+                </ul>
+                <button>Delete usages</button>
+            }
+            <button disabled >Remove Image from grid</button>
+
         }
         </main>
 

@@ -24,10 +24,11 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
         for {
           contentWithImages <- liveContentApi.findContentUsingImage(id)
           crops <- gridClient.getCrops(id, auth.innerServiceCall)
+          usages <- gridClient.getUsages(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages))
         }
-      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil))))
+      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil))))
 
     }
 
