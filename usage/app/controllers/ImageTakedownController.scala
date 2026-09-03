@@ -20,9 +20,10 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       imageId.map(id => {
         val imageSearchQ = liveContentApi.imageSearch(id)
         for {
-          searchResult <- liveContentApi.getResponse(imageSearchQ)
+          contentWithImages <- liveContentApi.paginateAccum(imageSearchQ)(sr => {
+            ContentWithImages.processImageSearch(sr)
+          }, (l1: List[ContentWithImages], l2: List[ContentWithImages]) => l1 ++ l2)
         } yield {
-          val contentWithImages = ContentWithImages.processImageSearch(searchResult)
           Ok(views.html.imageTakedown(Some(id), contentWithImages.toList))
         }
       }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil))))
