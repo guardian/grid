@@ -1,5 +1,6 @@
 package controllers
 
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
@@ -9,22 +10,24 @@ import play.api.mvc.ControllerComponents
 import scala.concurrent.{ExecutionContext, Future}
 
 class ImageTakedownController(liveContentApi: LiveContentApi,
+                              gridClient: GridClient,
                                override val auth: Authentication,
                               override val services: Services,
                               override val controllerComponents: ControllerComponents
                              )(
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
-  
+
 
     def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
       imageId.map(id => {
         for {
           contentWithImages <- liveContentApi.findContentUsingImage(id)
+          crops <- gridClient.getCrops(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops))
         }
-      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil))))
+      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil))))
 
     }
 

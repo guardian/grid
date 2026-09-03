@@ -1,6 +1,7 @@
 @import helper._
 @import model.ContentWithImages
-@(imageId: Option[String], capiResults: List[ContentWithImages])(implicit request: RequestHeader)
+@import com.gu.mediaservice.model.Crop
+@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -30,6 +31,12 @@
                             <li>@capiImage</li>
                         </ul>
                     }
+                }
+            </ul>
+            <h2>Existing Crops</h2>
+            <ul>
+                @for(crop <- crops) {
+                    <li>@{crop.id}</li>
                 }
             </ul>
         }
