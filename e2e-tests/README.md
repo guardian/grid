@@ -45,9 +45,29 @@ npm run test:ui         # open browser and test suite, run tests at your leisure
 Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),
 so a failed test on CI leaves a trace you can open with `npx playwright show-trace`.
 
+## Running the stack without the tests
+
+`npm run dev` boots exactly the same stack the tests use, prints the service URLs and
+holds it open until you press Ctrl-C, which tears it all down. Useful for poking at Grid
+by hand, or for leaving the stack up while you iterate on step definitions.
+
+```bash
+npm run dev             # uses your local dev-nginx for the https://*.media.<domain> domains
+npm run dev:proxy       # no dev-nginx? start the bundled Caddy proxy on :443 instead
+```
+
+It uses the same image as the tests (`grid-e2e-dev` locally, `grid-e2e-ci` under `CI`), so
+build that first. The first boot is slow because the dev image compiles from source; raise
+`GRID_STARTUP_TIMEOUT_MS` (default `300000`) if it times out, and set `GRID_DEBUG=1` to
+tee the container's boot logs to `$TMPDIR/grid-boot.log`.
+
+The stack binds fixed host ports (9001-9012, 4566, 9008), so `npm run dev` and `npm test`
+cannot run at the same time.
+
 ## How they work
 
-Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) uses
+Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) calls `startStack`
+([`testcontainers/stack.ts`](testcontainers/stack.ts)), which uses
 [Testcontainers](https://testcontainers.com/) to stand up everything the tests need:
 
 1. a shared Docker network;
@@ -58,4 +78,5 @@ Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) uses
 5. the Grid Docker image (either `grid-e2e-ci` or `grid-e2e-dev`) — a single container running Grid's Play services.
 
 Elasticsearch is then seeded with image fixtures, and the resolved Kahuna base URL is
-exposed to the tests. `globalTeardown` stops everything and cleans up.
+exposed to the tests. `globalTeardown` calls `stopStack`, which stops everything and
+cleans up. `npm run dev` drives the same two functions.
