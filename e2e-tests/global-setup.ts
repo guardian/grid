@@ -129,7 +129,24 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   return `${blocks.join('\n\n')}\n`;
 }
 
+const REQUIRED_MEMORY_GB = 30;
+
+/** Fail fast if Docker's host/VM is under-provisioned for the full Grid stack. */
+function assertSufficientMemory(): void {
+  const totalGb = os.totalmem() / 1024 ** 3;
+  if (totalGb < REQUIRED_MEMORY_GB) {
+    console.error(
+      `Only ${totalGb.toFixed(1)}GB of memory available, at least ${REQUIRED_MEMORY_GB}GB required. ` +
+        'Increase the memory allocated to Docker and try again.',
+    );
+    process.exit(1);
+  }
+  console.log(`OK: ${totalGb.toFixed(1)}GB of memory available (>= ${REQUIRED_MEMORY_GB}GB required).`);
+}
+
 async function globalSetup(): Promise<void> {
+  assertSufficientMemory();
+
   const started: StartedTestContainer[] = [];
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
 
