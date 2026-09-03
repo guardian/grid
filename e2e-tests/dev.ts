@@ -13,7 +13,7 @@ import {
   SERVICE_PORTS,
   URLS_FILE,
 } from './testcontainers/constants.ts';
-import { startStack, stopStack } from './testcontainers/stack.ts';
+import { probeStack, startStack, stopStack } from './testcontainers/stack.ts';
 import type { GridEnvironment } from './testcontainers/state.ts';
 
 function banner(environment: GridEnvironment): string {
@@ -72,6 +72,14 @@ async function dev(): Promise<void> {
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
+
+  // The host ports are fixed, so a second stack cannot coexist with the first.
+  const { state, healthy } = await probeStack();
+  if (state !== 'none') {
+    throw new Error(
+      `Ports ${healthy.join(', ')} are already serving Grid. Stop that stack before starting another.`,
+    );
+  }
 
   environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
   console.log(banner(environment));
