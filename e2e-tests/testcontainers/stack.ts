@@ -19,6 +19,7 @@ import {
   DOMAIN,
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
+  ELASTICSEARCH_PORT,
   GRID_ALIAS,
   GRID_IMAGE,
   IMGOPS_ALIAS,
@@ -179,9 +180,9 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
         'xpack.security.enabled': 'false',
         ES_JAVA_OPTS: '-Xms1024m -Xmx1024m',
       })
-      .withExposedPorts(9200)
+      .withExposedPorts({ container: ELASTICSEARCH_PORT, host: ELASTICSEARCH_PORT })
       .withWaitStrategy(
-        Wait.forHttp('/_cluster/health', 9200).forStatusCodeMatching((code) => code < 300),
+        Wait.forHttp('/_cluster/health', ELASTICSEARCH_PORT).forStatusCodeMatching((code) => code < 300),
       )
       .withStartupTimeout(180_000)
       .start();
@@ -276,7 +277,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
     // The app creates the `images` index + `Images_Current` alias on startup; seed once the
     // stack is healthy so searches during the tests return the fixture documents.
     if (seed) {
-      const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(9200)}`;
+      const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(ELASTICSEARCH_PORT)}`;
       await seedElasticsearch(esBaseUrl);
     }
 
