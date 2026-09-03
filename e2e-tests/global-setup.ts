@@ -3,10 +3,10 @@
  *
  * Boots the full local Grid stack with Testcontainers:
  *   1. a shared network,
- *   2. Elasticsearch + LocalStack (infrastructure),
+ *   2. Elasticsearch + LocalStack + imgops (infrastructure),
  *   3. the CloudFormation core stack + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
- *   5. the pre-built `grid-e2e-ci` image running all eight services.
+ *   5. the pre-built `grid-e2e-ci` image running the Grid services under test.
  *
  * The Kahuna base URL is exposed to tests via `GRID_BASE_URL`, and the started
  * containers are stashed for `global-teardown.ts`.
@@ -23,6 +23,11 @@ import {
   ELASTICSEARCH_IMAGE,
   GRID_ALIAS,
   GRID_IMAGE,
+  IMGOPS_ALIAS,
+  IMGOPS_CONTEXT,
+  IMGOPS_IMAGE,
+  IMGOPS_NGINX_CONF,
+  IMGOPS_PORT,
   KAHUNA_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_IMAGE,
@@ -96,6 +101,8 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   const appServices: Record<string, number> = {
     [`media.${DOMAIN}`]: SERVICE_PORTS.kahuna,
     [`api.media.${DOMAIN}`]: SERVICE_PORTS['media-api'],
+    [`loader.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
+    [`loader-projection.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
     [`cropper.media.${DOMAIN}`]: SERVICE_PORTS.cropper,
     [`thrall.media.${DOMAIN}`]: SERVICE_PORTS.thrall,
     [`media-metadata.${DOMAIN}`]: SERVICE_PORTS['metadata-editor'],
@@ -107,7 +114,7 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   // S3 vanity domains that omit the bucket -> localstack, with the bucket prepended.
   const imageBuckets: Record<string, string> = {
     [`images.media.${DOMAIN}`]: coreStackProps.ImageBucket,
-    [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket,
+    [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket
   };
 
   const blocks: string[] = [];
@@ -125,6 +132,11 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   // Thumbnails / direct S3 access already include the bucket in the path.
   blocks.push(
     `localstack.media.${DOMAIN} {\n\ttls internal\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
+  );
+
+  // On-the-fly image resizing (optimised / full-screen views) -> the imgops container.
+  blocks.push(
+    `media-imgops.${DOMAIN} {\n\ttls internal\n\treverse_proxy ${IMGOPS_ALIAS}:80\n}`,
   );
 
   return `${blocks.join('\n\n')}\n`;
@@ -172,13 +184,28 @@ async function globalSetup(): Promise<void> {
     .start();
   started.push(localstack);
 
+  // imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
+  // the `localstack` alias on 4566, so it shares this network.
+  const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(IMGOPS_IMAGE, {
+    deleteOnExit: false,
+  });
+  const imgops = await imgopsImage
+    .withNetwork(network)
+    .withNetworkAliases(IMGOPS_ALIAS)
+    .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
+    .withExposedPorts({ container: 80, host: IMGOPS_PORT })
+    .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
+    .withStartupTimeout(120_000)
+    .start();
+  started.push(imgops);
+
   // Provisioning + config generation
   const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
 
   const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
   generateServiceConfig(configDir, coreStackProps);
 
-  // All eight Grid services run inside this single container and talk to each
+  // All Grid services under test run inside this single container and talk to each
   // other over its localhost. Each is published on the fixed host port its
   // dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
   // dev-nginx routes the https://*.media.<domain> domains straight into this
@@ -204,7 +231,11 @@ async function globalSetup(): Promise<void> {
       AWS_DEFAULT_REGION: REGION,
       AWS_CBOR_DISABLE: 'true',
     })
-    .withWaitStrategy(Wait.forHttp('/management/healthcheck', MEDIA_API_PORT).forStatusCode(200))
+    .withWaitStrategy(
+      Wait.forAll(Object.values(SERVICE_PORTS).map(port =>
+        Wait.forHttp('/management/healthcheck', port).forStatusCode(200),
+      ))
+    )
     .withStartupTimeout(startupTimeoutMs);
 
   if (process.env.GRID_DEBUG) {
