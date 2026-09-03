@@ -36,6 +36,8 @@ export const IMGOPS_IMAGE = 'grid-e2e-imgops';
 
 /** Network aliases the app container uses to reach the infrastructure containers. */
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';
+/** Fixed host port, so a stack started by `dev.ts` can be reached without a container handle. */
+export const ELASTICSEARCH_PORT = 9200;
 export const LOCALSTACK_ALIAS = 'localstack';
 export const LOCALSTACK_PORT = 4566;
 /** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
