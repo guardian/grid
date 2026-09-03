@@ -64,11 +64,17 @@ export interface StartStackOptions {
   seed?: boolean;
 }
 
+/** How much of the stack is already listening on the fixed host ports. */
+type StackProbe = 'none' | 'healthy' | 'partial';
+
+const PROBE_TIMEOUT_MS = 2_000;
+
 /** The subset of a started stack that teardown needs; a partially-booted stack also fits. */
 interface StoppableStack {
-  network: StartedNetwork;
+  network?: StartedNetwork;
   containers: StartedTestContainer[];
   configDir?: string;
+  urlsFile?: string;
 }
 
 /**
@@ -306,10 +312,17 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
 
     fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
 
-    return { network, containers: started, configDir, baseUrl, mediaApiUrl };
+    return {
+      network,
+      containers: started,
+      configDir,
+      urlsFile: URLS_FILE,
+      baseUrl,
+      mediaApiUrl,
+    };
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
-    await stopStack(network ? { network, containers: started, configDir } : undefined);
+    await stopStack({ network, containers: started, configDir });
     throw error;
   }
 }
@@ -323,23 +336,115 @@ async function warnOnException(label: string, fn: () => unknown): Promise<void> 
   }
 }
 
-/** Stop the containers (in reverse order), remove the network and the generated config. */
+/** Is a service answering its healthcheck on this fixed host port? */
+async function isServiceHealthy(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://localhost:${port}/management/healthcheck`, {
+      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Probe the fixed host ports for an already-running stack.
+ *
+ * The ports are pinned, so a live stack is always reachable at localhost:<service port>.
+ * That makes the probe, rather than the presence of the URLs file, the source of truth:
+ * the file outlives a `SIGKILL`ed run and would otherwise point tests at nothing.
+ */
+export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
+  const ports = Object.values(SERVICE_PORTS);
+  const results = await Promise.all(ports.map(isServiceHealthy));
+  const healthy = ports.filter((_, index) => results[index]);
+
+  if (healthy.length === 0) return { state: 'none', healthy, ports };
+  if (healthy.length === ports.length) return { state: 'healthy', healthy, ports };
+  return { state: 'partial', healthy, ports };
+}
+
+/**
+ * Attach to a running stack if there is a healthy one, otherwise boot a fresh one.
+ *
+ * The returned environment holds handles only for what this call created, so teardown
+ * never stops a stack started by `npm run dev:e2e`.
+ */
+export async function ensureStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
+  // Nothing pre-exists in CI, and silently attaching there would undermine the run.
+  const reuseAllowed = !process.env.CI && process.env.GRID_NO_REUSE !== 'true';
+
+  const { state, healthy, ports } = await probeStack();
+
+  if (state === 'partial') {
+    const missing = ports.filter((port) => !healthy.includes(port));
+    throw new Error(
+      `A partial Grid stack is running: ports ${healthy.join(', ')} are healthy but ` +
+        `${missing.join(', ')} are not. Stop it (or wait for it to finish booting) and retry.`,
+    );
+  }
+
+  if (state === 'healthy') {
+    if (!reuseAllowed) {
+      throw new Error(
+        'A Grid stack is already running and reuse is disabled (CI or GRID_NO_REUSE). ' +
+          'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
+      );
+    }
+    return attachToStack(options);
+  }
+
+  return startStack(options);
+}
+
+/**
+ * Build an environment for a stack this process did not start. It owns no containers,
+ * so `stopStack` leaves everything running.
+ */
+async function attachToStack(options: StartStackOptions): Promise<GridEnvironment> {
+  const baseUrl = `http://localhost:${KAHUNA_PORT}`;
+  const mediaApiUrl = `http://localhost:${MEDIA_API_PORT}`;
+
+  console.log(`Reusing the Grid stack already running on ${baseUrl}`);
+
+  // Re-seeding is opt-in: whoever started the stack already seeded it, and the fixtures
+  // are only reloaded on request because tests may have since changed the data.
+  if (options.seed === true || process.env.GRID_RESEED === 'true') {
+    await seedElasticsearch(`http://localhost:${ELASTICSEARCH_PORT}`);
+  }
+
+  // Only claim the URLs file if it is missing, so teardown never deletes another stack's.
+  let urlsFile: string | undefined;
+  if (!fs.existsSync(URLS_FILE)) {
+    fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
+    urlsFile = URLS_FILE;
+  }
+
+  return { containers: [], urlsFile, baseUrl, mediaApiUrl };
+}
+
+/** Stop what this process started and delete what it wrote; anything else is left alone. */
 export async function stopStack(environment: StoppableStack | undefined): Promise<void> {
   if (!environment) {
     return;
   }
 
-  const { containers, network, configDir } = environment;
+  const { containers, network, configDir, urlsFile } = environment;
 
   for (const container of [...containers].reverse()) {
     await warnOnException('Failed to stop container', () => container.stop());
   }
 
-  await warnOnException('Failed to stop network', () => network.stop());
+  if (network) {
+    await warnOnException('Failed to stop network', () => network.stop());
+  }
   if (configDir) {
     await warnOnException('Failed to remove config dir', () =>
       fs.rmSync(configDir, { recursive: true, force: true }),
     );
   }
-  await warnOnException('Failed to remove urls file', () => fs.rmSync(URLS_FILE, { force: true }));
+  if (urlsFile) {
+    await warnOnException('Failed to remove urls file', () => fs.rmSync(urlsFile, { force: true }));
+  }
 }
