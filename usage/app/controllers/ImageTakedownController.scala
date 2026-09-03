@@ -15,16 +15,14 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
                              )(
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
+  
 
     def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
       imageId.map(id => {
-        val imageSearchQ = liveContentApi.imageSearch(id)
         for {
-          contentWithImages <- liveContentApi.paginateAccum(imageSearchQ)(sr => {
-            ContentWithImages.processImageSearch(sr)
-          }, (l1: List[ContentWithImages], l2: List[ContentWithImages]) => l1 ++ l2)
+          contentWithImages <- liveContentApi.findContentUsingImage(id)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages.toList))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages))
         }
       }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil))))
 
