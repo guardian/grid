@@ -15,6 +15,8 @@ export interface GridEnvironment {
   configDir: string;
   /** Base URL of the Kahuna UI, e.g. http://localhost:9005 */
   baseUrl: string;
+  /** Base URL of the media-api, e.g. http://localhost:9001 */
+  mediaApiUrl: string;
 }
 
 let environment: GridEnvironment | undefined;
