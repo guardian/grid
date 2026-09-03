@@ -129,7 +129,7 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   return `${blocks.join('\n\n')}\n`;
 }
 
-const REQUIRED_MEMORY_GB = 30;
+const REQUIRED_MEMORY_GB = 15;
 
 /** Fail fast if Docker's host/VM is under-provisioned for the full Grid stack. */
 function assertSufficientMemory(): void {
