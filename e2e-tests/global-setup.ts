@@ -16,7 +16,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { LocalstackContainer } from '@testcontainers/localstack';
 import { GenericContainer, Network, Wait } from 'testcontainers';
-import type { StartedTestContainer } from 'testcontainers';
 import {
   DOMAIN,
   ELASTICSEARCH_ALIAS,
