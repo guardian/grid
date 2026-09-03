@@ -12,6 +12,7 @@ import {
   DOMAIN,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_PORT,
   REGION,
@@ -75,7 +76,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     coreStackProps,
     es6: {
       ...defaultConfig.es6,
-      url: `http://${ELASTICSEARCH_ALIAS}:9200`,
+      url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
     },
   };
 

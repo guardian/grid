@@ -7,7 +7,7 @@
  */
 import {
   DOMAIN,
-  ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   GRID_IMAGE,
   LOCALSTACK_PORT,
   SERVICE_PORTS,
@@ -34,7 +34,7 @@ function banner(environment: GridEnvironment): string {
     '',
     '  Infrastructure:',
     `    localstack       http://localhost:${LOCALSTACK_PORT}`,
-    `    elasticsearch    alias '${ELASTICSEARCH_ALIAS}' on the stack network`,
+    `    elasticsearch    http://localhost:${ELASTICSEARCH_PORT}`,
     '',
     `  Image:             ${GRID_IMAGE}`,
     `  Config:            ${environment.configDir}`,
