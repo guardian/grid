@@ -63,7 +63,6 @@ const ExtendedSortControl: React.FC<ExtendedSortWrapperProps> = ({ props }) => {
     const handleLogoClick = (e: any) => {
       setSortOption(DefaultSortOption);
       setUserTakenSelect(false);
-      props.onSortSelect(DefaultSortOption, 'with', false);
     };
 
     const handleQueryChange = (e: any) => {
