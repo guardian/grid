@@ -264,7 +264,7 @@ async function globalSetup(): Promise<void> {
 
   const eventuallyGrid = gridContainerDefinition.start();
 
-  const [grid,] = await Promise.all([eventuallyGrid, maybeEventuallyProxy]);
+  const [grid, proxy] = await Promise.all([eventuallyGrid, maybeEventuallyProxy]);
 
   const startedESContainer = await eventuallyElasticSearch;
   // Seed Elasticsearch with image fixtures
@@ -281,7 +281,7 @@ async function globalSetup(): Promise<void> {
   process.env.GRID_BASE_URL = baseUrl;
   fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
 
-  setEnvironment({ network, containers: [elasticsearch, localstack, imgops, grid], configDir, baseUrl });
+  setEnvironment({ network, containers: [elasticsearch, localstack, imgops, grid, ...(proxy ? [proxy] : [])], configDir, baseUrl });
 }
 
 export default globalSetup;
