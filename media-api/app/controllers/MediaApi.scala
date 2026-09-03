@@ -35,6 +35,14 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
+object MediaApi {
+  val inDesignIdentity = "InDesign (testing)"
+
+  def shouldSkipUsageRecording(uri: String, user: String): Boolean =
+    // We don't want to record usages for InDesign downloads for now
+    uri.contains("download") && user == inDesignIdentity
+}
+
 class MediaApi(
                 auth: Authentication,
                 messageSender: ThrallMessageSender,
@@ -518,29 +526,33 @@ class MediaApi(
     user: String,
     partnerName: Option[String] = None,
     startPending: Option[String] = None,
-  )(implicit logMarker: LogMarker) = {
+  )(implicit logMarker: LogMarker): Future[Unit] = {
+    if (MediaApi.shouldSkipUsageRecording(uri, user)) {
+      logger.info(logMarker, s"Skipping usages request to $uri for $user")
+      Future.successful(())
+    } else {
+      val baseRequest = ws.url(uri)
+        .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+          HttpHeaders.ORIGIN -> config.rootUri,
+          HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
 
-    val baseRequest = ws.url(uri)
-      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
-        HttpHeaders.ORIGIN -> config.rootUri,
-        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+      val request = onBehalfOfPrincipal(baseRequest)
 
-    val request = onBehalfOfPrincipal(baseRequest)
-
-    val usagesMetadata = uri match {
-      case s if s.contains("download") =>  Map("mediaId" -> mediaId,
-        "dateAdded" -> printDateTime(DateTime.now()),
-        "downloadedBy" -> user)
-      case s if s.contains("syndication") => Map("mediaId" -> mediaId,
-        "dateAdded" -> printDateTime(DateTime.now()),
-        "syndicatedBy" -> user,
-        "startPending" -> startPending.getOrElse("false"),
-        "partnerName" -> partnerName.getOrElse(
-          throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest"))
-      )
+      val usagesMetadata = uri match {
+        case s if s.contains("download") =>  Map("mediaId" -> mediaId,
+          "dateAdded" -> printDateTime(DateTime.now()),
+          "downloadedBy" -> user)
+        case s if s.contains("syndication") => Map("mediaId" -> mediaId,
+          "dateAdded" -> printDateTime(DateTime.now()),
+          "syndicatedBy" -> user,
+          "startPending" -> startPending.getOrElse("false"),
+          "partnerName" -> partnerName.getOrElse(
+            throw new IllegalArgumentException("partnerName required for SyndicationUsageRequest"))
+        )
+      }
+      logger.info(logMarker, s"Making usages request to $uri")
+      request.post(Json.toJson(Map("data" -> usagesMetadata))).map(_ => ()) //fire and forget
     }
-    logger.info(logMarker, s"Making usages request to $uri")
-    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
 
 
