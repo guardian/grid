@@ -102,6 +102,7 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
     [`media.${DOMAIN}`]: SERVICE_PORTS.kahuna,
     [`api.media.${DOMAIN}`]: SERVICE_PORTS['media-api'],
     [`loader.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
+    [`loader-projection.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
     [`cropper.media.${DOMAIN}`]: SERVICE_PORTS.cropper,
     [`thrall.media.${DOMAIN}`]: SERVICE_PORTS.thrall,
     [`media-metadata.${DOMAIN}`]: SERVICE_PORTS['metadata-editor'],
