@@ -3,8 +3,8 @@
  * (in reverse order), removes the shared network, and deletes the generated config.
  */
 import * as fs from 'fs';
-import { URLS_FILE } from './testcontainers/constants';
-import { getEnvironment } from './testcontainers/state';
+import { URLS_FILE } from './testcontainers/constants.ts';
+import { getEnvironment } from './testcontainers/state.ts';
 
 /** Run a best-effort teardown step, warning (not throwing) so the rest still runs. */
 async function warnOnException(label: string, fn: () => unknown): Promise<void> {
