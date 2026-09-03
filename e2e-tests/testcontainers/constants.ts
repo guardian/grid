@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-export const REPO_ROOT = path.resolve(__dirname, '..', '..');
+export const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 export const DOMAIN = 'local.dev-gutools.co.uk';
 export const EMAIL_DOMAIN = 'guardian.co.uk';
@@ -58,7 +58,7 @@ export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
 export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 
 /** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
-export const URLS_FILE = path.join(__dirname, '..', '.grid-urls.json');
+export const URLS_FILE = path.join(import.meta.dirname, '..', '.grid-urls.json');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';

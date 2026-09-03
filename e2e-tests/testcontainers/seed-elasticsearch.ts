@@ -12,7 +12,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { REPO_ROOT } from './constants';
+import { REPO_ROOT } from './constants.ts';
 
 /** Alias the Grid app assigns to the live images index (dev service-config `es.index.aliases.current`). */
 const IMAGES_ALIAS = 'Images_Current';

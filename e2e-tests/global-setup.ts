@@ -38,11 +38,11 @@ import {
   REPO_ROOT,
   SERVICE_PORTS,
   URLS_FILE,
-} from './testcontainers/constants';
-import { generateServiceConfig } from './testcontainers/config';
-import { provisionCoreStack } from './testcontainers/provision';
-import { seedElasticsearch } from './testcontainers/seed-elasticsearch';
-import { setEnvironment } from './testcontainers/state';
+} from './testcontainers/constants.ts';
+import { generateServiceConfig } from './testcontainers/config.ts';
+import { provisionCoreStack } from './testcontainers/provision.ts';
+import { seedElasticsearch } from './testcontainers/seed-elasticsearch.ts';
+import { setEnvironment } from './testcontainers/state.ts';
 
 const LOCALSTACK_SERVICES = [
     "cloudformation",

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
-import { KAHUNA_PORT } from './testcontainers/constants';
+import { KAHUNA_PORT } from './testcontainers/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
    Run via `bddgen` (see package.json scripts) before `playwright test`. */

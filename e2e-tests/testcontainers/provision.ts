@@ -7,7 +7,7 @@ import {
   waitUntilStackCreateComplete,
 } from '@aws-sdk/client-cloudformation';
 import { CreateBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants';
+import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants.ts';
 
 const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 
