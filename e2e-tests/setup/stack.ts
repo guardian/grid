@@ -342,7 +342,7 @@ const isServiceHealthy = (path: string) => async (port: number): Promise<{ port:
     const response = await fetch(`http://localhost:${port}/${path}`, {
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    return { port, healthy: true };
+    return { port, healthy: response.ok };
   } catch {
     return { port, healthy: false };
   }
@@ -356,7 +356,13 @@ const isServiceHealthy = (path: string) => async (port: number): Promise<{ port:
  * the file outlives a `SIGKILL`ed run and would otherwise point tests at nothing.
  */
 export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
-  const healthchecks = [...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')), isServiceHealthy('_cluster/_health')(ELASTICSEARCH_PORT), isServiceHealthy('_localstack/health')(LOCALSTACK_PORT)];
+  const healthchecks = [
+    ...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')),
+    isServiceHealthy('_cluster/health')(ELASTICSEARCH_PORT),
+    isServiceHealthy('_localstack/health')(LOCALSTACK_PORT),
+    isServiceHealthy('')(IMGOPS_PORT)
+  ];
+
   const results = await Promise.all(healthchecks);
   const healthy = results.filter(({ healthy }) => healthy).map(({ port }) => port);
   const ports = results.map(({ port }) => port);
