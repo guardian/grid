@@ -395,7 +395,7 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
   if (state === 'healthy') {
     if (!reuseAllowed) {
       throw new Error(
-        'A Grid stack is already running and reuse is disabled, as we are running in CI.' +
+        'A Grid stack is already running and reuse is disabled, as we are running in CI. ' +
         'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
       );
     }
