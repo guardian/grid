@@ -380,7 +380,7 @@ export async function probeStack(): Promise<{ state: StackProbe; healthy: number
  */
 export async function ensureStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   // Nothing pre-exists in CI, and silently attaching there would undermine the run.
-  const reuseAllowed = !process.env.CI && process.env.GRID_NO_REUSE !== 'true';
+  const reuseAllowed = !process.env.CI;
 
   const { state, healthy, ports } = await probeStack();
 
@@ -395,7 +395,7 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
   if (state === 'healthy') {
     if (!reuseAllowed) {
       throw new Error(
-        'A Grid stack is already running and reuse is disabled (CI or GRID_NO_REUSE). ' +
+        'A Grid stack is already running and reuse is disabled, as we are running in CI.' +
         'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
       );
     }
