@@ -47,13 +47,13 @@ so a failed test on CI leaves a trace you can open with `npx playwright show-tra
 
 ## Running the stack without the tests
 
-`npm run dev` boots exactly the same stack the tests use, prints the service URLs and
+`npm run dev:e2e` boots exactly the same stack the tests use, prints the service URLs and
 holds it open until you press Ctrl-C, which tears it all down. Useful for poking at Grid
 by hand, or for leaving the stack up while you iterate on step definitions.
 
 ```bash
-npm run dev             # uses your local dev-nginx for the https://*.media.<domain> domains
-npm run dev:proxy       # no dev-nginx? start the bundled Caddy proxy on :443 instead
+npm run dev:e2e                  # uses your local dev-nginx for the https://*.media.<domain> domains
+GRID_PROXY=true npm run dev:e2e  # no dev-nginx? start the bundled Caddy proxy on :443 instead
 ```
 
 It uses the same image as the tests (`grid-e2e-dev` locally, `grid-e2e-ci` under `CI`), so
@@ -61,13 +61,37 @@ build that first. The first boot is slow because the dev image compiles from sou
 `GRID_STARTUP_TIMEOUT_MS` (default `300000`) if it times out, and set `GRID_DEBUG=1` to
 tee the container's boot logs to `$TMPDIR/grid-boot.log`.
 
-The stack binds fixed host ports (9001-9012, 4566, 9008), so `npm run dev` and `npm test`
-cannot run at the same time.
+The stack binds fixed host ports (9001-9012, 4566, 9008, 9200), so two stacks cannot run
+at once. Starting a second one fails immediately rather than timing out.
+
+### Running the tests against a stack you already started
+
+The test commands reuse a running stack instead of booting their own, which turns a
+multi-minute boot into a couple of seconds. Leave `npm run dev:e2e` running in one
+terminal, then use `npm test`, `npm run test:ui` or any of the others as normal — they
+attach automatically and leave the stack running when they finish.
+
+If only some services are up (usually because the stack is still booting), the run stops
+straight away and names the ports it is waiting on.
+
+| Variable | Effect |
+| --- | --- |
+| `GRID_NO_REUSE=true` | Never attach; fail if a stack is already running. Always set under `CI`. |
+| `GRID_RESEED=true` | Reload the Elasticsearch fixtures into the reused stack. |
+
+**Watch out for stale provisioning.** A reused stack picks up Scala changes (the repo is
+bind-mounted and services run under `sbt run`), but *not* changes to anything applied at
+boot: generated service config, the CloudFormation template, bucket contents, permissions
+or the Elasticsearch fixtures. After changing any of those, restart `dev:e2e`.
+
+Reuse also means state carries over between runs. The current suite is read-only, so this
+is harmless today, but a test that uploads or edits an image will want a fresh stack.
 
 ## How they work
 
-Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) calls `startStack`
-([`testcontainers/stack.ts`](testcontainers/stack.ts)), which uses
+Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) calls `ensureStack`
+([`testcontainers/stack.ts`](testcontainers/stack.ts)), which attaches to a healthy stack
+if one is already running and otherwise uses
 [Testcontainers](https://testcontainers.com/) to stand up everything the tests need:
 
 1. a shared Docker network;
@@ -78,5 +102,6 @@ Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) calls `startSt
 5. the Grid Docker image (either `grid-e2e-ci` or `grid-e2e-dev`) — a single container running Grid's Play services.
 
 Elasticsearch is then seeded with image fixtures, and the resolved Kahuna base URL is
-exposed to the tests. `globalTeardown` calls `stopStack`, which stops everything and
-cleans up. `npm run dev` drives the same two functions.
+exposed to the tests. `globalTeardown` calls `stopStack`, which stops only the containers
+this process started and deletes only the files it wrote — so attaching to someone else's
+stack tears nothing down. `npm run dev:e2e` drives the same functions.
