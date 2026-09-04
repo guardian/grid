@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as path from 'path';
 
 export const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -61,6 +62,12 @@ export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 
 /** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
 export const URLS_FILE = path.join(import.meta.dirname, '..', '.grid-urls.json');
+
+/**
+ * Generated per-service config, bind-mounted into the app container. The path is fixed
+ * rather than unique per run: the fixed host ports already allow only one stack at a time.
+ */
+export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';
