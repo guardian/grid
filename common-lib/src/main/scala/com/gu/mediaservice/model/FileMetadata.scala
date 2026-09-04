@@ -15,7 +15,8 @@ case class FileMetadata(
   icc: Map[String, String]                      = Map(),
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
-  colourModelInformation: Map[String, String]   = Map()
+  colourModelInformation: Map[String, String]   = Map(),
+  hasC2PA: Boolean                              = false
 ) {
   def toLogMarker: LogMarker = {
     val fieldCountMarkers = Map (
@@ -31,7 +32,7 @@ case class FileMetadata(
     val totalFieldCount = fieldCountMarkers.foldLeft(0)(_ + _._2)
     val markers = fieldCountMarkers + ("totalFieldCount" -> totalFieldCount)
 
-    MarkerMap(markers)
+    MarkerMap(markers + ("hasC2PA" -> hasC2PA))
   }
 
   def readXmpHeadStringProp: (String) => Option[String] = (name: String) => {
@@ -56,7 +57,8 @@ object FileMetadata {
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map.empty) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map.empty) ~
     (__ \ "colourModel").readNullable[String] ~
-    (__ \ "colourModelInformation").readNullable[Map[String,String]].map(_ getOrElse Map.empty)
+    (__ \ "colourModelInformation").readNullable[Map[String,String]].map(_ getOrElse Map.empty) ~
+    (__ \ "hasC2PA").readNullable[Boolean].map(_ getOrElse false)
 
   )(FileMetadata.apply _)
 
@@ -68,6 +70,7 @@ object FileMetadata {
       (JsPath \ "icc").write[Map[String,String]] and
       (JsPath \ "getty").write[Map[String,String]] and
       (JsPath \ "colourModel").writeNullable[String] and
-      (JsPath \ "colourModelInformation").write[Map[String,String]]
+      (JsPath \ "colourModelInformation").write[Map[String,String]] and
+      (JsPath \ "hasC2PA").write[Boolean]
   )(unlift(FileMetadata.unapply))
 }
