@@ -360,7 +360,7 @@ export async function probeStack(): Promise<{ state: StackProbe; healthy: number
     ...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')),
     isServiceHealthy('_cluster/health')(ELASTICSEARCH_PORT),
     isServiceHealthy('_localstack/health')(LOCALSTACK_PORT),
-    isServiceHealthy('')(IMGOPS_PORT)
+    isServiceHealthy('_')(IMGOPS_PORT)
   ];
 
   const results = await Promise.all(healthchecks);
