@@ -84,8 +84,8 @@ async function dev(): Promise<void> {
   environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
   console.log(banner(environment));
 
-  // Hold the process open; the signal handlers are the only way out.
-  await new Promise(() => {});
+  // Hold the process open indefinitely.
+  setInterval(() => {}, 2_000_000_000);
 }
 
 dev().catch((error) => {
