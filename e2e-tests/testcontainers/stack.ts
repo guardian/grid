@@ -356,7 +356,7 @@ async function isServiceHealthy(port: number): Promise<boolean> {
  * the file outlives a `SIGKILL`ed run and would otherwise point tests at nothing.
  */
 export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
-  const ports = Object.values(SERVICE_PORTS);
+  const ports = [...Object.values(SERVICE_PORTS), ELASTICSEARCH_PORT, LOCALSTACK_PORT];
   const results = await Promise.all(ports.map(isServiceHealthy));
   const healthy = ports.filter((_, index) => results[index]);
 
