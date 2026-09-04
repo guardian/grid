@@ -12,9 +12,9 @@ import {
   LOCALSTACK_PORT,
   SERVICE_PORTS,
   URLS_FILE,
-} from './testcontainers/constants.ts';
-import { probeStack, startStack, stopStack } from './testcontainers/stack.ts';
-import type { GridEnvironment } from './testcontainers/state.ts';
+} from './constants.ts';
+import { probeStack, startStack, stopStack } from './stack.ts';
+import type { GridEnvironment } from './state.ts';
 
 function banner(environment: GridEnvironment): string {
   const services = Object.keys(SERVICE_PORTS)

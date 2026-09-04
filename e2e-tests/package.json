@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning dev.ts",
+    "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning setup/dev.ts",
     "test": "bddgen && playwright test",
     "test:headed": "bddgen && playwright test --headed",
     "test:report": "playwright show-report",
