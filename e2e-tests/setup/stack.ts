@@ -16,6 +16,7 @@ import { LocalstackContainer } from '@testcontainers/localstack';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
+  CONFIG_DIR,
   DOMAIN,
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
@@ -164,6 +165,20 @@ function buildCaddyfile(coreStackProps: Record<string, string>): string {
   return `${blocks.join('\n\n')}\n`;
 }
 
+/**
+ * Set while this process owns the config directory, so the exit hook below never deletes
+ * the config of a stack started elsewhere and still running (see `attachToStack`).
+ */
+let ownedConfigDir: string | undefined;
+
+// Catches the exits that bypass `stopStack`, such as a Ctrl-C mid-boot in dev.ts.
+// Must stay synchronous: async work in an `exit` handler never runs.
+process.on('exit', () => {
+  if (ownedConfigDir) {
+    fs.rmSync(ownedConfigDir, { recursive: true, force: true });
+  }
+});
+
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   const { proxy = !!process.env.CI, seed = true } = options;
@@ -231,7 +246,12 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
     // Provisioning + config generation
     const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
 
-    configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grid-config-'));
+    // Reaching here means the probe found no live stack, so recreating the shared path is
+    // safe and clears anything a killed run left behind.
+    configDir = CONFIG_DIR;
+    fs.rmSync(configDir, { recursive: true, force: true });
+    fs.mkdirSync(configDir, { recursive: true });
+    ownedConfigDir = configDir;
     generateServiceConfig(configDir, coreStackProps);
 
     // All Grid services under test run inside this single container and talk to each
@@ -450,6 +470,7 @@ export async function stopStack(environment: StoppableStack | undefined): Promis
     await warnOnException('Failed to remove config dir', () =>
       fs.rmSync(configDir, { recursive: true, force: true }),
     );
+    ownedConfigDir = undefined;
   }
   if (urlsFile) {
     await warnOnException('Failed to remove urls file', () => fs.rmSync(urlsFile, { force: true }));
