@@ -1,6 +1,7 @@
+import * as os from 'os';
 import * as path from 'path';
 
-export const REPO_ROOT = path.resolve(__dirname, '..', '..');
+export const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 export const DOMAIN = 'local.dev-gutools.co.uk';
 export const EMAIL_DOMAIN = 'guardian.co.uk';
@@ -36,6 +37,8 @@ export const IMGOPS_IMAGE = 'grid-e2e-imgops';
 
 /** Network aliases the app container uses to reach the infrastructure containers. */
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';
+/** Fixed host port, so a stack started by `dev.ts` can be reached without a container handle. */
+export const ELASTICSEARCH_PORT = 9200;
 export const LOCALSTACK_ALIAS = 'localstack';
 export const LOCALSTACK_PORT = 4566;
 /** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
@@ -58,7 +61,13 @@ export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
 export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 
 /** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
-export const URLS_FILE = path.join(__dirname, '..', '.grid-urls.json');
+export const URLS_FILE = path.join(import.meta.dirname, '..', '.grid-urls.json');
+
+/**
+ * Generated per-service config, bind-mounted into the app container. The path is fixed
+ * rather than unique per run: the fixed host ports already allow only one stack at a time.
+ */
+export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';
