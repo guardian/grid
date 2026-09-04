@@ -26,7 +26,7 @@ function banner(environment: GridEnvironment): string {
     '',
     '  Grid is up.',
     '',
-    `    kahuna (UI)      ${environment.baseUrl}`,
+    `    kahuna (UI)      https://media.${DOMAIN}`,
     `    media-api        ${environment.mediaApiUrl}`,
     '',
     '  Services:',
