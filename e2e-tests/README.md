@@ -90,7 +90,7 @@ is harmless today, but a test that uploads or edits an image will want a fresh s
 ## How they work
 
 Playwright's `globalSetup` ([`global-setup.ts`](global-setup.ts)) calls `ensureStack`
-([`testcontainers/stack.ts`](testcontainers/stack.ts)), which attaches to a healthy stack
+([`setup/stack.ts`](setup/stack.ts)), which attaches to a healthy stack
 if one is already running and otherwise uses
 [Testcontainers](https://testcontainers.com/) to stand up everything the tests need:
 

@@ -2,7 +2,7 @@ import { expect } from '@playwright/test';
 import type { APIResponse, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import * as fs from 'fs';
-import { DOMAIN, URLS_FILE } from '../testcontainers/constants.ts';
+import { DOMAIN, URLS_FILE } from '../setup/constants.ts';
 
 interface GridUrls {
   /** Kahuna base URL on its fixed host port (for API-level `request` tests). */

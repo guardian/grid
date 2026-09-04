@@ -44,14 +44,14 @@ import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
 
 const LOCALSTACK_SERVICES = [
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "kinesis",
-    "s3",
-    "sns",
-    "sqs",
-    "iam",
+  "cloudformation",
+  "cloudwatch",
+  "dynamodb",
+  "kinesis",
+  "s3",
+  "sns",
+  "sqs",
+  "iam",
 ].join(",");
 
 export interface StartStackOptions {
@@ -337,14 +337,14 @@ async function warnOnException(label: string, fn: () => unknown): Promise<void> 
 }
 
 /** Is a service answering its healthcheck on this fixed host port? */
-async function isServiceHealthy(port: number): Promise<boolean> {
+const isServiceHealthy = (path: string) => async (port: number): Promise<{ port: number, healthy: boolean }> => {
   try {
-    const response = await fetch(`http://localhost:${port}/management/healthcheck`, {
+    const response = await fetch(`http://localhost:${port}/${path}`, {
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
     });
-    return response.ok;
+    return { port, healthy: true };
   } catch {
-    return false;
+    return { port, healthy: false };
   }
 }
 
@@ -356,9 +356,10 @@ async function isServiceHealthy(port: number): Promise<boolean> {
  * the file outlives a `SIGKILL`ed run and would otherwise point tests at nothing.
  */
 export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
-  const ports = [...Object.values(SERVICE_PORTS), ELASTICSEARCH_PORT, LOCALSTACK_PORT];
-  const results = await Promise.all(ports.map(isServiceHealthy));
-  const healthy = ports.filter((_, index) => results[index]);
+  const healthchecks = [...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')), isServiceHealthy('_cluster/_health')(ELASTICSEARCH_PORT), isServiceHealthy('_localstack/health')(LOCALSTACK_PORT)];
+  const results = await Promise.all(healthchecks);
+  const healthy = results.filter(({ healthy }) => healthy).map(({ port }) => port);
+  const ports = results.map(({ port }) => port);
 
   if (healthy.length === 0) return { state: 'none', healthy, ports };
   if (healthy.length === ports.length) return { state: 'healthy', healthy, ports };
@@ -381,7 +382,7 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
     const missing = ports.filter((port) => !healthy.includes(port));
     throw new Error(
       `A partial Grid stack is running: ports ${healthy.join(', ')} are healthy but ` +
-        `${missing.join(', ')} are not. Stop it (or wait for it to finish booting) and retry.`,
+      `${missing.join(', ')} are not. Stop it (or wait for it to finish booting) and retry.`,
     );
   }
 
@@ -389,7 +390,7 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
     if (!reuseAllowed) {
       throw new Error(
         'A Grid stack is already running and reuse is disabled (CI or GRID_NO_REUSE). ' +
-          'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
+        'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
       );
     }
     return attachToStack(options);
