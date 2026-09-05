@@ -81,7 +81,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1134 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1159 Vitest** unit/integration tests (~1min) -- `npm test`
 - **235 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`

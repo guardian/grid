@@ -285,14 +285,12 @@ test.describe("Panel toggles", () => {
     // Click "Browse" to open
     const browseButton = kupua.page.locator('button[aria-label*="Browse panel"]');
     await browseButton.click();
-    await kupua.page.waitForTimeout(300);
 
     // Left panel should now be visible (resize handle appears)
     await expect(leftSeparator).toBeVisible();
 
     // Click "Browse" again to close
     await browseButton.click();
-    await kupua.page.waitForTimeout(300);
 
     // Left panel should be hidden again
     await expect(leftSeparator).not.toBeVisible();
@@ -308,14 +306,12 @@ test.describe("Panel toggles", () => {
     // Click "Details" to open
     const detailsButton = kupua.page.locator('button[aria-label*="Details panel"]');
     await detailsButton.click();
-    await kupua.page.waitForTimeout(300);
 
     // Right panel should now be visible
     await expect(rightSeparator).toBeVisible();
 
     // Click "Details" again to close
     await detailsButton.click();
-    await kupua.page.waitForTimeout(300);
 
     // Right panel should be hidden again
     await expect(rightSeparator).not.toBeVisible();
@@ -332,22 +328,18 @@ test.describe("Panel toggles", () => {
 
     // Press [ to open left panel
     await kupua.page.keyboard.press("[");
-    await kupua.page.waitForTimeout(300);
     await expect(leftSeparator).toBeVisible();
 
     // Press [ again to close
     await kupua.page.keyboard.press("[");
-    await kupua.page.waitForTimeout(300);
     await expect(leftSeparator).not.toBeVisible();
 
     // Press ] to open right panel
     await kupua.page.keyboard.press("]");
-    await kupua.page.waitForTimeout(300);
     await expect(rightSeparator).toBeVisible();
 
     // Press ] again to close
     await kupua.page.keyboard.press("]");
-    await kupua.page.waitForTimeout(300);
     await expect(rightSeparator).not.toBeVisible();
   });
 
@@ -435,9 +427,12 @@ test.describe("Sort dropdown", () => {
     // Dropdown should close
     await expect(dropdown).not.toBeVisible();
 
-    // Wait for results to update
-    await kupua.page.waitForTimeout(500);
-    await kupua.waitForResults();
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy?.replace(/^-/, "") === "credit"
+        && !state.loading
+        && state.sortAroundFocusStatus === null;
+    }).toBe(true);
 
     // The first image should be different (different sort order)
     const store2 = await kupua.getStoreState();
@@ -465,8 +460,12 @@ test.describe("Table column header sort", () => {
 
     // Click to sort by Credit — has a 250ms delay (distinguishes from double-click)
     await creditHeader.click();
-    await kupua.page.waitForTimeout(800);
-    await kupua.waitForResults();
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy?.replace(/^-/, "") === "credit"
+        && !state.loading
+        && state.sortAroundFocusStatus === null;
+    }).toBe(true);
 
     // The Credit header should now show a sort indicator (SVG arrow icon)
     const sortIndicator = creditHeader.locator('span[aria-hidden="true"] svg');
@@ -489,14 +488,24 @@ test.describe("Table column header sort", () => {
     // First, sort by Credit (primary)
     const creditHeader = kupua.page.locator('[role="columnheader"]', { hasText: "Credit" });
     await creditHeader.click();
-    await kupua.page.waitForTimeout(800);
-    await kupua.waitForResults();
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy?.replace(/^-/, "") === "credit"
+        && !state.loading
+        && state.sortAroundFocusStatus === null;
+    }).toBe(true);
 
     // Now Shift+click "Source" to add as secondary sort
     const sourceHeader = kupua.page.locator('[role="columnheader"]', { hasText: "Source" });
     await sourceHeader.click({ modifiers: ["Shift"] });
-    await kupua.page.waitForTimeout(800);
-    await kupua.waitForResults();
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      const fields = state.orderBy?.split(",").map((field) => field.replace(/^-/, ""));
+      return fields?.[0] === "credit"
+        && fields?.[1] === "source"
+        && !state.loading
+        && state.sortAroundFocusStatus === null;
+    }).toBe(true);
 
     // Source header should show a double-arrow secondary sort indicator (two SVG arrows)
     const secondaryIndicator = sourceHeader.locator('span[aria-hidden="true"] svg');

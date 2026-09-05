@@ -235,6 +235,7 @@ function SortControls() {
                 key={opt.value}
                 role="option"
                 aria-selected={isPrimary}
+                data-sort-key={opt.value}
                 onClick={(e) => handleSelectField(opt.value, e)}
                 className="popup-item"
               >

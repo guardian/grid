@@ -38,6 +38,21 @@ async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promis
   });
 }
 
+async function waitForSelectionPersisted(
+  page: Parameters<typeof test>[1]["page"],
+  expectedIds: string[],
+): Promise<void> {
+  await expect.poll(() => page.evaluate(() => {
+    const raw = sessionStorage.getItem("kupua-selection");
+    if (!raw) return [];
+    try {
+      return (JSON.parse(raw)?.state?.selectedIds ?? []).sort();
+    } catch {
+      return [];
+    }
+  })).toEqual([...expectedIds].sort());
+}
+
 async function getSignedUsablePlacement(
   page: Parameters<typeof test>[1]["page"],
   imageId: string,
@@ -167,10 +182,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     await firstCell.locator('button[aria-label="Select image"]').click();
     expect(await getSelectionCount(kupua.page)).toBe(1);
 
-    // Wait for the selection-store's 250ms persist debounce to flush to
-    // sessionStorage before navigating (otherwise the navigation happens
-    // before the write and the store rehydrates empty).
-    await kupua.page.waitForTimeout(400);
+    await waitForSelectionPersisted(kupua.page, [firstId!]);
 
     // Change sort (click the sort button in StatusBar or toggle density to
     // trigger a URL change that re-renders without clearing selection).
@@ -908,8 +920,7 @@ test.describe("S6 — clear-on-search navigation", () => {
     const ids = await selectNGridCells(kupua.page, 2);
     expect(ids.length).toBe(2);
 
-    // Wait for persist debounce to flush to sessionStorage.
-    await kupua.page.waitForTimeout(400);
+    await waitForSelectionPersisted(kupua.page, ids);
 
     // Full page reload.
     await kupua.page.reload();

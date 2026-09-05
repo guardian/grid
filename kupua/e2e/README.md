@@ -133,6 +133,20 @@ you should have a specific reason to run it.
 - **Running smoke when local ES is connected:** Tests auto-skip (total < 100k). No harm, just wasted time.
 - **Piping test output through tail/head:** Don't. The list reporter streams results live.
 
+## Asynchronous Observability
+
+Tests should wait for the state an operation promises, not an estimated elapsed
+time. Capture the relevant value before the action, then wait for a changed
+generation, expected store/URL value, cleared in-flight status, or rendered DOM
+identity. Completion and rendering are separate when layout matters.
+
+Fixed-duration waits are reserved for behavior where elapsed time is itself the
+oracle: settle-window sampling, delayed-runaway detection, debounce boundaries,
+CSS transitions, and long-press thresholds. Required readiness timeouts must not
+be swallowed. Prefer existing state before adding observability; when no reliable
+signal exists, add a narrow development-only started/completed generation rather
+than a production event bus.
+
 ## Where Results Live
 
 | Artefact | Location |

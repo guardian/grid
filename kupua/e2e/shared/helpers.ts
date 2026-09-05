@@ -126,31 +126,21 @@ export class KupuaHelpers {
     await this.waitForResults();
   }
 
-  /** Wait until search results are visible (at least one row/cell). */
+  /** Wait until at least one real image is visibly rendered in the results viewport. */
   async waitForResults(timeout = 15_000) {
-    // Wait for either grid cells or table rows to appear
     await this.page.waitForFunction(
       () => {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
         const container = grid ?? table;
         if (!container) return false;
-        // Check that there's at least one rendered child with content
-        return container.querySelector("[role='row']") !== null ||
-               container.querySelectorAll("[class*='shrink-0']").length > 4;
-      },
-      { timeout },
-    );
-  }
-
-  /** Wait until loading indicator clears. */
-  async waitForNotLoading(timeout = 15_000) {
-    await this.page.waitForFunction(
-      () => {
-        // The loading dot in the scrubber tooltip
-        const dot = document.querySelector('[data-scrubber-thumb]')
-          ?.parentElement?.querySelector('.animate-pulse');
-        return !dot;
+        const containerRect = container.getBoundingClientRect();
+        return Array.from(container.querySelectorAll("[data-image-id]"))
+          .some((item) => {
+            const itemRect = item.getBoundingClientRect();
+            return itemRect.bottom > containerRect.top
+              && itemRect.top < containerRect.bottom;
+          });
       },
       { timeout },
     );
@@ -554,7 +544,6 @@ export class KupuaHelpers {
             if (!container) return false;
             const items = container.querySelectorAll('[class*="cursor-pointer"]');
             if (items.length === 0) return false;
-            // Verify at least one cursor-pointer element is within the viewport
             const rect = container.getBoundingClientRect();
             for (const item of items) {
               const ir = item.getBoundingClientRect();
@@ -793,6 +782,11 @@ export class KupuaHelpers {
 
   /** Open sort dropdown and select a sort field by label. */
   async selectSort(label: string) {
+    const previousOrderBy = await this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().params.orderBy;
+    });
+
     // Click the sort button to open dropdown
     const sortButton = this.page.locator('button[aria-haspopup="listbox"]');
     await sortButton.click();
@@ -803,19 +797,46 @@ export class KupuaHelpers {
 
     // Click the option
     const option = dropdown.locator(`[role="option"]`).filter({ hasText: label });
+    const expectedSortKey = await option.getAttribute("data-sort-key");
+    if (!expectedSortKey) throw new Error(`Sort option "${label}" has no data-sort-key`);
     await option.click();
 
-    // Wait for new search results
-    await this.page.waitForTimeout(500);
-    await this.waitForResults();
+    await this.page.waitForFunction(
+      ({ expected, previous }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        const primarySort = state.params.orderBy?.split(",")[0]?.replace(/^-/, "");
+        return state.params.orderBy !== previous
+          && primarySort === expected
+          && !state.loading
+          && state.sortAroundFocusStatus === null
+          && state.results.length > 0;
+      },
+      { expected: expectedSortKey, previous: previousOrderBy },
+    );
   }
 
   /** Toggle sort direction (ascending ↔ descending). */
   async toggleSortDirection() {
+    const previousOrderBy = await this.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store?.getState().params.orderBy;
+    });
     const btn = this.page.locator('button[aria-label*="Sort"][aria-label*="click to sort"]');
     await btn.click();
-    await this.page.waitForTimeout(500);
-    await this.waitForResults();
+    await this.page.waitForFunction(
+      (previous) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        return state.params.orderBy !== previous
+          && !state.loading
+          && state.sortAroundFocusStatus === null
+          && state.results.length > 0;
+      },
+      previousOrderBy,
+    );
   }
 
   /** Get the current sort direction from the UI. */
@@ -944,6 +965,19 @@ export class KupuaHelpers {
    * scrollIntoView heuristic) resolves this in practice; retried once.
    */
   async focusNthItem(n: number) {
+    const focusMode = await this.page.evaluate(() => {
+      const stored = localStorage.getItem("kupua-ui-prefs");
+      if (!stored) return "explicit";
+      try {
+        return JSON.parse(stored)?.state?.focusMode ?? "explicit";
+      } catch {
+        return "explicit";
+      }
+    });
+    if (focusMode !== "explicit") {
+      throw new Error(`focusNthItem requires explicit focus mode, got "${focusMode}"`);
+    }
+
     const isGrid = await this.isGridView();
     const containerSelector = isGrid
       ? '[aria-label="Image results grid"]'
@@ -973,7 +1007,13 @@ export class KupuaHelpers {
       );
       await target.click({ force: true });
     }
-    await this.page.waitForTimeout(100);
+    await this.page.waitForFunction(
+      (expectedId) => {
+        const store = (window as any).__kupua_store__;
+        return store?.getState().focusedImageId === expectedId;
+      },
+      id,
+    );
   }
 
   /** Get the currently focused image ID from the store. */
@@ -995,6 +1035,29 @@ export class KupuaHelpers {
       const table = document.querySelector('[aria-label="Image results table"]');
       return (grid ?? table)?.scrollTop ?? 0;
     });
+  }
+
+  /** Wait for a completed backward prepend that makes real buffer progress. */
+  async waitForBackwardPrepend(
+    baseline: { prependGeneration: number; bufferOffset: number },
+    timeout = 5000,
+  ) {
+    await this.page.waitForFunction(
+      ({ generation, offset }) => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const state = store.getState();
+        return state._prependGeneration > generation
+          && state.bufferOffset < offset
+          && !state._extendBackwardInFlight
+          && !state.loading;
+      },
+      {
+        generation: baseline.prependGeneration,
+        offset: baseline.bufferOffset,
+      },
+      { timeout },
+    );
   }
 
   /** Scroll the content container by a given number of pixels. */
@@ -1129,34 +1192,32 @@ export class KupuaHelpers {
   /**
    * Open image detail for the Nth visible item. Returns the image ID.
    * Mode-independent: uses dblclick which works in both explicit and phantom.
-   * Gets the image ID from the store directly (no click-to-focus dependency).
+   * Resolves and clicks one stable DOM identity so virtualizer coordinates
+   * cannot diverge from the returned image ID.
    */
   async openDetailForNthItem(n: number): Promise<string> {
-    const id = await this.page.evaluate((idx) => {
-      const store = (window as any).__kupua_store__;
-      return store?.getState().results[idx]?.id ?? null;
-    }, n);
-    if (!id) throw new Error(`No image at index ${n}`);
+    const selector = await this.isGridView()
+      ? '[aria-label="Image results grid"] [class*="cursor-pointer"]'
+      : '[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]';
+    const id = await waitForStableNthImageId(this.page, selector, n);
+    await this.page.locator(`${selector}[data-image-id="${id}"]`).dblclick();
 
-    if (await this.isGridView()) {
-      const cells = this.page.locator('[aria-label="Image results grid"] [class*="cursor-pointer"]');
-      await cells.nth(n).dblclick();
-    } else {
-      const rows = this.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]');
-      await rows.nth(n).dblclick();
-    }
-    // Wait for the detail overlay to appear (URL gets ?image=...)
     await this.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.has("image"),
+      (expectedId) => new URL(window.location.href).searchParams.get("image") === expectedId,
+      id,
       { timeout: 5000 },
     );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${id}"]`),
+    ).toBeVisible({ timeout: 5000 });
     return id;
   }
 
-  /** Wait for the image detail overlay to be gone (URL no longer has ?image). */
+  /** Wait for both route state and the rendered detail overlay to be gone. */
   async waitForDetailClosed(timeout = 5000) {
     await this.page.waitForFunction(
-      () => !new URL(window.location.href).searchParams.has("image"),
+      () => !new URL(window.location.href).searchParams.has("image")
+        && document.querySelector("[data-detail-image-id]") === null,
       { timeout },
     );
   }
@@ -1218,11 +1279,17 @@ export class KupuaHelpers {
   async detailNextAndWait(timeout = 5000) {
     const before = await this.getDetailImageId();
     await this.page.keyboard.press("ArrowRight");
-    await this.page.waitForFunction(
-      (prev) => new URL(window.location.href).searchParams.get("image") !== prev,
+    const nextId = await this.page.waitForFunction(
+      (prev) => {
+        const next = new URL(window.location.href).searchParams.get("image");
+        return next !== prev ? next : false;
+      },
       before,
       { timeout },
     );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${await nextId.jsonValue()}"]`),
+    ).toBeVisible({ timeout });
   }
 
   /**
@@ -1231,11 +1298,17 @@ export class KupuaHelpers {
   async detailPrevAndWait(timeout = 5000) {
     const before = await this.getDetailImageId();
     await this.page.keyboard.press("ArrowLeft");
-    await this.page.waitForFunction(
-      (prev) => new URL(window.location.href).searchParams.get("image") !== prev,
+    const previousId = await this.page.waitForFunction(
+      (prev) => {
+        const previous = new URL(window.location.href).searchParams.get("image");
+        return previous !== prev ? previous : false;
+      },
       before,
       { timeout },
     );
+    await expect(
+      this.page.locator(`[data-detail-image-id="${await previousId.jsonValue()}"]`),
+    ).toBeVisible({ timeout });
   }
 
   // -------------------------------------------------------------------------
