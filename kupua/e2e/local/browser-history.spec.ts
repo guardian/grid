@@ -45,14 +45,73 @@ async function spaNavigate(page: import("@playwright/test").Page, path: string) 
   }, path);
 }
 
-/** Wait for search results to load after a navigation. */
-async function waitForSearchSettled(page: import("@playwright/test").Page) {
+/** BFCache may restore settled state without starting a new search. */
+async function waitForRestoredOrReloadedSearch(page: import("@playwright/test").Page) {
   await page.waitForFunction(
     () => {
       const store = (window as any).__kupua_store__;
       if (!store) return false;
       const s = store.getState();
       return s.sortAroundFocusStatus === null && !s.loading && s.results.length > 0;
+    },
+    { timeout: 15_000 },
+  );
+}
+
+async function getSearchGeneration(page: import("@playwright/test").Page): Promise<number> {
+  return page.evaluate(() => {
+    const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+    if (typeof getLifecycle !== "function") throw new Error("Search lifecycle not exposed");
+    return getLifecycle().started;
+  });
+}
+
+async function waitForNewSearchSettled(
+  page: import("@playwright/test").Page,
+  previousGeneration: number,
+) {
+  await page.waitForFunction(
+    (previous) => {
+      const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+      if (typeof getLifecycle !== "function") return false;
+      const lifecycle = getLifecycle();
+      return lifecycle.started > previous
+        && lifecycle.settled === lifecycle.started;
+    },
+    previousGeneration,
+    { timeout: 15_000 },
+  );
+}
+
+async function runSearchAction(
+  page: import("@playwright/test").Page,
+  action: () => Promise<unknown>,
+) {
+  const generation = await getSearchGeneration(page);
+  await action();
+  await waitForNewSearchSettled(page, generation);
+}
+
+async function spaNavigateAndWait(page: import("@playwright/test").Page, path: string) {
+  await runSearchAction(page, () => spaNavigate(page, path));
+}
+
+async function goBackSearchAndWait(page: import("@playwright/test").Page) {
+  await runSearchAction(page, () => page.goBack());
+}
+
+async function goForwardSearchAndWait(page: import("@playwright/test").Page) {
+  await runSearchAction(page, () => page.goForward());
+}
+
+async function reloadSearchAndWait(page: import("@playwright/test").Page) {
+  await page.reload();
+  await page.waitForFunction(
+    () => {
+      const getLifecycle = (window as any).__kupua_getSearchLifecycle__;
+      if (typeof getLifecycle !== "function") return false;
+      const lifecycle = getLifecycle();
+      return lifecycle.started > 0 && lifecycle.settled === lifecycle.started;
     },
     { timeout: 15_000 },
   );
@@ -76,14 +135,12 @@ test.describe("Browser back/forward — search context changes", () => {
     expect(await getUrlOrderBy(kupua.page)).toBeNull();
 
     // Change sort via SPA navigation (pushes history entry)
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
 
     // Press browser back
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Should be back to default sort
     expect(await getUrlOrderBy(kupua.page)).toBeNull();
@@ -101,17 +158,15 @@ test.describe("Browser back/forward — search context changes", () => {
     expect(initialFirstImage).not.toBeNull();
 
     // Navigate to a query that narrows results
-    await spaNavigate(
+    await spaNavigateAndWait(
       kupua.page,
       `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`,
     );
-    await waitForSearchSettled(kupua.page);
 
     expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
 
     // Press browser back
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Should be back to no query
     expect(await getUrlQuery(kupua.page)).toBeNull();
@@ -126,18 +181,15 @@ test.describe("Browser back/forward — search context changes", () => {
     await kupua.goto();
 
     // Navigate to a sort change
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
     expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
 
     // Back
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlOrderBy(kupua.page)).toBeNull();
 
     // Forward
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
     expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
   });
 
@@ -150,12 +202,10 @@ test.describe("Browser back/forward — search context changes", () => {
     expect(focusedId).not.toBeNull();
 
     // Navigate to a different sort (pushes history entry)
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     // Press back — should NOT carry the focused image into old results
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Scroll position should be at the top (bufferOffset = 0)
     const state = await kupua.getStoreState();
@@ -168,7 +218,6 @@ test.describe("Browser back/forward — search context changes", () => {
     // entirely. Fix: first keystroke of each typing session pushes the
     // pre-edit URL via pushState.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Focus the search input
     const searchArea = kupua.page.locator('[role="search"]');
@@ -176,13 +225,10 @@ test.describe("Browser back/forward — search context changes", () => {
     await kupua.page.waitForTimeout(100);
 
     // Type "cats" and wait for debounce to settle
+    let generation = await getSearchGeneration(kupua.page);
     await kupua.page.keyboard.press("Meta+a");
     await kupua.page.keyboard.type("cats", { delay: 30 });
-    await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.get("query") === "cats",
-      { timeout: 5000 },
-    );
-    await waitForSearchSettled(kupua.page);
+    await waitForNewSearchSettled(kupua.page, generation);
 
     // Wait well past the debounce (300ms) so next keystroke starts fresh
     await kupua.page.waitForTimeout(500);
@@ -190,28 +236,17 @@ test.describe("Browser back/forward — search context changes", () => {
     // Type "dogs" — this should commit "cats" as a history entry
     await searchArea.click();
     await kupua.page.waitForTimeout(100);
+    generation = await getSearchGeneration(kupua.page);
     await kupua.page.keyboard.press("Meta+a");
     await kupua.page.keyboard.type("dogs", { delay: 30 });
-    await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.get("query") === "dogs",
-      { timeout: 5000 },
-    );
-    await waitForSearchSettled(kupua.page);
+    await waitForNewSearchSettled(kupua.page, generation);
 
     // Back should land on "cats", not on the pre-kupua page
-    await kupua.page.goBack();
-    await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.get("query") === "cats",
-      { timeout: 5000 },
-    );
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBe("cats");
 
     // Back again should land on the home page (no query)
-    await kupua.page.goBack();
-    await kupua.page.waitForFunction(
-      () => !new URL(window.location.href).searchParams.has("query"),
-      { timeout: 5000 },
-    );
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBeNull();
   });
 });
@@ -641,20 +676,20 @@ test.describe("Browser back/forward — logo reset", () => {
   test("logo reset from search bar → back restores previous context (popstate semantics)", async ({ kupua }) => {
     // Navigate to a specific query
     await kupua.goto();
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
     expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
 
     // Click SearchBar logo to reset to home
-    await kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
 
     // Should be at home (no query)
     expect(await getUrlQuery(kupua.page)).toBeNull();
 
     // Back should return to the previous search context
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
 
     // Popstate semantics: bufferOffset should be 0 (reset to top, no focus carry)
@@ -665,8 +700,7 @@ test.describe("Browser back/forward — logo reset", () => {
   test("logo reset from image detail → back restores previous context", async ({ kupua }) => {
     // Navigate to a query and open an image
     await kupua.goto();
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
 
     // Focus and open image detail
     await kupua.focusNthItem(0);
@@ -688,8 +722,7 @@ test.describe("Browser back/forward — logo reset", () => {
     // (SearchBar + ImageDetail), but the SearchBar one is behind the
     // detail overlay (pointer-events-none). Target the visible one.
     const detailLogo = kupua.page.locator('a[title*="Grid"] img[alt="Grid"]').nth(1);
-    await detailLogo.click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(kupua.page, () => detailLogo.click());
 
     // Should be at home (no query, no image)
     expect(await getUrlQuery(kupua.page)).toBeNull();
@@ -737,8 +770,7 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
     const histLenBefore = await kupua.page.evaluate(() => history.length);
 
     // Click the metadata link
-    await metadataLink.click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(kupua.page, () => metadataLink.click());
 
     // Should have closed detail and changed query (exactly one push)
     expect(await kupua.page.evaluate(
@@ -748,7 +780,7 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
     expect(histLenAfter).toBe(histLenBefore + 1);
 
     // Back should return to the detail with the old query
-    await kupua.page.goBack();
+    await goBackSearchAndWait(kupua.page);
     await kupua.page.waitForFunction(
       () => new URL(window.location.href).searchParams.has("image"),
       { timeout: 5000 },
@@ -757,10 +789,7 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
       () => new URL(window.location.href).searchParams.get("image"),
     );
     expect(imageAfterBack).toBe(imageId);
-    // Wait for the original search results to load before checking the rendered image
-    // (popstate triggers search() which replaces the buffer asynchronously)
-    await waitForSearchSettled(kupua.page);
-    expect(await kupua.getRenderedDetailImageId()).toBe(imageId);
+    await expect(kupua.page.locator(`[data-detail-image-id="${imageId}"]`)).toBeVisible();
   });
 
   test("back from metadata-search renders the correct image (not stale buffer index)", async ({ kupua }) => {
@@ -784,8 +813,7 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
     }
 
     // Click the metadata link — this closes detail and fires a new search
-    await metadataLink.click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(kupua.page, () => metadataLink.click());
 
     // Verify we're on the search results (no image detail)
     expect(await kupua.page.evaluate(
@@ -793,23 +821,12 @@ test.describe("Browser back/forward — metadata click-to-search", () => {
     )).toBe(false);
 
     // Press Back — should return to detail for imageId
-    await kupua.page.goBack();
+    await goBackSearchAndWait(kupua.page);
     await kupua.page.waitForFunction(
       () => new URL(window.location.href).searchParams.has("image"),
       { timeout: 5000 },
     );
 
-    // Wait for the original search to settle (buffer replacement is when
-    // the bug manifests — the new first-page replaces the old 2-result buffer)
-    await kupua.page.waitForFunction(
-      () => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return false;
-        const s = store.getState();
-        return !s.loading && s.results.length > 0;
-      },
-      { timeout: 15_000 },
-    );
     // Extra wait to ensure any stale re-render from buffer replacement has fired
     await kupua.page.waitForTimeout(500);
 
@@ -883,8 +900,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(initialKey).toBeDefined();
 
     // SPA push navigation
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     const newKey = await getKupuaKey(kupua.page);
     expect(newKey).toBeDefined();
@@ -896,8 +912,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     const keyA = await getKupuaKey(kupua.page);
 
     // Push → new entry B
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
     const keyB = await getKupuaKey(kupua.page);
     expect(keyB).not.toBe(keyA);
 
@@ -911,12 +926,10 @@ test.describe("kupuaKey — per-entry identity", () => {
         state: { kupuaKey: router.history.location.state?.kupuaKey },
       });
     });
-    await waitForSearchSettled(kupua.page);
     expect(await getKupuaKey(kupua.page)).toBe(keyB);
 
     // Back to A — should have A's original key
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     const keyAfterBack = await getKupuaKey(kupua.page);
     expect(keyAfterBack).toBe(keyA);
   });
@@ -932,8 +945,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(focusedId).not.toBeNull();
 
     // Push a new search — this should capture a snapshot for entry A.
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     // Inspect the snapshot captured for A's kupuaKey.
     const snapshot = await kupua.page.evaluate((key) => {
@@ -955,14 +967,15 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(keyA).toBeDefined();
 
     // Navigate to a different sort (creates a history entry B)
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
     const keyB = await getKupuaKey(kupua.page);
 
     // Click the logo (reset to home) — uses pushNavigateAsPopstate,
     // which should NOT capture a snapshot for B.
-    await kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
 
     // There should be no snapshot for B (logo-reset skips capture)
     const snapshot = await kupua.page.evaluate((key) => {
@@ -982,7 +995,6 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
   test("back after sort change restores focused image", async ({ kupua }) => {
     // Default sort (entry A). Focus the 5th image.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
     await kupua.focusNthItem(4);
     const anchorId = await kupua.getFocusedImageId();
     expect(anchorId).not.toBeNull();
@@ -991,12 +1003,10 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
     // image likely doesn't exist in the new results, so Never Lost
     // falls back to first page. This isolates snapshot restore from
     // sort-around-focus interaction.
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
 
     // Back to entry A — snapshot should restore near the anchor.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // The anchor image should be focused (sort-around-focus engages).
     const restoredFocus = await kupua.getFocusedImageId();
@@ -1006,19 +1016,16 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
   test("back after query change restores focused image", async ({ kupua }) => {
     // Initial query (entry A). Focus the 3rd image.
     await kupua.goto();
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
     await kupua.focusNthItem(2);
     const anchorId = await kupua.getFocusedImageId();
     expect(anchorId).not.toBeNull();
 
     // Push a different query (entry B).
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
 
     // Back to entry A — snapshot should restore.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     const restoredFocus = await kupua.getFocusedImageId();
     expect(restoredFocus).toBe(anchorId);
@@ -1027,46 +1034,41 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
   test("forward after back still finds snapshot (not deleted on read)", async ({ kupua }) => {
     // Entry A: default sort. Focus image 3.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
     await kupua.focusNthItem(2);
     const anchorA = await kupua.getFocusedImageId();
     expect(anchorA).not.toBeNull();
 
     // Entry B: oldest sort (Never Lost carries anchorA, that's fine).
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     // Back to A — restores anchorA from snapshot.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await kupua.getFocusedImageId()).toBe(anchorA);
 
     // Forward to B — then immediately back to A again.
     // Tests that A's snapshot was not deleted on the first read.
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
 
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await kupua.getFocusedImageId()).toBe(anchorA);
   });
 
   test("logo-reset back still resets, then back from reset restores", async ({ kupua }) => {
     // Entry A: query. Focus image 3.
     await kupua.goto();
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:PA")}`);
     await kupua.focusNthItem(2);
 
     // Logo-reset (entry B) — pushNavigateAsPopstate, no snapshot for A.
-    await kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click();
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
     expect(await getUrlQuery(kupua.page)).toBeNull();
 
     // Back to A — logo-reset doesn't capture a snapshot for A (by design).
     // So A has NO snapshot → back should reset to top (offset 0).
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
 
     const state = await kupua.getStoreState();
@@ -1075,24 +1077,21 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
 
   test("back without snapshot falls through to reset-to-top", async ({ kupua }) => {
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Push WITHOUT calling markPushSnapshot (simulate missing snapshot).
-    await kupua.page.evaluate(() => {
-      const router = (window as any).__kupua_router__;
-      const markUserNav = (window as any).__kupua_markUserNav__;
-      if (markUserNav) markUserNav();
-      router.navigate({
-        to: "/search",
-        search: { nonFree: "true", orderBy: "oldest" },
-        state: { kupuaKey: crypto.randomUUID() },
-      });
-    });
-    await waitForSearchSettled(kupua.page);
+    await runSearchAction(kupua.page, () => kupua.page.evaluate(() => {
+        const router = (window as any).__kupua_router__;
+        const markUserNav = (window as any).__kupua_markUserNav__;
+        if (markUserNav) markUserNav();
+        router.navigate({
+          to: "/search",
+          search: { nonFree: "true", orderBy: "oldest" },
+          state: { kupuaKey: crypto.randomUUID() },
+        });
+      }));
 
     // Back — no snapshot exists → should reset to top.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     const state = await kupua.getStoreState();
     expect(state.bufferOffset).toBe(0);
@@ -1102,7 +1101,6 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
   test("back restores deep position (~800) after query change", async ({ kupua }) => {
     // Entry A: default sort. Seek to offset ~800 (well past first page).
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Seek deep via the store.
     await kupua.page.evaluate(async () => {
@@ -1130,15 +1128,13 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
     // the filtered results, so Never Lost falls back to first page.
     // This isolates the snapshot restore test from Never Lost carrying
     // focus across contexts.
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
     // New query → first page at offset 0.
     const queryState = await kupua.getStoreState();
     expect(queryState.bufferOffset).toBe(0);
 
     // Back to A — should restore near the deep position.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // The anchor image should be focused and the buffer should be deep.
     expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
@@ -1155,7 +1151,6 @@ test.describe("Reload survival — position restoration on reload", () => {
   test("reload restores current entry via pagehide snapshot", async ({ kupua }) => {
     // Entry A: default sort. Seek deep and focus an image.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Seek to offset ~800 (well past first page).
     await kupua.page.evaluate(async () => {
@@ -1180,8 +1175,7 @@ test.describe("Reload survival — position restoration on reload", () => {
 
     // Reload — pagehide captures snapshot for current entry's kupuaKey.
     // On mount, the popstate path finds the snapshot and restores.
-    await kupua.page.reload();
-    await waitForSearchSettled(kupua.page);
+    await reloadSearchAndWait(kupua.page);
 
     // The anchor image should be focused and the buffer should be deep.
     expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
@@ -1192,24 +1186,20 @@ test.describe("Reload survival — position restoration on reload", () => {
   test("reload then back still restores previous entry", async ({ kupua }) => {
     // Entry A: default sort, shallow.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
     await kupua.focusNthItem(2);
     const anchorA = await kupua.getFocusedImageId();
     expect(anchorA).not.toBeNull();
 
     // Push to entry B (query change — isolates from Never Lost).
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
 
     // Reload on entry B. A's snapshot was captured on the push;
     // B's snapshot is captured by pagehide.
-    await kupua.page.reload();
-    await waitForSearchSettled(kupua.page);
+    await reloadSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBe("credit:Reuters");
 
     // Back to A — A's snapshot (captured on push) should restore.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
     expect(await getUrlQuery(kupua.page)).toBeNull();
     expect(await kupua.getFocusedImageId()).toBe(anchorA);
   });
@@ -1219,7 +1209,6 @@ test.describe("Reload survival — position restoration on reload", () => {
     // Use default search (large result set) then push a query that also
     // has many results, so seek(400) works.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Seek deep on the default (large) result set.
     await kupua.page.evaluate(async () => {
@@ -1239,8 +1228,7 @@ test.describe("Reload survival — position restoration on reload", () => {
     const preState = await kupua.getStoreState();
     expect(preState.bufferOffset).toBeGreaterThan(200);
 
-    await kupua.page.reload();
-    await waitForSearchSettled(kupua.page);
+    await reloadSearchAndWait(kupua.page);
 
     // Position should be restored.
     expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
@@ -1253,7 +1241,6 @@ test.describe("Reload survival — position restoration on reload", () => {
     // round-trip. sessionStorage persists per-origin across navigations;
     // bfcache may additionally preserve the in-memory JS heap.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
     await kupua.focusNthItem(3);
     const anchorId = await kupua.getFocusedImageId();
     expect(anchorId).not.toBeNull();
@@ -1264,8 +1251,7 @@ test.describe("Reload survival — position restoration on reload", () => {
       return fn ? fn() : undefined;
     });
     expect(keyBefore).toBeDefined();
-    await spaNavigate(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, `/search?nonFree=true&query=${encodeURIComponent("credit:Reuters")}`);
 
     // Navigate to a different origin (triggers pagehide/bfcache).
     await kupua.page.goto("about:blank");
@@ -1276,7 +1262,7 @@ test.describe("Reload survival — position restoration on reload", () => {
       () => window.location.pathname === "/search",
       { timeout: 10_000 },
     );
-    await waitForSearchSettled(kupua.page);
+    await waitForRestoredOrReloadedSearch(kupua.page);
 
     // Now we're back on the kupua origin — check sessionStorage.
     const snapshotSurvived = await kupua.page.evaluate((key) => {
@@ -1302,7 +1288,6 @@ test.describe("Reload survival — position restoration on reload", () => {
     // rebuild imagePositions → new findImageIndex ref → Effect #9 re-fires
     // → teleports back to the focused image's saved viewport ratio.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Seek deep, focus an image.
     await kupua.page.evaluate(async () => {
@@ -1321,8 +1306,7 @@ test.describe("Reload survival — position restoration on reload", () => {
     expect(anchorId).not.toBeNull();
 
     // Reload — triggers pagehide snapshot + mount-time restore.
-    await kupua.page.reload();
-    await waitForSearchSettled(kupua.page);
+    await reloadSearchAndWait(kupua.page);
     expect(await kupua.getFocusedImageId()).toBe(anchorId);
 
     // Record the scroll position after restore.
@@ -1362,7 +1346,6 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
   test("departing snapshot updates when phantom anchor changes", async ({ kupua }) => {
     // Entry A: default sort.
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
     const keyA = await kupua.page.evaluate(() => {
       const fn = (window as any).__kupua_getKupuaKey__;
       return fn ? fn() : undefined;
@@ -1371,8 +1354,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     // Push a sort change (entry B) — this captures A's snapshot via
     // markPushSnapshot. In phantom mode, A's anchor is the viewport centre
     // (anchorIsPhantom: true).
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
 
     // Verify A's snapshot is phantom.
     const snapA = await kupua.page.evaluate((key) => {
@@ -1386,8 +1368,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     // Back to A — this triggers a departing snapshot for B (no phantom
     // issue — B has no snapshot yet). Also restores A from its phantom
     // snapshot. After restore, scroll far within the buffer.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Scroll within the buffer so the viewport centre changes from
     // the restored anchor.
@@ -1406,13 +1387,11 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     // Forward to B — this is the popstate that should update A's
     // departing snapshot. A has anchorIsPhantom: true, and we scrolled
     // to a different image.
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
 
     // Back to A again — should restore at the SCROLLED position,
     // not the original anchor.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Inspect A's snapshot — should have been updated on the forward
     // departure with the new viewport anchor.
@@ -1444,11 +1423,9 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     // issue. See changelog for full analysis.
 
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Change sort (creates history entry)
-    await spaNavigate(kupua.page, "/search?orderBy=oldest");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?orderBy=oldest");
     const keySorted = await kupua.page.evaluate(() => {
       const fn = (window as any).__kupua_getKupuaKey__;
       return fn ? fn() : undefined;
@@ -1489,8 +1466,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     expect(anchorAtSeek).not.toBeNull();
 
     // Back (sorted → initial) — departure should capture the seeked anchor
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Inspect the snapshot — should have the seeked anchor, not markPushSnapshot's
     const snapAfterBack = await kupua.page.evaluate((key) => {
@@ -1502,8 +1478,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     expect(snapAfterBack.anchorImageId).not.toBe(imageB);
 
     // Forward (initial → sorted) — should restore at seeked position
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
 
     const restoredAnchor = await kupua.page.evaluate(() => {
       const getAnchor = (window as any).__kupua_getViewportAnchorId__;
@@ -1544,7 +1519,6 @@ test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (au
     //     restore path, and centres on A.
 
     await kupua.goto();
-    await waitForSearchSettled(kupua.page);
 
     // Step 1: focus image A.
     await kupua.focusNthItem(3);
@@ -1560,8 +1534,7 @@ test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (au
     // (see sort-builders.ts) — `?orderBy=oldest` looks like the obvious
     // choice but `oldest` is NOT a valid alias; ES rejects sorts on a
     // literal field called "oldest" and seek(800) below ends up empty.
-    await spaNavigate(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
-    await waitForSearchSettled(kupua.page);
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
     expect(await kupua.getFocusedImageId()).toBe(imageA);
 
     const keySorted = await kupua.page.evaluate(() => {
@@ -1606,10 +1579,8 @@ test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (au
     expect(deepBufferOffset).toBeGreaterThan(500);
 
     // Step 5: back, forward — should restore the deep position.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
     await kupua.page.waitForTimeout(300); // let restore + buffer-change effect populate anchor
 
     // After the first forward we're back on E1 with the phantom restore.
@@ -1621,8 +1592,7 @@ test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (au
     expect(offsetAfterFirstForward).toBeGreaterThan(500);
 
     // Step 6: back, forward — the cycle that previously corrupted E1.
-    await kupua.page.goBack();
-    await waitForSearchSettled(kupua.page);
+    await goBackSearchAndWait(kupua.page);
 
     // Inspect E1's snapshot AFTER the back. Pre-fix this was clobbered to
     // {anchor: A, anchorIsPhantom: false}. Post-fix it must remain phantom.
@@ -1640,8 +1610,7 @@ test.describe("Snapshot restore — phantomOnly must not leak focusedImageId (au
       "E1 snapshot must remain phantom after departure-capture",
     ).toBe(true);
 
-    await kupua.page.goForward();
-    await waitForSearchSettled(kupua.page);
+    await goForwardSearchAndWait(kupua.page);
     await kupua.page.waitForTimeout(300);
 
     // The actual user-visible assertions: focus must still be null, and

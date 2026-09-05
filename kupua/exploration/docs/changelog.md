@@ -14,30 +14,47 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
-    ### 5 September 2026 — Replace guessed E2E waits with observable outcomes
+  ### 5 September 2026 — Make browser-history readiness generation-driven
 
-    Shared E2E helpers now wait for the state users and tests actually need:
-    visibly rendered image results, exact sort-key changes with completed
-    sort-around-focus, stable explicit focus, exact detail URL/render identity,
-    detail overlay removal, exact persisted selection sets, and completed backward
-    prepends. Sort options expose their canonical key as a data attribute so tests
-    do not duplicate the field registry.
+  Browser-history E2E actions now capture the current search generation before
+  navigation and wait for a newer generation to settle, instead of inferring
+  readiness from loading state, URL/store normalization or fixed delays. The
+  search store exposes a development-only lifecycle snapshot that arms after
+  the new search enters loading and settles only for the latest generation when
+  loading and sort-around-focus work are idle in the captured query/sort context.
+  BFCache retains its separate restored-or-reloaded fallback.
 
-    Removed redundant panel and post-sort sleeps. The two Home/density regressions
-    now execute only their causal journeys and poll their final geometry/focus
-    contracts, reducing them from roughly 10s/6s to 6s/3.5s. Post-seek scroll-up
-    tests wait for real scroll and prepend progress; the habitual suite completed
-    twice at 4.6m and 4.7m versus the prior 4.9-5.0m baseline, with 235/235 passing
-    and zero retries. Full unit validation passed 1159/1159.
+  This avoids false readiness from an already-idle predecessor search and handles
+  logo resets whose URL and store representations intentionally differ. Focused
+  browser-history validation passed 38/38 in 1.1m; the full habitual suite passed
+  235/235 with zero retries in 4.6m; unit validation passed 1159/1159. A production
+  build passed and contained neither the lifecycle accessor nor its type name,
+  confirming Vite dead-code elimination.
 
-    Two scrubber timeout-removal experiments were rejected: visible content could
-    still be stale before a debounced seek started, and virtualizer overscan made
-    full visible-range coverage false near the bottom. A generation-driven
-    capacity setup was also rejected because first eviction completion precedes
-    scroll compensation/chained-extend settlement. Browser-history parallelism
-    improved that file alone but not full-suite wall time, so it was reverted.
-    Further removal of these waits requires explicit decision/compensation
-    lifecycle observability, not another timing heuristic.
+  ### 5 September 2026 — Replace guessed E2E waits with observable outcomes
+
+  Shared E2E helpers now wait for the state users and tests actually need:
+  visibly rendered image results, exact sort-key changes with completed
+  sort-around-focus, stable explicit focus, exact detail URL/render identity,
+  detail overlay removal, exact persisted selection sets, and completed backward
+  prepends. Sort options expose their canonical key as a data attribute so tests
+  do not duplicate the field registry.
+
+  Removed redundant panel and post-sort sleeps. The two Home/density regressions
+  now execute only their causal journeys and poll their final geometry/focus
+  contracts, reducing them from roughly 10s/6s to 6s/3.5s. Post-seek scroll-up
+  tests wait for real scroll and prepend progress; the habitual suite completed
+  twice at 4.6m and 4.7m versus the prior 4.9-5.0m baseline, with 235/235 passing
+  and zero retries. Full unit validation passed 1159/1159.
+
+  Two scrubber timeout-removal experiments were rejected: visible content could
+  still be stale before a debounced seek started, and virtualizer overscan made
+  full visible-range coverage false near the bottom. A generation-driven
+  capacity setup was also rejected because first eviction completion precedes
+  scroll compensation/chained-extend settlement. Browser-history parallelism
+  improved that file alone but not full-suite wall time, so it was reverted.
+  Further removal of these waits requires explicit decision/compensation
+  lifecycle observability, not another timing heuristic.
 
   ### 5 September 2026 — Parallelise the habitual scrubber E2E suite
 

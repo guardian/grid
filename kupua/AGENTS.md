@@ -47,7 +47,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
-| **Browser history** | `04-browser-history-architecture.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `e2e/local/browser-history.spec.ts` |
+| **Browser history** | `04-browser-history-architecture.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `search-store.ts` (DEV-only search lifecycle generation), `e2e/local/browser-history.spec.ts` |
 | **Field registry** | `field-registry.tsx` (33 static fields + config aliases) |
 | **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Collections panel** | `stores/collection-store.ts`, `components/CollectionTree.tsx`, `exploration/docs/00 Architecture and philosophy/06-collections.md`, `dal/adapters/elasticsearch/cql.ts` (`~` shorthand already present), `lib/typeahead-fields.ts` (collection resolver) |
@@ -89,7 +89,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 - **12 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
 - Full reference: **`e2e/README.md`** (8 test modes, decision tree, env vars)
-- Logging: use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E)
+- Logging/observability: use `devLog()` and DEV-only window signals (including `__kupua_getSearchLifecycle__`) for E2E; production builds DCE them
 
 ## Design Documents
 

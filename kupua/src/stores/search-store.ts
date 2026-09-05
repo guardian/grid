@@ -547,6 +547,20 @@ let _findFocusAbortController = new AbortController();
  */
 let _searchGeneration = 0;
 
+interface SearchLifecycleSnapshot {
+  started: number;
+  settled: number;
+  query: string | null;
+  orderBy: string | null;
+}
+
+let _searchLifecycle: SearchLifecycleSnapshot = {
+  started: 0,
+  settled: 0,
+  query: null,
+  orderBy: null,
+};
+
 /**
  * Cooldown timestamp after a seek. Extends are suppressed until this time
  * to prevent a cascade of backward extends when the virtualizer starts at
@@ -1991,6 +2005,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // the next departure-capture. See
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
     set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    if (import.meta.env.DEV) {
+      _searchLifecycle = {
+        ..._searchLifecycle,
+        started: myGeneration,
+        query: params.query ?? null,
+        orderBy: params.orderBy ?? null,
+      };
+    }
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -4121,6 +4143,26 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 // Playwright tests use window.__kupua_store__ to read buffer state,
 // focused image, and other internals without relying on DOM scraping.
 if (import.meta.env.DEV && typeof window !== "undefined") {
+  useSearchStore.subscribe((state) => {
+    const stateQuery = state.params.query ?? null;
+    const stateOrderBy = state.params.orderBy ?? null;
+    if (
+      _searchLifecycle.started === _searchGeneration
+      && _searchLifecycle.settled < _searchLifecycle.started
+      && stateQuery === _searchLifecycle.query
+      && stateOrderBy === _searchLifecycle.orderBy
+      && !state.loading
+      && state.sortAroundFocusStatus === null
+    ) {
+      _searchLifecycle = {
+        started: _searchLifecycle.started,
+        settled: _searchLifecycle.started,
+        query: stateQuery,
+        orderBy: stateOrderBy,
+      };
+    }
+  });
   (window as unknown as Record<string, unknown>).__kupua_store__ = useSearchStore;
+  (window as unknown as Record<string, unknown>).__kupua_getSearchLifecycle__ = () => _searchLifecycle;
 }
 
