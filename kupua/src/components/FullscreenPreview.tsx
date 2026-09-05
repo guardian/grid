@@ -45,6 +45,7 @@ import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch"
 import { getZoomImageUrl } from "@/lib/image-urls";
 import { scrollFocusedIntoView, registerEnterPreview } from "@/lib/orchestration/search";
 import { trace } from "@/lib/perceived-trace";
+import { requestFullscreenExit, shouldRecoverFullscreenBack } from "@/lib/fullscreen-exit";
 import type { Image } from "@/types/image";
 
 /**
@@ -253,24 +254,31 @@ export function FullscreenPreview() {
     }
   }, []);
 
-  const exitPreview = useCallback(() => {
-    trace("fullscreen-exit", "t_0");
-    if (document.fullscreenElement && initiatedRef.current) {
-      document.exitFullscreen().catch(() => {});
-    }
+  const finalizePreviewExit = useCallback(() => {
+    if (!initiatedRef.current) return;
     setIsActive(false);
     initiatedRef.current = false;
     cooldownRef.current = false;
     setNavReady(false);
     cleanupAfterExit();
-    // Pop the phantom history entry. Clear the ref BEFORE history.back()
-    // so the popstate listener (which fires synchronously) sees it as
-    // already handled and doesn't double-process.
     if (phantomEntryRef.current) {
       phantomEntryRef.current = false;
       history.back();
     }
   }, [cleanupAfterExit]);
+
+  const exitPreview = useCallback(() => {
+    trace("fullscreen-exit", "t_0");
+    if (document.fullscreenElement && initiatedRef.current) {
+      void requestFullscreenExit(
+        () => document.exitFullscreen(),
+        () => document.fullscreenElement !== null,
+        finalizePreviewExit,
+      );
+      return;
+    }
+    finalizePreviewExit();
+  }, [finalizePreviewExit]);
 
   // Zoom (touch pinch + desktop click/wheel/drag). Active when preview is open.
   usePinchZoom({
@@ -349,20 +357,13 @@ export function FullscreenPreview() {
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && initiatedRef.current) {
-        setIsActive(false);
-        initiatedRef.current = false;
-        cleanupAfterExit();
-        // Pop phantom history entry (same as exitPreview).
-        if (phantomEntryRef.current) {
-          phantomEntryRef.current = false;
-          history.back();
-        }
+        finalizePreviewExit();
       }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () =>
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, [cleanupAfterExit]);
+  }, [finalizePreviewExit]);
 
   // Listen for popstate — handles browser back gesture closing the preview
   // and bounces dead phantom entries on forward navigation.
@@ -374,13 +375,25 @@ export function FullscreenPreview() {
         phantomEntryRef.current = false;
         trace("fullscreen-exit", "t_0");
         if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
+          void requestFullscreenExit(
+            () => document.exitFullscreen(),
+            () => document.fullscreenElement !== null,
+            finalizePreviewExit,
+            () => {
+              if (!shouldRecoverFullscreenBack(
+                initiatedRef.current,
+                document.fullscreenElement !== null,
+              )) return;
+              history.pushState(
+                { ...history.state, _kupuaFullscreenPreview: true },
+                "",
+              );
+              phantomEntryRef.current = true;
+            },
+          );
+          return;
         }
-        setIsActive(false);
-        initiatedRef.current = false;
-        cooldownRef.current = false;
-        setNavReady(false);
-        cleanupAfterExit();
+        finalizePreviewExit();
         return;
       }
       // Case 2: Dead phantom entry — user pressed forward after closing
@@ -395,7 +408,7 @@ export function FullscreenPreview() {
     };
     window.addEventListener("popstate", handlePopstate);
     return () => window.removeEventListener("popstate", handlePopstate);
-  }, [cleanupAfterExit]);
+  }, [finalizePreviewExit]);
 
   // Register `f` shortcut — when no image detail is mounted, this is the
   // active handler. When ImageDetail mounts, its `f` registration pushes

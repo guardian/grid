@@ -44,7 +44,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
 | **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
-| **Image detail / fullscreen / zoom** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
+| **Image detail / fullscreen / zoom** | `ImageDetail.tsx`, `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
 | **Browser history** | `04-browser-history-architecture.md`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`, `useUrlSearchSync.ts` (popstate restore), `useReturnFromDetail.ts` (detail-entry identity), `search-store.ts` (DEV-only search lifecycle generation), `e2e/local/browser-history.spec.ts` |
@@ -81,7 +81,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1162 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1166 Vitest** unit/integration tests (~1min) -- `npm test`
 - **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`

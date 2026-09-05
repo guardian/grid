@@ -14,6 +14,26 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Preserve fullscreen preview when native exit rejects
+
+  Fullscreen preview previously tore down React state and its phantom history
+  entry immediately after requesting native fullscreen exit. If
+  `exitFullscreen()` rejected while fullscreen remained active, users were left
+  in a blank native fullscreen document; traversed exits also never centred or
+  emitted their settled trace.
+
+  Exit cleanup now runs only after native fullscreen has ended. Rejection keeps
+  the preview and history absorber active so `f` or Backspace can retry. Browser
+  Back restores its already-popped absorber on rejection, guarded so a stale
+  rejection cannot recreate it after another exit succeeds. The promise/event
+  convergence remains idempotent and adds no steady-state render or scroll work.
+
+  Live Chromium injection confirmed rejected exit preserves fullscreen preview,
+  history and unsettled tracing; restoring the native method and retrying exited,
+  cleaned history, centred and settled. Helper tests passed 4/4, full unit passed
+  1166/1166, existing fullscreen E2E passed 2/2 and habitual E2E passed 236/236
+  in 4.8m.
+
   ### 5 September 2026 — Preserve detail traversal centring across reload
 
   Detail close previously inferred whether the user traversed by comparing the
