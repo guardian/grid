@@ -582,6 +582,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       pushNavigate(navigate, {
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
+        state: { _detailEntryImageId: imageId },
       });
     },
     [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],

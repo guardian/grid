@@ -126,19 +126,35 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // (which remounts ImageDetail) knows a bare-list entry already
       // exists below it. Without this, the one-shot consume flag is
       // gone and the synthesis would re-fire, truncating forward entries.
-      if (!history.state?._bareListSynthesized) {
-        history.replaceState({ ...history.state, _bareListSynthesized: true }, "");
+      if (!history.state?._bareListSynthesized || !history.state?._detailEntryImageId) {
+        history.replaceState({
+          ...history.state,
+          _bareListSynthesized: true,
+          _detailEntryImageId: history.state?._detailEntryImageId ?? imageId,
+        }, "");
       }
       return;
     }
 
     // Already synthesized on a previous mount (popstate back to this entry).
     // The bare-list entry below us still exists — don't re-synthesize
-    // or we'll truncate forward history.
-    if (history.state?._bareListSynthesized) return;
+    // or we'll truncate forward history. Upgrade entries created before
+    // immutable detail-entry identity was introduced.
+    if (history.state?._bareListSynthesized) {
+      if (!history.state?._detailEntryImageId) {
+        history.replaceState({
+          ...history.state,
+          _detailEntryImageId: imageId,
+        }, "");
+      }
+      return;
+    }
 
     // Save the current state and URL before replacing
-    const detailState = history.state;
+    const detailState = {
+      ...history.state,
+      _detailEntryImageId: history.state?._detailEntryImageId ?? imageId,
+    };
     const detailUrl = window.location.href;
 
     // Build the bare-list URL (current URL minus ?image=...)

@@ -85,6 +85,7 @@ function makeProps(overrides: Partial<Props> = {}): Props {
 beforeEach(() => {
   mockFocusMode = "explicit";
   mockStoreSetState.mockClear();
+  history.replaceState({}, "");
   // Make requestAnimationFrame fire synchronously so scroll-centering
   // assertions don't need timer management.
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
@@ -184,18 +185,14 @@ describe("useReturnFromDetail — explicit mode", () => {
 
   it("scrolls to center when user navigated to a different image via prev/next in detail (explicit mode)", () => {
     mockFocusMode = "explicit";
+    history.replaceState({ _detailEntryImageId: "img-1" }, "");
     const scrollToIndex = vi.fn();
     const virtualizer = { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>;
     const findImageIndex = vi.fn().mockReturnValue(7);
     const flatIndexToRow = vi.fn().mockReturnValue(3);
 
-    // User entered detail on img-1 with explicit focus on img-1.
-    // During detail, navigated prev/next — now wasViewing (imageParam) is
-    // still "img-1" (the one we're returning from), but focusedImageId
-    // reflects the initial entry image, which is different from wasViewing
-    // only when traversal was used. Actually: wasViewing = prevImageParam.current
-    // (the image param at last render), and previousFocus = focusedImageId at
-    // close time. To trigger centering: wasViewing !== previousFocus.
+    // User entered detail on img-1, then navigated to img-2. History state
+    // preserves img-1 as immutable entry identity while imageParam changes.
     const props = makeProps({
       imageParam: "img-2",   // user navigated to img-2 in detail
       focusedImageId: "img-1", // explicit focus is on img-1 (the entry image)
@@ -212,12 +209,87 @@ describe("useReturnFromDetail — explicit mode", () => {
       rerender({ ...props, imageParam: undefined });
     });
 
-    // wasViewing = "img-2", previousFocus = "img-1" → wasViewing !== previousFocus
-    // → scroll centering should fire (via rAF, but jsdom runs rAF synchronously).
+    // Closing img-2 differs from entry img-1, so centering should fire.
     expect(findImageIndex).toHaveBeenCalledWith("img-2");
     // scrollToIndex is inside requestAnimationFrame; jsdom fires rAF synchronously
     // in act(), so we can assert it here.
     expect(scrollToIndex).toHaveBeenCalledWith(3, { align: "center" });
+  });
+
+  it("centers a traversed image when reload restoration changed focus to the closing image", () => {
+    mockFocusMode = "explicit";
+    history.replaceState({ _detailEntryImageId: "img-1" }, "");
+    const scrollToIndex = vi.fn();
+    const virtualizer = { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>;
+    const props = makeProps({
+      imageParam: "img-2",
+      focusedImageId: "img-2",
+      virtualizer,
+      findImageIndex: vi.fn().mockReturnValue(7),
+      flatIndexToRow: vi.fn().mockReturnValue(3),
+    });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+
+    expect(scrollToIndex).toHaveBeenCalledWith(3, { align: "center" });
+  });
+
+  it("preserves native position when reload restoration changed focus without traversal", () => {
+    mockFocusMode = "explicit";
+    history.replaceState({ _detailEntryImageId: "img-1" }, "");
+    const findImageIndex = vi.fn().mockReturnValue(7);
+    const scrollToIndex = vi.fn();
+    const props = makeProps({
+      imageParam: "img-1",
+      focusedImageId: "img-2",
+      findImageIndex,
+      virtualizer: { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>,
+    });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+
+    expect(findImageIndex).not.toHaveBeenCalled();
+    expect(scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("rebases entry identity when forward navigation starts a new detail session", () => {
+    mockFocusMode = "explicit";
+    history.replaceState({ _detailEntryImageId: "img-1" }, "");
+    const findImageIndex = vi.fn().mockReturnValue(7);
+    const scrollToIndex = vi.fn();
+    const props = makeProps({
+      imageParam: undefined,
+      focusedImageId: "img-2",
+      findImageIndex,
+      virtualizer: { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>,
+    });
+
+    const { rerender } = renderHook((p: Props) => useReturnFromDetail(p), {
+      initialProps: props,
+    });
+
+    act(() => {
+      rerender({ ...props, imageParam: "img-2" });
+    });
+    act(() => {
+      rerender({ ...props, imageParam: undefined });
+    });
+
+    expect(findImageIndex).not.toHaveBeenCalled();
+    expect(scrollToIndex).not.toHaveBeenCalled();
+    expect(history.state._detailEntryImageId).toBe("img-2");
   });
 });
 

@@ -12,7 +12,8 @@
  *
  * Scroll position is preserved natively for the *original* image (the
  * container stays fully laid out while hidden via opacity:0, not display:none),
- * so scrolling only happens when the focused image changed during detail view.
+ * so scrolling only happens when the closing image differs from the immutable
+ * detail-entry image recorded in history state.
  */
 
 import { useEffect, useRef } from "react";
@@ -77,6 +78,13 @@ export function useReturnFromDetail({
 }: ReturnFromDetailConfig): void {
   // Track previous image param to detect the closing transition.
   const prevImageParam = useRef(imageParam);
+  const detailEntryImageIdRef = useRef<string | undefined>(
+    // Traversal uses replace navigation, so this immutable entry identity
+    // survives URL image changes and reloads in the current history entry.
+    // Fall back to the current image for old or cold-loaded entries.
+    (history.state as { _detailEntryImageId?: string } | null)?._detailEntryImageId
+      ?? imageParam,
+  );
 
   // Track focusedImageId via ref to avoid re-running the effect when focus
   // changes (we only want to fire on imageParam transitions).
@@ -98,6 +106,14 @@ export function useReturnFromDetail({
     // eventual close.
     if (!wasViewing && imageParam) {
       _suppressReturnFromDetail = false;
+      // This hook remains mounted behind the detail overlay. An absent→present
+      // transition therefore starts a new detail session (including Forward),
+      // unlike a full-page reload where the hook mounts already present.
+      detailEntryImageIdRef.current = imageParam;
+      history.replaceState({
+        ...history.state,
+        _detailEntryImageId: imageParam,
+      }, "");
       return;
     }
 
@@ -139,7 +155,7 @@ export function useReturnFromDetail({
     // the focused row changed — center it in the viewport. "center" not
     // "auto" because the user has never seen this row's position in the
     // list, so placing it in the middle gives equal context above and below.
-    if (wasViewing !== previousFocus) {
+    if (wasViewing !== detailEntryImageIdRef.current) {
       const idx = findImageIndex(wasViewing);
       if (idx >= 0) {
         const rowIdx = flatIndexToRow(idx);

@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Preserve detail traversal centring across reload
+
+  Detail close previously inferred whether the user traversed by comparing the
+  closing image with mutable explicit focus. After traversal crossed a buffer
+  eviction, reload reconstructed the buffer around the URL image and assigned
+  that image to focus; close then misclassified it as the original entry image.
+  Seek mode left the image above the viewport, while two-tier could return to
+  the first page with focus pointing at an unrendered distant image.
+
+  Detail history entries now carry immutable entry-image identity through
+  traversal replacements and reload. Return-from-detail compares the closing
+  image with that identity, while existing focus, restoration, Home suppression
+  and phantom-mode machinery remain unchanged. A fresh review found and fixed
+  stale identity on Forward re-entry, upgraded older synthesised history entries,
+  and strengthened the browser regression to close immediately after detail is
+  visible before checking Forward/reverse traversal centring.
+
+  Unit tests cover traversal, no-traversal reload and Forward rebasing. The
+  focused eviction regression passed, browser history passed 39/39, the full
+  unit suite passed 1162/1162, and habitual E2E passed 236/236 in 4.8m with zero
+  retries after review hardening.
+
   ### 5 September 2026 — Make browser-history readiness generation-driven
 
   Browser-history E2E actions now capture the current search generation before

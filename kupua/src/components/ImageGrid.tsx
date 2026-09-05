@@ -688,6 +688,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       pushNavigate(navigate, {
         to: "/search",
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
+        state: { _detailEntryImageId: imageId },
       });
     },
     [navigate, setFocusedImageId, findImageIndex, getImage, searchParams, bufferOffset, twoTier],

@@ -1148,6 +1148,80 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
 // ===========================================================================
 
 test.describe("Reload survival — position restoration on reload", () => {
+  test("traversal across eviction → reload → close centres the traversed image", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.seekTo(0.5);
+
+    const entryImageId = await kupua.openDetailForNthItem(2);
+    await kupua.detailNextAndWait();
+    const traversedImageId = (await kupua.getDetailImageId())!;
+    expect(traversedImageId).not.toBe(entryImageId);
+
+    await kupua.page.evaluate(async (targetImageId) => {
+      const store = (window as any).__kupua_store__;
+      for (let i = 0; i < 10; i++) {
+        await store.getState().extendForward();
+        if (!store.getState().imagePositions.has(targetImageId)) return;
+      }
+      throw new Error("Traversed target remained in the buffer after forward eviction");
+    }, traversedImageId);
+
+    await reloadSearchAndWait(kupua.page);
+    await expect(
+      kupua.page.locator(`[data-detail-image-id="${traversedImageId}"]`),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await kupua.closeDetailViaButton();
+    const signedCenterDistance = await kupua.page.waitForFunction(
+      (imageId) => {
+        const region = document.querySelector<HTMLElement>(
+          '[role="region"][aria-label="Image results grid"]',
+        );
+        const cell = document.querySelector<HTMLElement>(
+          `[data-grid-cell][data-image-id="${imageId}"]`,
+        );
+        if (!region || !cell) return false;
+        const regionRect = region.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        return (cellRect.top + cellRect.bottom - regionRect.top - regionRect.bottom) / 2;
+      },
+      traversedImageId,
+      { timeout: 10_000 },
+    );
+
+    expect(Math.abs(await signedCenterDistance.jsonValue())).toBeLessThan(50);
+
+    await kupua.page.goForward();
+    await expect(
+      kupua.page.locator(`[data-detail-image-id="${traversedImageId}"]`),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect.poll(
+      () => kupua.page.evaluate(() => history.state?._detailEntryImageId),
+    ).toBe(traversedImageId);
+
+    await kupua.detailPrevAndWait();
+    const reverseTraversedImageId = (await kupua.getDetailImageId())!;
+    await kupua.closeDetailViaButton();
+    const reverseSignedCenterDistance = await kupua.page.waitForFunction(
+      (imageId) => {
+        const region = document.querySelector<HTMLElement>(
+          '[role="region"][aria-label="Image results grid"]',
+        );
+        const cell = document.querySelector<HTMLElement>(
+          `[data-grid-cell][data-image-id="${imageId}"]`,
+        );
+        if (!region || !cell) return false;
+        const regionRect = region.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        return (cellRect.top + cellRect.bottom - regionRect.top - regionRect.bottom) / 2;
+      },
+      reverseTraversedImageId,
+      { timeout: 10_000 },
+    );
+
+    expect(Math.abs(await reverseSignedCenterDistance.jsonValue())).toBeLessThan(50);
+  });
+
   test("reload restores current entry via pagehide snapshot", async ({ kupua }) => {
     // Entry A: default sort. Seek deep and focus an image.
     await kupua.goto();
