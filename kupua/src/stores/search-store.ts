@@ -244,16 +244,6 @@ interface SearchState {
    */
   sortAroundFocusGeneration: number;
   /**
-   * Incremented each time the async offset-correction (deep-seek/buffer-tier
-   * estimate path in `_findAndFocusImage`) lands and rewrites `bufferOffset`/
-   * `imagePositions` (and possibly trims `results` for column alignment).
-   * Effect #9 watches this alongside `sortAroundFocusGeneration` so it can
-   * re-apply the same saved ratio/delta once the corrected position is known
-   * — the initial scroll (fired on the generation bump) used the pre-
-   * correction estimate and may be off by up to one row/column.
-   */
-  _offsetCorrectionGeneration: number;
-  /**
    * True while `_topUpScrollModeBuffer` is walking the buffer back to
    * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
    * centred it elsewhere. Lets scroll effects distinguish this internal,
@@ -1865,7 +1855,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _phantomFocusImageId: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
-  _offsetCorrectionGeneration: 0,
   _bufferSelfCorrecting: false,
 
   newCount: 0,
@@ -2599,7 +2588,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // bufferOffset > 0 breaks that precondition, and trimming to
       // `hits.length % columns === 0` alone still leaves the resulting
       // offset misaligned. Same trim primitive as _loadBufferAroundImage,
-      // seek(), and the async offset-correction — this was the "future
+      // seek(), and atomic sort-around-focus alignment — this was the "future
       // fourth call site" those three's own comments warned about
       // (2026-07-31 wandering M3 follow-up).
       const geo = getScrollGeometry();

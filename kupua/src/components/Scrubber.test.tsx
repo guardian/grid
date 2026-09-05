@@ -86,7 +86,7 @@ function getThumbTop(container: HTMLElement): number | null {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("Scrubber flash guard (seek mode)", () => {
+describe("Scrubber seek-mode position sync", () => {
   const TRACK_HEIGHT = 600;
 
   it("allows thumb to reset to 0 when loading=false (sort change without focus)", async () => {
@@ -106,8 +106,7 @@ describe("Scrubber flash guard (seek mode)", () => {
     expect(deepTop).not.toBeNull();
     expect(deepTop!).toBeGreaterThan(50);
 
-    // Phase 2: sort change without focus — position drops to 0, loading=false.
-    // This is the bug scenario: the flash guard previously blocked this write.
+    // Phase 2: sort change without focus — final position is 0.
     rerender(
       <Scrubber {...seekModeProps({ currentPosition: 0, loading: false })} />,
     );
@@ -115,28 +114,5 @@ describe("Scrubber flash guard (seek mode)", () => {
 
     const resetTop = getThumbTop(container);
     expect(resetTop).toBe(0);
-  });
-
-  it("suppresses thumb jump when loading=true (sort-around-focus transient)", async () => {
-    // Phase 1: deep position.
-    const { rerender, container } = render(
-      <Scrubber {...seekModeProps({ currentPosition: 650_000 })} />,
-    );
-    act(() => fireResizeObserver(TRACK_HEIGHT));
-    await act(async () => {});
-
-    const deepTop = getThumbTop(container);
-    expect(deepTop).not.toBeNull();
-    expect(deepTop!).toBeGreaterThan(50);
-
-    // Phase 2: transient zero while loading — flash guard should suppress.
-    rerender(
-      <Scrubber {...seekModeProps({ currentPosition: 0, loading: true })} />,
-    );
-    await act(async () => {});
-
-    const guardedTop = getThumbTop(container);
-    // Flash guard kicks in: thumb stays at the deep position.
-    expect(guardedTop).toBeGreaterThan(50);
   });
 });

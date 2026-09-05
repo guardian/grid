@@ -731,78 +731,26 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // 9. Sort-around-focus generation — scroll to focused image at new position
   // -------------------------------------------------------------------------
   //
-  // Must stay a useLayoutEffect, not useEffect/rAF. The async offset
-  // correction below can shift the focused cell's rendered position (trim
-  // shortens `results` from the front) with no scrollTop change of its own —
-  // content moves under a stationary viewport. Compensating in the same
-  // pre-paint commit is what makes that invisible; deferring it to a later
-  // frame would trade a silent drift for a visible one-row jump.
+  // Must stay a useLayoutEffect, not useEffect/rAF, so the final aligned
+  // buffer and its preserved placement are applied in the same pre-paint
+  // commit.
 
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  // Legacy correction signal retained for compatibility. New sort-around-focus
-  // landings publish exact coordinates atomically and do not bump it.
-  const offsetCorrectionGeneration = useSearchStore(
-    (s) => s._offsetCorrectionGeneration,
-  );
   // Track which generation was handled by snap-back delta consumption.
-  // When async offset correction re-fires this effect, we must skip the
-  // normal scroll-to-focus to avoid flashing from "center" to "start".
   const snapBackHandledGenRef = useRef(0);
-
-  // Persist the sort-focus ratio across re-fires within the same generation.
-  // In deep-seek mode (>65k) and buffer tier (≤1k) — neither has a position
-  // map — _findAndFocusImage uses a placeholder/estimated offset and corrects
-  // it async via countBefore. The correction bumps offsetCorrectionGeneration
-  // → re-fires this effect. Without the ref, the ratio is already consumed
-  // and the re-fire falls to align:"start", losing the viewport row. With the
-  // ref, the re-fire recomputes scroll from the correct pixel coordinates
-  // using the same ratio.
-  const sortFocusRatioRef = useRef<number | null>(null);
-  const sortFocusRatioGenRef = useRef(0);
-  // Persist the phantom focus image ID across re-fires within the same
-  // generation. _phantomFocusImageId is cleared after the first fire, but
-  // countBefore correction may re-fire this effect. Without persisting the
-  // ID, the re-fire bails (both focusedImageId and _phantomFocusImageId are
-  // null) and the corrected pixel position is never applied.
-  const phantomIdRef = useRef<string | null>(null);
-  // Last offsetCorrectionGeneration this effect has already handled for the
-  // CURRENT sortAroundFocusGeneration. Distinguishes "a real correction just
-  // landed" (re-apply the saved ratio/delta) from "effect re-ran for an
-  // unrelated reason" (no-op). Ordinary buffer extends never bump either
-  // generation counter, so they can't reach this effect at all — no separate
-  // "was this a buffer extend" guard is needed. This holds because the deps
-  // below are generation-only in practice: findImageIndex is frozen with []
-  // deps (useDataWindow.ts) and virtualizer/parentRef are stable identities
-  // from TanStack Virtual/the ref object — if either ever stops being stable,
-  // this effect would re-fire on unrelated renders with only this ref as
-  // protection against a scroll teleport.
-  const handledCorrectionGenRef = useRef(0);
+  // Guard against unrelated rerenders if a dependency identity ever changes.
+  const handledSortFocusGenRef = useRef(0);
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
+    if (handledSortFocusGenRef.current === sortAroundFocusGeneration) return;
     const store = useSearchStore.getState();
-
-    // On a new generation, capture the IDs and ratio. Re-fires for the
-    // same generation reuse the refs.
-    const isNewGen = sortAroundFocusGeneration !== sortFocusRatioGenRef.current;
-    if (isNewGen) {
-      const moduleRatio = consumeSortFocusRatio();
-      sortFocusRatioRef.current = moduleRatio;
-      phantomIdRef.current = store._phantomFocusImageId;
-      sortFocusRatioGenRef.current = sortAroundFocusGeneration;
-      handledCorrectionGenRef.current = offsetCorrectionGeneration; // baseline
-    } else if (handledCorrectionGenRef.current === offsetCorrectionGeneration) {
-      // Same generation, no new correction landed — effect re-ran for an
-      // unrelated reason (or already handled this correction). No-op.
-      return;
-    } else {
-      handledCorrectionGenRef.current = offsetCorrectionGeneration;
-    }
-
-    const id = phantomIdRef.current ?? store.focusedImageId;
+    handledSortFocusGenRef.current = sortAroundFocusGeneration;
+    const savedRatio = consumeSortFocusRatio();
+    const id = store._phantomFocusImageId ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;
@@ -814,7 +762,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     const el = parentRef.current;
     const geo = geometryRef.current;
-    const savedRatio = sortFocusRatioRef.current;
 
     // -------------------------------------------------------------------
     // Arrow snap-back: if there's a pending delta, skip the initial
@@ -867,12 +814,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
 
-    // Record the offsetCorrectionGeneration this scroll was applied against.
-    // A later mismatch (a genuine offset correction landing) is allowed to
-    // re-fire and reapply the ratio/delta; routine extends never touch this
-    // counter, so they can't trigger a scroll teleport back to the focus.
-    handledCorrectionGenRef.current = offsetCorrectionGeneration;
-  }, [sortAroundFocusGeneration, offsetCorrectionGeneration, findImageIndex, virtualizer, parentRef]);
+  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]);
 
   // -------------------------------------------------------------------------
   // 10. Density-focus: mount restore + unmount save

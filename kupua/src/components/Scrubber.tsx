@@ -456,24 +456,13 @@ export function Scrubber({
   // In scroll mode, the continuous sync effect below handles positioning
   // from the actual scroll ratio — skip here to avoid the two fighting.
   //
-  // Flash guard: during sort-around-focus, bufferOffset briefly goes to 0
-  // (estimated placeholder) before async countBefore corrects it. This
-  // makes thumbTop flash to ~0 then back. We detect this pattern (large
-  // drop to near-zero) and suppress the DOM write for one cycle. The
-  // correction arrives within ~100ms and the next effect run writes the
-  // correct position.
-  const prevStableThumbTopRef = useRef(thumbTop);
   const prevThumbResetGenRef = useRef(getThumbResetGeneration());
   useEffect(() => {
     if (isDragging || pendingSeekPosRef.current != null) return;
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
 
-    // Flash guard: if thumb would jump from a deep position to near-zero,
-    // suppress this one write. The async offset correction will arrive
-    // shortly and trigger the correct position.
-    //
-    // EXCEPTION: if resetScrollAndFocusSearch() bumped the thumb-reset
-    // generation, this is a legitimate Home/logo reset. But we can't just
+    // If resetScrollAndFocusSearch() bumped the thumb-reset generation, this
+    // is a legitimate Home/logo reset. But we can't just
     // let the write through — the first render after reset still has a
     // stale deep thumbTop (~518). We must SKIP that stale write (preserving
     // the direct DOM 0px set by resetScrollAndFocusSearch), then ACCEPT
@@ -481,7 +470,6 @@ export function Scrubber({
     const resetGen = getThumbResetGeneration();
     const isHomeReset = resetGen !== prevThumbResetGenRef.current;
 
-    const prevTop = prevStableThumbTopRef.current;
     if (isHomeReset) {
       if (thumbTop < 10) {
         // Fresh data arrived, thumbTop settled at ~0. Consume the
@@ -492,18 +480,8 @@ export function Scrubber({
         // DOM 0px. Don't consume the generation so we keep waiting.
         return;
       }
-    } else if (loading && prevTop > 50 && thumbTop < 10) {
-      // Flash guard for sort-around-focus transients: bufferOffset briefly
-      // drops to 0 (placeholder) while _findAndFocusImage resolves the real
-      // deep offset. During that window loading is still true. When loading
-      // is false the position is final (e.g. sort change without focus that
-      // legitimately lands at the top) — let the write through.
-      // Don't update prevStableThumbTopRef — keep the old reference point
-      // so we can detect when the correction arrives.
-      return;
     }
 
-    prevStableThumbTopRef.current = thumbTop;
     const thumbEl = thumbRef.current;
     if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
     const tipEl = tooltipRef.current;
@@ -511,7 +489,7 @@ export function Scrubber({
       const tipH = tipEl.offsetHeight || 28;
       tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
     }
-  }, [thumbTop, isDragging, trackHeight, isScrollMode, loading]);
+  }, [thumbTop, isDragging, trackHeight, isScrollMode]);
 
   // -------------------------------------------------------------------------
   // Scroll-mode continuous sync

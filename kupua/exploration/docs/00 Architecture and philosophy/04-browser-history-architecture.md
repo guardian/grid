@@ -248,22 +248,16 @@ image's natural column position. Without this, the column was determined by
 `findImageIndex` (`useDataWindow.ts`) reads `imagePositions` imperatively via
 `getState()` and has a stable `useCallback(..., [])` — a deliberate 23 May 2026
 perf fix so ordinary buffer extends never change its reference. Effect #9's
-dependency array is `[sortAroundFocusGeneration, _offsetCorrectionGeneration,
-findImageIndex, virtualizer, parentRef]`, so a plain extend (which changes
-neither generation counter, and never the stable `findImageIndex`) does not
+dependency array is `[sortAroundFocusGeneration, findImageIndex, virtualizer,
+parentRef]`, so a plain extend (which does not change the generation counter,
+and never the stable `findImageIndex`) does not
 re-fire the effect at all — there is nothing to teleport.
 
-The one thing that *should* re-fire the effect after the initial
-sort-around-focus landing is the async offset-correction: `handledCorrectionGenRef`
-tracks `_offsetCorrectionGeneration`, a store counter bumped only inside that
-correction's `set()` call. On re-fire:
-- New `sortAroundFocusGeneration` → fresh sort-around-focus landing (re-apply ratio, baseline the ref).
-- Same generation, counter changed → offset correction landed (re-apply ratio).
-- Same generation, counter unchanged → the effect didn't fire for this reason at all (guard is defensive).
-
-(This replaces an earlier `scrollAppliedResultsRef` results-array-identity
-approach, which broke once the 31 Jul 2026 column-alignment fix made async
-corrections trim `results` too — see `changelog.md`, 20 August 2026 entry.)
+No-position-map sort landings run the cursor-buffer fetch and `countBefore`
+concurrently, align before publication, and bump `sortAroundFocusGeneration`
+in the same atomic store commit as final results and coordinates. Effect #9
+applies that generation once; `handledSortFocusGenRef` defensively ignores any
+same-generation rerender caused by dependency identity changes.
 
 ## Case-specific popstate behaviour
 

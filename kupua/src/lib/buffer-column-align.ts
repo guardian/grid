@@ -12,9 +12,9 @@
  * multiple of `columns` — landing every item at its natural column
  * (`globalIndex % columns`). Used by every site that establishes a fresh,
  * non-zero buffer start: `_loadBufferAroundImage` (sort-around-focus /
- * restoreAroundCursor landing), `seek()`, and the async offset correction
+ * restoreAroundCursor landing), `seek()`, and atomic exact-offset alignment
  * in `_findAndFocusImage`. A single shared implementation means a future
- * fourth call site can't independently forget this — the earlier bug (see
+ * call site can't independently forget this — the earlier bug (see
  * changelog "buffer-tier grid-density column shift") was exactly that: one
  * of these three sites had its own un-aligned inline copy.
  */
@@ -41,7 +41,7 @@ export interface AlignedBufferStart {
  *   means the result is NOT guaranteed aligned when `protectUpTo` is small
  *   — callers relying on this cap being "safe" (i.e. rare enough in
  *   practice to not reintroduce misalignment) must justify why at the call
- *   site (e.g. `_findAndFocusImage`'s async correction: `protectUpTo` only
+ *   site (e.g. `_findAndFocusImage`'s exact-offset alignment: `protectUpTo` only
  *   binds when the anchor's own local index is smaller than `columns`,
  *   which means the backward page ran out near the absolute start of the
  *   result set — `rawOffset` is then already at or near 0, so already

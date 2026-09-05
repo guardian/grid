@@ -14,6 +14,28 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Remove superseded offset-correction generation protocol
+
+  **Why dead.** `_offsetCorrectionGeneration` was introduced to re-run the
+  sort-placement layout effect after an estimated buffer had already painted and
+  an asynchronous `countBefore` correction changed its coordinates. F12's atomic
+  publication follow-up removed that second commit: exact counting and buffer
+  fetch now run concurrently, alignment happens before publication, and
+  `sortAroundFocusGeneration` arrives with final geometry. The correction counter
+  therefore had no producer and remained permanently zero.
+
+  **Cleanup.** Removed the store field/initializer, Effect #9's correction
+  subscription and cross-correction refs/branches, unused Playwright getter and
+  wait helpers, vacuous counter setup/assertions, and the obsolete Scrubber guard
+  that hid placeholder thumb jumps. Effect #9 now applies each atomic sort
+  generation once; its placement-ratio, phantom-anchor and snap-back behavior are
+  unchanged. Updated source comments, current architecture/test-contract docs and
+  the archived review's status while preserving historical narratives.
+
+  Validation: focused unit/integration 86/86, focused browser 5/5, full unit
+  1152/1152 (two obsolete protocol tests deliberately removed), full e2e
+  249/249.
+
 ### 5 September 2026 — Selection anchor outranks suppressed focus during sort (F12)
 
 **Bugs.** With explicit focus on image A and active selection anchored on image

@@ -1,5 +1,10 @@
 # Review: `_offsetCorrectionGeneration` (Fix A) + opinion on Fix B
 
+> **Superseded 2026-09-05.** This document accurately records the former
+> estimate-then-correct protocol and its review. Sort-around-focus now obtains
+> exact coordinates before one atomic publication, so the generation signal
+> and its helper/test machinery were removed. Retained for historical context.
+
 **Date:** 2026-08-20
 **Reviewer:** fresh agent (review-only; no code changed by this review)
 **Subject:** the uncommitted working-tree change fixing "focused cell climbs one

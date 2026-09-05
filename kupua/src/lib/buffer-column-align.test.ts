@@ -40,7 +40,7 @@ describe("alignBufferStart", () => {
   });
 
   it("reproduces the exact live-repro numbers (columns=4, rawOffset=823)", () => {
-    // Matches the instrumented live trace: async offset correction landed
+    // Matches the historical instrumented trace: offset correction landed
     // bufferOffset=823 (823 % 4 === 3), which then stayed misaligned through
     // the entire scroll-mode top-up (823→623→423→223→23→3→0), all ≡3 mod 4.
     const result = alignBufferStart(823, 100, 4);

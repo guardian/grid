@@ -87,7 +87,6 @@ beforeEach(() => {
     focusedImageId: null,
     sortAroundFocusStatus: null,
     sortAroundFocusGeneration: 0,
-    _offsetCorrectionGeneration: 0,
     _extendForwardInFlight: false,
     _extendBackwardInFlight: false,
     _lastPrependCount: 0,
@@ -506,7 +505,6 @@ describe("sort-around-focus atomic publication", () => {
     }) as typeof originalCountBefore;
 
     actions().setFocusedImageId("img-300");
-    const genBefore = state()._offsetCorrectionGeneration;
     void actions().search("img-300");
 
     await countBeforeStarted;
@@ -517,26 +515,8 @@ describe("sort-around-focus atomic publication", () => {
     await waitFor(() => state().sortAroundFocusStatus === null, 5000, "focus found");
 
     expect(state().results).not.toBe(oldResults);
-    expect(state()._offsetCorrectionGeneration).toBe(genBefore);
     expect(state().bufferOffset % 4).toBe(0);
     expect(state().imagePositions.get("img-300")).toBe(300);
-  });
-
-  it("does NOT bump on an ordinary extendForward/extendBackward", async () => {
-    await actions().search();
-    await actions().seek(5000);
-    await waitPastCooldown();
-    const genBefore = state()._offsetCorrectionGeneration;
-
-    await actions().extendForward();
-    await flush();
-    await actions().extendBackward();
-    await flush();
-
-    // Guards against reintroducing the "re-fires on every extend" perf
-    // regression the 23 May 2026 fix eliminated — this counter must only
-    // move for a genuine async offset correction, never for routine extends.
-    expect(state()._offsetCorrectionGeneration).toBe(genBefore);
   });
 });
 
@@ -1108,7 +1088,7 @@ describe("extendBackward column-trim guard (audit #9)", () => {
 // when the fetch happened to reach exactly to the buffer's true start.
 //
 // Fix: reuse the same `alignBufferStart` primitive already shared by
-// `_loadBufferAroundImage`, `seek()`, and the async offset-correction —
+// `_loadBufferAroundImage`, `seek()`, and atomic sort-around-focus alignment —
 // this was the "future fourth call site" those three's own comments warned
 // about. Aligns to `bufferOffset - fetchedCount`, not just `fetchedCount`,
 // so the result is provably a multiple of the CURRENT columns regardless of
@@ -1281,23 +1261,17 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Async offset correction — column alignment (buffer-tier sort-around-focus)
+// Atomic sort-around-focus — column alignment (buffer tier)
 // ---------------------------------------------------------------------------
 
-describe("async offset correction — column alignment (buffer tier)", () => {
+describe("atomic sort-around-focus — column alignment (buffer tier)", () => {
   afterEach(() => {
     registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
   });
 
-  // Buffer tier (total <= SCROLL_MODE_THRESHOLD) never has a position map,
-  // so _findAndFocusImage always takes the offsetIsEstimate branch: an
-  // initial (wrong) hint-based landing, corrected asynchronously via
-  // countBefore. That correction sets bufferOffset directly with no
-  // column-alignment trim — unlike _loadBufferAroundImage's own initial
-  // landing and seek(), which both already align. The misalignment then
-  // persists through the entire scroll-mode top-up (_topUpScrollModeBuffer)
-  // that follows, since every extendBackward step can only change
-  // bufferOffset by a multiple of columns. Sweeping several adjacent target
+  // Buffer tier (total <= SCROLL_MODE_THRESHOLD) never has a position map.
+  // Exact count and cursor-buffer fetch now run concurrently and align before
+  // the single publication. Sweeping several adjacent target
   // IDs (rather than one) is deliberate — whether the bug is hit depends on
   // `exactOffset - targetLocalIndex` landing on a non-multiple of columns,
   // which is a property of the target's position, not of any one magic ID.

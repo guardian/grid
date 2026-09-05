@@ -1035,39 +1035,6 @@ export class KupuaHelpers {
     );
   }
 
-  /**
-   * Read `_offsetCorrectionGeneration` directly — not part of
-   * `getStoreState()`'s curated snapshot. Pair with `waitForOffsetCorrection`.
-   */
-  async getOffsetCorrectionGeneration(): Promise<number> {
-    return this.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      return store?.getState()._offsetCorrectionGeneration ?? 0;
-    });
-  }
-
-  /**
-   * Wait for the async offset-correction (deep-seek/buffer-tier estimate
-   * path) to land, by polling `_offsetCorrectionGeneration` for a change
-   * from `previousGen`. `waitForSortAroundFocus` alone is NOT sufficient for
-   * this — `sortAroundFocusStatus` clears at the initial, pre-correction
-   * landing, before `countBefore` has even been called. Callers that need
-   * the corrected bufferOffset/imagePositions (not just the estimate) must
-   * capture the generation via `getOffsetCorrectionGeneration()` beforehand
-   * and wait on it here.
-   */
-  async waitForOffsetCorrection(previousGen: number, timeout = 15_000) {
-    await this.page.waitForFunction(
-      (prev) => {
-        const store = (window as any).__kupua_store__;
-        if (!store) return false;
-        return store.getState()._offsetCorrectionGeneration > prev;
-      },
-      previousGen,
-      { timeout },
-    );
-  }
-
   // -------------------------------------------------------------------------
   // Console log capture — for telemetry assertions
   // -------------------------------------------------------------------------

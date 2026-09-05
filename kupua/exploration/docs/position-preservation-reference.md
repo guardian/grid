@@ -28,7 +28,7 @@
 | search-store.ts:1642 | `const { focusedImageId, params } = get()` (seekToFocused) | A | — |
 | search-store.ts:1643 | `if (!focusedImageId) { set({ _pendingFocusDelta: null }); return; }` | D | Phantom scroll would trigger seekToFocused for arrow snap-back |
 | search-store.ts:1654 | `await _findAndFocusImage(focusedImageId, ...)` | A | — |
-| search-store.ts:1513 | `const currentFocus = get().focusedImageId` (async offset correction) | A | — |
+| ~~search-store.ts:1513~~ | ~~`const currentFocus = get().focusedImageId` (async offset correction)~~ — removed 5 Sep 2026 with atomic sort publication | A | — |
 | search-store.ts:661 | `function _captureNeighbours(focusedImageId, ...)` | A | — |
 | search-store.ts:667 | `const globalIdx = imagePositions.get(focusedImageId)` | A | — |
 | useDataWindow.ts:316 | `useSearchStore((s) => s.focusedImageId)` | D | Zustand subscriber — re-renders on every change |

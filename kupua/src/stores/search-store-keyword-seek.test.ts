@@ -45,7 +45,6 @@ function resetStore(ds: MockDataSource) {
     sortAroundFocusStatus: null,
     sortAroundFocusGeneration: 0,
     sortDistribution: null,
-    _offsetCorrectionGeneration: 0,
     _extendForwardInFlight: false,
     _extendBackwardInFlight: false,
     _lastPrependCount: 0,
