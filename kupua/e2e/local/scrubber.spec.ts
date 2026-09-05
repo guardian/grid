@@ -2743,20 +2743,10 @@ test.describe("Scroll mode — buffer fill", () => {
   });
 
   // ---------------------------------------------------------------------
-  // Regression: repeated sort toggles silently drift the focused cell by
-  // a row. Root cause: _findAndFocusImage's async countBefore
-  // offset-correction (the estimate-then-correct path, taken whenever no
-  // position map exists — buffer tier AND deep-seek, not just deep-seek
-  // despite the code's own comment) can trim `results` for column
-  // alignment. That trim shifts the focused cell's rendered local index
-  // with no scrollTop compensation, because Effect #9 (useScrollEffects.ts)
-  // never re-fired for it. Whether a given toggle needs a trim (and thus
-  // shows the drift) is deterministic per (focused image, sort pair,
-  // column count) — not random per attempt — so this sweeps several
-  // distinct focus points rather than repeating one, mirroring the
-  // it.each pattern in buffer-column-align.test.ts. See
-  // exploration/docs/changelog.md and worklog-current.md for the full
-  // investigation.
+  // Regression: repeated sort toggles must preserve the focused cell's row.
+  // The exact count and buffer fetch now run concurrently and publish one
+  // final aligned buffer, so there is no post-publication correction to wait
+  // for. Sweep targets that exercise different column alignments.
   // ---------------------------------------------------------------------
   // Indices 5 and 9 are known (empirically, on this seed corpus) to hit a
   // non-column-aligned correction offset; 2 is a control that doesn't — kept
@@ -2783,15 +2773,8 @@ test.describe("Scroll mode — buffer fill", () => {
       // Toggle direction, then back — the focused cell must return to
       // (approximately) the same row on each leg, not drift by a row.
       for (let leg = 0; leg < 2; leg++) {
-        const genBefore = await kupua.getOffsetCorrectionGeneration();
         await kupua.toggleSortDirection();
         await kupua.waitForSortAroundFocus(15_000);
-        // sortAroundFocusStatus clears at the initial estimate-based landing,
-        // before the async offset correction (the actual mechanism under
-        // test) has even fired — wait for the correction explicitly. Buffer
-        // tier always takes the estimate path (no position map), so this is
-        // expected to land on every leg here, not a maybe.
-        await kupua.waitForOffsetCorrection(genBefore, 15_000);
         await kupua.page.evaluate(() => new Promise<void>((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
         }));

@@ -295,6 +295,10 @@ export function useUrlSearchSync() {
       }
     } else {
       const explicitFocus = useSearchStore.getState().focusedImageId;
+      const { anchorId: selectionAnchorId, selectedIds } = useSelectionStore.getState();
+      const activeSelectionAnchor = isSortOnly && selectedIds.size > 0
+        ? selectionAnchorId
+        : null;
       // Sort-only relaxation: in phantom mode, sort changes reset to top
       // even if focusedImageId is set (e.g. after return-from-detail).
       // In explicit mode, focusedImageId always takes priority.
@@ -306,17 +310,18 @@ export function useUrlSearchSync() {
       // Only preserve position when there's a real explicit focus.
       const aiJustRemoved = !!prev.aiQuery && !searchOnly.aiQuery;
 
-      phantomAnchor = explicitFocus ? null : (isSortOnly || aiJustRemoved ? null : getViewportAnchorId());
-      focusPreserveId = (isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor);
+      phantomAnchor = activeSelectionAnchor
+        ?? (explicitFocus ? null : (isSortOnly || aiJustRemoved ? null : getViewportAnchorId()));
+      focusPreserveId = activeSelectionAnchor
+        ?? ((isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor));
 
       // Selection anchor fallback: when in selection mode with no explicit
       // focus, treat the selection anchor as a phantom position-preservation
       // target so sort changes don't reset to top.
       if (!focusPreserveId && isSortOnly) {
-        const { anchorId, selectedIds } = useSelectionStore.getState();
-        if (selectedIds.size > 0 && anchorId) {
-          focusPreserveId = anchorId;
-          phantomAnchor = anchorId;
+        if (selectedIds.size > 0 && selectionAnchorId) {
+          focusPreserveId = selectionAnchorId;
+          phantomAnchor = selectionAnchorId;
         }
       }
     }
@@ -349,7 +354,7 @@ export function useUrlSearchSync() {
     const searchOptions = phantomAnchor && snapshotHints
       ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
       : phantomAnchor
-        ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined } as const
+        ? { phantomOnly: true, retainExplicitFocus: !!focusPreserveId && focusPreserveId !== useSearchStore.getState().focusedImageId, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined } as const
         : snapshotHints
           ? { snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
           : frozenUntil || isSortOnly

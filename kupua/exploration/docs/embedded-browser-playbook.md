@@ -645,6 +645,16 @@ shown inline. Compute unique values / transition points / bucket sums inside
 the same evaluate (or immediately after, in the outer script) and return only
 that.
 
+**[V] Use one in-page `requestAnimationFrame` recorder to prove whether an
+operation paints more than pre/post state.** Arm the recorder and return its
+promise before triggering the real DOM interaction from the outer Playwright
+script. On each frame, capture visible stable IDs plus signed geometry,
+`scrollTop`, buffer offset, loading/status and generation counters; collapse
+consecutive identical signatures into runs before returning. This distinguished
+a genuinely painted intermediate seek-sort buffer (~70 ms) from mere internal
+store churn. Summarize or redact live IDs before writing findings or docs; they
+are identity witnesses for the in-memory probe only.
+
 **[V] `page.setViewportSize({ width, height })` works directly for resize
 testing (M3) — no special handling needed.** Confirmed against the live TEST
 app: resizing mid-fetch (immediately after firing `store.seek()` or a large
@@ -681,6 +691,27 @@ via `replaceState`, not a `pushState` per arrow step). On return, the grid
 correctly focused and scrolled to the last-viewed image (not the entry image)
 in both tiers — this resolves the cookbook's M4 "open question" for these two
 cases: you land on the last-viewed image.
+
+**[V] Phase 2.5 targeted observations (2026-09-05): use actual scroll-parent
+rectangles for usable-centre measurements.** The table element's own ARIA grid
+rectangle covered its full virtual content and reported a nonsensical
+five-figure "viewport" height. Its nearest `.overflow-y-auto` ancestor was the
+real 803 px scroll viewport. Measure centre/visibility against that ancestor,
+then exclude the sticky header using live DOM rectangles. In one partial-row
+case, the app's rounded rendered-range midpoint anchor was 42 px from usable
+centre while the adjacent row was 10 px away. This is a real one-row policy
+difference, not measurement noise.
+
+**[V] Reload-detail-close preserves exact placement without traversal; stable
+identity is mandatory when proving it.** A first probe falsely reported that an
+image moved from 140 px above centre to centre because, after scrolling, it
+reopened `.nth(5)` from the current virtualized cells rather than the image whose
+pre-action geometry had been measured. A clean reproduction retained the
+target by stable image identity: the same fully visible image was exactly 140 px
+above usable centre both before detail and after reload + Back to search. Never
+carry an ordinal locator across virtualizer movement. Record only signed
+geometry and booleans in notes; never copy live image IDs or metadata from
+browser output into repository files.
 
 **[!] Pinned TEST corpus totals drift over time even with `until=...` pinning
 — reverify before trusting a documented total, don't assume `AGENTS.md`/the

@@ -625,7 +625,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // restoration by effect #9 after the buffer swap.
     const selState = useSelectionStore.getState();
     const selectionAnchorId = sortOnly && selState.selectedIds.size > 0 ? selState.anchorId : null;
-    const preserveId = focusedImageId ?? selectionAnchorId ?? (!sortOnly ? getViewportAnchorId() : null);
+    const preserveId = selectionAnchorId ?? focusedImageId ?? (!sortOnly ? getViewportAnchorId() : null);
     if (preserveId) {
       const store = useSearchStore.getState();
       const gIdx = store.imagePositions.get(preserveId);
@@ -741,10 +741,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const sortAroundFocusGeneration = useSearchStore(
     (s) => s.sortAroundFocusGeneration,
   );
-  // Bumped when the async offset-correction (deep-seek/buffer-tier estimate
-  // path) lands, after the fact, with the corrected bufferOffset/imagePositions
-  // (and possibly a trimmed `results`). This is the precise signal for "the
-  // initial scroll below used an estimate, please redo it" — see search-store.ts.
+  // Legacy correction signal retained for compatibility. New sort-around-focus
+  // landings publish exact coordinates atomically and do not bump it.
   const offsetCorrectionGeneration = useSearchStore(
     (s) => s._offsetCorrectionGeneration,
   );
@@ -804,7 +802,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       handledCorrectionGenRef.current = offsetCorrectionGeneration;
     }
 
-    const id = store.focusedImageId ?? phantomIdRef.current;
+    const id = phantomIdRef.current ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;

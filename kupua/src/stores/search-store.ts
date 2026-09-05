@@ -432,7 +432,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -1386,6 +1386,9 @@ async function _findAndFocusImage(
    *  focusedImageId. Uses the seek scroll mechanism instead of
    *  sortAroundFocusGeneration. Used by phantom focus promotion. */
   phantomOnly?: boolean,
+  /** Keep an existing explicit focus while phantom-positioning around a
+   *  higher-priority selection anchor. */
+  retainExplicitFocus?: boolean,
   /** Abort signal for the find-focus work (Steps 1-2). Passed by the caller
    *  rather than read from module scope, so concurrent search() calls don't
    *  grab each other's controllers. */
@@ -1485,7 +1488,7 @@ async function _findAndFocusImage(
                   // Recurse: find-and-focus the surviving neighbour.
                   // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
                   clearTimeout(timeoutId);
-                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, findFocusSignalOverride);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride);
                   return;
                 }
               }
@@ -1540,15 +1543,9 @@ async function _findAndFocusImage(
     // A. Position map available → O(n) scan (~<1ms for 65k strings).
     // B. Position map miss → synchronous countBefore (stale map edge case).
     // C. No position map (deep-seek >65k, OR buffer tier ≤1k — neither ever
-    //    has one) → SKIP countBefore entirely. Use offset=0/hint as a
-    //    placeholder, load the buffer immediately (Step 3), then correct
-    //    bufferOffset asynchronously when countBefore resolves. This
-    //    eliminates the 2-5s bottleneck for true deep-seek (buffer tier's own
-    //    countBefore would be cheap, ~5-10ms, but shares this path anyway —
-    //    see _offsetCorrectionGeneration in useScrollEffects.ts for why that's
-    //    safe). The buffer data is correct throughout (uses sort-value
-    //    cursors, not offsets); only the scrubber thumb and position counter
-    //    are temporarily wrong until the correction lands.
+    //    has one) → use offset=0/hint to start the cursor-based buffer fetch,
+    //    run countBefore concurrently, then publish once with exact aligned
+    //    coordinates. The old buffer remains visible while both requests run.
     if (combinedSignal.aborted) return;
     let offset: number;
     let offsetIsEstimate = false;
@@ -1613,11 +1610,9 @@ async function _findAndFocusImage(
         `countBefore=${offset}`,
       );
     } else {
-      // No position map — either true deep-seek (>65k, countBefore would take
-      // 2-5s) or buffer tier (≤1k, countBefore would be cheap, but this
-      // branch doesn't special-case it — see the Step 2 comment above). Use
-      // hintOffset if available (e.g. saved from when the user focused the
-      // image), otherwise 0 as placeholder. Correct asynchronously.
+      // No position map — either true deep-seek (>65k) or buffer tier (≤1k).
+      // Use the hint (or 0) only to start the independent cursor-based fetch;
+      // exact coordinates are resolved concurrently before publication.
       // NOTE: effectiveHint is null when fallbackFirstPage is provided (query
       // changed) — stale hints from a different query are dangerous regardless
       // of tier (they may exceed the new total).
@@ -1653,10 +1648,10 @@ async function _findAndFocusImage(
         trace("sort-around-focus", "t_settled");
         const suppressPulse = get()._isInitialLoad;
         set({
-          // Phantom invariant: never leave focusedImageId set. See search()
-          // header comment for rationale.
-          focusedImageId: null,
-          _focusedImageKnownOffset: null,
+          ...(!retainExplicitFocus && {
+            focusedImageId: null,
+            _focusedImageKnownOffset: null,
+          }),
           _phantomFocusImageId: imageId,
           ...(!suppressPulse && { _phantomPulseImageId: imageId }),
           _isInitialLoad: false,
@@ -1687,6 +1682,21 @@ async function _findAndFocusImage(
       trace("sort-around-focus", "t_seeking");
       set({ sortAroundFocusStatus: "Seeking…" });
 
+      // The buffer fetch uses sort-value cursors, so it does not depend on the
+      // exact numeric offset. Start countBefore in parallel and apply its
+      // result before publishing: the old buffer remains visible until the
+      // new buffer has final coordinates, avoiding an estimate-then-correct
+      // third visual state.
+      const exactOffsetPromise = offsetIsEstimate
+        ? dataSource.countBefore(fp, imageSortValues, combinedSignal)
+            .catch((e) => {
+              if (!(e instanceof DOMException && e.name === "AbortError")) {
+                console.warn("[sort-around-focus] exact offset lookup failed:", e);
+              }
+              return null;
+            })
+        : null;
+
       // Abort any in-flight extends/scroll-seeks from the previous search
       // and create a fresh controller for post-focus extends. We use
       // combinedSignal (from _findFocusAbortController) for the actual
@@ -1700,6 +1710,30 @@ async function _findAndFocusImage(
         get().pitId, combinedSignal, dataSource,
       );
       if (!buf) return; // aborted
+
+      const exactOffset = await exactOffsetPromise;
+      if (combinedSignal.aborted) return;
+
+      let finalResults = buf.combinedHits;
+      let finalBufferOffset = buf.bufferStart;
+      let finalStartCursor = buf.startCursor;
+      if (exactOffset != null) {
+        const rawCorrectedOffset = Math.max(0, exactOffset - buf.targetLocalIndex);
+        const { columns } = getScrollGeometry();
+        const { alignedOffset, trimCount } = alignBufferStart(
+          rawCorrectedOffset,
+          finalResults.length,
+          columns,
+          buf.targetLocalIndex,
+        );
+        finalBufferOffset = alignedOffset;
+        if (trimCount > 0) {
+          finalResults = finalResults.slice(trimCount);
+          if (finalResults[0]) {
+            finalStartCursor = extractSortValues(finalResults[0], fp.orderBy) ?? finalStartCursor;
+          }
+        }
+      }
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
@@ -1729,14 +1763,14 @@ async function _findAndFocusImage(
       // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({
-        results: buf.combinedHits,
-        bufferOffset: buf.bufferStart,
+        results: finalResults,
+        bufferOffset: finalBufferOffset,
         // fallbackFirstPage.total is result.total from the initial search().
         // get().total is a safe fallback (e.g. recursive neighbour-focus call).
         total: fallbackFirstPage?.total ?? get().total,
         loading: false,
-        imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
-        startCursor: buf.startCursor,
+        imagePositions: buildPositions(finalResults, finalBufferOffset),
+        startCursor: finalStartCursor,
         endCursor: buf.endCursor,
         pitId: buf.pitId,
         _extendForwardInFlight: false,
@@ -1745,9 +1779,10 @@ async function _findAndFocusImage(
         ...(phantomOnly
           ? {
               // Phantom: scroll to image via Effect #9, no focus ring.
-              // Phantom invariant: never leave focusedImageId set.
-              focusedImageId: null,
-              _focusedImageKnownOffset: null,
+              ...(!retainExplicitFocus && {
+                focusedImageId: null,
+                _focusedImageKnownOffset: null,
+              }),
               _phantomFocusImageId: imageId,
               ...(!get()._isInitialLoad && { _phantomPulseImageId: imageId }),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
@@ -1755,7 +1790,7 @@ async function _findAndFocusImage(
           : {
               // Explicit: set focus + bump generation for scroll effect #9
               focusedImageId: imageId,
-              _focusedImageKnownOffset: buf.bufferStart + buf.targetLocalIndex,
+              _focusedImageKnownOffset: exactOffset ?? (finalBufferOffset + buf.targetLocalIndex),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
             }),
       });
@@ -1765,98 +1800,7 @@ async function _findAndFocusImage(
       }
       set({ _isInitialLoad: false });
 
-      // Async offset correction: if we used an estimated offset, fire
-      // countBefore in the background and correct bufferOffset +
-      // imagePositions when it resolves. Uses the same combinedSignal
-      // so it's cancelled if a new search starts.
-      if (offsetIsEstimate) {
-        dataSource.countBefore(fp, imageSortValues, combinedSignal)
-          .then((exactOffset) => {
-            if (combinedSignal.aborted) return;
-            const state = get();
-            // Only correct if the buffer still belongs to this focus operation.
-            // Check buffer reference (not focusedImageId — delta consumption
-            // in the scroll effect may have changed focus to an adjacent image
-            // within the same buffer, and the correction is still valid).
-            if (state.results !== buf.combinedHits) return;
-            const rawCorrectedOffset = Math.max(
-              0, exactOffset - buf.targetLocalIndex,
-            );
-            // Column-align — same trim logic as _loadBufferAroundImage/seek().
-            // Without this, an unaligned bufferOffset here poisons every
-            // subsequent extendBackward() call in the scroll-mode top-up
-            // that follows (below), surfacing as a visible column shift once
-            // the buffer finishes topping up. Never trim past the focused
-            // image's own local index (buf.targetLocalIndex) — the item
-            // being positioned around must never be discarded.
-            const { columns } = getScrollGeometry();
-            const { alignedOffset: correctedOffset, trimCount } = alignBufferStart(
-              rawCorrectedOffset, state.results.length, columns, buf.targetLocalIndex,
-            );
-            const correctedResults = trimCount > 0
-              ? state.results.slice(trimCount)
-              : state.results;
-            // Trimming discards the current first item(s) — startCursor must
-            // be recomputed from the new first item, or subsequent
-            // extendBackward() calls re-fetch and discard the same already-
-            // buffered items forever (bufferOffset gets stuck just above 0).
-            // Falls back to the stale cursor (not null) on any failure to
-            // extract — extendBackward treats a null cursor as a permanent
-            // block (search-store.ts's own BLOCKED check), which would be
-            // strictly worse than the stale-cursor re-fetch/discard cycle
-            // this block exists to avoid.
-            if (trimCount > 0 && !correctedResults[0]) {
-              devLog(
-                `[sort-around-focus] offset correction: new first slot is a placeholder (sparse buffer) — startCursor left unchanged`,
-              );
-            }
-            const newStartCursor = trimCount > 0 && correctedResults[0]
-              ? extractSortValues(correctedResults[0], fp.orderBy) ?? state.startCursor
-              : state.startCursor;
-            devLog(
-              `[sort-around-focus] offset corrected: ${buf.bufferStart} → ${correctedOffset} (countBefore=${exactOffset}${trimCount > 0 ? `, trimmed ${trimCount} for column alignment` : ""})`,
-            );
-            set({
-              results: correctedResults,
-              startCursor: newStartCursor,
-              bufferOffset: correctedOffset,
-              imagePositions: buildPositions(correctedResults, correctedOffset),
-              // Tells Effect #9 to re-apply its saved ratio/delta against the
-              // now-corrected position — the initial scroll used the estimate.
-              // Bumped unconditionally, even when trimCount === 0 above (no
-              // visible shift to correct) — bufferOffset itself still moved,
-              // and the re-fire is a cheap no-op recompute, not worth gating.
-              _offsetCorrectionGeneration: get()._offsetCorrectionGeneration + 1,
-            });
-            // Also update _focusedImageKnownOffset for whichever image is
-            // currently focused (may have changed via delta consumption).
-            const currentFocus = get().focusedImageId;
-            if (currentFocus) {
-              const correctedGlobalIdx = get().imagePositions.get(currentFocus);
-              if (correctedGlobalIdx != null) {
-                set({ _focusedImageKnownOffset: correctedGlobalIdx });
-              }
-            }
-            // Scroll-mode top-up: bufferOffset is now final. Must NOT fire
-            // before this correction lands — extendForward()'s first
-            // successful call replaces `results`, which would trip the
-            // staleness guard above and permanently disable the correction,
-            // leaving bufferOffset stuck at the (usually 0) estimate.
-            void _topUpScrollModeBuffer(get);
-          })
-          .catch((e) => {
-            if (e instanceof DOMException && e.name === "AbortError") return;
-            console.warn("[sort-around-focus] async offset correction failed:", e);
-            // Non-fatal — buffer data is correct, only scrubber position is
-            // off. Still top up for small result sets; the estimated offset
-            // is no worse than it was before this fix existed.
-            void _topUpScrollModeBuffer(get);
-          });
-      } else {
-        // Offset was exact (position-map hit or synchronous countBefore) —
-        // nothing else will touch bufferOffset, safe to top up immediately.
-        void _topUpScrollModeBuffer(get);
-      }
+      void _topUpScrollModeBuffer(get);
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
@@ -2008,7 +1952,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean }) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean }) => {
     trace("search", "t_0");
     // Bump generation so any in-flight stale search bails out after its
     // next await. Captured locally — after every await below, if the
@@ -2057,7 +2001,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // and would clobber the phantom snapshot with the leaked focus on
     // the next departure-capture. See
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
 
     // Abort all in-flight extends from the previous search and set a
     // cooldown. The cooldown prevents extends triggered by scroll-reset
@@ -2310,7 +2254,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, findFocusSignal)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal)
           .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
@@ -2361,7 +2305,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
-          focusedImageId: (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
+          focusedImageId: options?.retainExplicitFocus
+            ? get().focusedImageId
+            : (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
           tickerCounts: tickersResult?.tickerCounts ?? null,

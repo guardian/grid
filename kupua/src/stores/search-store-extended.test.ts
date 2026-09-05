@@ -474,49 +474,52 @@ describe("sort-around-focus — different sorts", () => {
 });
 
 // ---------------------------------------------------------------------------
-// _offsetCorrectionGeneration — signals the scroll effect that the async
-// countBefore offset-correction landed, so it can re-apply the persisted
-// viewport ratio. Without this, a column-alignment trim during the
-// correction silently shifts the rendered focused cell by a row with no
-// scrollTop compensation (see changelog / worklog-current.md).
+// Sort-around-focus atomic publication — estimated offsets must never expose
+// a provisional result buffer before countBefore supplies final coordinates.
 // ---------------------------------------------------------------------------
 
-describe("_offsetCorrectionGeneration — async offset correction signal", () => {
+describe("sort-around-focus atomic publication", () => {
   afterEach(() => {
     registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
   });
 
-  it("bumps when the async correction lands (whether or not it needs a trim)", async () => {
+  it("keeps the old buffer visible until the exact aligned offset is ready", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
-    // Non-1 columns so a column-misalignment regression would be observable.
     registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
 
     await actions().search();
+    const oldResults = state().results;
+    const originalCountBefore = mock.countBefore.bind(mock);
+    let resolveCountBefore: (() => void) | undefined;
+    let markCountBeforeStarted: (() => void) | undefined;
+    const countBeforeGate = new Promise<void>((resolve) => {
+      resolveCountBefore = resolve;
+    });
+    const countBeforeStarted = new Promise<void>((resolve) => {
+      markCountBeforeStarted = resolve;
+    });
+    mock.countBefore = (async (...args: Parameters<typeof originalCountBefore>) => {
+      markCountBeforeStarted!();
+      await countBeforeGate;
+      return originalCountBefore(...args);
+    }) as typeof originalCountBefore;
+
     actions().setFocusedImageId("img-300");
     const genBefore = state()._offsetCorrectionGeneration;
+    void actions().search("img-300");
 
-    await actions().search("img-300");
+    await countBeforeStarted;
+    expect(state().results).toBe(oldResults);
+    expect(state().loading).toBe(true);
+
+    resolveCountBefore!();
     await waitFor(() => state().sortAroundFocusStatus === null, 5000, "focus found");
-    // The correction is async (fires after the initial estimate-based
-    // landing) — wait for it to actually land rather than trusting the
-    // status flag alone (it clears before the correction resolves).
-    await waitFor(
-      () => state()._offsetCorrectionGeneration > genBefore,
-      5000,
-      "offset correction lands",
-    );
 
-    // The bump is unconditional — it fires whether or not this particular
-    // correction needed a column-alignment trim (see search-store.ts).
-    // Whether a trim happens is a property of the specific target/columns
-    // numbers (not guaranteed for img-300/columns=4 — verified empirically,
-    // it doesn't trim here), not something this test controls. The trim
-    // mechanism itself is covered by buffer-column-align.test.ts
-    // (alignBufferStart) and the e2e sweep in scrubber.spec.ts (real trims
-    // observed at focus indices 5 and 9 on the local seed corpus).
-    expect(state()._offsetCorrectionGeneration).toBeGreaterThan(genBefore);
+    expect(state().results).not.toBe(oldResults);
+    expect(state()._offsetCorrectionGeneration).toBe(genBefore);
     expect(state().bufferOffset % 4).toBe(0);
+    expect(state().imagePositions.get("img-300")).toBe(300);
   });
 
   it("does NOT bump on an ordinary extendForward/extendBackward", async () => {

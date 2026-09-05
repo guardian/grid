@@ -14,6 +14,35 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 5 September 2026 — Selection anchor outranks suppressed focus during sort (F12)
+
+**Bugs.** With explicit focus on image A and active selection anchored on image
+B, a sort preserved A's viewport position. URL identity election, pre-sort
+placement capture, and final scroll-target resolution all preferred the older
+focus, even though selection mode suppressed its presentation. After correcting
+that precedence, live frame sampling exposed a second violation: buffer and seek
+tiers painted an estimated post-sort buffer, then replaced it with a corrected
+post-sort buffer. Users therefore saw pre, provisional and final states. The
+two-tier path was already atomic because its position map supplied exact
+coordinates before publication.
+
+**Fix.** Selection-active sorts now elect B for both identity and placement.
+The phantom positioning path carries B without promoting it to focus, while a
+transient `retainExplicitFocus` option keeps A stored for normal reuse after
+selection is cleared. For no-position-map landings, the cursor-based buffer
+fetch and existing `countBefore` request now run concurrently; the old buffer
+stays visible until both finish, and the new buffer is aligned and published
+once with final coordinates. No extra request or tier branch was added.
+
+The stable-ID browser regression now also samples visible IDs and signed row
+geometry on every animation frame and requires exactly pre/final signatures.
+A delayed-`countBefore` store test proves the old result array remains published
+until exact coordinates are ready. The ordinary-focus row/column sweep was
+updated to assert the single atomic landing instead of waiting for the removed
+post-publication correction. Validation: focused browser 1/1, affected
+ordinary-focus browser 3/3, store integration 76/76, unit 1154/1154, full e2e
+249/249.
+
 ### 29 August 2026 — focusNthItem: fix runaway ~10s click-retry loop in two-tier mode (H9, F3)
 
 **Bug.** `focusNthItem` (`e2e/shared/helpers.ts`) could enter a self-sustaining

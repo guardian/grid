@@ -9,7 +9,7 @@
  *   npm --prefix kupua run test:e2e -- selections.spec.ts --headed
  */
 
-import { test, expect } from "../shared/helpers";
+import { test, expect, waitForStableNthImageId } from "../shared/helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers — read selection store state
@@ -36,6 +36,22 @@ async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promis
     if (!store) return [];
     return Array.from(store.getState().selectedIds as Set<string>);
   });
+}
+
+async function getSignedUsablePlacement(
+  page: Parameters<typeof test>[1]["page"],
+  imageId: string,
+): Promise<number | null> {
+  return page.evaluate((id) => {
+    const container = document.querySelector('[aria-label="Image results grid"]');
+    const cell = document.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+    if (!container || !cell) return null;
+    const containerRect = container.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    if (cellRect.top < containerRect.top || cellRect.bottom > containerRect.bottom) return null;
+    const usableCenter = containerRect.top + containerRect.height / 2;
+    return (cellRect.top + cellRect.height / 2 - usableCenter) / containerRect.height;
+  }, imageId);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +184,96 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     expect(countAfterSort).toBe(1);
     const idsAfterSort = await getSelectionIds(kupua.page);
     expect(idsAfterSort).toContain(firstId);
+  });
+
+  test("selection anchor outranks older focus during sort", async ({ kupua }) => {
+    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    await clearSelection(kupua.page);
+
+    await kupua.focusNthItem(0);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    const selectionAnchorId = await waitForStableNthImageId(
+      kupua.page,
+      "[data-grid-cell]",
+      8,
+    );
+    expect(selectionAnchorId).not.toBe(focusedId);
+    const selectionCell = kupua.page.locator(
+      `[data-grid-cell][data-image-id="${selectionAnchorId}"]`,
+    );
+    await selectionCell.hover();
+    await selectionCell.locator('button[aria-label="Select image"]').click();
+    expect(await getSelectionIds(kupua.page)).toEqual([selectionAnchorId]);
+
+    const placementBefore = await getSignedUsablePlacement(kupua.page, selectionAnchorId);
+    expect(placementBefore).not.toBeNull();
+
+    const generationBefore = await kupua.page.evaluate(() =>
+      (window as any).__kupua_store__.getState().sortAroundFocusGeneration,
+    );
+    const paintedStateCount = kupua.page.evaluate(async (previousGeneration) => {
+      const signatures = new Set<string>();
+      let settledAt: number | null = null;
+      await new Promise<void>((resolve) => {
+        const sample = () => {
+          const container = document.querySelector('[aria-label="Image results grid"]');
+          const store = (window as any).__kupua_store__.getState();
+          if (container) {
+            const containerRect = container.getBoundingClientRect();
+            const signature = Array.from(container.querySelectorAll('[data-grid-cell][data-image-id]'))
+              .map((element) => {
+                const rect = element.getBoundingClientRect();
+                return {
+                  value: `${element.getAttribute("data-image-id")}:${Math.round(rect.top - containerRect.top)}`,
+                  visible: rect.bottom > containerRect.top && rect.top < containerRect.bottom,
+                };
+              })
+              .filter(({ visible }) => visible)
+              .map(({ value }) => value)
+              .join("|");
+            signatures.add(signature);
+          }
+          if (
+            store.sortAroundFocusGeneration > previousGeneration &&
+            !store.loading &&
+            !store.sortAroundFocusStatus
+          ) {
+            settledAt ??= performance.now();
+          }
+          if (settledAt != null && performance.now() - settledAt >= 700) {
+            resolve();
+          } else {
+            requestAnimationFrame(sample);
+          }
+        };
+        requestAnimationFrame(sample);
+      });
+      return signatures.size;
+    }, generationBefore);
+
+    await kupua.toggleSortDirection();
+    await kupua.waitForSortAroundFocus(15_000);
+    expect(await paintedStateCount, "sort must paint only pre and final states").toBe(2);
+
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    const placementAfter = await getSignedUsablePlacement(kupua.page, selectionAnchorId);
+    expect(placementAfter, "selection anchor B must remain fully visible after sort").not.toBeNull();
+    expect(
+      Math.abs(placementAfter! - placementBefore!),
+      `selection anchor B moved: before=${placementBefore}, after=${placementAfter}`,
+    ).toBeLessThan(0.05);
+
+    const scrollBeforeClear = await kupua.getScrollTop();
+    await kupua.page.locator('button[aria-label="Clear selection"]').click();
+    await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+
+    expect(await getSelectionCount(kupua.page)).toBe(0);
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+    expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
   });
 });
 
