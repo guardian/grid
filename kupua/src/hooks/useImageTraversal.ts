@@ -121,6 +121,17 @@ export function useImageTraversal(
   const currentImageIdRef = useRef(currentImageId);
   currentImageIdRef.current = currentImageId;
 
+  // FullscreenPreview keeps this hook mounted while inactive and passes null
+  // between sessions. Pending navigation and proactive-extension eligibility
+  // belong to one active session, so discard them at that boundary. Any shared
+  // store request may still complete, but cannot navigate or extend a later
+  // preview session.
+  useEffect(() => {
+    if (currentImageId !== null) return;
+    pendingRef.current = null;
+    hasNavigatedRef.current = false;
+  }, [currentImageId]);
+
   // Subscribe to the minimal store slices we need for re-render.
   // results + bufferOffset change when extends/seeks complete — this is
   // exactly when we need to check for pending navigations.

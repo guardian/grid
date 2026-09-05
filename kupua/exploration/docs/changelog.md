@@ -14,6 +14,21 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Isolate fullscreen traversal sessions
+
+  Fullscreen preview keeps its traversal hook mounted while inactive. A pending
+  edge traversal and its proactive-extension eligibility could therefore survive
+  close, then consume an old buffer completion after reopen: the new session
+  navigated unexpectedly and issued an unsolicited reverse extension.
+
+  Deactivation now clears only the hook-local pending direction and navigation
+  eligibility. The underlying shared buffer request may finish normally, but it
+  cannot produce session-specific work later. Active fullscreen traversal is
+  unchanged, and ImageDetail is unaffected because it always supplies an image
+  ID and unmounts on close. The lifecycle regression passed with all 22 traversal
+  tests; full unit passed 1167/1167, fullscreen E2E 2/2 and habitual E2E 236/236
+  in 4.9m. Fresh review found no defects or material performance impact.
+
   ### 5 September 2026 — Preserve fullscreen preview when native exit rejects
 
   Fullscreen preview previously tore down React state and its phantom history

@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment jsdom
+ *
  * Unit tests for useImageTraversal — shared prev/next traversal hook.
  *
  * Tests the core traversal logic:
@@ -14,9 +16,15 @@
  * (useEffect watching results/bufferOffset) is tested via E2E.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
+import { useImageTraversal } from "./useImageTraversal";
+
+vi.mock("@/lib/image-prefetch", () => ({
+  prefetchNearbyImages: vi.fn(),
+}));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -298,6 +306,39 @@ describe("useImageTraversal — store-level traversal logic", () => {
       expect(gIdx >= bufferEnd - EXTEND_AHEAD).toBe(false);
       expect(gIdx <= 100 + EXTEND_AHEAD).toBe(false);
     });
+  });
+});
+
+describe("useImageTraversal — session lifecycle", () => {
+  beforeEach(() => {
+    useSearchStore.setState(useSearchStore.getInitialState());
+  });
+
+  it("does not resolve an old pending traversal in a reopened preview session", () => {
+    setupBuffer({ bufferOffset: 100, bufferSize: 200, total: 1000 });
+    const extendForward = vi.fn();
+    const extendBackward = vi.fn();
+    useSearchStore.setState({ extendForward, extendBackward });
+    const onNavigate = vi.fn();
+
+    const { result, rerender } = renderHook(
+      ({ imageId }: { imageId: string | null }) =>
+        useImageTraversal(imageId, onNavigate),
+      { initialProps: { imageId: "img-299" } },
+    );
+
+    act(() => result.current.goToNext());
+    expect(extendForward).toHaveBeenCalled();
+
+    rerender({ imageId: null });
+    rerender({ imageId: "img-500" });
+
+    act(() => {
+      setupBuffer({ bufferOffset: 500, bufferSize: 200, total: 1000 });
+    });
+
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(extendBackward).not.toHaveBeenCalled();
   });
 });
 
