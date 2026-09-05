@@ -41,11 +41,12 @@ vi.mock("@/stores/ui-prefs-store", () => ({
 
 import { useSearchStore } from "@/stores/search-store";
 import {
+  getVisibleImageIds,
   getViewportAnchorId,
-  resetViewportAnchor,
   useDataWindow,
   _resetForwardVelocity,
 } from "@/hooks/useDataWindow";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import type { Image } from "@/types/image";
 
 // ---------------------------------------------------------------------------
@@ -124,7 +125,7 @@ function setupTwoTier(opts: {
 
 describe("viewport anchor skeleton-zone clearing (Bug #4)", () => {
   beforeEach(() => {
-    resetViewportAnchor();
+    registerScrollContainer(null);
     _resetForwardVelocity();
     useSearchStore.setState({
       results: [],
@@ -141,16 +142,82 @@ describe("viewport anchor skeleton-zone clearing (Bug #4)", () => {
   it("clears anchor when viewport moves entirely into skeleton zone", () => {
     // Buffer at [1000..1199], total=5000
     setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
+    const container = document.createElement("div");
+    const image = document.createElement("div");
+    image.dataset.imageId = "img-1060";
+    container.append(image);
+    document.body.append(container);
+    container.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800, x: 0, y: 0,
+      toJSON: () => ({}),
+    });
+    image.getBoundingClientRect = () => ({
+      left: 0, top: 370, right: 800, bottom: 430, width: 800, height: 60, x: 0, y: 370,
+      toJSON: () => ({}),
+    });
+    registerScrollContainer(container);
 
     const { result } = renderHook(() => useDataWindow());
 
-    // Step 1: report visible range inside buffer → anchor should be set
+    // Step 1: real rendered image inside buffer can be elected.
     result.current.reportVisibleRange(1050, 1070);
     expect(getViewportAnchorId()).toBe("img-1060");
 
-    // Step 2: report visible range entirely outside buffer (skeleton zone)
-    // → anchor must be cleared to null (Bug #4: was stale before fix)
+    // Step 2: skeleton-only viewport has no real image candidate.
+    image.remove();
     result.current.reportVisibleRange(3000, 3020);
     expect(getViewportAnchorId()).toBeNull();
+    container.remove();
+  });
+
+  it("does not read DOM geometry during ordinary visible-range reporting", () => {
+    setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
+    const container = document.createElement("div");
+    const geometryRead = vi.fn(() => ({
+      left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800, x: 0, y: 0,
+      toJSON: () => ({}),
+    }));
+    container.getBoundingClientRect = geometryRead;
+    registerScrollContainer(container);
+    const { result } = renderHook(() => useDataWindow());
+
+    result.current.reportVisibleRange(1050, 1070);
+    result.current.reportVisibleRange(1051, 1071);
+    expect(geometryRead).not.toHaveBeenCalled();
+
+    getViewportAnchorId();
+    expect(geometryRead).toHaveBeenCalledOnce();
+  });
+
+  it("elects the rendered image nearest usable centre instead of the range midpoint", () => {
+    setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
+    const container = document.createElement("div");
+    const geometric = document.createElement("div");
+    geometric.dataset.imageId = "img-1059";
+    const midpoint = document.createElement("div");
+    midpoint.dataset.imageId = "img-1060";
+    container.append(geometric, midpoint);
+    document.body.append(container);
+    container.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 800, bottom: 800, width: 800, height: 800, x: 0, y: 0,
+      toJSON: () => ({}),
+    });
+    geometric.getBoundingClientRect = () => ({
+      left: 0, top: 370, right: 800, bottom: 430, width: 800, height: 60, x: 0, y: 370,
+      toJSON: () => ({}),
+    });
+    midpoint.getBoundingClientRect = () => ({
+      left: 0, top: 430, right: 800, bottom: 490, width: 800, height: 60, x: 0, y: 430,
+      toJSON: () => ({}),
+    });
+    registerScrollContainer(container);
+
+    const { result } = renderHook(() => useDataWindow());
+    result.current.reportVisibleRange(1050, 1070);
+
+    expect(getViewportAnchorId()).toBe("img-1059");
+    expect(getVisibleImageIds()).toContain("img-1060");
+    expect(getVisibleImageIds()).not.toContain("img-1059");
+    container.remove();
   });
 });

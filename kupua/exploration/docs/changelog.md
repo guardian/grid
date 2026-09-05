@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Elect passive anchors from usable viewport geometry (F13)
+
+  **Bug.** Passive/no-focus preservation used the rounded midpoint of the
+  virtualizer's reported index range. Partial rows, the table's sticky header and
+  uneven usable geometry could make that identity differ from the rendered image
+  nearest the actual usable viewport centre.
+
+  **Fix.** `getViewportAnchorId()` now performs a bounded rendered-DOM scan only
+  when a semantic transition requests an anchor. It reads the registered scroll
+  container, excludes the live table header rectangle, ignores skeletons and
+  off-viewport nodes, and elects the minimum centre-distance image with stable DOM
+  order as the tie-break. Grid uses both axes; table uses vertical distance.
+  Midpoint maintenance was removed from scroll/range reporting, so ordinary
+  scrolling performs no layout scan. T07 neighbour ordering remains range-based
+  and excludes only the newly elected anchor.
+
+  Added pure geometry coverage for sticky headers, grid columns, partial rows,
+  fractional zoom geometry, panel-reduced width, ties and empty candidates; hook
+  coverage proves skeleton-only nulls and no geometry reads from range reporting;
+  browser coverage independently measures signed usable-centre distance in table
+  view. Focused unit 64/64, focused browser 2/2, full unit 1159/1159 and
+  full e2e 250/250 passed.
+
   ### 5 September 2026 — Remove superseded offset-correction generation protocol
 
   **Why dead.** `_offsetCorrectionGeneration` was introduced to re-run the

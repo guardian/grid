@@ -417,42 +417,6 @@ describe("useDataWindow two-tier index mapping", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Viewport anchor (logic test)
-  // -------------------------------------------------------------------------
-
-  describe("viewport anchor (two-tier)", () => {
-    it("converts global midpoint to buffer-local for anchor lookup", () => {
-      setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
-      const s = useSearchStore.getState();
-
-      // Viewport at [1050..1070], midpoint = 1060
-      const midPoint = (1050 + 1070) / 2; // 1060
-      const localMid = Math.round(midPoint) - s.bufferOffset; // 1060 - 1000 = 60
-      expect(localMid).toBe(60);
-      expect(s.results[localMid]?.id).toBe("img-1060");
-    });
-
-    it("skips anchor when viewport is outside buffer", () => {
-      setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
-      const s = useSearchStore.getState();
-
-      // Viewport at [3000..3020], midpoint = 3010
-      const midPoint = (3000 + 3020) / 2; // 3010
-      const localMid = Math.round(midPoint) - s.bufferOffset; // 3010 - 1000 = 2010
-      // Should be outside buffer
-      expect(localMid).toBeGreaterThanOrEqual(s.results.length);
-    });
-
-    it("skips anchor when viewport is before buffer", () => {
-      setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
-      const s = useSearchStore.getState();
-
-      // Viewport at [0..20]
-      const localMid = Math.round(10) - s.bufferOffset; // 10 - 1000 = -990
-      expect(localMid).toBeLessThan(0);
-    });
-  });
 });
 
 

@@ -513,9 +513,9 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
    * Capture the anchor image and its viewport position.
    * Called from ResizeObserver when column count is about to change.
    *
-   * Anchor preference: the focused image, else the phantom viewport anchor
-   * (nearest image to viewport centre, tracked continuously regardless of
-   * focus mode) — both are stable image identities resolved via
+  * Anchor preference: the focused image, else the phantom viewport anchor
+  * (nearest rendered image to usable viewport centre, elected lazily) — both
+  * are stable image identities resolved via
    * `imagePositions`. Recomputing a synthetic "first image of the centre
    * row" index from scrollTop/row arithmetic every resize (the old
    * phantom-focus behaviour) doesn't track one real image, so a full

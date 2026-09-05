@@ -1480,8 +1480,8 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     });
     await kupua.page.waitForTimeout(500);
 
-    // The buffer should now be centred around offset 2500. Verify the
-    // viewport anchor has been set (buffer-change effect populates it).
+    // The buffer should now be centred around offset 2500. Verify a rendered
+    // viewport anchor can be elected lazily from the new buffer.
     const anchorAtSeek = await kupua.page.evaluate(() => {
       const getAnchor = (window as any).__kupua_getViewportAnchorId__;
       return getAnchor ? getAnchor() : null;

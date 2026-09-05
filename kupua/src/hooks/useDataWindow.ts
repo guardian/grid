@@ -39,6 +39,8 @@
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import {
   PAGE_SIZE,
@@ -127,15 +129,13 @@ const SCROLL_SEEK_DEBOUNCE_MS = 200;
 let _scrollSeekTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------------------
-// Viewport anchor — always the image nearest the viewport centre.
+// Viewport anchor — image nearest the usable viewport centre.
 //
 // Used by density-focus and sort-around-focus as a fallback when
-// focusedImageId is null. Updated on every reportVisibleRange call.
-// NOT a React subscription — consumed imperatively by useScrollEffects
-// and useUrlSearchSync via getViewportAnchorId().
+// focusedImageId is null. Elected lazily from rendered DOM geometry only
+// when a semantic transition asks for it; ordinary scrolling does no layout
+// reads. NOT a React subscription.
 // ---------------------------------------------------------------------------
-
-let _viewportAnchorId: string | null = null;
 
 /**
  * Get the current viewport-centre image ID. Returns null if no images
@@ -143,15 +143,24 @@ let _viewportAnchorId: string | null = null;
  * user hasn't explicitly focused an image.
  */
 export function getViewportAnchorId(): string | null {
-  return _viewportAnchorId;
-}
+  const container = getScrollContainer();
+  if (!container) return null;
 
-/**
- * Clear the viewport anchor. Call alongside resetVisibleRange() when
- * resetting all scroll state (e.g. logo click / go home).
- */
-export function resetViewportAnchor(): void {
-  _viewportAnchorId = null;
+  const containerRect = container.getBoundingClientRect();
+  const tableHeader = container.querySelector<HTMLElement>("[data-table-header]");
+  const headerRect = tableHeader?.getBoundingClientRect();
+  const candidates = Array.from(
+    container.querySelectorAll<HTMLElement>("[data-image-id]"),
+    (element) => ({
+      id: element.dataset.imageId ?? "",
+      rect: element.getBoundingClientRect(),
+    }),
+  ).filter((candidate) => candidate.id !== "");
+
+  return electViewportAnchor(containerRect, candidates, {
+    usableTop: headerRect ? Math.max(containerRect.top, headerRect.bottom) : containerRect.top,
+    verticalOnly: !!tableHeader,
+  });
 }
 
 /**
@@ -164,17 +173,21 @@ export function resetViewportAnchor(): void {
 export function getVisibleImageIds(): string[] {
   const { results, bufferOffset } = useSearchStore.getState();
   const ids: string[] = [];
+  const anchorId = getViewportAnchorId();
   const centre = Math.round((_visibleStart + _visibleEnd) / 2);
   const half = Math.ceil((_visibleEnd - _visibleStart) / 2) + 1;
 
-  for (let d = 1; d <= half; d++) {
-    for (const i of [centre + d, centre - d]) {
+  for (let distance = 0; distance <= half; distance++) {
+    const indices = distance === 0
+      ? [centre]
+      : [centre + distance, centre - distance];
+    for (const i of indices) {
       if (i < _visibleStart || i > _visibleEnd) continue;
       // In two-tier mode indices are global; in normal mode buffer-local.
       const localIdx = i - bufferOffset;
       if (localIdx < 0 || localIdx >= results.length) continue;
       const img = results[localIdx];
-      if (img?.id) ids.push(img.id);
+      if (img?.id && img.id !== anchorId) ids.push(img.id);
     }
   }
   return ids;
@@ -346,8 +359,6 @@ export function useDataWindow(): DataWindow {
   resultsLenRef.current = results.length;
   const totalRef = useRef(total);
   totalRef.current = total;
-  const resultsRef = useRef(results);
-  resultsRef.current = results;
   const twoTierRef = useRef(twoTier);
   twoTierRef.current = twoTier;
   const seekRef = useRef(seek);
@@ -418,9 +429,6 @@ export function useDataWindow(): DataWindow {
             _scrollSeekTimer = null;
             seekRef.current(globalStart);
           }, SCROLL_SEEK_DEBOUNCE_MS);
-          // Viewport is showing skeletons — clear the anchor so consumers
-          // don't use a stale value from the previous buffer position.
-          _viewportAnchorId = null;
           return;
         }
       } else {
@@ -436,27 +444,6 @@ export function useDataWindow(): DataWindow {
         }
       }
 
-      // Update the viewport anchor — nearest image to the viewport centre.
-      // Always maintained regardless of focus mode. Consumers use
-      // focusedImageId ?? getViewportAnchorId() so the anchor is only a
-      // fallback, but it must stay current so that after a seek in explicit
-      // mode (where skeleton-zone clears it) the anchor is re-populated
-      // once real content arrives.
-      const currentResults = resultsRef.current;
-      if (currentResults.length > 0) {
-        const midPoint = (startIndex + endIndex) / 2;
-        // In two-tier mode, convert global midpoint to buffer-local
-        const localMid = isTwoTier
-          ? Math.round(midPoint) - offset
-          : Math.round(midPoint);
-        // If outside buffer (viewport showing skeletons), skip — no anchor
-        if (localMid < 0 || localMid >= currentResults.length) return;
-        const anchorIndex = Math.min(Math.max(0, localMid), currentResults.length - 1);
-        const anchorImage = currentResults[anchorIndex];
-        if (anchorImage) {
-          _viewportAnchorId = anchorImage.id;
-        }
-      }
     },
     [extendForward, extendBackward],
   );
@@ -499,26 +486,6 @@ export function useDataWindow(): DataWindow {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-
-  // Re-run anchor update when buffer changes (e.g. after seek in two-tier
-  // mode). The virtualizer's onRangeChanged won't fire if visible indices
-  // are unchanged — but the content at those indices changed from skeleton
-  // to real images and the anchor needs updating.
-  useEffect(() => {
-    if (results.length > 0 && _visibleStart < _visibleEnd) {
-      const midPoint = (_visibleStart + _visibleEnd) / 2;
-      const localMid = twoTier
-        ? Math.round(midPoint) - bufferOffset
-        : Math.round(midPoint);
-      if (localMid >= 0 && localMid < results.length) {
-        const anchorIndex = Math.min(Math.max(0, localMid), results.length - 1);
-        const anchorImage = results[anchorIndex];
-        if (anchorImage) {
-          _viewportAnchorId = anchorImage.id;
-        }
-      }
-    }
-  }, [bufferOffset, results, twoTier]);
 
   return {
     results,

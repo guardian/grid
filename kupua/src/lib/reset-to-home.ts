@@ -21,7 +21,6 @@ import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, 
 import { useSearchStore, suppressNextRestore, clearSuppressRestore } from "@/stores/search-store";
 import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
-import { resetViewportAnchor } from "@/hooks/useDataWindow";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { isMobile } from "@/lib/is-mobile";
@@ -86,7 +85,6 @@ export async function resetToHome(navigate: () => void) {
   useSearchStore.getState().setFocusedImageId(null);
   useSelectionStore.getState().clear();
   clearDensityFocusRatio();
-  resetViewportAnchor();
 
   // resetScrollAndFocusSearch calls abortExtends() internally to
   // prevent rogue extendBackward from corrupting the buffer.

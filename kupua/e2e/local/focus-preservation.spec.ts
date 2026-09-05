@@ -282,6 +282,57 @@ test.describe("Arrow snap-back after seek", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Phantom focus promotion", () => {
+  test("viewport anchor is the rendered image nearest the usable table centre", async ({
+    kupua,
+  }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    await kupua.page.evaluate(() => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]');
+      if (!container) throw new Error("Table scroll container not found");
+      container.scrollTop = 347.5;
+      container.dispatchEvent(new Event("scroll"));
+    });
+    await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+
+    const measurement = await kupua.page.evaluate(() => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]');
+      const header = container?.querySelector<HTMLElement>('[data-table-header]');
+      if (!container || !header) return null;
+      const containerRect = container.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const usableTop = Math.max(containerRect.top, headerRect.bottom);
+      const usableCentre = usableTop + (containerRect.bottom - usableTop) / 2;
+      const candidates = Array.from(container.querySelectorAll<HTMLElement>('[data-image-id]'))
+        .map((element, order) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            id: element.dataset.imageId ?? "",
+            order,
+            distance: Math.abs((rect.top + rect.bottom) / 2 - usableCentre),
+            intersects: rect.bottom > usableTop && rect.top < containerRect.bottom,
+          };
+        })
+        .filter(({ id, intersects }) => id && intersects)
+        .sort((a, b) => a.distance - b.distance || a.order - b.order);
+      const getter = (window as any).__kupua_getViewportAnchorId__ as (() => string | null) | undefined;
+      return {
+        expectedId: candidates[0]?.id ?? null,
+        expectedSignedDistance: candidates[0]
+          ? candidates[0].distance / (containerRect.bottom - usableTop)
+          : null,
+        actualId: getter?.() ?? null,
+      };
+    });
+
+    expect(measurement).not.toBeNull();
+    expect(measurement!.expectedId).not.toBeNull();
+    expect(measurement!.expectedSignedDistance).toBeLessThan(0.1);
+    expect(measurement!.actualId).toBe(measurement!.expectedId);
+  });
+
   test("viewport anchor preserves position without focus ring", async ({
     kupua,
   }) => {
