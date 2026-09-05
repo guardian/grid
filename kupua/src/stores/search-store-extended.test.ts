@@ -15,7 +15,7 @@ import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { interpolateSortLabel, getSortContextLabel, computeTrackTicksWithNullZone } from "@/lib/sort-context";
-import type { SortDistribution } from "@/dal/types";
+import type { SortDistribution, SortValues } from "@/dal/types";
 import { buildSortClause, reverseSortClause } from "@/dal/adapters/elasticsearch/sort-builders";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 
@@ -1015,6 +1015,66 @@ describe("null-zone seek (sparse lastModified)", () => {
     await actions().extendForward();
     await flush();
     expect(state().total, "total after extendForward").toBe(originalTotal);
+  });
+});
+
+describe("ascending null-zone seek (sparse lastModified)", () => {
+  const total = 66_000;
+  const coveredRatio = 0.5;
+  const coveredCount = total * coveredRatio;
+
+  function setupAscendingSparseMock() {
+    const ascendingMock = new MockDataSource(
+      total,
+      [{ field: "lastModified", ratio: coveredRatio }],
+    );
+    useSearchStore.setState({
+      dataSource: ascendingMock,
+      params: {
+        query: undefined,
+        offset: 0,
+        length: 200,
+        orderBy: "lastModified",
+        nonFree: "true",
+      },
+    });
+    const searchAfterCursors: Array<SortValues | null> = [];
+    const originalSearchAfter = ascendingMock.searchAfter.bind(ascendingMock);
+    ascendingMock.searchAfter = async (...args: Parameters<typeof originalSearchAfter>) => {
+      searchAfterCursors.push(args[1]);
+      return originalSearchAfter(...args);
+    };
+    return searchAfterCursors;
+  }
+
+  it("keeps a populated target before the missing-value tail", async () => {
+    const searchAfterCursors = setupAscendingSparseMock();
+    const target = 12_500;
+
+    await actions().search();
+    searchAfterCursors.length = 0;
+    await actions().seek(target);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(searchAfterCursors.some((cursor) => cursor?.[0] === null)).toBe(false);
+    expect(state().bufferOffset).toBeLessThan(coveredCount);
+    expect(Math.abs(state().bufferOffset - target)).toBeLessThan(500);
+  });
+
+  it("uses the missing-value tail for a target after coveredCount", async () => {
+    const searchAfterCursors = setupAscendingSparseMock();
+    const target = 45_000;
+
+    await actions().search();
+    searchAfterCursors.length = 0;
+    await actions().seek(target);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(searchAfterCursors.some((cursor) => cursor?.[0] === null)).toBe(true);
+    expect(state().bufferOffset).toBeGreaterThanOrEqual(coveredCount);
+    expect(Math.abs(state().bufferOffset - target)).toBeLessThan(500);
   });
 });
 

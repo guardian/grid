@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 6 September 2026 — Put ascending missing values at the end
+
+  Deep seek correctly documented Elasticsearch's direction-independent
+  `missing: "_last"` behavior but implemented ascending sparse-field sorts as
+  though missing values came first. Above the position-map threshold, ascending
+  `lastModified` seek to rank 12,500 entered the null path and landed at 45,400;
+  a missing-tail target at 45,000 instead landed near 11,900.
+
+  Null-zone classification and local-position math now use the same populated
+  prefix and missing tail for both sort directions. Percentile orientation,
+  uploadTime fallback direction, cursor remapping, secondary-sort handling and
+  media-api transport are unchanged. Tests prove both sides of the ascending
+  boundary and require landings within 500 positions. Focused store tests passed
+  77/77, full unit passed 1169/1169 and habitual E2E passed 236/236 in 5.0m.
+
+  Fresh review confirmed the arithmetic and surfaced separate follow-ups for
+  secondary-sort preservation and special collection/usage date sorts.
+
   ### 5 September 2026 — Isolate fullscreen traversal sessions
 
   Fullscreen preview keeps its traversal hook mounted while inactive. A pending

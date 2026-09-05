@@ -2942,11 +2942,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // percentile of those docs. Use coveredCount when available
         // (from the sort distribution), falling back to total.
         //
-        // For desc: positions 0..(coveredCount-1) have values,
-        //           positions coveredCount..(total-1) are nulls (sorted
-        //           by the uploadTime fallback, then id tiebreaker).
-        // For asc:  positions 0..(total-coveredCount-1) are nulls,
-        //           positions (total-coveredCount)..(total-1) have values.
+        // For both directions, positions 0..(coveredCount-1) have values and
+        // positions coveredCount..(total-1) are nulls. ES `missing: "_last"`
+        // is direction-independent. Within the null zone, documents are sorted
+        // by the remaining sort fields (including the uploadTime fallback).
         // Ensure sortDistribution is loaded before we rely on coveredCount.
         // On first scrubber click, fetchSortDistribution fires in parallel
         // with seek — but seek needs coveredCount to detect the null zone.
@@ -2966,9 +2965,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // all docs tie on the primary field (null), so they're ordered by
         // the uploadTime fallback and id tiebreaker. Percentile estimation
         // on the primary field is useless here.
-        const inNullZone = primaryDir === "desc"
-          ? clampedOffset >= coveredCount
-          : clampedOffset < (total - coveredCount);
+        const inNullZone = clampedOffset >= coveredCount;
 
         devLog(
           `[seek-diag] target=${clampedOffset}, total=${total}, coveredCount=${coveredCount}, ` +
@@ -2986,9 +2983,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // the null zone, then search_after with [null, uploadTime, ""].
 
           const nullZoneSize = total - coveredCount;
-          const posInNullZone = primaryDir === "desc"
-            ? clampedOffset - coveredCount
-            : clampedOffset; // asc: nulls are at the start
+          const posInNullZone = clampedOffset - coveredCount;
 
           // Null zone is sorted by the uploadTime fallback (direction matches
           // buildSortClause's logic — desc for date desc, asc for date asc).
@@ -3130,9 +3125,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
         if (!inNullZone) {
           // Compute percentile for the covered range (docs WITH the field).
-          const posInCovered = primaryDir === "desc"
-            ? clampedOffset
-            : clampedOffset - (total - coveredCount);
+          const posInCovered = clampedOffset;
           const positionRatio = posInCovered / Math.max(1, coveredCount);
           const percentile =
             primaryDir === "desc"
