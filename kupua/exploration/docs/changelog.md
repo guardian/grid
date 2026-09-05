@@ -14,6 +14,43 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 5 September 2026 — Parallelise the habitual scrubber E2E suite
+
+  The habitual runner now uses two workers and excludes both cross-tier matrix
+  files, which remain selected by `playwright.tiers.config.ts`. The dominant
+  scrubber spec opts into Playwright's parallel mode so its isolated-page,
+  read-only cases can use both configured workers instead of serialising the
+  entire file.
+
+  The scrubber suite fell from 4.7 minutes serial to 2.4 minutes with two
+  workers. Three complete habitual runs then passed 235/235 with zero retries
+  in 4.9, 5.0 and 4.9 minutes. This is about half the 9.9-minute one-worker
+  post-selection baseline. Higher worker counts remain unproven and are not the
+  default.
+
+  ### 5 September 2026 — Remove ineffective and duplicate scrubber E2E coverage
+
+  An assertion-level audit classified all 87 concrete cases in the 3,000-line
+  scrubber suite by actual oracle, tier, interaction path and overlap. Eleven
+  cases were removed only where they were vacuous in the habitual two-tier
+  corpus, strict subsets of stronger browser cases, or exact store bookkeeping
+  already covered by Vitest. The habitual suite now selects 235 tests, including
+  76 scrubber cases.
+
+  Several retained tests were made more honest: horizontal overflow now performs
+  a real horizontal scroll, position-map assertions read post-wait state,
+  scroll-mode setup failures no longer become skips, proportional-thumb coverage
+  must execute at least one assertion, and names no longer claim untested sort
+  reversal or workflow steps. Tier-gated keyword telemetry that never ran in the
+  habitual corpus was removed; dedicated store tests remain the strategy oracle.
+
+  Validation: Playwright discovery found 235 tests; focused retained coverage
+  passed 6/6, tightened cases passed 7/7, and the serial scrubber run passed 75/76
+  before exposing one stale local variable introduced by this cleanup. The
+  corrected case then passed 1/1, and the final telemetry-affected outcomes passed
+  4/4. The agent interrupted a full two-worker run at 143/235; it is not counted
+  as validation.
+
   ### 5 September 2026 — Elect passive anchors from usable viewport geometry (F13)
 
   **Bug.** Passive/no-focus preservation used the rounded midpoint of the

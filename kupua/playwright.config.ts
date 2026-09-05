@@ -22,9 +22,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e/local",
   testMatch: "**/*.spec.ts",
-  /* Exclude the tier-matrix spec — it runs only via playwright.tiers.config.ts
-   * which starts three separate Vite servers with different env vars. */
-  testIgnore: "**/tier-matrix.spec.ts",
+  /* Cross-tier diagnostics run only via playwright.tiers.config.ts, which
+   * starts three separate Vite servers with different env vars. */
+  testIgnore: ["**/tier-matrix.spec.ts", "**/drift-flash-matrix.spec.ts"],
 
   /* Verify ES + sample data before starting any tests.
    * Fails fast with a clear message instead of 46 individual timeouts. */
@@ -34,17 +34,16 @@ export default defineConfig({
   timeout: 60_000,
 
   /* Hard limit for entire test run — prevents hanging forever.
-   * 106 tests running sequentially (workers: 1) with seek, extend, and
-   * scroll operations take ~7-12 min on local Docker ES. 20 min gives
-   * comfortable headroom including retries. */
+   * 235 tests with seek, extend, and scroll operations take ~6-10 min on
+   * local Docker ES. 20 min gives comfortable headroom including retries. */
   globalTimeout: 20 * 60_000,
 
   /* Retry flaky tests once */
   retries: 1,
 
-  /* Single worker — tests share one ES instance and sequential seeks
-   * can race if parallelised. Keeps behaviour deterministic. */
-  workers: 1,
+  /* Two workers cut local feedback time without overloading the shared ES.
+   * Higher counts remain an explicit measurement exercise. */
+  workers: 2,
 
   /* Reporter */
   reporter: [["html", { open: "never" }], ["list"]],
