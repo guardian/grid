@@ -16,8 +16,12 @@ import {
   buildSortClause,
   reverseSortClause,
 } from "@/dal/adapters/elasticsearch/sort-builders";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { extractSortValues } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
+
+declare const scheduler: undefined;
+(global as Record<string, unknown>).scheduler = undefined;
 
 const ES_ORIGIN = new URL("http://127.0.0.1:9220");
 const SAMPLE_INDEX = "images";
@@ -286,6 +290,58 @@ function populatedQuery(orderBy: string): Record<string, unknown> {
   return { exists: { field: "collections.actionData.date" } };
 }
 
+async function withFixtureAdapter<T>(
+  index: string,
+  action: (adapter: ElasticsearchDataSource) => Promise<T>,
+): Promise<T> {
+  const nativeFetch = globalThis.fetch;
+  globalThis.fetch = (input, init) => {
+    const raw = typeof input === "string" ? input : input.toString();
+    let url: URL;
+    if (raw.startsWith("/es/images/_pit")) {
+      url = new URL(`/${index}/_pit${raw.slice("/es/images/_pit".length)}`, ES_ORIGIN);
+    } else if (raw.startsWith("/es/")) {
+      url = new URL(raw.slice("/es".length), ES_ORIGIN);
+    } else {
+      url = new URL(raw);
+    }
+    return nativeFetch(url, init);
+  };
+
+  try {
+    return await action(new ElasticsearchDataSource());
+  } finally {
+    globalThis.fetch = nativeFetch;
+  }
+}
+
+async function walkWithAdapter(
+  adapter: ElasticsearchDataSource,
+  orderBy: string,
+): Promise<{ ids: string[]; sortValues: Array<Array<string | number | null>> }> {
+  let pitId = await adapter.openPit("1m");
+  let cursor: Array<string | number | null> | null = null;
+  const ids: string[] = [];
+  const sortValues: Array<Array<string | number | null>> = [];
+  try {
+    while (true) {
+      const page = await adapter.searchAfter(
+        { orderBy, nonFree: "true", length: PAGE_SIZE },
+        cursor,
+        pitId,
+      );
+      if (page.pitId) pitId = page.pitId;
+      ids.push(...page.hits.map((hit) => hit.id));
+      sortValues.push(...page.sortValues);
+      if (page.hits.length < PAGE_SIZE) break;
+      cursor = page.sortValues.at(-1) ?? null;
+    }
+  } finally {
+    await adapter.closePit(pitId);
+  }
+  return { ids, sortValues };
+}
+
 describe("special date sorts against local Elasticsearch", () => {
   it("selects max dates and preserves forward/reverse pagination", async () => {
     expect(process.env.KUPUA_LOCAL_ES_MUTATION_OK).toBe("1");
@@ -387,6 +443,17 @@ describe("special date sorts against local Elasticsearch", () => {
               hit._source.id,
             ]);
           }
+
+          const parity = await withFixtureAdapter(indexName, async (adapter) => ({
+            ordinary: await walkWithAdapter(adapter, orderBy),
+            positionMap: await adapter.fetchPositionIndex(
+              { orderBy, nonFree: "true" },
+              new AbortController().signal,
+            ),
+          }));
+          expect(parity.positionMap?.ids).toEqual(parity.ordinary.ids);
+          expect(parity.positionMap?.sortValues).toEqual(parity.ordinary.sortValues);
+          expect(parity.ordinary.ids).toEqual(allHits.map((hit) => hit._id));
         }
       }
     } finally {

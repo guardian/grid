@@ -14,6 +14,33 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 8 September 2026 — Keep special-date position maps exact
+
+Special-date position-map construction rebuilt every sort clause from only its
+field and direction. That discarded `mode:max` and nested usage options, changed
+descending primary missing placement to `_first`, and replaced canonical scalar
+fallback clauses with object forms. Its phase filters also tested nested usage
+existence at root scope. The resulting map could disagree with ordinary search
+even though G's scrubber boundary was correct.
+
+Position maps now preserve the complete canonical phase-one sort clauses and
+reuse the canonical `[uploadTime,id]` phase-two fallback. Primary existence is
+nested for usages and root-scoped for collection action dates. Null-phase sort
+tuples are remapped to full `[null,uploadTime,id]` shape. The path remains an
+exact identity/rank oracle and never consumes G's approximate histogram evidence.
+
+Failing-first request tests cover both special fields in both directions. A
+10,000-hit-per-phase unit fixture forces continuation and verifies complete PIT
+`search_after` tuples and refreshed PIT IDs. Independent review strengthened the
+real-ES proof from a one-page raw comparison to a complete production
+`searchAfter` walk in two-item pages. That walk crosses into and through the null
+zone and matches production `fetchPositionIndex` IDs and full tuples exactly for
+all four cases.
+
+Focused adapter coverage passed 22/22. Full unit validation passed 1243/1243
+across 64 files, habitual E2E passed 236/236 in 4.9 minutes, and the guarded
+local-ES oracle passed with UUID-index cleanup and unchanged sample count.
+
 ### 8 September 2026 — Separate exact special-date boundaries from approximate evidence
 
 Last used and Added to collection sort one image by its maximum date, but their

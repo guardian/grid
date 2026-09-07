@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ElasticsearchDataSource } from "./es-adapter";
+import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 
 // ---------------------------------------------------------------------------
 // Minimal fetch-response factory helpers
@@ -196,6 +197,184 @@ describe("getDateDistribution special-date provenance", () => {
     expect(statsBody.aggs.covered_parents).toEqual({
       filter: { exists: { field: "collections.actionData.date" } },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slice H — special-date position maps remain exact
+// ---------------------------------------------------------------------------
+
+describe("fetchPositionIndex special-date request shape", () => {
+  it.each([
+    {
+      orderBy: "-usagesDateAdded",
+      field: "usages.dateAdded",
+      direction: "desc",
+      existsFilter: {
+        nested: {
+          path: "usages",
+          query: { exists: { field: "usages.dateAdded" } },
+        },
+      },
+    },
+    {
+      orderBy: "usagesDateAdded",
+      field: "usages.dateAdded",
+      direction: "asc",
+      existsFilter: {
+        nested: {
+          path: "usages",
+          query: { exists: { field: "usages.dateAdded" } },
+        },
+      },
+    },
+    {
+      orderBy: "-dateAddedToCollection",
+      field: "collections.actionData.date",
+      direction: "desc",
+      existsFilter: { exists: { field: "collections.actionData.date" } },
+    },
+    {
+      orderBy: "dateAddedToCollection",
+      field: "collections.actionData.date",
+      direction: "asc",
+      existsFilter: { exists: { field: "collections.actionData.date" } },
+    },
+  ])(
+    "$orderBy preserves exact max-date ordering across both phases",
+    async ({ orderBy, field, direction, existsFilter }) => {
+      vi.mocked(global.fetch)
+        .mockResolvedValueOnce(okResponse({ id: "position-map-pit" }))
+        .mockResolvedValueOnce(okResponse({
+          hits: {
+            total: { value: 2 },
+            hits: [{
+              _id: "populated",
+              sort: [1_700_000_000_000, 1_600_000_000_000, "populated", 1],
+            }],
+          },
+        }))
+        .mockResolvedValueOnce(okResponse({
+          hits: {
+            total: { value: 2 },
+            hits: [{
+              _id: "missing",
+              sort: [1_500_000_000_000, "missing", 2],
+            }],
+          },
+        }))
+        .mockResolvedValueOnce(okResponse({ succeeded: true }));
+
+      const result = await ds.fetchPositionIndex(
+        { orderBy, nonFree: "true" },
+        new AbortController().signal,
+      );
+
+      const searchBodies = vi.mocked(global.fetch).mock.calls
+        .map(([, init]) => init?.body)
+        .filter((body): body is string => typeof body === "string")
+        .map((body) => JSON.parse(body))
+        .filter((body) => Array.isArray(body.sort));
+      expect(searchBodies).toHaveLength(2);
+
+      const [phaseOne, phaseTwo] = searchBodies;
+      expect(phaseOne.sort).toEqual(buildSortClause(orderBy));
+      expect(phaseOne.query.bool.filter).toEqual([existsFilter]);
+      expect(phaseOne.sort[0][field]).toMatchObject({
+        order: direction,
+        mode: "max",
+        missing: "_last",
+      });
+
+      expect(phaseTwo.sort).toEqual([
+        { uploadTime: direction },
+        { id: "asc" },
+      ]);
+      expect(phaseTwo.query.bool.filter).toEqual([
+        { bool: { must_not: [existsFilter] } },
+      ]);
+      expect(result).toEqual({
+        length: 2,
+        ids: ["populated", "missing"],
+        sortValues: [
+          [1_700_000_000_000, 1_600_000_000_000, "populated"],
+          [null, 1_500_000_000_000, "missing"],
+        ],
+      });
+    },
+  );
+
+  it("paginates both phases with refreshed PIT ids and complete PIT cursors", async () => {
+    const populatedHits = Array.from({ length: 10_000 }, (_, index) => ({
+      _id: `populated-${index}`,
+      sort: [
+        1_700_000_000_000 - index,
+        1_600_000_000_000 - index,
+        `populated-${index}`,
+        index,
+      ],
+    }));
+    const missingHits = Array.from({ length: 10_000 }, (_, index) => ({
+      _id: `missing-${index}`,
+      sort: [
+        1_500_000_000_000 - index,
+        `missing-${index}`,
+        10_000 + index,
+      ],
+    }));
+
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({ id: "pit-initial" }))
+      .mockResolvedValueOnce(okResponse({
+        pit_id: "pit-populated",
+        hits: { total: { value: 20_000 }, hits: populatedHits },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        pit_id: "pit-before-missing",
+        hits: { total: { value: 20_000 }, hits: [] },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        pit_id: "pit-missing",
+        hits: { total: { value: 20_000 }, hits: missingHits },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        pit_id: "pit-final",
+        hits: { total: { value: 20_000 }, hits: [] },
+      }))
+      .mockResolvedValueOnce(okResponse({ succeeded: true }));
+
+    const result = await ds.fetchPositionIndex(
+      { orderBy: "-usagesDateAdded", nonFree: "true" },
+      new AbortController().signal,
+    );
+
+    const searchBodies = vi.mocked(global.fetch).mock.calls
+      .map(([, init]) => init?.body)
+      .filter((body): body is string => typeof body === "string")
+      .map((body) => JSON.parse(body))
+      .filter((body) => Array.isArray(body.sort));
+    expect(searchBodies).toHaveLength(4);
+    expect(searchBodies[1]).toMatchObject({
+      pit: { id: "pit-populated", keep_alive: "1m" },
+      search_after: populatedHits.at(-1)?.sort,
+    });
+    expect(searchBodies[2].pit).toEqual({
+      id: "pit-before-missing",
+      keep_alive: "1m",
+    });
+    expect(searchBodies[2].search_after).toBeUndefined();
+    expect(searchBodies[3]).toMatchObject({
+      pit: { id: "pit-missing", keep_alive: "1m" },
+      search_after: missingHits.at(-1)?.sort,
+    });
+    expect(result?.length).toBe(20_000);
+    expect(result?.sortValues[9_999]).toEqual(
+      populatedHits[9_999].sort.slice(0, 3),
+    );
+    expect(result?.sortValues[10_000]).toEqual([
+      null,
+      ...missingHits[0].sort.slice(0, 2),
+    ]);
   });
 });
 

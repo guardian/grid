@@ -1942,18 +1942,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
     const { field: primaryField } =
       parseSortField(bareSortClause[0]);
 
-    // Phase 1 sort: explicit `missing` (matches ES defaults, required so
-    // ES doesn't reject null cursors if the field is unexpectedly absent).
-    const phase1Sort = bareSortClause.map((clause) => {
-      const { field, direction } = parseSortField(clause);
-      if (!field) return clause;
-      return {
-        [field]: {
-          order: direction,
-          missing: direction === "asc" ? "_last" : "_first",
-        },
-      };
-    });
+    // Phase 1 narrows to docs with a primary value, so the canonical clauses
+    // are safe to paginate without manufacturing a missing-value cursor.
+    // Preserve every option, including special-sort mode and nested path.
+    const phase1Sort = bareSortClause;
 
     // Phase 2 sort: only the non-primary fields (uploadTime, id).
     // Null-zone docs have no primary value, so we sort by the fallback.
@@ -1962,11 +1954,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           (c) => parseSortField(c).field !== primaryField,
         )
       : [];
-    const phase2Sort = phase2BareSort.map((clause) => {
-      const { field, direction } = parseSortField(clause);
-      if (!field) return clause;
-      return { [field]: { order: direction } };
-    });
+    const phase2Sort = phase2BareSort;
     const phase2SortLen = phase2BareSort.length;
 
     // Inject null at the primary-field position in stored sortValues for
@@ -1988,20 +1976,30 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // Phase 1 query: base + exists filter (non-null docs only).
     // Phase 2 query: base + must_not-exists filter (null-zone docs only).
-    const phase1Query = primaryField
+    const primaryExistsQuery = primaryField
+      ? NESTED_SORT_FIELDS[primaryField]
+        ? {
+            nested: {
+              path: NESTED_SORT_FIELDS[primaryField],
+              query: { exists: { field: primaryField } },
+            },
+          }
+        : { exists: { field: primaryField } }
+      : null;
+    const phase1Query = primaryExistsQuery
       ? {
           bool: {
             must: [baseQuery],
-            filter: [{ exists: { field: primaryField } }],
+            filter: [primaryExistsQuery],
           },
         }
       : baseQuery;
-    const phase2Query = primaryField
+    const phase2Query = primaryExistsQuery
       ? {
           bool: {
             must: [baseQuery],
             filter: [
-              { bool: { must_not: [{ exists: { field: primaryField } }] } },
+              { bool: { must_not: [primaryExistsQuery] } },
             ],
           },
         }
