@@ -51,7 +51,7 @@ import {
 import type { StackProps } from './provision.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
-import { ListrTaskFn } from 'listr2';
+import type { ListrTaskFn } from 'listr2';
 
 const LOCALSTACK_SERVICES = [
   "cloudformation",
@@ -445,7 +445,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                       },
                     },
                   ],
-                  // Subtasks inherit the concurrency of the group above, which these cannot use.
                   { concurrent: false },
                 );
               },

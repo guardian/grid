@@ -46,9 +46,10 @@ export async function createCoreStack(cfn: CloudFormationClient): Promise<StackP
   );
 
   await cfn.send(new CreateStackCommand({ StackName: CORE_STACK_NAME, TemplateBody: templateBody }));
+
   // LocalStack applies the stack in seconds; the SDK default would sit out its 30s minimum delay.
   await waitUntilStackCreateComplete(
-    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 5 },
+    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 1 },
     { StackName: CORE_STACK_NAME },
   );
 
