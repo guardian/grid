@@ -161,6 +161,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
+      "com.gu" %% "content-api-client-default" % "32.0.0",
       "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
       "com.github.blemale" %% "scaffeine" % "5.3.0"

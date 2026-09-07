@@ -51,6 +51,7 @@ class MediaApi(
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
+                contentApi: ContentApi,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
