@@ -6,6 +6,7 @@
  * running locally.
  */
 import {
+  CONFIG_DIR,
   DOMAIN,
   ELASTICSEARCH_PORT,
   LOCALSTACK_PORT,
@@ -30,6 +31,8 @@ function banner(elapsedMs: number): string {
     '  Infrastructure:',
     `    localstack       http://localhost:${LOCALSTACK_PORT}`,
     `    elasticsearch    http://localhost:${ELASTICSEARCH_PORT}`,
+    '',
+    `  Config at ${CONFIG_DIR}`,
     '',
     '  Press Ctrl-C to tear everything down.',
     '',
