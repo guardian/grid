@@ -398,7 +398,7 @@ function localstackTasks(): ListrTask<BootContext>[] {
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   const { proxy = !!process.env.CI, seed = true } = options;
 
-  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
+  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 120_000);
   const context: BootContext = { containers: [] };
 
   const tasks: ListrTask<BootContext>[] = [
@@ -496,7 +496,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
                   task: async (_, seedTask) => {
-                    await seedElasticsearch(ELASTICSEARCH_URL, reportTo(seedTask));
+                    await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
                   },
                 },
               ];
@@ -618,7 +618,7 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         title: 'Seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
-          await seedElasticsearch(ELASTICSEARCH_URL, reportTo(task));
+          await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
         },
       },
     ],

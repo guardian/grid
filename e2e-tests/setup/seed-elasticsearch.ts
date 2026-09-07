@@ -44,7 +44,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
  * Poll the alias until the Grid app has created the index and assigned it, so the bulk
  * insert below has a valid write target. Throws if it never appears within the timeout.
  */
-async function waitForAlias(esBaseUrl: string, timeoutMs = 60_000): Promise<void> {
+async function waitForAlias(esBaseUrl: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastStatus = 'no response';
   while (Date.now() < deadline) {
@@ -69,6 +69,7 @@ async function waitForAlias(esBaseUrl: string, timeoutMs = 60_000): Promise<void
  */
 export async function seedElasticsearch(
   esBaseUrl: string,
+  startupTimeoutMs: number,
   report: (message: string) => void,
 ): Promise<void> {
   const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as EsSearchFixture;
@@ -79,7 +80,7 @@ export async function seedElasticsearch(
   }
 
   report(`Waiting for the '${IMAGES_ALIAS}' alias`);
-  await waitForAlias(esBaseUrl);
+  await waitForAlias(esBaseUrl, startupTimeoutMs);
 
   // NDJSON bulk body: an index action line (targeting the document's `_id`) followed by
   // the source document, repeated for every hit.
