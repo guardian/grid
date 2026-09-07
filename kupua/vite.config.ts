@@ -113,6 +113,8 @@ export default defineConfig({
   test: {
     // Co-located tests: *.test.ts next to the code they test
     include: ["src/**/*.test.{ts,tsx}"],
+    // Real-ES mutation oracle: opt-in only via `npm run test:special-sort-es`.
+    exclude: ["integration/special-sort-es.test.ts"],
   },
   server: {
     host: true, // Bind to 0.0.0.0 — allows access from other devices on LAN

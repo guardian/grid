@@ -52,6 +52,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Collections panel** | `stores/collection-store.ts`, `components/CollectionTree.tsx`, `exploration/docs/00 Architecture and philosophy/06-collections.md`, `dal/adapters/elasticsearch/cql.ts` (`~` shorthand already present), `lib/typeahead-fields.ts` (collection resolver) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
+| **Special-date ES oracle** | `integration/special-sort-es.test.ts`, `vitest.special-sort-es.config.ts`, obscure sorting workplan | Opt-in local-ES mutation test. Run after changing special sort clauses, reverse pagination, cursor extraction, position maps, date distributions, `countBefore`, relevant mappings, or Elasticsearch version. Never habitual. |
 | **Performance** | `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
@@ -81,7 +82,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1216 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1226 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`

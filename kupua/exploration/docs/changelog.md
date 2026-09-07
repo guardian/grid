@@ -14,6 +14,40 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 7 September 2026 — Pin special sorts to maximum-date semantics
+
+Added to collection omitted an explicit Elasticsearch sort mode, so ascending
+and descending searches could select different dates from the same image.
+Collection sorting now uses `mode: "max"` in both directions, matching Last used
+and the application cursor extractor. Reverse sorting changes only direction and
+preserves `mode`, `missing`, and nested options.
+
+Independent review found that special cursor extraction chose the maximum ISO
+text lexicographically. Offset-equivalent date formats can sort differently as
+strings than as instants, producing a cursor that disagrees with Elasticsearch.
+Failing-first regressions for both special fields now select the maximum parsed
+instant and ignore invalid dates.
+
+A guarded opt-in integration oracle exercises five fixed synthetic images
+against local Elasticsearch on loopback port 9220. It proves maximum-date
+ordering, two-page forward continuation, production-style backward-page
+reconstruction from a forward cursor, cursor extraction parity, and terminal
+missing-value placement for both special sorts and directions. The test creates
+only a UUID-named index, always attempts its deletion, requires a 404 afterward,
+and proves the normal sample-index count is unchanged.
+
+The oracle is explicitly excluded from habitual unit and E2E runs. Its named
+package script and run triggers in AGENTS, the Obscure sorting implementation
+workplan, and the test header keep it discoverable after changes to special sort
+clauses, reverse pagination, cursor extraction, position maps, distributions,
+global rank counting, relevant mappings, or the Elasticsearch version. Raw
+missing-date sentinels cannot cross `search_after`; production null-zone cursor
+sanitization remains a later parity requirement.
+
+Focused sort and cursor tests passed 145/145. The opt-in Elasticsearch oracle
+passed in 375ms with cleanup and count invariants, and the habitual unit suite
+passed 1226/1226 across 64 files without collecting the oracle.
+
 ### 7 September 2026 — Parse special-sort direction during deep seek
 
 Deep seek read the first Elasticsearch sort-clause value as a string. Last used

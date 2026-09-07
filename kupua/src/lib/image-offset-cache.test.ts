@@ -135,6 +135,22 @@ describe("extractSortValues", () => {
     ]);
   });
 
+  it("extracts usagesDateAdded max by instant rather than ISO text order", () => {
+    const imageWithOffsets: typeof IMAGE = {
+      ...IMAGE,
+      usages: [
+        { id: "u1", platform: "digital", status: "published", media: "image",
+          lastModified: "2024-03-01T00:30:00+02:00", dateAdded: "2024-03-01T00:30:00+02:00" },
+        { id: "u2", platform: "digital", status: "published", media: "image",
+          lastModified: "2024-02-29T23:30:00Z", dateAdded: "2024-02-29T23:30:00Z" },
+      ],
+    };
+
+    expect(extractSortValues(imageWithOffsets, "-usagesDateAdded")?.[0]).toBe(
+      Date.parse("2024-02-29T23:30:00Z"),
+    );
+  });
+
   it("extracts usagesDateAdded — returns null when image has no usages", () => {
     const imageNoUsages: typeof IMAGE = { ...IMAGE, usages: [] };
     const sv = extractSortValues(imageNoUsages, "-usagesDateAdded");
@@ -159,6 +175,22 @@ describe("extractSortValues", () => {
       Date.parse("2026-03-20T14:30:00.000Z"),
       IMAGE.id,
     ]);
+  });
+
+  it("extracts collection action max by instant rather than ISO text order", () => {
+    const imageWithOffsets: typeof IMAGE = {
+      ...IMAGE,
+      collections: [
+        { path: ["one"], pathId: "one", description: "",
+          actionData: { author: "fixture", date: "2024-03-01T00:30:00+02:00" } },
+        { path: ["two"], pathId: "two", description: "",
+          actionData: { author: "fixture", date: "2024-02-29T23:30:00Z" } },
+      ],
+    };
+
+    expect(extractSortValues(imageWithOffsets, "-dateAddedToCollection")?.[0]).toBe(
+      Date.parse("2024-02-29T23:30:00Z"),
+    );
   });
 
   it("extracts dateAddedToCollection — returns null when image has no collection memberships", () => {

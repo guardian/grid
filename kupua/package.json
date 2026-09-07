@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:special-sort-es": "vitest run --config vitest.special-sort-es.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:full": "./scripts/run-e2e.sh",
     "test:e2e:headed": "playwright test --headed",

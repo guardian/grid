@@ -240,7 +240,7 @@ describe("buildSortClause", () => {
   it("-dateAddedToCollection produces nested sort on collections.actionData.date desc", () => {
     const result = buildSortClause("-dateAddedToCollection");
     expect(result).toEqual([
-      { "collections.actionData.date": { order: "desc", missing: "_last" } },
+      { "collections.actionData.date": { order: "desc", mode: "max", missing: "_last" } },
       { uploadTime: "desc" },
       { id: "asc" },
     ]);
@@ -249,7 +249,7 @@ describe("buildSortClause", () => {
   it("dateAddedToCollection produces nested sort on collections.actionData.date asc", () => {
     const result = buildSortClause("dateAddedToCollection");
     expect(result).toEqual([
-      { "collections.actionData.date": { order: "asc", missing: "_last" } },
+      { "collections.actionData.date": { order: "asc", mode: "max", missing: "_last" } },
       { uploadTime: "asc" },
       { id: "asc" },
     ]);
@@ -272,6 +272,32 @@ describe("buildSortClause", () => {
       { id: "asc" },
     ]);
   });
+
+  it.each(["dateAddedToCollection", "-dateAddedToCollection", "usagesDateAdded", "-usagesDateAdded"])(
+    "reverseSortClause flips only order for %s",
+    (orderBy) => {
+      const original = buildSortClause(orderBy);
+      const reversed = reverseSortClause(original);
+
+      expect(reversed[0]).toEqual({
+        [Object.keys(original[0])[0]]: {
+          ...(original[0][Object.keys(original[0])[0]] as Record<string, unknown>),
+          order: orderBy.startsWith("-") ? "asc" : "desc",
+        },
+      });
+      expect(reversed[0]).toMatchObject({
+        [Object.keys(original[0])[0]]: {
+          mode: "max",
+          missing: "_last",
+        },
+      });
+      if (orderBy.includes("usagesDateAdded")) {
+        expect(reversed[0]).toMatchObject({
+          "usages.dateAdded": { nested: { path: "usages" } },
+        });
+      }
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

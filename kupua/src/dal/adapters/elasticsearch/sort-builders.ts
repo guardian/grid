@@ -27,6 +27,20 @@ export const NESTED_SORT_FIELDS: Readonly<Record<string, string>> = {
   "usages.dateAdded": "usages",
 };
 
+function maxDateByInstant(dates: Array<string | undefined>): string | null {
+  let maxDate: string | null = null;
+  let maxTime = -Infinity;
+  for (const date of dates) {
+    if (!date) continue;
+    const time = Date.parse(date);
+    if (!Number.isNaN(time) && time > maxTime) {
+      maxDate = date;
+      maxTime = time;
+    }
+  }
+  return maxDate;
+}
+
 /**
  * Custom value extractors for sort fields that can't be read with a plain
  * dot-path walk (because they live inside JS arrays and require array-max
@@ -41,19 +55,13 @@ export const NESTED_SORT_FIELDS: Readonly<Record<string, string>> = {
  */
 export const SORT_FIELD_EXTRACTORS: Readonly<Record<string, (image: import("@/types/image").Image) => string | null>> = {
   // usages.dateAdded: max dateAdded across all usages (matches mode:"max" nested sort)
-  "usages.dateAdded": (img) => {
-    const dates = img.usages
-      ?.map((u) => u.dateAdded)
-      .filter((d): d is string => !!d);
-    return dates?.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-  },
+  "usages.dateAdded": (img) => maxDateByInstant(
+    img.usages?.map((usage) => usage.dateAdded) ?? [],
+  ),
   // collections.actionData.date: max date across all collection memberships
-  "collections.actionData.date": (img) => {
-    const dates = img.collections
-      ?.map((c) => c.actionData?.date)
-      .filter((d): d is string => !!d);
-    return dates?.length ? dates.reduce((a, b) => (a > b ? a : b)) : null;
-  },
+  "collections.actionData.date": (img) => maxDateByInstant(
+    img.collections?.map((collection) => collection.actionData?.date) ?? [],
+  ),
 };
 
 /**
@@ -94,7 +102,7 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   if (orderBy === "-dateAddedToCollection" || orderBy === "dateAddedToCollection") {
     const dir = orderBy.startsWith("-") ? "desc" : "asc";
     return [
-      { "collections.actionData.date": { order: dir, missing: "_last" } },
+      { "collections.actionData.date": { order: dir, mode: "max", missing: "_last" } },
       { uploadTime: dir },
       { id: "asc" },
     ];
