@@ -640,11 +640,9 @@ export async function stopStack(environment: StoppableStack | undefined): Promis
     // Reverse start order, so nothing is stopped before whatever depends on it.
     ...[...containers].reverse().map((container) => ({
       title: `Stop ${container.getLabels()[ROLE_LABEL] ?? container.getName()}`,
-      task: async () => {
-        await container.stop();
-      },
+      task: container.stop,
     })),
-    ...(network ? [{ title: 'Remove network', task: () => { network.stop() } }] : []),
+    ...(network ? [{ title: 'Remove network', task: network.stop }] : []),
     ...(configDir
       ? [
         {
