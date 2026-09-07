@@ -7,8 +7,8 @@ export const deleteImage = angular.module('gr.deleteImage', [
 ]);
 
 deleteImage.controller('grDeleteImageCtrl', [
-    '$rootScope', '$q', '$timeout', 'mediaApi', 'apiPoll',
-    function ($rootScope, $q, $timeout, mediaApi, apiPoll) {
+    '$rootScope', '$q', '$timeout', '$window', 'mediaApi', 'apiPoll',
+    function ($rootScope, $q, $timeout, $window, mediaApi, apiPoll) {
         var ctrl = this;
 
         this.$onInit = () => {
@@ -38,10 +38,28 @@ deleteImage.controller('grDeleteImageCtrl', [
           };
 
           ctrl.delete = function () {
-              // HACK to wait for thrall to process the message so that when we
-              // poll the api, it will be up to date.
-              return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.deleteImage(image)))
-                  .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+            const deleteConfirmText = 'DELETE';
+            const imageId = Array.from(ctrl.images.values())[0].data.id;
+
+            return mediaApi.capiUsages(imageId)
+              .then(r => {
+                if (r.data.articles.length > 0) {
+                  const contents = r.data.articles.map(a => `${a.contentId} \n\t  ${a.images.join('\n\t ')}`);
+                  return $window.prompt(
+                  'This image is being used in the following articles: \n\n' +
+                    `${contents.join("\n")}` +
+                  '\n\n' +
+                  'Type DELETE into the box below if you are 100% sure these images are ' +
+                  'not used anywhere and you will never need them ever again.');
+                }
+                return deleteConfirmText;
+              })
+              .then(superSure => {
+                if (superSure === deleteConfirmText) {
+                  return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.deleteImage(image)))
+                    .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+                }
+              });
           };
         };
     }

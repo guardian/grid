@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
+import models.{ContentWithImages, ContentWithImagesResponse}
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -121,6 +122,7 @@ class MediaApi(
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
+      Link("capiUsages",      s"${config.rootUri}/capiUsages/{id}"),
       // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
@@ -181,6 +183,16 @@ class MediaApi(
         respond(imageData, imageLinks, imageActions)
       case _ => ImageNotFound(id)
     }
+  }
+
+  def getCapiUsages(id: String) = auth { request =>
+
+    respond[ContentWithImagesResponse](
+      ContentWithImagesResponse(List(ContentWithImages(
+        contentId = "content123",
+        images = List("image1", "image2")
+      )))
+    )
   }
 
   /**
