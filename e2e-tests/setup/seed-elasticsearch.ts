@@ -75,8 +75,7 @@ export async function seedElasticsearch(
   const hits = fixture.body?.hits?.hits ?? [];
 
   if (hits.length === 0) {
-    report('No image fixtures found to seed into Elasticsearch');
-    return;
+    throw new Error('No image fixtures found to seed into Elasticsearch. This is unexpected - failing early');
   }
 
   report(`Waiting for the '${IMAGES_ALIAS}' alias`);
