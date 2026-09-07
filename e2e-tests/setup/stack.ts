@@ -361,9 +361,9 @@ function localstackTasks(): ListrTask<BootContext>[] {
     {
       title: 'Start container',
       task: async (ctx) => {
-        ctx.localstack = await localstackContainer(ctx.network!).start();
-        ctx.containers.push(ctx.localstack);
-        clients = provisioningClients(ctx.localstack.getConnectionUri());
+        const localstack = await localstackContainer(ctx.network!).start();
+        ctx.containers.push(localstack);
+        clients = provisioningClients(localstack.getConnectionUri());
       },
     },
     {
