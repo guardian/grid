@@ -2269,13 +2269,15 @@ describe("search generation counter", () => {
 
 describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
   /** Build a minimal ImageDataSource with a working searchByAi. */
-  function makeAiMock(count = 20) {
+  function makeAiMock(count = 20, uploadOffsets?: number[]) {
     const base = new MockDataSource(count);
     const hits = Array.from({ length: count }, (_, i) => ({
       id: `ai-img-${i}`,
       uri: `https://example.com/ai-img-${i}`,
       metadata: { description: `AI image ${i}` },
-      uploadTime: new Date(Date.now() - i * 1000).toISOString(),
+      uploadTime: new Date(
+        Date.now() - (uploadOffsets?.[i] ?? i * 1000),
+      ).toISOString(),
       __aiScore: 1 - i * 0.01,
     })) as unknown as import("@/types/image").Image[];
 
@@ -2357,6 +2359,34 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
 
     expect(state().focusedImageId).toBeNull();
     expect(state().results.length).toBe(20);
+  });
+
+  it("applies Uploaded ordering before publishing an initial AI result", async () => {
+    useSearchStore.setState({
+      dataSource: makeAiMock(3, [3000, 1000, 2000]) as unknown as import("@/dal").ImageDataSource,
+    });
+
+    await actions().search();
+    await flush();
+
+    expect(state().results.map((image) => image?.id)).toEqual([
+      "ai-img-1",
+      "ai-img-2",
+      "ai-img-0",
+    ]);
+  });
+
+  it("resets position when resorting AI results without an anchor", async () => {
+    await actions().search();
+    const resetBefore = state()._scrollReset.gen;
+
+    actions().resortAiBuffer("uploadTime");
+
+    expect(state()._scrollReset).toEqual({
+      gen: resetBefore + 1,
+      sortOnly: true,
+    });
+    assertPositionsConsistent("AI resort");
   });
 
   it("sets _phantomFocusImageId when phantomOnly is true and anchor found", async () => {

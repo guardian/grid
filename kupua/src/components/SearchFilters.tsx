@@ -21,22 +21,15 @@ import { trace } from "@/lib/perceived-trace";
 /** Sortable fields for the dropdown — derived from the field registry. */
 const SORTABLE_FIELDS = SORT_DROPDOWN_OPTIONS;
 
+export function isAiSortOptionEnabled(field: string): boolean {
+  return field === "relevance" || field === "uploadTime";
+}
+
 /** Parse the primary sort field and direction from the orderBy param */
 function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {
   const primary = orderBy.split(",")[0].trim();
   const desc = primary.startsWith("-");
   const field = desc ? primary.slice(1) : primary;
-  return { field, desc };
-}
-
-/** Parse the secondary sort field and direction (if any) from the orderBy param */
-function parseSecondarySort(orderBy: string): { field: string; desc: boolean } | null {
-  const parts = orderBy.split(",");
-  if (parts.length < 2) return null;
-  const secondary = parts[1].trim();
-  if (!secondary) return null;
-  const desc = secondary.startsWith("-");
-  const field = desc ? secondary.slice(1) : secondary;
   return { field, desc };
 }
 
@@ -87,8 +80,6 @@ function SortControls() {
 
   const orderBy = params.orderBy ?? "-uploadTime";
   const { field: sortField, desc: sortDesc } = parsePrimarySort(orderBy);
-  const secondary = parseSecondarySort(orderBy);
-  const primaryToken = orderBy.split(",")[0].trim();
 
   // When AI query is active, prepend a "Relevance" option and treat
   // -relevance as the default sort (so the indicator dot is suppressed).
@@ -104,51 +95,28 @@ function SortControls() {
   const isNonDefaultSort = orderBy !== defaultSort;
 
   const handleSelectField = useCallback(
-    (value: string, e: React.MouseEvent) => {
+    (value: string) => {
+      if (hasAiChip && !isAiSortOptionEnabled(value)) return;
       const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
       trace(action, "t_0", { sort: value, focusedId: focusedImageId });
-      if (e.shiftKey) {
-        // Shift+click — manage secondary sort (same logic as table column headers)
-        if (!secondary) {
-          // No secondary yet — add with natural default direction
-          if (value !== sortField) {
-            const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
-            updateSearch({ orderBy: `${primaryToken},${prefix}${value}` });
-          }
-        } else if (secondary.field === value) {
-          // Toggle secondary direction
-          const newSecondary = secondary.desc ? value : `-${value}`;
-          updateSearch({ orderBy: `${primaryToken},${newSecondary}` });
-        } else if (value !== sortField) {
-          // Move secondary to new field with natural default direction
-          const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
-          updateSearch({ orderBy: `${primaryToken},${prefix}${value}` });
-        }
+      if (value === sortField) {
+        const newPrimary = sortDesc ? value : `-${value}`;
+        updateSearch({ orderBy: newPrimary });
       } else {
-        // Normal click — set primary, clear secondary
-        if (value === sortField) {
-          // Toggle primary direction
-          const newPrimary = sortDesc ? value : `-${value}`;
-          updateSearch({ orderBy: newPrimary });
-        } else {
-          const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
-          updateSearch({ orderBy: `${prefix}${value}` });
-        }
+        const prefix = DESC_BY_DEFAULT.has(value) ? "-" : "";
+        updateSearch({ orderBy: `${prefix}${value}` });
       }
       setOpen(false);
     },
-    [updateSearch, sortField, sortDesc, primaryToken, secondary, focusedImageId]
+    [updateSearch, sortField, sortDesc, focusedImageId, hasAiChip]
   );
 
   const handleToggleDirection = useCallback(() => {
     const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
     trace(action, "t_0", { sort: sortField, dir: sortDesc ? "asc" : "desc", focusedId: focusedImageId });
-    const secondaryPart = secondary
-      ? `,${secondary.desc ? "-" : ""}${secondary.field}`
-      : "";
     const newPrimary = sortDesc ? sortField : `-${sortField}`;
-    updateSearch({ orderBy: `${newPrimary}${secondaryPart}` });
-  }, [sortField, sortDesc, secondary, updateSearch, focusedImageId]);
+    updateSearch({ orderBy: newPrimary });
+  }, [sortField, sortDesc, updateSearch, focusedImageId]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -217,9 +185,7 @@ function SortControls() {
         </svg>
       </button>
 
-      {/* Dropdown menu — uses shared popup-menu / popup-item classes.
-           Normal click: set primary sort, clear secondary.
-           Shift+click: add/toggle secondary sort (same as table column headers). */}
+      {/* Dropdown menu — uses shared popup-menu / popup-item classes. */}
       {open && (
         <div
           role="listbox"
@@ -229,15 +195,16 @@ function SortControls() {
         >
           {effectiveSortableFields.map((opt) => {
             const isPrimary = sortField === opt.value;
-            const isSecondary = secondary?.field === opt.value;
+            const disabled = hasAiChip && !isAiSortOptionEnabled(opt.value);
             return (
               <div
                 key={opt.value}
                 role="option"
                 aria-selected={isPrimary}
+                aria-disabled={disabled}
                 data-sort-key={opt.value}
-                onClick={(e) => handleSelectField(opt.value, e)}
-                className="popup-item"
+                onClick={disabled ? undefined : () => handleSelectField(opt.value)}
+                className={`popup-item ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}
               >
                 <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
                   {isPrimary && (
@@ -247,22 +214,6 @@ function SortControls() {
                         : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
                       }
                     </svg>
-                  )}
-                  {isSecondary && (
-                    <span className="inline-flex opacity-65">
-                      <svg className="w-3 h-3 -mr-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        {secondary!.desc
-                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
-                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
-                        }
-                      </svg>
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        {secondary!.desc
-                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
-                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
-                        }
-                      </svg>
-                    </span>
                   )}
                 </span>
                 {opt.label}

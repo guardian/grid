@@ -257,7 +257,7 @@ The central store managing the windowed buffer architecture:
 | Date range filtering (upload/taken/modified) | ✅ |
 | Date presets (Today, Past 24h, Past week, 6 months, year) | ✅ |
 | Custom date range (From/To date inputs) | ✅ |
-| Sort by multiple fields (primary + secondary) | ✅ |
+| One semantic sort with automatic upload-time and ID fallbacks | ✅ |
 | New images ticker (10s polling, click to refresh) | ✅ |
 
 ### Debouncing
@@ -291,7 +291,7 @@ The central store managing the windowed buffer architecture:
 | Column visibility | Right-click context menu with checkboxes per column |
 | Auto-fit | Double-click header = fit to data; second double-click = restore |
 | Resize all | "Resize all columns to fit data" from context menu |
-| Sort indicators | Primary (↑/↓), secondary (↑↑/↓↓) in headers, accent-coloured |
+| Sort indicators | One primary direction indicator (↑/↓), accent-coloured |
 | Horizontal scroll | Native horizontal scrollbar (proxy div), hidden vertical scrollbar |
 | Cell content | Varies by field type — text, pills (keywords/subjects/people), composite (location), formatted dates/dimensions |
 | Focus | Click = focus (ring highlight), Double-click = open image detail |
@@ -531,7 +531,7 @@ CQL manipulation uses AST-based parsing (`cql-query-edit.ts`) — no string `.in
 | Location | Interaction |
 |---|---|
 | Toolbar dropdown | Select field, toggle direction ↑/↓ |
-| Table header click | Primary sort (click), secondary sort (Shift+click) |
+| Table header click | Select/toggle the primary sort; Shift+click behaves the same |
 | Table header double-click | Auto-fit column (not sort) — sort delayed 250ms |
 | Direction toggle | Click same field to flip asc/desc |
 
@@ -551,11 +551,11 @@ CQL manipulation uses AST-based parsing (`cql-query-edit.ts`) — no string `.in
 | Height | `height` | Descending |
 | File Size | `fileSize` | Descending |
 
-### Secondary Sort
+### Sort Contract
 
-- `Shift+click` on a column header adds/toggles secondary sort
-- URL format: `orderBy=credit,-uploadTime` (comma-separated)
-- Visual indicator: `↑↑` / `↓↓` with 65% opacity accent colour
+- `orderBy` contains at most one recognised semantic token
+- Incoming comma URLs retain only a valid first token or use the context default
+- Elasticsearch adds automatic `uploadTime` and `id` clauses for stable ordering
 
 ### Sort-Around-Focus ("Never Lost")
 

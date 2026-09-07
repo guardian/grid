@@ -481,7 +481,7 @@ test.describe("Table column header sort", () => {
     expect(store2.error).toBeNull();
   });
 
-  test("shift-clicking a column header adds a secondary sort", async ({ kupua }) => {
+  test("shift-clicking sort controls selects one primary and comma URLs are canonicalized", async ({ kupua }) => {
     await kupua.goto();
     await kupua.switchToTable();
 
@@ -495,27 +495,54 @@ test.describe("Table column header sort", () => {
         && state.sortAroundFocusStatus === null;
     }).toBe(true);
 
-    // Now Shift+click "Source" to add as secondary sort
+    // Shift+click behaves exactly like a normal primary selection.
     const sourceHeader = kupua.page.locator('[role="columnheader"]', { hasText: "Source" });
     await sourceHeader.click({ modifiers: ["Shift"] });
     await expect.poll(async () => {
       const state = await kupua.getStoreState();
-      const fields = state.orderBy?.split(",").map((field) => field.replace(/^-/, ""));
-      return fields?.[0] === "credit"
-        && fields?.[1] === "source"
+      return state.orderBy === "source"
         && !state.loading
         && state.sortAroundFocusStatus === null;
     }).toBe(true);
 
-    // Source header should show a double-arrow secondary sort indicator (two SVG arrows)
-    const secondaryIndicator = sourceHeader.locator('span[aria-hidden="true"] svg');
-    expect(await secondaryIndicator.count()).toBe(2);
+    const sourceIndicator = sourceHeader.locator('span[aria-hidden="true"] svg');
+    expect(await sourceIndicator.count()).toBe(1);
+    expect(await creditHeader.locator('span[aria-hidden="true"] svg').count()).toBe(0);
 
-    // Credit should still be the primary sort (single SVG arrow)
-    const creditIndicator = creditHeader.locator('span[aria-hidden="true"] svg');
-    await expect(creditIndicator.first()).toBeVisible();
+    // The toolbar has the same primary-only Shift+click semantics.
+    await kupua.page.locator('button[aria-haspopup="listbox"]').click();
+    const creditOption = kupua.page.locator('[role="option"][data-sort-key="credit"]');
+    await creditOption.click({ modifiers: ["Shift"] });
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy === "credit"
+        && !state.loading
+        && state.sortAroundFocusStatus === null;
+    }).toBe(true);
 
-    // No errors
+    const searchSorts: unknown[][] = [];
+    kupua.page.on("request", (request) => {
+      if (request.method() !== "POST" || !request.url().includes("/_search")) return;
+      const body = request.postDataJSON() as { sort?: unknown[] } | null;
+      if (body?.sort) searchSorts.push(body.sort);
+    });
+
+    // Pasted comma URLs keep only a valid first token and replace in place.
+    await kupua.gotoWithParams("orderBy=credit,dateAddedToCollection");
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy === "credit" && !state.loading;
+    }).toBe(true);
+    await expect(kupua.page).toHaveURL(/orderBy=credit(?:&|$)/);
+    expect(kupua.page.url()).not.toContain(",");
+
+    expect(searchSorts.length).toBeGreaterThan(0);
+    expect(searchSorts).toContainEqual([
+      { "metadata.credit": "asc" },
+      { uploadTime: "desc" },
+      { id: "asc" },
+    ]);
+
     const store = await kupua.getStoreState();
     expect(store.error).toBeNull();
   });

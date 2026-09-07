@@ -90,7 +90,7 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   // Usable globally (not only inside a collection context): images without
   // any collection membership have no actionData.date — missing: "_last"
   // pushes them to the end regardless of direction, and the uploadTime
-  // secondary sort keeps null-zone pagination working correctly.
+  // automatic uploadTime fallback keeps null-zone pagination working correctly.
   if (orderBy === "-dateAddedToCollection" || orderBy === "dateAddedToCollection") {
     const dir = orderBy.startsWith("-") ? "desc" : "asc";
     return [
@@ -177,11 +177,9 @@ export function buildSortClause(orderBy?: string): Record<string, unknown>[] {
   // useful default. The primary sort direction (A→Z vs Z→A) is about
   // the keyword, not about time.
   //
-  // Edge case: multi-sort like `-lastModified,taken` — the fallback
-  // inherits from the PRIMARY sort direction (desc), because the largest
-  // null zone is the primary field's. We discussed inheriting from the
-  // last/secondary sort instead, but it adds complexity for a rare edge
-  // case (docs missing both primary AND secondary sort fields).
+  // Configured aliases may expand one semantic token into multiple clauses.
+  // The fallback inherits from the first resolved clause because it owns the
+  // primary null zone.
   if (!fieldSet.has("uploadTime")) {
     const primaryField = clauses[0] ? Object.keys(clauses[0])[0] : null;
     const primaryDir = clauses[0] && primaryField

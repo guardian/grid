@@ -7,6 +7,16 @@
  */
 
 import { z } from "zod";
+import { SORTABLE_FIELDS } from "./field-registry";
+
+const COLLECTION_CHIP_RE = /(?:^|\s)(?:\+?collection:|~)\S+/;
+const COLLECTION_SORT = "-dateAddedToCollection";
+const ORDINARY_SORT = "-uploadTime";
+const AI_SORT = "-relevance";
+const ORDINARY_SORT_TOKENS = new Set([
+  ...Object.values(SORTABLE_FIELDS),
+  "dateAddedToCollection",
+]);
 
 export const searchParamsSchema = z.object({
   /** Free-text / CQL query */
@@ -54,6 +64,99 @@ export const searchParamsSchema = z.object({
 });
 
 export type UrlSearchParams = z.infer<typeof searchParamsSchema>;
+
+export interface SearchContextMemory {
+  preCollectionSort?: string;
+  preAiSort?: string;
+}
+
+export function hasCollectionFilter(query: string | undefined): boolean {
+  return COLLECTION_CHIP_RE.test(query ?? "");
+}
+
+export function applySearchContextTransitions(
+  current: UrlSearchParams,
+  updates: Partial<UrlSearchParams>,
+  memory: SearchContextMemory,
+): { params: UrlSearchParams; memory: SearchContextMemory } {
+  const params = { ...current, ...updates };
+  const nextMemory = { ...memory };
+  const hadCollection = hasCollectionFilter(current.query);
+  const hasCollection = hasCollectionFilter(params.query);
+
+  if (!hadCollection && hasCollection) {
+    nextMemory.preCollectionSort = current.aiQuery
+      ? nextMemory.preAiSort
+      : params.orderBy === COLLECTION_SORT
+        ? undefined
+        : params.orderBy;
+    params.aiQuery = undefined;
+    params.orderBy = COLLECTION_SORT;
+    nextMemory.preAiSort = undefined;
+    return { params, memory: nextMemory };
+  }
+
+  if (hadCollection && !hasCollection) {
+    if (params.orderBy === COLLECTION_SORT) {
+      params.orderBy = nextMemory.preCollectionSort;
+    }
+    nextMemory.preCollectionSort = undefined;
+  } else if (hasCollection) {
+    params.aiQuery = undefined;
+    return { params, memory: nextMemory };
+  }
+
+  const hadAi = !!current.aiQuery;
+  const hasAi = !!params.aiQuery;
+  if (!hadAi && hasAi) {
+    if (params.orderBy !== AI_SORT) {
+      nextMemory.preAiSort = params.orderBy;
+      params.orderBy = AI_SORT;
+    }
+  } else if (hadAi && !hasAi) {
+    if (params.orderBy === AI_SORT) {
+      params.orderBy = nextMemory.preAiSort;
+    }
+    nextMemory.preAiSort = undefined;
+  }
+
+  return { params, memory: nextMemory };
+}
+
+function firstSortToken(value: string | undefined): string | undefined {
+  const token = value?.split(",", 1)[0]?.trim();
+  return token || undefined;
+}
+
+function isAllowedSort(token: string, allowed: ReadonlySet<string>): boolean {
+  const field = token.startsWith("-") ? token.slice(1) : token;
+  return allowed.has(field);
+}
+
+export function canonicalizeSearchParams(
+  params: UrlSearchParams,
+): UrlSearchParams {
+  const canonical = { ...params };
+  const hasCollection = hasCollectionFilter(canonical.query);
+
+  if (hasCollection && canonical.aiQuery) {
+    canonical.aiQuery = undefined;
+  }
+
+  const token = firstSortToken(canonical.orderBy);
+  if (canonical.aiQuery) {
+    const aiTokens = new Set(["relevance", "uploadTime"]);
+    canonical.orderBy = token && isAllowedSort(token, aiTokens) ? token : AI_SORT;
+  } else if (token && isAllowedSort(token, ORDINARY_SORT_TOKENS)) {
+    canonical.orderBy = token;
+  } else if (canonical.orderBy === undefined && !hasCollection) {
+    canonical.orderBy = undefined;
+  } else {
+    canonical.orderBy = hasCollection ? COLLECTION_SORT : ORDINARY_SORT;
+  }
+
+  return canonical;
+}
 
 /**
  * Keys that are synced to the URL.

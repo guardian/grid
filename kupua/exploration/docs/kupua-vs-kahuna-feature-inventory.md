@@ -278,14 +278,14 @@ Both mechanisms try to be clever, and in ideal conditions (same tab, no hard rel
 
 ---
 
-### 3.3 Multi-sort via field registry (38+ sortable fields)
+### 3.3 Broad sorting via field registry (38+ sortable fields)
 **Score (a/b/c):** 2/2/2 = **6** | **Audience:** both | **Demo:** screenshot
 
 **What Kahuna does today:** Five fixed sort options: Upload date (new/old), Taken date (new/old), Last modified (new/old), Added to collection. These are hardcoded in `gr-sort-control-config.ts:9–41`.
 
-**What Kupua does:** The sort dropdown (`SORT_DROPDOWN_OPTIONS` in `field-registry.tsx`) exposes 12 options: Uploaded, Taken on, Last modified, Added to collection, Image type, Credit, Source, Uploader, Category, Width, Height, File type. Shift-clicking on column header or sort dropdown item offers secondary sort on any sortable field. Separate sort order UI prevents clutter.
+**What Kupua does:** The sort dropdown (`SORT_DROPDOWN_OPTIONS` in `field-registry.tsx`) exposes 12 options: Uploaded, Taken on, Last modified, Added to collection, Image type, Credit, Source, Uploader, Category, Width, Height, File type. One semantic sort is selected at a time; automatic upload-time and ID clauses provide stable fallback ordering.
 
-**Why it's better:** More comprehensive and powerful sorting.
+**Why it's better:** More comprehensive field coverage without an undisclosed compound-sort interaction.
 
 **Evidence — Kupua:**
 - `kupua/src/lib/field-registry.tsx`
@@ -485,15 +485,15 @@ Two small UI polish differences, grouped here.
 
 ---
 
-### 5.3 Secondary sort via shift-click column header
+### 5.3 Primary sort via table column header
 **Score (a/b/c):** 2/1/2 = **5** | **Audience:** both | **Demo:** screenshot
 
-**What Kahuna does today:** Single sort from a five-option dropdown. No multi-sort.
+**What Kahuna does today:** Single sort from a five-option dropdown.
 
-**What Kupua does:** Shift-clicking a column header in table view appends a secondary sort key. The sort indicators (▲/▼ for primary and ▲▲/▼▼ for secondary sort) are visible in the header.
+**What Kupua does:** Clicking or Shift-clicking a sortable table header selects one primary sort and shows one direction indicator. Generic compound sorting is intentionally unsupported.
 
 **Evidence — Kupua:**
-- `kupua/src/components/ImageTable.tsx:~200` (secondary sort on shift-click)
+- `kupua/src/components/ImageTable.tsx` (primary sort on header click)
 - `kupua/src/dal/adapters/elasticsearch/sort-builders.ts`
 
 **Evidence — Kahuna:**

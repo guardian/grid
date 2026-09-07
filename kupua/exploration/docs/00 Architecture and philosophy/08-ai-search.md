@@ -33,7 +33,7 @@ The same capability exists in kahuna. The difference is in shape:
 |---|---|---|
 | AI is | a **mode** the user toggles into | a **chip** added to the search |
 | Filter chips when AI is on | disabled, UI removed | composed as KNN pre-filters |
-| Sort options when AI is on | locked to relevance | all sorts available (client-side) |
+| Sort options when AI is on | locked to relevance | Relevance and Uploaded enabled; others visible but disabled |
 | Tickers, "is:" filters, counts | not shown | shown, scoped to the AI result set |
 | Free-text BM25 when AI is on | mutually exclusive | becomes a pre-filter inside the KNN query |
 
@@ -48,6 +48,10 @@ A separate AI mode is structurally simpler — different UI, different code
 path, no integration. Composing AI search with every other feature means
 every other feature has to keep working when the result set is a
 fixed ≤200 IDs ranked by something other than a re-runnable query.
+
+Collection filters are the deliberate exception to composition. AI and
+`collection:`/`+collection:`/`~` queries cannot coexist; collection wins pasted
+or runtime conflicts and AI is cleared in the same navigation.
 
 ---
 
@@ -254,12 +258,13 @@ by `resortAiBuffer` (§4) when the user picks Relevance.
 
 ## §4 Sort Handling — Auto-Switch and In-Memory Re-Sort
 
-When AI is active, sort options compose naturally:
+When AI is active, sorting is deliberately bounded:
 
 - A virtual **Relevance** option is prepended to the sort dropdown
   ([`SearchFilters.tsx`](../../src/components/SearchFilters.tsx),
   `SortControls`). It maps to the URL value `-relevance`.
-- All other sort options remain available — uploadTime, dateTaken, etc.
+- Uploaded remains enabled. Ordinary and special sort options stay visible but
+   disabled so the restriction is explicit.
 - The default-sort indicator dot tracks `-relevance` as the default when
   AI is active, `-uploadTime` otherwise.
 
@@ -267,17 +272,17 @@ Two coordinated mechanisms make this work:
 
 ### 4.1 Auto-switch with revert
 
-[`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts) maintains a
-module-level `_preSortBeforeAi` mirroring the existing
-`_preSortBeforeCollection` pattern. When `aiQuery` appears in a navigation:
+[`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts) applies one pure
+AI/collection transition policy. When `aiQuery` appears in a navigation:
 
 1. If the user's current sort isn't already `-relevance`, save it and
    force the sort to `-relevance`.
 2. When `aiQuery` later disappears, if the sort is still `-relevance`,
    revert to whatever was saved.
 
-The user never has to remember to set or unset Relevance. Sorts they
-chose manually while AI is active are preserved across the AI removal.
+The user never has to remember to set or unset Relevance. Entering a collection
+from AI clears AI atomically and later leaving the collection restores the
+ordinary sort that preceded AI.
 
 ### 4.2 Client-side re-sort, no ES round-trip
 
@@ -293,11 +298,9 @@ if (isSortOnly && !!searchOnly.aiQuery) {
 ```
 
 [`resortAiBuffer`](../../src/stores/search-store.ts) sorts the in-memory
-`results` array by `__aiScore` (Relevance) or by a `_source` field
-(uploadTime, dateTaken). No Bedrock call, no ES call. The virtualizer
-re-renders from the same 200 images in a new order. Sorts on fields
-that don't exist in `_source` are silently no-op (the dropdown only
-exposes sortable fields, so this case isn't surfaced to the user).
+`results` array by `__aiScore` (Relevance) or `uploadTime`. No Bedrock call and
+no ES call. The virtualizer re-renders the same images, preserving an available
+focus/selection anchor or resetting to top when no anchor applies.
 
 ---
 

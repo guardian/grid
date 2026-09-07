@@ -403,7 +403,7 @@ test.describe("Phantom focus promotion", () => {
     expect(scrollBefore).toBeGreaterThan(0);
 
     // Change only sort order — this should reset to top (relaxation)
-    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=oldest`);
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=uploadTime`);
 
     // Wait for search to complete
     await kupua.page.waitForFunction(
@@ -439,7 +439,7 @@ test.describe("Phantom focus promotion", () => {
     expect(focusedId).not.toBeNull();
 
     // Change sort order — explicit focus should be preserved (no relaxation)
-    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=oldest`);
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=uploadTime`);
     await kupua.waitForSortAroundFocus();
 
     // Focus should be preserved on the same image

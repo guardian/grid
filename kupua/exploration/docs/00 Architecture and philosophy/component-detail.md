@@ -187,7 +187,7 @@ Three-dot menu in SearchBar. Click mode toggle (explicit ⇔ phantom focus). Coa
 
 ## Search Filters (`components/SearchFilters.tsx`)
 
-Split into two layout slots: **FilterControls** (middle — "Free to use only" toggle + `DateFilter`) and **SortControls** (right — sort field dropdown from `SORT_DROPDOWN_OPTIONS`, direction toggle, secondary sort with shift-click). Hidden on small screens (`< sm`). Sort via column header clicks still works on any screen size.
+Split into two layout slots: **FilterControls** (middle — "Free to use only" toggle + `DateFilter`) and **SortControls** (right — one primary field from `SORT_DROPDOWN_OPTIONS` plus direction toggle). Hidden on small screens (`< sm`). Table header clicks select the same single primary; Shift+click has no distinct sort behavior.
 
 ## Date Filter (`components/DateFilter.tsx`)
 

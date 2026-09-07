@@ -14,7 +14,14 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
-import { URL_PARAM_KEYS, URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
+import {
+  applySearchContextTransitions,
+  canonicalizeSearchParams,
+  hasCollectionFilter,
+  URL_PARAM_KEYS,
+  URL_DISPLAY_KEYS,
+  type UrlSearchParams,
+} from "@/lib/search-params-schema";
 import {
   _prevParamsSerialized,
   setPrevParamsSerialized,
@@ -51,17 +58,7 @@ let _lastKupuaKey: string | undefined;
 // two-search race condition that the previous useEffect-based approach caused.
 // See deviations.md §20, exploration/docs/worklog-current.md.
 // ---------------------------------------------------------------------------
-const COLLECTION_CHIP_RE = /(?:^|\s)collection:/;
-const COLLECTION_SORT = "-dateAddedToCollection";
-
-/** The sort order active before a collection chip appeared. Module-level
- *  because there's only one search route instance. */
-let _preSortBeforeCollection: string | undefined;
-
-const AI_SORT = "-relevance";
-
-/** The sort order active before an AI query appeared. */
-let _preSortBeforeAi: string | undefined;
+let _searchContextMemory: import("@/lib/search-params-schema").SearchContextMemory = {};
 
 /**
  * Strips undefined values from search params so they don't appear in the URL
@@ -123,12 +120,26 @@ export function useUrlSearchSync() {
         // must switch to pushNavigate().
         navigate({
           to: "/search",
-          search: cleanParams(DEFAULT_SEARCH as Record<string, string | undefined>),
+          search: cleanParams(canonicalizeSearchParams(DEFAULT_SEARCH)),
           replace: true,
           state: withCurrentKupuaKey(),
         });
         return; // navigate will re-trigger this effect with the new URL
       }
+    }
+
+    const canonicalParams = canonicalizeSearchParams(searchParams);
+    const needsCanonicalReplace = URL_PARAM_KEYS.some(
+      (key) => canonicalParams[key] !== searchParams[key],
+    );
+    if (needsCanonicalReplace) {
+      navigate({
+        to: "/search",
+        search: cleanParams(canonicalParams),
+        replace: true,
+        state: withCurrentKupuaKey(),
+      });
+      return;
     }
 
     // Serialize to compare — avoids infinite loops from object identity changes.
@@ -346,7 +357,11 @@ export function useUrlSearchSync() {
     // AI mode sort-only: re-sort the in-memory buffer client-side.
     // No ES round-trip or Bedrock call needed — all ≤200 results are already in memory.
     if (isSortOnly && !!searchOnly.aiQuery) {
-      useSearchStore.getState().resortAiBuffer(searchParams.orderBy ?? "-relevance");
+      useSearchStore.getState().resortAiBuffer(
+        searchParams.orderBy ?? "-relevance",
+        focusPreserveId,
+        !!phantomAnchor,
+      );
       setExternalQuery(null);
       return;
     }
@@ -398,54 +413,13 @@ export function useUpdateSearchParams() {
         markPushSnapshot();
       }
       markUserInitiatedNavigation();
-      const merged = { ...paramsRef.current, ...updates };
-
-      // --- Collection auto-sort: atomically adjust sort when the
-      //     collection chip appears or disappears. ---
-      const prevQuery = paramsRef.current.query ?? "";
-      const newQuery = merged.query ?? "";
-      const hadCollection = COLLECTION_CHIP_RE.test(prevQuery);
-      const hasCollection = COLLECTION_CHIP_RE.test(newQuery);
-
-      if (!hadCollection && hasCollection) {
-        // Collection chip just appeared → remember current sort, switch.
-        // Guard: if sort is already the collection sort (e.g. back-nav
-        // to a URL with both chip + sort), don't capture it as the
-        // "previous" sort — that would lock in the collection sort as
-        // the revert target. Leaving _preSortBeforeCollection as-is
-        // means revert falls back to default. See deviations.md §20.
-        if (merged.orderBy !== COLLECTION_SORT) {
-          _preSortBeforeCollection = merged.orderBy;
-          merged.orderBy = COLLECTION_SORT;
-        }
-      } else if (hadCollection && !hasCollection) {
-        // Collection chip just disappeared → revert if the user didn't
-        // manually change the sort while viewing the collection.
-        if (merged.orderBy === COLLECTION_SORT) {
-          merged.orderBy = _preSortBeforeCollection;
-        }
-        _preSortBeforeCollection = undefined;
-      }
-      // --- end collection auto-sort ---
-
-      // --- AI auto-sort: switch to Relevance when aiQuery appears ---
-      const hadAi = !!paramsRef.current.aiQuery;
-      const hasAi = !!merged.aiQuery;
-
-      if (!hadAi && hasAi) {
-        // AI query just appeared → remember current sort, switch to Relevance.
-        if (merged.orderBy !== AI_SORT) {
-          _preSortBeforeAi = merged.orderBy;
-          merged.orderBy = AI_SORT;
-        }
-      } else if (hadAi && !hasAi) {
-        // AI query just disappeared → revert if the user didn't manually change sort.
-        if (merged.orderBy === AI_SORT) {
-          merged.orderBy = _preSortBeforeAi;
-        }
-        _preSortBeforeAi = undefined;
-      }
-      // --- end AI auto-sort ---
+      const transition = applySearchContextTransitions(
+        paramsRef.current,
+        updates,
+        _searchContextMemory,
+      );
+      const merged = transition.params;
+      _searchContextMemory = transition.memory;
 
       // kupuaKey: mint a fresh one on push (new history entry), re-pass
       // the current one on replace (same entry, key must survive).

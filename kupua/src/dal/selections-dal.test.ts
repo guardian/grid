@@ -404,6 +404,38 @@ describe("ElasticsearchDataSource.getIdRange — null-zone", () => {
   // Sentinel: 9223372036854776000 (Long.MAX_VALUE as JS float64)
   const SENTINEL = 9223372036854776000;
 
+  it("wraps nested primary existence checks inside the nested path", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      okResponse({
+        took: 1,
+        hits: { total: { value: 0 }, hits: [] },
+      }),
+    );
+
+    const ds = new ElasticsearchDataSource();
+    await ds.getIdRange(
+      { orderBy: "usagesDateAdded" },
+      [null, 1695000000000, "img-start"],
+      [null, 1700000000000, "img-end"],
+    );
+
+    const firstBody = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(firstBody.query.bool.filter).toEqual(
+      expect.arrayContaining([
+        {
+          bool: {
+            must_not: {
+              nested: {
+                path: "usages",
+                query: { exists: { field: "usages.dateAdded" } },
+              },
+            },
+          },
+        },
+      ]),
+    );
+  });
+
   it("sanitises cursor pass-back — sentinels in sort values don't break next page", async () => {
     // Page 1: returns 2 hits — second hit has sentinel (boundary doc).
     // Page 2: should receive a null-zone query (detectNullZoneCursor fires)

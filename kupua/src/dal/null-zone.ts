@@ -7,7 +7,11 @@
  */
 
 import type { SortValues } from "./types";
-import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-builders";
+import {
+  buildSortClause,
+  NESTED_SORT_FIELDS,
+  parseSortField,
+} from "./adapters/elasticsearch/sort-builders";
 
 // ---------------------------------------------------------------------------
 // Null-zone cursor detection
@@ -25,9 +29,9 @@ import { buildSortClause, parseSortField } from "./adapters/elasticsearch/sort-b
 export interface NullZoneOverride {
   /** Stripped cursor without the null primary value — matches sortOverride shape. */
   strippedCursor: SortValues;
-  /** Override sort: [uploadTime desc, id asc]. */
+  /** Override sort: [uploadTime, id]. */
   sortOverride: Record<string, unknown>[];
-  /** Extra filter: must_not { exists { field: primaryField } }. */
+  /** Extra filter excluding docs where the primary exists, nested when required. */
   extraFilter: Record<string, unknown>;
   /** The primary field name (for remapping response sort values). */
   primaryField: string;
@@ -49,11 +53,7 @@ export function detectNullZoneCursor(
   // The cursor structure mirrors the sort clause: [primary, uploadTime, id].
   if (cursor.length === 0 || cursor[0] !== null) return null;
 
-  // Derive the uploadTime fallback direction from the sort clause.
-  // buildSortClause already computed the correct direction: date primary sorts
-  // inherit the primary direction (e.g. `taken` asc → uploadTime asc),
-  // keyword/numeric sorts get desc. We read it from the clause directly
-  // instead of hardcoding, so the null-zone override matches the real sort.
+  // Derive the uploadTime fallback direction from the complete sort clause.
   let uploadTimeDir: "asc" | "desc" = "desc";
   for (const clause of sortClause) {
     const { field, direction } = parseSortField(clause);
@@ -63,16 +63,20 @@ export function detectNullZoneCursor(
     }
   }
 
-  // Strip the null value(s) from the cursor — keep only the non-primary fields.
-  // The cursor is [null, uploadTimeValue, idValue] → [uploadTimeValue, idValue].
+  // The supported one-semantic-sort cursor is [null, uploadTime, id].
   const strippedCursor: SortValues = [];
   for (let i = 0; i < sortClause.length; i++) {
     const { field } = parseSortField(sortClause[i]);
-    if (field === primaryField) continue; // skip null primary
-    if (i < cursor.length) {
+    if ((field === "uploadTime" || field === "id") && i < cursor.length) {
       strippedCursor.push(cursor[i]);
     }
   }
+
+  const existsQuery = { exists: { field: primaryField } };
+  const nestedPath = NESTED_SORT_FIELDS[primaryField];
+  const primaryExistsQuery = nestedPath
+    ? { nested: { path: nestedPath, query: existsQuery } }
+    : existsQuery;
 
   return {
     strippedCursor,
@@ -81,7 +85,7 @@ export function detectNullZoneCursor(
       { id: "asc" },
     ],
     extraFilter: {
-      bool: { must_not: { exists: { field: primaryField } } },
+      bool: { must_not: primaryExistsQuery },
     },
     primaryField,
     sortClause,
@@ -94,9 +98,8 @@ export function detectNullZoneCursor(
 
 /**
  * Remap sort values from null-zone shape [uploadTime, id] back to the full
- * sort clause shape [null, uploadTime, id]. Without this, cursors stored in
- * the buffer (startCursor/endCursor) would have the wrong length and break
- * subsequent extend calls.
+ * one-semantic-sort shape [null, uploadTime, id]. Without this, cursors stored
+ * in the buffer would have the wrong length and break subsequent extend calls.
  */
 export function remapNullZoneSortValues(
   sortValues: SortValues[],

@@ -135,9 +135,9 @@ test.describe("Browser back/forward — search context changes", () => {
     expect(await getUrlOrderBy(kupua.page)).toBeNull();
 
     // Change sort via SPA navigation (pushes history entry)
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
-    expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
+    expect(await getUrlOrderBy(kupua.page)).toBe("uploadTime");
 
     // Press browser back
     await goBackSearchAndWait(kupua.page);
@@ -181,8 +181,8 @@ test.describe("Browser back/forward — search context changes", () => {
     await kupua.goto();
 
     // Navigate to a sort change
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
-    expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
+    expect(await getUrlOrderBy(kupua.page)).toBe("uploadTime");
 
     // Back
     await goBackSearchAndWait(kupua.page);
@@ -190,7 +190,7 @@ test.describe("Browser back/forward — search context changes", () => {
 
     // Forward
     await goForwardSearchAndWait(kupua.page);
-    expect(await getUrlOrderBy(kupua.page)).toBe("oldest");
+    expect(await getUrlOrderBy(kupua.page)).toBe("uploadTime");
   });
 
   test("focus is NOT carried into old search context on back", async ({ kupua }) => {
@@ -202,7 +202,7 @@ test.describe("Browser back/forward — search context changes", () => {
     expect(focusedId).not.toBeNull();
 
     // Navigate to a different sort (pushes history entry)
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
     // Press back — should NOT carry the focused image into old results
     await goBackSearchAndWait(kupua.page);
@@ -879,14 +879,14 @@ test.describe("kupuaKey — per-entry identity", () => {
       if (markUserNav) markUserNav();
       router.navigate({
         to: "/search",
-        search: { nonFree: "true", orderBy: "oldest" },
+        search: { nonFree: "true", orderBy: "uploadTime" },
         replace: true,
         state: { kupuaKey: (window.history.state as any)?.kupuaKey },
       });
     });
     // Wait for the URL to reflect the replace (orderBy appears)
     await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.get("orderBy") === "oldest",
+      () => new URL(window.location.href).searchParams.get("orderBy") === "uploadTime",
       { timeout: 5000 },
     );
 
@@ -900,7 +900,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(initialKey).toBeDefined();
 
     // SPA push navigation
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
     const newKey = await getKupuaKey(kupua.page);
     expect(newKey).toBeDefined();
@@ -912,7 +912,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     const keyA = await getKupuaKey(kupua.page);
 
     // Push → new entry B
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
     const keyB = await getKupuaKey(kupua.page);
     expect(keyB).not.toBe(keyA);
 
@@ -921,7 +921,7 @@ test.describe("kupuaKey — per-entry identity", () => {
       const router = (window as any).__kupua_router__;
       router.navigate({
         to: "/search",
-        search: { nonFree: "true", orderBy: "oldest" },
+        search: { nonFree: "true", orderBy: "uploadTime" },
         replace: true,
         state: { kupuaKey: router.history.location.state?.kupuaKey },
       });
@@ -945,7 +945,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(focusedId).not.toBeNull();
 
     // Push a new search — this should capture a snapshot for entry A.
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
     // Inspect the snapshot captured for A's kupuaKey.
     const snapshot = await kupua.page.evaluate((key) => {
@@ -967,7 +967,7 @@ test.describe("kupuaKey — per-entry identity", () => {
     expect(keyA).toBeDefined();
 
     // Navigate to a different sort (creates a history entry B)
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
     const keyB = await getKupuaKey(kupua.page);
 
     // Click the logo (reset to home) — uses pushNavigateAsPopstate,
@@ -1038,8 +1038,8 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
     const anchorA = await kupua.getFocusedImageId();
     expect(anchorA).not.toBeNull();
 
-    // Entry B: oldest sort (Never Lost carries anchorA, that's fine).
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    // Entry B: ascending upload-time sort (Never Lost carries anchorA, that's fine).
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
     // Back to A — restores anchorA from snapshot.
     await goBackSearchAndWait(kupua.page);
@@ -1085,7 +1085,7 @@ test.describe("Snapshot restore — position restoration on back/forward", () =>
         if (markUserNav) markUserNav();
         router.navigate({
           to: "/search",
-          search: { nonFree: "true", orderBy: "oldest" },
+          search: { nonFree: "true", orderBy: "uploadTime" },
           state: { kupuaKey: crypto.randomUUID() },
         });
       }));
@@ -1428,7 +1428,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     // Push a sort change (entry B) — this captures A's snapshot via
     // markPushSnapshot. In phantom mode, A's anchor is the viewport centre
     // (anchorIsPhantom: true).
-    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&orderBy=uploadTime");
 
     // Verify A's snapshot is phantom.
     const snapA = await kupua.page.evaluate((key) => {
@@ -1499,7 +1499,7 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
     await kupua.goto();
 
     // Change sort (creates history entry)
-    await spaNavigateAndWait(kupua.page, "/search?orderBy=oldest");
+    await spaNavigateAndWait(kupua.page, "/search?orderBy=uploadTime");
     const keySorted = await kupua.page.evaluate(() => {
       const fn = (window as any).__kupua_getKupuaKey__;
       return fn ? fn() : undefined;

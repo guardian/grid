@@ -39,7 +39,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Grid API adapter / media-api integration** | `dal/strangler-adapter.ts`, `dal/grid-api-search-adapter.ts`, `dal/grid-api/grid-api-adapter.ts`, `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md` |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (`searchByAi`), `zz Archive/ai-search-workplan.md` |
-| **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx` |
+| **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx`, `exploration/docs/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md`, `exploration/docs/scroll-and-position-preservation-testing-4.2.2-obscure-sorting-workplan.md` |
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
@@ -81,7 +81,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1169 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1216 Vitest** unit/integration tests (~1min) -- `npm test`
 - **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **20 perf tests** + experiment infrastructure — `npm run test:perf`
@@ -99,6 +99,10 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Focus, phantom focus, position engine, relaxation model, mobile |
 | Scroll architecture | `exploration/docs/00 Architecture and philosophy/03-scroll-architecture.md` | Windowed buffer, search_after + PIT, seek, extend/evict, two-tier, swimming |
 | Browser history architecture | `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md` | kupuaKey, snapshot capture, popstate restore, reload survival |
+| Position consolidation workplan | `exploration/docs/scroll-and-position-preservation-testing-3-workplan.md` | Active reset: product contract → current-protocol ledger → target protocol → gated migration slices. Random fuzzer retired. |
+| Position preservation contract | `exploration/docs/scroll-and-position-preservation-consolidation-spec.md` | Active Phase 1 worksheet: preserve-by-default policy, anchor sources, placement ladder, decided/open transition rules. |
+| Obscure sorting decision | `exploration/docs/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md` | One-semantic-sort containment shipped; owns special-date findings still pending in slices E-J. |
+| Obscure sorting workplan | `exploration/docs/scroll-and-position-preservation-testing-4.2.2-obscure-sorting-workplan.md` | Failing-first containment, D3 hardening and special-date correctness slices. |
 | Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix |
 | Selections field catalogue | `exploration/docs/00 Architecture and philosophy/field-catalogue.md` | Per-field reference: multi-select behaviour, ES presence, Kupua/Kahuna parity (46 fields) |
 | Keyboard navigation | `exploration/docs/00 Architecture and philosophy/keyboard-navigation.md` | Focus modes, page-scroll math, arrow key behaviour |
@@ -161,7 +165,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 7. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved underneath.
 
-8. **Sort system** — comma-separated multi-sort via `orderBy`. Universal `uploadTime` fallback for null-zone ordering.
+8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token, plus automatic `uploadTime` fallback and unique `id` tiebreaker clauses. Comma URLs keep only a valid first token or use the context default; toolbar/table Shift+click behaves as an ordinary primary selection. AI is a flat Relevance/Uploaded-only context. AI and collection filters cannot coexist; collection wins conflicts atomically. Special-date correctness and D3 hardening remain pending.
 
 9. **CSS containment** — `contain: strict` on `.hide-scrollbar`. Critical for Firefox. Horizontal scrollbar is a proxy div.
 
@@ -174,3 +178,4 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Backlog (architectural)
 
 - **SearchContext abstraction** — blocking ticket for adding any second alternative-ranking algorithm (Phase 3 image-to-image, Phase 4 collection-based, etc.). The current decorator solution in `src/lib/ai-search-params.ts` is correct for one such algorithm; promote to SearchContext before adding a second. See `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md`.
+- **Special-date sort correctness** — execute slices E-J of the obscure sorting workplan. Last used and Added to collection must consistently rank by one maximum date per image across forward/reverse paging, seek, position maps, `countBefore`, range selection and scrubber. Materialised scalar dates require a separate backend proposal and performance review.

@@ -152,6 +152,27 @@ proxy-div trap is horizontal-only.** The real vertical scroll container is
 image ID immediately — no wheel/keyboard simulation needed. Did not test the
 horizontal proxy in this session; still `[?]` if you need it.
 
+**[V] To reproduce detail traversal across a buffer boundary, stop on the first
+`bufferOffset` change rather than choosing an arbitrary traversal count.** Open
+a stable rendered image, send real `ArrowRight` events, and after each URL
+identity change compare `window.__kupua_store__.getState().bufferOffset` with
+the entry offset. Reload only after it changes. On close, require the target
+cell to render before measuring signed usable-centre geometry. If that render
+wait times out, inspect `focusedImageId`, `bufferOffset`, `scrollTop`, and the
+redacted `kupua:imgOffset:` cached offset: an unrendered focused target is a
+stronger failure than merely landing off-centre. Never write the image ID to
+disk.
+
+**[V] Fullscreen exit rejection can be injected without faking fullscreen
+state.** Enter through the real `f` shortcut and wait for
+`document.fullscreenElement`, save `document.exitFullscreen.bind(document)` on
+`window`, then replace `document.exitFullscreen` with a rejected promise for one
+real exit action. Observe native fullscreen, visible descendants, history state,
+focused-cell geometry, and `__perceivedTrace__` beyond the normal 1s settlement
+cap. Restore the bound native method and call it before leaving the probe. This
+keeps the browser's actual fullscreen state machine in play while isolating only
+the rejected exit promise.
+
 **[V] The CQL search input is a shadow-DOM custom element — `type_in_page` fails
 on it, but real typing works via a Playwright locator + keyboard.** `<cql-input>`
 has an *open* shadow root wrapping a ProseMirror editor. `type_in_page`

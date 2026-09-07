@@ -204,7 +204,7 @@ Kahuna's pattern of `images` as an array input is the right abstraction — kupu
 
 ### macOS Finder / Windows Explorer
 
-- **List view** — sortable columns, resizable. Click header to sort. Shift-click for secondary sort.
+- **List view** — sortable, resizable columns inspired Kupua's table. Kupua deliberately limits sorting to one semantic primary rather than copying Finder's secondary-sort gesture.
 - **Column view** (Finder) — hierarchical drill-down. Not relevant to us.
 - **Gallery/Icon view** — thumbnails with size slider.
 - **Quick Look** — press Space to preview without opening. Close with Space or Escape.

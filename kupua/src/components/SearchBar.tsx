@@ -20,6 +20,7 @@ import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
 import { useSelectionStore } from "@/stores/selection-store";
 import { trace } from "@/lib/perceived-trace";
+import { hasCollectionFilter } from "@/lib/search-params-schema";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
@@ -197,7 +198,12 @@ export function SearchBar() {
             onHasContentChange={setHasEditorContent}
           />
         </div>
-        <AiSearchInput key={getCqlInputGeneration()} aiText={urlAiText} onAiTextChange={handleAiTextChange} />
+        <AiSearchInput
+          key={getCqlInputGeneration()}
+          aiText={urlAiText}
+          onAiTextChange={handleAiTextChange}
+          collectionDisabled={hasCollectionFilter(urlQuery)}
+        />
         <button
           onClick={handleClear}
           aria-label="Clear search"

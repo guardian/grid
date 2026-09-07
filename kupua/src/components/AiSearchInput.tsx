@@ -23,9 +23,15 @@ interface AiSearchInputProps {
   aiText: string | null;
   /** Called with non-empty text to write to URL, or null to remove from URL. */
   onAiTextChange: (text: string | null) => void;
+  /** AI and collection searches are mutually exclusive. */
+  collectionDisabled?: boolean;
 }
 
-export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
+export function AiSearchInput({
+  aiText,
+  onAiTextChange,
+  collectionDisabled = false,
+}: AiSearchInputProps) {
   const [available, setAvailable] = useState(bedrockAvailable);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -59,6 +65,13 @@ export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
   }, [aiText]);
 
   useEffect(() => {
+    if (!collectionDisabled) return;
+    _stashedAiText = null;
+    setIsActive(false);
+    setLocalText("");
+  }, [collectionDisabled]);
+
+  useEffect(() => {
     setAvailable(bedrockAvailable);
     return subscribeBedrockAvailable(setAvailable);
   }, []);
@@ -73,6 +86,7 @@ export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
   }, [isActive]);
 
   const handleToggle = useCallback(() => {
+    if (collectionDisabled) return;
     if (isActive) {
       // Deactivate — stash text, remove from URL.
       _stashedAiText = localText || null;
@@ -92,7 +106,7 @@ export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
       setIsActive(true);
       setLocalText("");
     }
-  }, [isActive, localText, onAiTextChange]);
+  }, [collectionDisabled, isActive, localText, onAiTextChange]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,6 +218,12 @@ export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
   const positionClasses = isActive && isFocused
     ? "absolute right-7 z-10 max-w-[calc(100%-6rem)]"
     : "";
+  const collapsedLabel = collectionDisabled
+    ? "AI image search unavailable while filtering by collection"
+    : "Enable AI image search";
+  const collapsedTitle = collectionDisabled
+    ? "AI search is unavailable while filtering by collection"
+    : "Enable AI image search";
 
   return (
     <div
@@ -212,15 +232,18 @@ export function AiSearchInput({ aiText, onAiTextChange }: AiSearchInputProps) {
           ? hasText
             ? `border-yellow-400/80 ${isFocused ? "bg-grid-bg" : "bg-yellow-500/10"} pl-1 pr-0.5 my-px ml-1`
             : `border-yellow-500/40 ${isFocused ? "bg-grid-bg" : "bg-yellow-500/5"} pl-1 pr-0.5 my-px ml-1`
-          : "group border-yellow-400/25 bg-transparent px-1.5 my-px hover:border-yellow-400 hover:bg-yellow-400/10 focus-visible:border-yellow-400 focus-visible:bg-yellow-400/10 outline-none cursor-pointer"
+          : collectionDisabled
+            ? "border-yellow-400/15 bg-transparent px-1.5 my-px opacity-50 cursor-not-allowed"
+            : "group border-yellow-400/25 bg-transparent px-1.5 my-px hover:border-yellow-400 hover:bg-yellow-400/10 focus-visible:border-yellow-400 focus-visible:bg-yellow-400/10 outline-none cursor-pointer"
       }`}
       style={outerFlexStyle}
-      onClick={!isActive ? handleToggle : undefined}
-      onKeyDown={!isActive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleToggle(); } } : undefined}
+      onClick={!isActive && !collectionDisabled ? handleToggle : undefined}
+      onKeyDown={!isActive && !collectionDisabled ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleToggle(); } } : undefined}
       role={!isActive ? "button" : undefined}
-      tabIndex={!isActive ? 0 : undefined}
-      title={isActive ? undefined : "Enable AI image search"}
-      aria-label={isActive ? undefined : "Enable AI image search"}
+      tabIndex={!isActive && !collectionDisabled ? 0 : undefined}
+      title={isActive ? undefined : collapsedTitle}
+      aria-label={isActive ? undefined : collapsedLabel}
+      aria-disabled={!isActive && collectionDisabled ? true : undefined}
     >
       <button
         type="button"

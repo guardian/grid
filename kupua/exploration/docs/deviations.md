@@ -115,8 +115,9 @@ Kupua now has three columns: **Dimensions** (display-only, shows oriented
 `w × h`), **Width** (sortable, `source.dimensions.width`), and **Height**
 (sortable, `source.dimensions.height`). Both Width and Height are plain
 integer fields that use the fast percentile estimation path (~200ms for any
-depth). Users can sort by Width alone, Height alone, or both via
-shift-click secondary sort — strictly more powerful than pixel count.
+depth). Users can sort by Width or Height as independent semantic sorts. Generic
+compound sorting is intentionally unsupported; each choice retains automatic
+upload-time and ID fallback ordering.
 
 The entire script sort infrastructure was removed: `scriptSorts` map,
 `isScript` flag in `parseSortField`, Strategy B iterative skip loop in

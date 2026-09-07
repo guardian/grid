@@ -14,6 +14,39 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 7 September 2026 — Remove generic secondary sorting
+
+The **Obscure sorting decision** selected one semantic user sort plus automatic
+`uploadTime` fallback and `id` tiebreaker clauses. The **Obscure sorting
+implementation workplan** translated that decision into failing-first
+containment before the remaining special-date work.
+
+URL normalization now accepts one recognized semantic `orderBy` token. Incoming
+comma URLs retain only a valid first token; invalid first tokens use the current
+ordinary, AI, or collection default, and normalization replaces the URL before
+the store searches. Toolbar and table Shift+click now behave like ordinary
+primary selection, and all secondary state and double-arrow presentation have
+been removed.
+
+AI search enables only Relevance and Uploaded while leaving other sort options
+visible but disabled. Initial and reloaded AI results apply the requested order
+before publication; later in-memory resorting keeps positions consistent and
+either preserves an available anchor or resets to top. AI and collection
+filters cannot coexist: `collection:`, `+collection:`, and `~` forms win
+atomically, disable the AI control, and preserve the ordinary sort across the
+AI-to-collection transition.
+
+The discarded O3 experiment no longer preserves arbitrary secondary clauses in
+the primary null zone. Null-zone continuation is restored to `[uploadTime,id]`,
+while retaining the valid nested `usages.dateAdded` existence correction and
+focused regression coverage.
+
+Independent review found and repaired collection-shortcut detection, an
+already-expanded AI control remaining interactive, loss of the pre-AI sort
+through collection mode, and silent viewport identity changes after AI resort.
+Focused sort coverage passed 326/326. Final validation passed 1216/1216 unit
+tests and 236/236 habitual E2E tests in 4.9 minutes with no retries.
+
   ### 6 September 2026 — Put ascending missing values at the end
 
   Deep seek correctly documented Elasticsearch's direction-independent

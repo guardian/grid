@@ -76,6 +76,24 @@ const AGG_FIELDS = FIELD_REGISTRY
   .filter((f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string")
   .map((f) => ({ field: f.esSearchPath as string, size: AGG_DEFAULT_SIZE }));
 
+function sortAiResults(results: Image[], orderBy: string): Image[] {
+  const desc = orderBy.startsWith("-");
+  const field = desc ? orderBy.slice(1) : orderBy;
+  return [...results].sort((first, second) => {
+    if (field === "relevance") {
+      const firstScore = first.__aiScore ?? 0;
+      const secondScore = second.__aiScore ?? 0;
+      return desc ? secondScore - firstScore : firstScore - secondScore;
+    }
+    if (field === "uploadTime") {
+      const firstTime = new Date(first.uploadTime).getTime();
+      const secondTime = new Date(second.uploadTime).getTime();
+      return desc ? secondTime - firstTime : firstTime - secondTime;
+    }
+    return 0;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Reverse-compute: pure function extracted from seek() for independent testing.
 //
@@ -500,7 +518,11 @@ interface SearchState {
    * No-op when not in AI mode (results array is unchanged). Used by
    * useUrlSearchSync to handle sort-only URL changes without an ES round-trip.
    */
-  resortAiBuffer: (orderBy: string) => void;
+  resortAiBuffer: (
+    orderBy: string,
+    preserveImageId?: string | null,
+    phantomOnly?: boolean,
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -865,7 +887,7 @@ function _captureNeighbours(
 // ---------------------------------------------------------------------------
 
 /**
- * Build search_after anchor values for secondary sort fields.
+ * Build search_after anchor values for clauses after the semantic primary.
  *
  * When seeking to a position via search_after, we have the primary sort value
  * (estimated or from keyword lookup) but need "neutral" anchors for the
@@ -880,7 +902,7 @@ function _captureNeighbours(
  *   - Descending field → anchor at maximum → returns docs where value < MAX (all)
  *   - `id` field (always asc keyword) → anchor at "" → returns all docs
  *
- * Without direction-aware anchors, a desc-sorted secondary field with
+ * Without direction-aware anchors, a desc-sorted fallback clause with
  * anchor 0 would require docs with value < 0 — excluding everything and
  * causing search_after to skip the entire primary bucket.
  */
@@ -2073,6 +2095,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const aiResult = await dataSource.searchByAi(params, signal);
         if (_searchGeneration !== myGeneration) return;
 
+        const aiHits = sortAiResults(
+          aiResult.hits,
+          params.orderBy ?? "-relevance",
+        );
+
         const startCursor = aiResult.sortValues.length > 0 ? aiResult.sortValues[0] : null;
         const endCursor = aiResult.sortValues.length > 0
           ? aiResult.sortValues[aiResult.sortValues.length - 1]
@@ -2083,21 +2110,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // "in the first page". Mirror the focusedInFirstPage logic from the
         // normal path so Back-navigation position restoration works correctly.
         const focusedInAiResults = sortAroundFocusId
-          ? aiResult.hits.some((img) => img?.id === sortAroundFocusId)
+          ? aiHits.some((img) => img.id === sortAroundFocusId)
           : false;
 
-        trace("search", "t_first_useful_pixel", { total: aiResult.hits.length });
+        trace("search", "t_first_useful_pixel", { total: aiHits.length });
         trace("search", "t_settled");
         set({
-          results: aiResult.hits,
+          results: aiHits,
           bufferOffset: 0,
           _bufferSelfCorrecting: false,
-          total: aiResult.hits.length, // KEY invariant: total === buffer size → no pagination
+          total: aiHits.length, // KEY invariant: total === buffer size → no pagination
           loading: false,
           took: aiResult.took ?? null,
           seekTime: null,
           params: { ...params, offset: 0 },
-          imagePositions: buildPositions(aiResult.hits, 0),
+          imagePositions: buildPositions(aiHits, 0),
           startCursor,
           endCursor,
           pitId: null,
@@ -2131,7 +2158,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // but params are decorated to scope to the ≤200 result IDs).
         const decorated = decorateParamsForAggregations(
           params,
-          aiResult.hits.map((h) => h.id),
+          aiHits.map((h) => h.id),
         );
         dataSource.countWithTickers(decorated).then((result) => {
           if (_searchGeneration !== myGeneration) return;
@@ -3147,8 +3174,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
         // Skip percentile/keyword paths if the null zone path already handled the seek.
         if (!result && estimatedValue != null) {
-          // Use search_after with the estimated sort value. Secondary sort
-          // fields get direction-aware anchors (see buildSeekCursorAnchors).
+          // Use search_after with the estimated sort value. Remaining clauses
+          // get direction-aware anchors (see buildSeekCursorAnchors).
           const searchAfterValues = buildSeekCursorAnchors(sortClause, estimatedValue);
 
           result = await dataSource.searchAfter(
@@ -3839,28 +3866,25 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // Aggregation actions (unchanged from pre-buffer architecture)
   // -------------------------------------------------------------------------
 
-  resortAiBuffer: (orderBy: string) => {
-    const desc = orderBy.startsWith("-");
-    const field = desc ? orderBy.slice(1) : orderBy;
+  resortAiBuffer: (orderBy, preserveImageId = null, phantomOnly = false) => {
     const { results } = get();
-    const sorted = [...results].sort((a, b) => {
-      if (!a || !b) return 0;
-      if (field === "relevance") {
-        // Invariant: all results have __aiScore when called from AI mode.
-        // The ?? 0 is defensive only — if hit, it indicates a store bug.
-        const va = (a as { __aiScore?: number }).__aiScore ?? 0;
-        const vb = (b as { __aiScore?: number }).__aiScore ?? 0;
-        return desc ? vb - va : va - vb;
-      }
-      if (field === "uploadTime") {
-        const va = new Date(a.uploadTime).getTime();
-        const vb = new Date(b.uploadTime).getTime();
-        return desc ? vb - va : va - vb;
-      }
-      // Unknown field — preserve current order
-      return 0;
+    const populated = results.filter((image): image is Image => image !== null);
+    const sorted = sortAiResults(populated, orderBy);
+    const preserveFound = preserveImageId
+      ? sorted.some((image) => image.id === preserveImageId)
+      : false;
+    set({
+      results: sorted,
+      imagePositions: buildPositions(sorted, 0),
+      ...(preserveFound
+        ? {
+            sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
+            ...(phantomOnly
+              ? { _phantomFocusImageId: preserveImageId }
+              : { focusedImageId: preserveImageId }),
+          }
+        : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: true } }),
     });
-    set({ results: sorted });
   },
 
   fetchAggregations: async (force) => {

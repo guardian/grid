@@ -1122,49 +1122,19 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
 
   // Column header click to sort
   const handleSort = useCallback(
-    (field: string, e: React.MouseEvent | { shiftKey: boolean; altKey: boolean }) => {
+    (field: string) => {
       const orderBy = searchParams.orderBy ?? "-uploadTime";
-      const parts = orderBy.split(",").map((s: string) => s.trim());
-      const primary = parts[0];
-      const secondary = parts[1];
+      const primary = orderBy.split(",", 1)[0].trim();
 
       const primaryBare = primary.startsWith("-")
         ? primary.slice(1)
         : primary;
 
-      if (e.shiftKey) {
-        // Shift+click — manage secondary sort
-        if (!secondary) {
-          // No secondary yet — add it with natural default direction
-          if (field !== primaryBare) {
-            updateSearch({ orderBy: `${primary},${defaultSortFor(field)}` });
-          }
-        } else {
-          const secondaryBare = secondary.startsWith("-")
-            ? secondary.slice(1)
-            : secondary;
-
-          if (secondaryBare === field) {
-            // Toggle secondary direction
-            const newSecondary = secondary.startsWith("-")
-              ? field
-              : `-${field}`;
-            updateSearch({ orderBy: `${primary},${newSecondary}` });
-          } else if (field !== primaryBare) {
-            // Move secondary to new field with natural default direction
-            updateSearch({ orderBy: `${primary},${defaultSortFor(field)}` });
-          }
-        }
+      if (primaryBare === field) {
+        const newPrimary = primary.startsWith("-") ? field : `-${field}`;
+        updateSearch({ orderBy: newPrimary });
       } else {
-        // Normal click — manage primary sort, clear secondary
-        if (primaryBare === field) {
-          // Toggle primary direction
-          const newPrimary = primary.startsWith("-") ? field : `-${field}`;
-          updateSearch({ orderBy: newPrimary });
-        } else {
-          // New primary — use natural default direction for this field type
-          updateSearch({ orderBy: defaultSortFor(field) });
-        }
+        updateSearch({ orderBy: defaultSortFor(field) });
       }
     },
     [searchParams.orderBy, updateSearch]
@@ -1181,12 +1151,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         clearTimeout(sortTimerRef.current);
         sortTimerRef.current = null;
       }
-      // Capture the values we need before the synthetic event is recycled
-      const shiftKey = e.shiftKey;
-      const altKey = e.altKey;
       sortTimerRef.current = setTimeout(() => {
         sortTimerRef.current = null;
-        handleSort(field, { shiftKey, altKey });
+        handleSort(field);
       }, 250);
     },
     [handleSort]
@@ -1196,19 +1163,13 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Derived from the field registry — see field-registry.ts.
   const sortableFields = REGISTRY_SORTABLE_FIELDS;
 
-  // Parse primary + secondary sort from the orderBy param
+  // Parse the primary sort from the orderBy param.
   const orderBy = searchParams.orderBy ?? "-uploadTime";
-  const sortParts = orderBy.split(",").map((s: string) => s.trim());
-  const primarySort = sortParts[0];
-  const secondarySort = sortParts[1];
+  const primarySort = orderBy.split(",", 1)[0].trim();
   const primaryBare = primarySort.startsWith("-")
     ? primarySort.slice(1)
     : primarySort;
   const primaryDesc = primarySort.startsWith("-");
-  const secondaryBare = secondarySort?.startsWith("-")
-    ? secondarySort.slice(1)
-    : secondarySort;
-  const secondaryDesc = secondarySort?.startsWith("-");
 
   // Auto-reveal: if the user sorts by a column that's currently hidden,
   // show it.  Uses toggleVisibility (same as the context menu) so the
@@ -1381,7 +1342,6 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
             headerGroup.headers.map((header) => {
               const sortField = sortableFields[header.column.id];
               const isPrimary = sortField && primaryBare === sortField;
-              const isSecondary = sortField && secondaryBare === sortField;
 
               // ARIA sort direction for screen readers
               const ariaSort: React.AriaAttributes["aria-sort"] = isPrimary
@@ -1401,7 +1361,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
                     sortField
                       ? "cursor-pointer hover:text-grid-text-bright hover:bg-grid-hover/50"
                       : ""
-                  } ${isPrimary ? "text-grid-accent" : ""} ${isSecondary ? "text-grid-accent/65" : ""}`}
+                  } ${isPrimary ? "text-grid-accent" : ""}`}
                   style={{ width: `var(--col-${header.column.id})` }}
                   onClick={
                     sortField
@@ -1430,22 +1390,6 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
                     <span className="ml-0.5 inline-flex shrink-0" aria-hidden="true">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                         {primaryDesc
-                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
-                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
-                        }
-                      </svg>
-                    </span>
-                  )}
-                  {isSecondary && (
-                    <span className="ml-0.5 inline-flex shrink-0 opacity-65" aria-hidden="true">
-                      <svg className="w-3 h-3 -mr-0.5" viewBox="0 0 24 24" fill="currentColor">
-                        {secondaryDesc
-                          ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
-                          : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
-                        }
-                      </svg>
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                        {secondaryDesc
                           ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
                           : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
                         }
