@@ -6,6 +6,14 @@ import {
   DescribeStackResourcesCommand,
   waitUntilStackCreateComplete,
 } from '@aws-sdk/client-cloudformation';
+import {
+  CreateTableCommand,
+  DynamoDBClient,
+  PutItemCommand,
+  ScanCommand,
+  waitUntilTableExists,
+} from '@aws-sdk/client-dynamodb';
+import { KinesisClient, ListShardsCommand } from '@aws-sdk/client-kinesis';
 import { CreateBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants.ts';
 
@@ -21,7 +29,9 @@ function clients(endpoint: string) {
     credentials: CREDENTIALS,
     forcePathStyle: true,
   });
-  return { cfn, s3 };
+  const dynamo = new DynamoDBClient({ endpoint, region: REGION, credentials: CREDENTIALS });
+  const kinesis = new KinesisClient({ endpoint, region: REGION, credentials: CREDENTIALS });
+  return { cfn, s3, dynamo, kinesis };
 }
 
 /**
@@ -105,13 +115,70 @@ async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
 }
 
 /**
+ * Pre-create the KCL lease table for a stream, with an unowned lease per shard.
+ *
+ * Thrall consumes each stream with the Kinesis Client Library, which names its DynamoDB
+ * lease table after the KCL application name — and thrall sets that to the stream name.
+ * Left to itself on a cold stack, KCL spends ~70s before it reads a single record:
+ *
+ *   - `Scheduler.initialize()` calls `shouldInitiateLeaseSync()`, which sleeps a random
+ *     1-30s (polling every 3s) for as long as the lease table is empty. It is anti-stampede
+ *     jitter for a real fleet, is not configurable, and is pure cost for a single worker.
+ *   - It then runs the initial shard sync synchronously, and `ShardSyncTask` finishes with
+ *     `Thread.sleep(shardSyncIntervalMillis)` — 60s on KCL's defaults.
+ *
+ * Seeding the leases here makes `isLeaseTableEmpty()` false on the very first check, so
+ * neither the jitter nor the shard sync runs: the lease taker picks up the unowned leases
+ * on its first pass instead.
+ */
+async function seedKclLeaseTable(
+  dynamo: DynamoDBClient,
+  kinesis: KinesisClient,
+  streamName: string,
+): Promise<void> {
+  await dynamo.send(
+    new CreateTableCommand({
+      TableName: streamName,
+      KeySchema: [{ AttributeName: 'leaseKey', KeyType: 'HASH' }],
+      AttributeDefinitions: [{ AttributeName: 'leaseKey', AttributeType: 'S' }],
+      BillingMode: 'PAY_PER_REQUEST',
+    }),
+  );
+  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60 }, { TableName: streamName });
+
+  const { Shards = [] } = await kinesis.send(new ListShardsCommand({ StreamName: streamName }));
+
+  for (const shard of Shards) {
+    await dynamo.send(
+      new PutItemCommand({
+        TableName: streamName,
+        Item: {
+          leaseKey: { S: shard.ShardId! },
+          leaseCounter: { N: '0' },
+          checkpoint: { S: 'TRIM_HORIZON' },
+          checkpointSubSequenceNumber: { N: '0' },
+          ownerSwitchesSinceCheckpoint: { N: '0' },
+          // Without the hash range KCL's lease auditor reports the stream as having holes.
+          startingHashKey: { S: shard.HashKeyRange!.StartingHashKey! },
+          endingHashKey: { S: shard.HashKeyRange!.EndingHashKey! },
+        },
+      }),
+    );
+  }
+}
+
+/**
  * Apply the core stack and seed its buckets. Returns the LogicalResourceId ->
  * PhysicalResourceId map used to generate service config.
- */
-export async function provisionCoreStack(localstackEndpoint: string): Promise<StackProps> {
-  const { cfn, s3 } = clients(localstackEndpoint);
+ */export async function provisionCoreStack(localstackEndpoint: string): Promise<StackProps> {
+  const { cfn, s3, dynamo, kinesis } = clients(localstackEndpoint);
   const props = await createCoreStack(cfn);
   await seedBuckets(s3, props);
   props.PermissionsBucket = await provisionPermissionsBucket(s3);
+
+  for (const stream of [props.ThrallMessageStream, props.ThrallLowPriorityMessageStream]) {
+    await seedKclLeaseTable(dynamo, kinesis, stream);
+  }
+
   return props;
 }
