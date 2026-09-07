@@ -38,3 +38,5 @@ export async function runTasks<Ctx extends object>(
 
   return runner.run();
 }
+
+export const reportTo = (task: { output: string }) => (message: string) => { task.output = message; };
