@@ -75,12 +75,18 @@ export interface StartStackOptions {
   seed?: boolean;
 }
 
+// Every service is bound to a fixed host port, so its URL is the same whether this process
+// started the stack or attached to one already running.
+const KAHUNA_URL = `http://localhost:${KAHUNA_PORT}`;
+const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
+const ELASTICSEARCH_URL = `http://localhost:${ELASTICSEARCH_PORT}`;
+
 /** How much of the stack is already listening on the fixed host ports. */
 type StackProbe = 'none' | 'healthy' | 'partial';
 
 const PROBE_OUTCOMES: Record<StackProbe, string> = {
   none: 'No running Grid stack found',
-  healthy: `Found a Grid stack already running on http://localhost:${KAHUNA_PORT}`,
+  healthy: `Found a Grid stack already running on ${KAHUNA_URL}`,
   partial: 'Found a partially running Grid stack',
 };
 
@@ -98,9 +104,7 @@ interface StoppableStack {
 
 /** What the boot tasks build up. Each task mutates it in place for the ones that follow. */
 interface BootContext extends StoppableStack {
-  elasticsearch?: StartedTestContainer;
   localstack?: StartedLocalStackContainer;
-  grid?: StartedTestContainer;
   coreStackProps?: StackProps;
 }
 
@@ -416,8 +420,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             {
               title: 'Elasticsearch',
               task: async (ctx) => {
-                ctx.elasticsearch = await elasticsearchContainer(ctx.network!).start();
-                ctx.containers.push(ctx.elasticsearch);
+                ctx.containers.push(await elasticsearchContainer(ctx.network!).start());
               },
             },
             {
@@ -476,8 +479,9 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              ctx.grid = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start();
-              ctx.containers.push(ctx.grid);
+              ctx.containers.push(
+                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
+              );
             },
           },
           {
@@ -496,9 +500,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                   // only needs the container running, not every service healthy.
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
-                  task: async (ctx, seedTask) => {
-                    const esBaseUrl = `http://${ctx.elasticsearch!.getHost()}:${ctx.elasticsearch!.getMappedPort(ELASTICSEARCH_PORT)}`;
-                    await seedElasticsearch(esBaseUrl, (message) => {
+                  task: async (_, seedTask) => {
+                    await seedElasticsearch(ELASTICSEARCH_URL, (message) => {
                       seedTask.output = message;
                     });
                   },
@@ -523,14 +526,12 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   try {
     await runTasks(tasks, context);
 
-    const host = context.grid!.getHost();
-
     return {
       network: context.network,
       containers: context.containers,
       configDir: context.configDir,
-      baseUrl: `http://${host}:${context.grid!.getMappedPort(KAHUNA_PORT)}`,
-      mediaApiUrl: `http://${host}:${context.grid!.getMappedPort(MEDIA_API_PORT)}`,
+      baseUrl: KAHUNA_URL,
+      mediaApiUrl: MEDIA_API_URL,
     };
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
@@ -627,9 +628,6 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
  * so `stopStack` leaves everything running.
  */
 async function attachToStack(options: StartStackOptions): Promise<GridEnvironment> {
-  const baseUrl = `http://localhost:${KAHUNA_PORT}`;
-  const mediaApiUrl = `http://localhost:${MEDIA_API_PORT}`;
-
   // Re-seeding is opt-in: whoever started the stack already seeded it, and the fixtures
   // are only reloaded on request because tests may have since changed the data.
   const reseed = options.seed === true || process.env.GRID_RESEED === 'true';
@@ -640,7 +638,7 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         title: 'Seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
-          await seedElasticsearch(`http://localhost:${ELASTICSEARCH_PORT}`, (message) => {
+          await seedElasticsearch(ELASTICSEARCH_URL, (message) => {
             task.output = message;
           });
         },
@@ -649,7 +647,7 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
     {},
   );
 
-  return { containers: [], baseUrl, mediaApiUrl };
+  return { containers: [], baseUrl: KAHUNA_URL, mediaApiUrl: MEDIA_API_URL };
 }
 
 /** Stop what this process started and delete what it wrote; anything else is left alone. */
