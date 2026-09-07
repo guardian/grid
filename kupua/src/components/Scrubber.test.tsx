@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, cleanup, act } from "@testing-library/react";
+import { render, cleanup, act, fireEvent, screen } from "@testing-library/react";
 import { Scrubber } from "./Scrubber";
 
 // ---------------------------------------------------------------------------
@@ -114,5 +114,41 @@ describe("Scrubber seek-mode position sync", () => {
 
     const resetTop = getThumbTop(container);
     expect(resetTop).toBe(0);
+  });
+
+  it("remains clickable and exposes approximate date text without HTML", () => {
+    const onSeek = vi.fn();
+    const { container } = render(
+      <Scrubber
+        {...seekModeProps({
+          currentPosition: 500_000,
+          onSeek,
+          getSortLabel: () =>
+            'Approx. <span style="display:inline-block">Mar</span> 2024',
+        })}
+      />,
+    );
+    act(() => fireResizeObserver(TRACK_HEIGHT));
+
+    const slider = screen.getByRole("slider", { name: "Result set position" });
+    expect(slider.getAttribute("aria-valuetext")).toContain("Approx. Mar 2024");
+    expect(slider.getAttribute("aria-valuetext")).not.toContain("<span");
+
+    Object.defineProperty(slider, "clientHeight", { value: TRACK_HEIGHT });
+    slider.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 20,
+      bottom: TRACK_HEIGHT,
+      width: 20,
+      height: TRACK_HEIGHT,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(container.querySelector('[data-testid="scrubber-track"]')!, {
+      clientY: TRACK_HEIGHT / 2,
+    });
+    expect(onSeek).toHaveBeenCalledOnce();
   });
 });

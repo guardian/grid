@@ -14,6 +14,40 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 8 September 2026 — Separate exact special-date boundaries from approximate evidence
+
+Last used and Added to collection sort one image by its maximum date, but their
+histograms count every nested usage or collection date. PROD evidence showed
+5,034,659 histogram positions for 4,142,917 dated parents, a 21.5% inflation.
+An exact current-schema filter bank reached 2,993ms for only 24 coarse half-year
+buckets, so the exact filter-bank option was rejected and the product selected
+an exact-boundary, approximate-populated-scrubber interim contract.
+
+Special-date distributions now fetch an exact root-parent existence count:
+nested exists for usage dates and root exists for collection dates. That count
+owns the populated/null boundary. Histogram cumulative counts remain separate
+approximate evidence with explicit provenance and are projected into the exact
+populated span only for ticks and `Approx.` labels. Approximate buckets cannot
+enter keyword deep seek or H's exact position-map contract as rank anchors.
+Null-zone classification uses the exact boundary even while upload-time
+enrichment is absent.
+
+Scrubber interaction remains enabled, and rich visual date labels are converted
+to plain text for `aria-valuetext`. Independent review found and fixed mismatched
+rank/evidence transforms that could place a March tick at a position labelled
+February, a compressed-bucket collision that could retain a tick inconsistent
+with the label at that rank, plus a transient false special-date label in the
+known null zone. The adapter tests now inspect the nested histogram and
+`reverse_nested` request, and the guarded local-ES oracle proves three exact
+parents versus five histogram evidence contributions without weakening its
+sort, pagination or cleanup checks.
+
+Focused collision coverage passed 16/16. Final full unit validation passed
+1238/1238 across 64 files; habitual E2E passed 236/236 in 5.2 minutes; the
+guarded local-ES oracle passed in 995ms. A separate backend evidence document
+records why materialized latest-date scalars remain the route to exact,
+fine-grained and conventionally fast scrubber coordinates.
+
 ### 7 September 2026 — Pin special sorts to maximum-date semantics
 
 Added to collection omitted an explicit Elasticsearch sort mode, so ascending

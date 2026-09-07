@@ -3199,7 +3199,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         } else if (!result) {
           // Keyword sorts — percentile estimation on the raw field is
           // unavailable (ES rejects `percentiles` on keyword fields).
-          const { field: pField } = parseSortField(sortClause[0]);
+          const pField = resolveKeywordSortInfo(params.orderBy)?.field ?? null;
 
           // Fast path: the cached sort distribution (already fetched above
           // for coveredCount) already tells us the exact bucket — no need

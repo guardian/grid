@@ -82,7 +82,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1226 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1238 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
@@ -103,7 +103,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Browser history architecture | `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md` | kupuaKey, snapshot capture, popstate restore, reload survival |
 | Position consolidation workplan | `exploration/docs/scroll-and-position-preservation-testing-3-workplan.md` | Active reset: product contract → current-protocol ledger → target protocol → gated migration slices. Random fuzzer retired. |
 | Position preservation contract | `exploration/docs/scroll-and-position-preservation-consolidation-spec.md` | Active Phase 1 worksheet: preserve-by-default policy, anchor sources, placement ladder, decided/open transition rules. |
-| Obscure sorting decision | `exploration/docs/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md` | One-semantic-sort containment shipped; owns special-date findings still pending in slices E-J. |
+| Obscure sorting decision | `exploration/docs/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md` | One-semantic-sort containment plus exact-boundary/approximate-evidence special-date scrubber contract; H-J remain. |
 | Obscure sorting workplan | `exploration/docs/scroll-and-position-preservation-testing-4.2.2-obscure-sorting-workplan.md` | Failing-first containment, D3 hardening and special-date correctness slices. |
 | Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix |
 | Selections field catalogue | `exploration/docs/00 Architecture and philosophy/field-catalogue.md` | Per-field reference: multi-select behaviour, ES presence, Kupua/Kahuna parity (46 fields) |
@@ -167,7 +167,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 7. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved underneath.
 
-8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token, plus automatic `uploadTime` fallback and unique `id` tiebreaker clauses. Comma URLs keep only a valid first token or use the context default; toolbar/table Shift+click behaves as an ordinary primary selection. AI is a flat Relevance/Uploaded-only context. AI and collection filters cannot coexist; collection wins conflicts atomically. Special-date correctness and D3 hardening remain pending.
+8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token, plus automatic `uploadTime` fallback and unique `id` tiebreaker clauses. Comma URLs keep only a valid first token or use the context default; toolbar/table Shift+click behaves as an ordinary primary selection. AI is a flat Relevance/Uploaded-only context. AI and collection filters cannot coexist; collection wins conflicts atomically. Special multi-valued dates use an exact parent null boundary and explicitly approximate populated scrubber evidence; H-J and D3 hardening remain.
 
 9. **CSS containment** — `contain: strict` on `.hide-scrollbar`. Critical for Firefox. Horizontal scrollbar is a proxy div.
 
@@ -180,4 +180,4 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Backlog (architectural)
 
 - **SearchContext abstraction** — blocking ticket for adding any second alternative-ranking algorithm (Phase 3 image-to-image, Phase 4 collection-based, etc.). The current decorator solution in `src/lib/ai-search-params.ts` is correct for one such algorithm; promote to SearchContext before adding a second. See `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md`.
-- **Special-date sort correctness** — execute slices E-J of the obscure sorting workplan. Last used and Added to collection must consistently rank by one maximum date per image across forward/reverse paging, seek, position maps, `countBefore`, range selection and scrubber. Materialised scalar dates require a separate backend proposal and performance review.
+- **Special-date sort correctness** — execute slices H-J of the obscure sorting workplan, then D/J media-api parity. Last used and Added to collection now share maximum-date sorting and an exact populated/null boundary; position maps, `countBefore`, range selection and cross-boundary paging still need parity. G's approximate histogram evidence must never become a position-map or exact-rank oracle. Materialised scalar dates require a separate backend proposal and performance review.

@@ -369,12 +369,20 @@ function lookupSortDistribution(
   if (globalPosition >= dist.coveredCount) return null;
   if (globalPosition < 0) return null;
 
+  const lookupPosition = dist.bucketPositionKind === "approximate-evidence"
+    ? projectPosition(
+        globalPosition,
+        dist.coveredCount,
+        dist.evidenceCount ?? 0,
+      )
+    : globalPosition;
+
   // Binary search: find the last bucket where startPosition <= globalPosition
   let lo = 0;
   let hi = buckets.length - 1;
   while (lo < hi) {
     const mid = (lo + hi + 1) >>> 1;
-    if (buckets[mid].startPosition <= globalPosition) {
+    if (buckets[mid].startPosition <= lookupPosition) {
       lo = mid;
     } else {
       hi = mid - 1;
@@ -387,6 +395,7 @@ function lookupSortDistribution(
     (window as any).__sort_context_debug__ = {
       ts: Date.now(),
       inputPosition: globalPosition,
+      lookupPosition,
       coveredCount: dist.coveredCount,
       totalBuckets: buckets.length,
       bucketIndex: lo,
@@ -400,6 +409,18 @@ function lookupSortDistribution(
   }
 
   return buckets[lo].key;
+}
+
+function projectPosition(
+  position: number,
+  sourceCount: number,
+  targetCount: number,
+): number {
+  if (sourceCount <= 1 || targetCount <= 1) return 0;
+  return Math.min(
+    targetCount - 1,
+    Math.max(0, Math.round(position * (targetCount - 1) / (sourceCount - 1))),
+  );
 }
 
 /**
@@ -472,7 +493,10 @@ export function interpolateSortLabel(
       const localSpanMs = visibleCount
         ? computeLocalSpanFromDist(sortDist, globalPosition, visibleCount)
         : 2 * MS_PER_DAY;
-      return formatSortDateAdaptive(isoDate, totalSpanMs, localSpanMs);
+      const label = formatSortDateAdaptive(isoDate, totalSpanMs, localSpanMs);
+      return sortDist.bucketPositionKind === "approximate-evidence"
+        ? `Approx. ${label}`
+        : label;
     }
   }
 
@@ -708,9 +732,20 @@ function computeTrackTicks(
     const spanYears = Math.abs(dLast.getFullYear() - dFirst.getFullYear());
     const shortSpan = spanYears < 15;
 
+    const seenPositions = new Set<number>();
     for (const bucket of sortDist.buckets) {
-      const pos = bucket.startPosition;
+      const isApproximate = sortDist.bucketPositionKind === "approximate-evidence";
+      const pos = isApproximate
+        ? projectPosition(
+            bucket.startPosition,
+            sortDist.evidenceCount ?? 0,
+            sortDist.coveredCount,
+          )
+        : bucket.startPosition;
       if (pos < 0 || pos >= total) continue;
+      if (isApproximate && lookupSortDistribution(sortDist, pos) !== bucket.key) continue;
+      if (seenPositions.has(pos)) continue;
+      seenPositions.add(pos);
 
       const d = new Date(bucket.key);
 
@@ -944,9 +979,11 @@ export function interpolateNullZoneSortLabel(
   nullZoneDist: SortDistribution | null | undefined,
   visibleCount?: number,
 ): string | null {
-  // No null zone, or position is in the covered zone → standard label
+  // The primary distribution owns the exact null boundary. The secondary
+  // uploadTime distribution only enriches labels after that boundary.
   const coveredCount = sortDist?.coveredCount ?? total;
-  const inNullZone = !!nullZoneDist && globalPosition >= coveredCount;
+  const inNullZone = resolvePrimarySortKey(orderBy) !== "uploadTime" &&
+    coveredCount < total && globalPosition >= coveredCount;
 
   // Debug instrumentation (DEV only)
   if (typeof window !== "undefined" && import.meta.env.DEV) {
@@ -971,6 +1008,8 @@ export function interpolateNullZoneSortLabel(
   }
 
   // --- Null-zone position: use uploadTime distribution ---
+
+  if (!nullZoneDist) return null;
 
   // Map global position into the null-zone distribution's local space.
   // The null zone starts at `coveredCount` in global space, but the

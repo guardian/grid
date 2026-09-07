@@ -16,6 +16,19 @@ const sortDistribution: SortDistribution = {
   coveredCount: COVERED_COUNT,
 };
 
+const approximateSortDistribution: SortDistribution = {
+  coveredCount: COVERED_COUNT,
+  evidenceCount: 100_000,
+  bucketPositionKind: "approximate-evidence",
+  buckets: [
+    {
+      key: "2024-01-01T00:00:00.000Z",
+      count: 100_000,
+      startPosition: 0,
+    },
+  ],
+};
+
 const hit: Image = {
   id: "special-sort-hit",
   uploadTime: "2023-11-14T22:13:20.000Z",
@@ -132,4 +145,52 @@ describe("special-date populated-zone deep seek", () => {
       ]);
     },
   );
+
+  it("does not use approximate date evidence as a keyword cursor fallback", async () => {
+    const dataSource = new MockDataSource(TOTAL);
+    vi.spyOn(dataSource, "estimateSortValue").mockResolvedValue(null);
+    const keywordSpy = vi.spyOn(dataSource, "findKeywordSortValue");
+    const searchAfterSpy = vi.spyOn(dataSource, "searchAfter");
+
+    resetStore(dataSource, "-usagesDateAdded");
+    useSearchStore.setState({ sortDistribution: approximateSortDistribution });
+    await useSearchStore.getState().seek(TARGET);
+
+    expect(keywordSpy).not.toHaveBeenCalled();
+    expect(searchAfterSpy.mock.calls.some(([, cursor]) =>
+      cursor?.[0] === approximateSortDistribution.buckets[0].key,
+    )).toBe(false);
+  });
+
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("%s enters the null zone exactly at coveredCount", async (orderBy) => {
+    const dataSource = new MockDataSource(TOTAL);
+    const searchAfterSpy = vi.spyOn(dataSource, "searchAfter").mockResolvedValue({
+      hits: [hit],
+      total: TOTAL,
+      sortValues: [[null, Date.parse(hit.uploadTime), hit.id]],
+    });
+    vi.spyOn(dataSource, "countBefore").mockResolvedValue(COVERED_COUNT);
+
+    resetStore(dataSource, orderBy);
+    useSearchStore.setState({
+      sortDistribution: approximateSortDistribution,
+      nullZoneDistribution: {
+        coveredCount: TOTAL - COVERED_COUNT,
+        buckets: [
+          { key: "2023-01-01T00:00:00.000Z", count: 20_000, startPosition: 0 },
+          { key: "2024-01-01T00:00:00.000Z", count: 20_000, startPosition: 20_000 },
+        ],
+      },
+    });
+
+    await useSearchStore.getState().seek(COVERED_COUNT);
+
+    expect(searchAfterSpy.mock.calls.some(([, cursor]) => cursor?.[0] === null))
+      .toBe(true);
+  });
 });

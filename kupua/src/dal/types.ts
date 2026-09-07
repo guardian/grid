@@ -225,6 +225,10 @@ export interface SortDistribution {
   buckets: SortDistBucket[];
   /** Total docs covered by the distribution (may be < total if nulls exist). */
   coveredCount: number;
+  /** Coordinate system used by bucket startPosition values. Defaults to exact rank. */
+  bucketPositionKind?: "exact-rank" | "approximate-evidence";
+  /** Total repeated evidence represented by approximate bucket coordinates. */
+  evidenceCount?: number;
 }
 
 export interface SortDistBucket {

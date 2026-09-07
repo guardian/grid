@@ -170,6 +170,74 @@ async function count(index: string): Promise<number> {
   return ((await response.json()) as { count: number }).count;
 }
 
+async function distributionEvidence(index: string): Promise<{
+  usageExact: number;
+  usageEvidence: number;
+  collectionExact: number;
+  collectionEvidence: number;
+}> {
+  const response = await esRequest(`/${index}/_search`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      size: 0,
+      aggs: {
+        usage_exact: {
+          filter: {
+            nested: {
+              path: "usages",
+              query: { exists: { field: "usages.dateAdded" } },
+            },
+          },
+        },
+        usage_dates: {
+          nested: { path: "usages" },
+          aggs: {
+            timeline: {
+              date_histogram: {
+                field: "usages.dateAdded",
+                calendar_interval: "day",
+                min_doc_count: 1,
+              },
+              aggs: { parents: { reverse_nested: {} } },
+            },
+            evidence: {
+              sum_bucket: { buckets_path: "timeline>parents._count" },
+            },
+          },
+        },
+        collection_exact: {
+          filter: { exists: { field: "collections.actionData.date" } },
+        },
+        collection_dates: {
+          date_histogram: {
+            field: "collections.actionData.date",
+            calendar_interval: "day",
+            min_doc_count: 1,
+          },
+        },
+        collection_evidence: {
+          sum_bucket: { buckets_path: "collection_dates>_count" },
+        },
+      },
+    }),
+  });
+  const aggregations = (await response.json()) as {
+    aggregations: {
+      usage_exact: { doc_count: number };
+      usage_dates: { evidence: { value: number } };
+      collection_exact: { doc_count: number };
+      collection_evidence: { value: number };
+    };
+  };
+  return {
+    usageExact: aggregations.aggregations.usage_exact.doc_count,
+    usageEvidence: aggregations.aggregations.usage_dates.evidence.value,
+    collectionExact: aggregations.aggregations.collection_exact.doc_count,
+    collectionEvidence: aggregations.aggregations.collection_evidence.value,
+  };
+}
+
 async function search(
   index: string,
   sort: Record<string, unknown>[],
@@ -248,6 +316,13 @@ describe("special date sorts against local Elasticsearch", () => {
         }, [200, 201]);
       }
       await esRequest(`/${indexName}/_refresh`, { method: "POST" });
+
+      expect(await distributionEvidence(indexName)).toEqual({
+        usageExact: 3,
+        usageEvidence: 5,
+        collectionExact: 3,
+        collectionEvidence: 5,
+      });
 
       for (const field of ["usagesDateAdded", "dateAddedToCollection"]) {
         for (const descending of [false, true]) {

@@ -91,6 +91,115 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Option 2 — exact special-date coverage, approximate bucket evidence
+// ---------------------------------------------------------------------------
+
+describe("getDateDistribution special-date provenance", () => {
+  it("separates exact usage-parent coverage from repeated histogram evidence", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({
+        aggregations: {
+          covered_parents: { doc_count: 3 },
+          nested_agg: { range: { min: 1, max: 3, count: 5 } },
+        },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        aggregations: {
+          nested_agg: {
+            timeline: {
+              buckets: [
+                { key_as_string: "2024-01-01T00:00:00.000Z", doc_count: 2, image_count: { doc_count: 2 } },
+                { key_as_string: "2024-02-01T00:00:00.000Z", doc_count: 2, image_count: { doc_count: 2 } },
+                { key_as_string: "2024-03-01T00:00:00.000Z", doc_count: 1, image_count: { doc_count: 1 } },
+              ],
+            },
+          },
+        },
+      }));
+
+    const result = await ds.getDateDistribution(
+      {},
+      "usages.dateAdded",
+      "asc",
+    );
+
+    expect(result).toMatchObject({
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { startPosition: 0 },
+        { startPosition: 2 },
+        { startPosition: 4 },
+      ],
+    });
+
+    const statsBody = JSON.parse(
+      vi.mocked(global.fetch).mock.calls[0][1]?.body as string,
+    );
+    expect(statsBody.aggs.covered_parents).toEqual({
+      filter: {
+        nested: {
+          path: "usages",
+          query: { exists: { field: "usages.dateAdded" } },
+        },
+      },
+    });
+    const histogramBody = JSON.parse(
+      vi.mocked(global.fetch).mock.calls[1][1]?.body as string,
+    );
+    expect(histogramBody.aggs.nested_agg).toMatchObject({
+      nested: { path: "usages" },
+      aggs: {
+        timeline: {
+          date_histogram: { field: "usages.dateAdded", order: { _key: "asc" } },
+          aggs: { image_count: { reverse_nested: {} } },
+        },
+      },
+    });
+  });
+
+  it("counts collection parents exactly at root scope", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({
+        aggregations: {
+          covered_parents: { doc_count: 3 },
+          range: { min: 1, max: 3, count: 5 },
+        },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        aggregations: {
+          timeline: {
+            buckets: [
+              { key_as_string: "2024-01-01T00:00:00.000Z", doc_count: 2 },
+              { key_as_string: "2024-02-01T00:00:00.000Z", doc_count: 2 },
+              { key_as_string: "2024-03-01T00:00:00.000Z", doc_count: 1 },
+            ],
+          },
+        },
+      }));
+
+    const result = await ds.getDateDistribution(
+      {},
+      "collections.actionData.date",
+      "desc",
+    );
+
+    expect(result).toMatchObject({
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+    });
+    const statsBody = JSON.parse(
+      vi.mocked(global.fetch).mock.calls[0][1]?.body as string,
+    );
+    expect(statsBody.aggs.covered_parents).toEqual({
+      filter: { exists: { field: "collections.actionData.date" } },
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bug #19 — PIT retry regex /40[04]/ does not match HTTP 410
 //
 // Repro: searchAfter with a pitId; first esRequestRaw call returns 410;

@@ -15,6 +15,7 @@ import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import {
   computeTrackTicksWithNullZone,
+  interpolateNullZoneSortLabel,
   interpolateSortLabel,
   resolvePrimarySortKey,
   resolveDateSortInfo,
@@ -77,6 +78,60 @@ describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
     const defaulted = computeTrackTicksWithNullZone(undefined, 10, 0, [], sortDist, null);
     expect(defaulted.some((t) => t.boundary)).toBe(false);
   });
+
+  it("projects special-date evidence ticks into the exact populated span", () => {
+    const sortDist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 2, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 2, startPosition: 2 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 4 },
+      ],
+    };
+
+    const ticks = computeTrackTicksWithNullZone(
+      "-usagesDateAdded",
+      10,
+      0,
+      [],
+      sortDist,
+      null,
+    );
+
+    expect(ticks.filter((tick) => !tick.boundary).map((tick) => tick.position))
+      .toEqual([0, 1, 2]);
+    expect(ticks.find((tick) => tick.boundary)?.position).toBe(3);
+  });
+
+  it("keeps the bucket that label lookup resolves when evidence ticks collide", () => {
+    const sortDist: SortDistribution = {
+      coveredCount: 2,
+      evidenceCount: 3,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 1, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 1, startPosition: 1 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 2 },
+      ],
+    };
+
+    const ticks = computeTrackTicksWithNullZone(
+      "-usagesDateAdded",
+      10,
+      0,
+      [],
+      sortDist,
+      null,
+    ).filter((tick) => !tick.boundary);
+
+    expect(ticks.map((tick) => ({ position: tick.position, label: tick.label })))
+      .toEqual([
+        { position: 0, label: "2024" },
+        { position: 1, label: "Mar" },
+      ]);
+  });
 });
 
 describe("interpolateSortLabel — binary search property (Part B)", () => {
@@ -133,6 +188,50 @@ describe("interpolateSortLabel — binary search property (Part B)", () => {
     expect(interpolateSortLabel("credit", 5, 25, 1_000_000, [img], dist)).toBe("k1");
     expect(interpolateSortLabel("credit", 14, 25, 1_000_000, [img], dist)).toBe("k2");
     expect(interpolateSortLabel("credit", 15, 25, 1_000_000, [img], dist)).toBe(null);
+  });
+
+  it("marks projected special-date evidence labels approximate", () => {
+    const dist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 2, startPosition: 0 },
+        { key: "2024-02-01T00:00:00.000Z", count: 2, startPosition: 2 },
+        { key: "2024-03-01T00:00:00.000Z", count: 1, startPosition: 4 },
+      ],
+    };
+
+    const label = interpolateSortLabel(
+      "-usagesDateAdded", 2, 10, 1_000_000, [img], dist,
+    );
+    expect(label?.replace(/<[^>]+>/g, "")).toBe("Approx. 1 Mar 2024");
+  });
+
+  it("does not invent a special-date label for a known null-zone position", () => {
+    const dist: SortDistribution = {
+      coveredCount: 3,
+      evidenceCount: 5,
+      bucketPositionKind: "approximate-evidence",
+      buckets: [
+        { key: "2024-01-01T00:00:00.000Z", count: 5, startPosition: 0 },
+      ],
+    };
+
+    const datedImage = {
+      id: "dated",
+      usages: [{ dateAdded: "2024-06-01T00:00:00.000Z" }],
+    } as unknown as Image;
+
+    expect(interpolateNullZoneSortLabel(
+      "-usagesDateAdded",
+      3,
+      10,
+      3,
+      [datedImage],
+      dist,
+      null,
+    )).toBe(null);
   });
 });
 

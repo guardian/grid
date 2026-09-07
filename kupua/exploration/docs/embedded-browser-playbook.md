@@ -106,6 +106,14 @@ setup, unrelated to search/scroll/anything under test. Don't burn a turn
 chasing it, and don't let it pollute a findings doc as a real observation —
 this is known, recurring noise, not worth re-reporting.
 
+**[V] Revalidate served source after an E2E port handoff before live before/after
+measurement.** Existing shared tabs can retain stale JavaScript even after the
+user restarts the TEST app, and a new page returns 502 while no process owns the
+proxied port. Open a forced-new page after restart, fetch the relevant source
+with `cache: "no-store"`, and assert the expected implementation marker before
+running aggregate-only probes. This prevented a stale pre-G tab from being
+mistaken for post-G behavior on 8 September 2026.
+
 ---
 
 ## 2. Selectors
@@ -826,13 +834,16 @@ shape. **Always include an unscoped control probe in the same batch** so an
 artifact of your own call shape can't masquerade as a finding. Use `ds.count(params)`
 when you need an actual count.
 
-**[V] `store.getState().sortDistribution` is a free, exact position map for keyword
-and date sorts.** `{ buckets: [{ key, count, startPosition }], coveredCount }`,
-cached per query+sort. Verified against `countBefore` on TEST: `startPosition` is
-in the *same coordinate space* and matched byte-for-byte. Answers "what is at
-position N" with zero ES calls. Caveat: it is a snapshot and drifts from a live
-index by a handful of docs (saw ±15 on a 1.3M corpus over a few minutes) — fine for
-positioning, not for exact counts.
+**[V] `store.getState().sortDistribution` is a cached position map for keyword
+and scalar-date sorts, but special multi-valued dates are explicitly approximate.**
+`{ buckets: [{ key, count, startPosition }], coveredCount }` answers "what is at
+position N" with zero ES calls. Keyword and scalar-date `startPosition` values
+share the exact rank coordinate space and matched `countBefore` byte-for-byte on
+TEST. Last used and Added to collection instead expose
+`bucketPositionKind: "approximate-evidence"`; only their root-parent
+`coveredCount` boundary is exact, while ticks/labels are projected evidence and
+must never validate deep seek or position maps. All distributions are snapshots
+and can drift from a live index by a handful of docs.
 
 **[V] Round-trip budgeting through the dev proxy / SSH tunnel: a single `_count`
 costs 86–276ms (~140ms typical).** Worth knowing before proposing anything

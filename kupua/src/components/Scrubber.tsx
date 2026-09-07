@@ -1093,6 +1093,7 @@ export function Scrubber({
 
   const positionLabel = `${Math.min(effectivePosition + 1, total).toLocaleString()} of ${total.toLocaleString()}`;
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
+  const accessibleSortLabel = sortLabel?.replace(/<[^>]*>/g, "") ?? null;
 
   // Thumb color — three states: dragging > hover > idle
   const thumbColor = isDragging
@@ -1110,7 +1111,7 @@ export function Scrubber({
       aria-valuemin={0}
       aria-valuemax={Math.max(0, total - 1)}
       aria-valuenow={Math.round(effectivePosition)}
-      aria-valuetext={sortLabel ? `${positionLabel} — ${sortLabel}` : positionLabel}
+      aria-valuetext={accessibleSortLabel ? `${positionLabel} — ${accessibleSortLabel}` : positionLabel}
       aria-orientation="vertical"
       className="relative z-20 h-full shrink-0 select-none outline-none"
       style={{

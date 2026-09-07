@@ -1326,6 +1326,24 @@ off by hours or days at the extremes. This is acceptable for scrubber
 orientation (the user needs "am I in 2024 or 2020?", not "which hour?").
 The position counter ("650,000 of 1,300,000") remains exact.
 
+### 24a. Special multi-valued date ticks use approximate evidence coordinates
+
+Last used and Added to collection sort each image by its maximum date, but the
+current Elasticsearch mapping stores only arrays of usage or collection dates.
+Kupua therefore computes the populated/null boundary from an exact root-parent
+existence count while retaining the child/object date histogram as explicitly
+approximate scrubber evidence.
+
+Histogram positions are projected into the exact populated span for ticks and
+`Approx.` labels. They are never used as exact deep-seek or position-map
+anchors. This differs from ordinary scalar-date scrubber distributions, where
+each document contributes once and bucket positions are ranks.
+
+**Trade-off:** The null boundary and position counter are exact, but a populated
+special-date tick or label can differ from the selected maximum-date rank. Exact
+fine-grained coordinates require materialized root latest-date fields; the
+current-schema exact filter-bank alternative was rejected on PROD performance.
+
 
 
 ### 25. PIT fallback: retry without PIT on 404/410

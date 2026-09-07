@@ -1696,6 +1696,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // Aggregations on nested fields must be wrapped in a `nested` agg; reverse_nested
     // is used inside the histogram to count parent images (not usage-level docs).
     const nestedPath = NESTED_SORT_FIELDS[field];
+    const isMultiValueSpecialDate =
+      field === "usages.dateAdded" ||
+      field === "collections.actionData.date";
 
     // missingField may also be a nested field (e.g. "usages.dateAdded" as the
     // primary field whose absence defines the null zone). Use a nested query for
@@ -1714,21 +1717,38 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // Stats agg — get min/max to choose histogram interval.
     const statsAgg = { stats: { field } };
+    const coveredParentsAgg = isMultiValueSpecialDate
+      ? nestedPath
+        ? {
+            filter: {
+              nested: {
+                path: nestedPath,
+                query: { exists: { field } },
+              },
+            },
+          }
+        : { filter: { exists: { field } } }
+      : undefined;
     const statsBody: Record<string, unknown> = {
       size: 0,
       query,
-      aggs: nestedPath
-        ? { nested_agg: { nested: { path: nestedPath }, aggs: { range: statsAgg } } }
-        : { range: statsAgg },
+      aggs: {
+        ...(coveredParentsAgg ? { covered_parents: coveredParentsAgg } : {}),
+        ...(nestedPath
+          ? { nested_agg: { nested: { path: nestedPath }, aggs: { range: statsAgg } } }
+          : { range: statsAgg }),
+      },
       track_total_hits: false,
     };
 
     let interval: string;
     let spanMs: number;
     let statsTimeMs: number;
+    let exactCoveredCount: number | undefined;
     try {
       const statsResult = (await this.esRequest("_search", statsBody, signal)) as {
         aggregations?: {
+          covered_parents?: { doc_count: number };
           range?: { min: number; max: number; count: number };
           nested_agg?: { range?: { min: number; max: number; count: number } };
         };
@@ -1738,7 +1758,21 @@ export class ElasticsearchDataSource implements ImageDataSource {
         ? statsResult.aggregations?.nested_agg?.range
         : statsResult.aggregations?.range;
       if (!stats) return null;
-      if (stats.count === 0) return { buckets: [], coveredCount: 0 };
+      exactCoveredCount = isMultiValueSpecialDate
+        ? statsResult.aggregations?.covered_parents?.doc_count
+        : undefined;
+      if (stats.count === 0) {
+        return {
+          buckets: [],
+          coveredCount: exactCoveredCount ?? 0,
+          ...(isMultiValueSpecialDate
+            ? {
+                bucketPositionKind: "approximate-evidence" as const,
+                evidenceCount: 0,
+              }
+            : {}),
+        };
+      }
 
       spanMs = Math.abs(stats.max - stats.min);
       const MS_PER_DAY = 86_400_000;
@@ -1844,7 +1878,18 @@ export class ElasticsearchDataSource implements ImageDataSource {
         `~${payloadEstKB}KB payload.`,
       );
 
-      return { buckets, coveredCount: cumulative };
+      return {
+        buckets,
+        coveredCount: isMultiValueSpecialDate
+          ? exactCoveredCount ?? cumulative
+          : cumulative,
+        ...(isMultiValueSpecialDate
+          ? {
+              bucketPositionKind: "approximate-evidence" as const,
+              evidenceCount: cumulative,
+            }
+          : {}),
+      };
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;
       console.warn("[ES] getDateDistribution failed:", e);
