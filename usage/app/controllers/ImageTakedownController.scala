@@ -4,7 +4,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
-import model.ContentWithImages
+import model.{ContentWithImages, ImageTakedownDummyData}
 import play.api.mvc.ControllerComponents
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,7 +26,7 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
           crops <- gridClient.getCrops(id, auth.innerServiceCall)
           usages <- gridClient.getUsages(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages))
+          Ok(views.html.imageTakedown(Some(id), ImageTakedownDummyData.contentWithImages, ImageTakedownDummyData.crops, ImageTakedownDummyData.usages))
         }
       }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil))))
 

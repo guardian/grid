@@ -29,7 +29,7 @@
                 <p>Found @capiResults.size content items in CAPI for image ID: @imageId.get</p>
                 <ul>
                 @for(capiResult <- capiResults) {
-                    <li>@{capiResult.contentId}</li>
+                    <li><a href="@{capiResult.webUrl}">@{capiResult.webTitle}</a></li>
                     @for(capiImage <- capiResult.imageIds) {
                         <ul>
                             <li>@capiImage</li>
@@ -55,11 +55,17 @@
                 <p>Found @usages.size usages for image ID: @imageId.get</p>
                 <ul>
                 @for(usage <- usages) {
-                    <li>@{usage.id}</li>
+                    <li>@{usage.platform}</li>
+                    @for(reference <- usage.references) {
+                        <ul>
+                            <li>@{reference.`type`}: <a href=@{reference.uri}>@{reference.name}</a></li>
+                        </ul>
+                    }
                 }
                 </ul>
                 <button>Delete usages</button>
             }
+            <br>
             <button disabled >Remove Image from grid</button>
 
         }
