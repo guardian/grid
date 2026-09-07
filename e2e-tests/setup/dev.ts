@@ -8,15 +8,13 @@
 import {
   DOMAIN,
   ELASTICSEARCH_PORT,
-  GRID_IMAGE,
   LOCALSTACK_PORT,
   SERVICE_PORTS,
-  URLS_FILE,
 } from './constants.ts';
 import { probeStack, startStack, stopStack } from './stack.ts';
 import type { GridEnvironment } from './state.ts';
 
-function banner(environment: GridEnvironment): string {
+function banner(elapsedMs: number): string {
   const services = Object.keys(SERVICE_PORTS)
     .sort()
     .map((service) => `    ${service.padEnd(16)} http://localhost:${SERVICE_PORTS[service]}`)
@@ -24,10 +22,7 @@ function banner(environment: GridEnvironment): string {
 
   return [
     '',
-    '  Grid is up.',
-    '',
-    `    kahuna (UI)      https://media.${DOMAIN}`,
-    `    media-api        ${environment.mediaApiUrl}`,
+    `  Grid is up in ${Math.round(elapsedMs / 1000)}s at https://media.${DOMAIN}`,
     '',
     '  Services:',
     services,
@@ -35,11 +30,6 @@ function banner(environment: GridEnvironment): string {
     '  Infrastructure:',
     `    localstack       http://localhost:${LOCALSTACK_PORT}`,
     `    elasticsearch    http://localhost:${ELASTICSEARCH_PORT}`,
-    '',
-    `  Image:             ${GRID_IMAGE}`,
-    `  Config:            ${environment.configDir}`,
-    `  URLs:              ${URLS_FILE}`,
-    `  Domains:           https://media.${DOMAIN} (via dev-nginx or GRID_PROXY=true)`,
     '',
     '  Press Ctrl-C to tear everything down.',
     '',
@@ -81,8 +71,9 @@ async function dev(): Promise<void> {
     );
   }
 
+  const startedAt = Date.now();
   environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
-  console.log(banner(environment));
+  console.log(banner(Date.now() - startedAt));
 
   // Hold the process open indefinitely.
   setInterval(() => {}, 2_000_000_000);

@@ -19,9 +19,9 @@ import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, R
 
 const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 
-type StackProps = Record<string, string>;
+export type StackProps = Record<string, string>;
 
-function clients(endpoint: string) {
+export function provisioningClients(endpoint: string) {
   const cfn = new CloudFormationClient({ endpoint, region: REGION, credentials: CREDENTIALS });
   const s3 = new S3Client({
     endpoint,
@@ -39,15 +39,16 @@ function clients(endpoint: string) {
  * core stack, waits for completion, reads the created resource names, and seeds the
  * buckets with the config files the services expect (similar to dev/script/setup.sh).
  */
-async function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
+export async function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
   const templateBody = fs.readFileSync(
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
     'utf8',
   );
 
   await cfn.send(new CreateStackCommand({ StackName: CORE_STACK_NAME, TemplateBody: templateBody }));
+  // LocalStack applies the stack in seconds; the SDK default would sit out its 30s minimum delay.
   await waitUntilStackCreateComplete(
-    { client: cfn, maxWaitTime: 180 },
+    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 5 },
     { StackName: CORE_STACK_NAME },
   );
 
@@ -72,23 +73,23 @@ async function putObject(
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }));
 }
 
-async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
+export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
   const devConfig = path.join(REPO_ROOT, 'dev', 'config');
 
-  // API key used by the machine authentication provider.
-  await putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key');
-
-  // Static config consumed by the services.
-  for (const file of ['photographers.json', 'rcs-quota.json', 'usage_rights.json']) {
-    await putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file)));
-  }
-
-  await putObject(
-    s3,
-    props.UsageMailBucket,
-    'usages.eml',
-    fs.readFileSync(path.join(devConfig, 'usages.eml')),
-  );
+  await Promise.all([
+    // API key used by the machine authentication provider.
+    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key'),
+    // Static config consumed by the services.
+    ...['photographers.json', 'rcs-quota.json', 'usage_rights.json'].map((file) =>
+      putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file))),
+    ),
+    putObject(
+      s3,
+      props.UsageMailBucket,
+      'usages.eml',
+      fs.readFileSync(path.join(devConfig, 'usages.eml')),
+    ),
+  ]);
 }
 
 /**
@@ -96,7 +97,7 @@ async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
  * permissions fixture so the real authorisation provider can read `permissions.json`.
  * Returns the bucket name so it can be added to the stack props map.
  */
-async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
+export async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
   await s3.send(
     new CreateBucketCommand({
       Bucket: PERMISSIONS_BUCKET,
@@ -131,7 +132,7 @@ async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
  * neither the jitter nor the shard sync runs: the lease taker picks up the unowned leases
  * on its first pass instead.
  */
-async function seedKclLeaseTable(
+export async function seedKclLeaseTable(
   dynamo: DynamoDBClient,
   kinesis: KinesisClient,
   streamName: string,
@@ -144,41 +145,28 @@ async function seedKclLeaseTable(
       BillingMode: 'PAY_PER_REQUEST',
     }),
   );
-  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60 }, { TableName: streamName });
+  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60, minDelay: 1 }, { TableName: streamName });
 
   const { Shards = [] } = await kinesis.send(new ListShardsCommand({ StreamName: streamName }));
 
-  for (const shard of Shards) {
-    await dynamo.send(
-      new PutItemCommand({
-        TableName: streamName,
-        Item: {
-          leaseKey: { S: shard.ShardId! },
-          leaseCounter: { N: '0' },
-          checkpoint: { S: 'TRIM_HORIZON' },
-          checkpointSubSequenceNumber: { N: '0' },
-          ownerSwitchesSinceCheckpoint: { N: '0' },
-          // Without the hash range KCL's lease auditor reports the stream as having holes.
-          startingHashKey: { S: shard.HashKeyRange!.StartingHashKey! },
-          endingHashKey: { S: shard.HashKeyRange!.EndingHashKey! },
-        },
-      }),
-    );
-  }
+  await Promise.all(
+    Shards.map((shard) =>
+      dynamo.send(
+        new PutItemCommand({
+          TableName: streamName,
+          Item: {
+            leaseKey: { S: shard.ShardId! },
+            leaseCounter: { N: '0' },
+            checkpoint: { S: 'TRIM_HORIZON' },
+            checkpointSubSequenceNumber: { N: '0' },
+            ownerSwitchesSinceCheckpoint: { N: '0' },
+            // Without the hash range KCL's lease auditor reports the stream as having holes.
+            startingHashKey: { S: shard.HashKeyRange!.StartingHashKey! },
+            endingHashKey: { S: shard.HashKeyRange!.EndingHashKey! },
+          },
+        }),
+      ),
+    ),
+  );
 }
 
-/**
- * Apply the core stack and seed its buckets. Returns the LogicalResourceId ->
- * PhysicalResourceId map used to generate service config.
- */export async function provisionCoreStack(localstackEndpoint: string): Promise<StackProps> {
-  const { cfn, s3, dynamo, kinesis } = clients(localstackEndpoint);
-  const props = await createCoreStack(cfn);
-  await seedBuckets(s3, props);
-  props.PermissionsBucket = await provisionPermissionsBucket(s3);
-
-  for (const stream of [props.ThrallMessageStream, props.ThrallLowPriorityMessageStream]) {
-    await seedKclLeaseTable(dynamo, kinesis, stream);
-  }
-
-  return props;
-}
