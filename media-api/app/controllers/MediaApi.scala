@@ -186,14 +186,10 @@ class MediaApi(
     }
   }
 
-  def getCapiUsages(id: String) = auth { request =>
-
-    respond[ContentWithImagesResponse](
-      ContentWithImagesResponse(List(ContentWithImages(
-        contentId = "content123",
-        images = List("image1", "image2")
-      )))
-    )
+  def getCapiUsages(id: String) = auth.async { _ =>
+    contentApi.findContentUsingImage(id).map(contentWithImages => {
+      respond[ContentWithImagesResponse](ContentWithImagesResponse(contentWithImages))
+    })
   }
 
   /**
