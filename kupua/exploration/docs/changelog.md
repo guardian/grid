@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 7 September 2026 — Parse special-sort direction during deep seek
+
+Deep seek read the first Elasticsearch sort-clause value as a string. Last used
+and Added to collection compile to object-form clauses, so descending direction
+became `[object Object]` and selected the ascending percentile from the opposite
+end of the distribution.
+
+The seek path now resolves both the field and direction through the existing
+`parseSortField` helper. Failing-first coverage above the 65,000-result
+position-map threshold proved that both descending special sorts requested the
+25th percentile instead of the 75th; ascending controls already requested the
+correct 25th percentile. The same tests verify mapped fields and the emitted
+three-value numeric/numeric/string cursor shape.
+
+Focused coverage passed 4/4. Full unit validation passed 1220/1220 and habitual
+E2E passed 236/236 in 5.0 minutes. Independent review found no defects; real
+Elasticsearch max-date and reverse-pagination semantics remain separate work.
+
 ### 7 September 2026 — Remove generic secondary sorting
 
 The **Obscure sorting decision** selected one semantic user sort plus automatic

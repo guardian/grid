@@ -2950,10 +2950,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // ---------------------------------------------------------------
         const sortClause = buildSortClause(params.orderBy);
         const primarySort = sortClause[0];
-        const primaryField = primarySort ? Object.keys(primarySort)[0] : null;
-        const primaryDir = primaryField
-          ? (primarySort[primaryField] as string)
-          : "desc";
+        const { field: primaryField, direction: primaryDir } =
+          parseSortField(primarySort);
 
         // For desc sort: position 0 = highest value. To find the value at
         // position P in N results, we need percentile (100 - P/N * 100).
