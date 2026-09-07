@@ -55,7 +55,7 @@ npm run dev:e2e                  # uses your local dev-nginx for the https://*.m
 GRID_PROXY=true npm run dev:e2e  # no dev-nginx? start the bundled Caddy proxy on :443 instead
 ```
 
-The stack binds fixed host ports (9001-9012, 4566, 9008, 9200), so two stacks cannot run
+The stack binds fixed host ports, so two stacks cannot run
 at once. Starting a second one fails immediately rather than timing out.
 
 ### Running the tests against a stack you already started
