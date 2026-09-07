@@ -39,15 +39,20 @@ deleteImageV2.controller('grDeleteImageV2Ctrl', [
 
           ctrl.delete = function () {
             const deleteConfirmText = 'DELETE';
-            const imageId = Array.from(ctrl.images.values())[0].data.id;
+            const image = Array.from(ctrl.images.values())[0].data;
+            const imageId = image.id
+            const usagesCount = image.usages.data.length;
+            const cropsCount = image.exports.length;
 
             return mediaApi.capiUsages(imageId)
               .then(r => {
-                if (r.data.articles.length > 0) {
+                if (r.data.articles.length > 0 || usagesCount > 0 || cropsCount > 0) {
                   const contents = r.data.articles.map(a => `${a.contentId} \n\t  ${a.images.join('\n\t ')}`);
                   return $window.prompt(
                     'This image is being used in the following articles: \n\n' +
                     `${contents.join('\n')}` +
+                    '\n\n' +
+                    `It has ${usagesCount} usages and ${cropsCount} crops. ` +
                     '\n\n' +
                     'Type DELETE into the box below if you are 100% sure these images are ' +
                     'not used anywhere and you will never need them ever again.'
