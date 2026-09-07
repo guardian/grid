@@ -32,6 +32,7 @@ export async function runTasks<Ctx extends object>(
       collapseSubtasks: false,
       collapseErrors: false,
     },
+    registerSignalListeners: false,
     fallbackRendererOptions: { timer: PRESET_TIMER },
   });
 

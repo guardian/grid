@@ -52,6 +52,7 @@ import {
 import type { StackProps } from './provision.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
+import { ListrTaskFn } from 'listr2';
 
 const LOCALSTACK_SERVICES = [
   "cloudformation",
@@ -293,7 +294,7 @@ function gridContainer(
     // Waiting on the healthchecks here would collapse every service into one opaque wait;
     // the first line of output is enough to hand over to the per-service checks below.
     .withWaitStrategy(Wait.forLogMessage(/./))
-    .withStartupTimeout(startupTimeoutMs);
+    .withStartupTimeout(10_000);
 
   if (!process.env.GRID_DEBUG) {
     return container;
@@ -331,7 +332,7 @@ async function waitForHealthy(
   const startedAt = Date.now();
   const deadline = startedAt + timeoutMs;
 
-  for (;;) {
+  for (; ;) {
     const { healthy } = await isServiceHealthy(healthPath)(port);
     if (healthy) {
       return;
@@ -483,9 +484,9 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             title: 'Wait for services',
             task: (_, services) => {
               const readiness: ListrTask<BootContext>[] = [
-                ...Object.entries(SERVICE_PORTS).map(([service, port]) => ({
+                ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
-                  task: (_: BootContext, serviceTask: { output: string }) =>
+                  task: (_, serviceTask) =>
                     waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, (message) => {
                       serviceTask.output = message;
                     }),
@@ -667,17 +668,17 @@ export async function stopStack(environment: StoppableStack | undefined): Promis
         await container.stop();
       },
     })),
-    ...(network ? [{ title: 'Remove network', task: () => network.stop() }] : []),
+    ...(network ? [{ title: 'Remove network', task: () => { network.stop() } }] : []),
     ...(configDir
       ? [
-          {
-            title: 'Remove generated config',
-            task: () => {
-              fs.rmSync(configDir, { recursive: true, force: true });
-              ownedConfigDir = undefined;
-            },
+        {
+          title: 'Remove generated config',
+          task: () => {
+            fs.rmSync(configDir, { recursive: true, force: true });
+            ownedConfigDir = undefined;
           },
-        ]
+        },
+      ]
       : []),
   ];
 
