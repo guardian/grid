@@ -40,7 +40,7 @@ deleteImageV2.controller('grDeleteImageV2Ctrl', [
           ctrl.delete = function () {
             const deleteConfirmText = 'DELETE';
             const image = Array.from(ctrl.images.values())[0].data;
-            const imageId = image.id
+            const imageId = image.id;
             const usagesCount = image.usages.data.length;
             const cropsCount = image.exports.length;
 
