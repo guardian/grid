@@ -69,7 +69,7 @@ async function waitForAlias(esBaseUrl: string, timeoutMs = 60_000): Promise<void
  */
 export async function seedElasticsearch(
   esBaseUrl: string,
-  report: (message: string) => void = console.log,
+  report: (message: string) => void,
 ): Promise<void> {
   const fixture = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as EsSearchFixture;
   const hits = fixture.body?.hits?.hits ?? [];

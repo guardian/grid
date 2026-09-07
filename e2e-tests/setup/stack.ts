@@ -13,7 +13,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { LocalstackContainer } from '@testcontainers/localstack';
-import type { StartedLocalStackContainer } from '@testcontainers/localstack';
 import { GenericContainer, Network, Wait } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
@@ -40,7 +39,7 @@ import {
   SERVICE_PORTS,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
-import { runTasks } from './progress.ts';
+import { reportTo, runTasks } from './progress.ts';
 import type { ListrTask } from './progress.ts';
 import {
   createCoreStack,
@@ -104,7 +103,6 @@ interface StoppableStack {
 
 /** What the boot tasks build up. Each task mutates it in place for the ones that follow. */
 interface BootContext extends StoppableStack {
-  localstack?: StartedLocalStackContainer;
   coreStackProps?: StackProps;
 }
 
@@ -491,9 +489,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                 ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
-                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, (message) => {
-                      serviceTask.output = message;
-                    }),
+                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
                 })),
                 {
                   // Waits for the `Images_Current` alias the app assigns on startup, so this
@@ -501,9 +497,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                   title: 'Seed Elasticsearch',
                   skip: () => !seed && 'seeding not requested',
                   task: async (_, seedTask) => {
-                    await seedElasticsearch(ELASTICSEARCH_URL, (message) => {
-                      seedTask.output = message;
-                    });
+                    await seedElasticsearch(ELASTICSEARCH_URL, reportTo(seedTask));
                   },
                 },
               ];
@@ -638,9 +632,7 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         title: 'Seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
-          await seedElasticsearch(ELASTICSEARCH_URL, (message) => {
-            task.output = message;
-          });
+          await seedElasticsearch(ELASTICSEARCH_URL, reportTo(task));
         },
       },
     ],
