@@ -64,8 +64,7 @@ export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 export const URLS_FILE = path.join(import.meta.dirname, '..', '.grid-urls.json');
 
 /**
- * Generated per-service config, bind-mounted into the app container. The path is fixed
- * rather than unique per run: the fixed host ports already allow only one stack at a time.
+ * Generated per-service config, bind-mounted into the app container.
  */
 export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
