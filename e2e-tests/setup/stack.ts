@@ -580,21 +580,8 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
   // Nothing pre-exists in CI, and silently attaching there would undermine the run.
   const reuseAllowed = !process.env.CI;
 
-  const probe: { result?: Awaited<ReturnType<typeof probeStack>> } = {};
-  await runTasks(
-    [
-      {
-        title: 'Look for a running Grid stack',
-        task: async (ctx, task) => {
-          ctx.result = await probeStack();
-          task.title = PROBE_OUTCOMES[ctx.result.state];
-        },
-      },
-    ],
-    probe,
-  );
-
-  const { state, healthy, ports } = probe.result!;
+  const { state, healthy, ports } = await probeStack();
+  console.log(PROBE_OUTCOMES[state]);
 
   if (state === 'partial') {
     const missing = ports.filter((port) => !healthy.includes(port));
