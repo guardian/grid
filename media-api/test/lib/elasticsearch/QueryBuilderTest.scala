@@ -5,7 +5,7 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.Negation
+import lib.querysyntax.{Match, Negation, Phrase, SingleField}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -180,6 +180,93 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       val query = queryBuilder.makeQuery(List(nestedCondition, anotherNestedCondition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
+    }
+  }
+
+  describe("field alias matchViaExistence queries") {
+    // e.g. `fileMetadata.c2pa.isAvailable` is only ever indexed as `true`, so `:true`/`:false` are
+    // translated into exists/not-exists queries rather than literal term matches (see FieldAlias.matchViaExistence).
+    val c2paFieldAliasConfig = Map(
+      "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
+      "alias" -> "c2paMetadataAvailable",
+      "label" -> "C2PA Metadata Available",
+      "matchViaExistence" -> true
+    )
+    val configWithC2paAlias = new MediaApiConfig(GridConfigResources(
+      Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(c2paFieldAliasConfig))),
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    ))
+    val queryBuilderWithC2paAlias = new QueryBuilder(matchFields, () => Nil, configWithC2paAlias)
+
+    def existsClauseOf(query: Query): ExistsQuery =
+      query.asInstanceOf[BoolQuery].filters.head.asInstanceOf[ExistsQuery]
+
+    it("alias:true is expressed as an exists query on the underlying elasticsearch path") {
+      val condition = Match(SingleField("c2paMetadataAvailable"), Phrase("true"))
+      val query = queryBuilderWithC2paAlias.makeQuery(List(condition)).asInstanceOf[BoolQuery]
+
+      val existsClause = existsClauseOf(query.must.head)
+      existsClause.field shouldBe "fileMetadata.c2pa.isAvailable"
+    }
+
+    it("alias:false is expressed as a not-exists query on the underlying elasticsearch path") {
+      val condition = Match(SingleField("c2paMetadataAvailable"), Phrase("false"))
+      val query = queryBuilderWithC2paAlias.makeQuery(List(condition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val notClause = query.must.head.asInstanceOf[BoolQuery]
+      val existsClause = existsClauseOf(notClause.not.head)
+      existsClause.field shouldBe "fileMetadata.c2pa.isAvailable"
+    }
+
+    it("the underlying elasticsearch path:true also resolves to the same exists query as the alias") {
+      val condition = Match(SingleField("fileMetadata.c2pa.isAvailable"), Phrase("true"))
+      val query = queryBuilderWithC2paAlias.makeQuery(List(condition)).asInstanceOf[BoolQuery]
+
+      val existsClause = existsClauseOf(query.must.head)
+      existsClause.field shouldBe "fileMetadata.c2pa.isAvailable"
+    }
+
+    it("the underlying elasticsearch path:false also resolves to the same not-exists query as the alias") {
+      val condition = Match(SingleField("fileMetadata.c2pa.isAvailable"), Phrase("false"))
+      val query = queryBuilderWithC2paAlias.makeQuery(List(condition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val notClause = query.must.head.asInstanceOf[BoolQuery]
+      val existsClause = existsClauseOf(notClause.not.head)
+      existsClause.field shouldBe "fileMetadata.c2pa.isAvailable"
+    }
+
+    it("boolean values are matched case-insensitively, e.g. alias:TRUE and alias:False") {
+      val trueQuery = queryBuilderWithC2paAlias.makeQuery(
+        List(Match(SingleField("c2paMetadataAvailable"), Phrase("TRUE")))
+      ).asInstanceOf[BoolQuery]
+      existsClauseOf(trueQuery.must.head).field shouldBe "fileMetadata.c2pa.isAvailable"
+
+      val falseQuery = queryBuilderWithC2paAlias.makeQuery(
+        List(Match(SingleField("c2paMetadataAvailable"), Phrase("False")))
+      ).asInstanceOf[BoolQuery]
+      falseQuery.must.size shouldBe 1
+      val notClause = falseQuery.must.head.asInstanceOf[BoolQuery]
+      existsClauseOf(notClause.not.head).field shouldBe "fileMetadata.c2pa.isAvailable"
+    }
+
+    it("a non-boolean value on a matchViaExistence field falls back to a literal phrase match, not an exists query") {
+      val condition = Match(SingleField("c2paMetadataAvailable"), Phrase("maybe"))
+      val query = queryBuilderWithC2paAlias.makeQuery(List(condition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val phraseClause = query.must.head.asInstanceOf[MatchPhraseQuery]
+      phraseClause.field shouldBe "fileMetadata.c2pa.isAvailable"
+      phraseClause.value shouldBe "maybe"
+    }
+
+    it("fields with no matching alias or elasticsearch path still fall back to getFieldPath, unaffected by the new lookup") {
+      queryBuilderWithC2paAlias.resolveFieldPath("someUnrelatedField") shouldBe "someUnrelatedField"
     }
   }
 

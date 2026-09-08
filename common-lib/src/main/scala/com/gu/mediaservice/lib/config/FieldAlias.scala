@@ -10,7 +10,15 @@ case class FieldAlias(elasticsearchPath: String,
                       displayInAdditionalMetadata: Boolean,
                       displaySearchHint: Boolean,
                       alias: String,
-                      searchHintOptions: List[String])
+                      searchHintOptions: List[String],
+                      // Some fields are only ever indexed when "true" (e.g. a field that is present
+                      // only to support `has:`/`-has:` queries, such as fileMetadata.c2pa.isAvailable).
+                      // For these fields a literal `alias:false` term query can never match, since "false"
+                      // is never actually indexed - it is only ever implied by the field's absence.
+                      // Setting this flag translates `alias:true`/`alias:false` search queries into
+                      // exists/not-exists queries instead of literal term matches, so both values behave
+                      // intuitively for users (e.g. via a searchHintOptions dropdown of "true"/"false").
+                      matchViaExistence: Boolean = false)
 
 object FieldAlias {
   implicit val FieldAliasWrites: Writes[FieldAlias] =
@@ -26,6 +34,8 @@ object FieldAlias {
             config.getBoolean("displaySearchHint") else false
           val searchHintOptions = if (config.hasPath("searchHintOptions"))
             config.getStringList("searchHintOptions").asScala.toList.filter(_.nonEmpty) else List.empty
+          val matchViaExistence = if (config.hasPath("matchViaExistence"))
+            config.getBoolean("matchViaExistence") else false
 
           FieldAlias(
             config.getString("elasticsearchPath"),
@@ -33,7 +43,8 @@ object FieldAlias {
             displayInAdditionalMetadata,
             displaySearchHint,
             config.getString("alias"),
-            searchHintOptions
+            searchHintOptions,
+            matchViaExistence
           )
         }
       ).toSeq
