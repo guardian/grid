@@ -5,7 +5,6 @@ import { DefaultSortOption, CollectionSortOption } from "./gr-sort-control-confi
 import "./gr-sort-control.css";
 
 const SELECT_OPTION = "Select an option";
-const DEFAULT_OPTION = DefaultSortOption.value;
 const COLLECTION_OPTION = CollectionSortOption.value;
 const CONTROL_TITLE = "Sort by:";
 const SORT_ORDER = "Sort order";
@@ -66,13 +65,13 @@ const hasClassInSelfOrParent = (node: Element | null, className: string): boolea
 };
 
 export const BaseSortControl: React.FC<SortDropdownProps> = ({
-    options,
-    startSelectedOption,
-    onSelect,
-    startHasCollection,
-    panelVisible,
-    isSimple
-  }) => {
+                                                               options,
+                                                               startSelectedOption,
+                                                               onSelect,
+                                                               startHasCollection,
+                                                               panelVisible,
+                                                               isSimple
+                                                             }) => {
 
   const hasCollection = startHasCollection;
   const startSort:SortDropdownOption = startSelectedOption ? startSelectedOption : DefaultSortOption;
@@ -82,11 +81,23 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isPanelVisible, setPanelVisible] = useState(panelVisible);
 
+  useEffect(() => {
+    const nextSort = startSelectedOption ? startSelectedOption : DefaultSortOption;
+    setSelection(nextSort);
+    if (!nextSort.isCollection) {
+      setPrevious(nextSort);
+    }
+  }, [startSelectedOption]);
+
+  useEffect(() => {
+    setPanelVisible(panelVisible);
+  }, [panelVisible]);
+
   const handleArrowKeys = (event:KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowDown' ||
-        event.key === 'ArrowUp' ||
-        event.key === 'Enter' ||
-        event.code === 'Space') {
+      event.key === 'ArrowUp' ||
+      event.key === 'Enter' ||
+      event.code === 'Space') {
       event.preventDefault();
       event.stopPropagation();
       let rowCount = options.length;
@@ -126,16 +137,16 @@ export const BaseSortControl: React.FC<SortDropdownProps> = ({
 
     const handlePanelShow = (event: any) => {
       const panel = event.detail.panel;
-       if (panel === PANEL_IDENTIFIER) {
-         setPanelVisible(true);
-       }
+      if (panel === PANEL_IDENTIFIER) {
+        setPanelVisible(true);
+      }
     };
 
     const handlePanelHide = (event: any) => {
       const panel = event.detail.panel;
-       if (panel === PANEL_IDENTIFIER || panel === SCROLL_IDENTIFIER) {
-         setPanelVisible(false);
-       }
+      if (panel === PANEL_IDENTIFIER || panel === SCROLL_IDENTIFIER) {
+        setPanelVisible(false);
+      }
     };
 
     window.addEventListener("mouseup", autoHideListener);

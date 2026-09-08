@@ -3,7 +3,8 @@
         ng-if="searchQuery.shouldDisplayAISearchOption">
         <label>
             <input type="checkbox"
-                   ng-model="searchQuery.useAISearch"/>
+                   ng-model="searchQuery.useAISearch"
+                   ng-change="searchQuery.onAISearchCheckboxChange()"/>
             AI search
         </label>
     </span>
@@ -45,6 +46,7 @@
                                 when the option is off -->
                     <input type="checkbox"
                         ng-model="searchQuery.filter.nonFree"
+                        ng-change="searchQuery.onNonFreeCheckboxChange()"
                         ng-true-value="{{searchQuery.costFilterTrueValue}}"
                         ng-false-value="{{searchQuery.costFilterFalseValue}}" />
                         {{ searchQuery.costFilterLabel }}
@@ -64,7 +66,8 @@
             <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
-                        ng-model="searchQuery.filter.uploadedByMe" />
+                        ng-model="searchQuery.filter.uploadedByMe"
+                        ng-change="searchQuery.onUploadedByMeCheckboxChange()" />
                     My uploads
                 </label>
             </li>
@@ -72,7 +75,8 @@
             <li ng-if="searchQuery.maybeOrgOwnedValue" id="org-owned-checkbox" class="search__modifier-item search__modifier-checkbox">
                 <label>
                     <input type="checkbox"
-                        ng-model="searchQuery.filter.orgOwned" />
+                        ng-model="searchQuery.filter.orgOwned"
+                        ng-change="searchQuery.onOrgOwnedCheckboxChange()" />
                     {{ searchQuery.maybeOrgOwnedValue }}
                 </label>
             </li>
