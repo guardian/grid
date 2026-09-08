@@ -58,8 +58,6 @@ object FileMetadataReader extends GridLogging {
       metadata <- readMetadata(image)
     }
     yield getMetadataWithIPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
-    // Note: hasC2PA is left at its default (false) here since the mime type is unknown/unsupported
-    // in this code path, and C2PA detection needs to know the container format to parse correctly.
 
   def fromIPTCHeadersWithColorInfo(image: ImageWrapper)(implicit logMarker: LogMarker): Future[FileMetadata] =
     fromIPTCHeadersWithColorInfo(image.file, image.id, image.mimeType)
@@ -71,7 +69,7 @@ object FileMetadataReader extends GridLogging {
     }
     yield getMetadataWithIPTCHeaders(metadata, imageId).copy(
       colourModelInformation = colourModelInformation,
-      hasC2PA = C2PADetector.hasC2PAManifest(image, mimeType)
+      c2pa = if (C2paDetector.hasC2paManifest(image, mimeType)) FileMetadata.C2paAvailable else FileMetadata.NoC2PA
     )
 
   private def getMetadataWithIPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =

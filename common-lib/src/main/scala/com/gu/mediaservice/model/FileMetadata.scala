@@ -16,7 +16,7 @@ case class FileMetadata(
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
   colourModelInformation: Map[String, String]   = Map(),
-  hasC2PA: Boolean                              = false
+  c2pa: Map[String, JsValue]                    = Map()
 ) {
   def toLogMarker: LogMarker = {
     val fieldCountMarkers = Map (
@@ -32,7 +32,7 @@ case class FileMetadata(
     val totalFieldCount = fieldCountMarkers.foldLeft(0)(_ + _._2)
     val markers = fieldCountMarkers + ("totalFieldCount" -> totalFieldCount)
 
-    MarkerMap(markers + ("hasC2PA" -> hasC2PA))
+    MarkerMap(markers + ("c2paMetadataAvailable" -> c2pa.keys.nonEmpty))
   }
 
   def readXmpHeadStringProp: (String) => Option[String] = (name: String) => {
@@ -47,6 +47,9 @@ case class FileMetadata(
 }
 
 object FileMetadata {
+  val NoC2PA: Map[String, JsValue] = Map()
+  val C2paAvailable: Map[String, JsValue] = Map("isAvailable" -> JsBoolean(true))
+
   // TODO: reindex all images to make the getty map always present
   // for data consistency, so we can fallback to use the default Reads
   implicit val ImageMetadataReads: Reads[FileMetadata] = (
@@ -58,7 +61,7 @@ object FileMetadata {
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map.empty) ~
     (__ \ "colourModel").readNullable[String] ~
     (__ \ "colourModelInformation").readNullable[Map[String,String]].map(_ getOrElse Map.empty) ~
-    (__ \ "hasC2PA").readNullable[Boolean].map(_ getOrElse false)
+    (__ \ "c2pa").readNullable[Map[String,JsValue]].map(_ getOrElse Map.empty)
 
   )(FileMetadata.apply _)
 
@@ -71,6 +74,6 @@ object FileMetadata {
       (JsPath \ "getty").write[Map[String,String]] and
       (JsPath \ "colourModel").writeNullable[String] and
       (JsPath \ "colourModelInformation").write[Map[String,String]] and
-      (JsPath \ "hasC2PA").write[Boolean]
+      (JsPath \ "c2pa").write[Map[String,JsValue]]
   )(unlift(FileMetadata.unapply))
 }
