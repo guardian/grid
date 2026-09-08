@@ -14,6 +14,30 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 8 September 2026 — Complete special-sort cross-path acceptance
+
+  The final direct-ES/D3 matrix found two contract defects. Direct ES rebuilt the
+  primary clause during End seeking and discarded `mode:max` and the nested usage
+  path. D3 returned Elasticsearch's missing-date Long sentinels as numeric cursors
+  instead of null, and accepted `offset` despite never applying it. In media-api
+  mode that offset bug made shallow special seeks return page-one images while the
+  store labelled them as a deep buffer.
+
+  End seeking now preserves every canonical object-form option and changes only
+  missing placement. D3 converts Long min/max missing sentinels to null and rejects
+  non-zero offset deliberately. The strangler keeps only plain cursorless shallow
+  offset paging on the existing direct-ES path; initial, cursor, PIT, reverse and
+  End traffic remains server-backed.
+
+  The guarded seven-document oracle now proves exact End pages as well as complete
+  order, maps, all ranks and ranges in both directions. Focused tests cover all
+  four special forms for End request shape, focus/restore cursor wiring and honest
+  approximate labels/ticks. Live TEST matrices in both modes agreed on paging,
+  zero-delta seek coordinates, focus rank, restore placement and null End cursors.
+  Final validation passed 1,270 unit tests, 236 E2E in 5.2 minutes, 77 Scala
+  integration tests, 14 Scala parser tests and the oracle in 831ms. Independent
+  review found no remaining defect. No live identity or field value was retained.
+
   ### 8 September 2026 — Harden D3 special-sort requests defensively
 
   The new media-api `POST /images/search-after` endpoint previously allowed some

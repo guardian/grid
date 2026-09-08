@@ -378,6 +378,40 @@ describe("fetchPositionIndex special-date request shape", () => {
   });
 });
 
+describe("searchAfter special-date End request shape", () => {
+  it.each([
+    ["-usagesDateAdded", "usages.dateAdded", "desc"],
+    ["usagesDateAdded", "usages.dateAdded", "asc"],
+    ["-dateAddedToCollection", "collections.actionData.date", "desc"],
+    ["dateAddedToCollection", "collections.actionData.date", "asc"],
+  ])("%s preserves the canonical primary clause while moving missing values first", async (
+    orderBy,
+    field,
+    direction,
+  ) => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({
+      hits: { total: { value: 0 }, hits: [] },
+    }));
+
+    await ds.searchAfter(
+      { orderBy, nonFree: "true", length: 2 },
+      null,
+      null,
+      undefined,
+      true,
+      true,
+    );
+
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    const canonicalPrimary = buildSortClause(orderBy)[0][field] as Record<string, unknown>;
+    expect(body.sort[0][field]).toEqual({
+      ...canonicalPrimary,
+      order: direction === "desc" ? "asc" : "desc",
+      missing: "_first",
+    });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Bug #19 — PIT retry regex /40[04]/ does not match HTTP 410
 //

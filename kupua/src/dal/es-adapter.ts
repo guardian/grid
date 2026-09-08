@@ -956,7 +956,14 @@ export class ElasticsearchDataSource implements ImageDataSource {
         if (idx !== 0) return clause;
         const { field, direction } = parseSortField(clause);
         if (!field) return clause;
-        return { [field]: { order: direction, missing: "_first" } };
+        const spec = clause[field];
+        return {
+          [field]: {
+            ...(typeof spec === "object" && spec !== null ? spec : {}),
+            order: direction,
+            missing: "_first",
+          },
+        };
       });
     }
 

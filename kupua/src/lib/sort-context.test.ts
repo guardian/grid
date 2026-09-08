@@ -79,7 +79,12 @@ describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
     expect(defaulted.some((t) => t.boundary)).toBe(false);
   });
 
-  it("projects special-date evidence ticks into the exact populated span", () => {
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("projects %s evidence ticks into the exact populated span", (orderBy) => {
     const sortDist: SortDistribution = {
       coveredCount: 3,
       evidenceCount: 5,
@@ -92,7 +97,7 @@ describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
     };
 
     const ticks = computeTrackTicksWithNullZone(
-      "-usagesDateAdded",
+      orderBy,
       10,
       0,
       [],
@@ -190,7 +195,12 @@ describe("interpolateSortLabel — binary search property (Part B)", () => {
     expect(interpolateSortLabel("credit", 15, 25, 1_000_000, [img], dist)).toBe(null);
   });
 
-  it("marks projected special-date evidence labels approximate", () => {
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("marks projected %s evidence labels approximate", (orderBy) => {
     const dist: SortDistribution = {
       coveredCount: 3,
       evidenceCount: 5,
@@ -203,7 +213,7 @@ describe("interpolateSortLabel — binary search property (Part B)", () => {
     };
 
     const label = interpolateSortLabel(
-      "-usagesDateAdded", 2, 10, 1_000_000, [img], dist,
+      orderBy, 2, 10, 1_000_000, [img], dist,
     );
     expect(label?.replace(/<[^>]+>/g, "")).toBe("Approx. 1 Mar 2024");
   });

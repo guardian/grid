@@ -490,6 +490,14 @@ describe("special date sorts against local Elasticsearch", () => {
                 ordinary.sortValues[2],
                 ordinary.sortValues[6],
               ),
+              endPage: await adapter.searchAfter(
+                { orderBy, nonFree: "true", length: PAGE_SIZE },
+                null,
+                null,
+                undefined,
+                true,
+                true,
+              ),
             };
           });
           expect(parity.positionMap?.ids).toEqual(parity.ordinary.ids);
@@ -498,6 +506,8 @@ describe("special date sorts against local Elasticsearch", () => {
           expect(parity.countBefore).toEqual([0, 1, 2, 3, 4, 5, 6]);
           expect(parity.populatedRange.ids).toEqual(parity.ordinary.ids.slice(1, 4));
           expect(parity.crossBoundaryRange.ids).toEqual(parity.ordinary.ids.slice(3, 7));
+          expect(parity.endPage.hits.map((hit) => hit.id)).toEqual(parity.ordinary.ids.slice(-PAGE_SIZE));
+          expect(parity.endPage.sortValues).toEqual(parity.ordinary.sortValues.slice(-PAGE_SIZE));
         }
       }
     } finally {

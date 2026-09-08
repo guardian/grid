@@ -412,6 +412,33 @@ describe("sort-around-focus", () => {
     expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
   });
 
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("passes a complete %s cursor to exact rank counting", async (orderBy) => {
+    mock = new MockDataSource(1000);
+    const countBeforeSpy = vi.spyOn(mock, "countBefore");
+    useSearchStore.setState({
+      dataSource: mock,
+      params: { orderBy, offset: 0, length: 200, nonFree: "true" },
+    });
+
+    await actions().search();
+    actions().setFocusedImageId("img-500");
+    await actions().search("img-500");
+    await waitFor(
+      () => state().sortAroundFocusStatus === null,
+      3000,
+      "special sort-around-focus completes",
+    );
+
+    const call = countBeforeSpy.mock.calls.find(([, cursor]) => cursor[2] === "img-500");
+    expect(call?.[0]).toEqual(expect.objectContaining({ orderBy }));
+    expect(call?.[1]).toHaveLength(3);
+  });
+
   it("clears status on image not found", async () => {
     await actions().search();
     actions().setFocusedImageId("img-nonexistent");
@@ -1971,7 +1998,12 @@ describe("seekToFocused (arrow snap-back)", () => {
 // ---------------------------------------------------------------------------
 
 describe("restoreAroundCursor", () => {
-  it("forwards a complete special-sort cursor to countBefore", async () => {
+  it.each([
+    "-usagesDateAdded",
+    "usagesDateAdded",
+    "-dateAddedToCollection",
+    "dateAddedToCollection",
+  ])("forwards a complete %s cursor to countBefore", async (orderBy) => {
     mock = new MockDataSource(1000);
     const specialCursor = [
       1_700_000_000_000,
@@ -1983,14 +2015,14 @@ describe("restoreAroundCursor", () => {
       .mockResolvedValue(500);
     useSearchStore.setState({
       dataSource: mock,
-      params: { orderBy: "-usagesDateAdded", offset: 0, length: 200 },
+      params: { orderBy, offset: 0, length: 200 },
     });
 
     await actions().search();
     await actions().restoreAroundCursor("img-500", specialCursor, 500);
 
     expect(countBeforeSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: "-usagesDateAdded" }),
+      expect.objectContaining({ orderBy }),
       specialCursor,
       expect.any(AbortSignal),
     );

@@ -53,6 +53,15 @@ export class StranglerAdapter implements ImageDataSource {
     reverse?: boolean,
     seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
+    if (
+      !searchAfterValues &&
+      !pitId &&
+      !reverse &&
+      !seekToEnd &&
+      (params.offset ?? 0) > 0
+    ) {
+      return this.es.searchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
+    }
     return apiSearchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
   }
 }
