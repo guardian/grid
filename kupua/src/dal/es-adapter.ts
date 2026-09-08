@@ -1299,6 +1299,53 @@ export class ElasticsearchDataSource implements ImageDataSource {
       return { nested: { path: nestedPath, query } };
     }
 
+    function usesMaxMode(
+      clause: Record<string, unknown>,
+      field: string,
+    ): boolean {
+      const options = clause[field];
+      return typeof options === "object" && options !== null &&
+        (options as Record<string, unknown>).mode === "max";
+    }
+
+    function maxValueExists(field: string): Record<string, unknown> {
+      return wrapIfNested(field, { exists: { field } });
+    }
+
+    function maxValueEquals(
+      field: string,
+      value: string | number,
+    ): Record<string, unknown> {
+      return {
+        bool: {
+          must: [
+            wrapIfNested(field, { range: { [field]: { gte: value, lte: value } } }),
+          ],
+          must_not: [
+            wrapIfNested(field, { range: { [field]: { gt: value } } }),
+          ],
+        },
+      };
+    }
+
+    function maxValueStrictlyBefore(
+      field: string,
+      value: string | number,
+      direction: "asc" | "desc",
+    ): Record<string, unknown> {
+      if (direction === "desc") {
+        return wrapIfNested(field, { range: { [field]: { gt: value } } });
+      }
+      return {
+        bool: {
+          must: [maxValueExists(field)],
+          must_not: [
+            wrapIfNested(field, { range: { [field]: { gte: value } } }),
+          ],
+        },
+      };
+    }
+
     const baseQuery = buildQuery(params);
     const should: Record<string, unknown>[] = [];
 
@@ -1325,16 +1372,12 @@ export class ElasticsearchDataSource implements ImageDataSource {
             bool: { must_not: wrapIfNested(prev.field, { exists: { field: prev.field } }) },
           });
         } else {
-          // For plain fields this is exact equality. For nested max-mode sorts
-          // (e.g. usages.dateAdded with mode:max), this checks "any usage has
-          // dateAdded == prevValue" rather than "max(dateAdded) == prevValue".
-          // The looser check is still correct: an image with max < prevValue can
-          // have no usage at prevValue (all usages are smaller), so there are no
-          // false negatives. An image with max > prevValue may also have a usage
-          // at prevValue, but it is already captured by the strict-before clause
-          // (range gt prevValue) and the OR semantics mean the count is unaffected.
           equalityConditions.push(
-            wrapIfNested(prev.field, { range: { [prev.field]: { gte: prevValue, lte: prevValue } } }),
+            usesMaxMode(prevClause, prev.field)
+              ? maxValueEquals(prev.field, prevValue)
+              : wrapIfNested(prev.field, {
+                  range: { [prev.field]: { gte: prevValue, lte: prevValue } },
+                }),
           );
         }
       }
@@ -1354,10 +1397,13 @@ export class ElasticsearchDataSource implements ImageDataSource {
           });
         }
       } else {
-        // Non-null value: standard range comparison
-        // "Before" in desc order means >, in asc order means <
-        const rangeOp = direction === "desc" ? "gt" : "lt";
-        const rangeCondition = wrapIfNested(field, { range: { [field]: { [rangeOp]: value } } });
+        const rangeCondition = usesMaxMode(clause, field)
+          ? maxValueStrictlyBefore(field, value, direction)
+          : wrapIfNested(field, {
+              range: {
+                [field]: { [direction === "desc" ? "gt" : "lt"]: value },
+              },
+            });
 
         if (equalityConditions.length === 0) {
           should.push(rangeCondition);

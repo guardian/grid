@@ -593,6 +593,81 @@ describe("countBefore sentinel query shape (keyword-sorts workplan T4)", () => {
   });
 });
 
+describe("countBefore selected-maximum query shape (Slice I)", () => {
+  it.each([
+    {
+      orderBy: "usagesDateAdded",
+      field: "usages.dateAdded",
+      wrap: (query: Record<string, unknown>) => ({
+        nested: { path: "usages", query },
+      }),
+    },
+    {
+      orderBy: "dateAddedToCollection",
+      field: "collections.actionData.date",
+      wrap: (query: Record<string, unknown>) => query,
+    },
+  ])(
+    "$orderBy excludes parents whose selected maximum reaches or crosses the cursor",
+    async ({ orderBy, field, wrap }) => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ count: 2 }));
+      const primaryValue = 1_700_000_000_000;
+
+      await ds.countBefore(
+        { orderBy, nonFree: "true" },
+        [primaryValue, 1_600_000_000_000, "cursor"],
+      );
+
+      const should = (((requestBody().query as Record<string, unknown>).bool as {
+        filter: Array<{ bool: { should: Record<string, unknown>[] } }>;
+      }).filter[0].bool.should);
+      expect(should[0]).toEqual({
+        bool: {
+          must: [wrap({ exists: { field } })],
+          must_not: [wrap({ range: { [field]: { gte: primaryValue } } })],
+        },
+      });
+      const equalityCondition = ((should[1].bool as {
+        must: Record<string, unknown>[];
+      }).must[0]);
+      expect(equalityCondition).toEqual({
+        bool: {
+          must: [wrap({
+            range: { [field]: { gte: primaryValue, lte: primaryValue } },
+          })],
+          must_not: [wrap({ range: { [field]: { gt: primaryValue } } })],
+        },
+      });
+    },
+  );
+
+  it.each([
+    ["-usagesDateAdded", "usages.dateAdded", "usages"],
+    ["-dateAddedToCollection", "collections.actionData.date", null],
+  ])(
+    "%s counts selected maxima greater than the cursor in descending order",
+    async (orderBy, field, nestedPath) => {
+      vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ count: 2 }));
+      const primaryValue = 1_700_000_000_000;
+
+      await ds.countBefore(
+        { orderBy, nonFree: "true" },
+        [primaryValue, 1_600_000_000_000, "cursor"],
+      );
+
+      const should = (((requestBody().query as Record<string, unknown>).bool as {
+        filter: Array<{ bool: { should: Record<string, unknown>[] } }>;
+      }).filter[0].bool.should);
+      const expectedRange = { range: { [field]: { gt: primaryValue } } };
+      expect(should[0]).toEqual(
+        nestedPath
+          ? { nested: { path: nestedPath, query: expectedRange } }
+          : expectedRange,
+      );
+    },
+  );
+});
+
 describe("estimateSortValue scope → term filter (keyword-sorts workplan T6)", () => {
   it("compiles scope to an exact term filter", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(

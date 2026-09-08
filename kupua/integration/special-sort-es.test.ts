@@ -90,6 +90,26 @@ const fixtureDocuments = [
     id: "slice-f-e",
     uploadTime: "2024-05-05T00:00:00.000Z",
   },
+  {
+    id: "slice-f-f",
+    uploadTime: "2024-05-03T00:00:00.000Z",
+    usages: [
+      { id: "usage-f-1", platform: "digital", status: "published", dateAdded: "2024-04-01T00:00:00.000Z" },
+    ],
+    collections: [
+      { pathId: "collection-f-1", actionData: { author: "fixture", date: "2024-04-01T00:00:00.000Z" } },
+    ],
+  },
+  {
+    id: "slice-f-g",
+    uploadTime: "2024-05-02T00:00:00.000Z",
+    usages: [
+      { id: "usage-g-1", platform: "digital", status: "published", dateAdded: "2024-04-01T00:00:00.000Z" },
+    ],
+    collections: [
+      { pathId: "collection-g-1", actionData: { author: "fixture", date: "2024-04-01T00:00:00.000Z" } },
+    ],
+  },
 ].map((document) => ({
   uploadedBy: "fixture",
   source: {
@@ -300,6 +320,8 @@ async function withFixtureAdapter<T>(
     let url: URL;
     if (raw.startsWith("/es/images/_pit")) {
       url = new URL(`/${index}/_pit${raw.slice("/es/images/_pit".length)}`, ES_ORIGIN);
+    } else if (raw.startsWith("/es/images/")) {
+      url = new URL(`/${index}/${raw.slice("/es/images/".length)}`, ES_ORIGIN);
     } else if (raw.startsWith("/es/")) {
       url = new URL(raw.slice("/es".length), ES_ORIGIN);
     } else {
@@ -374,24 +396,24 @@ describe("special date sorts against local Elasticsearch", () => {
       await esRequest(`/${indexName}/_refresh`, { method: "POST" });
 
       expect(await distributionEvidence(indexName)).toEqual({
-        usageExact: 3,
-        usageEvidence: 5,
-        collectionExact: 3,
-        collectionEvidence: 5,
+        usageExact: 5,
+        usageEvidence: 7,
+        collectionExact: 5,
+        collectionEvidence: 7,
       });
 
       for (const field of ["usagesDateAdded", "dateAddedToCollection"]) {
         for (const descending of [false, true]) {
           const orderBy = descending ? `-${field}` : field;
           const expectedPopulated = descending
-            ? ["slice-f-c", "slice-f-a", "slice-f-b"]
-            : ["slice-f-b", "slice-f-a", "slice-f-c"];
+            ? ["slice-f-c", "slice-f-f", "slice-f-g", "slice-f-a", "slice-f-b"]
+            : ["slice-f-b", "slice-f-a", "slice-f-g", "slice-f-c", "slice-f-f"];
           const sort = buildSortClause(orderBy);
           const query = populatedQuery(orderBy);
 
           const forwardHits = await walk(indexName, sort, query);
           expect(forwardHits.map((hit) => hit._id)).toEqual(expectedPopulated);
-          expect(new Set(forwardHits.map((hit) => hit._id)).size).toBe(3);
+          expect(new Set(forwardHits.map((hit) => hit._id)).size).toBe(5);
           for (const hit of forwardHits) {
             expect(extractSortValues(hit._source, orderBy)).toEqual(hit.sort);
           }
@@ -409,7 +431,7 @@ describe("special date sorts against local Elasticsearch", () => {
             PAGE_SIZE,
             firstForwardPage.at(-1)?.sort,
           );
-          expect(laterForwardPage).toHaveLength(1);
+          expect(laterForwardPage).toHaveLength(2);
           const precedingRaw = await search(
             indexName,
             reverseSortClause(sort),
@@ -423,20 +445,20 @@ describe("special date sorts against local Elasticsearch", () => {
           expect(new Set([
             ...firstForwardPage,
             ...laterForwardPage,
-          ].map((hit) => hit._id)).size).toBe(3);
+          ].map((hit) => hit._id)).size).toBe(4);
 
           // Raw ES represents missing date sorts with an internal numeric
           // sentinel that cannot be round-tripped through search_after.
           // Production sanitizes it and switches to the null-zone query;
           // H/J own that cross-boundary pagination parity. Slice F proves
           // terminal null placement in one page.
-          const allHits = await search(indexName, sort, { match_all: {} }, 5);
+          const allHits = await search(indexName, sort, { match_all: {} }, 7);
           expect(allHits.map((hit) => hit._id)).toEqual(
             descending
-              ? ["slice-f-c", "slice-f-a", "slice-f-b", "slice-f-e", "slice-f-d"]
-              : ["slice-f-b", "slice-f-a", "slice-f-c", "slice-f-d", "slice-f-e"],
+              ? ["slice-f-c", "slice-f-f", "slice-f-g", "slice-f-a", "slice-f-b", "slice-f-e", "slice-f-d"]
+              : ["slice-f-b", "slice-f-a", "slice-f-g", "slice-f-c", "slice-f-f", "slice-f-d", "slice-f-e"],
           );
-          for (const hit of allHits.slice(3)) {
+          for (const hit of allHits.slice(5)) {
             expect(extractSortValues(hit._source, orderBy)).toEqual([
               null,
               Date.parse(hit._source.uploadTime),
@@ -444,16 +466,38 @@ describe("special date sorts against local Elasticsearch", () => {
             ]);
           }
 
-          const parity = await withFixtureAdapter(indexName, async (adapter) => ({
-            ordinary: await walkWithAdapter(adapter, orderBy),
-            positionMap: await adapter.fetchPositionIndex(
-              { orderBy, nonFree: "true" },
-              new AbortController().signal,
-            ),
-          }));
+          const parity = await withFixtureAdapter(indexName, async (adapter) => {
+            const ordinary = await walkWithAdapter(adapter, orderBy);
+            return {
+              ordinary,
+              positionMap: await adapter.fetchPositionIndex(
+                { orderBy, nonFree: "true" },
+                new AbortController().signal,
+              ),
+              countBefore: await Promise.all(
+                ordinary.sortValues.map((cursor) => adapter.countBefore(
+                  { orderBy, nonFree: "true" },
+                  cursor,
+                )),
+              ),
+              populatedRange: await adapter.getIdRange(
+                { orderBy, nonFree: "true" },
+                ordinary.sortValues[0],
+                ordinary.sortValues[3],
+              ),
+              crossBoundaryRange: await adapter.getIdRange(
+                { orderBy, nonFree: "true" },
+                ordinary.sortValues[2],
+                ordinary.sortValues[6],
+              ),
+            };
+          });
           expect(parity.positionMap?.ids).toEqual(parity.ordinary.ids);
           expect(parity.positionMap?.sortValues).toEqual(parity.ordinary.sortValues);
           expect(parity.ordinary.ids).toEqual(allHits.map((hit) => hit._id));
+          expect(parity.countBefore).toEqual([0, 1, 2, 3, 4, 5, 6]);
+          expect(parity.populatedRange.ids).toEqual(parity.ordinary.ids.slice(1, 4));
+          expect(parity.crossBoundaryRange.ids).toEqual(parity.ordinary.ids.slice(3, 7));
         }
       }
     } finally {

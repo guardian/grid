@@ -14,6 +14,35 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+### 8 September 2026 — Count special-date ranks by selected maximum
+
+`countBefore` previously compared each special-date cursor with arbitrary child
+values. For ascending Last used and Added to collection, a parent whose earlier
+child fell below the cursor was counted before it even when its selected maximum
+was later. The guarded fixture reproduced this directly: expected ranks
+`[0,1,2,3,4]` became `[2,3,3,3,4]`.
+
+Exact current-schema predicates now mirror `mode:max`. Selected-maximum equality
+requires an equal child and no greater child. Ascending-before requires at least
+one value and no child greater than or equal to the cursor. Descending-before
+remains the equivalent, cheaper test that any child exceeds the cursor. These
+predicates activate only for clauses explicitly using `mode:max`, so ordinary
+sort behavior is unchanged.
+
+The guarded fixture grew to seven documents and now proves every zero-based rank
+for both fields and directions, an earlier child crossing the cursor, selected-
+maximum ties, upload-time precedence, final ID ordering, and first/later nulls.
+The same production adapter oracle verifies inclusive range-selection IDs within
+the populated region and across the null boundary. A store regression confirms
+detail restore forwards the complete `[selectedMax,uploadTime,id]` cursor.
+
+Bounded direct-TEST checks showed comparable wall time for exact usage ascending
+(90–132ms), usage descending (87–122ms), and collection controls (87–131ms).
+This is not a PROD or concurrency benchmark, but rules out a pathological query
+shape at TEST scale. Focused adapter tests passed 26/26, the focused store suite
+passed 101/101, full unit passed 1248/1248 across 64 files, habitual E2E passed
+236/236 in 5.0 minutes, and independent review found no correctness issue.
+
 ### 8 September 2026 — Keep special-date position maps exact
 
 Special-date position-map construction rebuilt every sort clause from only its

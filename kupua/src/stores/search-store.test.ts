@@ -15,7 +15,7 @@
  * - Sort-around-focus hanging forever
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
@@ -1971,6 +1971,31 @@ describe("seekToFocused (arrow snap-back)", () => {
 // ---------------------------------------------------------------------------
 
 describe("restoreAroundCursor", () => {
+  it("forwards a complete special-sort cursor to countBefore", async () => {
+    mock = new MockDataSource(1000);
+    const specialCursor = [
+      1_700_000_000_000,
+      1_600_000_000_000,
+      "img-500",
+    ];
+    const countBeforeSpy = vi
+      .spyOn(mock, "countBefore")
+      .mockResolvedValue(500);
+    useSearchStore.setState({
+      dataSource: mock,
+      params: { orderBy: "-usagesDateAdded", offset: 0, length: 200 },
+    });
+
+    await actions().search();
+    await actions().restoreAroundCursor("img-500", specialCursor, 500);
+
+    expect(countBeforeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: "-usagesDateAdded" }),
+      specialCursor,
+      expect.any(AbortSignal),
+    );
+  });
+
   it("restores a centered buffer around a known image", async () => {
     mock = new MockDataSource(1000);
     useSearchStore.setState({ dataSource: mock });
