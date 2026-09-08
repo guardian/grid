@@ -2,7 +2,8 @@
 @import model.ContentWithImages
 @import com.gu.mediaservice.model.Crop
 @import com.gu.mediaservice.model.usage.Usage
-@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage])(implicit request: RequestHeader)
+@import com.gu.mediaservice.model.ImageStatusRecord
+@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage],  softDeleteMetadata: Option[ImageStatusRecord])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -60,10 +61,16 @@
                 }
             }
             <br>
-            @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
-                @CSRF.formField
-                <button type="submit">Remove Image from grid</button>
+            @for(softDeleteMetadata <- softDeleteMetadata) {
+                <p>Image was soft deleted on @{softDeleteMetadata.deleteTime} by @{softDeleteMetadata.deletedBy}</p>
             }
+            @if(softDeleteMetadata.isEmpty) {
+                @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
+                    @CSRF.formField
+                    <button type="submit">Remove Image from grid</button>
+                }
+            }
+
         }
         </main>
 

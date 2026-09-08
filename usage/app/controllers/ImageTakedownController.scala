@@ -25,10 +25,11 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
           contentWithImages <- liveContentApi.findContentUsingImage(id)
           crops <- gridClient.getCrops(id, auth.innerServiceCall)
           usages <- gridClient.getUsages(id, auth.innerServiceCall)
+          softDeleteMetadata <- gridClient.getSoftDeletedMetadata(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages, softDeleteMetadata))
         }
-      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil))))
+      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil, None))))
 
     }
 
@@ -47,6 +48,6 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       } else {
         s"Encountered issues while deleting image"
       }
-    } yield Redirect(controllers.routes.ImageTakedownController.index(None)).flashing("response" -> message)
+    } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
   }
 }
