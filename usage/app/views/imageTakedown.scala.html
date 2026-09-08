@@ -23,25 +23,32 @@
                 <input type="submit" value="Submit">
                 }
         }else {
+            <p>Found the following information for @{imageId.get}</p>
             @if(capiResults.isEmpty) {
-                <p>No content found in CAPI for image ID: @imageId.get</p>
+                <p>No content found in CAPI for image ID</p>
             } else {
-                <p>Found @capiResults.size content items in CAPI for image ID: @imageId.get</p>
+                <p>Found @capiResults.size content items in CAPI for image ID</p>
                 <ul>
                 @for(capiResult <- capiResults) {
                     <li><a href="@{capiResult.webUrl}">@{capiResult.webTitle}</a></li>
-                    @for(capiImage <- capiResult.imageIds) {
+                }
+                </ul>
+                <p>Found @{capiResults.flatMap(r => r.imageIds).size} urls </p>
+                @for(capiResult <- capiResults) {
+                    @for(image <- capiResult.imageIds) {
                         <ul>
-                            <li>@capiImage</li>
+                            <li>@{
+                                image
+                            }</li>
                         </ul>
                     }
                 }
-                </ul>
+                <button>Clear Image</button>
             }
             @if(crops.isEmpty) {
-                <p>No crops found for image ID: @imageId.get</p>
+                <p>No crops found for image ID</p>
             } else {
-                <p>Found @crops.size crops for image ID: @imageId.get</p>
+                <p>Found @crops.size crops for image ID</p>
                 <ul>
                 @for(crop <- crops) {
                     <li>@{crop.id}</li>
