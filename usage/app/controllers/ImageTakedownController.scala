@@ -26,7 +26,7 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
           crops <- gridClient.getCrops(id, auth.innerServiceCall)
           usages <- gridClient.getUsages(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), ImageTakedownDummyData.contentWithImages, ImageTakedownDummyData.crops, ImageTakedownDummyData.usages))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages))
         }
       }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil))))
 
@@ -41,10 +41,11 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
     for {
       cropsRes <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
       usagesRes <- gridClient.deleteUsages(imageId, auth.innerServiceCall)
-      message = if (cropsRes && usagesRes) {
-        "Crops and Usages deleted successfully"
+      imageRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
+      message = if (cropsRes && usagesRes && imageRes) {
+        "Crops and Usages and Image deleted successfully"
       } else {
-        s"Encountered issues while deleting crops and usages"
+        s"Encountered issues while deleting image"
       }
     } yield Redirect(controllers.routes.ImageTakedownController.index(None)).flashing("response" -> message)
   }

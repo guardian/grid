@@ -254,7 +254,23 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     authorisedRequest.delete() map { response =>
       response.status match {
         case 200 => true
-        case _ => response.asInstanceOf[Error].logErrorAndThrowException()
+        case _ => false
+      }
+    }
+  }
+
+  def deleteImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to delete usages")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    authorisedRequest.delete() map { response =>
+      println("response: " + response.status)
+      println("response body: " + response.body)
+      response.status match {
+        case 202 => true
+        case 403 | 404 => false
+        case _ => false
       }
     }
   }
