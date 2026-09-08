@@ -878,29 +878,22 @@ class MediaApi(
         searchParams => SearchParams.validate(searchParams)
           .fold(
             errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, errors.map(_.message).mkString("; "))),
-            validParams => {
-              val params = SearchAfterParams(
-                searchParams = validParams,
-                sort         = (body \ "sort").asOpt[Seq[JsObject]].getOrElse(Nil),
-                sortValues   = (body \ "sortValues").asOpt[Seq[JsValue]],
-                pitId        = (body \ "pitId").asOpt[String],
-                reverse      = (body \ "reverse").asOpt[Boolean].getOrElse(false),
-                seekToEnd    = (body \ "seekToEnd").asOpt[Boolean].getOrElse(false),
-              )
-              elasticSearch.searchAfter(params).map { raw =>
-                val imageEntities = raw.hits.map((hitToImageEntity(request, include) _).tupled)
-                Ok(Json.toJson(SearchAfterResponse(
-                  data           = imageEntities,
-                  total          = raw.total,
-                  sortValues     = raw.sortValues,
-                  nextSortValues = raw.nextSortValues,
-                  pitId          = raw.pitId,
-                ))).as(ArgoMediaType)
-              }.recover {
-                case e: InvalidUriParams =>
-                  respondError(UnprocessableEntity, InvalidUriParams.errorKey, e.message)
-              }
-            }
+            validParams => SearchAfterParamsBody.fromJson(body, validParams).fold(
+              err => Future.successful(respondError(BadRequest, "invalid-params", err)),
+              params => elasticSearch.searchAfter(params).map { raw =>
+                  val imageEntities = raw.hits.map((hitToImageEntity(request, include) _).tupled)
+                  Ok(Json.toJson(SearchAfterResponse(
+                    data           = imageEntities,
+                    total          = raw.total,
+                    sortValues     = raw.sortValues,
+                    nextSortValues = raw.nextSortValues,
+                    pitId          = raw.pitId,
+                  ))).as(ArgoMediaType)
+                }.recover {
+                  case e: InvalidUriParams =>
+                    respondError(UnprocessableEntity, InvalidUriParams.errorKey, e.message)
+                }
+            )
           )
       )
   }

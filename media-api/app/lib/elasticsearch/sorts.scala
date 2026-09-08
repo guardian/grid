@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, NestedSort, Sort, SortMode, SortOrder}
-import play.api.libs.json.{JsObject, JsString}
+import play.api.libs.json.{JsObject, JsString, JsValue}
 
 object sorts {
 
@@ -47,9 +47,16 @@ object sorts {
         val order       = (obj \ "order").asOpt[String]
           .getOrElse(throw InvalidUriParams(s"missing or non-string sort order for field $field"))
         val base        = fieldSort(field).order(orderOf(order))
-        val withMissing = (obj \ "missing").asOpt[String].fold(base)(base.missing)
-        val withMode    = (obj \ "mode").asOpt[String].fold(withMissing)(m => withMissing.mode(sortModeOf(m)))
-        (obj \ "nested" \ "path").asOpt[String].fold(withMode: Sort)(p => withMode.nested(NestedSort(Some(p))))
+        val withMissing = optionalString(obj, "missing", field).fold(base)(base.missing)
+        val withMode    = optionalString(obj, "mode", field).fold(withMissing)(m => withMissing.mode(sortModeOf(m)))
+        val withNested  = (obj \ "nested").toOption match {
+          case None => withMode: Sort
+          case Some(nested: JsObject) => optionalString(nested, "path", field)
+            .map(path => withMode.nested(NestedSort(Some(path))))
+            .getOrElse(throw InvalidUriParams(s"missing nested path for field $field"))
+          case Some(_) => throw InvalidUriParams(s"nested sort option must be an object for field $field")
+        }
+        withNested
       case _ =>
         throw InvalidUriParams(s"unrecognised sort spec for field $field")
     }
@@ -60,6 +67,12 @@ object sorts {
     case "desc" => SortOrder.DESC
     case other  => throw InvalidUriParams(s"unrecognised sort order: $other")
   }
+
+  private def optionalString(obj: JsObject, key: String, field: String): Option[String] =
+    (obj \ key).toOption.map {
+      case JsString(value) => value
+      case _: JsValue      => throw InvalidUriParams(s"$key must be a string for field $field")
+    }
 
   private def sortModeOf(s: String): SortMode = s match {
     case "min"    => SortMode.Min

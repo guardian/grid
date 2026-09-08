@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, JsValue, Json, OWrites}
+import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -106,6 +106,37 @@ case class SearchAfterRawResults(
   nextSortValues: Option[Seq[JsValue]],
   pitId:          Option[String],
 )
+
+object SearchAfterParamsBody {
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] = {
+    val sort = (body \ "sort").toOption match {
+      case None        => scala.util.Right(Seq.empty)
+      case Some(value) => value.validate[Seq[JsObject]].asEither.left.map(_ => "sort must be an array of objects")
+    }
+    val sortValues = (body \ "sortValues").toOption match {
+      case None        => scala.util.Right(None)
+      case Some(value) => value.validate[Seq[JsValue]].asEither
+        .left.map(_ => "sortValues must be an array when present")
+        .filterOrElse(_.forall {
+          case JsNull | _: JsNumber | _: JsString => true
+          case _                                  => false
+        }, "sortValues elements must be strings, numbers or null")
+        .map(Some(_))
+    }
+
+    for {
+      parsedSort       <- sort
+      parsedSortValues <- sortValues
+    } yield SearchAfterParams(
+      searchParams = searchParams,
+      sort         = parsedSort,
+      sortValues   = parsedSortValues,
+      pitId        = (body \ "pitId").asOpt[String],
+      reverse      = (body \ "reverse").asOpt[Boolean].getOrElse(false),
+      seekToEnd    = (body \ "seekToEnd").asOpt[Boolean].getOrElse(false),
+    )
+  }
+}
 
 // Parses a POST /images/search-after request body into SearchParams.
 object SearchParamsBody {
