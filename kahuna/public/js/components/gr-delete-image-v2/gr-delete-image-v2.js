@@ -47,7 +47,7 @@ deleteImageV2.controller('grDeleteImageV2Ctrl', [
             return mediaApi.capiUsages(imageId)
               .then(r => {
                 if (r.data.articles.length > 0 || usagesCount > 0 || cropsCount > 0) {
-                  const contents = r.data.articles.map(a => `${a.contentId} \n\t  ${a.images.join('\n\t ')}`);
+                  const contents = r.data.articles.map(a => `${a.contentId}`);
                   return $window.prompt(
                     'This image is being used in the following articles: \n\n' +
                     `${contents.join('\n')}` +
