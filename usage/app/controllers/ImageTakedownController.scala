@@ -39,11 +39,12 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
 
   def deleteImageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
     for {
-      response <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
-      message = if (response) {
-        "Crops deleted successfully"
+      cropsRes <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
+      usagesRes <- gridClient.deleteUsages(imageId, auth.innerServiceCall)
+      message = if (cropsRes && usagesRes) {
+        "Crops and Usages deleted successfully"
       } else {
-        s"Failed to delete crops"
+        s"Encountered issues while deleting crops and usages"
       }
     } yield Redirect(controllers.routes.ImageTakedownController.index(None)).flashing("response" -> message)
   }

@@ -246,6 +246,19 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     }
   }
 
+  def deleteUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to delete usages")
+    val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    authorisedRequest.delete() map { response =>
+      response.status match {
+        case 200 => true
+        case _ => response.asInstanceOf[Error].logErrorAndThrowException()
+      }
+    }
+  }
+
   def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {
     logger.info("attempt to get metadata")
     val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
