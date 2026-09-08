@@ -1,11 +1,11 @@
 package com.gu.mediaservice.scripts
 
-import play.libs.ws.WSClient
+import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse.BodyHandlers
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.net.http.{HttpClient, HttpRequest}
 import scala.io.Source
 
 object AlamyCleanUp extends App {
@@ -13,13 +13,38 @@ object AlamyCleanUp extends App {
   val STAGE = sys.env.getOrElse("STAGE", throw new RuntimeException("Must set a STAGE env variable"))
   val GRIDDOMAIN = if(STAGE == "PROD") "gutools.co.uk" else "test.dev-gutools.co.uk"
 
-  val ids = if(STAGE == "PROD") {
-    val resource = Source.fromResource("alamy-grid-ids.csv")
-    resource.getLines().toList
+  println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
+
+  val supplierRefs = if(STAGE == "PROD") {
+    val resource = Source.fromResource("alamy-refs.csv")
+    resource.getLines().drop(1).map(_.takeWhile(_ != ',')).toList
   } else {
-    List("3b2a8f1845359b84c805634fada85f008e6be297", "278c8c9801a5c8da10f07297289cc3eb26d16ff7", "fd41ca6b9b4ba27cef603bfd127841f6bf537f90")
+    List("2BW0WK7", "AA63AP", "F208HC", "D9CNPG")
   }
-  println(s"Running for stage $STAGE with domain $GRIDDOMAIN with ${ids.size} ids")
+
+  if (supplierRefs.isEmpty) {
+    println("No supplier refs found in alamy-refs.csv, exiting script")
+    sys.exit(1)
+  }
+
+  val ids = {
+    supplierRefs.zipWithIndex.flatMap({case (ref, index) =>
+      println(s"Fetching grid ids, checking supplierRef ${index + 1} of ${supplierRefs.size}")
+      val client = HttpClient.newHttpClient()
+      val request = HttpRequest.newBuilder(new URI(s"https://api.media.$GRIDDOMAIN/images?q=suppliersReference%3A$ref")).headers("X-Gu-Media-Key", GRIDKEY).build()
+      val response = client.send(request, BodyHandlers.ofString())
+      val json = Json.parse(response.body())
+      (json \ "data").as[Seq[JsValue]].map(imageMetadata => (imageMetadata \ "data" \ "id").as[String])
+    })
+  }
+
+  if (ids.isEmpty) {
+    println("No Grid ids found, exiting script")
+    sys.exit(1)
+  }
+
+  println(s"Found ${ids.size} ids, now running deletion")
+
   val usagesBody = BodyPublishers.ofString("""{"data":{"restrictions":"No longer available from Alamy","category":"chargeable"}}""")
   val labelBody = BodyPublishers.ofString("""{"data":["a2g"]}""")
   val outcomes = ids.zipWithIndex.map({case (id, index) =>
