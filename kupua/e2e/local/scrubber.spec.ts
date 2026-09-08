@@ -1385,7 +1385,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
   // complete, cheap-to-cache distribution) or, when that distribution is
   // absent/truncated (high cardinality, e.g. Credit on TEST/PROD), the
   // composite-walk fallback (findKeywordSortValue). Neither path refines
-  // further — see keyword-sorts workplan §6 for why iterating was rejected
+  // further — see the archived keyword-sorts evidence §6 for why iterating was rejected
   // (it was measured to oscillate). This test validates seek accuracy via
   // the ratio assertion, which is the user-visible outcome, on TEST-scale
   // large-bucket behaviour via smoke test S10.

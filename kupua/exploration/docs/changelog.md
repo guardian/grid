@@ -14,6 +14,51 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 8 September 2026 — Keep truncated keyword distributions out of the null zone
+
+  PROD Credit and Source exceed the client distribution's 50,000-value cap.
+  The bounded bucket sum was previously called `coveredCount`, so deep seeks
+  beyond that lexical prefix were misclassified as missing-value positions and
+  sent through the null-zone path before keyword fallback could run.
+
+  Keyword distributions now fetch the exact valued-document count once beside
+  the first composite page and separately report represented bucket count plus
+  natural completion. Exact coverage owns the valued/null boundary; represented
+  coverage owns cached bucket lookup and out-of-buffer labels. A target beyond a
+  truncated prefix now uses the existing bounded keyword fallback, and the UI
+  does not repeat the final represented keyword across the unknown tail.
+
+  The change adds no store state or coordination branch. Review removed repeated
+  exact-count aggregation from later composite pages. Focused tests passed 71/71,
+  full units 1,274/1,274, and habitual Playwright 236/236 in 5.3 minutes,
+  including existing Credit and Source seek coverage. Perfect PROD-scale bucket
+  discovery remains deliberately deferred.
+
+  A subsequent read-only TEST verification loaded 10,322 Credit buckets in
+  833ms. Exact valued coverage and represented coverage both reported 1,308,351
+  with `complete:true`, leaving a real 16,092-document missing-Credit tail. A
+  75% populated seek used one scoped percentile, no composite fallback and no
+  null cursor in 1.32s. A seek inside the real missing-value tail used the null
+  path, not keyword fallback, in 764ms. No image identity or keyword value was
+  returned from the browser checks or retained.
+
+  ### 8 September 2026 — Reject request-time dimension coalescing
+
+  O9 confirmed that Width and Height display oriented dimensions with raw
+  fallback but sort only by raw dimensions. Both source fields are indexed
+  integers, but a native two-field sort cannot express per-document fallback.
+  A runtime scalar produced the correct value and performed acceptably on the
+  10,000-document local fixture. On TEST, however, three bounded 200-hit sorts
+  took 82/103/115ms for raw width versus 225/253/231ms for runtime coalescing,
+  about 2.2 times slower at the median. Warm percentile requests remained cheap.
+
+  The runtime definition would also need to remain identical across direct ES,
+  media-api search-after, distributions, position maps, ranges and exact ranks.
+  No frontend workaround was added. The backend materialized-scalars case now
+  includes canonical effective Width and Height, or alternatively a guarantee
+  and backfill making oriented dimensions complete. O9 remains an honest known
+  discrepancy until that backend decision or an explicit product relabelling.
+
   ### 8 September 2026 — Complete special-sort cross-path acceptance
 
   The final direct-ES/D3 matrix found two contract defects. Direct ES rebuilt the

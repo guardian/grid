@@ -91,6 +91,80 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("getKeywordDistribution coverage provenance", () => {
+  it("separates exact valued coverage from the represented bucket prefix", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({
+      aggregations: {
+        valued_documents: { doc_count: 7 },
+        dist: {
+          buckets: [
+            { key: { _sort_field: "B" }, doc_count: 4 },
+            { key: { _sort_field: "A" }, doc_count: 3 },
+          ],
+        },
+      },
+    }));
+
+    const result = await ds.getKeywordDistribution(
+      {},
+      "metadata.credit",
+      "desc",
+    );
+
+    expect(result).toMatchObject({
+      coveredCount: 7,
+      representedCount: 7,
+      complete: true,
+      buckets: [
+        { key: "B", count: 4, startPosition: 0 },
+        { key: "A", count: 3, startPosition: 4 },
+      ],
+    });
+
+    const body = JSON.parse(
+      vi.mocked(global.fetch).mock.calls[0][1]?.body as string,
+    );
+    expect(body.aggs.valued_documents).toEqual({
+      filter: { exists: { field: "metadata.credit" } },
+    });
+  });
+
+  it("marks a capped walk incomplete and counts valued documents only once", async () => {
+    const page = (key: string) => okResponse({
+      aggregations: {
+        valued_documents: { doc_count: 10 },
+        dist: {
+          after_key: { _sort_field: key },
+          buckets: [{ key: { _sort_field: key }, doc_count: 1 }],
+        },
+      },
+    });
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(page("E"))
+      .mockResolvedValueOnce(page("D"))
+      .mockResolvedValueOnce(page("C"))
+      .mockResolvedValueOnce(page("B"))
+      .mockResolvedValueOnce(page("A"));
+
+    const result = await ds.getKeywordDistribution(
+      {},
+      "metadata.credit",
+      "desc",
+    );
+
+    expect(result).toMatchObject({
+      coveredCount: 10,
+      representedCount: 5,
+      complete: false,
+    });
+    expect(vi.mocked(global.fetch)).toHaveBeenCalledTimes(5);
+    for (const call of vi.mocked(global.fetch).mock.calls.slice(1)) {
+      const body = JSON.parse(call[1]?.body as string);
+      expect(body.aggs.valued_documents).toBeUndefined();
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Option 2 — exact special-date coverage, approximate bucket evidence
 // ---------------------------------------------------------------------------
@@ -538,6 +612,7 @@ describe("findKeywordSortValue mid-walk error (audit #20)", () => {
 
     vi.unstubAllEnvs();
   });
+
 });
 
 // ---------------------------------------------------------------------------
@@ -594,7 +669,7 @@ function requestBody(callIndex = 0): Record<string, unknown> {
   return JSON.parse((call[1] as RequestInit).body as string);
 }
 
-describe("countBefore sentinel query shape (keyword-sorts workplan T4)", () => {
+describe("countBefore sentinel query shape (archived keyword evidence T4)", () => {
   it("emits an unsatisfiable equality range for a sentinel-anchored secondary field", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ count: 5 }));
 
@@ -702,7 +777,7 @@ describe("countBefore selected-maximum query shape (Slice I)", () => {
   );
 });
 
-describe("estimateSortValue scope → term filter (keyword-sorts workplan T6)", () => {
+describe("estimateSortValue scope → term filter (archived keyword evidence T6)", () => {
   it("compiles scope to an exact term filter", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
       okResponse({ aggregations: { pct: { values: { "50.0": 123 } } } }),

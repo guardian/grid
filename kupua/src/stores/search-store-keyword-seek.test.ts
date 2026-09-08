@@ -1,8 +1,8 @@
 /**
  * Keyword-sorted seek — cached-distribution fast path.
  *
- * Companion to exploration/docs/scroll-and-position-preservation-testing-4.1-
- * keyword-sorts-workplan.md §9 (T1-T3, T5). T4 and T6 (adapter-level: the
+ * Companion to the archived keyword-sorts evidence §9 (T1-T3, T5). T4 and
+ * T6 (adapter-level: the
  * countBefore sentinel/real-secondary query shape, and the scope→term
  * filter) live in es-adapter.test.ts and mock-data-source.test.ts.
  *
@@ -168,6 +168,45 @@ describe("T3 — cached distribution vs composite-walk fallback branching", () =
 
     expect(state().error).toBeNull();
     expect(called).toBe(true);
+  });
+
+  it("uses the fallback beyond a truncated distribution without entering the null zone", async () => {
+    mock = new MockDataSource(TOTAL, undefined, {
+      skewedCredits: true,
+      distributionCap: 2,
+    });
+    resetStore(mock);
+
+    await actions().search();
+    await actions().fetchSortDistribution();
+    await flush();
+
+    const dist = state().sortDistribution;
+    expect(dist).not.toBeNull();
+    const representedCount = dist!.buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+    const target = representedCount + 500;
+    expect(target).toBeLessThan(TOTAL);
+
+    let fallbackCalled = false;
+    const originalFindKeyword = mock.findKeywordSortValue!.bind(mock);
+    mock.findKeywordSortValue = (async (...args: Parameters<typeof originalFindKeyword>) => {
+      fallbackCalled = true;
+      return originalFindKeyword(...args);
+    }) as typeof mock.findKeywordSortValue;
+
+    const capturedCursors: SortValues[] = [];
+    const originalSearchAfter = mock.searchAfter.bind(mock);
+    mock.searchAfter = (async (...args: Parameters<typeof originalSearchAfter>) => {
+      const cursor = args[1];
+      if (cursor) capturedCursors.push(cursor);
+      return originalSearchAfter(...args);
+    }) as typeof mock.searchAfter;
+
+    await actions().seek(target);
+    await flush();
+
+    expect(fallbackCalled).toBe(true);
+    expect(capturedCursors.some((cursor) => cursor[0] === null)).toBe(false);
   });
 });
 

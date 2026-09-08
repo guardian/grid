@@ -165,7 +165,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 7. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved underneath.
 
-8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token plus automatic `uploadTime` and unique `id` suffixes. Comma URLs retain only a valid first token. AI allows Relevance/Uploaded only; collection filters exclude AI. Special-date null boundaries, maps, ranks, ranges and restore are exact; populated histogram evidence is explicitly approximate presentation only.
+8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token plus automatic `uploadTime` and unique `id` suffixes. Comma URLs retain only a valid first token. AI allows Relevance/Uploaded only; collection filters exclude AI. Special-date null boundaries, maps, ranks, ranges and restore are exact; populated histogram evidence is explicitly approximate presentation only. Bounded keyword distributions separate exact valued-document coverage from represented bucket coverage, so truncation never implies a null zone.
 
 9. **CSS containment** — `contain: strict` on `.hide-scrollbar`. Critical for Firefox. Horizontal scrollbar is a proxy div.
 
@@ -174,6 +174,10 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 11. **TanStack Table column ID caveat** — dot-path accessors get dots→underscores in IDs. Maps keyed by column ID must use underscores.
 
 12. **Two-tier virtualisation (indexed scroll tier)** — `twoTier` is derived from total range (not `positionMap !== null`) so the coordinate space is stable from frame 1. Position map is a background perf optimisation (faster seeks), not a coordinate-space decision. `search()` invalidates the map; `seek()` preserves it.
+
+## Known Issues
+
+- **Width/Height sort mismatch** — the UI displays oriented dimensions with raw fallback, but sorting uses raw dimensions. A request-time coalescing field was about 2.2× slower at the median on TEST and would need duplication across every positional query path. Prefer canonical backend `effectiveWidth`/`effectiveHeight` fields; see `exploration/docs/materialized-scalars-for-lastUsed-lastAddedToCollection.md` §5.
 
 ## Backlog (architectural)
 

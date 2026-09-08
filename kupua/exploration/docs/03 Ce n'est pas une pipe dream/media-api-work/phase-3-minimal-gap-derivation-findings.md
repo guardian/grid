@@ -549,7 +549,7 @@ Source: Phase 2 §2.13, findings-4 Part 4.
 
 ### `findKeywordSortValue?` — bucket B1+D
 
-**Abstract need (restated):** Walk keyword values (e.g. photographer names) in sort order to find the value at a specific global position. Used for deep seek on non-numeric sort fields where percentile estimation is unavailable.
+**Abstract need (restated):** Resolve which ordered keyword-value bucket contains a requested document rank, subject to an explicit traversal budget. This is a generic ordered-facet capability: the endpoint reports what it established, while callers decide whether to seek, display, retry, or degrade.
 
 **Method signature:**
 ```typescript
@@ -575,7 +575,20 @@ Source: Phase 2 §2.14, findings-4 Part 4.
 
 **Action:**
 - **(B1 — eliminate `field` and `direction`):** Remove both params; compute from `params.orderBy` internally. Both are produced by `parseSortField(buildSortClause(params.orderBy)[0])`. Independent value: Yes.
-- **(D — new keyword-seek endpoint):** New `POST /images/keyword-seek` accepting `{q, filters, orderBy, targetPosition}` and returning `{value: string | null}`. Server derives `field` and `direction` from `orderBy`, runs composite agg walk with early exit. Size estimate: **M** (medium). The composite-walk logic (~70 LOC in TS) requires Scala porting; null handling (composite agg skips null docs — return last known value when exhausted) and time cap require care. Feasibility §Gap5 confirms no hard blockers.
+- **(D — new keyword-seek endpoint):** New `POST /images/keyword-seek` accepting `{q, filters, orderBy, targetPosition}` plus a server-owned bounded-work policy. The server derives the sortable field and direction from `orderBy`, walks ordered composite buckets with early exit, and returns a generic result descriptor such as `{status: "found" | "partial" | "exhausted", value, startPosition, documentCount}`. `found` means the returned bucket is proven to contain `targetPosition`; `partial` reports the last fully represented bucket when the work budget expires; `exhausted` means natural exhaustion occurred before the target, normally because remaining documents lack the field. Nullable fields and multi-valued sortable fields require explicit semantics and validation. Size estimate: **M** (medium). Feasibility §Gap5 confirms no hard blockers.
+
+The endpoint must not encode Kupua's scrubber policy, construct a pagination cursor, invoke percentile refinement, or decide whether an approximate result is acceptable. Those are caller concerns. The result must expose enough provenance that any caller can distinguish a proven target bucket from bounded progress; returning only `{value}` would erase that distinction and is not an acceptable generic contract.
+
+**Performance requirement shared with D6:** D5 should optionally resume from a
+server-owned opaque continuation emitted by an incomplete D6 response, while
+remaining independently callable. The token must integrity-bind the composite
+continuation, represented document count, query/filter/order identity, and a
+consistent index snapshot. The client must not inspect or amend it. D5 and D6
+must route atomically to the same producer/version while a token is live; do not
+migrate one endpoint and pass its token to the other implementation. Without
+those guarantees, reusing D6's cumulative count can fabricate a rank when the
+index changes between requests. A raw Elasticsearch `after_key` plus a separate
+client count is therefore not an acceptable API contract.
 
 **Pagination/cursor implication:** Optional method (`?`). Graceful absence: store falls back to capped offset navigation for keyword sorts. No scroll breakage without it, but deep seek on non-numeric sorts degrades.
 
@@ -585,7 +598,7 @@ Source: Phase 2 §2.14, findings-4 Part 4.
 
 ### `getKeywordDistribution?` — bucket B1+D
 
-**Abstract need (restated):** Fetch the complete ordered list of unique keyword-sort-field values with document counts and cumulative position indices. Enables O(log n) position-to-value mapping during scrubber drag for keyword sorts.
+**Abstract need (restated):** Fetch a bounded ordered prefix of keyword-value buckets with document counts, cumulative positions, and explicit coverage provenance. This is a generic ordered-distribution capability; it must not imply that a bounded response enumerated the full vocabulary.
 
 **Method signature:**
 ```typescript
@@ -610,7 +623,16 @@ Source: Phase 2 §2.15, findings-4 Part 4.
 
 **Action:**
 - **(B1 — eliminate `field` and `direction`):** Same as `findKeywordSortValue?` — compute from `params.orderBy`.
-- **(D — new keyword-distribution endpoint):** New `POST /images/keyword-distribution` accepting `{q, filters, orderBy}` and returning `{buckets: [{key, count, startPosition}], coveredCount: number}`. Server runs composite agg walk up to a page cap (5 pages × 10k = 50k unique values), accumulates `startPosition` per bucket. Size estimate: **M** (medium). Same composite infrastructure as `findKeywordSortValue?` but without early exit and with `startPosition` accumulation. Feasibility §Gap6 confirms no hard blockers; notes response size concern (50k entries × ~20 bytes = ~1MB).
+- **(D — new keyword-distribution endpoint):** New `POST /images/keyword-distribution` accepting `{q, filters, orderBy}` and returning a generic bounded result: `{buckets: [{key, documentCount, startPosition}], valuedDocumentCount, representedDocumentCount, complete}`. `valuedDocumentCount` is an exact count of matching documents with at least one value for the selected sortable field. `representedDocumentCount` is the sum represented by returned buckets. `complete` is true only when composite enumeration naturally exhausts; reaching a page, time, response-size, or server-work cap returns `complete:false`. Server policy owns those caps. Size estimate: **M** (medium). Same composite infrastructure as D5 but a different traversal lifecycle. Feasibility §Gap6 confirms no hard blockers; response size remains a concern.
+
+The endpoint does not define a UI null zone, label interpolation, seek fallback, or acceptable positional error. A caller may use the exact valued count as a missing-value boundary and may use bucket positions only within the represented range, but that policy is outside the media-api contract. The endpoint should reject or explicitly define multi-valued field semantics rather than silently presenting summed bucket counts as document ranks.
+
+When `complete:false`, D6 should also return the opaque resumable continuation
+described under D5. Its snapshot lifetime and expiry must be explicit, and an
+expired or mismatched token must produce a deliberate restartable response, not
+silently resume against a different coordinate space. This avoids repeating up
+to the entire D6 prefix when a caller subsequently asks D5 for an uncovered
+rank, without exposing Elasticsearch-specific continuation state.
 
 **Pagination/cursor implication:** Optional method (`?`). Graceful absence: scrubber shows position numbers only (no keyword value labels). No scroll breakage.
 
@@ -933,8 +955,8 @@ Sorted by size descending.
 | D2 | `getIdRange` — cursor range walk with overshoot detection + null-zone crossing | **L** | `getIdRange` | None. Range-walk logic entirely absent. |
 | D3 | `searchAfter` — cursor pagination endpoint with PIT binding, reverse sort, null-zone detection | **M** | `searchAfter`, `search` (via F3) | Phase 1 §2 `GET /images` (query+filter infrastructure exists; cursor param and PIT binding absent) |
 | D4 | `countBefore` — exact position count; special sorts gated on I | **M+unknown special** | `countBefore`, `count` (indirectly via F2) | None. Scalar should-chain exists client-side; selected-max rank is unresolved. |
-| D5 | `findKeywordSortValue?` — composite agg walk with early exit | **M** | `findKeywordSortValue?` | None. Composite agg infrastructure exists in elastic4s; no walk endpoint. |
-| D6 | `getKeywordDistribution?` — full composite agg distribution with startPosition | **M** | `getKeywordDistribution?` | None. Same infrastructure as D5 but different walk pattern. |
+| D5 | `findKeywordSortValue?` — bounded target-rank bucket resolution with explicit outcome provenance | **M** | `findKeywordSortValue?` | None. Composite agg infrastructure exists in elastic4s; no walk endpoint. |
+| D6 | `getKeywordDistribution?` — bounded ordered distribution with exact valued count and coverage provenance | **M** | `getKeywordDistribution?` | None. Same infrastructure as D5 but different walk pattern. |
 | D7 | `countWithTickers` — size=0 count+ticker-aggs endpoint | **S** | `countWithTickers`, `count` (via F2) | Phase 1 §4 ticker aggs always-on in `GET /images extraCounts` — same aggs, just needs a count-only route |
 | D8 | PIT lifecycle — `POST /images/pit` + `DELETE /images/pit/:pitId` | **S** | `openPit`, `closePit` | None. Phase 1 §6.7: "ElasticSearch.scala has no PIT code at all." |
 | D9 | `getByIds` / `POST /images/mget` — multi-doc fetch without 200 cap | **S** | `getByIds`, `getById` (via F4) | Phase 1 §6.3 `lookupIds` (exists, not routed, wrong API) |
@@ -952,9 +974,9 @@ The original plan numbered gaps 1–18 (with skips). For each:
 | **Gap 1** — `searchAfter` cursor pagination | **✅ DONE — D3** (`49cae4bb7` + `b52d027da`) | Core pagination gap. B1 client refactor removed `sortOverride`/`extraFilter` first; shipped under Option B. |
 | **Gap 2** — PIT (openPit/closePit) | **CONFIRMED D8** (D) — still needed | Absolutely absent. Phase 1 §6.7 confirms no PIT code anywhere. |
 | **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — scalar support still needed; special support blocked on I | Do not port the current child-value approximation as an exact max-date contract. |
-| **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. **⚠️ DO NOT build to the §2 contract — `field` must stay explicit, not derived from `orderBy` (null-zone seek already passes a non-sort field today). Also missing from the §5 D-catalogue. See `scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` §5.** **✅ CONFIRMED (2026-08-29):** the client-side `scope` param (compiled to a `term` filter, never spliced into query text) is now implemented, unit-tested, and proven on live TEST (workplan §9 Phase 4) — scoping `estimateSortValue` to a bucket's keyword value is the mechanism that made keyword-sort deep seek fast and accurate. `scope: [{ field, value }]` is no longer speculative; it's the shape the client already depends on. |
-| **Gap 5** — `findKeywordSortValue` (composite walk) | **CONFIRMED D5** (D/M) — still needed | B1 removes `field`+`direction` params first. Still needs new endpoint. **⚠️ VALUE IN DOUBT (2026-08-28): PROD `metadata.credit` has 310,185 distinct values and `metadata.source` 63,776 — the composite walk needs ~16 pages to reach mid-corpus and hits its 8s cap. Enumeration does not scale on PROD; an oracle-driven approach over D4 (`count-before`) may replace this entirely. Do not build before reading `scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` correction banner.** **✅ Demotion confirmed empirically (2026-08-29):** live TEST re-run (workplan §9 Phase 4) shows this composite walk no longer fires at all for TEST-scale keyword sorts (~10k distinct values) — the cached-distribution fast path (Gap 6 + Gap 4) now handles every case. Confirmed fallback-only for cardinalities the distribution cache doesn't cover, not the default path. |
-| **Gap 6** — `getKeywordDistribution` (full composite) | **CONFIRMED D6** (D/M) — still needed | B1 removes `field`+`direction`. Still needs new endpoint. **⚠️ SAME PROD-SCALE CAVEAT AS GAP 5 (2026-08-28). The 50k page cap means this endpoint returns a silently truncated map for PROD `credit`/`source`, and truncation is alphabetical — it can drop the largest buckets. It must return a truncation flag; a truncated `coveredCount` also breaks null-zone detection client-side. See the 4.1 keyword-sorts workplan correction banner. Note D4 (`count-before`) rises in priority relative to D5/D6.** **✅ Confirmed as the primary path (2026-08-29):** live TEST re-run (workplan §9 Phase 4) confirms the client now reads `buckets` (not just `coveredCount`) from this response to find the exact bucket for a seek target — an accurate, complete distribution is what makes the fast path possible. The truncation-flag requirement is unchanged and still unvalidated at PROD scale: TEST's distribution (10,251 credits) is far under the 50k cap, so this run confirms the *fast path*, not the *truncation flag's necessity* — that remains open. |
+| **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. **⚠️ DO NOT build to the §2 contract — `field` must stay explicit, not derived from `orderBy` (null-zone seek already passes a non-sort field today). Also missing from the §5 D-catalogue. See `zz Archive/scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` §5.** **✅ CONFIRMED (2026-08-29):** the client-side `scope` param (compiled to a `term` filter, never spliced into query text) is now implemented, unit-tested, and proven on live TEST (workplan §9 Phase 4) — scoping `estimateSortValue` to a bucket's keyword value is the mechanism that made keyword-sort deep seek fast and accurate. `scope: [{ field, value }]` is no longer speculative; it's the shape the client already depends on. |
+| **Gap 5** — `findKeywordSortValue` (composite walk) | **CONFIRMED D5** (D/M) — still needed, contract corrected | B1 removes `field`+`direction` params first. The endpoint is a generic bounded target-rank bucket resolver, not a Kupua seek operation. It must distinguish `found`, bounded `partial`, and natural `exhausted` outcomes and return the bucket's position/count facts; `{value}` alone is insufficient. It should optionally resume an incomplete D6 walk through one opaque server-owned token that binds continuation, cumulative rank, request identity and snapshot; D5/D6 must migrate atomically for token use. **⚠️ VALUE IN DOUBT (2026-08-28): PROD `metadata.credit` has 310,185 distinct values and `metadata.source` 63,776 — the composite walk needs ~16 pages to reach mid-corpus and hits its 8s cap. Enumeration does not scale on PROD; an oracle-driven approach over D4 (`count-before`) may replace this entirely. Do not build before reading the archived keyword-sorts evidence.** Live TEST confirmed D5 is fallback-only when D6 is complete. |
+| **Gap 6** — `getKeywordDistribution` (bounded composite distribution) | **CONFIRMED D6** (D/M) — still needed, contract corrected | B1 removes `field`+`direction`. The generic response must separate exact `valuedDocumentCount` from `representedDocumentCount` and report `complete` only on natural exhaustion. Page/time/payload caps must never masquerade as a complete vocabulary. An incomplete response should carry the opaque snapshot-bound continuation described under D5 so target lookup need not repeat the represented prefix. Callers, not media-api, decide how those facts affect missing-value boundaries, labels, or seeking. PROD Credit/Source prove bounded responses are normal rather than exceptional. Live TEST confirmed complete D6 data supports the fast path; it did not validate high-cardinality completion. |
 | **Gap 7** — `getDateDistribution` improvements | **CONFIRMED C3 redesign** — still needed | Exact parent coverage and bucket provenance required; special-date rank buckets are approximate without materialized scalars. |
 | **Gap 8** — `fetchPositionIndex` (full position map) | **CONFIRMED D1** (D/L) — special sorts blocked on H | No existing capability; exact canonical-order parity required up to Kupua's 65k map cap. |
 | **Gap 9** — Reverse sort / `missingFirst` | **CONFIRMED** — baked into D3 | `reverse` and `seekToEnd` (renamed from `missingFirst`) are params on the Gap 1 / D3 endpoint. Not a standalone gap. |

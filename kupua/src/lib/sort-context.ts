@@ -367,6 +367,9 @@ function lookupSortDistribution(
   if (buckets.length === 0) return null;
   // Position beyond covered range — null-valued docs at the tail
   if (globalPosition >= dist.coveredCount) return null;
+  // A bounded keyword distribution can have an exact valued-document count
+  // while representing only a prefix of its ordered buckets.
+  if (dist.representedCount != null && globalPosition >= dist.representedCount) return null;
   if (globalPosition < 0) return null;
 
   const lookupPosition = dist.bucketPositionKind === "approximate-evidence"

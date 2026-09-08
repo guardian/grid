@@ -933,7 +933,7 @@ function buildSeekCursorAnchors(
  * Binary-search a cached SortDistribution for the bucket covering a global
  * position. Returns null if the position is outside the covered range —
  * either the distribution is absent, or (at high cardinality) truncated,
- * see keyword-sorts workplan §11 Q1.
+ * see the archived keyword-sorts evidence §11 Q1.
  */
 function findBucketAtPosition(
   dist: SortDistribution,
@@ -3205,7 +3205,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // for coveredCount) already tells us the exact bucket — no need
           // to walk the vocabulary again. A miss means the distribution
           // doesn't cover this position (absent, or truncated at high
-          // cardinality — see keyword-sorts workplan §11 Q1), so fall
+          // cardinality — see the archived keyword-sorts evidence §11 Q1), so fall
           // through to the composite-walk path below.
           const bucket = pField && dist ? findBucketAtPosition(dist, fetchStart) : null;
 
@@ -3251,7 +3251,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
             // Verify actual position via countBefore. Accept — no
             // refinement loop (iterating the percentile was measured to
-            // oscillate; see keyword-sorts workplan §4).
+            // oscillate; see the archived keyword-sorts evidence §4).
             if (result.hits.length > 0 && result.sortValues.length > 0) {
               if (signal.aborted) return;
               const landedSortValues = result.sortValues[0];

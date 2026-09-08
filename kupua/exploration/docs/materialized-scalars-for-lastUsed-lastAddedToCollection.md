@@ -1,8 +1,8 @@
-# Materialized scalars for Last used and Added to collection
+# Materialized scalars for semantic sort values
 
 > **Purpose:** Preserve the evidence that current mappings force Kupua to choose
-> between an inaccurate scrubber and a slow, coarse query workaround, making a
-> strong case for root latest-date fields in the backend.
+> between inaccurate presentation and slower request-time workarounds, making a
+> strong case for canonical root sort fields in the backend.
 > **Status:** Backend enhancement case; not authorized for implementation.
 > **Current-schema conclusion:** Reject Option 1 as a production solution.
 > Option 2 (exact null boundary with explicitly approximate populated-zone
@@ -29,6 +29,15 @@ Root `latestUsageDate` and `latestCollectionActionDate` fields would make the
 correct query the conventional fast one: one scalar value per image, one
 histogram contribution per image, and one shared source of truth for sorting,
 scrubber ticks, seeking, null boundaries, cursors, position maps, and rank.
+
+Width and Height have the same semantic-shape problem at a smaller measured
+scale. Kupua displays oriented dimensions when present and raw dimensions
+otherwise, but sorts only by raw dimensions. Both inputs are indexed integers,
+yet Elasticsearch cannot express their per-document fallback as a native
+two-field sort. A request-time coalescing runtime field was viable locally but
+made a bounded TEST sort about twice as expensive. Canonical effective width and
+height fields would align display, sorting and positional queries without
+shipping the same script through every search path.
 
 ## 1. User problem
 
@@ -193,7 +202,56 @@ This may never be implemented. The purpose of this document is to preserve why
 it would unlock a fully exact, performant experience and prevent future agents
 from rediscovering the same mapping constraint.
 
-## 5. Final current-schema benchmark
+## 5. Width and Height coalescing benchmark
+
+Kupua's displayed value is:
+
+$$
+\operatorname{effectiveWidth}(i) =
+\begin{cases}
+\operatorname{orientedWidth}(i), & \text{when present} \\
+\operatorname{rawWidth}(i), & \text{otherwise}
+\end{cases}
+$$
+
+and equivalently for Height. A native sort on oriented width followed by raw
+width is not equivalent: it groups documents by whether oriented width exists
+instead of globally ordering the coalesced value.
+
+A read-only runtime `long` field using doc values implemented the exact fallback.
+On the local 10,000-document index, where only four documents had oriented
+dimensions, three complete 500-hit `search_after` walks produced summed ES
+`took` values of 714/460/388ms for raw width and 605/440/426ms for runtime
+effective width. Percentile requests were 1-2ms. This small corpus did not reject
+the runtime approach, but its oriented subset was not representative enough to
+approve it.
+
+One bounded, sequential TEST check used the app's existing read-only ES proxy,
+returned only timing/timeout/shard metadata, and had no timeout or shard failure.
+After the initial pair, three 200-hit sort repetitions took 82/103/115ms for raw
+width and 225/253/231ms for runtime effective width: median 103ms versus 231ms,
+or about 2.2 times slower. Warm percentile requests converged to single-digit
+milliseconds, so aggregation was not the limiting operation.
+
+The runtime workaround would also have to be defined identically in direct-ES
+search, media-api search-after, percentile estimation, two-phase position maps,
+range selection and exact `countBefore` queries. The current media-api contract
+accepts resolved sort clauses but no runtime mappings, while direct `countBefore`
+uses `_count`, which does not carry Kupua's runtime definition. Adding a scripted
+semantic-value protocol across those paths is disproportionate for a confirmed
+399-of-1,330,788-document TEST discrepancy.
+
+The preferred backend shape is a canonical root scalar per axis, for example
+`effectiveWidth` and `effectiveHeight`, defined as oriented dimensions with raw
+fallback. An equivalent option is to guarantee and backfill
+`source.orientedDimensions` for every image, including identity orientation, so
+that those existing integer fields become canonical. The backend proposal must
+choose one representation and cover producer ownership, historical backfill,
+read compatibility and proof that both values match the dimensions shown by
+Kupua. Until then, retain O9 as an honest known discrepancy rather than adding a
+frontend runtime script.
+
+## 6. Final latest-date current-schema benchmark
 
 The final 24-filter, half-year PROD benchmark used underflow before 2015, two
 buckets per year from 2015 through 2025, and overflow from 2026 onward. It was

@@ -781,7 +781,12 @@ export class MockDataSource implements ImageDataSource {
       cumulative += count;
     }
 
-    return { buckets, coveredCount: cumulative };
+    return {
+      buckets,
+      coveredCount: Array.from(counts.values()).reduce((sum, count) => sum + count, 0),
+      representedCount: cumulative,
+      complete: cappedKeys.length === keys.length,
+    };
   }
 
   async fetchPositionIndex(

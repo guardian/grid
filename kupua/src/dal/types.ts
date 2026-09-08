@@ -225,6 +225,10 @@ export interface SortDistribution {
   buckets: SortDistBucket[];
   /** Total docs covered by the distribution (may be < total if nulls exist). */
   coveredCount: number;
+  /** Docs represented by returned buckets. Omitted when every bucket is represented. */
+  representedCount?: number;
+  /** Whether bounded bucket enumeration naturally exhausted. */
+  complete?: boolean;
   /** Coordinate system used by bucket startPosition values. Defaults to exact rank. */
   bucketPositionKind?: "exact-rank" | "approximate-evidence";
   /** Total repeated evidence represented by approximate bucket coordinates. */
@@ -436,12 +440,11 @@ export interface ImageDataSource {
   ): Promise<string | null>;
 
   /**
-   * Fetch the complete keyword distribution for a sort field — all unique
-   * values with doc counts, in sort order. Used by the scrubber tooltip to
-   * look up the keyword value at any global position via binary search.
+   * Fetch a bounded keyword distribution for a sort field. Exact valued
+   * coverage is separate from the ordered bucket prefix represented in the
+   * response; callers must observe its completion provenance.
    *
-   * Uses composite aggregation to page through all unique values. Capped at
-   * MAX_PAGES to avoid runaway requests on very high cardinality fields.
+   * Uses composite aggregation and stops at an implementation-owned work cap.
    *
    * @param params — search params (query, filters — same as current search).
    * @param field — the ES field path (e.g. "metadata.credit").

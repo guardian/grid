@@ -1466,7 +1466,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
     };
     // Structured equality scope, compiled to exact `term` filters — never
     // spliced into params.query as CQL text (a `"` in the value would
-    // silently zero out the query; see keyword-sorts workplan §5).
+    // silently zero out the query; see the archived keyword-sorts evidence §5).
     const query = scope && scope.length > 0
       ? {
           bool: {
@@ -1640,9 +1640,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
   }
 
   /**
-   * Fetch the complete keyword distribution for a sort field.
+    * Fetch a bounded keyword distribution for a sort field.
    * Returns all unique values with doc counts in sort order, plus cumulative
-   * start positions for O(log n) position→value lookup.
+    * start positions for O(log n) position→value lookup within the represented
+    * prefix. coveredCount remains the exact valued-document count.
    *
    * Capped at 5 composite pages (50k unique values). Fields with higher
    * cardinality return a partial distribution (still useful for the covered range).
@@ -1658,6 +1659,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
     const startTime = Date.now();
     const buckets: SortDistBucket[] = [];
     let cumulative = 0;
+    let coveredCount: number | null = null;
+    let complete = false;
     let afterKey: Record<string, unknown> | undefined;
 
     for (let page = 0; page < MAX_PAGES; page++) {
@@ -1676,13 +1679,19 @@ export class ElasticsearchDataSource implements ImageDataSource {
       const body: Record<string, unknown> = {
         size: 0,
         query: buildQuery(params),
-        aggs: { dist: { composite } },
+        aggs: {
+          ...(page === 0
+            ? { valued_documents: { filter: { exists: { field } } } }
+            : {}),
+          dist: { composite },
+        },
         track_total_hits: false,
       };
 
       try {
         const result = (await this.esRequest("_search", body, signal)) as {
           aggregations?: {
+            valued_documents?: { doc_count: number };
             dist?: {
               after_key?: Record<string, unknown>;
               buckets?: Array<{ key: Record<string, unknown>; doc_count: number }>;
@@ -1691,7 +1700,11 @@ export class ElasticsearchDataSource implements ImageDataSource {
         };
 
         const esBuckets = result.aggregations?.dist?.buckets;
-        if (!esBuckets || esBuckets.length === 0) break;
+        coveredCount ??= result.aggregations?.valued_documents?.doc_count ?? null;
+        if (!esBuckets || esBuckets.length === 0) {
+          complete = true;
+          break;
+        }
 
         for (const b of esBuckets) {
           buckets.push({
@@ -1703,7 +1716,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
         }
 
         afterKey = result.aggregations?.dist?.after_key;
-        if (!afterKey || esBuckets.length < BUCKET_SIZE) break; // last page
+        if (!afterKey) {
+          complete = true;
+          break;
+        }
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return null;
         console.warn("[ES] getKeywordDistribution failed:", e);
@@ -1713,11 +1729,17 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     devLog(
       `[ES] getKeywordDistribution: ${field} ${direction} — ` +
-      `${buckets.length} unique values, ${cumulative} docs covered ` +
+      `${buckets.length} unique values, ${cumulative}/${coveredCount ?? cumulative} docs represented, ` +
+      `${complete ? "complete" : "truncated"} ` +
       `(${Date.now() - startTime}ms)`,
     );
 
-    return { buckets, coveredCount: cumulative };
+    return {
+      buckets,
+      coveredCount: coveredCount ?? cumulative,
+      representedCount: cumulative,
+      complete,
+    };
   }
 
   /**

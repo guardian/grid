@@ -2,8 +2,8 @@
  * MockDataSource — countBefore / getKeywordDistribution / estimateSortValue
  * fidelity tests for keyword-sorted seek.
  *
- * Companion to exploration/docs/scroll-and-position-preservation-testing-4.1-
- * keyword-sorts-workplan.md §8-9. Before this file existed, MockDataSource's
+ * Companion to the archived keyword-sorts evidence §8-9. Before this file
+ * existed, MockDataSource's
  * countBefore ignored every non-id cursor value, so the sentinel bug that
  * broke keyword seek (commit 61b042101) was structurally invisible to the
  * unit suite — the mock could never reproduce it. These tests pin that
@@ -68,7 +68,11 @@ describe("MockDataSource.getKeywordDistribution — real implementation", () => 
       .getKeywordDistribution({}, "metadata.credit", "desc");
 
     expect(capped!.buckets.length).toBe(2);
-    expect(capped!.coveredCount).toBeLessThan(full!.coveredCount);
+    expect(capped!.coveredCount).toBe(full!.coveredCount);
+    expect(capped!.representedCount).toBeLessThan(capped!.coveredCount);
+    expect(capped!.complete).toBe(false);
+    expect(full!.representedCount).toBe(full!.coveredCount);
+    expect(full!.complete).toBe(true);
   });
 
   it("returns null for fields it doesn't model", async () => {

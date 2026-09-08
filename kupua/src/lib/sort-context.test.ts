@@ -195,6 +195,26 @@ describe("interpolateSortLabel — binary search property (Part B)", () => {
     expect(interpolateSortLabel("credit", 15, 25, 1_000_000, [img], dist)).toBe(null);
   });
 
+  it("does not repeat the final keyword across an unrepresented valued tail", () => {
+    const dist = {
+      coveredCount: 10,
+      representedCount: 4,
+      complete: false,
+      buckets: [
+        { key: "represented", count: 4, startPosition: 0 },
+      ],
+    } as SortDistribution & { representedCount: number; complete: boolean };
+
+    expect(interpolateSortLabel(
+      "credit",
+      5,
+      12,
+      1_000_000,
+      [img],
+      dist,
+    )).toBe(null);
+  });
+
   it.each([
     "-usagesDateAdded",
     "usagesDateAdded",
