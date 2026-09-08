@@ -6,8 +6,11 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.model.Agencies
+import com.gu.mediaservice.model.usage.Usage
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, InvalidUriParams, SearchParams}
+import lib.elasticsearch.SearchParams.parseIntFromQuery
+import lib.querysyntax.Parser
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -18,8 +21,6 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  val numberOfDayInPeriod = 30
-
   def bySupplier = auth.async { implicit request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "usage-by-supplier",
@@ -27,9 +28,9 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     Future.sequence(
-      Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
+      Agencies.all.keys.map(elasticSearch.usageForSupplier(_, UsageStore.countPeriodInDays)))
         .map(_.toList)
-        .map((s: List[SupplierUsageSummary]) => respond(s))
+        .map((s: List[SupplierQuotaCount]) => respond(s))
         .recover {
           case e => respondError(InternalServerError, "unknown-error", e.toString)
         }
@@ -42,15 +43,29 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
-      .map((s: SupplierUsageSummary) => respond(s))
+    elasticSearch.usageForSupplier(id, UsageStore.countPeriodInDays)
+      .map((s: SupplierQuotaCount) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)
       }
 
   }
 
-  def usageStatusForImage(id: String)(implicit logMarker: LogMarker): Future[UsageStatus] = for {
+  def quotaCountForSupplier(id: String) = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "quota-count-for-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "supplierId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.quotaCountBySupplier(id, UsageStore.countPeriodInDays)
+      .map((s: SupplierQuotaCount) => respond(s))
+      .recover {
+        case e => respondError(InternalServerError, "unknown-error", e.toString)
+      }
+  }
+
+  def usageStatusForImage(id: String)(implicit logMarker: LogMarker): Future[SupplierUsageStatus] = for {
     imageOption <- elasticSearch.getImageById(id)
 
     image <- Future { imageOption.get }
@@ -69,7 +84,7 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
     usageStatusForImage(id)
-      .map((u: UsageStatus) => respond(u))
+      .map((u: SupplierUsageStatus) => respond(u))
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
         case e => respondError(InternalServerError, "unknown-error", e.toString)
@@ -89,5 +104,30 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
           logger.error(logMarker, "quota access failed", e)
           respondError(InternalServerError, "unknown-error", e.toString)
       }
+  }
+
+  def imageUsagesBySupplier(id: String) = auth.async { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "images-by-supplier",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "supplierId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val structuredQuery = request.getQueryString("q").map(Parser.run).getOrElse(List.empty)
+    val searchParams = SearchParams(request)
+
+    SearchParams.validate(searchParams) match {
+      case Left(errors) =>
+        Future.successful(respondError(BadRequest, InvalidUriParams.errorKey, errors.map(_.message).mkString(", ")))
+      case Right(_) =>
+        elasticSearch.imageUsagesBySupplier(id, structuredQuery, searchParams.offset, searchParams.length)
+          .map { result =>
+            respondCollection(result.images, Some(searchParams.offset.toLong), Some(result.total))
+          }
+          .recover {
+            case e: IllegalArgumentException => respondError(BadRequest, InvalidUriParams.errorKey, e.getMessage)
+            case e => respondError(InternalServerError, "unknown-error", e.toString)
+          }
+    }
   }
 }

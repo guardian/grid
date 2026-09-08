@@ -87,7 +87,6 @@ imageUsagesService.factory('imageUsagesService', [function() {
         });
       });
 
-
       const groupedByState$ = usages$
         .map((usagesList) => usagesList.groupBy(usage => usage.get('status')));
 

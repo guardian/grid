@@ -41,8 +41,15 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   lazy val client = {
     logger.info("Connecting to Elastic 8: " + url)
-    val client = JavaClient(ElasticProperties(url))
-    ElasticClient(client)
+    val hosts = ElasticProperties(url).endpoints.collect {
+      case ElasticNodeEndpoint(protocol, host, port, _) =>
+        new org.apache.http.HttpHost(host, port, protocol)
+    }
+    val restClient = org.elasticsearch.client.RestClient
+      .builder(hosts: _*)
+      .setCompressionEnabled(true) // request gzip from ES; reduces response body ~5-6×
+      .build()
+    ElasticClient(JavaClient.fromRestClient(restClient))
   }
 
   //TODO: this function should fail and cause healthcheck fails
