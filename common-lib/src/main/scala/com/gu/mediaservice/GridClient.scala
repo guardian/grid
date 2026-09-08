@@ -104,12 +104,12 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
    * process before returning data.
    * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
    */
-  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
-                         (implicit ec: ExecutionContext): Future[Response] = {
+  def makeRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None, methodType : WSRequest => Future[WSRequest#Response] = _.get())
+                      (implicit ec: ExecutionContext): Future[Response] = {
     val request: WSRequest = wsClient.url(url.toString)
     val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
     val authorisedRequest = authFn(requestWithTimeout)
-    authorisedRequest.get().map { response => validateResponse(response, url)}
+    methodType(authorisedRequest).map { response => validateResponse(response, url)}
   }
 
   private def validateResponse(
@@ -126,7 +126,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def validateApiKey(projectionEndpoint: String, authFn: WSRequest => WSRequest)
                     (implicit ec: ExecutionContext): Future[Boolean] = {
     val projectionUrl = new URL(s"$projectionEndpoint/")
-    makeGetRequestAsync(projectionUrl, authFn) map {
+    makeRequestAsync(projectionUrl, authFn) map {
       case Found(_, _) => true
       case NotFound(_, _) => true
       case Error(_, _, _) => throw new Exception("Authorisation failed")
@@ -135,7 +135,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
 
   def getProjectionDiff(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[JsValue]] = {
     val url = new URL(s"${services.apiBaseUri}/images/$mediaId/projection/diff")
-    makeGetRequestAsync(url, authFn, requestTimeout = Some(120.seconds)).map {
+    makeRequestAsync(url, authFn, requestTimeout = Some(120.seconds)).map {
       case Found(json, _) => Some(json)
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -151,7 +151,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    makeGetRequestAsync(url, authFn, requestTimeout = Some(300.seconds)) map {
+    makeRequestAsync(url, authFn, requestTimeout = Some(300.seconds)) map {
       case Found(json, _) => Some(json.as[Image])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -161,7 +161,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[LeasesByMedia]
       case NotFound(_, _) => LeasesByMedia.empty
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -171,7 +171,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getCollections(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"${services.collectionsBaseUri}/images/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Collection]]
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -181,7 +181,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[Edits])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -191,7 +191,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getSoftDeletedMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[ImageStatusRecord]] = {
     logger.info("attempt to get soft deleted metadata")
     val url = new URL(s"${services.apiBaseUri}/images/$mediaId/softDeletedMetadata")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[ImageStatusRecord])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -201,7 +201,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getUploadedBy(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[String]] = {
     logger.info("attempt to get uploadedBy")
     val url = new URL(s"${services.apiBaseUri}/images/$mediaId/uploadedBy")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[String])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -211,10 +211,22 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Crop]]
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def deleteCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to delete crops")
+    val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
+    makeRequestAsync(url, authFn, methodType = _.delete()) map { response =>
+      response.status match {
+        case 202 => true
+        case 404 => false
+        case _ => response.asInstanceOf[Error].logErrorAndThrowException()
+      }
     }
   }
 
@@ -227,7 +239,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -237,7 +249,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {
     logger.info("attempt to get metadata")
     val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data" \ "metadata").as[ImageMetadata]
       case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
       case e@Error(_, _, _) => e.logErrorAndThrowException()
@@ -246,7 +258,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
 
   def getSyndicationRights(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
     val url = new URL(s"${services.metadataBaseUri}/metadata/$mediaId/syndication")
-    makeGetRequestAsync(url, authFn) map {
+    makeRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[SyndicationRights])
       case _: NotFound => None
       case e: Error => e.logErrorAndThrowException()

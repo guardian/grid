@@ -13,6 +13,11 @@
     <body>
         <main>
         <h1>Image Takedown</h1>
+        @request.flash.get("response").map { message =>
+            <div class="flash-message flash-message--success" role="status">
+                @message
+            </div>
+        }
 
         @if(imageId.isEmpty) {
             <h2>Query CAPI for Content Using Image</h2>
@@ -45,36 +50,20 @@
                 }
                 <button>Clear Image</button>
             }
-            @if(crops.isEmpty) {
-                <p>No crops found for image ID</p>
-            } else {
-                <p>Found @crops.size crops for image ID</p>
-                <ul>
-                @for(crop <- crops) {
-                    <li>@{crop.id}</li>
+            <p>Found @{crops.size} crops and @{usages.size} usages</p>
+            @for(usage <- usages) {
+                <li>@{usage.platform}: @{usage.status}</li>
+                @for(reference <- usage.references) {
+                    <ul>
+                        <li>@{reference.`type`}: <a href=@{reference.uri}>@{reference.name}</a></li>
+                    </ul>
                 }
-                </ul>
-                <button>Delete crops</button>
-            }
-            @if(usages.isEmpty) {
-                <p>No usages found for image ID: @imageId.get</p>
-            } else {
-                <p>Found @usages.size usages for image ID: @imageId.get</p>
-                <ul>
-                @for(usage <- usages) {
-                    <li>@{usage.platform}</li>
-                    @for(reference <- usage.references) {
-                        <ul>
-                            <li>@{reference.`type`}: <a href=@{reference.uri}>@{reference.name}</a></li>
-                        </ul>
-                    }
-                }
-                </ul>
-                <button>Delete usages</button>
             }
             <br>
-            <button disabled >Remove Image from grid</button>
-
+            @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
+                @CSRF.formField
+                <button type="submit">Remove Image from grid</button>
+            }
         }
         </main>
 

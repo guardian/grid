@@ -14,8 +14,9 @@ GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.rei
 
 # image takedown
 
-GET    /imageTakedown                                   controllers.ImageTakedownController.index(imageId: Option[String])
+GET    /imageTakedown                                  controllers.ImageTakedownController.index(imageId: Option[String])
 POST   /imageTakedown                                   controllers.ImageTakedownController.takedownImage
+POST /imageTakedown/:imageId                          controllers.ImageTakedownController.deleteImageTakedown(imageId: String)
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

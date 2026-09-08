@@ -36,4 +36,15 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
     val imageId = request.body.asFormUrlEncoded.flatMap(_.get("imageId").flatMap(_.headOption))
     Redirect(controllers.routes.ImageTakedownController.index(imageId)).flashing("success" -> "Image takedown request submitted successfully.")
   }
+
+  def deleteImageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
+    for {
+      response <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
+      message = if (response) {
+        "Crops deleted successfully"
+      } else {
+        s"Failed to delete crops"
+      }
+    } yield Redirect(controllers.routes.ImageTakedownController.index(None)).flashing("response" -> message)
+  }
 }
