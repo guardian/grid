@@ -47,7 +47,6 @@ object GridClient extends LazyLogging {
     def contentLength: Option[Long] =
       underlying.header(HeaderNames.CONTENT_LENGTH).flatMap(v => Try(v.toLong).toOption)
   }
-
   case class Found(json: JsValue, underlying: WSResponse) extends Response {
     val status = 200
   }

@@ -49,7 +49,10 @@
                         </ul>
                     }
                 }
-                <button>Clear Image</button>
+            }
+            @form(routes.ImageTakedownController.decache(imageId.get)) {
+                @CSRF.formField
+                <button type="submit">Remove from fastly</button>
             }
             <p>Found @{crops.size} crops and @{usages.size} usages</p>
             @for(usage <- usages) {
@@ -67,7 +70,7 @@
             @if(softDeleteMetadata.isEmpty) {
                 @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
                     @CSRF.formField
-                    <button type="submit">Remove Image from grid</button>
+                    <button type="submit" disabled>Remove Image from grid</button>
                 }
             }
 

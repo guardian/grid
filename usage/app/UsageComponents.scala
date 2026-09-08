@@ -1,3 +1,4 @@
+import cache.ImageServices
 import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.config.Services
@@ -26,6 +27,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val notifications = new Notifications(config)
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services, services.usageBaseUri)(wsClient)
+  val imagesServices = new ImageServices(config, wsClient)
 
   if(!config.apiOnly) {
     val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
@@ -40,7 +42,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
-  val imageTakeDownController = new ImageTakedownController(liveContentApi, gridClient, auth, services, controllerComponents)
+  val imageTakeDownController = new ImageTakedownController(liveContentApi, gridClient, imagesServices, auth, services, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, controller, imageTakeDownController, management, InnerServiceStatusCheckController, assets)
 }
