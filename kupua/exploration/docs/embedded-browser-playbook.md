@@ -867,3 +867,14 @@ reproducing it through the UI**, and much faster — no scrubber geometry, no
 virtualiser settling, no seek cooldowns. If a finding can be stated as "this ES
 call returns the wrong number", prove it there first, then only go to the UI to
 confirm the user-visible consequence.
+
+**[V] D3 contract checks can be run without retaining TEST data.** In
+`--use-media-api` mode, verify `StranglerAdapter` and a `/api/images/search-after`
+resource first. For each special field/direction, compare only page sizes,
+disjointness and in-memory identity-array equality for forward/backward pages;
+return booleans, never IDs or sort values. A terminal cursor can be converted to
+the supported null phase in memory by replacing only its primary slot with
+`null`; assert returned cursors regain the full arity and leading null. Synthetic
+malformed POST bodies can then report only status and error key to prove stable
+400/422 handling. This exercised the real controller and ES path without writing
+any live identity or metadata value to disk.

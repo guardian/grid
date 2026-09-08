@@ -59,7 +59,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
-**Status:** First media-api endpoint shipped (D3): `POST /images/search-after` routes cursor pagination through the Scala server when `VITE_USE_MEDIA_API=true`. Direct-ES path unchanged. Remaining gap-closure (aggregations, PIT, `getByIds`, satellite services) is the Phase 3 backlog — see `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`.
+**Status:** First media-api endpoint shipped (D3): `POST /images/search-after` routes cursor pagination through the Scala server when `VITE_USE_MEDIA_API=true`. Its request boundary now deliberately rejects malformed sort/cursor shapes without changing existing Grid/Kahuna paths. Direct-ES path unchanged. Remaining gap-closure (aggregations, PIT, `getByIds`, satellite services) is the Phase 3 backlog — see `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`.
 
 ### System Summary
 
@@ -180,4 +180,4 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Backlog (architectural)
 
 - **SearchContext abstraction** — blocking ticket for adding any second alternative-ranking algorithm (Phase 3 image-to-image, Phase 4 collection-based, etc.). The current decorator solution in `src/lib/ai-search-params.ts` is correct for one such algorithm; promote to SearchContext before adding a second. See `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md`.
-- **Special-date sort correctness** — execute final Slice J and D/J media-api parity. Last used and Added to collection now share maximum-date sorting, an exact populated/null boundary, exact position maps, exact `countBefore` ranks, and exact range selection independent of G's approximate histogram evidence. Final cross-path acceptance remains. Materialised scalar dates require a separate backend proposal and performance review.
+- **Special-date sort correctness** — execute final Slice J and harvest Slice D onto the D3 PR branch with exact-file parity. Last used and Added to collection now share maximum-date sorting, an exact populated/null boundary, exact position maps, exact `countBefore` ranks, exact range selection and defensive D3 request handling independent of G's approximate histogram evidence. Materialised scalar dates require a separate backend proposal and performance review.

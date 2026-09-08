@@ -12,24 +12,28 @@ multi-get, and others). The conventions established here — POST+JSON for curso
 shared `hitToImageEntity`/`SearchParamsBody` building blocks — will apply to the rest, so
 it's worth settling any disagreement now rather than per-PR later.
 
-This is a net-new route with no existing callers — it carries zero traffic today and has
-zero blast radius on current behaviour until kupua is switched to use it.
+This is a net-new route with no existing production callers — it carries zero production
+traffic today and has zero blast radius on current behaviour until kupua is switched to use it.
 
 ## What
 
 New route: `POST /images/search-after`
 
-**`sorts.scala`** — `reverseSorts`, `jsonToSort` (flat + nested-object sort clause deserialisation),
-`orderOf`/`sortModeOf` helpers.
+**`sorts.scala`** — `reverseSorts`, strict `jsonToSort` deserialisation for flat and
+nested-object clauses, and `orderOf`/`sortModeOf` helpers. Malformed optional object
+properties are rejected rather than silently discarded.
 
 **`ElasticSearchModel.scala`** — `SearchAfterParams`, `SearchAfterRawResults`, `SearchParamsBody`
 (parses the POST body: query, date range, label/uploader/category/collections/has/is filters,
-`hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, page size/offset). `payType` is
-always `None` — not sent by kupua (disabled in its UI; cost filtering is a plain free/non-free
-boolean there).
+`hasRightsAcquired`, `syndicationStatus`, `orderBy`, `countAll`, page size/offset), plus
+`SearchAfterParamsBody`, which strictly parses the resolved sort clause and mixed scalar cursor.
+Wrong JSON types return `400 invalid-params` rather than becoming an omitted cursor and silently
+restarting page one. `payType` is always `None` — not sent by kupua (disabled in its UI; cost
+filtering is a plain free/non-free boolean there).
 
-**`ElasticSearch.scala`** — `searchAfter()`: reuses `buildFilterOpt`, applies null-zone
-strip/remap on seek-to-end cursors, validates cursor length, fans into a PIT branch (bypasses
+**`ElasticSearch.scala`** — `searchAfter()`: reuses `buildFilterOpt`, deliberately rejects
+duplicate fields, unresolved Kupua sort aliases, residual nulls and cursor arity mismatches,
+applies supported leading-primary null-zone strip/remap, then fans into a PIT branch (bypasses
 `prepareSearch` migration dedup filter) or a plain branch. `_source` projection is
 schema-derived at startup (reflection on `Image` fields minus `{embedding, originalMetadata,
 fileMetadata}` plus `fieldAliasConfigs` paths) — cuts payload from ~1.7 MB to ~370 KB per page.
@@ -50,10 +54,32 @@ prototyped and measured but **reverted** — it is not in this PR. See the Perfo
 
 **`conf/routes`** — `POST /images/search-after` before `GET /images/:id`.
 
-**`ElasticSearchTest.scala` / `ElasticSearchTestBase.scala`** — 16 new integration tests:
-forward/reverse cursor pagination, null-zone round-trip, seekToEnd+null-zone, cursor-mismatch
-→ 422, dateAddedToCollection filter both orders (cursor path), dateAddedToCollection sort both
-orders (Kahuna `search()` path), fieldAliases projection, isPotentiallyGraphic via fieldAlias.
+**[EDIT: amended post-Copilot review] `ElasticSearchTest.scala` /
+`ElasticSearchTestBase.scala`** — 23 integration tests, and a new `SortsTest.scala` — 9 unit
+tests (no Docker) for the sort-clause deserialiser: forward/reverse cursor pagination, null-zone
+round-trip, seekToEnd+null-zone, cursor-mismatch → 422, dateAddedToCollection filter both orders
+(cursor path), dateAddedToCollection sort both orders (Kahuna `search()` path), fieldAliases
+projection, isPotentiallyGraphic via fieldAlias.
+
+**[EDIT: obscure-sorting amendment]** 10 further integration cases cover strict request types,
+populated and leading-null cursor parsing, residual nulls, duplicate fields and unresolved
+aliases. Five further no-Docker parser cases cover malformed optional object-sort properties.
+The D3 additions now total 33 integration tests and 14 `SortsTest` unit tests.
+
+## Defensive request contract
+
+The endpoint accepts resolved one-semantic-sort clauses, including object-form Last used and
+Added to collection clauses, and the supported leading-primary null cursor that switches to the
+`[uploadTime,id]` phase. It returns deliberate client errors for malformed sort/cursor JSON,
+unresolved aliases, duplicate sort fields, residual nulls and arity mismatches. These checks are
+confined to `POST /images/search-after`; `createSort`, ordinary `GET /images`, source shaping,
+routes and PIT architecture are unchanged. PIT hit `_shard_doc` values are still intentionally
+truncated because persisted cursors must also work without their original PIT.
+
+One narrow envelope-hardening item remains before production traffic: present-but-wrong JSON
+types for `pitId`, `reverse` and `seekToEnd` are still interpreted as absent/default values. This
+does not affect requests emitted by Kupua and is not part of the obscure-sorting amendment, but
+it should be resolved in D3 rather than assigned to the later PIT-lifecycle endpoint.
 
 ## One small, intentional improvement to the media-api sort contract
 
@@ -104,3 +130,14 @@ combinator — first use of this pattern in media-api. If the team prefers a dif
 authenticated JSON endpoints, this is the place to align.
 
 Neither requires a code change here — just noting for review.
+
+## Amendment validation — 8 September 2026
+
+The defensive amendment was developed failing-first and committed on the prototype branch as
+`c697cc148`. Focused validation passed `ElasticSearchTest` 75/75 and `SortsTest` 14/14.
+A live TEST `--use-media-api` check covered both special fields in both directions: initial and
+forward pages were non-empty and disjoint, backward paging reconstructed the previous page,
+all cursors retained three slots, and leading-null reduction returned remapped full cursors.
+Synthetic malformed requests returned deliberate `400` or `422` responses. No live image
+identity or metadata value was retained. The commit still needs to be harvested onto the PR
+branch after its merge conflicts are resolved and the resulting D3 files compared exactly.

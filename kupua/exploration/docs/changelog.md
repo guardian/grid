@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 8 September 2026 — Harden D3 special-sort requests defensively
+
+  The new media-api `POST /images/search-after` endpoint previously allowed some
+  unsupported sort states to reach Elasticsearch and used permissive JSON parsing
+  that could turn a wrong-typed cursor into an omitted cursor. That could produce
+  an accidental server error or silently restart at page one even though Kupua's
+  one-semantic-sort UI no longer emits those states.
+
+  D3 now strictly parses resolved sort clauses and scalar cursors, rejects malformed
+  object-sort options, duplicate fields, unresolved special-sort aliases, residual
+  nulls and arity mismatches before querying Elasticsearch, and returns stable 4xx
+  responses. Supported flat and object-form sorts, leading-primary null reduction,
+  reverse paging, source shaping and intentional PIT `_shard_doc` truncation are
+  unchanged. Existing Grid/Kahuna routes do not call the amended code.
+
+  The red run produced five intended failures, including Elasticsearch mapping
+  errors for both unresolved aliases. After implementation and independent review,
+  focused suites passed 75/75 and 14/14. A live TEST `--use-media-api` check covered
+  initial, forward, backward and null-zone behavior for both fields/directions and
+  confirmed six malformed request shapes returned deliberate 400/422 responses.
+  No live identity or metadata value was retained. The portable six-file code/test
+  commit is `c697cc148`; PR-branch conflict resolution and exact parity remain.
+
 ### 8 September 2026 — Count special-date ranks by selected maximum
 
 `countBefore` previously compared each special-date cursor with arbitrary child
