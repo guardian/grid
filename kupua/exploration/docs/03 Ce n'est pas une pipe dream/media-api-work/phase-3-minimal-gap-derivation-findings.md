@@ -13,10 +13,36 @@
 
 ## Status snapshot & post-D3 standing constraints (added 2026-06-20)
 
-> Sections 1–9 below are the original derivation (2026-05-31) and remain correct. This banner
-> was added after D3 shipped to record **what is built** and the **invariants D3 established that
-> every future gap workplan must honour**. Design-level constraints live here; the Scala spelling
-> of each lives in `media-api-instructions-for-agents.md` (the "hand to implementing agents" doc).
+> Sections 1–9 below are the original derivation (2026-05-31). Later correction banners are
+> authoritative where the live Kupua contract has changed. This banner was added after D3 shipped
+> to record **what is built** and the **invariants D3 established that every future gap workplan
+> must honour**. Design-level constraints live here; the Scala spelling of each lives in
+> `media-api-instructions-for-agents.md` (the "hand to implementing agents" doc).
+
+### Special-date position contract correction (7 September 2026)
+
+Do not implement C3/D1/D4 or the percentile endpoint for Last used / Added to
+collection from the original text below without reading **Materialized scalars
+for Last used and Added to collection** and the **Obscure sorting implementation
+workplan**. PROD evidence found 4,142,917 parents with dated usages but a monthly
+histogram sum of 5,034,659 (+21.5%). An exact current-schema filter bank took
+2,993ms for only 24 half-year buckets, so that workaround is rejected.
+
+The leading interim contract is:
+
+- special-date `coveredCount` is an exact root-parent exists count;
+- populated special-date histogram buckets/percentiles are explicitly
+  approximate child-date evidence, never exact parent ranks;
+- exact `startPosition` is valid only for scalar dates, null-zone `uploadTime`,
+  or future materialized latest-date fields;
+- position maps remain exact and must follow the canonical `mode:max` ordering;
+- `countBefore` must return exact rank or explicitly reject unsupported special
+  sorts; do not port the current child-value approximation as the API contract.
+
+D3 `searchAfter` is unaffected: Elasticsearch can already page the canonical
+`mode:max` result order. D2 `getIdRange` is likewise a cursor-walk concern, not a
+distribution contract. D1, D4 and C3 must wait for the corresponding H/I/G
+acceptance decisions before their special-sort behavior is built in Scala.
 
 **Build status**
 
@@ -89,12 +115,12 @@ D8/D2/D4/D5/D6.
 | 9 | `openPit` | D | §2.9 | Phase 1 §6.7 (no PIT code) | No PIT support in media-api; new routes needed |
 | 10 | `closePit` | D | §2.10 | Phase 1 §6.7 | Same as openPit — PIT lifecycle pair |
 | 11 | `searchAfter` | B1+D | §2.11 | Phase 1 §2 GET /images | B1: eliminate `sortOverride`/`extraFilter`/`noSource` params; D: cursor pagination endpoint needed |
-| 12 | `countBefore` | B1+D | §2.12 | Phase 1 §2 (no count-before) | B1: eliminate `sortClause` param; D: new position-count endpoint needed |
-| 13 | `estimateSortValue` | B1+D | §2.13 | Phase 1 §2 (no percentile agg endpoint) | B1: eliminate `field` param (derivable from orderBy); D: new percentile endpoint |
+| 12 | `countBefore` | B1+D | §2.12 | Phase 1 §2 (no count-before) | New exact position-count endpoint; special max-date support is blocked on I and must not port the current approximation |
+| 13 | `estimateSortValue` | B1+D | §2.13 | Phase 1 §2 (no percentile agg endpoint) | New percentile endpoint with explicit field/scope; special max-date percentiles are approximate child-value anchors |
 | 14 | `findKeywordSortValue?` | B1+D | §2.14 | Phase 1 §2 (no composite walk) | B1: eliminate `field`+`direction` params; D: new composite-walk endpoint |
 | 15 | `getKeywordDistribution?` | B1+D | §2.15 | Phase 1 §2 (no composite distribution) | B1: eliminate `field`+`direction`; D: new composite-distribution endpoint |
-| 16 | `getDateDistribution?` | B1+C | §2.16 | Phase 1 §2 GET /images/aggregations/date/:field | B1: eliminate `extraFilter` (→ `missingField?: string`); C: add `direction`+`adaptive`+`startPosition`+`missingField` to existing route |
-| 17 | `fetchPositionIndex?` | D | §2.17 | Phase 1 §6.3 lookupIds (not routed) | No paginated ID-cursor stream endpoint; requires new streaming/chunked route |
+| 16 | `getDateDistribution?` | B1+C | §2.16 | Phase 1 §2 GET /images/aggregations/date/:field | Redesign response: exact parent coverage separate from buckets with explicit exact/approximate provenance; special-date `startPosition` is not exact |
+| 17 | `fetchPositionIndex?` | D | §2.17 | Phase 1 §6.3 lookupIds (not routed) | Exact paginated ID-cursor stream, capped by Kupua at 65k; special sorts blocked on H clause/order parity |
 | 18 | `getByIds` | D | §2.18 | Phase 1 §6.3 lookupIds (not routed) | lookupIds exists but uses wrong API (`pinned_query`+200 cap); needs new `POST /images/mget` |
 | 19 | `getIdRange` | D | §2.19 | Phase 1 §2 (no range walk) | No cursor-walk-with-overshoot-detection endpoint; new route |
 | 20 | `searchByAi?` | A | §2.20 | Phase 1 §5 KNN/hybrid search | Media-api `GET /images?useAISearch=true` is identical algorithm; client change only |
@@ -469,15 +495,15 @@ countBefore(
 
 Source: Phase 2 §2.12, findings-4 Part 4 (countBefore section).
 
-**Current ES adapter behaviour:** `_count` with a complex range-query that enumerates `should` clauses: for each sort field at position `i`, "fields 0..i-1 are equal to sortValues AND field `i` is strictly before sortValues[i]". Includes null handling for missing primary sort field. ~70 LOC of range-query logic. Source: Phase 2 §2.12, feasibility §Gap3 (count-before position lookup).
+**Current ES adapter behaviour:** `_count` with a complex range-query that enumerates `should` clauses: for each sort field at position `i`, "fields 0..i-1 are equal to sortValues AND field `i` is strictly before sortValues[i]". Includes null handling for missing primary sort field. ~70 LOC of range-query logic. This is exact for scalar fields but not established for special max-of-many dates: ascending `any child < cursor` is not equivalent to `max(child) < cursor`. Source: Phase 2 §2.12, feasibility §Gap3, Obscure sorting finding O12.
 
 **Media-api capability (relevant subset):** No `countBefore` or `count-before` endpoint exists. No range-query count endpoint of any kind. Source: Phase 1 §1 (routes table — no match).
 
-**Classification rationale:** **(B1)** `sortClause: Record<string, unknown>[]` is always `buildSortClause(params.orderBy)` — fully server-derivable from `params.orderBy`. This is Phase 2 §4 leak #5: "the most gratuitous ES leak in the interface." Eliminating it requires no server change — just removing the parameter from the interface and computing it internally in the ES adapter (or server-side). **(D)** After B1, the server needs a new `count-before` endpoint. The range-query logic in `es-adapter.ts:827–895` must be ported to Scala. All required primitives exist in `common-lib/.../filters.scala`.
+**Classification rationale:** **(B1)** `sortClause: Record<string, unknown>[]` is always `buildSortClause(params.orderBy)` — fully server-derivable from `params.orderBy`. This is Phase 2 §4 leak #5: "the most gratuitous ES leak in the interface." Eliminating it requires no server change. **(D)** The server still needs a `count-before` endpoint, but only scalar/null-zone behavior may be ported directly. Special max-date rank is blocked on Slice I: implement exact selected-max predicates with measured cost, use materialized scalars, or return an explicit unsupported result.
 
 **Action:**
 - **(B1 — eliminate `sortClause`):** Remove `sortClause` from the `countBefore` signature. Update all 8 call sites in `search-store.ts` to remove the `buildSortClause(params.orderBy)` argument — it was always computed there immediately before the call. The ES adapter computes `buildSortClause(params.orderBy)` internally. Independent value: Yes — eliminates a prominent ES leak and simplifies 8 call sites.
-- **(D — new count-before endpoint):** New `POST /images/count-before` accepting `{q, filters, orderBy, sortValues}` and returning `{count: int}`. The server builds the should-chain from `sortValues` and the sort clause derived from `orderBy`. Size estimate: **M** (medium). The logic is non-trivial (~70 LOC of range-query construction) but all primitives are available in `common-lib`.
+- **(D — new count-before endpoint):** New `POST /images/count-before` accepting `{q, filters, orderBy, sortValues}` and returning an exact count or an explicit unsupported-special-sort result. The server builds the scalar should-chain from the canonical sort. Size estimate remains **M** for scalar support; special-date support is unestimated until Slice I resolves exactness.
 
 **Pagination/cursor implication:** `countBefore` implements "find position of document in result set" — the seek-and-land mechanism. Without it, sort-around-focus, deep seek, and restore-position all break.
 
@@ -505,15 +531,15 @@ estimateSortValue(
 
 Source: Phase 2 §2.13, findings-4 Part 4.
 
-**Current ES adapter behaviour:** `size:0` search with `percentilesAggregation` (tdigest, compression=200) on `params.field`. Returns the estimated epoch-millisecond value at the requested percentile, or `null` on abort/absence. Source: Phase 2 §2.13.
+**Current ES adapter behaviour:** `size:0` search with `percentilesAggregation` (tdigest, compression=200) on the explicit field. Returns the estimated epoch-millisecond value at the requested percentile, or `null` on abort/absence. For special dates this is a percentile of every child/object date, not of each parent's selected maximum; it is only a coarse anchor. Source: Phase 2 §2.13 and Obscure sorting finding O5.
 
 **Media-api capability (relevant subset):** No percentile-aggregation endpoint exists. Source: Phase 1 §1 (no matching route). The `AggregationController` only has `dateHistogram`. Source: Phase 1 §2 GET /images/aggregations/date/:field.
 
-**Classification rationale:** **(B1)** `field: string` is always the primary sort field derivable from `params.orderBy` via `parseSortField(buildSortClause(orderBy)[0])`. Both call sites pass exactly this. Phase 2 §2.13 flags this. Eliminating `field` is a pure client refactor — the server can derive it from `orderBy`. **(D)** After B1, a new percentile endpoint is needed. All ES primitives exist (elastic4s `percentilesAggregation`).
+**Classification rationale:** A new percentile endpoint is still needed, but `field` must remain explicit: null-zone seek estimates `uploadTime`, and keyword-bucket refinement supplies an explicit scope. For special dates, the response contract must label the value approximate rather than implying a parent-rank percentile. All ES primitives exist (elastic4s `percentilesAggregation`).
 
 **Action:**
-- **(B1 — eliminate `field`):** Remove `field` from the `estimateSortValue` signature; compute it internally from `params.orderBy` in both the ES adapter and any future server-side handler. Both call sites use exactly `parseSortField(buildSortClause(params.orderBy)[0])`. Independent value: Yes — removes an ES field-path from the public interface.
-- **(D — new percentile endpoint):** New `POST /images/sort-percentile` accepting `{q, filters, orderBy, percentile}` and returning `{value: number | null}`. Server derives the sort field from `orderBy`, fires `percentilesAggregation` with tdigest compression=200. Size estimate: **S** (small). ~30 LOC in the controller + ~20 LOC in `ElasticSearch.scala`. Feasibility §Gap4 confirms no hard blockers.
+- **(B1 correction — retain explicit field/scope):** Keep the explicit aggregation field and optional exact scope. Validate allowed fields server-side rather than deriving every request from `orderBy`.
+- **(D — new percentile endpoint):** New `POST /images/sort-percentile` accepting `{q, filters, field, percentile, scope?}` and returning `{value: number | null, exactness: "scalar" | "child-value-approximate"}`. Scalar and null-zone `uploadTime` values use `scalar`; special max-date fields use `child-value-approximate` until materialized scalars exist.
 
 **Pagination/cursor implication:** `estimateSortValue` is the coarse-seek anchor for result sets > ~10k docs. Without it, deep seek falls back to capped offset-based navigation.
 
@@ -594,7 +620,7 @@ Source: Phase 2 §2.15, findings-4 Part 4.
 
 ### `getDateDistribution?` — bucket B1+C
 
-**Abstract need (restated):** Fetch a histogram of document counts over time for a date sort field with adaptive bucket granularity and cumulative position indices. A variant restricted to null-zone documents enables accurate scrubber positioning when the primary sort field has nulls.
+**Abstract need (restated):** Fetch an exact populated-parent count plus date evidence for scrubber labels. Scalar date fields and null-zone `uploadTime` can return exact cumulative rank buckets. Multi-valued special dates can return only approximate child-date buckets unless materialized latest-date scalars exist.
 
 **Method signature:**
 ```typescript
@@ -617,11 +643,11 @@ Source: Phase 2 §2.16, findings-4 Part 5 Note 5.
 
 **Media-api capability (relevant subset):** `GET /images/aggregations/date/:field` — monthly date histogram on a requested field, filtered by optional `q`. It uses `calendarInterval(Month)` hardcoded with no direction, no adaptive granularity, no `startPosition`, and no null-zone support. Source: Phase 1 §2 GET /images/aggregations/date/:field, Phase 1 §4.
 
-**Classification rationale:** The endpoint exists but is missing several features. **(B1)** `extraFilter: Record<string, unknown>` is the Phase 2 §4 leak #7: always `{bool:{must_not:{exists:{field:primaryField}}}}` where `primaryField` is derivable from `params.orderBy`. Replace with `missingField?: string`. Also `field` and `direction` are derivable from `params.orderBy` (B1 cleanup). **(C)** The existing `GET /images/aggregations/date/:field` endpoint needs additive extensions: `direction` param, `adaptive` flag, `startPosition` in buckets, `missingField` param. These are all additive — no breaking changes. Feasibility §Gap7 confirms this is Easy, model-solo.
+**Classification rationale:** The endpoint exists but its original additive-extension contract is unsafe for special dates. `extraFilter` should still become semantic `missingField`, but the response must separate exact root-parent `coveredCount` from bucket evidence and include exactness provenance. `startPosition` is exact only for scalar dates/null-zone `uploadTime`; special child-date buckets must not claim parent ranks. This is a contract redesign, not a trivial additive extension.
 
 **Action:**
 - **(B1 — eliminate `extraFilter`):** Change `extraFilter?: Record<string, unknown>` to `missingField?: string` in the interface. The ES adapter derives the `must_not:exists` filter internally. Also eliminate `field` and `direction` (derivable from `params.orderBy`). Independent value: Yes — eliminates the `extraFilter` ES injection surface.
-- **(C — trivial server extension):** Extend `GET /images/aggregations/date/:field` with: `direction` (asc|desc), `adaptive` (bool — triggers stats+histogram instead of fixed monthly), `missingField` (string — adds `must_not:exists` to the base query), and `startPosition` in `BucketResult`. All additions are additive; existing callers (Kahuna doesn't use this endpoint) are unaffected. Feasibility §Gap7 estimates ~50 LOC.
+- **(C — redesigned server extension):** Extend or replace the route with `direction`, adaptive interval and semantic `missingField`, returning exact root-parent coverage separately from `{buckets, exactness}`. Emit exact `startPosition` only when `exactness:"parent-rank"`; special child-date buckets use explicit approximate provenance and no exact-rank claim. Materialized latest-date fields may later restore the conventional exact response.
 
 **Pagination/cursor implication:** Optional method (`?`). Graceful absence: scrubber shows position numbers only. `missingField` variant absence means null-zone scrubber ticks are inaccurate on non-upload-time sorts.
 
@@ -650,9 +676,9 @@ Source: Phase 2 §2.17, findings-4 Part 4.
 
 **Media-api capability (relevant subset):** `ElasticSearch.lookupIds` (Phase 1 §6.3) exists internally but is not wired to any route, uses `pinned_query`, and has the 200-ID cap. It is not applicable here. There is no streaming or chunked ID-cursor export endpoint. Source: Phase 1 §6.3.
 
-**Classification rationale:** Genuine new capability. The full-position-map need (all IDs + cursors, no content, chunked, two-phase null-zone) does not map to any existing or easily-extended endpoint. The result set can be 100k+ documents — response sizing is a real concern. Phase 2 §6.2 flags the >500k-image response size issue. Feasibility §Gap8 rates this Hard/Mixed.
+**Classification rationale:** Genuine new capability. The full-position-map need (all IDs + cursors, no content, chunked, two-phase null-zone) does not map to any existing or easily-extended endpoint. Kupua currently builds maps only up to 65,000 results; larger sets use deep seek. Response sizing still matters, but the original 100k+/500k premise is stale. Special sorts require Slice H parity: preserve full `mode:max`/nested/missing clauses and prove exact identity order against ordinary search.
 
-**Action (D):** New endpoint or paginated protocol. Capability gap description: "Return the ordered list of `(id, sortValues)` pairs for the full result set, without image document content, in a paginated/streaming fashion that kupua can chunk and assemble." Closest existing thing: Phase 1 §6.3 `lookupIds` — exists internally, not routed, wrong API (`pinned_query`, 200-ID cap, returns full source). Size estimate: **L** (large). Requires: new route, `_source:false` multi-page loop on the server, two-phase null-zone detection, either streaming response or client-driven pagination. The null-zone correctness requirement (phase-switch detection) is the key complexity multiplier — see feasibility §Gap8 risks for the Scala porting challenge.
+**Action (D):** New endpoint or paginated protocol. Return ordered `(id, sortValues)` pairs without image content for result sets up to the client cap, using the canonical resolved sort and two-phase null-zone handling. For special sorts, do not build until Slice H proves direct-ES parity; the server acceptance test must compare the complete identity order with ordinary `search_after` in both directions.
 
 **Pagination/cursor implication:** This method IS a position-map builder that internally uses cursor pagination. It depends on PIT (Gap 2) and the cursor-pagination infrastructure (Gap 1 / `searchAfter`) being available server-side.
 
@@ -887,7 +913,7 @@ The four confirmed fusions from b2-hunt-findings.md §1 (F1–F4), restated inli
 |---|-----------|---------------------|-------------------------------------------|
 | C1 | New `POST /images/aggregations`: multi-field terms aggs + full SearchParams | `getAggregations` | No internal capability — but `aggregateSearch` private method (~30 LOC) is the model |
 | C2 | Extend `POST /images/aggregations` with `isFilters: string[]` (named IS-filter counts) | `getFilterAggregations` | Phase 1 §3 `is:` registry in `IsQueryFilter.scala` — all named filters already handled |
-| C3 | Extend `GET /images/aggregations/date/:field` with `direction`, `adaptive`, `startPosition`, `missingField` | `getDateDistribution?` | No internal capability — existing endpoint extended additively |
+| C3 | Redesign date distribution with exact parent coverage plus bucket exactness provenance | `getDateDistribution?` | Existing histogram route is a base, but special-date `startPosition` is not exact |
 | C4 | Gap 10: transparent null-zone detection on new `POST /images/search-after` endpoint | `searchAfter` (B+E1 groups after B1 refactor) | `filters.missing` in `common-lib/.../filters.scala:40` is the relevant primitive |
 
 C4 is noted here because it is a C-sized addition to the D-sized `searchAfter` endpoint: the null-zone detection logic is ~70 LOC but reuses existing ES primitives and is part of the same `search-after` route implementation rather than a new route.
@@ -903,10 +929,10 @@ Sorted by size descending.
 
 | # | New capability | Size (S/M/L) | DAL methods served | Phase 1 closest existing thing |
 |---|----------------|--------------|--------------------|---------------------------------|
-| D1 | `fetchPositionIndex?` — paginated ID+cursor stream, no content, two-phase null-zone | **L** | `fetchPositionIndex?` | Phase 1 §6.3 `lookupIds` (not routed, wrong API, 200-ID cap) |
+| D1 | `fetchPositionIndex?` — paginated ID+cursor stream, no content, two-phase null-zone; special sorts gated on H parity | **L** | `fetchPositionIndex?` | Phase 1 §6.3 `lookupIds` (not routed, wrong API, 200-ID cap) |
 | D2 | `getIdRange` — cursor range walk with overshoot detection + null-zone crossing | **L** | `getIdRange` | None. Range-walk logic entirely absent. |
 | D3 | `searchAfter` — cursor pagination endpoint with PIT binding, reverse sort, null-zone detection | **M** | `searchAfter`, `search` (via F3) | Phase 1 §2 `GET /images` (query+filter infrastructure exists; cursor param and PIT binding absent) |
-| D4 | `countBefore` — position count via range-query should-chain | **M** | `countBefore`, `count` (indirectly via F2) | None. `_count` exists; the multi-field should-chain construction does not. |
+| D4 | `countBefore` — exact position count; special sorts gated on I | **M+unknown special** | `countBefore`, `count` (indirectly via F2) | None. Scalar should-chain exists client-side; selected-max rank is unresolved. |
 | D5 | `findKeywordSortValue?` — composite agg walk with early exit | **M** | `findKeywordSortValue?` | None. Composite agg infrastructure exists in elastic4s; no walk endpoint. |
 | D6 | `getKeywordDistribution?` — full composite agg distribution with startPosition | **M** | `getKeywordDistribution?` | None. Same infrastructure as D5 but different walk pattern. |
 | D7 | `countWithTickers` — size=0 count+ticker-aggs endpoint | **S** | `countWithTickers`, `count` (via F2) | Phase 1 §4 ticker aggs always-on in `GET /images extraCounts` — same aggs, just needs a count-only route |
@@ -925,12 +951,12 @@ The original plan numbered gaps 1–18 (with skips). For each:
 |---|---|---|
 | **Gap 1** — `searchAfter` cursor pagination | **✅ DONE — D3** (`49cae4bb7` + `b52d027da`) | Core pagination gap. B1 client refactor removed `sortOverride`/`extraFilter` first; shipped under Option B. |
 | **Gap 2** — PIT (openPit/closePit) | **CONFIRMED D8** (D) — still needed | Absolutely absent. Phase 1 §6.7 confirms no PIT code anywhere. |
-| **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — still needed | B1 removes `sortClause` param first (pure client refactor, independent value). |
-| **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. |
-| **Gap 5** — `findKeywordSortValue` (composite walk) | **CONFIRMED D5** (D/M) — still needed | B1 removes `field`+`direction` params first. Still needs new endpoint. |
-| **Gap 6** — `getKeywordDistribution` (full composite) | **CONFIRMED D6** (D/M) — still needed | B1 removes `field`+`direction`. Still needs new endpoint. |
-| **Gap 7** — `getDateDistribution` improvements | **CONFIRMED C3** (C) — trivial extension | Existing route needs `direction`, `adaptive`, `startPosition`, `missingField`. B1 removes `extraFilter` from client. |
-| **Gap 8** — `fetchPositionIndex` (full position map) | **CONFIRMED D1** (D/L) — still needed | No existing capability. Largest single D item. |
+| **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — scalar support still needed; special support blocked on I | Do not port the current child-value approximation as an exact max-date contract. |
+| **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. **⚠️ DO NOT build to the §2 contract — `field` must stay explicit, not derived from `orderBy` (null-zone seek already passes a non-sort field today). Also missing from the §5 D-catalogue. See `scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` §5.** **✅ CONFIRMED (2026-08-29):** the client-side `scope` param (compiled to a `term` filter, never spliced into query text) is now implemented, unit-tested, and proven on live TEST (workplan §9 Phase 4) — scoping `estimateSortValue` to a bucket's keyword value is the mechanism that made keyword-sort deep seek fast and accurate. `scope: [{ field, value }]` is no longer speculative; it's the shape the client already depends on. |
+| **Gap 5** — `findKeywordSortValue` (composite walk) | **CONFIRMED D5** (D/M) — still needed | B1 removes `field`+`direction` params first. Still needs new endpoint. **⚠️ VALUE IN DOUBT (2026-08-28): PROD `metadata.credit` has 310,185 distinct values and `metadata.source` 63,776 — the composite walk needs ~16 pages to reach mid-corpus and hits its 8s cap. Enumeration does not scale on PROD; an oracle-driven approach over D4 (`count-before`) may replace this entirely. Do not build before reading `scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` correction banner.** **✅ Demotion confirmed empirically (2026-08-29):** live TEST re-run (workplan §9 Phase 4) shows this composite walk no longer fires at all for TEST-scale keyword sorts (~10k distinct values) — the cached-distribution fast path (Gap 6 + Gap 4) now handles every case. Confirmed fallback-only for cardinalities the distribution cache doesn't cover, not the default path. |
+| **Gap 6** — `getKeywordDistribution` (full composite) | **CONFIRMED D6** (D/M) — still needed | B1 removes `field`+`direction`. Still needs new endpoint. **⚠️ SAME PROD-SCALE CAVEAT AS GAP 5 (2026-08-28). The 50k page cap means this endpoint returns a silently truncated map for PROD `credit`/`source`, and truncation is alphabetical — it can drop the largest buckets. It must return a truncation flag; a truncated `coveredCount` also breaks null-zone detection client-side. See the 4.1 keyword-sorts workplan correction banner. Note D4 (`count-before`) rises in priority relative to D5/D6.** **✅ Confirmed as the primary path (2026-08-29):** live TEST re-run (workplan §9 Phase 4) confirms the client now reads `buckets` (not just `coveredCount`) from this response to find the exact bucket for a seek target — an accurate, complete distribution is what makes the fast path possible. The truncation-flag requirement is unchanged and still unvalidated at PROD scale: TEST's distribution (10,251 credits) is far under the 50k cap, so this run confirms the *fast path*, not the *truncation flag's necessity* — that remains open. |
+| **Gap 7** — `getDateDistribution` improvements | **CONFIRMED C3 redesign** — still needed | Exact parent coverage and bucket provenance required; special-date rank buckets are approximate without materialized scalars. |
+| **Gap 8** — `fetchPositionIndex` (full position map) | **CONFIRMED D1** (D/L) — special sorts blocked on H | No existing capability; exact canonical-order parity required up to Kupua's 65k map cap. |
 | **Gap 9** — Reverse sort / `missingFirst` | **CONFIRMED** — baked into D3 | `reverse` and `seekToEnd` (renamed from `missingFirst`) are params on the Gap 1 / D3 endpoint. Not a standalone gap. |
 | **Gap 10** — Two-phase null-zone seek | **CONFIRMED** — baked into D3 as C4 | Transparent server behaviour on the D3 endpoint. ~70 LOC addition, not a standalone route. |
 | **Gap 11** — `_source` response field filtering | **REMOVED** — not a real gap for kupua | No kupua DAL method requests partial fields from the server. `getIdRange` uses `noSource` internally — this is eliminated by B1 (Gap 13 server side handles it). The `_source` filtering in Gap 11 was a bandwidth concern; for cursor pagination the hits endpoint returns full images. |
@@ -960,7 +986,7 @@ The original plan numbered gaps 1–18 (with skips). For each:
 
 6. **D1 (`fetchPositionIndex?`) and D2 (`getIdRange`) share implementation infrastructure.** Both require: `search_after` loop, `_source:false`, two-phase null-zone detection, cursor extraction from sort values. D3 (the `searchAfter` endpoint) must exist before either D1 or D2 can be implemented on the server. The dependency chain is: D8 → D3 → D1, D2.
 
-7. **`getDateDistribution?` (C3) is a trivial extension of an existing route — the easiest C item.** The existing `GET /images/aggregations/date/:field` already does 90% of the work. Adding `direction`, `adaptive`, `startPosition`, and `missingField` is ~50 LOC in the controller + aggregation layer. This could be the first C item implemented.
+7. **`getDateDistribution?` (C3) requires a response-contract redesign before implementation.** The existing route can supply histogram mechanics, but special max-date sorts need exact root-parent coverage separated from approximate child-date buckets. Do not emit exact `startPosition` for those buckets unless materialized latest-date fields exist.
 
 8. **`getAggregation` corpus-wide scope must not be conflated with `getAggregations` search-context scope.** Both return terms aggs, but `getAggregation` uses `match_all: {}` (no filter), while `getAggregations` uses `buildQuery(params)`. The server endpoints are different (`GET /images/metadata/:field` vs new `POST /images/aggregations`). Any attempt to unify them would regress typeahead quality (b2-hunt Cluster 1 confirmed this). This routing split also happens to keep all of kupua's non-bare-metadata aggregation traffic off Kahuna's shared `GET /images/metadata/:field` route — relevant if CQL grammar work (e.g. OR support) is ever scoped kupua-only.
 
@@ -984,7 +1010,7 @@ The original plan numbered gaps 1–18 (with skips). For each:
 
 3. **elastic4s PIT API surface.** Feasibility §Gap2 notes the PIT API surface in `nl.gn0s1s/elastic4s-core:8.18.2` was not verified from source. If `createPitRequest`/`deletePitRequest` are absent from the jar, D8 requires either a raw ES HTTP call or a library upgrade. *Resolution:* A quick grep of the elastic4s jar or build.sbt dependency tree resolves this before D8 is started. *Provisional bucket:* D — confirmed; this is a hard prerequisite check, not a bucket question.
 
-4. **`getDateDistribution?` two-request cost (acceptable/uncertain).** The method makes 2 ES requests (stats + histogram). Phase 2 §2.16 notes this; the server extension (C3) may want to combine them or accept the 2-request cost. *Resolution:* Accept 2 requests for now; revisit if latency is a concern in profiling. *Provisional bucket:* C — confirmed.
+4. **`getDateDistribution?` correctness precedes its two-request cost.** Stats + histogram cost remains a profiling question, but C3 must first separate exact parent coverage from approximate special-date buckets. *Resolution:* redesign the response before optimizing request count.
 
 5. **E1 null-prefixed cursor change (low regression risk but needs E2E validation).** Changing `search-store.ts:2950` to prepend `null` to the cursor (findings-4 Note 2 Option A) is a behavioral change to the deep null-zone seek path. While the logic is mechanical and correct, this code path is exercised in Playwright E2E tests. *Resolution:* Run `npm --prefix kupua run test:e2e` after the B1 refactor. Per AGENTS test directive table: E2E is mandatory after any change touching scroll/focus behaviour.
 
@@ -998,9 +1024,9 @@ The original plan numbered gaps 1–18 (with skips). For each:
 4. `openPit`/`closePit` asymmetry (openPit uses `esRequest`; closePit uses `esRequestRaw`) is a latent bug risk in the ES adapter — noted in b2-hunt §7.12.
 5. `hybridSearch` in media-api makes two sequential ES requests (max BM25 score probe + hybrid query) — doubles ES load per uncached AI query; relevant if AI search adoption grows.
 6. Phase 1 §6.2: `GET /images/edits/:field` silently ignores the `field` path param (always aggregates on `labels`) — a silent API contract violation unrelated to kupua but worth flagging to the media-api team.
-7. `fetchPositionIndex?` gap (D1) will produce a large payload for the Guardian's 3M+ image corpus — server-side streaming or client-driven pagination protocol needs a deliberate design choice in the workplan session.
+7. `fetchPositionIndex?` gap (D1) is capped by Kupua at 65,000 results, not the full multi-million corpus; it still needs paginated transport and exact H parity.
 8. `getIdRange` (D2) and `fetchPositionIndex?` (D1) share enough null-zone detection infrastructure that they should ideally share a Scala library function — coupling their implementation is a refactor opportunity.
-9. `countBefore` (D4) range-query performance on a 3M-doc index may be slow for complex multi-field sorts — no mitigation at the API level; a caching strategy may be needed.
+9. `countBefore` (D4) has a correctness gate before its performance gate: ascending max-of-many special dates are not expressed exactly by the current child-value ranges. Slice I must choose exact predicates, materialized scalars, or explicit unsupported behavior before Scala implementation.
 10. The `searchByAi?` filter-bypass issue (Phase 1 §6.1) should be filed as a tracked issue in the media-api backlog — it's a quiet feature degradation when filters are combined with AI search.
 11. `SortValues = (string | number | null)[]` should be branded to prevent accidental construction — noted in Phase 2 §7.1.
 12. The `dateAddedToCollection` sort order (Phase 2 §3.3) is only meaningful with a collection filter active — the new `searchAfter` endpoint should document this constraint explicitly.

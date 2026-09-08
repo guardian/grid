@@ -878,3 +878,12 @@ the supported null phase in memory by replacing only its primary slot with
 malformed POST bodies can then report only status and error key to prove stable
 400/422 handling. This exercised the real controller and ES path without writing
 any live identity or metadata value to disk.
+
+**[V] Verify shallow media-api seeks against exact rank, not only buffer
+shape.** D3 originally parsed `offset` but never applied it. A cursorless shallow
+seek therefore returned a perfectly contiguous page-one buffer while the store
+labelled it with the requested deep `bufferOffset`; ordinary duplicate/order
+checks looked healthy. The discriminating check is
+`countBefore(startCursor) === bufferOffset` under the same frozen `until`
+context. The fix keeps plain cursorless non-zero-offset calls on direct ES and
+makes D3 reject offset; cursor, PIT, reverse and End calls remain D3-backed.

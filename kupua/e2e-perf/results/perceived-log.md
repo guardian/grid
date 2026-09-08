@@ -959,3 +959,83 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | PP10 | position-map | — | — | — | 2677 | — |
 | PP6b | density-swap | — | — | — | 316 | — |
 | PP6c | density-swap | — | — | — | 273 | — |
+
+---
+
+## [short] Before 2ndary sort removal (99555be12 (dirty), 2026-09-07)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 392 | 392 | — |
+| PP2 | sort-no-focus | 65 | — | 269 | 269 | — |
+| PP3 | sort-around-focus | 66 | 324 | 693 | 693 | 350 |
+| PP4 | sort-around-focus | 67 | 296 | 674 | 674 | 378 |
+| PP5 | filter-toggle | 62 | 414 | — | 740 | 317 |
+| PP6 | density-swap | — | — | — | 239 | — |
+| PP7 | scrubber-seek | 1 | — | 910 | 910 | — |
+| PP7b | scrubber-seek | 1 | — | 782 | 782 | — |
+| PP7c | scrubber-scroll | — | — | — | 142 | — |
+| PP8 | search | 0 | 292 | 1005 | 1005 | 713 |
+| PP9 | search | 0 | — | 279 | 279 | — |
+| PP10 | position-map | — | — | — | 2897 | — |
+| PP6b | density-swap | — | — | — | 348 | — |
+| PP6c | density-swap | — | — | — | 282 | — |
+
+---
+
+## [long] Before 2ndary sort removal (99555be12 (dirty), 2026-09-07)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 279 | 279 | — |
+| JA2 | open-detail | — | — | — | 139 | — |
+| JA3 | metadata-click | 56 | 573 | 964 | 964 | 452 |
+| JB1 | search | 0 | — | 345 | 346 | — |
+| JB2 | facet-click | 69 | — | 345 | 345 | — |
+| JB3 | facet-click | 60 | — | 405 | 405 | — |
+| JB4 | scrubber-scroll | — | — | — | 26 | — |
+| JB5 | fullscreen-exit | — | — | — | 62 | — |
+
+---
+
+## [short] After 2ndary sort removal (ec0adfbf9 (dirty), 2026-09-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Test | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| PP1 | home-logo | 1 | — | 327 | 327 | — |
+| PP2 | sort-no-focus | 67 | — | 301 | 301 | — |
+| PP3 | sort-around-focus | 67 | 291 | 637 | 637 | 346 |
+| PP4 | sort-around-focus | 65 | 287 | 642 | 642 | 360 |
+| PP5 | filter-toggle | 65 | 354 | — | 625 | 241 |
+| PP6 | density-swap | — | — | — | 172 | — |
+| PP7 | scrubber-seek | 1 | — | 755 | 755 | — |
+| PP7b | scrubber-seek | 1 | — | 743 | 743 | — |
+| PP7c | scrubber-scroll | — | — | — | 111 | — |
+| PP8 | search | 0 | 237 | 771 | 771 | 537 |
+| PP9 | search | 0 | — | 257 | 257 | — |
+| PP10 | position-map | — | — | — | 2740 | — |
+| PP6b | density-swap | — | — | — | 305 | — |
+| PP6c | density-swap | — | — | — | 248 | — |
+
+---
+
+## [long] After 2ndary sort removal (ec0adfbf9 (dirty), 2026-09-08)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
+
+| Step | Action | Ack (ms) | Status (ms) | First pixel (ms) | Settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|
+| JA1 | search | 0 | — | 347 | 347 | — |
+| JA2 | open-detail | — | — | — | 144 | — |
+| JA3 | metadata-click | 59 | 521 | 925 | 925 | 404 |
+| JB1 | search | 0 | — | 344 | 344 | — |
+| JB2 | facet-click | 67 | 745 | 1486 | 1486 | 1026 |
+| JB3 | facet-click | 62 | 381 | 1347 | 1347 | 771 |
+| JB4 | scrubber-scroll | — | — | — | 27 | — |
+| JB5 | fullscreen-exit | — | — | — | 57 | — |

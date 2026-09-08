@@ -1,8 +1,18 @@
 # Phase 3 — D7 + D8 + D9: searchAfter companions — Workplan
 
-**Status:** READY TO IMPLEMENT. Three small, independent media-api endpoints, built in one
-oversight session as **three separate Scala commits** (one per gap) for clean per-gap PR
-extraction. Each reuses the POST plumbing D3 already shipped.
+> **D9 review amendment — 7 September 2026:** D7 and D8 remain ready on their
+> documented contracts. Before implementing D9, perform a focused plan review;
+> do not treat its current section as ready. Resolve three material issues:
+> (1) apply `isVisibleToAccessor` and omit unauthorized images exactly like
+> missing IDs; (2) align client chunking and server per-request limits because
+> the proposed Strangler override bypasses ES-adapter chunking; (3) choose a
+> coherent enrichment-write boundary instead of simultaneously requiring
+> commit-to-view writes and adapter-side `upsertEnrichment`. The review must also
+> retain the special-date projection regression added below.
+
+**Status:** D7 and D8 READY TO IMPLEMENT. D9 REQUIRES FOCUSED REVIEW. Build as
+three separate Scala commits (one per gap) for clean per-gap PR extraction. Each
+reuses the POST plumbing D3 already shipped.
 
 **The three gaps** (from `phase-3-minimal-gap-derivation-findings.md` §5):
 
@@ -12,19 +22,19 @@ extraction. Each reuses the POST plumbing D3 already shipped.
 | **D8** | PIT lifecycle — open/close a point-in-time snapshot | S | `openPit`, `closePit` |
 | **D9** | `mget` — multi-doc fetch by ID, no 200-cap | S | `getByIds`, `getById` (degenerate) |
 
-**Why batched:** all three are S-sized, mutually independent (no ordering dependency among
-them), and reuse the same D3 controller plumbing (`auth.async(parse.json)`, the route-ordering
-rule, the StranglerAdapter override pattern). Doing them together amortises the cost of
-re-reading `MediaApi.scala` / `ElasticSearch.scala` / `conf/routes`.
+**Why originally batched:** all three are S-sized, mutually independent (no ordering dependency
+among them), and reuse the same D3 controller plumbing (`auth.async(parse.json)`, the route-
+ordering rule, the StranglerAdapter override pattern). D7 and D8 may still share one oversight
+session. D9 must wait for the focused review in the amendment above.
 
 **Why now:** D8 (PIT) is also the consistency dependency for the future L-items D1
 (`fetchPositionIndex`) and D2 (`getIdRange`), so it should land before them. D7 and D9 are
 high-frequency, must-have paths (D7 fires on every new-images poll tick; D9 backs every
 multi-selection load) — they take kupua meaningfully closer to "100% on media-api".
 
-**Build order within the session (suggested):** D7 → D9 → D8. D7 is the simplest (count, no
-image enrichment); D9 reuses the lifted `hitToImageEntity`; D8 is structurally different (infra,
-no `SearchParams`). Order is a convenience only — they don't depend on each other.
+**Build order (revised):** D7 → D8, then D9 only after its focused review. D7 is the simplest
+(count, no image enrichment); D8 is structurally different (infra, no `SearchParams`). D9 remains
+independent but not implementation-ready.
 
 ---
 
@@ -316,18 +326,29 @@ extracted from the body of `resolveSearchAfterHit`** (§0 #3 — resolved). Do *
 `mapImageFrom` (`:478`) directly — it does a raw `validate[Image]` that fails on the partial
 `fileMetadata` the lean projection produces; the strip-before-validate is mandatory. This is
 *not* `lookupIds` (`:166`) — that uses `pinned_query` + the 200 cap and must not be reused.
-Consider a server-side hard cap (e.g. 1000–5000) on `ids.length` with a 422 over it (kupua already
-chunks at 1000).
+The focused review should adopt a 1,000-ID server per-request cap with stable 422 unless it finds
+evidence for a different bounded value.
+
+> **Review required — limit/chunking:** the existing 1,000-ID chunking is inside
+> `ElasticsearchDataSource.getByIds`. Overriding `StranglerAdapter.getByIds`
+> bypasses it. Choose one contract before implementation: preferably the API
+> client issues abort-aware parallel chunks of at most 1,000 IDs and the server
+> rejects larger individual requests with a stable 422. Do not claim “no cap”
+> while also relying on an implicit client cap.
 
 **`MediaApi.mgetImages`:** `auth.async(parse.json)` → parse `{ids}` → `elasticSearch.getByIds`
 → map each via the lifted `hitToImageEntity(request, include)` → respond `{data: [...]}` as
 `ArgoMediaType`. Mirrors `searchAfterImages` minus the cursor/sort machinery.
 
+Before enrichment/response mapping, call `isVisibleToAccessor` for every found
+image. Omit unauthorized images exactly like missing IDs; never reveal whether a
+requested hidden ID exists. Add a mixed visible/hidden Scala regression.
+
 ### Kupua (TypeScript)
 
 | File | Change |
 |------|--------|
-| `grid-api-search-adapter.ts` | New `apiGetByIds(ids)` — POST `{ids}`; map the Argo `data` array → `Image[]` via the existing `mapApiImageToImage`; **populate the overlay** via `upsertEnrichment` for these ids (§0 #4 — recommended default: both `getById` and `getByIds`, pending team sign-off). |
+| `grid-api-search-adapter.ts` | New `apiGetByIds(ids)` — POST abort-aware chunks within the agreed per-request cap; map Argo `data` → `Image[]`. **Review required:** either extend the result contract so callers write enrichment at commit-to-view points, or explicitly approve adapter-side `upsertEnrichment` as a documented D9 exception. Do not implement both ownership models. |
 | `strangler-adapter.ts` | Override `getByIds` → `apiGetByIds`; keep `getById` delegating to `getByIds([id]).then(r => r[0])`. |
 | `vite.config.ts` | Whitelist `POST /api/images/mget`. |
 
@@ -336,14 +357,27 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
 `ImageDetail.tsx:235` (`getById`).
 
 ### Test plan
-- Scala: `getByIds` returns found docs in request order; missing ids absent; >cap → 422 (if
-  capped); enriched fields present (cost/valid/etc. via `imageResponse.create`); lean projection
-  + alias leaves intact (reuse D3's field-alias regression guard pattern).
-- TS: `apiGetByIds` request/response mapping; missing-id handling; `StranglerAdapter` routes
-  `getByIds` and `getById`; (if overlay) enrichment upsert covered.
+- Scala: `getByIds` returns found docs in request order; missing and unauthorized
+  IDs are both absent; a mixed visible/hidden request leaks no existence signal;
+  over-cap input receives stable 422; enriched fields remain present; lean
+  projection and aliases remain intact.
+- Scala/TS projection regression: include one image with multiple
+  `usages.dateAdded` values and multiple `collections.actionData.date` values.
+  Prove the mget response preserves both complete arrays and that Kupua's
+  `extractSortValues` chooses the same maximum date as the canonical `mode:max`
+  sort. This protects range-selection cursor synthesis; D9 does not otherwise
+  own special-sort ordering.
+- TS: `apiGetByIds` chunks requests at the agreed cap with abort propagation;
+  maps missing/hidden IDs safely; `StranglerAdapter` routes `getByIds` and
+  `getById`; cover whichever enrichment ownership model the review selects.
 
 ### Done when
 - [ ] `POST /images/mget` returns enriched images, missing ids absent (curl).
+- [ ] Unauthorized IDs are indistinguishable from missing IDs.
+- [ ] Client chunking and server request cap agree and are tested above the cap.
+- [ ] Enrichment writes have one documented owner.
+- [ ] Multiple usage/collection dates survive projection and synthesize the
+  canonical maximum-date cursor.
 - [ ] `--use-media-api` multi-selection load + session reload (`hydrate`) work; missing-id toast
       still fires; image-detail direct-URL open (`getById`) works.
 - [ ] Detail sidebar + multi-select Cost Summary show server-authoritative cost/validity (overlay

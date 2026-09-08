@@ -9,6 +9,10 @@
 > **Kupua coupling:** `src/lib/field-registry.ts` statically declares `fieldType` and
 > `aggregatable` per field based on the current mapping. When these enhancements ship,
 > the registry must be updated to match (or replaced with dynamic `_mapping` introspection).
+>
+> **Related scalar proposal:** `materialized-scalars-for-lastUsed-lastAddedToCollection.md`
+> records why root latest-date fields would unlock exact and performant special-sort
+> scrubber coordinates, plus TEST/PROD evidence and migration obligations.
 
 ---
 

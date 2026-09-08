@@ -3,7 +3,7 @@
 **Date:** 8 September 2026
 **Prototype commit:** `c697cc148` on `mk-next-next-next`
 **PR:** guardian/grid#4849 (`mk-api-1of9-searchAfter`)
-**Status:** Implemented and validated on the prototype branch; PR-branch harvest pending.
+**Status:** Slice D harvested as `1a0f17842`; final Slice J Scala follow-up pending harvest.
 
 ## Why this amendment exists
 
@@ -80,3 +80,9 @@ branch's conflicts with `main` are resolved. The final D3 production and test fi
 branch must be compared with the prototype branch exactly. Update the GitHub PR description from
 the amended `phase-3-d3-searchafter-scala-pr.md` only after that parity check and focused Scala
 validation on the PR branch. Never push through an agent.
+
+Slice D was transferred with exact stable patch parity after merging current main and resolving
+one import-only conflict. Slice J later added two further D3 corrections: serialize Elasticsearch
+Long missing sentinels as null, and reject unsupported non-zero offset. Those two Scala files need
+the same separate-checkout transfer, focused validation and user-controlled push before the PR is
+again fully current.
