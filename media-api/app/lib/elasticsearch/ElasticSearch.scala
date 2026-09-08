@@ -755,6 +755,8 @@ class ElasticSearch(
                               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] = {
     if (params.sort.isEmpty)
       throw InvalidUriParams("sort must be a non-empty array; cursor pagination needs a deterministic sort")
+    if (params.searchParams.offset != 0)
+      throw InvalidUriParams("offset is unsupported by cursor pagination; use sortValues instead")
 
     val sortFields = params.sort.flatMap(_.fields.map(_._1))
     val duplicateFields = sortFields.groupBy(identity).collect { case (field, occurrences) if occurrences.size > 1 => field }
@@ -887,6 +889,7 @@ class ElasticSearch(
 
   private def sortValueToJsValue(v: AnyRef): JsValue = v match {
     case null                  => JsNull
+    case n: java.lang.Long if n == Long.MinValue || n == Long.MaxValue => JsNull
     case n: java.lang.Long     => JsNumber(BigDecimal(n))
     case n: java.lang.Double   => JsNumber(BigDecimal(n))
     case n: java.lang.Integer  => JsNumber(BigDecimal(n.toLong))

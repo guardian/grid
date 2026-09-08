@@ -1083,6 +1083,36 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       page2.hits.map(_._1).toSet.intersect(page1.hits.map(_._1).toSet) shouldBe empty
     }
 
+    it("special-sort seekToEnd serializes the missing primary cursor as null") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val specialSort = Seq(
+        Json.obj("usages.dateAdded" -> Json.obj(
+          "order"   -> "desc",
+          "mode"    -> "max",
+          "missing" -> "_last",
+          "nested"  -> Json.obj("path" -> "usages"),
+        )),
+        Json.obj("uploadTime" -> "desc"),
+        Json.obj("id"         -> "asc"),
+      )
+
+      val endPage = Await.result(ES.searchAfter(SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = specialSort,
+        sortValues   = None,
+        pitId        = None,
+        reverse      = true,
+        seekToEnd    = true,
+      )), fiveSeconds)
+
+      endPage.hits should not be empty
+      endPage.sortValues.foreach { cursor =>
+        cursor should have length 3
+        cursor.head shouldBe JsNull
+      }
+    }
+
     it("PIT: a two-page cursor walk over a point-in-time snapshot") {
       implicit val logMarker: LogMarker = MarkerMap()
 
@@ -1196,6 +1226,22 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
         ex shouldBe an[InvalidUriParams]
         ex.asInstanceOf[InvalidUriParams].message should include("sort")
+      }
+    }
+
+    it("non-zero offset → Future.failed(InvalidUriParams)") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, offset = 100, length = 3),
+        sort         = sortClause,
+        sortValues   = None,
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("offset")
       }
     }
 
