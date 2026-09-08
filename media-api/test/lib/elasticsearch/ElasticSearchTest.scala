@@ -775,6 +775,70 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     // Mirrors the default kupua sort clause: uploadTime desc, id asc as tiebreaker
     val sortClause = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
 
+    describe("request body parsing") {
+      val searchParams = SearchParams(tier = Internal, length = 3)
+
+      it("accepts a sort array and an omitted first-page cursor") {
+        val body = Json.obj(
+          "sort"      -> sortClause,
+          "reverse"   -> true,
+          "seekToEnd" -> true,
+        )
+
+        SearchAfterParamsBody.fromJson(body, searchParams).toOption shouldBe Some(SearchAfterParams(
+          searchParams = searchParams,
+          sort         = sortClause,
+          sortValues   = None,
+          pitId        = None,
+          reverse      = true,
+          seekToEnd    = true,
+        ))
+      }
+
+      it("accepts populated and leading-null cursors") {
+        val populatedCursor = Seq[JsValue](JsNumber(1700000000000L), JsString("test-image-1"))
+        val nullZoneCursor   = JsNull +: populatedCursor
+
+        Seq(populatedCursor, nullZoneCursor).foreach { cursor =>
+          val parsed = SearchAfterParamsBody.fromJson(
+            Json.obj("sort" -> sortClause, "sortValues" -> cursor),
+            searchParams,
+          )
+
+          parsed.toOption.flatMap(_.sortValues) shouldBe Some(cursor)
+        }
+      }
+
+      it("rejects a present sort value that is not an array of objects") {
+        val parsed = SearchAfterParamsBody.fromJson(
+          Json.obj("sort" -> Json.obj("uploadTime" -> "desc")),
+          searchParams,
+        )
+
+        parsed.left.toOption shouldBe Some("sort must be an array of objects")
+      }
+
+      it("rejects a present sortValues value that is not an array") {
+        val parsed = SearchAfterParamsBody.fromJson(
+          Json.obj("sort" -> sortClause, "sortValues" -> "not-a-cursor"),
+          searchParams,
+        )
+
+        parsed.left.toOption shouldBe Some("sortValues must be an array when present")
+      }
+
+      it("rejects non-scalar sortValues elements") {
+        Seq(Json.obj("unexpected" -> true), Json.arr(1), Json.toJson(true)).foreach { invalidValue =>
+          val parsed = SearchAfterParamsBody.fromJson(
+            Json.obj("sort" -> sortClause, "sortValues" -> Json.arr(1700000000000L, invalidValue)),
+            searchParams,
+          )
+
+          parsed.left.toOption shouldBe Some("sortValues elements must be strings, numbers or null")
+        }
+      }
+    }
+
     it("returns all images and correct total on first page (no cursor)") {
       implicit val logMarker: LogMarker = MarkerMap()
 
@@ -1166,6 +1230,85 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
         ex shouldBe an[InvalidUriParams]
         ex.asInstanceOf[InvalidUriParams].message should include("bogus")
+      }
+    }
+
+    it("residual null after leading-primary reduction → Future.failed(InvalidUriParams)") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort = Seq(
+          Json.obj("missingPrimary" -> "desc"),
+          Json.obj("uploadTime"     -> "desc"),
+          Json.obj("id"             -> "asc"),
+        ),
+        sortValues = Some(Seq(JsNull, JsNull, JsString("test-image-1"))),
+        pitId      = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("null")
+      }
+    }
+
+    it("residual null without leading-primary reduction → Future.failed(InvalidUriParams)") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = sortClause,
+        sortValues   = Some(Seq(JsNumber(1700000000000L), JsNull)),
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("null")
+      }
+    }
+
+    it("duplicate sort fields → Future.failed(InvalidUriParams)") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort = Seq(
+          Json.obj("uploadTime" -> "desc"),
+          Json.obj("uploadTime" -> "asc"),
+          Json.obj("id"         -> "asc"),
+        ),
+        sortValues = None,
+        pitId      = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("duplicate")
+      }
+    }
+
+    Seq("usagesDateAdded", "dateAddedToCollection").foreach { unresolvedAlias =>
+      it(s"unresolved $unresolvedAlias alias → Future.failed(InvalidUriParams), including in reverse") {
+        implicit val logMarker: LogMarker = MarkerMap()
+
+        val params = SearchAfterParams(
+          searchParams = SearchParams(tier = Internal, length = 3),
+          sort = Seq(
+            Json.obj(unresolvedAlias -> "desc"),
+            Json.obj("uploadTime"    -> "desc"),
+            Json.obj("id"            -> "asc"),
+          ),
+          sortValues = None,
+          pitId      = None,
+          reverse    = true,
+        )
+
+        whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message should include("unresolved")
+        }
       }
     }
 

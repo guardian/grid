@@ -756,6 +756,15 @@ class ElasticSearch(
     if (params.sort.isEmpty)
       throw InvalidUriParams("sort must be a non-empty array; cursor pagination needs a deterministic sort")
 
+    val sortFields = params.sort.flatMap(_.fields.map(_._1))
+    val duplicateFields = sortFields.groupBy(identity).collect { case (field, occurrences) if occurrences.size > 1 => field }
+    if (duplicateFields.nonEmpty)
+      throw InvalidUriParams(s"duplicate sort fields are unsupported: ${duplicateFields.toSeq.sorted.mkString(", ")}")
+
+    val unresolvedAliases = sortFields.filter(Set("usagesDateAdded", "dateAddedToCollection"))
+    if (unresolvedAliases.nonEmpty)
+      throw InvalidUriParams(s"unresolved sort aliases are unsupported: ${unresolvedAliases.distinct.sorted.mkString(", ")}")
+
     val rawQuery: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
     val filterOpt: Option[Query] =
       queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
@@ -791,6 +800,8 @@ class ElasticSearch(
     }
 
     effectiveSortValues.foreach { sv =>
+      if (sv.contains(JsNull))
+        throw InvalidUriParams("null sort values are supported only in the leading primary slot")
       if (sv.length != workingSort.length)
         throw InvalidUriParams(
           s"sortValues length ${sv.length} must equal sort clause length ${workingSort.length}")

@@ -16,10 +16,17 @@ class SortsTest extends AnyFunSpec with Matchers {
 
     it("reads the object shape with order, missing and mode") {
       val sort = sorts.jsonToSort(
-        Json.obj("usages.dateAdded" -> Json.obj("order" -> "asc", "missing" -> "_last", "mode" -> "max"))
+        Json.obj("usages.dateAdded" -> Json.obj(
+          "order"   -> "asc",
+          "missing" -> "_last",
+          "mode"    -> "max",
+          "nested"  -> Json.obj("path" -> "usages"),
+        ))
       ).asInstanceOf[FieldSort]
       sort.field shouldBe "usages.dateAdded"
       sort.order shouldBe SortOrder.ASC
+      sort.missing shouldBe Some("_last")
+      sort.nested.flatMap(_.path) shouldBe Some("usages")
     }
 
     it("rejects a sort order that is neither asc nor desc") {
@@ -46,6 +53,36 @@ class SortsTest extends AnyFunSpec with Matchers {
     it("rejects an unrecognised sort mode") {
       a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
         Json.obj("uploadTime" -> Json.obj("order" -> "desc", "mode" -> "bogus"))
+      )
+    }
+
+    it("rejects a non-string missing option") {
+      a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
+        Json.obj("uploadTime" -> Json.obj("order" -> "desc", "missing" -> 1))
+      )
+    }
+
+    it("rejects a non-string mode option") {
+      a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
+        Json.obj("uploadTime" -> Json.obj("order" -> "desc", "mode" -> 1))
+      )
+    }
+
+    it("rejects a nested option without a string path") {
+      a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
+        Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "nested" -> Json.obj("path" -> 1)))
+      )
+    }
+
+    it("rejects a nested option that is not an object") {
+      a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
+        Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "nested" -> "usages"))
+      )
+    }
+
+    it("rejects a nested option without a path") {
+      a[InvalidUriParams] should be thrownBy sorts.jsonToSort(
+        Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "nested" -> Json.obj()))
       )
     }
 
