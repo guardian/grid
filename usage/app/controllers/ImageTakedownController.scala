@@ -50,9 +50,10 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       crops <- gridClient.getCrops(imageId, auth.innerServiceCall)
       cropUrls = crops.flatMap(c => {c.assets.map(a =>a.file)})
     } yield {
-      takedownstore.add(imageId, cropUrls)
-      val takedownRun = new model.TakedownRun(gridClient, auth, takedownstore)
-      takedownRun.run(imageId)
+      val newTakedown = ImageTakedown(imageId, cropUrls)
+      takedownstore.add(newTakedown)
+      val takedownRun = new model.TakedownRun(gridClient, auth, imageServices, takedownstore)
+      takedownRun.run(newTakedown)
       Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
     }
   }

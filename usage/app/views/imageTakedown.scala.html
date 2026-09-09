@@ -67,7 +67,7 @@
 
             @form(routes.ImageTakedownController.imageTakedown(imageId.get)) {
                 @CSRF.formField
-                @if(capiResults.isEmpty) {
+                @if(capiResults.isEmpty && jobStatus.isEmpty) {
                     <button type="submit">Initiate Takedown</button>
                 } else {
                     <button type="submit" disabled title="Content items must be removed from CAPI">Initiate Takedown</button>
@@ -84,12 +84,12 @@
         }
         </main>
 
-        @if(jobStatus.exists(_.status == "In Progress")) {
-            <script>
-                window.setTimeout(function () {
-                    window.location.reload();
-                }, 5000);
-            </script>
-        }
+        <script>
+
+            window.setTimeout(function () {
+                window.location.reload();
+            }, 1000);
+        </script>
+
     </body>
 </html>

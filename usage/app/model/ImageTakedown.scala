@@ -1,10 +1,12 @@
 package model
 
+import cache.{ImageDecacheResult, ImageServices}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
 import org.joda.time.DateTime
 
 import java.net.URI
+import scala.concurrent.Future
 
 
 case class Step(name: String, status: StepStatus)
@@ -39,12 +41,47 @@ case class ImageTakedown(
 
 }
 
-class TakedownRun(gridClient: GridClient, auth: Authentication, takedownStore: TakedownStore)(implicit val ec: scala.concurrent.ExecutionContext) {
-  def run(imageId: String) = {
+object ImageTakedown  {
+  def apply(imageId: String, cropUrls: List[URI]): ImageTakedown = {
+    ImageTakedown(
+      imageId = imageId,
+      requestedBy = "user",
+      requestedAt = DateTime.now(),
+      cropDeletion = Step("Crop Deletion", Pending),
+      usageDeletion = Step("Usage Deletion", Pending),
+      gridDeletion = Step("Grid Deletion", Pending),
+      fastlyPurge = Step("Fastly Purge", Pending),
+      availabilityCheck = Step("Checking Fastly", Pending),
+      urlsToPurge = cropUrls
+    )
+  }
+}
+
+class TakedownRun(gridClient: GridClient, auth: Authentication, imageServices: ImageServices, takedownStore: TakedownStore)(implicit val ec: scala.concurrent.ExecutionContext) {
+  def run(imageTakedown: ImageTakedown) = {
+    val imageId = imageTakedown.imageId
     takedownStore.updateTakedown(imageId, i => i.copy(cropDeletion = i.cropDeletion.copy(status = InProgress)))
     for {
       cropsRes <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
       _ = takedownStore.updateTakedown(imageId, i => i.copy(cropDeletion = if (cropsRes) i.cropDeletion.copy(status = Completed) else i.cropDeletion.copy(status = Failed)))
+      _ = Thread.sleep(2000)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(usageDeletion = i.usageDeletion.copy(status = InProgress)))
+      usagesRes <- gridClient.deleteUsages(imageId, auth.innerServiceCall)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(usageDeletion = if (usagesRes) i.usageDeletion.copy(status = Completed) else i.usageDeletion.copy(status = Failed)))
+      _ = Thread.sleep(2000)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(gridDeletion = i.gridDeletion.copy(status = InProgress)))
+      gridRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(gridDeletion = if (gridRes) i.gridDeletion.copy(status = Completed) else i.gridDeletion.copy(status = Failed)))
+      _ = Thread.sleep(2000)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(fastlyPurge = i.fastlyPurge.copy(status = InProgress)))
+      _  <- Future.sequence(imageTakedown.urlsToPurge.map(c => imageServices.clearFastly(c)))
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(fastlyPurge = i.fastlyPurge.copy(status = Completed)))
+      _ = Thread.sleep(2000)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(availabilityCheck = i.availabilityCheck.copy(status = InProgress)))
+      availabilityResults <- Future.sequence(imageTakedown.urlsToPurge.map(c => imageServices.validateDecache(c)))
+      _ = Thread.sleep(2000)
+      imageDecacheResult = ImageDecacheResult(availabilityResults)
+      _ = takedownStore.updateTakedown(imageId, i => i.copy(availabilityCheck = if(imageDecacheResult.allUrlsCleared) i.availabilityCheck.copy(status = Completed) else i.availabilityCheck.copy(status = Failed)))
     } yield {
       ()
     }
@@ -65,9 +102,8 @@ case class TakedownStore(
     this.takedowns = updatedTakedowns
   }
 
-  def add(imageId: String, cropUrls: List[URI]) = {
-    val newTakedown = ImageTakedown(imageId, "user", DateTime.now(), Step("Crop Deletion",  Pending), Step("Usage Deletion", Pending), Step("Grid Deletion", Pending), Step("Fastly Purge", Pending), Step("Checking Fastly", Pending), cropUrls)
-    this.takedowns = this.takedowns + (imageId -> newTakedown)
+  def add(imageTakedown: ImageTakedown) = {
+    this.takedowns = this.takedowns + (imageTakedown.imageId -> imageTakedown)
   }
 
   def get(imageId: String) = {
