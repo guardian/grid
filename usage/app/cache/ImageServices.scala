@@ -1,12 +1,31 @@
 package cache
 
 import lib.UsageConfig
+import play.api.http.Status.{NOT_FOUND, OK, UNAUTHORIZED}
 import play.api.libs.ws.WSClient
 
 import java.net.URI
+import java.util.UUID
 import scala.concurrent.Future
 
-class ImageServices(config: UsageConfig, WSClient: WSClient) {
+sealed trait DecacheResult
+case object Cleared extends DecacheResult
+case class NotCleared(originUri: URI) extends DecacheResult
+case class UnexpectedResponse(status: Int, originUri: URI) extends DecacheResult
+
+case class ImageDecacheResult(
+    decacheResults: List[DecacheResult]
+    ) {
+
+  val errors = decacheResults.collect({ case UnexpectedResponse(status, originUri) => UnexpectedResponse(status, originUri)})
+  val cleared = decacheResults.collect({ case Cleared => Cleared})
+  val uncleared = decacheResults.collect({ case NotCleared(originUri) => NotCleared(originUri)})
+  val hasErrors = errors.nonEmpty
+  val hasUncleared = uncleared.nonEmpty
+  val allUrlsCleared = cleared.size == decacheResults.size
+}
+
+class ImageServices(config: UsageConfig, WSClient: WSClient)(implicit val ec: scala.concurrent.ExecutionContext) {
 
   // none of the stuff here is a state secret.
   // it is all authenticated
@@ -23,7 +42,6 @@ class ImageServices(config: UsageConfig, WSClient: WSClient) {
   private def fastlyServiceIdsforOrigin(host: String): Seq[String] = Seq(fastlyOriginCdns(host), fastlyIOService)
 
   def clearFastly(originUri: URI): Future[Unit] = {
-    println("Clearing Fastly cache for " + originUri)
     Future.successful(())
 
     //    fastlyServiceIdsforOrigin(originUri.getHost).foreach { serviceId =>
@@ -36,5 +54,13 @@ class ImageServices(config: UsageConfig, WSClient: WSClient) {
     //    }
   }
 
+  def validateDecache(originUri: URI): Future[DecacheResult] = {
+    val cacheBust = UUID.randomUUID()
+    WSClient.url(s"$originUri?cachebust=$cacheBust").get().map(_.status).map {
+      case NOT_FOUND | UNAUTHORIZED => Cleared
+      case OK => NotCleared(originUri)
+      case status => UnexpectedResponse(status, originUri)
+    }
+  }
 
 }

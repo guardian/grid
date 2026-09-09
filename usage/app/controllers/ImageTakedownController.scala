@@ -1,11 +1,11 @@
 package controllers
 
-import cache.ImageServices
+import cache.{ImageDecacheResult, ImageServices}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
-import model.{ContentWithImages, ImageTakedownDummyData}
+import play.api.Logger
 import play.api.mvc.ControllerComponents
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,6 +19,8 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
                              )(
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
+
+  private val takedownLogger = Logger(getClass)
 
     def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
       imageId.map(id => {
@@ -48,6 +50,7 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       } else {
         s"Encountered issues while deleting image"
       }
+      _ = takedownLogger.info(s"Image takedown for $imageId completed: $message")
     } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
   }
 
@@ -57,8 +60,17 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       // TODO include the master image?
       cropUrls = crops.flatMap(c => {c.assets.map(a =>a.file)})
       _ <- Future.sequence(cropUrls.map(c => imageServices.clearFastly(c)))
+      ds <- Future.sequence(cropUrls.map(c => imageServices.validateDecache(c)))
+      cacheResults = ImageDecacheResult(ds)
     } yield {
-      Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> s"Purged from Fastly successfully: ${cropUrls.mkString("\n")}")
+      if(cacheResults.hasErrors) {
+        takedownLogger.error(s"Unexpected responses while decaching image $imageId: ${cacheResults.errors.mkString(", ")}")
+      }
+      if(cacheResults.hasUncleared) {
+        takedownLogger.warn(s"Some crop urls were not cleared while decaching image $imageId: ${cacheResults.uncleared.mkString(", ")}")
+      }
+      val message = if(cacheResults.allUrlsCleared) "Successfully decached all crop urls" else s"There were some issues purging the cache, please try again"
+      Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
     }
   }
 }
