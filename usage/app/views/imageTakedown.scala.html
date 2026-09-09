@@ -4,6 +4,7 @@
 @import com.gu.mediaservice.model.usage.Usage
 @import com.gu.mediaservice.model.ImageStatusRecord
 @import model.ImageTakedown
+@import model.Failed
 @(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage],  softDeleteMetadata: Option[ImageStatusRecord], jobStatus: Option[ImageTakedown])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
@@ -67,7 +68,7 @@
 
             @form(routes.ImageTakedownController.imageTakedown(imageId.get)) {
                 @CSRF.formField
-                @if(capiResults.isEmpty && jobStatus.isEmpty) {
+                @if(capiResults.isEmpty) {
                     <button type="submit">Initiate Takedown</button>
                 } else {
                     <button type="submit" disabled title="Content items must be removed from CAPI">Initiate Takedown</button>
@@ -75,11 +76,59 @@
             }
 
             @for(imageTakedown <- jobStatus) {
-                <p>@{imageTakedown.cropDeletion.name}: @{imageTakedown.cropDeletion.status}</p>
-                <p>@{imageTakedown.usageDeletion.name}: @{imageTakedown.usageDeletion.status}</p>
-                <p>@{imageTakedown.gridDeletion.name}: @{imageTakedown.gridDeletion.status}</p>
-                <p>@{imageTakedown.fastlyPurge.name}: @{imageTakedown.fastlyPurge.status}</p>
-                <p>@{imageTakedown.availabilityCheck.name}: @{imageTakedown.availabilityCheck.status}</p>
+                <table>
+                    <tr>
+                        <td>@{imageTakedown.cropDeletion.name}: @{imageTakedown.cropDeletion.status}</td><td>
+                             @if(imageTakedown.cropDeletion.status == Failed) {
+                                 @form(routes.ImageTakedownController.retry(imageId.get, imageTakedown.cropDeletion.id)) {
+                                     @CSRF.formField
+                                     <button type="submit">Retry</button>
+
+                                 }
+                             }
+
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>@{imageTakedown.usageDeletion.name}: @{imageTakedown.usageDeletion.status} </td>
+                        <td>
+                        @if(imageTakedown.usageDeletion.status == Failed) {
+                            @form(routes.ImageTakedownController.retry(imageId.get, imageTakedown.usageDeletion.id)) {
+                                @CSRF.formField
+                                <button type="submit">Retry</button>
+
+                            }
+                        }
+
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>@{imageTakedown.gridDeletion.name}: @{imageTakedown.gridDeletion.status}</td>
+                        <td>
+                        @if(imageTakedown.gridDeletion.status == Failed) {
+                            @form(routes.ImageTakedownController.retry(imageId.get, imageTakedown.gridDeletion.id)) {
+                                @CSRF.formField
+                                <button type="submit">Retry</button>
+
+                            }
+                        }
+
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>@{imageTakedown.fastlyPurge.name}: @{imageTakedown.fastlyPurge.status}</td>
+                        <td>
+                        @if(imageTakedown.fastlyPurge.status == Failed) {
+                            @form(routes.ImageTakedownController.retry(imageId.get, imageTakedown.fastlyPurge.id)) {
+                                @CSRF.formField
+                                <button type="submit">Retry</button>
+
+                            }
+                        }
+                        </td>
+                    </tr>
+                </table>
+
             }
         }
         </main>

@@ -252,7 +252,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     val authorisedRequest = authFn(request)
     authorisedRequest.delete() map { response =>
       response.status match {
-        case 200 => true
+        case 200 => false
         case _ => false
       }
     }
@@ -267,7 +267,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
       println("response: " + response.status)
       println("response body: " + response.body)
       response.status match {
-        case 202 => true
+        case 202 => false
         case 403 | 404 => false
         case _ => false
       }

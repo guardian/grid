@@ -5,7 +5,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
-import model.{ImageTakedown, Pending, TakedownStore}
+import model.{ImageTakedown, Pending, Step, TakedownStore}
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
@@ -56,6 +56,12 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       takedownRun.run(newTakedown)
       Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
     }
+  }
+
+  def retry(imageId: String, stepId: String) = withLoginRedirect { implicit request =>
+    val takedownRun = new model.TakedownRun(gridClient, auth, imageServices, takedownstore)
+    takedownRun.retry(imageId, stepId)
+    Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
   }
 
   def deleteImageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
