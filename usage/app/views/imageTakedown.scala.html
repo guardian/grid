@@ -3,7 +3,8 @@
 @import com.gu.mediaservice.model.Crop
 @import com.gu.mediaservice.model.usage.Usage
 @import com.gu.mediaservice.model.ImageStatusRecord
-@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage],  softDeleteMetadata: Option[ImageStatusRecord])(implicit request: RequestHeader)
+@import model.ImageTakedown
+@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage],  softDeleteMetadata: Option[ImageStatusRecord], jobStatus: Option[ImageTakedown])(implicit request: RequestHeader)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -22,7 +23,7 @@
 
         @if(imageId.isEmpty) {
             <h2>Query CAPI for Content Using Image</h2>
-            @form(routes.ImageTakedownController.takedownImage) {
+            @form(routes.ImageTakedownController.takedownImagePage) {
                 @CSRF.formField
                 <label for="imageId">Image ID:</label>
                 <input type="text" id="imageId" name="imageId">
@@ -50,10 +51,6 @@
                     }
                 }
             }
-            @form(routes.ImageTakedownController.decache(imageId.get)) {
-                @CSRF.formField
-                <button type="submit">Remove from fastly</button>
-            }
             <p>Found @{crops.size} crops and @{usages.size} usages</p>
             @for(usage <- usages) {
                 <li>@{usage.platform}: @{usage.status}</li>
@@ -67,16 +64,28 @@
             @for(softDeleteMetadata <- softDeleteMetadata) {
                 <p>Image was soft deleted on @{softDeleteMetadata.deleteTime} by @{softDeleteMetadata.deletedBy}</p>
             }
-            @if(softDeleteMetadata.isEmpty) {
-                @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
-                    @CSRF.formField
-                    <button type="submit" disabled>Remove Image from grid</button>
+
+            @form(routes.ImageTakedownController.imageTakedown(imageId.get)) {
+                @CSRF.formField
+                @if(capiResults.isEmpty) {
+                    <button type="submit">Initiate Takedown</button>
+                } else {
+                    <button type="submit" disabled title="Content items must be removed from CAPI">Initiate Takedown</button>
                 }
             }
 
+            @for(imageTakedown <- jobStatus) {
+                <p>Takedown job status: @{imageTakedown.status}</p>
+            }
         }
         </main>
 
-
+        @if(jobStatus.exists(_.status == "In Progress")) {
+            <script>
+                window.setTimeout(function () {
+                    window.location.reload();
+                }, 5000);
+            </script>
+        }
     </body>
 </html>

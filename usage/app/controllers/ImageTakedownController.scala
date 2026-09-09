@@ -5,7 +5,11 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
+import model.ImageTakedown
+import model.Pending
+import org.joda.time.DateTime
 import play.api.Logger
+import play.api.libs.json.Json
 import play.api.mvc.ControllerComponents
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,6 +24,8 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
 
+  var takedowns: Map[String, ImageTakedown] = Map.empty
+
   private val takedownLogger = Logger(getClass)
 
     def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
@@ -30,14 +36,25 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
           usages <- gridClient.getUsages(id, auth.innerServiceCall)
           softDeleteMetadata <- gridClient.getSoftDeletedMetadata(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages, softDeleteMetadata))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages, softDeleteMetadata, takedowns.get(id)))
         }
-      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil, None))))
+      }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil, None, None))))
     }
 
-  def takedownImage = withLoginRedirect { implicit request =>
+  def takedownImagePage = withLoginRedirect { implicit request =>
     val imageId = request.body.asFormUrlEncoded.flatMap(_.get("imageId").flatMap(_.headOption))
     Redirect(controllers.routes.ImageTakedownController.index(imageId)).flashing("success" -> "Image takedown request submitted successfully.")
+  }
+
+  def imageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
+    for {
+      crops <- gridClient.getCrops(imageId, auth.innerServiceCall)
+      cropUrls = crops.flatMap(c => {c.assets.map(a =>a.file)})
+    } yield {
+      val imageTakedown = ImageTakedown(imageId, "user", DateTime.now(), Pending, Pending, Pending, Pending, Pending, cropUrls)
+      takedowns = takedowns + (imageId -> imageTakedown)
+      Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
+    }
   }
 
   def deleteImageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
