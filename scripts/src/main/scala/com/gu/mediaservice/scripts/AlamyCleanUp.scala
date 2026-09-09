@@ -15,9 +15,21 @@ object AlamyCleanUp extends App {
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
-  val supplierRefs = if(STAGE == "PROD") {
-    val resource = Source.fromResource("alamy-refs.csv")
-    resource.getLines().drop(1).map(_.takeWhile(_ != ',')).toList
+  val supplierRefs = if (STAGE == "PROD") {
+    val csvPath = args.headOption.getOrElse {
+      throw new IllegalArgumentException("Usage: AlamyCleanUp <csv-file>")
+    }
+    val source = Source.fromFile(csvPath)
+    try {
+      source
+        .getLines()
+        .drop(1)
+        .map(_.takeWhile(_ != ',').trim)
+        .filter(_.nonEmpty)
+        .toList
+    } finally {
+      source.close()
+    }
   } else {
     List("2BW0WK7", "AA63AP", "F208HC", "D9CNPG")
   }
