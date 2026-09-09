@@ -31,6 +31,7 @@ import {notifications} from './notifications/notifications';
 
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
+import {deleteImageV2} from './components/gr-delete-image-v2/gr-delete-image-v2';
 
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
@@ -87,7 +88,8 @@ var kahuna = angular.module('kahuna', [
     // directives used throughout
     imageFade.name,
     icon.name,
-    tooltip.name
+    tooltip.name,
+    deleteImageV2.name
 ]);
 
 
