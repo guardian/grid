@@ -5,8 +5,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
-import model.ImageTakedown
-import model.Pending
+import model.{ImageTakedown, Pending, TakedownStore}
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
@@ -24,7 +23,7 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
 
-  var takedowns: Map[String, ImageTakedown] = Map.empty
+  val takedownstore = TakedownStore(Map.empty[String, ImageTakedown])
 
   private val takedownLogger = Logger(getClass)
 
@@ -36,7 +35,7 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
           usages <- gridClient.getUsages(id, auth.innerServiceCall)
           softDeleteMetadata <- gridClient.getSoftDeletedMetadata(id, auth.innerServiceCall)
         } yield {
-          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages, softDeleteMetadata, takedowns.get(id)))
+          Ok(views.html.imageTakedown(Some(id), contentWithImages, crops, usages, softDeleteMetadata, takedownstore.get(id)))
         }
       }).getOrElse(Future.successful(Ok(views.html.imageTakedown(None, Nil, Nil, Nil, None, None))))
     }
@@ -51,8 +50,9 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
       crops <- gridClient.getCrops(imageId, auth.innerServiceCall)
       cropUrls = crops.flatMap(c => {c.assets.map(a =>a.file)})
     } yield {
-      val imageTakedown = ImageTakedown(imageId, "user", DateTime.now(), Pending, Pending, Pending, Pending, Pending, cropUrls)
-      takedowns = takedowns + (imageId -> imageTakedown)
+      takedownstore.add(imageId, cropUrls)
+      val takedownRun = new model.TakedownRun(gridClient, auth, takedownstore)
+      takedownRun.run(imageId)
       Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
     }
   }

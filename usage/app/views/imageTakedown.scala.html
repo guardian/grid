@@ -75,7 +75,11 @@
             }
 
             @for(imageTakedown <- jobStatus) {
-                <p>Takedown job status: @{imageTakedown.status}</p>
+                <p>@{imageTakedown.cropDeletion.name}: @{imageTakedown.cropDeletion.status}</p>
+                <p>@{imageTakedown.usageDeletion.name}: @{imageTakedown.usageDeletion.status}</p>
+                <p>@{imageTakedown.gridDeletion.name}: @{imageTakedown.gridDeletion.status}</p>
+                <p>@{imageTakedown.fastlyPurge.name}: @{imageTakedown.fastlyPurge.status}</p>
+                <p>@{imageTakedown.availabilityCheck.name}: @{imageTakedown.availabilityCheck.status}</p>
             }
         }
         </main>
