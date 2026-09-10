@@ -24,5 +24,9 @@ Given('I have opened the image upload page', async ({ page, testContext }) => {
     },
   ]);
 
-  await page.goto(`${KAHUNA_APP_URL}/upload`);
+  // Arrive from search rather than deep-linking, so the upload page has a same-document
+  // history entry behind it and back-navigation behaves as it does for a real user.
+  await page.goto(KAHUNA_APP_URL);
+  await page.getByRole('banner').getByRole('link', { name: 'My recent uploads' }).click();
+  await page.waitForURL('**/upload');
 });
