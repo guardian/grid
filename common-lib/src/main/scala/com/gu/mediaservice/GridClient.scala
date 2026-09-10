@@ -4,11 +4,14 @@ import java.net.URL
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SyndicationRights}
-import com.gu.mediaservice.model.leases.LeasesByMedia
+import com.gu.mediaservice.model.leases.{DenyUseLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
 import play.api.http.HeaderNames
 import play.api.libs.json.{JsArray, JsObject, JsTrue, JsValue, Json, Reads}
+
+import play.api.libs.ws.JsonBodyReadables._
+import play.api.libs.ws.JsonBodyWritables._
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -270,6 +273,36 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
         case _ => false
       }
     }
+  }
+
+  def hardDeleteImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to delete usages")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/hard-delete")
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    authorisedRequest.delete() map { response =>
+      response.status match {
+        case 202 => true
+        case 403 | 404 => false
+        case _ => false
+      }
+    }
+  }
+
+  def denyLease(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to replace leases with a deny-use lease")
+    val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    val lease = MediaLease(
+      id = None,
+      leasedBy = None,
+      access = DenyUseLease,
+      notes = Some("Image takedown"),
+      mediaId = mediaId
+    )
+
+    authorisedRequest.put(Json.toJson(List(lease))).map(_.status == 202)
   }
 
   def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {

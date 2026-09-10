@@ -73,7 +73,8 @@
 
             @form(routes.ImageTakedownController.deleteImage(imageId.get)) {
                 @CSRF.formField
-                <select id="delete-select">
+                <label for="delete-select">Delete action:</label>
+                <select id="delete-select" name="deleteAction" required>
                     <option value="">--Please choose an option--</option>
                     <option value="soft-delete">Soft Delete</option>
                     <option value="hard-delete">Hard Delete</option>

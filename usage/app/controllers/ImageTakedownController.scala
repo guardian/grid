@@ -55,14 +55,45 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
   }
 
   def deleteImage(imageId: String) = withLoginRedirectAsync { implicit request =>
-    for {
-      deleteRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
-      message = if (deleteRes) {
-        "Image deleted successfully"
-      } else {
-        s"Encountered issues while deleting image"
+    val deleteAction = request.body.asFormUrlEncoded
+      .flatMap(_.get("deleteAction"))
+      .flatMap(_.headOption)
+
+    deleteAction match {
+      case Some("soft-delete") =>
+        for {
+          deleteRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
+          message = if (deleteRes) {
+            "Image soft deleted successfully"
+          } else {
+            "Encountered issues while soft deleting image"
+          }
+        } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
+      case Some("hard-delete")  =>
+        for {
+          deleteRes <- gridClient.hardDeleteImage(imageId, auth.innerServiceCall)
+          message = if (deleteRes) {
+            "Image soft deleted successfully"
+          } else {
+            "Encountered issues while soft deleting image"
+          }
+        } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
+
+      case Some("deny-lease") =>
+        for {
+          denyRes <- gridClient.denyLease(imageId, auth.innerServiceCall)
+          message = if (denyRes) {
+            "Lease denied successfully"
+          } else {
+            "Encountered issues while denying lease"
+          }
+        } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
+      case _ =>
+        Future.successful(
+          Redirect(controllers.routes.ImageTakedownController.index(Some(imageId)))
+            .flashing("response" -> "Please choose a valid delete action.")
+        )
       }
-    } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
   }
 
   def decache(imageId: String) = withLoginRedirectAsync { implicit request =>
