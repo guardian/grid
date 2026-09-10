@@ -66,9 +66,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 1-3
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 20
 
-  # Currently unreachable: prompt.html guards the example label with `ctrl.presetLabels`,
-  # but filePrompt has an isolated scope and no controller, so `ctrl` is always undefined.
-  @todo
   Scenario: The prompt suggests an example label when no labels are applied
     Given I have not applied any preset labels
     When the upload page loads
