@@ -28,4 +28,4 @@
 </div>
 <div ng-if="ctrl.canUpload === false" class="unauthorised-message" role="main">You are not authorised to upload images. <a href="{{ctrl.uploadImagesPermissionSupportEmailLink || ctrl.supportEmailLink}}" class="coloured-link">Send an email to support</a> if you think this is incorrect.</div>
 
-<dnd-uploader ng-if="ctrl.canUpload"></dnd-uploader>
+<dnd-uploader ng-if="ctrl.canUpload" role="region" aria-label="Drag and drop uploader"></dnd-uploader>
