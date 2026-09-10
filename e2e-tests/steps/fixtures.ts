@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, Response } from '@playwright/test';
+import type { APIResponse, FileChooser, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 
@@ -12,6 +12,9 @@ export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 interface TestContext {
   response?: APIResponse;
   mediaApiResponse?: Promise<Response>;
+  /** Messages from alerts and confirms, in the order the page raised them. */
+  dialogs: string[];
+  fileChooser?: Promise<FileChooser>;
 }
 
 /**
@@ -21,7 +24,7 @@ interface TestContext {
  */
 export const test = base.extend<{ testContext: TestContext }>({
   testContext: async ({}, use) => {
-    await use({});
+    await use({ dialogs: [] });
   },
 });
 
