@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.PartialDate
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
@@ -379,15 +380,6 @@ object GettyXmpParser extends ImageProcessor {
   // Matches: "LOC1, LOC2 - MONTH DAY:" or "LOC1, LOC2 - MONTH DAY, YEAR:" or "LOC1, LOC2 - MON DAY, YEAR - "
   private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?:\:\s*|-\s+)(.*)$""".r
 
-  private val monthNumbers: Map[String, Int] = Map(
-    "january" -> 1, "jan" -> 1, "february" -> 2, "feb" -> 2,
-    "march" -> 3, "mar" -> 3, "april" -> 4, "apr" -> 4,
-    "may" -> 5, "june" -> 6, "jun" -> 6, "july" -> 7, "jul" -> 7,
-    "august" -> 8, "aug" -> 8, "september" -> 9, "sep" -> 9, "sept" -> 9,
-    "october" -> 10, "oct" -> 10, "november" -> 11, "nov" -> 11,
-    "december" -> 12, "dec" -> 12
-  )
-
   /**
     * Remove the leading "LOCATION1, LOCATION2 - MONTH DAY[, YEAR](:|−) " prefix from the description
     * when at least one of the two location parts matches any location metadata field (case-insensitive)
@@ -405,17 +397,8 @@ object GettyXmpParser extends ImageProcessor {
         caseInsensitiveExists(locationFields, loc2)
     }
 
-  private def doesDateMatch(dateTaken: Option[DateTime], monthStr: String, day: Int, yearOpt: Option[Int]): Boolean = {
-    (for {
-      dt <- dateTaken
-      month <- monthNumbers.get(monthStr)
-    } yield {
-      // Allow ±1 day for timezone differences, but only within the same month
-      val monthMatch = dt.getMonthOfYear == month
-      val dayMatch = Math.abs(dt.getDayOfMonth - day) <= 1
-      val yearMatch = yearOpt.forall(_ == dt.getYear)
-      monthMatch && dayMatch && yearMatch
-    }).getOrElse(false)
+  private def doesDateMatch(dateTaken: Option[DateTime], partialDate: Option[PartialDate]): Boolean = {
+    dateTaken.exists(dt => partialDate.exists(pd => pd.matches(dt)))
   }
 
   private def prefixLocationToRetain(locationFields: List[String], loc1: String) = {
@@ -434,14 +417,11 @@ object GettyXmpParser extends ImageProcessor {
       case LocationDatePrefix(location1, location2, month, dayOfMonth, year, rest) =>
         val loc1 = location1.trim
         val loc2 = location2.trim
-        val monthStr = month.toLowerCase
-        val day = dayOfMonth.toInt
         val locationFields = List(metadata.subLocation, metadata.city, metadata.state, metadata.country).flatten
-        val yearOpt = Option(year).map(_.toInt)
         for {
-          day <- Option(day)
+          _ <- Option(dayOfMonth)
           if doesLocalMatch(locationFields, loc1, loc2)
-          if doesDateMatch(metadata.dateTaken, monthStr, day, yearOpt)
+          if doesDateMatch(metadata.dateTaken, PartialDate.parse(s"$dayOfMonth $month ${Option(year).getOrElse("")}"))
         } yield {
           prefixLocationToRetain(locationFields, loc1)
             .map(prefix => s"$prefix $rest")
