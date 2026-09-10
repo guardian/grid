@@ -2202,6 +2202,13 @@ FIXME: what to do with touch devices
     position: relative;
 }
 
+.image-info__group--expandable {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
 .image-info__title {
     color: #eee;
 }
