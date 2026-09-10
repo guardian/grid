@@ -81,14 +81,14 @@ identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 fresh clones where `.github/` may be missing). If you add, remove, or change a
 directive in one place, copy the change to the other.
 
-**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root (never `cd kupua && ...` — zsh strips `cd` — and never `npm --prefix kupua exec` / bare `npx playwright`/`vitest`, which dump `test-results/`/`playwright-report/` at repo root instead of `kupua/`). Foreground, always `| tee "$TMPDIR/kupua-test-output.txt"` — never a plain `>` redirect (blanks the terminal for the whole run) and never `| tail`/`head` on the live stream (hides tests scrolling by). The user wants to watch tests run live and interrupt early on a failure; `read_file` the tee'd file afterward if you need to filter/search it. Don't re-run a still-running test — `read_file` the tee'd file instead. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
+**Directive: Tests.** Always run via `npm --prefix kupua run <script>` from repo root (never `cd kupua && ...` — zsh strips `cd` — and never `npm --prefix kupua exec` / bare `npx playwright`/`vitest`, which dump `test-results/`/`playwright-report/` at repo root instead of `kupua/`). Foreground, always `set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"` so the pipeline preserves the test command's exit status — never a plain `>` redirect (blanks the terminal for the whole run) and never `| tail`/`head` on the live stream (hides tests scrolling by). The user wants to watch tests run live and interrupt early on a failure; `read_file` the tee'd file afterward if you need to filter/search it. Don't re-run a still-running test — `read_file` the tee'd file instead. **If `*.txt`, `test-results/`, or `playwright-report/` appear at repo root, you got cwd wrong: stop, delete, retry. Do not commit.**
 
 | Surface | Command | Agent runs | Agent suggests |
 |---|---|---|---|
 | Unit | `npm --prefix kupua test` | After any `kupua/src/` change | — |
 | Playwright e2e | `npm --prefix kupua run test:e2e` | After component/hook/store/scroll change | — |
 | Jank perf | `npm --prefix kupua run test:perf -- --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
-| Perceived perf | `npm --prefix kupua run test:perf -- --perceived-only --runs 3 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
+| Perceived perf | `npm --prefix kupua run test:perf -- --perceived-only --runs 4 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
 | Tier-matrix | `npm --prefix kupua run test:e2e:tiers` | Never | Only when user asks |
 
 Playwright + perf surfaces: stop dev server on :3000 (and :3010/3020/3030 for tier-matrix) first — warn user, wait. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.

@@ -210,6 +210,15 @@ selects only that chip's value — press it a second time (now that the chip has
 collapsed to plain prefix text) to select and clear the rest. To delete a chip
 without entering its edit mode, click its `.Cql__ChipWrapperDeleteHandle`.
 
+**[V] For query-change position checks, elect Kupua's app-owned viewport anchor
+before the action; do not substitute the DOM item nearest the viewport centre.**
+On real `subject:sport` chip removal, a centre-nearest item remained visible but
+moved 303px and did not match `__kupua_getViewportAnchorId__`. The app-owned
+pre-click anchor remained visible and stable after the broader query. For
+natural grid reflow, visibility is the preservation invariant; record signed
+pixel/viewport-ratio drift separately rather than imposing a 1px placement
+threshold. Keep the anchor identity in browser memory only.
+
 **[V] Typing two chips back-to-back (e.g. `credit:Avalon keyword:zselect`) needs
 an Enter between them, not just a space.** After typing the first field:value,
 the caret is still inside that chip's editable value — a following space and
@@ -654,6 +663,13 @@ through silently discards everything after the failing line, including a
 `return` statement you were relying on to see partial progress — so this
 class of mistake also costs you the diagnostic output, not just the action.
 
+**[F] The outer `run_playwright_code` runtime may also lack the global `URL`
+constructor inside `page.waitForResponse` predicates (2026-09-08).** A predicate
+using `new URL(response.url()).pathname` threw `ReferenceError: URL is not
+defined`. For a known unique route, use a plain string predicate such as
+`response.url().includes("/api/images/search-after")`; parse URLs only inside
+`page.evaluate`, where the browser global is available.
+
 **[V] `run_playwright_code`'s outer script body is plain JS, not TypeScript —
 TS-only syntax (e.g. `foo as Bar` casts) throws a `SyntaxError` before your
 code ever runs (2026-08-29).** Write the outer script and every
@@ -683,6 +699,66 @@ consecutive identical signatures into runs before returning. This distinguished
 a genuinely painted intermediate seek-sort buffer (~70 ms) from mere internal
 store churn. Summarize or redact live IDs before writing findings or docs; they
 are identity witnesses for the in-memory probe only.
+
+**[V] Sanitized Resource Timing can attribute request fan-out without retaining
+TEST data (2026-09-08).** Call `performance.clearResourceTimings()` immediately
+before one real UI action, wait for the action-specific settle condition, then
+aggregate `performance.getEntriesByType("resource")` by coarse route kind such
+as `_search`, `_pit`, optional API, or image. Return only counts, durations and
+aggregate transfer sizes. Do not return full ES paths, URL query strings,
+request/response bodies, image paths, or live identities. Confirmed around real
+CQL typing and a sort-direction reversal: the technique exposes hidden
+typeahead/debounce traffic and multi-request orchestration while keeping corpus
+contents out of the result. These are browser wall-clock timings, not server
+profiles, and `transferSize` retains normal browser cache semantics.
+
+**[V] Prove `--use-media-api` with both adapter identity and an observed route
+(2026-09-08).** A fresh tab should report `dataSource.constructor.name ===
+"StranglerAdapter"` and at least one `/api/images/search-after` resource after
+settlement. Either signal alone is weaker: a stale tab can retain old served
+code, while the strangler deliberately leaves most methods on direct ES. In the
+current Phase 3 boundary, initial/cursor/PIT/reverse/End `searchAfter` calls use
+media-api, but counts, aggregations, PIT lifecycle, position maps, ID retrieval
+and cursorless non-zero-offset shallow paging remain direct ES. Do not describe
+the mode as "all search traffic through media-api."
+
+**[V] Browser Resource Timing can prove browser-facing gzip, not the internal
+media-api↔ES hop (2026-09-08).** Capture the matching response and return only
+status plus safe content headers; pair those with `encodedBodySize` and
+`decodedBodySize` from Resource Timing. A live `search-after` response reported
+`Content-Encoding: gzip` with the decoded body an order of magnitude larger
+than the encoded body. That proves compression between media-api/proxy and the
+browser. It says nothing about the separate ES-client connection; establish
+that from deployed code or server-side measurements (Grid PR #4784 enables it
+in `common-lib`). Never inspect cookies, auth headers or response bodies for
+this check.
+
+**[V] A viewport-clipping scan must inspect effective ancestor state before it
+becomes a responsive-layout finding (2026-09-08).** At 390 px, the dormant AI
+search input had a non-zero rectangle extending beyond the viewport and its own
+computed `visibility`/`display` looked visible. Its parent intentionally had
+`opacity: 0` plus clipped overflow, and the input had `tabIndex: -1`; the page
+had no document-level horizontal overflow. Check ancestor opacity, overflow,
+pointer state and tab order, then use a screenshot for the genuinely visual
+question. A rectangle-only scanner would have reported a false positive here.
+
+**[V] Count indexed-scroll skeletons from virtual slots, not a generic class
+selector (2026-09-08).** Grid placeholders have no skeleton/test attribute: an
+unloaded `GridCell` is only a fixed-height rounded child in each absolute virtual
+row. During an in-page rAF probe, enumerate visible row children and classify a
+slot as real when it or a descendant carries `[data-grid-cell]`; visible slots
+without that marker are placeholders. This captured the complete skeleton-only
+interval after a large indexed-scroll jump without matching unrelated rounded
+UI. Return frame counts and first-real-cell time, never identities.
+
+**[F] Do not start observing typeahead only after `keyboard.type()` completes
+(2026-09-08).** The suggestion list can update or disappear while delayed typing
+continues and the query debounce can commit before a subsequent
+`waitForFunction(.Cql__Option)` begins. One probe generated multiple aggregation
+requests and a committed query but timed out waiting for a surviving option;
+that result proves neither absence nor latency. Arm a MutationObserver/request
+recorder before the first key, type only a short distinguishing prefix, and stop
+at first visible option if suggestion latency is the question.
 
 **[V] `page.setViewportSize({ width, height })` works directly for resize
 testing (M3) — no special handling needed.** Confirmed against the live TEST
@@ -855,6 +931,25 @@ and prefer one aggregation over many small probes.
 single `page.evaluate`** — batch several probes into one call and return an array
 of `{label, value, ms}`. Far cheaper than one tool call per probe, and the
 relative timings stay comparable because they share a network context.
+
+**[V] Safest direct-DAL count sanity pattern: exactly two sequential calls,
+current scope then unscoped control (2026-09-08).** Copy the settled store params,
+call `dataSource.count(currentParams)`, then call `count()` once more with only
+the query removed. Assert the first result equals `store.total` and the control
+is directionally plausible. Return only aggregate counts, booleans and timings,
+never hits. This confirmed both the real read-only adapter path and the probe's
+own call shape with a fixed two-query budget; it is a useful discriminating
+check before considering any broader ES investigation.
+
+**[V] A two-tier scrubber move can issue no media-api request even in
+`--use-media-api` mode (2026-09-08).** Confirmed on a ~4.8k-result query after
+waiting for the exact position map and `_seekGeneration` settlement: a mid-list
+track click used direct-ES searches only. The owning path explains why. When
+`fetchStart < DEEP_SEEK_THRESHOLD`, `seek()` requests cursorless non-zero-offset
+paging; `StranglerAdapter.searchAfter()` deliberately delegates that unsupported
+offset shape to ES because D3 rejects offsets it cannot apply. Return coarse
+route counts plus ratio agreement (`scrollTop`, slider, buffer), not identities,
+when proving this boundary.
 
 **[\!] ES accepts a fractional epoch in `search_after` but rejects it in `_count`.**
 `estimateSortValue` returns a tdigest float (e.g. `1674057953780.8923`). Feeding it

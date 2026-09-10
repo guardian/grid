@@ -19,7 +19,7 @@ import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
 import { findFieldTerm, upsertFieldTerm, findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { formatCount } from "@/lib/format-count";
 import { gridConfig } from "@/lib/grid-config";
 import { findScrollParent } from "@/lib/dom-utils";
@@ -147,7 +147,7 @@ export function FacetFilters() {
 
   const handleFacetClick = useCallback(
     (fieldPath: string, cqlKey: string, value: string, bucketKey: string, e: React.MouseEvent) => {
-      trace("facet-click", "t_0", { field: cqlKey, value });
+      beginTraceInteraction("facet-click", { field: cqlKey, value });
       // Snapshot the clicked button's viewport position for scroll anchoring
       const btn = e.currentTarget as HTMLElement;
       scrollAnchorRef.current = {

@@ -15,7 +15,7 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { cancelSearchDebounce } from "@/lib/orchestration/search";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import { SearchPill } from "./SearchPill";
 import type { FieldDefinition } from "@/lib/field-registry";
@@ -32,7 +32,7 @@ export function useMetadataSearch() {
 
   return useCallback(
     (cqlKey: string, value: string, e: React.MouseEvent) => {
-      trace("metadata-click", "t_0", { field: cqlKey, value });
+      beginTraceInteraction("metadata-click", { field: cqlKey, value });
       e.preventDefault();
       const currentQuery = searchParams.query ?? "";
       const negated = e.altKey;
@@ -79,6 +79,8 @@ export function ValueLink({ cqlKey, value, label, onSearch, className }: ValueLi
       type="button"
       className={`text-grid-text underline decoration-[#999] underline-offset-2 hover:text-grid-accent hover:decoration-grid-accent cursor-pointer bg-transparent border-none p-0 font-inherit text-left ${className ?? ""}`}
       onClick={(e) => onSearch(cqlKey, value, e)}
+      data-cql-key={cqlKey}
+      data-cql-value={value}
       title={`${display}\nShift+click to add, ${ALT_CLICK} to exclude`}
     >
       {display}

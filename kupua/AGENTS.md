@@ -82,11 +82,12 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1270 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1285 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
-- **20 perf tests** + experiment infrastructure — `npm run test:perf`
+- **18 perf tests** + experiment infrastructure — `npm run test:perf`
+- **35 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
 - **27 smoke tests** against TEST cluster — `npm run test:smoke`
 - **12 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
@@ -178,6 +179,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Known Issues
 
 - **Width/Height sort mismatch** — the UI displays oriented dimensions with raw fallback, but sorting uses raw dimensions. A request-time coalescing field was about 2.2× slower at the median on TEST and would need duplication across every positional query path. Prefer canonical backend `effectiveWidth`/`effectiveHeight` fields; see `exploration/docs/materialized-scalars-for-lastUsed-lastAddedToCollection.md` §5.
+- **P8 table fast-scroll jank** — the four-run TEST baseline measured 207ms max frame, 59ms p95, 91 severe frames/1k, 121,576 DOM mutations and 1,877ms LoAF blocking. It is the clearest rendering-perf target, but much churn is structural and prior broad scroll fixes regressed behavior. Investigate narrowly from the maintained P8 metric.
 
 ## Backlog (architectural)
 

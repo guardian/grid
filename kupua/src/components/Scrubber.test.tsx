@@ -20,6 +20,8 @@ vi.mock("@/lib/orchestration/search", () => ({
 }));
 
 vi.mock("@/lib/perceived-trace", () => ({
+  beginTraceInteraction: () => "test-interaction",
+  consumeTraceInteraction: () => "test-interaction",
   trace: () => {},
 }));
 

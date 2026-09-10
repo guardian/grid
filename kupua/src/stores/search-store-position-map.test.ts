@@ -12,6 +12,17 @@ import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 
+const traceMocks = vi.hoisted(() => ({
+  beginTraceInteraction: vi.fn(() => "position-map:test:1"),
+  traceInteraction: vi.fn(),
+}));
+
+vi.mock("@/lib/perceived-trace", () => ({
+  trace: vi.fn(),
+  beginTraceInteraction: traceMocks.beginTraceInteraction,
+  traceInteraction: traceMocks.traceInteraction,
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -75,6 +86,7 @@ function resetStore(totalImages: number) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   resetStore(10_000);
 });
 
@@ -117,6 +129,14 @@ describe("position map — background fetch lifecycle", () => {
     expect(map.ids.length).toBe(total);
     expect(map.sortValues.length).toBe(total);
     expect(state().positionMapLoading).toBe(false);
+    expect(traceMocks.beginTraceInteraction).toHaveBeenCalledOnce();
+    expect(traceMocks.beginTraceInteraction).toHaveBeenCalledWith("position-map", { total });
+    expect(traceMocks.traceInteraction).toHaveBeenCalledWith(
+      "position-map",
+      "t_store_ready",
+      "position-map:test:1",
+      { total, entries: total },
+    );
   });
 
   it("does NOT fetch position map when total > POSITION_MAP_THRESHOLD", async () => {

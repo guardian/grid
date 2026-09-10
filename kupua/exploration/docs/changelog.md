@@ -14,6 +14,29 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 10 September 2026 — Make performance evidence trustworthy and maintainable
+
+  The performance programme replaced ambiguous, timing-adjacent measurements with
+  explicitly owned user interactions and browser-observed completion boundaries.
+  Jank, perceived latency and background diagnostics are now distinct evidence
+  classes; asynchronous phases are correlated to one interaction; changed
+  scenario contracts are revision-gated; invalid, compound and non-discriminating
+  metrics were repaired or retired. A fresh four-run direct-ES baseline now covers
+  30 jank metrics, 14 short perceived scenarios and 8 long-journey scenarios. It
+  identified table fast scrolling as the clearest next rendering optimization
+  target while perceived scenarios remained within their documented hard ceilings.
+
+  Permanent harness improvements include fail-closed process, manifest,
+  environment and schema validation; balanced matched-control campaigns;
+  transactional multi-file history writes and tested pruning/rebuild maintenance;
+  sanitized diagnostic attribution; immutable externally stored run transcripts
+  with an ignored discovery pointer; and dashboards that understand revisions,
+  evidence classes, short-window denominator limits and meaningful regression
+  thresholds. Historical invalid rows were removed without rewriting surviving
+  evidence, and reusable measurement rules now guide later optimization work.
+  Validation completed with 1,285 unit tests, 35 pure harness tests and 236 habitual
+  browser tests passing, plus clean type, artifact, directive-sync and secret checks.
+
   ### 8 September 2026 — Keep truncated keyword distributions out of the null zone
 
   PROD Credit and Source exceed the client distribution's 50,000-value cap.

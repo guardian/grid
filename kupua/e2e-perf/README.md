@@ -11,14 +11,15 @@ the same harness but answer different questions:
 | System | Asks | Spec files | Output |
 |---|---|---|---|
 | **Jank** | "Is the browser drawing smoothly while the action runs?" (frame drops, CLS, DOM churn) | `perf.spec.ts` | `audit-log.{json,js,md}` + `audit-graphs.html` |
-| **Perceived** | "How long between the user's click and them seeing the result?" (`t_0`, `t_ack`, `t_first_useful_pixel`, `t_settled`) | `perceived-short.spec.ts` (single-action) + `perceived-long.spec.ts` (multi-step journeys) | `perceived-log.{json,js,md}` + `perceived-graphs.html` |
+| **Perceived** | "How long between the user's click and them seeing the result?" (`t_0`, `t_ack`, `t_store_ready`, `t_first_visible_frame`, `t_visual_settled`) | `perceived-short.spec.ts` (single-action) + `perceived-long.spec.ts` (multi-step journeys) | `perceived-log.{json,js,md}` + `perceived-graphs.html` |
 
 Jank reads what the browser reports; no app cooperation needed. Perceived
 reads what the app reports via `trace()` calls — see "Perceived
 instrumentation" below.
 
 The perceived suite has two flavours, **short** and **long**, that share
-one trace API (`src/lib/perceived-trace.ts`), one `computeMetrics()` shape,
+one trace API (`src/lib/perceived-trace.ts`), one correlated calculator
+(`e2e-perf/perceived-metrics.mjs`),
 one log file, and one dashboard. The only difference is test length:
 short tests are one user action each; long tests chain several to simulate
 realistic workflows. They're tagged `kind: "short" | "long"` per log entry.
@@ -41,10 +42,12 @@ Other flags:
 | Flag | Effect |
 |---|---|
 | `--label "..."` | Tags this run in the log. Defaults to `"Quick check"` / `"Unnamed run"`. |
-| `--runs N` | Repeat each suite N times; metrics aggregated as median + p95. |
+| `--runs N` | Repeat each suite N times; metrics aggregated as median + p95. Long/combined audits require an even count for balanced JB2 AB/BA order. |
 | `--dry-run` | Run everything, print summaries, write nothing. |
 | `--headed` | Show the browser window (otherwise headless). |
 | `--use-media-api` | Route `searchAfter` through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
+| `--prune-history` | No-browser maintenance mode: atomically removes retired and pre-revision-2 replaced jank rows, rebuilds JSON/JS/Markdown, and removes campaigns left empty. |
+| `--rebuild-history` | No-browser maintenance mode: atomically regenerates jank JS/Markdown from canonical JSON without adding a campaign. |
 | `<P-id list>` | Positional jank-test filter (e.g. `P3,P8`). |
 
 ## How to run
@@ -58,13 +61,26 @@ node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
 node e2e-perf/run-audit.mjs P4a,P4b,P6 --label "Quick jank check"
 node e2e-perf/run-audit.mjs P8 --dry-run                         # no log writes
 node e2e-perf/run-audit.mjs --short-perceived-only --dry-run     # iterate on PP1-PP10
-node e2e-perf/run-audit.mjs --long-perceived-only --runs 5       # journey baseline
-node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 3
+node e2e-perf/run-audit.mjs --long-perceived-only --runs 4       # journey baseline
+node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 4
 ```
 
 `--dry-run` is the recommended first step whenever running the perceived suite
 on a new setup or after changing traced paths. It still runs Playwright; it
 just doesn't write the log.
+
+Every invocation writes a uniquely named `$TMPDIR/kupua-perf-<timestamp>-<pid>.log` with the full
+jank/perceived Playwright output and any runner-level fatal stack. The harness
+prints the resolved path and writes that path only to the ignored
+`results/.latest-report-path`, so agents can discover reports created under a
+different terminal's TMPDIR without putting TEST output in the public repo.
+Later diagnostics never overwrite an earlier campaign report.
+Metric JSONL files under `results/` remain structured per-suite evidence.
+
+Run `node e2e-perf/run-audit.mjs --prune-history` only after the replacement
+manifest and its pure tests are reviewed. It does not connect to TEST or launch
+Playwright. The operation is idempotent and commits all three audit-log siblings
+through the same rollback-capable file transaction as normal history writes.
 
 ### Running against local media-api (`--use-media-api`)
 
@@ -117,7 +133,7 @@ auth failures or empty results.
 
 # Terminal 2
 node e2e-perf/run-audit.mjs --use-media-api --short-perceived-only --dry-run --label "media-api sanity"
-node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "media-api baseline" --runs 3
+node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "media-api baseline" --runs 4
 ```
 
 ## Dashboards
@@ -136,8 +152,10 @@ also add it to `KNOWN_METRICS`.
 
 `perceived-graphs.html` shows one sparkline per scenario across
 every `perceived-log.json` entry, with checkboxes to filter by kind
-(short / long) and a metric selector (`dt_ack_ms` / `dt_first_pixel_ms` /
-`dt_settled_ms` / `status_total_ms` / store timing fields — see below).
+(short / long), an opt-in background-diagnostics section, and a metric selector
+for explicit boundaries (`dt_ack_ms`, `dt_store_ready_ms`,
+`dt_first_visible_frame_ms`, `dt_visual_settled_ms`, status and store timing).
+Pre-revision-2 aliases remain separately selectable under **Legacy evidence**.
 
 Each run entry includes `baseline_rtt_ms`: median of 5 pings to ES before
 the suite. Useful for attributing slow runs to network vs. app code.
@@ -152,19 +170,20 @@ Tests fall into three categories. This matters for result stability:
 
 | Category | Tests | Single-run noise | Notes |
 |----------|-------|-------------------|-------|
-| **Client-only** | P4a, P4b, P5a/b/c, P13a/b, P14a/b/c, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests. Jank/CLS/DOM churn are purely local. Trustworthy from a single run. |
-| **Mixed** (client work triggered by ES response) | P2, P7, P8, P12 | **Medium** (±15%) | Scroll/drag is local but triggers `extendForward`/`extendBackward` which hit ES. Jank spikes correlate with response timing. |
+| **Client-only** | P4a, P4b, P5a/b/c, P7, P13a/b, P14a/b/c/d, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests inside the measured action. P7 preloads lazy distribution setup and excludes pointer release/seek. |
+| **Mixed** (client work triggered by ES response) | P2, P8 | **Medium** (±15%) | Scroll can trigger `extendForward`/`extendBackward`; jank spikes may correlate with response timing. |
 | **ES-dominated** | P1, P3, P3b, P6, P9, P11, P11b | **High** (±20%+) | Test measures the full round-trip: ES query → response processing → render. SSH tunnel latency and cluster load dominate. |
 
 **Practical guidance:**
 - Use `--runs 1` during development for all tests. Don't panic about ±15% on ES-dominated tests.
-- Use `--runs 3` for baselines and phase completion measurements.
+- Use `--runs 3` for jank/short baselines and `--runs 4` for long or combined
+  baselines so JB2's matched control has balanced AB/BA order.
 - When evaluating a coupling-fix phase that targets client-side performance (e.g. handleScroll stabilisation), focus on the client-only tests (P4, P5, P14, P15, P16). These give reliable signal from a single run.
 - When an ES-dominated test shows a big change, re-run with `--runs 3` before concluding it's a real regression.
 
 ### Focus Position Tracking
 
-Tests P4a, P4b, P6, and P12 emit `focusDriftPx` and `focusDriftRatio` in their
+Tests P4a, P4b, P6, and P13b emit focus-placement diagnostics in their
 structured metrics. These measure how accurately the focused image's viewport
 position is preserved across transitions:
 
@@ -173,39 +192,35 @@ position is preserved across transitions:
 | **P4a** | Grid → Table | Focused image moved N pixels from where it was in grid view |
 | **P4b** | Table → Grid | Same, reverse direction |
 | **P6** | Sort direction toggle | Focused image moved N pixels despite sort-around-focus |
-| **P12** | 8 density switches after deep scroll | Cumulative drift per switch (logged per-cycle to console) |
+| **P13b** | Detail close to list | Signed vertical/horizontal return-placement drift |
 
 `focusDriftPx = 0` is perfection. Anything within ±ROW_HEIGHT (~32px table, ~303px grid) is acceptable — the image is on screen. Drift beyond viewport height means the image scrolled out of view: a "Never Lost" violation.
 
-**Note:** P4a, P4b, and P6 emit `focusDriftPx` / `focusDriftRatio` into the
-metrics dict and so appear on the `audit-graphs.html` dashboard. P12 logs
-per-cycle drift to the console only (8 cycles, no single representative
-number worth graphing) — inspect the test output, not the dashboard.
+**Note:** P4a, P4b, and P6 emit `focusDriftPx` / `focusDriftRatio`; P13b emits
+signed vertical and horizontal pixel drift plus final visibility.
 
 ### Per-Test Reference
 
 | ID | What it measures | Duration | Key metrics to watch |
 |----|-----------------|----------|---------------------|
-| **P1** | Initial page load | ~3s | CLS, maxFrame, LoAF. First render quality. |
+| **P1** | Cold navigation through visible results plus two frames | ~3s | CLS, maxFrame, LoAF, DOM churn, FP/FCP and navigation milestones. |
 | **P2** | Grid mousewheel scroll (30 events) | ~4s | severe, p95Frame, domChurn. Scroll smoothness. |
 | **P3** | Scrubber seek to 50% (date sort) | ~5s | maxFrame, LoAF. Buffer replacement cost. |
 | **P3b** | Scrubber seek to 50% (keyword sort) | ~8s | Same. Exercises composite-agg + binary-search path. |
 | **P4a** | Grid→Table density switch | ~2s | maxFrame, domChurn, **focusDriftPx**. Mount/unmount cost. |
 | **P4b** | Table→Grid density switch | ~2s | Same. Typically lighter than P4a. |
-| **P5a/b/c** | Panel open/close | ~3s | CLS, maxFrame. Should be near-zero. |
+| **P5a/b/c** | Panel open/close; P5c measures left close only | ~3s | CLS, maxFrame, P5c results-width delta. |
 | **P6** | Sort direction toggle | ~6s | maxFrame, LoAF, **focusDriftPx**. "Never Lost" accuracy. |
-| **P7** | Scrubber thumb drag | ~5s | domChurn, maxFrame. Direct-DOM write path smoothness. |
-| **P8** | Table fast scroll (40 events) | ~6s | severe, p95Frame, CLS, domChurn. **Known worst case.** |
+| **P7** | Continuous scrubber thumb drag before release | ~2s | domChurn, maxFrame. Client-only direct-DOM tracking; PP7b owns release-to-settle. |
+| **P8** | Table fast scroll (80 wheel events) | ~6s | severe, p95Frame, CLS, domChurn. **Known worst case.** |
 | **P9** | Sort field change | ~3s | maxFrame, CLS. Full result set replacement. |
-| **P10** | Full workflow composite | ~20s | `report: false` — not in diff tables. Stress test only. |
 | **P11** | Thumbnail CLS after seek (3 positions) | ~15s | CLS per seek position. Image loading stability. |
 | **P11b** | Same, keyword sort variant | ~15s | CLS comparison across sort types. |
-| **P12** | 8 density switches after deep scroll | ~60s | Per-cycle drift (console), domChurn, severe. Accumulating error. |
 | **P13a/b** | Image detail enter/exit | ~5s | CLS, maxFrame. Overlay transition quality. Scroll restoration. |
 | **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe, **landingRenderMs**, **renderedCount**. Browsing-pace image swap smoothness. |
 | **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle, **landingRenderMs**, **swappedNotRendered**. Does the app load only the final image? |
 | **P14c** | Image traversal, fast backward (10 back @ 5/s + 3s settle) | ~6s | Same as P14b, reverse direction. Prefetch-behind effectiveness. |
-| **P14d** | Image traversal, rapid burst (20 fwd @ 12/s + 3s settle) | ~5s | Cancellation stress test. Held arrow key — most images won't render. **landingRenderMs** = THE number. |
+| **P14d** | Image traversal, rapid discrete burst (20 fwd @ 12/s) | ~5s | Cancellation stress test. Most images should not render; landing latency and CLS occurrence are primary. |
 | **P15a/b/c** | Fullscreen enter/traverse/exit | ~4s | maxFrame. Should be near-zero (Fullscreen API is cheap). |
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
 
@@ -225,6 +240,40 @@ number worth graphing) — inspect the test output, not the dashboard.
 | landingNetworkMs | ms | imgproxy network time for the landing image | < 200 | > 1000 |
 | renderedCount | count | Images that rendered before user moved on (P14 traversal) | N at slow | — |
 | swappedNotRendered | count | Images where src changed but never decoded in time | 0 | > N/2 |
+
+---
+
+## Measurement discipline for later work
+
+Apply these rules before adding a metric or using one to justify an optimization:
+
+1. **One row, one owned action.** Setup, the measured interaction, and cleanup
+  must be explicit. Split compound workflows; never sum unrelated windows.
+2. **Start at the real trigger.** Install navigation probes before navigation;
+  mark clicks and keys in their owning handler before state mutation.
+3. **End at an observable outcome.** Prefer exact identity, decoded content,
+  visible target context, native state, or stable geometry over fixed sleeps.
+4. **Correlate asynchronous phases.** An interaction ID must own every phase.
+  Temporal adjacency is not causality, especially with background fetches.
+5. **Preload lazy setup when measuring client work.** Clear probe/resource state
+  afterward and assert zero measured requests when the contract is client-only.
+6. **Fail closed.** Missing controls, wrong regimes, incomplete commits, absent
+  phases, changed environments, or malformed logs invalidate the row.
+7. **Persist the explanation.** Retain revision, boundary, regime, routes,
+  environment, sample count, and scenario-specific diagnostics needed to
+  explain a value. Sanitize identity, URLs, bodies, and credentials.
+8. **Do not compare changed contracts.** Scenario revision, cache class, corpus,
+  environment, and measurement boundary are comparability gates, not footnotes.
+9. **Use the right owner.** Jank measures drawing smoothness; perceived traces
+  measure action-to-outcome latency; habitual E2E owns correctness. A single
+  row should not impersonate all three.
+10. **Prefer deletion to ceremonial coverage.** If TEST falsifies a scenario's
+   distinct premise, remove it rather than manufacturing a weaker substitute.
+
+For optimization work, write down before editing: the user-visible hypothesis,
+the metric expected to move, a metric expected not to regress, and the cheapest
+check that could disprove the hypothesis. Treat a green but non-discriminating
+measurement as no evidence.
 
 ---
 
@@ -271,7 +320,7 @@ depend on it; do not bikeshed.
 ```ts
 export interface TraceEntry {
   action: string;       // e.g. "sort-around-focus", "home-logo", "scrubber-seek"
-  phase: string;        // e.g. "t_0", "t_ack", "t_status_visible", "t_settled"
+  phase: string;        // e.g. "t_0", "t_ack", "t_store_ready", "t_visual_settled"
   t: number;            // performance.now() at emission
   payload?: unknown;    // optional per-action context
 }
@@ -286,11 +335,15 @@ Phase markers (in causal order):
 - `t_status_visible` — a status affordance (spinner, banner) became visible.
 - `t_seeking` — a sub-phase of multi-stage actions (e.g. sort-around-focus
   reaches the seek step).
-- `t_first_useful_pixel` — first row of new content available.
-- `t_settled` — operation complete; UI stable.
+- `t_store_ready` — the exact interaction's target state is atomically published.
+- `t_first_visible_frame` — the target context has real visible content in a browser frame.
+- `t_visual_settled` — the target content and required geometry are stable over the scenario's browser-observed window.
 
-`computeMetrics()` (in both spec files) takes the **first** `t_0` and **last**
-`t_settled`, allowing UI-layer `t_0` to supersede a store-layer fallback.
+`computeCorrelatedMetrics()` requires exactly one interaction ID and calculates
+only phases carrying that ID. Temporal adjacency is not ownership. Revision-2
+rows emit only explicit boundary names. Historical `dt_first_pixel_ms` and
+`dt_settled_ms` values remain readable in the dashboard's **Legacy evidence**
+group, but are not relabeled or compared as revision-2 browser boundaries.
 
 ### Call-site shape
 
@@ -298,11 +351,10 @@ Always one line, never wrapped in conditionals — the `ENABLED` gate inside
 `trace()` is the only check:
 
 ```ts
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 
-trace("sort-around-focus", "t_0", { sort, focusedId });
-trace("sort-around-focus", "t_status_visible");
-trace("sort-around-focus", "t_settled");
+const interactionId = beginTraceInteraction("sort-around-focus", { sort, focusedId });
+traceInteraction("sort-around-focus", "t_store_ready", interactionId);
 ```
 
 ### When to run the perceived suite

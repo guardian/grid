@@ -19,6 +19,8 @@ import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
 import { buildTypeaheadFields, buildDynamicFieldFallback } from "@/lib/typeahead-fields";
 import { isMobile } from "@/lib/is-mobile";
+import { isCqlChipDeleteEvent } from "@/lib/cql-chip-delete";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { deriveEffectiveQuery } from "@/lib/cql-effective-query";
 import { queryStrFromAst } from "@/lib/cql-ast-serialize";
 
@@ -269,6 +271,10 @@ export function CqlSearchInput({
       }
     };
     el.addEventListener("queryChange", handleQueryChange);
+    const handleChipDelete = (event: Event) => {
+      if (isCqlChipDeleteEvent(event)) beginTraceInteraction("chip-remove");
+    };
+    el.addEventListener("click", handleChipDelete, true);
 
     // Escape blurs the search box — but only when the CQL typeahead popup
     // is not visible. When suggestions are showing, CQL handles Escape
@@ -500,6 +506,7 @@ export function CqlSearchInput({
       window.removeEventListener("blur", handleHide);
       window.removeEventListener("focus", handleShow);
       el.removeEventListener("queryChange", handleQueryChange);
+      el.removeEventListener("click", handleChipDelete, true);
       el.removeEventListener("keydown", handleEscape, true);
       for (const type of ["keydown", "keyup", "keypress"]) {
         el.removeEventListener(type, stopUnhandled);

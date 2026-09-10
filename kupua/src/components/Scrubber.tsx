@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getScrollContainer, useScrollContainerGeneration } from "@/lib/scroll-container-ref";
 import { getThumbResetGeneration } from "@/lib/orchestration/search";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction, consumeTraceInteraction, trace } from "@/lib/perceived-trace";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -164,7 +164,7 @@ interface ScrubberProps {
   /** Whether a seek/search is in flight. */
   loading: boolean;
   /** Callback to seek to a global offset. */
-  onSeek: (globalOffset: number) => void;
+  onSeek: (globalOffset: number, interactionId?: string) => void;
   /**
    * Optional callback to get a sort-context label for a global position.
    * Returns e.g. "14 Mar 2024" for date sorts, "Getty" for credit sort,
@@ -249,6 +249,9 @@ export function Scrubber({
   // in the background. Without this, clicking the scrubber before positionMap
   // loads would fire a slow deep seek (~2s) with no visual feedback.
   const isScrollMode = scrubberMode === "buffer" || scrubberMode === "indexed" || twoTier;
+  const interactionRegime: ScrubberMode = scrubberMode === "buffer"
+    ? "buffer"
+    : isScrollMode ? "indexed" : "seek";
 
   // Ref-stabilise onFirstInteraction so callers don't need to memoize it.
   // Called on every user interaction (hover, click, drag). The store's own
@@ -616,14 +619,18 @@ export function Scrubber({
 
       if (isScrollMode) {
         // All data in buffer or indexed mode — scroll the content container
-        trace("scrubber-scroll", "t_0", { mode: "click", pos });
+        const interactionId = beginTraceInteraction("scrubber-scroll", {
+          mode: "click",
+          regime: interactionRegime,
+          pos,
+        });
+        consumeTraceInteraction("scrubber-scroll");
         const maxPos = Math.max(1, total - thumbVisibleCount);
         scrollContentTo(pos / maxPos);
-        requestAnimationFrame(() => trace("scrubber-scroll", "t_settled"));
       } else {
-        trace("scrubber-seek", "t_0", { mode: "click", pos });
+        const interactionId = beginTraceInteraction("scrubber-seek", { mode: "click", pos });
         pendingSeekPosRef.current = pos;
-        onSeekRef.current(pos);
+        onSeekRef.current(pos, consumeTraceInteraction("scrubber-seek") ?? interactionId);
       }
       flashTooltip();
     },
@@ -710,7 +717,8 @@ export function Scrubber({
           } else {
             // Single seek to the final position
             trace("scrubber-seek", "t_0", { mode: "drag", pos: latestPosition });
-            onSeekRef.current(latestPosition);
+            const interactionId = beginTraceInteraction("scrubber-seek", { mode: "drag", pos: latestPosition });
+            onSeekRef.current(latestPosition, consumeTraceInteraction("scrubber-seek") ?? interactionId);
           }
         } else {
           // Click-without-drag
@@ -1107,6 +1115,7 @@ export function Scrubber({
       ref={trackCallbackRef}
       role="slider"
       data-testid="scrubber-track"
+        data-scrubber-mode={interactionRegime}
       aria-label="Result set position"
       aria-valuemin={0}
       aria-valuemax={Math.max(0, total - 1)}

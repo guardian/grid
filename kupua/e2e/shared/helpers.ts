@@ -1257,6 +1257,65 @@ export class KupuaHelpers {
   }
 
   /**
+   * Wait until the expected detail identity owns a visible decoded image and
+   * both image/surface geometry remain stable over the next animation frame.
+   * This proves decode/readiness and stable layout, not compositor paint.
+   */
+  async waitForDecodedDetailImage(expectedId: string, timeout = 10_000) {
+    await this.page.waitForFunction(
+      async (targetId) => {
+        const detail = document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`);
+        const routeId = new URL(location.href).searchParams.get("image");
+        const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+        if (!detail || !image || routeId !== targetId) return false;
+        if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) return false;
+        const firstImage = image.getBoundingClientRect();
+        const firstDetail = detail.getBoundingClientRect();
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const secondImage = image.getBoundingClientRect();
+        const secondDetail = detail.getBoundingClientRect();
+        const stable = (left: DOMRect, right: DOMRect) =>
+          Math.abs(left.top - right.top) <= 1
+          && Math.abs(left.left - right.left) <= 1
+          && Math.abs(left.width - right.width) <= 1
+          && Math.abs(left.height - right.height) <= 1;
+        return stable(firstImage, secondImage) && stable(firstDetail, secondDetail);
+      },
+      expectedId,
+      { timeout },
+    );
+  }
+
+  /** Wait for native fullscreen state while the expected ImageDetail remains rendered. */
+  async waitForImageDetailFullscreenState(
+    expectedId: string,
+    active: boolean,
+    timeout = 10_000,
+  ) {
+    try {
+      await this.page.waitForFunction(
+        ({ targetId, targetActive }) => {
+          const detail = document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`);
+          const preview = document.querySelector('[data-fullscreen-preview="active"]');
+          const fullscreenActive = document.fullscreenElement !== null;
+          return !!detail && !preview && fullscreenActive === targetActive;
+        },
+        { targetId: expectedId, targetActive: active },
+        { timeout },
+      );
+    } catch (error) {
+      const diagnostic = await this.page.evaluate((targetId) => ({
+        detailPresent: !!document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`),
+        nativeFullscreenActive: document.fullscreenElement !== null,
+        previewActive: !!document.querySelector('[data-fullscreen-preview="active"]'),
+        routeMatchesDetail: new URL(location.href).searchParams.get("image")
+          === document.querySelector("[data-detail-image-id]")?.getAttribute("data-detail-image-id"),
+      }), expectedId);
+      throw new Error(`ImageDetail fullscreen state did not reach ${active ? "active" : "inactive"}: ${JSON.stringify(diagnostic)}`, { cause: error });
+    }
+  }
+
+  /**
    * Navigate to previous image in detail via ArrowLeft.
    * Does NOT wait for image to load — use for rapid traversal.
    */

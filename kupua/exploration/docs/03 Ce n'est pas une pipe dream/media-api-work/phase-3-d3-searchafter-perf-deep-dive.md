@@ -5,6 +5,14 @@
 except where explicitly flagged. Temporary instrumentation (ES-client gzip, script-field
 A/B) was applied live and reverted; nothing committed.
 
+> **Shipping update — 8 September 2026.** F1 is now shipped. Grid
+> [PR #4784](https://github.com/guardian/grid/pull/4784) merged as `ce3d347` and
+> enables `setCompressionEnabled(true)` in the shared `common-lib` ES client. The
+> before/after measurements below remain the evidence for that decision, but any
+> present-tense description of the media-api↔ES leg as uncompressed is superseded.
+> Prod-like TEST showed no latency regression; compression CPU under sustained PROD
+> load remains unmeasured and should be monitored after rollout.
+
 > **Why this doc exists.** Two earlier docs
 > ([payload-perf-findings](phase-3-d3-searchafter-payload-perf-findings.md),
 > [perf-review](phase-3-d3-searchafter-perf-review.md)) established that
@@ -22,16 +30,17 @@ A/B) was applied live and reverted; nothing committed.
 
 | Lever | Mechanism | Saving (dev, /page) | Helps PROD? | Confidence |
 |---|---|---|---|---|
-| **ES-client gzip** (media-api↔ES) | client never sends `Accept-Encoding`; ES returns 5× larger response | **~440ms** | **Latency: dev-only.** Bandwidth/CPU/GC: yes, but minor | **measured (live)** |
+| **ES-client gzip** (media-api↔ES) — **SHIPPED** | shared client now requests gzip; ES returns a ~5–6× smaller response | **~440ms** measured before merge | **Latency: dev-only.** Bandwidth/heap/GC: also-prod; compression CPU unmeasured | **measured + merged (#4784)** |
 | **Drop `isPotentiallyGraphic` script** | per-hit Painless `params['_source']` read | ~30ms | **Yes — also-prod** | measured (A/B) |
 | **Lean envelope writer** | replace 12-step `JsObject.transform` chain | ~55ms | **Yes — dominant lever on prod** | measured (built+reverted) |
 | **Skip S3 presigning for browse** | kupua discards all signed URLs | ~29ms | **Yes — also-prod** | measured |
 | `trackTotalHits=true` (page 1) | exact count over ~1.3M docs | +28ms (unavoidable) | n/a — product requirement | measured (A/B) |
 | `sourceInclude` vs `sourceExclude` | projection shape | +2ms (noise) | n/a | measured (A/B) |
 
-**The single biggest dev factor is compression**, and it fully explains the "same tunnel"
-paradox. **The single biggest prod factor is the envelope build** (because on prod the
-transport cost the gzip lever attacks is already near-zero).
+**The single biggest dev factor was the missing compression opt-in**, and it fully explains
+the "same tunnel" paradox. PR #4784 has removed that penalty. **The single biggest unbuilt
+prod lever remains the envelope build** (because on prod the transport cost gzip attacks is
+already near-zero).
 
 ---
 
@@ -51,12 +60,13 @@ implying it is a fixed tax both routes pay. Two things are wrong with that:
 | Route | What crosses the tunnel | Bytes (200 hits) |
 |---|---|---|
 | **direct-ES** (browser `fetch` → Vite `/es` proxy → ES) | **gzip** — browser auto-sends `Accept-Encoding: gzip`; ES honours it | **~63 KB** |
-| **media-api** (elastic4s `JavaClient` → ES) | **uncompressed** — the ES client never sends `Accept-Encoding` | **~373 KB** |
+| **media-api before PR #4784** (elastic4s `JavaClient` → ES) | **uncompressed** — the ES client did not send `Accept-Encoding` | **~373 KB** |
 
-Same tunnel. ~5× the bytes. At the measured effective tunnel rate (~708 bytes/ms ≈
+Historically this meant the same tunnel carried ~5× the bytes. At the measured effective tunnel rate (~708 bytes/ms ≈
 690 KB/s, derived from 373 KB in ~540 ms), that's ~540 ms vs ~92 ms — which is exactly why
 direct-ES's whole reload fits in ~274 ms while media-api's "transport leg" alone is ~540 ms.
-**The tunnel was never the differentiator; the bytes-on-wire were.**
+**The tunnel was never the differentiator; the bytes-on-wire were.** PR #4784 now makes the
+media-api leg request the compressed response too.
 
 > **Internal cross-check (no new measurement needed):** 308 KB *uncompressed* at 708 bytes/ms
 > = 446 ms, which already exceeds direct-ES's *entire* 188 ms non-ES budget. Direct-ES
@@ -77,8 +87,9 @@ All numbers below come from one of three instruments:
   Painless `script_fields` / `track_total_hits` clauses toggled, reading ES's own internal
   `took` from each response. `took` is server-side ES time only — immune to tunnel, Vite,
   and Play jitter. (Reproduction commands in the appendix.)
-- **Live app A/B** — a one-line ES-client gzip patch applied to the running media-api (sbt
-  hot-recompile), felt directly in `--use-media-api` Home reload, then reverted.
+- **Live app A/B** — the ES-client gzip change applied temporarily to the running media-api
+  (sbt hot-recompile), felt directly in `--use-media-api` Home reload, then reverted for the
+  experiment. The same behavior later shipped through PR #4784.
 
 The 4-point envelope instrumentation (ES `took`, transport, per-hit `create`, per-hit
 signing, client parse) is from the [perf-review doc](phase-3-d3-searchafter-perf-review.md)
@@ -88,15 +99,19 @@ and not repeated here.
 
 ## Findings
 
-### F1 — The media-api↔ES leg is uncompressed (the big dev lever)
+### F1 — The media-api↔ES leg was uncompressed (fixed by PR #4784)
 
-**What.** elastic4s builds its client as `JavaClient(ElasticProperties(url))`
+**What was measured.** elastic4s built its client as `JavaClient(ElasticProperties(url))`
 ([ElasticSearchClient.scala](../../../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchClient.scala)).
 The underlying ES Java REST client only requests gzip if `setCompressionEnabled(true)` is
-set on its builder — it is not. So ES replies uncompressed. (The elastic4s response handler
+set on its builder — it was not. So ES replied uncompressed. (The elastic4s response handler
 *already* decodes gzip when present — `isEntityGziped → GZIPInputStream` — so only the
-request-side opt-in is missing.) By contrast, the browser's `fetch` on the direct-ES path
+request-side opt-in was missing.) By contrast, the browser's `fetch` on the direct-ES path
 auto-sends `Accept-Encoding: gzip`, the Vite proxy forwards it, and ES compresses.
+
+**Current state.** PR #4784 now constructs the shared `RestClient` with
+`setCompressionEnabled(true)` and wraps it with `JavaClient.fromRestClient()`. This affects
+all Grid services using `common-lib`, not only media-api; response JSON is unchanged.
 
 **Measured wire sizes (200 hits, `match_all`, real cluster):**
 
@@ -110,14 +125,14 @@ auto-sends `Accept-Encoding: gzip`, the Vite proxy forwards it, and ES compresse
 
 | | Home reload (felt) |
 |---|---|
-| Current (no ES-client gzip) | **~988 ms** |
-| + ES-client gzip | **~486 ms** |
+| Historical baseline (no ES-client gzip) | **~988 ms** |
+| Gzip behavior now shipped by PR #4784 | **~486 ms** |
 
 Predicted from the byte model: 985 ms → 547 ms. The live result (~486 ms) is within UI
 jitter of the prediction — the model holds.
 
-**The patch that produced the win** (temporary; `JavaClient.apply` has no compression hook,
-so build the `RestClient` directly):
+**The implementation that produced the win and is now merged** (`JavaClient.apply` has no
+compression hook, so the code builds the `RestClient` directly):
 
 ```scala
 // in ElasticSearchClient.scala `lazy val client`
@@ -133,19 +148,17 @@ ElasticClient(JavaClient.fromRestClient(restClient))
 ```
 
 **Prod relevance — carefully stated.** The client code is environment-independent, and prod
-ES is fronted by an **internal load balancer with a plain HTTP listener** (no compression
-layer) in the **same VPC/region** as media-api. So **prod media-api↔ES also transfers
-uncompressed JSON today.** But the prod link is intra-VPC (single-digit ms), so the *latency*
-cost of those extra bytes is small — the dramatic dev win is an **SSH-tunnel artefact**.
-What *is* also-prod is the **bandwidth, heap-allocation and GC** cost of materialising ~5×
-larger response bodies on every search, on a high-QPS editorial service. That is a real but
-**modest** efficiency improvement, not a latency fix.
+ES is fronted by an **internal load balancer with a plain HTTP listener** in the **same
+VPC/region** as media-api. Before PR #4784, prod therefore transferred the same uncompressed
+JSON over a fast link. The dramatic dev latency win remains an **SSH-tunnel artefact**. The
+merged change reduces bandwidth and socket-buffer pressure everywhere; prod-like TEST found
+no latency regression and a small consistent improvement at 200 hits. The remaining unknown
+is ES compression plus service decompression CPU under sustained editorial-load PROD QPS.
 
-> **Verdict:** Latency win = **dev-only** (100% sure — confirmed by topology: the prod link
-> is fast and uncompressed regardless). Efficiency win (bandwidth/CPU/GC) = **also-prod, minor.**
-> Worth offering to the Grid team as a low-risk, one-line, behaviour-transparent change — but
-> framed as efficiency, not speed. ⚠️ It lives in `common-lib` and affects **every** Grid
-> service (thrall, cropper, usage, etc.), so the blast radius is wider than this endpoint.
+> **Verdict:** Latency win = **dev-only** (confirmed by topology and TEST measurements).
+> Bandwidth/heap/GC efficiency = **also-prod**; sustained-load compression CPU remains
+> unmeasured. The Grid team accepted the shared `common-lib` blast radius and merged the
+> behavior-transparent change as PR #4784.
 >
 > **See below:** More measurements and a PR to main: https://github.com/guardian/grid/pull/4784
 
@@ -250,20 +263,22 @@ a contract test is the mandatory guardrail before re-shipping.
 
 ---
 
-### F6 — Route mixture compounds via shared-tunnel contention (dev)
+### F6 — Route mixture compounded via shared-tunnel contention before PR #4784 (dev)
 
 The [strangler adapter](../../../../src/dal/strangler-adapter.ts) routes **only** `searchAfter`
 to media-api; `search`, `count`, `getAggregations`, distributions, `estimateSortValue`,
-`getIdRange` etc. still go **direct-to-ES**. So one Home-logo click fires a fat uncompressed
-media-api `searchAfter` **plus** several direct-ES companion calls, **all sharing the one SSH
-tunnel.** The perf-review doc observed a trivial healthcheck balloon to 1234ms (from ~30ms)
-with a fat payload in flight — head-of-line blocking. This inflates the *perceived* settle
-time of a whole action beyond what the isolated `searchAfter` breakdown predicts, and explains
-why perceived deltas (e.g. PP1 home-logo +193% vs last-ES) exceed the per-call cost.
+`getIdRange` etc. still go **direct-to-ES**. Before PR #4784, one Home-logo click fired an
+uncompressed media-api `searchAfter` **plus** several direct-ES companion calls, **all sharing
+the one SSH tunnel.** The perf-review doc observed a trivial healthcheck balloon to 1234ms
+(from ~30ms) with that large payload in flight — head-of-line blocking. This inflated the
+*perceived* settle time of a whole action beyond what the isolated `searchAfter` breakdown
+predicted, and explained why perceived deltas (e.g. PP1 home-logo +193% vs last-ES) exceeded
+the per-call cost.
 
-**Prod relevance: dev-only.** It is a consequence of the bandwidth-limited tunnel; F1's
-compression fix (or simply the fast prod link) removes the contention by shrinking the fat
-call. Not an architectural defect of the mixed-route strangler.
+**Current state and prod relevance: dev-only.** This was a consequence of the
+bandwidth-limited tunnel. PR #4784 now shrinks the media-api leg and removes the dominant
+contention source; the fast prod link never had the same latency problem. It is not an
+architectural defect of the mixed-route strangler.
 
 ---
 
@@ -286,8 +301,8 @@ Honesty requires flagging where earlier interpretations were wrong:
 3. **"media-api↔ES is ~2–5ms on prod."** *(perf-review, assumed)* — **Now grounded, not
    guessed.** media-api and ES share the primary VPC/region; ES is behind an internal LB. The
    single-digit-ms figure is consistent with intra-VPC routing, but the *exact* number remains
-   unmeasured (would need a prod-side probe). The qualitative claim — "fast, and uncompressed"
-   — is confirmed from infrastructure config.
+  unmeasured (would need a prod-side probe). The link is fast; it was uncompressed when this
+  investigation ran and now carries gzip responses because PR #4784 changed the client.
 
 ---
 
@@ -299,7 +314,7 @@ layer, fast link), the prod picture for a `searchAfter` page is approximately:
 | Component | Prod estimate | Lever |
 |---|---|---|
 | ES `took` (incl. script + page-1 count) | ~90 ms | drop script → ~60ms (F2) |
-| media-api↔ES transport | ~few ms | gzip irrelevant to latency here (F1) |
+| media-api↔ES transport | ~few ms | gzip now shipped; negligible prod-like latency delta (F1) |
 | Envelope build ×200 | ~137 ms | lean writer → ~82ms (F5) |
 | Serialise + dispatch | ~10 ms | — |
 | **Server total** | **~230 ms** | **→ ~155ms with F2+F5** |
@@ -341,9 +356,10 @@ envelope (F5), not transport, is the thing worth optimising** — the opposite o
   `searchAfterGraphicScriptField` in `ElasticSearch.searchAfter` (Kupua endpoint only at
   present; `imageSearch` doesn't use a script field for this).
 
-- **ES-client gzip** (F1): one-line, behaviour-transparent, reduces ES response bandwidth/heap
-  ~5× across all services. **Not a latency fix on prod** (the link is already fast) — purely an
-  efficiency/GC consideration. Wider blast radius (`common-lib`). Offered for their judgement.
+- **[DONE — PR #4784] ES-client gzip** (F1): behavior-transparent, reduces ES response bytes
+  ~5–6× across all services. It is not a material prod latency fix because the link is already
+  fast. Prod-like TEST found no latency regression; sustained-load compression CPU remains the
+  rollout metric to watch.
 
 **Do not touch:**
 - `trackTotalHits=true` on page 1 (F3) — product requirement (scrubber).
@@ -353,9 +369,10 @@ envelope (F5), not transport, is the thing worth optimising** — the opposite o
 
 ## F1 follow-up — measurements on real Grid (2026-06-27)
 
-The F1 patch (`setCompressionEnabled(true)` via `JavaClient.fromRestClient`) was applied to a
-PR branch (`mk-media-api-gzip-on`) and measured against real Grid TEST. Full data and scripts
-are in [zz Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md](../../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md).
+The F1 change (`setCompressionEnabled(true)` via `JavaClient.fromRestClient`) was first applied
+to the `mk-media-api-gzip-on` PR branch and measured against real Grid TEST. It subsequently
+merged to `main` as PR #4784 (`ce3d347`). Full data and scripts are in
+[zz Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md](../../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md).
 
 **Signal used:** Kibana `duration` field = media-api's `executeAndLog` elapsed time on the
 ES round-trip (send + ES `took` + read body + parse). This is the gzip-sensitive leg. Tunnel

@@ -1039,3 +1039,56 @@ Stable until: 2026-02-15T00:00:00.000Z | Runs: 3
 | JB3 | facet-click | 62 | 381 | 1347 | 1347 | 771 |
 | JB4 | scrubber-scroll | — | — | — | 27 | — |
 | JB5 | fullscreen-exit | — | — | — | 57 | — |
+
+---
+
+## [short] Post-A5 Phase-B validity baseline (cb827f6c6 (dirty), 2026-09-10)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: b699f733eec8b19b
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 2 | — | 373 | 511 | 526 | — |
+| PP2 | sort-no-focus | 4 | 66 | — | 400 | 483 | 490 | — |
+| PP3 | sort-around-focus | 4 | 67 | — | 761 | 902 | 916 | — |
+| PP4 | sort-around-focus | 4 | 65 | — | 696 | 792 | 800 | — |
+| PP5 | filter-toggle | 4 | 64 | — | 686 | 699 | 711 | — |
+| PP6 | density-swap | 4 | — | — | — | 270 | 278 | — |
+| PP7 | scrubber-seek | 4 | 1 | — | 856 | 1029 | 1046 | — |
+| PP7b | scrubber-seek | 4 | 1 | — | 762 | 932 | 947 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 123 | 128 | — |
+| PP8 | search | 4 | 76 | — | 1006 | 1031 | 1041 | — |
+| PP9 | chip-remove | 4 | 405 | — | 705 | 906 | 927 | — |
+| PP6b | density-swap | 4 | — | — | — | 291 | 300 | — |
+| PP6c | density-swap | 4 | — | — | — | 292 | 319 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2477 | 21627 |
+
+---
+
+## [long] Post-A5 Phase-B validity baseline (cb827f6c6 (dirty), 2026-09-10)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: b699f733eec8b19b
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 784 | 873 | 892 | — |
+| JA2 | open-detail | 4 | — | — | 141 | 849 | 857 | — |
+| JA3 | metadata-click | 4 | 59 | — | 870 | 982 | 1003 | — |
+| JB1 | navigation-search | 4 | — | — | 690 | 788 | 797 | — |
+| JB2 | facet-click | 4 | 71 | — | 1009 | 1071 | 1080 | — |
+| JB3 | facet-click | 4 | 56 | — | 299 | 368 | 372 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 632 | 645 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 137 | 146 | — |
+
+JB2 matched no-anchor control: first visible 1351ms; settled 1361ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

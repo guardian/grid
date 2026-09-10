@@ -24,6 +24,7 @@
   select, input, button { background: var(--panel); color: var(--fg); border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; font: inherit; }
   button { cursor: pointer; }
   button:hover { border-color: var(--accent); }
+  [hidden] { display: none !important; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 12px; padding: 16px 24px; }
   .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 10px 12px; }
   .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
@@ -58,6 +59,12 @@
   .targets table { border-collapse: collapse; }
   .targets td, .targets th { padding: 2px 10px; text-align: left; }
   .targets th { color: var(--muted); font-weight: normal; }
+  @media (max-width: 520px) {
+    header, .controls, .legend, .targets { padding-left: 12px; padding-right: 12px; }
+    .grid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .card-header { align-items: flex-start; flex-wrap: wrap; gap: 6px; }
+    .card .action-tag { max-width: 100%; overflow-wrap: anywhere; }
+  }
 </style>
 </head>
 <body>
@@ -95,14 +102,29 @@
   <label>Metric
     <select id="metric">
       <option value="dt_ack_ms" selected>Ack (ms)</option>
-      <option value="dt_first_pixel_ms">First pixel (ms)</option>
-      <option value="dt_settled_ms">Settled (ms)</option>
+      <option value="dt_store_ready_ms">Store ready (ms)</option>
+      <option value="dt_first_visible_frame_ms">First visible frame (ms)</option>
+      <option value="dt_visual_settled_ms">Visual settled (ms)</option>
       <option value="status_total_ms">Banner total (ms)</option>
       <option value="dt_ack_p95_ms">Ack p95 (ms)</option>
       <option value="dt_status_p95_ms">Status p95 (ms)</option>
-      <option value="dt_first_pixel_p95_ms">First pixel p95 (ms)</option>
-      <option value="dt_settled_p95_ms">Settled p95 (ms)</option>
+      <option value="dt_store_ready_p95_ms">Store ready p95 (ms)</option>
+      <option value="dt_first_visible_frame_p95_ms">First visible frame p95 (ms)</option>
+      <option value="dt_visual_settled_p95_ms">Visual settled p95 (ms)</option>
       <option value="status_total_p95_ms">Banner total p95 (ms)</option>
+      <option value="dt_native_exit_ms">Native fullscreen exit (ms)</option>
+      <option value="sampleCount">Samples across repetitions</option>
+      <option value="requestedRatio">Requested result ratio</option>
+      <option value="achievedRatio">Achieved result ratio</option>
+      <option value="mapEntryCount">Position-map entries</option>
+      <option value="matched_control_first_visible_ms">Matched control first visible (ms)</option>
+      <option value="matched_control_settled_ms">Matched control settled (ms)</option>
+      <optgroup label="Legacy evidence (pre-revision-2 only)">
+        <option value="dt_first_pixel_ms">Legacy first pixel (ms)</option>
+        <option value="dt_settled_ms">Legacy settled (ms)</option>
+        <option value="dt_first_pixel_p95_ms">Legacy first pixel p95 (ms)</option>
+        <option value="dt_settled_p95_ms">Legacy settled p95 (ms)</option>
+      </optgroup>
       <optgroup label="Store timing (post-settle)">
         <option value="took">ES took (ms)</option>
         <option value="fetchDuration">Fetch duration (ms)</option>
@@ -114,11 +136,17 @@
   </label>
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
   <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
+  <label><input type="checkbox" id="showDiagnostics" /> background diagnostics</label>
+  <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
+  <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
+  <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
   <button id="reload">↺ Reload</button>
 </div>
 
 <div id="grid" class="grid" hidden></div>
-<div class="legend" id="legend" hidden>Each sparkline point = one audit run. Hover for details. Targets from perceived-perf-audit.md. <strong>"—" cells are by-design gaps</strong>: not all actions instrument all four phases. Specifically: <code>density-swap</code>, <code>scrubber-scroll</code>, <code>fullscreen-exit</code> and <code>open-detail</code> only emit <code>t_0</code> and <code>t_settled</code> (no ack / first-pixel); <code>filter-toggle</code> has no first-pixel site. Empty cells reflect missing trace sites, not regressions.</div>
+<h2 id="diagnosticHeading" hidden style="padding:0 24px;">Background diagnostics <span style="font-size:12px;color:var(--muted);font-weight:normal;">not ranked against user-action targets</span></h2>
+<div id="diagnosticGrid" class="grid" hidden></div>
+<div class="legend" id="legend" hidden>Each sparkline point = one audit run. Hover for details. Targets from perceived-perf-audit.md. <strong>"—" cells are by-design gaps</strong>: actions emit only the explicit phases they own. Pre-revision-2 first-pixel/settled fields remain available under <strong>Legacy evidence</strong> and are not treated as revision-2 browser boundaries.</div>
 
 <!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
 <script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
@@ -143,28 +171,50 @@ let currentMetric = "dt_ack_ms";
 // the kind field existed are treated as "short" for back-compat.
 let showShort = true;
 let showLong = true;
+let showDiagnostics = false;
 function entryKind(e) { return e.kind ?? "short"; }
+function entryMode(e) {
+  const mode = e.environment?.dataMode;
+  return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
+}
+function visibleModeSet() {
+  return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
+}
 function visibleEntries(entries) {
+  const modes = visibleModeSet();
   return entries.filter((e) => {
     const k = entryKind(e);
-    return (k === "short" && showShort) || (k === "long" && showLong);
+    return modes.has(entryMode(e)) && ((k === "short" && showShort) || (k === "long" && showLong));
   });
 }
 const METRIC_LABELS = {
   dt_ack_ms: "Ack (ms)",
-  dt_first_pixel_ms: "First pixel (ms)",
-  dt_settled_ms: "Settled (ms)",
+  dt_first_pixel_ms: "Legacy first pixel (ms)",
+  dt_settled_ms: "Legacy settled (ms)",
   status_total_ms: "Banner total (ms)",
   dt_ack_p95_ms: "Ack p95 (ms)",
   dt_status_p95_ms: "Status p95 (ms)",
-  dt_first_pixel_p95_ms: "First pixel p95 (ms)",
-  dt_settled_p95_ms: "Settled p95 (ms)",
+  dt_first_pixel_p95_ms: "Legacy first pixel p95 (ms)",
+  dt_settled_p95_ms: "Legacy settled p95 (ms)",
   status_total_p95_ms: "Banner total p95 (ms)",
+  dt_store_ready_ms: "Store ready (ms)",
+  dt_native_exit_ms: "Native fullscreen exit (ms)",
+  dt_native_exit_p95_ms: "Native fullscreen exit p95 (ms)",
+  dt_first_visible_frame_ms: "First visible frame (ms)",
+  dt_visual_settled_ms: "Visual settled (ms)",
   took: "ES took (ms)",
   fetchDuration: "Fetch duration (ms)",
   seekTime: "Seek time (ms)",
   aggTook: "Agg took (ms)",
   aggFetchDuration: "Agg fetch duration (ms)",
+  sampleCount: "Samples across repetitions",
+  requestedRatio: "Requested result ratio",
+  achievedRatio: "Achieved result ratio",
+  mapEntryCount: "Position-map entries",
+  matched_control_first_visible_ms: "Matched control first visible (ms)",
+  matched_control_settled_ms: "Matched control settled (ms)",
+  matched_control_first_visible_p95_ms: "Matched control first visible p95 (ms)",
+  matched_control_settled_p95_ms: "Matched control settled p95 (ms)",
 };
 
 // Contract: every numeric field on PerceivedMetrics that the dashboard
@@ -184,16 +234,36 @@ const KNOWN_METRICS = new Set([
   "dt_first_pixel_p95_ms",
   "dt_settled_p95_ms",
   "status_total_p95_ms",
+  "dt_store_ready_ms",
+  "dt_native_exit_ms",
+  "dt_native_exit_p95_ms",
+  "dt_store_ready_p95_ms",
+  "dt_first_visible_frame_ms",
+  "dt_first_visible_frame_p95_ms",
+  "dt_visual_settled_ms",
+  "dt_visual_settled_p95_ms",
   // Store-reported ES timing (harvested post-settle)
   "took",
   "fetchDuration",
   "seekTime",
   "aggTook",
   "aggFetchDuration",
+  "sampleCount",
+  "requestedRatio",
+  "achievedRatio",
+  "matched_control_first_visible_ms",
+  "matched_control_first_visible_p95_ms",
+  "matched_control_settled_ms",
+  "matched_control_settled_p95_ms",
+  "mapEntryCount",
 ]);
 // Non-numeric fields on each per-scenario record. Listed so the
 // unknown-metric scan can ignore them rather than warning.
-const NON_METRIC_FIELDS = new Set(["id", "label", "action", "seekMeasures"]);
+const NON_METRIC_FIELDS = new Set([
+  "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "anchorDriftPx", "anchorDriftRatio", "metricClass",
+  "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
+  "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
+]);
 
 // ---------------------------------------------------------------------------
 // Load data
@@ -237,6 +307,19 @@ document.getElementById("showLong").addEventListener("change", (e) => {
   charts.clear();
   render();
 });
+document.getElementById("showDiagnostics").addEventListener("change", (e) => {
+  showDiagnostics = e.target.checked;
+  document.getElementById("diagnosticGrid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListener("change", () => {
+  document.getElementById("grid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+}));
 
 document.getElementById("reload").addEventListener("click", () => location.reload());
 
@@ -265,13 +348,13 @@ const charts = new Map(); // id → Chart instance
 function getTargetForAction(action, metric) {
   const t = TARGETS[action] || {};
   if (metric === "dt_ack_ms") return t.ack ?? null;
-  if (metric === "dt_settled_ms") return t.settle ?? null;
-  if (metric === "dt_first_pixel_ms") return t.settle ?? null;
+  if (metric === "dt_visual_settled_ms") return t.settle ?? null;
+  if (metric === "dt_first_visible_frame_ms") return t.settle ?? null;
   if (metric === "status_total_ms") return t.bannerCeiling ?? null;
   // p95 variants — use ceiling as the target (p95 should stay under ceiling)
   if (metric === "dt_ack_p95_ms") return t.ack ? t.ack * 2 : null;
-  if (metric === "dt_settled_p95_ms") return t.ceiling ?? null;
-  if (metric === "dt_first_pixel_p95_ms") return t.ceiling ?? null;
+  if (metric === "dt_visual_settled_p95_ms") return t.ceiling ?? null;
+  if (metric === "dt_first_visible_frame_p95_ms") return t.ceiling ?? null;
   if (metric === "status_total_p95_ms") return t.bannerCeiling ?? null;
   if (metric === "dt_status_p95_ms") return null;
   return null;
@@ -317,6 +400,9 @@ function render() {
     document.getElementById("sub").textContent =
       `${allEntries.length} entries in log, 0 visible (toggle short/long above).`;
     document.getElementById("grid").innerHTML = "";
+    document.getElementById("diagnosticGrid").innerHTML = "";
+    document.getElementById("diagnosticGrid").hidden = true;
+    document.getElementById("diagnosticHeading").hidden = true;
     document.getElementById("controls").hidden = false;
     return;
   }
@@ -330,7 +416,7 @@ function render() {
   const shortCount = allEntries.filter((e) => entryKind(e) === "short").length;
   const longCount  = allEntries.filter((e) => entryKind(e) === "long").length;
   document.getElementById("sub").textContent =
-    `${allEntries.length} entries (${shortCount} short, ${longCount} long), ${entries.length} visible — latest: [${entryKind(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
+    `${allEntries.length} entries (${shortCount} short, ${longCount} long), ${entries.length} visible — latest: [${entryKind(latest)} · ${entryMode(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
 
   // Collect all scenario IDs across all entries
   const allIds = new Set();
@@ -341,10 +427,21 @@ function render() {
   }
 
   const gridEl = document.getElementById("grid");
+  const diagnosticGridEl = document.getElementById("diagnosticGrid");
+  const diagnosticHeading = document.getElementById("diagnosticHeading");
+  diagnosticGridEl.hidden = !showDiagnostics;
+  diagnosticHeading.hidden = !showDiagnostics;
   // Create or update cards
   for (const id of allIds) {
-    const latestMetrics = latest.perceived?.[id];
+    const latestScenarioEntry = [...entries].reverse().find((entry) => entry.perceived?.[id]);
+    const latestMetrics = latestScenarioEntry?.perceived?.[id];
     const action = latestMetrics?.action ?? id;
+    const metricClass = latestMetrics?.metricClass
+      ?? (id === "PP10" ? "background-diagnostic" : "user-action");
+    if (metricClass === "background-diagnostic" && !showDiagnostics) {
+      document.getElementById(`card-${id}`)?.remove();
+      continue;
+    }
 
     // Collect sparkline data across entries
     const points = entries.map((e) => {
@@ -358,26 +455,26 @@ function render() {
       card = document.createElement("div");
       card.className = "card";
       card.id = `card-${id}`;
-      gridEl.appendChild(card);
     }
+    (metricClass === "background-diagnostic" ? diagnosticGridEl : gridEl).appendChild(card);
 
-    const target = getTargetForAction(action, currentMetric);
+    const target = metricClass === "background-diagnostic" ? null : getTargetForAction(action, currentMetric);
     const latest_val = latestMetrics ? latestMetrics[currentMetric] : null;
 
     // Chips for latest values
-    const CHIP_METRICS = ["dt_ack_ms", "dt_first_pixel_ms", "dt_settled_ms", "status_total_ms"];
+    const CHIP_METRICS = ["dt_ack_ms", "dt_store_ready_ms", "dt_first_visible_frame_ms", "dt_visual_settled_ms", "status_total_ms"];
     const chipsHtml = CHIP_METRICS.map((m) => {
       const v = latestMetrics ? latestMetrics[m] : null;
-      const t = getTargetForAction(action, m);
+      const t = metricClass === "background-diagnostic" ? null : getTargetForAction(action, m);
       const cls = chipClass(v, t);
-      const lbl = { dt_ack_ms: "ack", dt_first_pixel_ms: "px", dt_settled_ms: "settle", status_total_ms: "banner" }[m];
+      const lbl = { dt_ack_ms: "ack", dt_store_ready_ms: "store", dt_first_visible_frame_ms: "visible", dt_visual_settled_ms: "settle", status_total_ms: "banner" }[m];
       return `<span class="metric-chip ${cls}">${lbl}: ${v != null ? v + "ms" : "—"}</span>`;
     }).join("");
 
     card.innerHTML = `
       <div class="card-header">
         <h3>${id}: ${latestMetrics?.label ?? id}</h3>
-        <span class="action-tag">${action} · ${entryKind(latest)}</span>
+        <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}</span>
       </div>
       <div class="metrics-row">${chipsHtml}</div>
       <canvas id="canvas-${id}"></canvas>

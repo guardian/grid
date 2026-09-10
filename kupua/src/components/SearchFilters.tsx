@@ -16,7 +16,7 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
 import { SORT_DROPDOWN_OPTIONS, DESC_BY_DEFAULT } from "@/lib/field-registry";
 import { useSearchStore } from "@/stores/search-store";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 
 /** Sortable fields for the dropdown — derived from the field registry. */
 const SORTABLE_FIELDS = SORT_DROPDOWN_OPTIONS;
@@ -42,7 +42,7 @@ function FilterControls() {
   const updateSearch = useUpdateSearchParams();
 
   const handleFreeOnlyToggle = useCallback(() => {
-    trace("filter-toggle", "t_0", { filter: "nonFree", newValue: params.nonFree === "true" ? undefined : "true" });
+    beginTraceInteraction("filter-toggle", { filter: "nonFree", newValue: params.nonFree === "true" ? undefined : "true" });
     const newValue = params.nonFree === "true" ? undefined : "true";
     updateSearch({ nonFree: newValue });
   }, [params.nonFree, updateSearch]);
@@ -98,7 +98,7 @@ function SortControls() {
     (value: string) => {
       if (hasAiChip && !isAiSortOptionEnabled(value)) return;
       const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
-      trace(action, "t_0", { sort: value, focusedId: focusedImageId });
+      beginTraceInteraction(action, { sort: value, focusedId: focusedImageId });
       if (value === sortField) {
         const newPrimary = sortDesc ? value : `-${value}`;
         updateSearch({ orderBy: newPrimary });
@@ -113,7 +113,7 @@ function SortControls() {
 
   const handleToggleDirection = useCallback(() => {
     const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
-    trace(action, "t_0", { sort: sortField, dir: sortDesc ? "asc" : "desc", focusedId: focusedImageId });
+    beginTraceInteraction(action, { sort: sortField, dir: sortDesc ? "asc" : "desc", focusedId: focusedImageId });
     const newPrimary = sortDesc ? sortField : `-${sortField}`;
     updateSearch({ orderBy: newPrimary });
   }, [sortField, sortDesc, updateSearch, focusedImageId]);

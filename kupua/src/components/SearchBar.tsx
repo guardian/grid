@@ -19,7 +19,7 @@ import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SettingsMenu } from "./SettingsMenu";
 import { useSelectionStore } from "@/stores/selection-store";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { hasCollectionFilter } from "@/lib/search-params-schema";
 
 export function SearchBar() {
@@ -99,6 +99,7 @@ export function SearchBar() {
         // Only update the URL when there's real query content.
         const meaningful = queryStr.replace(/[+\-:\s]+/g, "");
         const cqlPart = meaningful ? queryStr : "";
+        beginTraceInteraction("search", { source: "debounced-input" });
         updateSearch({ query: cqlPart || undefined }, { replace: true });
       }, 300));
     },
@@ -157,12 +158,13 @@ export function SearchBar() {
         className="shrink-0 -ml-3 w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors"
         onClick={(e) => {
           e.preventDefault();
-          trace("home-logo", "t_0");
+          const interactionId = beginTraceInteraction("home-logo");
           // pushNavigateAsPopstate — deliberately skips markUserInitiatedNavigation().
           // Logo-reset should behave like a popstate: reset to offset 0, no focus
           // carry. The flag-defaults-to-false rule gives these semantics for free.
-          resetToHome(() =>
-            pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+          resetToHome(
+            () => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+            interactionId,
           );
         }}
       >

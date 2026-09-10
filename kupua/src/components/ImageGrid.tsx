@@ -35,7 +35,7 @@ import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { pushNavigate, enterFullscreenPreview } from "@/lib/orchestration/search";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
@@ -674,7 +674,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
   /** Navigate to image detail overlay (shared by single-click in phantom, double-click in explicit). */
   const enterDetail = useCallback(
     (imageId: string) => {
-      trace("open-detail", "t_0", { imageId });
+      beginTraceInteraction("open-detail", { imageId });
       setFocusedImageId(imageId);
       const idx = findImageIndex(imageId);
       if (idx >= 0) {

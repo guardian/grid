@@ -69,7 +69,7 @@ import {
   POST_EXTEND_COOLDOWN_MS,
 } from "@/constants/tuning";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
@@ -440,7 +440,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -462,7 +462,7 @@ interface SearchState {
    * Seek to a global offset — clear buffer and refill at the target position.
    * Used by scrubber drags and sort-around-focus.
    */
-  seek: (globalOffset: number, traceAction?: string) => Promise<void>;
+  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string) => Promise<void>;
 
   /**
    * Restore the buffer around a specific image using its cached sort cursor.
@@ -1214,7 +1214,8 @@ async function _fetchPositionMap(
   }
 
   devLog(`[position-map] Starting background fetch for ${get().total} positions...`);
-  trace("position-map", "t_0");
+  const total = get().total;
+  const traceInteractionId = beginTraceInteraction("position-map", { total });
   set({ positionMapLoading: true, positionMap: null });
 
   try {
@@ -1227,8 +1228,11 @@ async function _fetchPositionMap(
 
     if (map) {
       devLog(`[position-map] Complete — ${map.length} entries loaded`);
-      trace("position-map", "t_settled");
       set({ positionMap: map, positionMapLoading: false });
+      traceInteraction("position-map", "t_store_ready", traceInteractionId, {
+        total,
+        entries: map.length,
+      });
     } else {
       devLog("[position-map] fetchPositionIndex returned null (aborted or empty)");
       set({ positionMap: null, positionMapLoading: false });
@@ -1446,7 +1450,6 @@ async function _findAndFocusImage(
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
     if (fallbackFirstPage) {
-      trace("sort-around-focus", "t_settled");
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1467,7 +1470,6 @@ async function _findAndFocusImage(
       // _topUpScrollModeBuffer doc above _fillBufferForScrollMode).
       void _topUpScrollModeBuffer(get);
     } else {
-      trace("sort-around-focus", "t_settled");
       set({ sortAroundFocusStatus: null, loading: false });
     }
   }, 8000);
@@ -1527,7 +1529,6 @@ async function _findAndFocusImage(
           }
         }
 
-        trace("sort-around-focus", "t_settled");
         set({
           results: fallbackFirstPage.hits,
           bufferOffset: 0,
@@ -1554,7 +1555,6 @@ async function _findAndFocusImage(
         // prior query almost never survives into a new filtered query.
         void _topUpScrollModeBuffer(get);
       } else {
-        trace("sort-around-focus", "t_settled");
         set({ sortAroundFocusStatus: null, loading: false });
       }
       return;
@@ -1671,7 +1671,6 @@ async function _findAndFocusImage(
         // Phantom promotion: position around image but don't set focusedImageId.
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
-        trace("sort-around-focus", "t_settled");
         const suppressPulse = get()._isInitialLoad;
         set({
           ...(!retainExplicitFocus && {
@@ -1687,7 +1686,6 @@ async function _findAndFocusImage(
         });
         if (!suppressPulse) setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
       } else {
-        trace("sort-around-focus", "t_settled");
         set({
           focusedImageId: imageId,
           _isInitialLoad: false,
@@ -1776,16 +1774,6 @@ async function _findAndFocusImage(
       //
       // In phantom mode, we use _seekGeneration instead (no focusedImageId
       // to drive the sort-around-focus scroll effect).
-      // NOTE: t_first_useful_pixel and t_settled fire back-to-back here
-      // because the store can only observe "buffer state updated", not
-      // "browser painted the new row" or "scroll-to-focused-image effect
-      // ran". Both numbers will be equal in the dashboard until a future
-      // refactor wires t_settled emission into useScrollEffects (after
-      // the centring scroll completes) and t_first_useful_pixel into the
-      // virtualizer's first-row render. Treat them as a single
-      // "buffer-ready" signal for now.
-      trace("sort-around-focus", "t_first_useful_pixel");
-      trace("sort-around-focus", "t_settled");
       // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({
@@ -1833,7 +1821,6 @@ async function _findAndFocusImage(
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (fallbackFirstPage) {
-      trace("sort-around-focus", "t_settled");
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1849,7 +1836,6 @@ async function _findAndFocusImage(
         _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
       });
     } else {
-      trace("sort-around-focus", "t_settled");
       set({ sortAroundFocusStatus: null, loading: false });
     }
   } finally {
@@ -1977,7 +1963,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean }) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => {
     trace("search", "t_0");
     // Bump generation so any in-flight stale search bails out after its
     // next await. Captured locally — after every await below, if the
@@ -2013,6 +1999,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const prevNewCountSince = get().newCountSince;
 
     trace("search", "t_ack");
+    if (options?.sortOnly && !sortAroundFocusId) trace("sort-no-focus", "t_ack");
+    if (options?.traceAction) traceInteraction(options.traceAction, "t_ack", options.traceInteractionId);
     // When restoring via frozenUntil (history back/forward), keep the
     // current newCount so the ticker doesn't flash off and back on.
     // The immediate poll tick will correct the count within milliseconds.
@@ -2113,8 +2101,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           ? aiHits.some((img) => img.id === sortAroundFocusId)
           : false;
 
-        trace("search", "t_first_useful_pixel", { total: aiHits.length });
-        trace("search", "t_settled");
         set({
           results: aiHits,
           bufferOffset: 0,
@@ -2293,6 +2279,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           pitId: result.pitId ?? newPitId,
           total: result.total,
         }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal)
+          .then(() => {
+            if (
+              options?.traceAction
+              && _searchGeneration === myGeneration
+              && !get().loading
+              && !get().error
+            ) {
+              traceInteraction(
+                options.traceAction,
+                "t_store_ready",
+                options.traceInteractionId,
+                { total: get().total },
+              );
+            }
+          })
           .catch(console.error);
 
         // Position map: start background fetch even in sort-around-focus path.
@@ -2313,8 +2314,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           );
         }
       } else {
-        trace("search", "t_first_useful_pixel", { total: result.total });
-        trace("search", "t_settled");
+        if (options?.sortOnly && !sortAroundFocusId) {
+          trace("sort-no-focus", "t_store_ready", { total: result.total });
+        }
+        if (options?.traceAction) traceInteraction(options.traceAction, "t_store_ready", options.traceInteractionId, { total: result.total });
 
         const suppressPulse = get()._isInitialLoad;
 
@@ -2736,7 +2739,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  seek: async (globalOffset: number, traceAction: string = "seek") => {
+  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string) => {
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const params = frozenParams(rawParams, get);
 
@@ -2767,6 +2770,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     set({ loading: true, error: null, _pendingFocusDelta: null });
     trace(traceAction, "t_ack");
+    traceInteraction(traceAction, "t_ack", traceInteractionId);
 
     const seekStartTime = Date.now();
     // Performance marks for DevTools profiling — visible in the Performance
@@ -3605,8 +3609,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Effect #6 in useScrollEffects will only adjust scrollTop if there's
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
-      trace(traceAction, "t_first_useful_pixel");
-      trace(traceAction, "t_settled");
       // Commit-to-view (seek): merge enrichment from the seek's forward fetch.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set({
@@ -3665,6 +3667,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         })(),
         _seekSubRowOffset,
         seekTime: Date.now() - seekStartTime,
+      });
+      traceInteraction(traceAction, "t_store_ready", traceInteractionId, {
+        total: get().total,
+        targetOffset: clampedOffset,
       });
 
       performance.mark('seek-set-done');

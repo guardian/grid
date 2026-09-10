@@ -88,7 +88,24 @@ but they determine how the app behaves during tests.
 |------|---------|---------|
 | `--label "..."` | `--label "Phase 1: baseline"` | Human-readable label for the audit log entry |
 | `--runs N` | `--runs 3` | Repeat the test suite N times; metrics are median-aggregated |
-| Positional | `P8` or `P3,P8,P9` | Grep filter — run only specific perf scenarios |
+| Positional | `P8`, `PP1`, `JB3`, or comma-separated IDs | Run only matching jank or perceived metric IDs; completeness is checked against the selected subset |
+
+Perceived filters match complete metric IDs, so `PP1` selects PP1 without also
+selecting PP10. The runner translates IDs to Playwright title prefixes; callers
+do not need to construct title regexes. Examples from the repository root:
+
+```bash
+node kupua/e2e-perf/run-audit.mjs --short-perceived-only --dry-run PP1
+node kupua/e2e-perf/run-audit.mjs --long-perceived-only --dry-run --runs 2 JB3,JB4
+```
+
+PP10 is a background position-map diagnostic, not a user-action latency row.
+It runs through the same short-perceived command and history, but CLI/Markdown
+report it separately and the dashboard hides it by default with no target:
+
+```bash
+node kupua/e2e-perf/run-audit.mjs --short-perceived-only --dry-run PP10
+```
 
 ### Smoke runner CLI args (`run-smoke.mjs`)
 
@@ -105,7 +122,7 @@ but they determine how the app behaves during tests.
 | `--headed` | `npm run test:e2e:headed` | Visible browser |
 | `--debug` | `npm run test:e2e:debug` | Step-through debugger |
 | `--ui` | `npm run test:e2e:ui` | Playwright UI mode |
-| `-g "pattern"` | `npx playwright test -g "scroll up"` | Run tests matching grep pattern |
+| `--grep "pattern"` | `npm --prefix kupua run test:e2e -- --grep "scroll up"` | Run habitual tests matching a Playwright title regex |
 | `--update-snapshots` | `npx playwright test --update-snapshots` | Update visual baselines |
 
 ## Which Command Do I Run?
@@ -126,12 +143,20 @@ cadences — running the wrong one wastes minutes (or requires a live cluster).
 is the second (for rendering-related changes). Everything else is purpose-driven —
 you should have a specific reason to run it.
 
+P14 traversal rows are isolated jank scenarios rather than one shared journey.
+Each fresh context validates an exact in-memory sequence from a fixed pinned
+rank, measures landing from final identity commit, and emits only sanitized CLS
+roles/geometry. Run one cadence with a positional metric ID such as `P14b`;
+image identities must never be written to reports or artifacts.
+
 ## Common Mistakes
 
 - **Port 3000 conflict:** Local E2E starts its own Vite. Stop any running `npm run dev` or `start.sh` first.
 - **Running E2E when TEST is connected:** The safety gate (global-setup + per-test check) will refuse. Stop `--use-TEST` first.
 - **Running smoke when local ES is connected:** Tests auto-skip (total < 100k). No harm, just wasted time.
 - **Piping test output through tail/head:** Don't. The list reporter streams results live.
+- **Confusing runner filters:** `run-audit.mjs` positional values are metric IDs;
+  habitual E2E uses Playwright's title-based `--grep` after the npm `--` separator.
 
 ## Asynchronous Observability
 

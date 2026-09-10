@@ -41,6 +41,8 @@ import { saveSortFocusRatio } from "@/hooks/useScrollEffects";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { useSelectionStore } from "@/stores/selection-store";
+import { claimTraceInteraction, consumeTraceInteraction } from "@/lib/perceived-trace";
+import { traceActionsForNavigation } from "@/lib/orchestration/perceived-navigation";
 
 // Track the kupuaKey of the entry we're currently "on". Updated at the
 // end of every effect run. On popstate, history.state already reflects
@@ -184,6 +186,24 @@ export function useUrlSearchSync() {
       Object.keys({ ...prev, ...searchOnly }).every(
         (k) => k === "orderBy" || searchOnly[k] === prev[k]
       );
+    const changedSearchKeys = Object.keys({ ...prev, ...searchOnly }).filter(
+      (key) => searchOnly[key] !== prev[key],
+    );
+    const traceActions = traceActionsForNavigation(
+      isUserInitiated,
+      isSortOnly,
+      changedSearchKeys,
+    );
+    const traceClaim = traceActions.length > 0
+      ? claimTraceInteraction(traceActions)
+      : undefined;
+    const traceAction = traceClaim?.action ?? (
+      isUserInitiated && changedSearchKeys.length === 1 && changedSearchKeys[0] === "nonFree"
+        ? "filter-toggle"
+        : undefined
+    );
+    const traceInteractionId = traceClaim?.interactionId
+      ?? (traceAction ? consumeTraceInteraction(traceAction) : undefined);
 
     // S6 — Clear selection on navigation (unless the user has opted into
     // persistent selections via SELECTIONS_PERSIST_ACROSS_NAVIGATION).
@@ -367,14 +387,14 @@ export function useUrlSearchSync() {
     }
 
     const searchOptions = phantomAnchor && snapshotHints
-      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
+      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
       : phantomAnchor
-        ? { phantomOnly: true, retainExplicitFocus: !!focusPreserveId && focusPreserveId !== useSearchStore.getState().focusedImageId, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined } as const
+        ? { phantomOnly: true, retainExplicitFocus: !!focusPreserveId && focusPreserveId !== useSearchStore.getState().focusedImageId, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
         : snapshotHints
-          ? { snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined } as const
+          ? { snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
           : frozenUntil || isSortOnly
-            ? { frozenUntil, sortOnly: isSortOnly || undefined } as const
-            : undefined;
+            ? { frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
+            : traceAction ? { traceAction, traceInteractionId } as const : undefined;
     search(focusPreserveId, searchOptions);
 
     // Clear the external-query latch. cancelSearchDebounce(newQuery) sets

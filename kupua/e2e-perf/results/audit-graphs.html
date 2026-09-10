@@ -24,6 +24,12 @@
   button { cursor: pointer; }
   button:hover { border-color: var(--accent); }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; padding: 16px 24px; }
+  @media (max-width: 520px) {
+    header, .controls, .legend { padding-left: 12px; padding-right: 12px; }
+    .grid { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .controls label:first-child { width: 100%; min-width: 0; }
+    .controls label:first-child select { min-width: 0; max-width: 100%; width: 100%; }
+  }
   .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; }
   .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
   .card .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
@@ -84,6 +90,9 @@
   </label>
   <label><input type="checkbox" id="hideQuiet" checked /> hide quiet tests (max value &lt; 1)</label>
   <label><input type="checkbox" id="showLabels" /> show run labels on x-axis</label>
+  <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
+  <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
+  <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
   <button id="reload" title="Re-fetch audit-log.json">↻ Reload data</button>
 </div>
 
@@ -119,11 +128,14 @@ const KNOWN_METRICS = {
   cls:               { label: "CLS",                            lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
   clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
   frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
+  sampleCount:       { label: "samples across repetitions",     lowerIsBetter: null,  defaultShow: false },
   // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
-  // P12 logs per-cycle drift to the console only, not into the metrics dict, so it never appears here.
   focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
   focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
   focusVisible:      { label: "focusVisible (1 = on screen)",   lowerIsBetter: false, defaultShow: true  },
+  focusHorizontalDriftPx: { label: "focus horizontal drift (px, signed)", lowerIsBetter: null, defaultShow: false },
+  widthDeltaPx:      { label: "column width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
+  resultsWidthDeltaPx: { label: "results width delta (px, signed)", lowerIsBetter: null, defaultShow: false },
   // Traversal image-render metrics (P14a–d — per-image load timing).
   landingRenderMs:   { label: "Landing image render (ms; 0 = prefetch hit)", lowerIsBetter: true, defaultShow: true },
   landingNetworkMs:  { label: "Landing image network (ms)",     lowerIsBetter: true,  defaultShow: false },
@@ -132,12 +144,22 @@ const KNOWN_METRICS = {
   swappedNotRendered:{ label: "Images swapped but not rendered",lowerIsBetter: true,  defaultShow: true  },
   landingAlreadyRendered: { label: "Landing already rendered (1 = yes; prefetch hit)", lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
   landingCacheHit:   { label: "Landing cache hit (1 = yes; browser cache)",    lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
+  clsOccurrenceRate: { label: "CLS occurrence rate across runs", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  clsConditionalMagnitude: { label: "CLS magnitude when shifts occur", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
-  "baseline_rtt_ms",
+  "baseline_rtt_ms", "environment",
 ]);
-const KNOWN_METRIC_META_KEYS = new Set(["report"]);
+const KNOWN_METRIC_META_KEYS = new Set([
+  "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
+  "traversals", "cadenceMs", "speed", "direction", "clsEvents",
+  "completionBoundary", "detailDecoded",
+  "dragSteps", "stepIntervalMs", "releaseExcluded",
+  "probeStart", "responseEndMs", "domContentLoadedMs", "loadEventMs",
+  "firstPaintMs", "firstContentfulPaintMs", "resultsWidthDeltaPx",
+  "focusHorizontalDriftPx", "widthDeltaPx",
+]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 const sub = document.getElementById("sub");
@@ -261,6 +283,7 @@ function buildMetricDropdown(unknownMetricKeys) {
 function pickValue(metric, m) {
   if (!m) return null;
   if (metric === "severeRate") {
+    if (!Number.isFinite(m.frameCount) || m.frameCount < 30) return null;
     if (typeof m.severeRate === "number") return m.severeRate;
     if (m.severe != null && m.frameCount) return (m.severe / m.frameCount) * 1000;
     return null;
@@ -273,6 +296,15 @@ function pickValue(metric, m) {
 
 function metricLabel(metric) {
   return KNOWN_METRICS[metric]?.label ?? `${metric} (unknown)`;
+}
+
+function entryMode(entry) {
+  const mode = entry.environment?.dataMode;
+  return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
+}
+
+function visibleModeSet() {
+  return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
 }
 
 function collectTests(entries) {
@@ -305,10 +337,11 @@ function buildCharts() {
   charts.clear();
   grid.innerHTML = "";
 
-  const xLabels = ENTRIES.map((e, i) => showLabels ? e.label : String(i + 1));
+  const entries = ENTRIES.filter((entry) => visibleModeSet().has(entryMode(entry)));
+  const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
 
   for (const t of TESTS) {
-    const data = ENTRIES.map(e => pickValue(metric, e.metrics?.[t]));
+    const data = entries.map(e => pickValue(metric, e.metrics?.[t]));
     const finite = data.filter(v => v != null && Number.isFinite(v));
     const max = finite.length ? Math.max(...finite) : 0;
     const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
@@ -328,8 +361,8 @@ function buildCharts() {
           data,
           borderColor: "#58a6ff",
           backgroundColor: "rgba(88,166,255,0.15)",
-          pointBackgroundColor: ENTRIES.map((_, i) => i === ENTRIES.length - 1 ? "#f85149" : "#58a6ff"),
-          pointRadius: ENTRIES.map((_, i) => i === ENTRIES.length - 1 ? 4 : 2.5),
+          pointBackgroundColor: entries.map((_, i) => i === entries.length - 1 ? "#f85149" : "#58a6ff"),
+          pointRadius: entries.map((_, i) => i === entries.length - 1 ? 4 : 2.5),
           tension: 0.2,
           spanGaps: true,
         }],
@@ -342,12 +375,12 @@ function buildCharts() {
             callbacks: {
               title: (items) => {
                 const i = items[0].dataIndex;
-                const e = ENTRIES[i];
-                return `#${i + 1} ${e.label}`;
+                const e = entries[i];
+                return `#${i + 1} ${e.label} [${entryMode(e)}]`;
               },
               label: (item) => `${metricLabel(metric)}: ${item.raw == null ? "n/a" : item.raw.toLocaleString(undefined, { maximumFractionDigits: 4 })}`,
               afterLabel: (item) => {
-                const e = ENTRIES[item.dataIndex];
+                const e = entries[item.dataIndex];
                 return `${(e.timestamp || "").slice(0, 10)} · ${e.gitSha || "?"} · runs:${e.runs ?? "?"}`;
               },
             },
@@ -391,7 +424,7 @@ function onData(entries) {
   entries.forEach((e) => {
     const li = document.createElement("li");
     const rtt = e.baseline_rtt_ms != null ? `  · RTT ${e.baseline_rtt_ms}ms` : "";
-    li.textContent = `${e.label}  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
+    li.textContent = `${e.label} [${entryMode(e)}]  —  ${(e.timestamp || "").slice(0, 10)}  ·  ${e.gitSha || "?"}${e.gitDirty ? " (dirty)" : ""}  ·  ${e.runs ?? "?"} run(s)${rtt}`;
     runlist.appendChild(li);
   });
 
@@ -402,6 +435,7 @@ function onData(entries) {
 }
 
 metricSel.addEventListener("change", buildCharts);
+document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListener("change", buildCharts));
 document.getElementById("yscale").addEventListener("change", buildCharts);
 document.getElementById("hideQuiet").addEventListener("change", buildCharts);
 document.getElementById("showLabels").addEventListener("change", buildCharts);

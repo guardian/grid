@@ -64,7 +64,7 @@ import { ImageMetadata } from "@/components/ImageMetadata";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
 import { AccordionSection } from "@/components/PanelLayout";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
-import { trace } from "@/lib/perceived-trace";
+import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 
 /** Delay before acting on single-tap in fullscreen — allows double-tap-to-zoom. */
@@ -177,11 +177,16 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Center panel's <img> — transform target for pinch-zoom.
   const imageRef = useRef<HTMLImageElement>(null);
 
-  // Tracks the imageId we have already emitted open-detail t_settled for.
+  // Tracks the imageId we have already emitted open-detail t_store_ready for.
   // Must be declared at top level (before any early returns) to satisfy
   // the rules of hooks. Paired effect lives further down once `image` is
   // available; the ref itself is harmless to declare here.
   const openDetailSettledRef = useRef<string | null>(null);
+  const openDetailInteractionRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const interactionId = consumeTraceInteraction("open-detail");
+    if (interactionId) openDetailInteractionRef.current = interactionId;
+  }, []);
   // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
@@ -270,14 +275,16 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // otherwise fall back to the standalone fetch
   const image = imageFromResults ?? standaloneImage;
 
-  // Emit open-detail t_settled the first time `image` is available for a
-  // given imageId. Pairs with t_0 in ImageGrid.enterDetail. Declared up
+  // Emit open-detail store-ready the first time `image` is available for a
+  // given imageId. Pairs with the owned interaction from ImageGrid.enterDetail. Declared up
   // here (before any early returns) to satisfy the rules of hooks.
   useEffect(() => {
     if (!image) return;
     if (openDetailSettledRef.current === image.id) return;
     openDetailSettledRef.current = image.id;
-    requestAnimationFrame(() => trace("open-detail", "t_settled"));
+    requestAnimationFrame(() => {
+      traceInteraction("open-detail", "t_store_ready", openDetailInteractionRef.current);
+    });
   }, [image]);
 
   // ── Traversal via shared hook ──────────────────────────────────

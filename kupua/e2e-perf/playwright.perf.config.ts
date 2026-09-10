@@ -49,11 +49,10 @@ export default defineConfig({
     navigationTimeout: 30_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
-    /* Original baseline viewport — all existing results were measured here.
-       Do NOT change without re-baselining. 1987×1110 @1.25x approximates
-       a large-monitor CSS layout. Independent of playwright.perceived.config.ts. */
-    viewport: { width: 1987, height: 1110 },
-    deviceScaleFactor: 1.25,
+     /* Laptop-fitting maintained perf profile. Shared with perceived suites so
+       headed runs remain fully visible on the machine used for measurements.
+       This intentionally invalidates the legacy 1987×1110 jank baseline. */
+     viewport: { width: 1720, height: 960 },
     deviceScaleFactor: 2,
     ...(process.env.KUPUA_PERF_AUTH_FILE && { storageState: process.env.KUPUA_PERF_AUTH_FILE }),
   },

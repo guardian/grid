@@ -44,7 +44,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { prefetchNearbyImages, getCarouselImageUrl } from "@/lib/image-prefetch";
 import { getZoomImageUrl } from "@/lib/image-urls";
 import { scrollFocusedIntoView, registerEnterPreview } from "@/lib/orchestration/search";
-import { trace } from "@/lib/perceived-trace";
+import { beginTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import { requestFullscreenExit, shouldRecoverFullscreenBack } from "@/lib/fullscreen-exit";
 import type { Image } from "@/types/image";
 
@@ -86,6 +86,7 @@ export function FullscreenPreview() {
   // if the user traversed — otherwise the grid's scrollTop is already
   // correct (the grid stays in the DOM behind the fullscreen layer).
   const entryImageIdRef = useRef<string | null>(null);
+  const exitInteractionRef = useRef<string | undefined>(undefined);
 
   // Bug #2: Track whether we pushed a phantom history entry (the "back
   // absorber"). Checked in exitPreview, fullscreenchange, and the
@@ -205,7 +206,6 @@ export function FullscreenPreview() {
       const doScroll = () => {
         requestAnimationFrame(() => {
           scrollFocusedIntoView();
-          trace("fullscreen-exit", "t_settled");
         });
       };
 
@@ -249,8 +249,6 @@ export function FullscreenPreview() {
         // but macOS animation may still be in progress.
         scrollAfterLayoutSettles();
       }
-    } else {
-      trace("fullscreen-exit", "t_settled");
     }
   }, []);
 
@@ -260,6 +258,7 @@ export function FullscreenPreview() {
     initiatedRef.current = false;
     cooldownRef.current = false;
     setNavReady(false);
+    traceInteraction("fullscreen-exit", "t_native_exit", exitInteractionRef.current);
     cleanupAfterExit();
     if (phantomEntryRef.current) {
       phantomEntryRef.current = false;
@@ -268,7 +267,7 @@ export function FullscreenPreview() {
   }, [cleanupAfterExit]);
 
   const exitPreview = useCallback(() => {
-    trace("fullscreen-exit", "t_0");
+    exitInteractionRef.current = beginTraceInteraction("fullscreen-exit");
     if (document.fullscreenElement && initiatedRef.current) {
       void requestFullscreenExit(
         () => document.exitFullscreen(),
@@ -373,7 +372,7 @@ export function FullscreenPreview() {
       // The phantom is already gone from the history stack — just clean up.
       if (phantomEntryRef.current && initiatedRef.current) {
         phantomEntryRef.current = false;
-        trace("fullscreen-exit", "t_0");
+        exitInteractionRef.current = beginTraceInteraction("fullscreen-exit");
         if (document.fullscreenElement) {
           void requestFullscreenExit(
             () => document.exitFullscreen(),
@@ -467,6 +466,7 @@ export function FullscreenPreview() {
   return (
     <div
       ref={containerRef}
+      data-fullscreen-preview={isActive ? "active" : "inactive"}
       tabIndex={-1}
       className={`outline-none ${
         isActive

@@ -1,6 +1,7 @@
 # Ignore the temp metrics file written by perf tests during a run.
 # audit-log.json and audit-log.md are tracked (they are the persistent record).
 .metrics-tmp.jsonl
+.latest-report-path
 
 # Auto-derived from audit-log.json by run-audit.mjs so audit-graphs.html can
 # load on file:// (browsers block fetch on file://). Not source of truth.

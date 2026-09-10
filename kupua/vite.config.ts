@@ -96,6 +96,20 @@ function gridApiWriteGuard(): Plugin {
   };
 }
 
+function perfEnvironment(): Plugin {
+  return {
+    name: "perf-environment",
+    configureServer(server) {
+      server.middlewares.use("/__kupua/perf-environment", (_req, res) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          dataMode: process.env.VITE_USE_MEDIA_API === "true" ? "media-api" : "direct-es",
+        }));
+      });
+    },
+  };
+}
+
 // Load .env.local into process.env so proxy targets can read it.
 // Vite does not inject .env files into process.env automatically for vite.config.ts.
 // Gated: vitest re-uses this config and the side-effect leaks real env vars into tests.
@@ -104,7 +118,7 @@ if (!process.env.VITEST) {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), bedrockEmbedProxy()],
+  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), bedrockEmbedProxy()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

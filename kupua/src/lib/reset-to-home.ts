@@ -43,7 +43,7 @@ import { useSelectionStore } from "@/stores/selection-store";
  *   correct data. If search() throws, navigation still fires (graceful
  *   degradation — the user gets to the home state, possibly with an error).
  */
-export async function resetToHome(navigate: () => void) {
+export async function resetToHome(navigate: () => void, traceInteractionId?: string) {
   // Pre-compute the home URL dedup key BEFORE clearing state. This is set
   // on _prevParamsSerialized immediately to prevent useUrlSearchSync from
   // firing a rogue search() during the await below. Without this, the race
@@ -128,7 +128,9 @@ export async function resetToHome(navigate: () => void) {
   // Single source of truth: if the home URL defaults change, this follows.
   store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });
   try {
-    await store.search();
+    await store.search(undefined, traceInteractionId
+      ? { traceAction: "home-logo", traceInteractionId }
+      : undefined);
   } catch {
     // If search fails, navigate anyway — graceful degradation.
     // The error state will be displayed on the home page.
