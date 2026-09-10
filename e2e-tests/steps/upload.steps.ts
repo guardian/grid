@@ -75,6 +75,19 @@ Then('I should be taken to a search filtered to images I uploaded', async ({ pag
   await expect(page).toHaveURL((url) => Boolean(url.searchParams.get('uploadedBy')));
 });
 
+When('I try to navigate away from the upload page', async ({ page }) => {
+  // Going back is what a user does, and it is also the only navigation the controller's
+  // guard sees: on a ui-sref click ui-router destroys its scope before broadcasting
+  // $locationChangeStart, so the listener registered there never runs.
+  await page.goBack();
+});
+
+Then('I should be warned that uploads are in progress and asked to confirm', async ({ testContext }) => {
+  await expect
+    .poll(() => testContext.dialogs)
+    .toContain('You have uploads in progress. Are you sure you want to leave this page?');
+});
+
 // ---------------------------------------------------------------------------
 // File upload prompt
 // ---------------------------------------------------------------------------
