@@ -5,7 +5,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.config.Services
 import lib.LiveContentApi
-import model.{ContentWithImages, ImageTakedownDummyData}
+import model.{ContentWithImages, ImageTakedownDummyData, ImageTakedownStore}
 import play.api.mvc.ControllerComponents
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,6 +19,8 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
                              )(
                                implicit val ec: ExecutionContext
                              ) extends BaseControllerWithLoginRedirects {
+
+    val imageUrlsStore = ImageTakedownStore()
 
     def index(imageId: Option[String]) = withLoginRedirectAsync { implicit request =>
       imageId.map(id => {
@@ -40,6 +42,8 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
 
   def removeImageMetadata(imageId: String) = withLoginRedirectAsync { implicit request =>
     for {
+      crops <- gridClient.getCrops(imageId, auth.innerServiceCall)
+      _ = imageUrlsStore.addImageUrls(imageId, crops.flatMap(c => {c.assets.map(a =>a.file)}))
       cropsRes <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
       usagesRes <- gridClient.deleteUsages(imageId, auth.innerServiceCall)
       message = if (cropsRes && usagesRes) {
@@ -62,10 +66,8 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
   }
 
   def decache(imageId: String) = withLoginRedirectAsync { implicit request =>
+    val cropUrls = imageUrlsStore.getImageUrls(imageId)
     for {
-      crops <- gridClient.getCrops(imageId, auth.innerServiceCall)
-      // TODO include the master image?
-      cropUrls = crops.flatMap(c => {c.assets.map(a =>a.file)})
       _ <- Future.sequence(cropUrls.map(c => imageServices.clearFastly(c)))
     } yield {
       Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> s"Purged from Fastly successfully: ${cropUrls.mkString("\n")}")

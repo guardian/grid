@@ -71,7 +71,7 @@
             }
 
 
-            @form(routes.ImageTakedownController.removeImageMetadata(imageId.get)) {
+            @form(routes.ImageTakedownController.deleteImage(imageId.get)) {
                 @CSRF.formField
                 <select id="delete-select">
                     <option value="">--Please choose an option--</option>
@@ -79,12 +79,12 @@
                     <option value="hard-delete">Hard Delete</option>
                     <option value="deny-lease">Deny Lease</option>
                 </select>
-                <button type="submit" disabled>Remove from grid</button>
+                <button type="submit"  @if(!(capiResults.isEmpty && crops.isEmpty && usages.isEmpty)) { disabled="disabled" }>Remove from grid</button>
             }
 
             @form(routes.ImageTakedownController.decache(imageId.get)) {
                 @CSRF.formField
-                <button type="submit">Remove from fastly</button>
+                <button type="submit" @if(!(capiResults.isEmpty && crops.isEmpty && usages.isEmpty)) { disabled="disabled" }>Remove from fastly</button>
             }
         }
         </main>

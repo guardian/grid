@@ -264,8 +264,6 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     val request: WSRequest = wsClient.url(url.toString)
     val authorisedRequest = authFn(request)
     authorisedRequest.delete() map { response =>
-      println("response: " + response.status)
-      println("response body: " + response.body)
       response.status match {
         case 202 => true
         case 403 | 404 => false
