@@ -16,7 +16,8 @@ GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.rei
 
 GET    /imageTakedown                                  controllers.ImageTakedownController.index(imageId: Option[String])
 POST     /imageTakedown                                   controllers.ImageTakedownController.takedownImage
-POST    /imageTakedown/:imageId                          controllers.ImageTakedownController.deleteImageTakedown(imageId: String)
+POST    /imageTakedown/metadata/:imageId                 controllers.ImageTakedownController.removeImageMetadata(imageId: String)
+POST    /imageTakedown/delete/:imageId                   controllers.ImageTakedownController.deleteImage(imageId: String)
 POST    /imageTakedown/decache/:imageId                  controllers.ImageTakedownController.decache(imageId: String)
 
 # Management

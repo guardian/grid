@@ -38,13 +38,23 @@ class ImageTakedownController(liveContentApi: LiveContentApi,
     Redirect(controllers.routes.ImageTakedownController.index(imageId)).flashing("success" -> "Image takedown request submitted successfully.")
   }
 
-  def deleteImageTakedown(imageId: String) = withLoginRedirectAsync { implicit request =>
+  def removeImageMetadata(imageId: String) = withLoginRedirectAsync { implicit request =>
     for {
       cropsRes <- gridClient.deleteCrops(imageId, auth.innerServiceCall)
       usagesRes <- gridClient.deleteUsages(imageId, auth.innerServiceCall)
-      imageRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
-      message = if (cropsRes && usagesRes && imageRes) {
+      message = if (cropsRes && usagesRes) {
         "Crops and Usages and Image deleted successfully"
+      } else {
+        s"Encountered issues while deleting image"
+      }
+    } yield Redirect(controllers.routes.ImageTakedownController.index(Some(imageId))).flashing("response" -> message)
+  }
+
+  def deleteImage(imageId: String) = withLoginRedirectAsync { implicit request =>
+    for {
+      deleteRes <- gridClient.deleteImage(imageId, auth.innerServiceCall)
+      message = if (deleteRes) {
+        "Image deleted successfully"
       } else {
         s"Encountered issues while deleting image"
       }

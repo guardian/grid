@@ -50,10 +50,7 @@
                     }
                 }
             }
-            @form(routes.ImageTakedownController.decache(imageId.get)) {
-                @CSRF.formField
-                <button type="submit">Remove from fastly</button>
-            }
+
             <p>Found @{crops.size} crops and @{usages.size} usages</p>
             @for(usage <- usages) {
                 <li>@{usage.platform}: @{usage.status}</li>
@@ -67,13 +64,28 @@
             @for(softDeleteMetadata <- softDeleteMetadata) {
                 <p>Image was soft deleted on @{softDeleteMetadata.deleteTime} by @{softDeleteMetadata.deletedBy}</p>
             }
-            @if(softDeleteMetadata.isEmpty) {
-                @form(routes.ImageTakedownController.deleteImageTakedown(imageId.get)) {
-                    @CSRF.formField
-                    <button type="submit" disabled>Remove Image from grid</button>
-                }
+
+            @form(routes.ImageTakedownController.removeImageMetadata(imageId.get)) {
+                @CSRF.formField
+                <button type="submit">Remove Image Metadata</button>
             }
 
+
+            @form(routes.ImageTakedownController.removeImageMetadata(imageId.get)) {
+                @CSRF.formField
+                <select id="delete-select">
+                    <option value="">--Please choose an option--</option>
+                    <option value="soft-delete">Soft Delete</option>
+                    <option value="hard-delete">Hard Delete</option>
+                    <option value="deny-lease">Deny Lease</option>
+                </select>
+                <button type="submit" disabled>Remove from grid</button>
+            }
+
+            @form(routes.ImageTakedownController.decache(imageId.get)) {
+                @CSRF.formField
+                <button type="submit">Remove from fastly</button>
+            }
         }
         </main>
 
