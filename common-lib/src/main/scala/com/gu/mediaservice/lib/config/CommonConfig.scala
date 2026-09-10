@@ -217,6 +217,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     configuration.get[UsageRightsConfigProvider]("usageRightsConfigProvider")
   }
 
+  val showUsageRightsV2 = configuration.get[Option[Boolean]]("usageRights.showV2").getOrElse(false)
+
   /**
    * Load in a list of applicable usage right objects that implement [[com.gu.mediaservice.model.UsageRightsSpec]] from config. For example:
    * {{{
