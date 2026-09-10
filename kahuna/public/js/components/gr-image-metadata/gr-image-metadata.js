@@ -413,7 +413,7 @@ module.controller('grImageMetadataCtrl', [
         return storage.getJs(generateStoreName(key)).hidden;
       };
 
-      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
       function isUsefulMetadata(metadataKey) {
         return ignoredMetadata.indexOf(metadataKey) === -1;

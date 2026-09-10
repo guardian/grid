@@ -42,7 +42,7 @@ queryFilters.factory('searchWithModifiers',
       const shift = $event.getModifierState('Shift');
       if (alt || shift) {
         $event.preventDefault();
-        const nonFree = storage.getJs("isNonFree", true) ? true : undefined;
+        const nonFree = storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
         return $state.go('search.results', {
           query: updateQueryWithModifiers(fieldName, fieldValue, alt, shift, $stateParams.query),
