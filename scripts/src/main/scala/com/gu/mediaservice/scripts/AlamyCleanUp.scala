@@ -17,7 +17,7 @@ object AlamyCleanUp extends App {
 
   val supplierRefs = if (STAGE == "PROD") {
     val csvPath = args.headOption.getOrElse {
-      throw new IllegalArgumentException("Usage: AlamyCleanUp <csv-file>")
+      throw new IllegalArgumentException("To run the script pass in a path to a csv file as an argument")
     }
     val source = Source.fromFile(csvPath)
     try {
@@ -35,7 +35,7 @@ object AlamyCleanUp extends App {
   }
 
   if (supplierRefs.isEmpty) {
-    println("No supplier refs found in alamy-refs.csv, exiting script")
+    println("No supplier refs found in supplied csv, exiting script")
     sys.exit(1)
   }
 
