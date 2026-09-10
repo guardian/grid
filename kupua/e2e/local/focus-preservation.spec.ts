@@ -167,22 +167,26 @@ test.describe("Neighbour fallback", () => {
     await kupua.waitForSortAroundFocus();
 
     const focusAfter = await kupua.getFocusedImageId();
+    expect(focusAfter).toBe(creditInfo!.neighbourId);
 
-    // The original focused image should NOT be focused (it was filtered out)
-    expect(focusAfter).not.toBe(focusedId);
-
-    // A neighbour should have been focused (not null) — it should be in the
-    // buffer since it was found in the first page of new results.
-    // Note: if the neighbour happens not to be in the first page (unlikely
-    // for recent images), focus may be null — that's acceptable graceful
-    // degradation, so we only check it's not the original.
-    if (focusAfter !== null) {
-      const inBuffer = await kupua.page.evaluate((id) => {
-        const store = (window as any).__kupua_store__;
-        return store.getState().results.some((r: any) => r?.id === id);
-      }, focusAfter);
-      expect(inBuffer).toBe(true);
-    }
+    const placement = await kupua.page.evaluate((expectedId) => {
+      const state = (window as any).__kupua_store__?.getState();
+      const container = document.querySelector(
+        '[aria-label="Image results grid"], [aria-label="Image results table"]',
+      );
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(expectedId)}"]`);
+      if (!state || !container || !cell) return null;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return {
+        inBuffer: state.results.some((image: any) => image?.id === expectedId),
+        visible: cellRect.bottom > containerRect.top
+          && cellRect.top < containerRect.bottom
+          && cellRect.right > containerRect.left
+          && cellRect.left < containerRect.right,
+      };
+    }, creditInfo!.neighbourId);
+    expect(placement).toEqual({ inBuffer: true, visible: true });
   });
 });
 
@@ -345,23 +349,25 @@ test.describe("Phantom focus promotion", () => {
     // Confirm no explicit focus yet
     expect(await kupua.getFocusedImageId()).toBeNull();
 
-    // Read the credit from a visible image — we'll use it as a query that
-    // still includes images in this neighbourhood
-    const credit = await kupua.page.evaluate(() => {
+    // Query for the app-elected anchor's own credit so the target is known to
+    // survive while still exercising phantom position preservation.
+    const anchor = await kupua.page.evaluate(() => {
       const store = (window as any).__kupua_store__;
       const s = store.getState();
-      for (const img of s.results) {
-        if (img?.metadata?.credit) return img.metadata.credit;
-      }
-      return null;
+      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+      const anchorId = typeof getAnchor === "function" ? getAnchor() : null;
+      const image = s.results.find((candidate: any) => candidate?.id === anchorId);
+      return anchorId && image?.metadata?.credit
+        ? { id: anchorId, credit: image.metadata.credit }
+        : null;
     });
-    expect(credit).not.toBeNull();
+    expect(anchor).not.toBeNull();
 
     // Change query — the viewport anchor should be used for position
     // preservation but NOT promoted to explicit focus
     await spaNavigate(
       kupua.page,
-      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${credit}"`)}`,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${anchor!.credit}"`)}`,
     );
 
     // Wait for search to complete
@@ -378,12 +384,26 @@ test.describe("Phantom focus promotion", () => {
     // focusedImageId must remain null — no focus ring should appear
     expect(await kupua.getFocusedImageId()).toBeNull();
 
-    // The buffer should contain results (search succeeded, position preserved)
-    const hasResults = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      return store.getState().results.filter(Boolean).length > 0;
-    });
-    expect(hasResults).toBe(true);
+    const placement = await kupua.page.evaluate(async (anchorId) => {
+      const container = document.querySelector(
+        '[aria-label="Image results grid"], [aria-label="Image results table"]',
+      );
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(anchorId)}"]`);
+      if (!container || !cell) return null;
+      const first = cell.getBoundingClientRect();
+      const viewport = container.getBoundingClientRect();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const second = cell.getBoundingClientRect();
+      return {
+        visible: second.bottom > viewport.top
+          && second.top < viewport.bottom
+          && second.right > viewport.left
+          && second.left < viewport.right,
+        stable: Math.abs(first.top - second.top) <= 1
+          && Math.abs(first.left - second.left) <= 1,
+      };
+    }, anchor!.id);
+    expect(placement).toEqual({ visible: true, stable: true });
   });
 
   test("position NOT preserved across sort-only change without explicit focus", async ({

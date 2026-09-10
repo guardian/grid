@@ -49,6 +49,14 @@ async function getSelectionCount(page: Parameters<typeof test>[1]["page"]): Prom
   });
 }
 
+async function getSelectionIds(page: Parameters<typeof test>[1]["page"]): Promise<string[]> {
+  return page.evaluate(() => {
+    const store = (window as any).__kupua_selection_store__;
+    if (!store) return [];
+    return Array.from(store.getState().selectedIds as Set<string>);
+  });
+}
+
 async function clearSelection(page: Parameters<typeof test>[1]["page"]): Promise<void> {
   await page.evaluate(() => {
     const store = (window as any).__kupua_selection_store__;
@@ -126,6 +134,24 @@ async function getCellRect(
   }, n);
 }
 
+async function getFirstTouchableCellRect(
+  page: Parameters<typeof test>[1]["page"],
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const rect = await page.locator("[data-grid-cell]").evaluateAll((cells) => {
+    for (const cell of cells) {
+      const bounds = cell.getBoundingClientRect();
+      const x = bounds.x + bounds.width / 2;
+      const y = bounds.y + bounds.height / 2;
+      if (document.elementFromPoint(x, y)?.closest("[data-grid-cell]") === cell) {
+        return { x, y, width: bounds.width, height: bounds.height };
+      }
+    }
+    return null;
+  });
+  if (!rect) throw new Error("No touchable grid cell found");
+  return rect;
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -146,8 +172,7 @@ test.beforeEach(async ({ page }) => {
 // ===========================================================================
 
 test("long-press on grid cell enters selection mode and selects that cell", async ({ page }) => {
-  const rect = await getCellRect(page, 0);
-  if (!rect) throw new Error("No cells found");
+  const rect = await getFirstTouchableCellRect(page);
 
   await beginLongPress(page, rect.x, rect.y);
 
@@ -159,8 +184,7 @@ test("long-press on grid cell enters selection mode and selects that cell", asyn
 });
 
 test("StatusBar remains at top (not repositioned) when in selection mode on coarse pointer", async ({ page }) => {
-  const rect = await getCellRect(page, 0);
-  if (!rect) throw new Error("No cells found");
+  const rect = await getFirstTouchableCellRect(page);
 
   await beginLongPress(page, rect.x, rect.y);
   await endPress(page, rect.x, rect.y);
@@ -176,21 +200,51 @@ test("StatusBar remains at top (not repositioned) when in selection mode on coar
 
   // StatusBar must remain at the TOP of the viewport, not repositioned to bottom.
   const barBox = await statusBar.boundingBox();
-  if (barBox) {
-    expect(barBox.y).toBeLessThan(100);
-  }
+  expect(barBox).not.toBeNull();
+  expect(barBox!.y).toBeGreaterThanOrEqual(0);
+  expect(barBox!.y + barBox!.height).toBeLessThan(100);
 });
 
 // ===========================================================================
 // Long-press-tap (quick release = no drag)
 // ===========================================================================
 
-test("long-press-tap on cell 0 then long-press-tap on cell 1 creates range", async ({ page }) => {
-  const rect0 = await getCellRect(page, 0);
-  const rect1 = await getCellRect(page, 1);
-  if (!rect0 || !rect1) throw new Error("Not enough cells");
+test("long-press-tap selects the exact visible range", async ({ page }) => {
+  await page.locator('[aria-label="Image results grid"]').evaluate((grid) => {
+    grid.scrollBy({ top: 150 });
+  });
+  await page.waitForTimeout(100);
 
-  // First long-press-tap: enters mode + sets anchor on cell 0
+  const range = await page.locator("[data-grid-cell]").evaluateAll((cells) => {
+    const touchable = cells.flatMap((cell, index) => {
+      const rect = cell.getBoundingClientRect();
+      const x = rect.x + rect.width / 2;
+      const y = rect.y + rect.height / 2;
+      const hitCell = document.elementFromPoint(x, y)?.closest("[data-grid-cell]");
+      const id = cell.getAttribute("data-image-id");
+      return id && hitCell === cell ? [{ index, id }] : [];
+    });
+    if (touchable.length < 3) return null;
+    const start = touchable[0];
+    const end = touchable[2];
+    return {
+      startIndex: start.index,
+      endIndex: end.index,
+      endId: end.id,
+      expectedIds: cells
+        .slice(start.index, end.index + 1)
+        .map((cell) => cell.getAttribute("data-image-id"))
+        .filter((id): id is string => id !== null),
+    };
+  });
+  if (!range) {
+    throw new Error("Not enough touchable cells for a multi-cell range");
+  }
+
+  const rect0 = await getCellRect(page, range.startIndex);
+  if (!rect0) throw new Error("Range anchor is not rendered");
+
+  // First long-press-tap enters mode and sets the anchor.
   await beginLongPress(page, rect0.x, rect0.y);
   await endPress(page, rect0.x, rect0.y);
 
@@ -198,13 +252,18 @@ test("long-press-tap on cell 0 then long-press-tap on cell 1 creates range", asy
   const count1 = await getSelectionCount(page);
   expect(count1).toBe(1);
 
-  // Second long-press-tap on cell 1: range select anchor..cell1
-  await beginLongPress(page, rect1.x, rect1.y);
-  await endPress(page, rect1.x, rect1.y);
+  // Reacquire the endpoint by identity after selection mode updates the layout.
+  const endpoint = page.locator(`[data-grid-cell][data-image-id="${range.endId}"]`);
+  const rect1 = await endpoint.boundingBox();
+  if (!rect1) throw new Error("Range endpoint is not touchable after mode entry");
+  const endpointX = rect1.x + rect1.width / 2;
+  const endpointY = rect1.y + rect1.height / 2;
+  await beginLongPress(page, endpointX, endpointY);
+  await endPress(page, endpointX, endpointY);
 
-  // Should have >= 2 selected (range between cell 0 and cell 1)
-  const count2 = await getSelectionCount(page);
-  expect(count2).toBeGreaterThanOrEqual(2);
+  await expect.poll(async () => (await getSelectionIds(page)).sort()).toEqual(
+    range.expectedIds.sort(),
+  );
 });
 
 // ===========================================================================
@@ -213,8 +272,7 @@ test("long-press-tap on cell 0 then long-press-tap on cell 1 creates range", asy
 
 test("tickbox tap toggles selection without triggering long-press", async ({ page }) => {
   // First enter selection mode via long-press
-  const rect0 = await getCellRect(page, 0);
-  if (!rect0) throw new Error("No cells found");
+  const rect0 = await getFirstTouchableCellRect(page);
   await beginLongPress(page, rect0.x, rect0.y);
   await endPress(page, rect0.x, rect0.y);
 
@@ -234,55 +292,24 @@ test("tickbox tap toggles selection without triggering long-press", async ({ pag
 // SelectionFab (floating action button)
 // ===========================================================================
 
-test("SelectionFab appears in selection mode on coarse pointer", async ({ page }) => {
-  const rect = await getCellRect(page, 0);
-  if (!rect) throw new Error("No cells found");
+test("SelectionFab appears at bottom-right and clears selection on tap", async ({ page }) => {
+  const rect = await getFirstTouchableCellRect(page);
 
   await beginLongPress(page, rect.x, rect.y);
   await endPress(page, rect.x, rect.y);
 
-  const count = await getSelectionCount(page);
-  expect(count).toBeGreaterThan(0);
+  expect(await getSelectionCount(page)).toBe(1);
 
-  // FAB should be visible and its aria-label should mention the count
-  const fab = page.locator("button[aria-label*='selected']").last();
+  const fab = page.getByRole("button", { name: "Clear selection (1 selected)" });
   await expect(fab).toBeVisible({ timeout: 3000 });
-
-  // FAB must be in the bottom area of the viewport (left side)
-  const viewportHeight = page.viewportSize()?.height ?? 852;
   const fabBox = await fab.boundingBox();
-  if (fabBox) {
-    expect(fabBox.y + fabBox.height).toBeGreaterThan(viewportHeight * 0.5);
-  }
-});
-
-test("SelectionFab clears selection on tap", async ({ page }) => {
-  const rect = await getCellRect(page, 0);
-  if (!rect) throw new Error("No cells found");
-
-  await beginLongPress(page, rect.x, rect.y);
-  await endPress(page, rect.x, rect.y);
-
-  const count = await getSelectionCount(page);
-  expect(count).toBeGreaterThan(0);
-
-  // Tap the FAB to clear
-  const fab = page.locator("button[aria-label*='selected']").last();
-  await expect(fab).toBeVisible({ timeout: 3000 });
+  const viewport = page.viewportSize();
+  expect(fabBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(fabBox!.x + fabBox!.width).toBeGreaterThan(viewport!.width * 0.75);
+  expect(fabBox!.y + fabBox!.height).toBeGreaterThan(viewport!.height * 0.75);
   await fab.click();
 
-  const countAfter = await getSelectionCount(page);
-  expect(countAfter).toBe(0);
-});
-
-// ===========================================================================
-// data-coarse-pointer attribute is set
-// ===========================================================================
-
-test("data-coarse-pointer attribute is set on StatusBar on coarse pointer device", async ({ page }) => {
-  // The attribute should be set once the UI initialises on a touch device.
-  // Wait for the StatusBar to appear.
-  await page.waitForSelector("[data-coarse-pointer='true']", { timeout: 5000 });
-  const el = await page.$("[data-coarse-pointer='true']");
-  expect(el).not.toBeNull();
+  await expect.poll(() => getSelectionCount(page)).toBe(0);
+  await expect(fab).not.toBeVisible();
 });

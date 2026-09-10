@@ -89,10 +89,7 @@ test.describe("Phantom focus mode — keyboard behaviour", () => {
 
     // Press ArrowDown — should scroll, not set focus
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(200);
-
-    const scrollAfter = await kupua.getScrollTop();
-    expect(scrollAfter).toBeGreaterThan(scrollBefore);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollBefore);
 
     // No focus should be set
     const focusedId = await kupua.getFocusedImageId();
@@ -139,7 +136,8 @@ test.describe("Phantom focus mode — return from detail", () => {
     // Use nth(4) to pick a cell well within the viewport after scrolling
     const target = cells.nth(4);
     await target.scrollIntoViewIfNeeded();
-    const scrollBefore = await kupua.getScrollTop();
+    const targetId = await target.getAttribute("data-image-id");
+    expect(targetId).not.toBeNull();
     await target.click();
     await kupua.page.waitForFunction(
       () => new URL(window.location.href).searchParams.has("image"),
@@ -148,19 +146,21 @@ test.describe("Phantom focus mode — return from detail", () => {
 
     // Press Backspace to return
     await kupua.page.keyboard.press("Backspace");
-    await kupua.page.waitForFunction(
-      () => !new URL(window.location.href).searchParams.has("image"),
-      { timeout: 5000 },
-    );
-    await kupua.page.waitForTimeout(500);
+    await kupua.waitForDetailClosed();
 
     // No focus ring should be visible after return
     const rings = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
     await expect(rings).toHaveCount(0);
 
-    // Scroll position should be near where we were (within one viewport)
-    const scrollAfter = await kupua.getScrollTop();
-    expect(Math.abs(scrollAfter - scrollBefore)).toBeLessThan(800);
+    // The exact opened image should be painted inside the results viewport.
+    await kupua.page.waitForFunction((expectedId) => {
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(expectedId)}"]`);
+      if (!container || !cell) return false;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom;
+    }, targetId, { timeout: 10_000 });
   });
 });
 
@@ -193,19 +193,4 @@ test.describe("Explicit focus mode (default) — unchanged", () => {
     expect(focusedId).toBeTruthy();
   });
 
-  test("double-click opens detail in explicit mode", async ({ kupua }) => {
-    await kupua.page.goto("/search?nonFree=true");
-    await kupua.waitForResults();
-
-    const cells = kupua.page.locator(
-      '[aria-label="Image results grid"] [data-grid-cell]',
-    );
-    await cells.first().dblclick();
-    await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.has("image"),
-      { timeout: 5000 },
-    );
-    const url = new URL(await kupua.page.url());
-    expect(url.searchParams.get("image")).toBeTruthy();
-  });
 });

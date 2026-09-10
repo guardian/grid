@@ -82,9 +82,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1285 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1288 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **236 Playwright E2E** tests (~5min, 2 workers) -- `npm run test:e2e`
+- **203 Playwright E2E** tests (~4.4min, 2 workers) -- `npm run test:e2e`
 - **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
 - **18 perf tests** + experiment infrastructure — `npm run test:perf`
 - **35 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)

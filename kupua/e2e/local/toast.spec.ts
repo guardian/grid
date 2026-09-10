@@ -55,39 +55,4 @@ test.describe("Toast primitive (S2.5)", () => {
     await expect(toast).not.toBeVisible();
   });
 
-  test("warning toast appears with correct category", async ({ page }) => {
-    await fireToast(page, "warning", "Selection limited to 5,000 items.");
-
-    const toast = page.getByTestId("toast").first();
-    await expect(toast).toBeVisible();
-    await expect(toast).toHaveAttribute("data-category", "warning");
-  });
-
-  test("error toast appears with correct category", async ({ page }) => {
-    await fireToast(page, "error", "Range fetch failed.");
-
-    const toast = page.getByTestId("toast").first();
-    await expect(toast).toBeVisible();
-    await expect(toast).toHaveAttribute("data-category", "error");
-  });
-
-  test("success toast appears with correct category", async ({ page }) => {
-    await fireToast(page, "success", "Export ready.");
-
-    const toast = page.getByTestId("toast").first();
-    await expect(toast).toBeVisible();
-    await expect(toast).toHaveAttribute("data-category", "success");
-  });
-
-  test("multiple toasts stack and each is individually dismissible", async ({ page }) => {
-    await fireToast(page, "info", "First toast");
-    await fireToast(page, "warning", "Second toast");
-
-    const toasts = page.getByTestId("toast");
-    await expect(toasts).toHaveCount(2);
-
-    // Dismiss the first (topmost visible = newest)
-    await toasts.first().getByRole("button", { name: /dismiss/i }).click();
-    await expect(toasts).toHaveCount(1);
-  });
 });

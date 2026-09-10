@@ -17,7 +17,6 @@ import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
 import {
   applySearchContextTransitions,
   canonicalizeSearchParams,
-  hasCollectionFilter,
   URL_PARAM_KEYS,
   URL_DISPLAY_KEYS,
   type UrlSearchParams,

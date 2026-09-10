@@ -619,7 +619,7 @@ export function Scrubber({
 
       if (isScrollMode) {
         // All data in buffer or indexed mode — scroll the content container
-        const interactionId = beginTraceInteraction("scrubber-scroll", {
+        beginTraceInteraction("scrubber-scroll", {
           mode: "click",
           regime: interactionRegime,
           pos,

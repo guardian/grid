@@ -124,18 +124,6 @@ test.describe("CollectionTree — with mock service", () => {
     await expect(kupua.page.getByText("Football", { exact: true })).not.toBeVisible();
   });
 
-  test("clicking the expand chevron shows child nodes", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.page.keyboard.press("Alt+[");
-
-    await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
-
-    // Sport has one child → one Expand chevron in the tree
-    await kupua.page.getByRole("button", { name: "Expand" }).click();
-
-    await expect(kupua.page.getByText("Football", { exact: true })).toBeVisible({ timeout: 3000 });
-  });
-
   test("clicking the collapse chevron hides child nodes", async ({ kupua }) => {
     await kupua.goto();
     await kupua.page.keyboard.press("Alt+[");
@@ -224,8 +212,10 @@ test.describe("CollectionTree — with mock service", () => {
 
 test.describe("CollectionTree — graceful absence", () => {
   test("Collections section fully absent when service unavailable", async ({ kupua }) => {
-    // No route mock → Vite proxy gets ECONNREFUSED → 502 → status='absent'
-    // search.tsx hides the entire AccordionSection when status='absent'.
+    await kupua.page.route(
+      (url) => url.pathname === "/collections",
+      (route) => route.fulfill({ status: 503, body: "" }),
+    );
     await kupua.goto();
     await kupua.page.keyboard.press("Alt+[");
 
@@ -237,5 +227,6 @@ test.describe("CollectionTree — graceful absence", () => {
 
     // Sanity: Filters section is still present
     await expect(kupua.page.getByRole("button", { name: "Filters", exact: true })).toBeVisible();
+    await expect(kupua.page.locator("[data-grid-cell]").first()).toBeVisible();
   });
 });

@@ -20,7 +20,6 @@ describe("AiSearchInput", () => {
       <AiSearchInput
         aiText={null}
         onAiTextChange={onAiTextChange}
-        // @ts-expect-error Failing-first: collectionDisabled is not implemented yet.
         collectionDisabled
       />,
     );

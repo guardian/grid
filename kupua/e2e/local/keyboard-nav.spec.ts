@@ -15,16 +15,13 @@
  */
 
 import { test, expect } from "../shared/helpers";
+import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
 
 // Pin to explicit focus mode — keyboard nav tests validate focus-ring movement
 // (ArrowDown moves focus, Home/End focus first/last) which is explicit-only.
 test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
-
-// Grid row height from layout constants — used for row-alignment assertions.
-const GRID_ROW_HEIGHT = 303;
-const TABLE_ROW_HEIGHT = 32;
 
 // ===========================================================================
 // No-focus mode — scrolling only, never focusing
@@ -41,7 +38,6 @@ test.describe("No-focus mode — scroll only", () => {
     const scrollBefore = await kupua.getScrollTop();
 
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(100);
 
     const scrollAfter = await kupua.getScrollTop();
     const focusAfter = await kupua.getFocusedImageId();
@@ -81,18 +77,20 @@ test.describe("No-focus mode — scroll only", () => {
     expect(await kupua.getScrollTop()).toBeGreaterThan(0);
 
     await kupua.page.keyboard.press("Home");
-    await kupua.page.waitForTimeout(300);
-
-    expect(await kupua.getScrollTop()).toBe(0);
+  await expect.poll(() => kupua.getScrollTop()).toBe(0);
     expect(await kupua.getFocusedImageId()).toBeNull();
   });
 
   test("End scrolls to bottom without setting focus", async ({ kupua }) => {
     await kupua.goto();
 
+    const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("End");
-    await kupua.page.waitForTimeout(500);
+    await kupua.waitForSeekGenerationBump(genBefore);
 
+    const store = await kupua.getStoreState();
+    expect(store.error).toBeNull();
+    expect(store.bufferOffset + store.resultsLength).toBeGreaterThanOrEqual(store.total - 1);
     const scrollTop = await kupua.getScrollTop();
     expect(scrollTop).toBeGreaterThan(0);
     expect(await kupua.getFocusedImageId()).toBeNull();
@@ -114,7 +112,6 @@ test.describe("No-focus mode — table view", () => {
 
     const scrollBefore = await kupua.getScrollTop();
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(100);
 
     const scrollAfter = await kupua.getScrollTop();
     expect(scrollAfter - scrollBefore).toBe(TABLE_ROW_HEIGHT);
@@ -127,37 +124,22 @@ test.describe("No-focus mode — table view", () => {
 // ===========================================================================
 
 test.describe("Focus mode — arrow keys", () => {
-  test("ArrowDown moves focus to next row (grid)", async ({ kupua }) => {
+  test("ArrowDown then ArrowUp restores the exact focused image (grid)", async ({ kupua }) => {
     await kupua.goto();
 
-    // Click first cell to establish focus
     await kupua.focusNthItem(0);
     const firstFocused = await kupua.getFocusedImageId();
     expect(firstFocused).not.toBeNull();
 
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(100);
 
     const secondFocused = await kupua.getFocusedImageId();
     expect(secondFocused).not.toBeNull();
-    // Focus should have moved to a different image (next row)
     expect(secondFocused).not.toBe(firstFocused);
-  });
-
-  test("ArrowUp moves focus to previous row (grid)", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Click second row-ish item to have room to go up
-    await kupua.focusNthItem(6); // well into second row on most viewports
-    const startFocused = await kupua.getFocusedImageId();
-    expect(startFocused).not.toBeNull();
 
     await kupua.page.keyboard.press("ArrowUp");
-    await kupua.page.waitForTimeout(100);
 
-    const afterFocused = await kupua.getFocusedImageId();
-    expect(afterFocused).not.toBeNull();
-    expect(afterFocused).not.toBe(startFocused);
+    expect(await kupua.getFocusedImageId()).toBe(firstFocused);
   });
 
   test("ArrowLeft/Right move focus within row (grid)", async ({ kupua }) => {
@@ -169,7 +151,6 @@ test.describe("Focus mode — arrow keys", () => {
 
     // ArrowRight should move to next cell
     await kupua.page.keyboard.press("ArrowRight");
-    await kupua.page.waitForTimeout(100);
 
     const afterRight = await kupua.getFocusedImageId();
     expect(afterRight).not.toBeNull();
@@ -177,7 +158,6 @@ test.describe("Focus mode — arrow keys", () => {
 
     // ArrowLeft should move back
     await kupua.page.keyboard.press("ArrowLeft");
-    await kupua.page.waitForTimeout(100);
 
     const afterLeft = await kupua.getFocusedImageId();
     expect(afterLeft).toBe(firstFocused);
@@ -198,9 +178,7 @@ test.describe("Focus mode — Home/End", () => {
     expect(await kupua.getFocusedImageId()).not.toBeNull();
 
     await kupua.page.keyboard.press("Home");
-    await kupua.page.waitForTimeout(300);
-
-    expect(await kupua.getScrollTop()).toBe(0);
+  await expect.poll(() => kupua.getScrollTop()).toBe(0);
     // Should focus the first image
     const focusedId = await kupua.getFocusedImageId();
     expect(focusedId).not.toBeNull();
@@ -217,9 +195,6 @@ test.describe("Focus mode — Home/End", () => {
 
     // Seek deep so buffer is windowed
     await kupua.seekTo(0.5);
-    // Extra settle time — in two-tier mode the virtualizer needs time to
-    // re-render real content at the new scroll position
-    await kupua.page.waitForTimeout(1000);
 
     // Set focus via the store directly — in two-tier mode, the viewport
     // may show skeletons at the seek position while the virtualizer catches
@@ -244,21 +219,19 @@ test.describe("Focus mode — Home/End", () => {
     const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("Home");
     await kupua.waitForSeekGenerationBump(genBefore);
-    await kupua.page.waitForTimeout(500);
 
     // After seek completes, buffer should be at start
     const store = await kupua.getStoreState();
     expect(store.bufferOffset).toBe(0);
     expect(store.error).toBeNull();
-    expect(await kupua.getScrollTop()).toBe(0);
+    await expect.poll(() => kupua.getScrollTop()).toBe(0);
 
     // Focus should be on the first image in the new buffer
-    const focusedIdAfterHome = await kupua.getFocusedImageId();
     const firstImageId = await kupua.page.evaluate(() => {
       const s = (window as any).__kupua_store__.getState();
       return s.results[0]?.id ?? null;
     });
-    expect(focusedIdAfterHome).toBe(firstImageId);
+    await expect.poll(() => kupua.getFocusedImageId()).toBe(firstImageId);
   });
 
   test("End scrolls to bottom AND focuses last image when focus exists", async ({ kupua }) => {
@@ -271,29 +244,21 @@ test.describe("Focus mode — Home/End", () => {
     // Capture seekGeneration before End (two-tier-aware wait)
     const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("End");
-    await kupua.page.waitForTimeout(500);
 
-    // End triggers seek when buffer doesn't cover the end of the dataset
-    // (10k images, 200 buffer). After seek the buffer is replaced.
-    // The scroll should be near the bottom and focus should still be set.
-    const scrollTop = await kupua.getScrollTop();
-    expect(scrollTop).toBeGreaterThan(0);
-
-    // Wait for seek to complete + settle (two-tier aware)
+    // Wait for seek to complete (two-tier aware).
     await kupua.waitForSeekGenerationBump(genBefore);
-    await kupua.page.waitForTimeout(500);
     const store = await kupua.getStoreState();
     expect(store.error).toBeNull();
     // The buffer should now be near the end of the dataset
     expect(store.bufferOffset + store.resultsLength).toBeGreaterThanOrEqual(store.total - 10);
 
     // Post-seek focus: the focused image should be the last image in the buffer
-    const focusedId = await kupua.getFocusedImageId();
     const lastImageId = await kupua.page.evaluate(() => {
       const s = (window as any).__kupua_store__.getState();
       return s.results[s.results.length - 1]?.id ?? null;
     });
-    expect(focusedId).toBe(lastImageId);
+    await expect.poll(() => kupua.getFocusedImageId()).toBe(lastImageId);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(0);
   });
 });
 
@@ -308,42 +273,9 @@ test.describe("Search box key trapping", () => {
     // The search box has autofocus. Press ArrowRight — should NOT focus
     // any image (it should stay in the search box for cursor movement).
     await kupua.page.keyboard.press("ArrowRight");
-    await kupua.page.waitForTimeout(100);
     expect(await kupua.getFocusedImageId()).toBeNull();
 
     await kupua.page.keyboard.press("ArrowLeft");
-    await kupua.page.waitForTimeout(100);
-    expect(await kupua.getFocusedImageId()).toBeNull();
-  });
-
-  test("ArrowUp/Down propagate from search box and scroll results", async ({ kupua }) => {
-    await kupua.goto();
-
-    const scrollBefore = await kupua.getScrollTop();
-
-    // ArrowDown with search box focused — should scroll (search box
-    // propagates ArrowDown to useListNavigation)
-    await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(100);
-
-    const scrollAfter = await kupua.getScrollTop();
-    expect(scrollAfter).toBeGreaterThan(scrollBefore);
-    // Should not focus anything
-    expect(await kupua.getFocusedImageId()).toBeNull();
-  });
-
-  test("Home/End propagate from search box and scroll results", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Scroll down first
-    await kupua.pageDown();
-    await kupua.pageDown();
-    expect(await kupua.getScrollTop()).toBeGreaterThan(0);
-
-    // Home should scroll to top even though search box has focus
-    await kupua.page.keyboard.press("Home");
-    await kupua.page.waitForTimeout(300);
-    expect(await kupua.getScrollTop()).toBe(0);
     expect(await kupua.getFocusedImageId()).toBeNull();
   });
 

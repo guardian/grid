@@ -122,27 +122,6 @@ test.describe("Buffer corruption — logo click after deep seek", () => {
     expect(afterLogo.firstImageId).toBe(firstImageBefore);
   });
 
-  test("table: logo click returns to clean top state after deep seek", async ({ kupua }) => {
-    await kupua.goto();
-    await kupua.switchToTable();
-    const initial = await kupua.getStoreState();
-    test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
-
-    const firstImageBefore = initial.firstImageId;
-
-    await kupua.seekTo(0.5);
-    const afterSeek = await kupua.getStoreState();
-    expect(afterSeek.bufferOffset).toBeGreaterThan(0);
-
-    await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-
-    await assertCleanTopState(kupua, "table logo click");
-
-    const afterLogo = await kupua.getStoreState();
-    expect(afterLogo.firstImageId).toBe(firstImageBefore);
-  });
-
   test("repeated logo clicks always return to top", async ({ kupua }) => {
     await kupua.goto();
     const initial = await kupua.getStoreState();
@@ -397,16 +376,14 @@ test.describe("Buffer corruption — real-time integrity monitoring", () => {
       return snaps;
     });
 
-    // Analyse: no snapshot should show resultsLength > 200 with offset > 0.
-    // That would mean stale data was prepended to the buffer.
+    // Once Home begins, abortExtends() runs before the fresh search. Every
+    // subsequent buffer mutation must therefore publish at offset 0; any
+    // nonzero offset is stale deep-buffer work racing the reset.
     for (const snap of snapshots) {
       expect(
-        snap.len,
+        snap.offset,
         `Transient corruption at +${snap.ts}ms: resultsLength=${snap.len}, offset=${snap.offset}`,
-      ).toBeLessThanOrEqual(
-        // Allow scroll-mode fill (all results loaded) — up to total
-        Math.max(200, initial.total),
-      );
+      ).toBe(0);
     }
 
     // Final state must be clean
@@ -434,12 +411,24 @@ test.describe("Buffer corruption — query change after deep seek", () => {
     const afterSeek = await kupua.getStoreState();
     expect(afterSeek.bufferOffset).toBeGreaterThan(0);
 
-    // Navigate to a new query via URL (reliable, bypasses CQL editor debounce)
-    await kupua.page.goto("/search?nonFree=true&query=test");
-    await kupua.waitForResults();
-
-    // Give the app time to settle
-    await kupua.page.waitForTimeout(1500);
+    const targetQuery = "credit:PA";
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type(targetQuery, { delay: 20 });
+    await kupua.page.waitForFunction(
+      (expectedQuery) => {
+        const state = (window as any).__kupua_store__?.getState();
+        return new URL(location.href).searchParams.get("query") === expectedQuery
+          && state
+          && state.params.query === expectedQuery
+          && !state.loading
+          && state.bufferOffset === 0
+          && state.results.length > 0;
+      },
+      targetQuery,
+      { timeout: 15_000 },
+    );
 
     const state = await kupua.getStoreState();
     expect(state.bufferOffset, "query change: bufferOffset").toBe(0);

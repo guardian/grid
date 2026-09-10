@@ -210,36 +210,6 @@ test.describe("Keyboard — Enter", () => {
 
 
 // ===========================================================================
-// Status bar — result count
-// ===========================================================================
-
-test.describe("Status bar", () => {
-  test("result count updates when search query changes", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Read the initial count from the status bar
-    const statusBar = kupua.page.locator('[role="status"]');
-    const initialText = await statusBar.textContent();
-    expect(initialText).toContain("matches");
-
-    // Extract the number — "10,000 matches" → 10000
-    const initialCount = parseInt(initialText!.replace(/[^0-9]/g, ""), 10);
-    expect(initialCount).toBeGreaterThan(0);
-
-    // Navigate with a query filter
-    await kupua.gotoWithQuery("test");
-
-    // Read the updated count
-    const filteredText = await statusBar.textContent();
-    const filteredCount = parseInt(filteredText!.replace(/[^0-9]/g, ""), 10);
-
-    // The filtered count should be smaller than the unfiltered count
-    expect(filteredCount).toBeGreaterThan(0);
-    expect(filteredCount).toBeLessThan(initialCount);
-  });
-});
-
-// ===========================================================================
 // Image detail — position counter
 // ===========================================================================
 
@@ -275,45 +245,31 @@ test.describe("Image detail — position counter", () => {
 // ===========================================================================
 
 test.describe("Panel toggles", () => {
-  test("Browse button toggles the left panel", async ({ kupua }) => {
+  test("Browse and Details buttons independently toggle their panels", async ({ kupua }) => {
     await kupua.goto();
 
-    // Left panel should be hidden initially
     const leftSeparator = kupua.page.locator('[aria-label*="Resize left panel"]');
-    await expect(leftSeparator).not.toBeVisible();
-
-    // Click "Browse" to open
-    const browseButton = kupua.page.locator('button[aria-label*="Browse panel"]');
-    await browseButton.click();
-
-    // Left panel should now be visible (resize handle appears)
-    await expect(leftSeparator).toBeVisible();
-
-    // Click "Browse" again to close
-    await browseButton.click();
-
-    // Left panel should be hidden again
-    await expect(leftSeparator).not.toBeVisible();
-  });
-
-  test("Details button toggles the right panel", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Right panel should be hidden initially
     const rightSeparator = kupua.page.locator('[aria-label*="Resize right panel"]');
+    const browseButton = kupua.page.locator('button[aria-label*="Browse panel"]');
+    const detailsButton = kupua.page.locator('button[aria-label*="Details panel"]');
+
+    await expect(leftSeparator).not.toBeVisible();
     await expect(rightSeparator).not.toBeVisible();
 
-    // Click "Details" to open
-    const detailsButton = kupua.page.locator('button[aria-label*="Details panel"]');
-    await detailsButton.click();
+    await browseButton.click();
+    await expect(leftSeparator).toBeVisible();
+    await expect(rightSeparator).not.toBeVisible();
 
-    // Right panel should now be visible
+    await browseButton.click();
+    await expect(leftSeparator).not.toBeVisible();
+    await expect(rightSeparator).not.toBeVisible();
+
+    await detailsButton.click();
+    await expect(leftSeparator).not.toBeVisible();
     await expect(rightSeparator).toBeVisible();
 
-    // Click "Details" again to close
     await detailsButton.click();
-
-    // Right panel should be hidden again
+    await expect(leftSeparator).not.toBeVisible();
     await expect(rightSeparator).not.toBeVisible();
   });
 
@@ -605,22 +561,24 @@ test.describe("Fullscreen preview — navigation", () => {
     });
     expect(beforeState.expectedPrevId).not.toBeNull();
 
+    const fullscreenCapability = await kupua.page.evaluate(() => ({
+      enabled: document.fullscreenEnabled,
+      requestAvailable: typeof Element.prototype.requestFullscreen === "function",
+    }));
+    expect(fullscreenCapability).toEqual({ enabled: true, requestAvailable: true });
+
     // Press 'f' to enter fullscreen preview
     await kupua.page.keyboard.press("f");
-    // Wait for the fullscreen element to appear (FullscreenPreview uses
-    // the browser Fullscreen API — headless Chromium supports it)
+    // Configured headless Chromium supports the API, so failure to enter is
+    // an application regression rather than an environment skip.
     await kupua.page.waitForFunction(
       () => document.fullscreenElement !== null,
       { timeout: 3000 },
-    ).catch(() => {
-      // If fullscreen doesn't work in this environment, skip the test
-      // rather than fail with a misleading error.
-      test.skip(true, "Fullscreen API not available in this environment");
-    });
+    );
 
     // Press ArrowLeft — should move focus to exactly the previous image
     await kupua.page.keyboard.press("ArrowLeft");
-    await kupua.page.waitForTimeout(200);
+    await expect.poll(() => kupua.getFocusedImageId()).toBe(beforeState.expectedPrevId);
 
     // The focused image should be exactly one position back — not two
     const afterId = await kupua.getFocusedImageId();
@@ -629,55 +587,12 @@ test.describe("Fullscreen preview — navigation", () => {
 
     // Press ArrowRight — should return to the original image
     await kupua.page.keyboard.press("ArrowRight");
-    await kupua.page.waitForTimeout(200);
-    const returnedId = await kupua.getFocusedImageId();
-    expect(returnedId).toBe(beforeId);
+    await expect.poll(() => kupua.getFocusedImageId()).toBe(beforeId);
 
     // Exit fullscreen
     await kupua.page.keyboard.press("Escape");
   });
 
-  test("ArrowRight in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Focus an image in the middle of the grid
-    await kupua.focusNthItem(5);
-    const beforeId = await kupua.getFocusedImageId();
-    expect(beforeId).not.toBeNull();
-
-    // Get the expected next image
-    const beforeState = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      const s = store.getState();
-      const gIdx = s.imagePositions.get(s.focusedImageId);
-      const nextLocalIdx = (gIdx + 1) - s.bufferOffset;
-      return {
-        globalIdx: gIdx,
-        expectedNextId: s.results[nextLocalIdx]?.id ?? null,
-      };
-    });
-    expect(beforeState.expectedNextId).not.toBeNull();
-
-    // Enter fullscreen preview
-    await kupua.page.keyboard.press("f");
-    await kupua.page.waitForFunction(
-      () => document.fullscreenElement !== null,
-      { timeout: 3000 },
-    ).catch(() => {
-      test.skip(true, "Fullscreen API not available in this environment");
-    });
-
-    // Press ArrowRight — should move focus to exactly the next image
-    await kupua.page.keyboard.press("ArrowRight");
-    await kupua.page.waitForTimeout(200);
-
-    const afterId = await kupua.getFocusedImageId();
-    expect(afterId).toBe(beforeState.expectedNextId);
-    expect(afterId).not.toBe(beforeId);
-
-    // Exit fullscreen
-    await kupua.page.keyboard.press("Escape");
-  });
 });
 
 // ===========================================================================
@@ -853,7 +768,7 @@ test.describe("Stability — image detail reload", () => {
 // ===========================================================================
 
 test.describe("Click-to-search", () => {
-  test("CQL input remains editable after metadata click launches search", async ({ kupua }) => {
+  test("metadata and table click-to-search leave the CQL input editable", async ({ kupua }) => {
     // This tests for a bug where cancelSearchDebounce() set _externalQuery
     // which was never cleared, permanently blocking debounced CQL input
     // updates. Affected: metadata clicks, table cell clicks (plain, Shift, Alt).
@@ -887,38 +802,6 @@ test.describe("Click-to-search", () => {
     expect(queryAfterClick).toBeTruthy();
     expect(queryAfterClick).toContain(clickedValue.split(" ")[0]);
 
-    // Now the critical part: edit the query via the CQL input.
-    // Focus the search input by clicking the search area, then select-all + type.
-    const searchArea = kupua.page.locator('[role="search"]');
-    await searchArea.click();
-
-    // Small pause to let the remounted CQL input's ProseMirror initialise
-    await kupua.page.waitForTimeout(100);
-
-    // Select all existing text and replace with a new query.
-    // Meta+A = Cmd+A on macOS, selects all in the ProseMirror editor.
-    await kupua.page.keyboard.press("Meta+a");
-    await kupua.page.keyboard.type("nonFree:true", { delay: 30 });
-
-    // Wait for the 300ms debounce + a buffer for the URL to update
-    await kupua.page.waitForFunction(
-      (prevQuery) => {
-        const q = new URL(window.location.href).searchParams.get("query");
-        return q !== prevQuery && q !== null;
-      },
-      queryAfterClick,
-      { timeout: 3000 },
-    );
-
-    // Verify the URL query changed to what we typed
-    const queryAfterEdit = await kupua.page.evaluate(
-      () => new URL(window.location.href).searchParams.get("query"),
-    );
-    expect(queryAfterEdit).toContain("nonFree");
-  });
-
-  test("CQL input remains editable after table cell Shift+click launches search", async ({ kupua }) => {
-    await kupua.goto();
     await kupua.switchToTable();
 
     // Shift+click a "By" (byline) cell to append by:value to the query.
@@ -942,13 +825,14 @@ test.describe("Click-to-search", () => {
     await targetCell!.click({ modifiers: ["Shift"] });
     await kupua.waitForResults();
 
-    const queryAfterClick = await kupua.page.evaluate(
+    const queryAfterTableClick = await kupua.page.evaluate(
       () => new URL(window.location.href).searchParams.get("query"),
     );
-    expect(queryAfterClick).toBeTruthy();
-    expect(queryAfterClick).toContain("by:");
+    expect(queryAfterTableClick).toContain(queryAfterClick);
+    expect(queryAfterTableClick).toContain("by:");
 
-    // Now the critical part: edit the query via the CQL input.
+    // Both click paths share the external-query latch. One real edit after
+    // both interactions proves the latch was cleared for subsequent typing.
     const searchArea = kupua.page.locator('[role="search"]');
     await searchArea.click();
     await kupua.page.waitForTimeout(100);
@@ -961,7 +845,7 @@ test.describe("Click-to-search", () => {
         const q = new URL(window.location.href).searchParams.get("query");
         return q !== prevQuery && q !== null;
       },
-      queryAfterClick,
+      queryAfterTableClick,
       { timeout: 3000 },
     );
 

@@ -1145,7 +1145,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
    * Waits 250ms before triggering sort so a double-click can cancel it.
    */
   const handleDelayedSort = useCallback(
-    (field: string, e: React.MouseEvent) => {
+    (field: string) => {
       // Clear any pending sort timer (e.g. from the first click of a double-click)
       if (sortTimerRef.current) {
         clearTimeout(sortTimerRef.current);
@@ -1365,7 +1365,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
                   style={{ width: `var(--col-${header.column.id})` }}
                   onClick={
                     sortField
-                      ? (e) => handleDelayedSort(sortField, e)
+                      ? () => handleDelayedSort(sortField)
                       : undefined
                   }
                   onDoubleClick={(e) => {

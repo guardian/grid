@@ -324,7 +324,7 @@ describe("useImageTraversal — session lifecycle", () => {
     const { result, rerender } = renderHook(
       ({ imageId }: { imageId: string | null }) =>
         useImageTraversal(imageId, onNavigate),
-      { initialProps: { imageId: "img-299" } },
+      { initialProps: { imageId: "img-299" as string | null } },
     );
 
     act(() => result.current.goToNext());

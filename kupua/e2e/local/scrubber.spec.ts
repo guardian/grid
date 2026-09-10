@@ -1121,20 +1121,39 @@ test.describe("Scroll stability", () => {
   test("rapid concurrent seeks settle cleanly", async ({ kupua }) => {
     await kupua.goto();
 
-    // Fire seeks rapidly — only the last should win
-    await kupua.clickScrubberAt(0.3);
-    await kupua.page.waitForTimeout(100);
-    await kupua.clickScrubberAt(0.7);
-    await kupua.page.waitForTimeout(100);
-    await kupua.clickScrubberAt(0.1);
+    const before = await kupua.getStoreState();
+    const trackBox = await kupua.scrubber.boundingBox();
+    expect(trackBox).not.toBeNull();
 
-    await kupua.page.waitForTimeout(2000);
-    await kupua.waitForResults();
+    // Dispatch all three clicks before the 200ms scroll-seek debounce can
+    // settle. The final 10% request must be the only committed generation.
+    const x = trackBox!.x + trackBox!.width / 2;
+    for (const ratio of [0.3, 0.7, 0.1]) {
+      await kupua.page.mouse.click(x, trackBox!.y + ratio * trackBox!.height);
+    }
+
+    const finalTarget = Math.round((before.total - 1) * 0.1);
+    await kupua.page.waitForFunction(
+      ({ previousGeneration, target }) => {
+        const state = (window as any).__kupua_store__?.getState();
+        return state
+          && state._seekGeneration === previousGeneration + 1
+          && !state.loading
+          && state.error === null
+          && state.bufferOffset <= target
+          && state.bufferOffset + state.results.length > target;
+      },
+      { previousGeneration: before.seekGeneration, target: finalTarget },
+      { timeout: 15_000 },
+    );
 
     const store = await kupua.getStoreState();
+    expect(store.seekGeneration).toBe(before.seekGeneration + 1);
     expect(store.resultsLength).toBeGreaterThan(0);
     expect(store.loading).toBe(false);
     expect(store.error).toBeNull();
+    expect(await kupua.getScrollRatio()).toBeCloseTo(0.1, 1);
+    await expect(kupua.page.locator('[data-grid-cell][data-image-id]').first()).toBeVisible();
     await kupua.assertPositionsConsistent();
   });
 });
@@ -2491,6 +2510,41 @@ test.describe("Scroll mode — buffer fill", () => {
 test.describe("Two-tier virtualisation", () => {
   test.describe.configure({ timeout: 60_000 });
 
+  async function recordPositionMapReplacement(kupua: any, action: () => Promise<void>) {
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const initialMap = store.getState().positionMap;
+      const transitions: Array<{ map: "initial" | "null" | "replacement"; loading: boolean }> = [];
+      const record = (state: any) => {
+        transitions.push({
+          map: state.positionMap === null
+            ? "null"
+            : state.positionMap === initialMap ? "initial" : "replacement",
+          loading: state.positionMapLoading,
+        });
+      };
+      record(store.getState());
+      (window as any).__position_map_transitions__ = transitions;
+      (window as any).__position_map_unsubscribe__ = store.subscribe(record);
+    });
+
+    await action();
+    await kupua.waitForPositionMap();
+
+    const transitions = await kupua.page.evaluate(() => {
+      (window as any).__position_map_unsubscribe__?.();
+      const recorded = (window as any).__position_map_transitions__ ?? [];
+      delete (window as any).__position_map_transitions__;
+      delete (window as any).__position_map_unsubscribe__;
+      return recorded;
+    });
+    const invalidatedAt = transitions.findIndex((entry: any) => entry.map === "null");
+    const replacedAt = transitions.findIndex((entry: any) => entry.map === "replacement");
+    expect(invalidatedAt).toBeGreaterThan(0);
+    expect(transitions[invalidatedAt].loading).toBe(false);
+    expect(replacedAt).toBeGreaterThan(invalidatedAt);
+  }
+
   // -------------------------------------------------------------------------
   // T1: Position map loads and activates two-tier mode
   // -------------------------------------------------------------------------
@@ -2569,14 +2623,7 @@ test.describe("Two-tier virtualisation", () => {
     await kupua.waitForPositionMap();
     expect(await kupua.isTwoTierMode()).toBe(true);
 
-    // Change sort — this triggers search() which invalidates positionMap
-    await kupua.selectSort("Credit");
-
-    // The position map is invalidated during search(). It will eventually
-    // reload for the new sort order.
-
-    // Wait for position map to reload for the new sort order
-    await kupua.waitForPositionMap();
+    await recordPositionMapReplacement(kupua, () => kupua.selectSort("Credit"));
     expect(await kupua.isTwoTierMode()).toBe(true);
 
     const store = await kupua.getStoreState();
@@ -2597,20 +2644,24 @@ test.describe("Two-tier virtualisation", () => {
     await kupua.goto();
     await kupua.waitForPositionMap();
 
-    // Navigate with a date filter that produces a subset
-    await kupua.gotoWithParams("since=2026-03-10&until=2026-03-25");
-    const store = await kupua.getStoreState();
+    await recordPositionMapReplacement(kupua, () => kupua.page.evaluate(() => {
+      const router = (window as any).__kupua_router__;
+      const markUserNav = (window as any).__kupua_markUserNav__;
+      if (!router || !markUserNav) throw new Error("SPA navigation controls unavailable");
+      markUserNav();
+      router.navigate({
+        to: "/search",
+        search: {
+          ...router.state.location.search,
+          since: "2026-03-10",
+          until: "2026-03-25",
+        },
+      });
+    }));
 
-    if (store.total <= 1000) {
-      // Small result set → scroll mode, not two-tier
-      test.skip();
-      return;
-    }
-
-    // Position map should eventually load for the filtered set
-    await kupua.waitForPositionMap();
     expect(await kupua.isTwoTierMode()).toBe(true);
     const storeAfterMap = await kupua.getStoreState();
+    expect(storeAfterMap.total).toBeGreaterThan(1000);
     expect(storeAfterMap.error).toBeNull();
   });
 });

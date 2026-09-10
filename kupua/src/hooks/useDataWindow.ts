@@ -37,7 +37,7 @@
  * The scrubber drag directly scrolls the container (like a real scrollbar).
  */
 
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { useSearchStore } from "@/stores/search-store";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";

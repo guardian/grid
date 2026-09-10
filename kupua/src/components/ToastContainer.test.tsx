@@ -133,11 +133,16 @@ describe("ToastContainer", () => {
     expect(alert.textContent).toContain("Range walk complete.");
   });
 
-  it("sets data-category on the toast element", () => {
-    addToast({ category: "warning", message: "Soft cap reached." });
+  it.each([
+    ["information", "Information"],
+    ["warning", "Warning"],
+    ["error", "Error"],
+    ["success", "Success"],
+  ] as const)("sets data-category for %s toasts", (category, message) => {
+    addToast({ category, message });
     render(<ToastContainer />);
     const toast = screen.getByTestId("toast");
-    expect(toast.getAttribute("data-category")).toBe("warning");
+    expect(toast.getAttribute("data-category")).toBe(category);
   });
 
   it("renders multiple toasts", () => {

@@ -14,6 +14,27 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 10 September 2026 — Make habitual browser evidence smaller and stronger
+
+  The habitual Playwright suite was consolidated from 236 to 203 tests by
+  removing or merging only strict subsets after their stronger owners were
+  verified. Remaining misleading contracts were repaired to require observable
+  browser outcomes: exact identities and history transitions, deterministic
+  metadata and API failure fixtures, real SPA input paths, rendered viewport
+  geometry, generation-aware seek settlement, Fullscreen API capability, and
+  fail-closed mobile selection behavior. Toast categories moved to component
+  coverage, and accumulated TypeScript errors exposed during the work were
+  cleared without changing product behavior.
+
+  Redundant fixed waits were replaced with screenshot stability,
+  reconciliation, URL, focus, scroll and generation outcomes, removing 8.3
+  seconds of blind delay while retaining deliberate flash, flood and stability
+  observation windows. The broad density-switch helper split remains deferred
+  because its extension-readiness contract spans 47 habitual and tier callers.
+  Final validation passed the production build and 203/203 habitual browser
+  tests in 4.4 minutes with no failures or retries; the last evidenced unit
+  baseline remains 1,288/1,288.
+
   ### 10 September 2026 — Make performance evidence trustworthy and maintainable
 
   The performance programme replaced ambiguous, timing-adjacent measurements with

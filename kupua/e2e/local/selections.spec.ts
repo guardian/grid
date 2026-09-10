@@ -142,62 +142,6 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     await expect(statusBar).toContainText("2");
   });
 
-  test("Clear button exits selection mode", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    // Select one image via tickbox
-    const firstCell = kupua.page.locator('[data-grid-cell]').first();
-    await firstCell.hover();
-    await firstCell.locator('button[aria-label="Select image"]').click();
-
-    // Verify mode entered
-    expect(await getSelectionCount(kupua.page)).toBe(1);
-
-    // Click Clear
-    await kupua.page.locator('button[aria-label="Clear selection"]').click();
-
-    // Mode exited
-    expect(await getSelectionCount(kupua.page)).toBe(0);
-
-    // SelectionStatusBar gone
-    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
-    await expect(statusBar).not.toBeVisible({ timeout: 3000 });
-  });
-
-  test("selection persists across sort change", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    // Get the first image's ID before selecting
-    const firstId = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      return store?.getState().results[0]?.id ?? null;
-    });
-    expect(firstId).not.toBeNull();
-
-    // Select it
-    const firstCell = kupua.page.locator('[data-grid-cell]').first();
-    await firstCell.hover();
-    await firstCell.locator('button[aria-label="Select image"]').click();
-    expect(await getSelectionCount(kupua.page)).toBe(1);
-
-    await waitForSelectionPersisted(kupua.page, [firstId!]);
-
-    // Change sort (click the sort button in StatusBar or toggle density to
-    // trigger a URL change that re-renders without clearing selection).
-    // Simplest: navigate to a new sort order via URL directly.
-    const currentUrl = kupua.page.url();
-    await kupua.page.goto(currentUrl + "&orderBy=-lastModified");
-    await kupua.waitForResults();
-
-    // Selection should still be 1 (survives sort change via sessionStorage persist).
-    const countAfterSort = await getSelectionCount(kupua.page);
-    expect(countAfterSort).toBe(1);
-    const idsAfterSort = await getSelectionIds(kupua.page);
-    expect(idsAfterSort).toContain(firstId);
-  });
-
   test("selection anchor outranks older focus during sort", async ({ kupua }) => {
     await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
     await clearSelection(kupua.page);
@@ -298,9 +242,8 @@ test.describe("Table — selection column", () => {
     await kupua.goto();
     await kupua.switchToTable();
 
-    // The table header should have a selection column header (aria-label="Selection")
-    const selectionHeader = kupua.page.locator('[role="columnheader"][aria-label="Selection"]');
-    await expect(selectionHeader).toBeVisible({ timeout: 3000 });
+    const firstHeader = kupua.page.locator('[aria-label="Image results table"] [role="columnheader"]').first();
+    await expect(firstHeader).toHaveAttribute("aria-label", "Selection");
   });
 
   test("hovering a table row reveals the tickbox in the selection column", async ({ kupua }) => {
@@ -391,77 +334,6 @@ test.describe("S3a — Grid: shift-click range selection", () => {
     }
   });
 
-  test("shift+click range in REVERSE order works (target above anchor)", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    // Enter selection mode on the 4th cell (anchor at index 3).
-    await cells.nth(3).hover();
-    await cells.nth(3).locator('button[aria-label="Select image"]').click();
-    expect(await getSelectionCount(kupua.page)).toBe(1);
-
-    // Shift+click the 1st cell (index 0) — select cells 0–3 in reverse.
-    await cells.nth(0).click({ modifiers: ["Shift"] });
-
-    const count = await getSelectionCount(kupua.page);
-    expect(count).toBeGreaterThanOrEqual(4);
-  });
-
-  test("shift+click with no prior anchor selects only the target", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    // Clear any persisted anchor.
-    await kupua.page.evaluate(() => {
-      (window as any).__kupua_selection_store__?.getState().setAnchor(null);
-    });
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    // Shift+click with no anchor in selection mode.
-    // Not in selection mode yet — shift+click on image-body is a no-op in grid
-    // (the grid ignores shift outside selection mode). Enter via tick first.
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    // Now we're in mode with anchor set. Clear anchor explicitly.
-    await kupua.page.evaluate(() => {
-      (window as any).__kupua_selection_store__?.getState().setAnchor(null);
-    });
-
-    // Shift+click cell 2 — no anchor, should set-anchor+toggle (interpretClick rule)
-    await cells.nth(2).click({ modifiers: ["Shift"] });
-
-    // Should have added cell 2, not a full range from 0 to 2.
-    // But cell 0 is already selected from earlier.
-    const count = await getSelectionCount(kupua.page);
-    expect(count).toBeGreaterThanOrEqual(1);
-  });
-
-  test("second shift+click extends range from anchor", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    // Select cell 0 (becomes anchor).
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    expect(await getSelectionCount(kupua.page)).toBe(1);
-
-    // First range: shift+click cell 2 → cells 0–2 selected.
-    await cells.nth(2).click({ modifiers: ["Shift"] });
-    const countAfterFirst = await getSelectionCount(kupua.page);
-    expect(countAfterFirst).toBeGreaterThanOrEqual(3);
-
-    // Anchor should still be cell 0 (shift doesn't move anchor).
-    // Second range: shift+click cell 4 → range should extend from anchor (cell 0).
-    await cells.nth(4).click({ modifiers: ["Shift"] });
-    const countAfterSecond = await getSelectionCount(kupua.page);
-    // Should include at least cells 0–4 (5 items).
-    expect(countAfterSecond).toBeGreaterThanOrEqual(5);
-  });
 });
 
 test.describe("S3a — Table: shift-click range selection", () => {
@@ -484,7 +356,7 @@ test.describe("S3a — Table: shift-click range selection", () => {
     expect(count).toBeGreaterThanOrEqual(4);
   });
 
-  test("shift+click on field-value cell does click-to-search, not range-select", async ({ kupua }) => {
+  test("shift+click on field-value cell ranges instead of searching in selection mode", async ({ kupua }) => {
     await kupua.goto();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
@@ -496,20 +368,30 @@ test.describe("S3a — Table: shift-click range selection", () => {
     await rows.nth(0).locator('button[aria-label="Select image"]').click();
     expect(await getSelectionCount(kupua.page)).toBe(1);
 
-    const selectionBefore = await getSelectionCount(kupua.page);
+    const expectedRangeIds = await rows.evaluateAll((visibleRows) =>
+      visibleRows.slice(0, 3)
+        .map((row) => row.getAttribute("data-image-id"))
+        .filter((id): id is string => id !== null),
+    );
+    expect(expectedRangeIds).toHaveLength(3);
+    const queryBefore = await kupua.page.evaluate(
+      () => new URL(location.href).searchParams.get("query"),
+    );
 
-    // Shift+click on a field-value cell in another row (should do click-to-search, not range-select).
-    // Find a cell in row 2 with a visible text value (not the selection column).
-    const fieldCell = rows.nth(2).locator('[data-cql-cell]').first();
-    const isCellVisible = await fieldCell.count();
-    if (isCellVisible > 0) {
-      await fieldCell.click({ modifiers: ["Shift"] });
-      // Selection count should NOT have jumped by 3 (which would be a range).
-      // It may be 1 or 2 depending on whether the cell had a valid CQL value.
-      const countAfter = await getSelectionCount(kupua.page);
-      // If range had fired, we'd expect >=3. We assert it stayed close to original.
-      expect(countAfter).toBeLessThan(selectionBefore + 3);
-    }
+    // Local mock data guarantees a Credit value on every row. In selection
+    // mode, modifier field-cell search is intentionally suppressed. The click
+    // bubbles to the row, where Shift retains its range-selection meaning.
+    const creditCell = rows.nth(2).locator(
+      '[role="gridcell"][data-cql-cell][style*="--col-metadata_credit"]',
+    );
+    await expect(creditCell).toHaveCount(1);
+    expect(await creditCell.getAttribute("title")).toBeTruthy();
+    await creditCell.click({ modifiers: ["Shift"] });
+
+    expect(await getSelectionIds(kupua.page)).toEqual(expectedRangeIds);
+    expect(await kupua.page.evaluate(
+      () => new URL(location.href).searchParams.get("query"),
+    )).toBe(queryBefore);
   });
 });
 
@@ -556,7 +438,6 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     // Open the Details panel (closed by default)
     await kupua.page.locator('button[aria-label*="Details panel"]').click();
-    await kupua.page.waitForTimeout(200);
 
     const cells = kupua.page.locator('[data-grid-cell]');
 
@@ -567,90 +448,61 @@ test.describe("S4 -- multi-image Details panel", () => {
     await cells.nth(1).locator('button[aria-label="Select image"]').click();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);
+    await waitForReconcile(kupua.page);
 
-    // The focus placeholder should be gone (MultiImageMetadata is rendering)
+    // MultiImageMetadata must render an actual combined metadata field.
     await expect(
       kupua.page.locator('text=Focus an image to see its metadata'),
     ).not.toBeVisible({ timeout: 5000 });
+    await expect(kupua.page.locator("dt", { hasText: "File type" })).toBeVisible();
     // Status bar confirms the count
     const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
     await expect(statusBar).toContainText("2");
   });
 
-  test("reconciledView is computed after selecting 2 images", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    await cells.nth(1).hover();
-    await cells.nth(1).locator('button[aria-label="Select image"]').click();
-
-    expect(await getSelectionCount(kupua.page)).toBe(2);
-
-    // Wait for reconciledView to be hydrated (metadata fetched + reconciled)
-    await waitForReconcile(kupua.page);
-
-    // reconciledView should have entries for known fields
-    const creditRec = await getReconciledField(kupua.page, "metadata_credit");
-    expect(creditRec).not.toBeNull();
-    // kind must be a valid FieldReconciliation kind
-    const validKinds = ["all-same", "all-empty", "mixed", "chip-array", "summary", "pending", "dirty"];
-    expect(validKinds).toContain(creditRec?.kind);
-  });
-
-  test("keywords chip-array is computed for 2+ images with keywords", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    // Select first 3 images — hover each cell first (tickbox only visible on hover)
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    await cells.nth(1).hover();
-    await cells.nth(1).locator('button[aria-label="Select image"]').click();
-    await cells.nth(2).hover();
-    await cells.nth(2).locator('button[aria-label="Select image"]').click();
-
-    expect(await getSelectionCount(kupua.page)).toBe(3);
-
-    await waitForReconcile(kupua.page);
-
-    const kwRec = await getReconciledField(kupua.page, "keywords");
-    expect(kwRec).not.toBeNull();
-    // Must be chip-array or all-empty (local data may have no keywords)
-    expect(["chip-array", "all-empty", "pending"]).toContain(kwRec?.kind);
-
-    if (kwRec?.kind === "chip-array") {
-      // Chips should be an array
-      expect(Array.isArray((kwRec as any).chips)).toBe(true);
-      // total should be 3
-      expect((kwRec as any).total).toBe(3);
-    }
-  });
-
   test("partial chips have data-partial attribute in the panel", async ({ kupua }) => {
-    // This test only runs meaningfully when 2+ images share SOME but not ALL keywords.
-    // Strategy: select many images to maximise chance of partial overlap.
     await kupua.goto();
     await clearSelection(kupua.page);
 
     // Open the Details panel (closed by default)
     await kupua.page.locator('button[aria-label*="Details panel"]').click();
-    await kupua.page.waitForTimeout(200);
 
     const cells = kupua.page.locator('[data-grid-cell]');
+    const selectedIds = await cells.evaluateAll((visibleCells) =>
+      visibleCells.slice(0, 2)
+        .map((cell) => cell.getAttribute("data-image-id"))
+        .filter((id): id is string => id !== null),
+    );
+    expect(selectedIds).toHaveLength(2);
 
-    // Select 5 images via shift-click range
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    await cells.nth(4).click({ modifiers: ["Shift"] });
+    // Preserve the real getByIds path while enriching only this deterministic
+    // fixture with one shared and one partial keyword.
+    await kupua.page.evaluate((electedIds) => {
+      const store = (window as any).__kupua_selection_store__;
+      const source = store.getState().dataSource;
+      store.setState({
+        dataSource: {
+          ...source,
+          getByIds: async (requestedIds: string[], signal?: AbortSignal) => {
+            const images = await source.getByIds(requestedIds, signal);
+            return images.map((image: any) => ({
+              ...image,
+              metadata: {
+                ...image.metadata,
+                keywords: image.id === electedIds[0] ? ["shared", "partial"] : ["shared"],
+              },
+            }));
+          },
+        },
+      });
+    }, selectedIds);
 
-    const count = await getSelectionCount(kupua.page);
-    expect(count).toBeGreaterThanOrEqual(2);
+    for (const id of selectedIds) {
+      const cell = kupua.page.locator(`[data-grid-cell][data-image-id="${id}"]`);
+      await cell.hover();
+      await cell.locator('button[aria-label="Select image"]').click();
+    }
+    expect(await getSelectionIds(kupua.page)).toEqual(selectedIds);
 
     // Wait for keywords field to be fully reconciled (not pending/dirty)
     await kupua.page.waitForFunction(
@@ -665,22 +517,10 @@ test.describe("S4 -- multi-image Details panel", () => {
       { timeout: 8000 },
     );
 
-    const kwRec = await getReconciledField(kupua.page, "keywords");
-    if (kwRec?.kind !== "chip-array") {
-      // No keywords in test data -- skip assertion
-      return;
-    }
-
-    const chips = (kwRec as any).chips as Array<{ value: string; count: number }>;
-    const total = (kwRec as any).total as number;
-    const hasPartial = chips.some((c) => c.count < total);
-
-    if (hasPartial) {
-      // At least one partial chip should have data-partial="true" in the DOM
-      const partialChips = kupua.page.locator('[data-partial="true"]');
-      await expect(partialChips.first()).toBeVisible({ timeout: 3000 });
-    }
-    // If no partial chips (all images share all keywords), that's valid too.
+    const sharedChip = kupua.page.getByRole("button", { name: "shared" });
+    const partialChip = kupua.page.getByRole("button", { name: "partial" });
+    await expect(sharedChip).not.toHaveAttribute("data-partial", "true");
+    await expect(partialChip).toHaveAttribute("data-partial", "true");
   });
 
   test("clearing selection removes MultiImageMetadata and restores focus placeholder", async ({ kupua }) => {
@@ -689,7 +529,6 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     // Open the Details panel (closed by default)
     await kupua.page.locator('button[aria-label*="Details panel"]').click();
-    await kupua.page.waitForTimeout(200);
 
     const cells = kupua.page.locator('[data-grid-cell]');
 
@@ -719,22 +558,6 @@ test.describe("S4 -- multi-image Details panel", () => {
     ).toBeVisible({ timeout: 3000 });
   });
 
-  test("selection count chip reflects 2-image selection", async ({ kupua }) => {
-    await kupua.goto();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    await cells.nth(1).hover();
-    await cells.nth(1).locator('button[aria-label="Select image"]').click();
-
-    // StatusBar should show count
-    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
-    await expect(statusBar).toContainText("2");
-  });
-
   test("File type click-to-search uses CQL form (jpeg) not raw MIME (image/jpeg)", async ({ kupua }) => {
     // Regression: multi-image panel was passing the raw accessor value "image/jpeg"
     // to ValueLink instead of the formatter output "jpeg", so click produced
@@ -744,7 +567,6 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     // Open Details panel
     await kupua.page.locator('button[aria-label*="Details panel"]').click();
-    await kupua.page.waitForTimeout(200);
 
     const cells = kupua.page.locator('[data-grid-cell]');
 
@@ -778,7 +600,10 @@ test.describe("S4 -- multi-image Details panel", () => {
 
     // Click the value — should navigate to fileType:<short> not fileType:image%2F<short>
     await fileTypeValue.first().click();
-    await kupua.page.waitForTimeout(300);
+    await kupua.page.waitForURL((nextUrl) => {
+      const href = nextUrl.href;
+      return href.includes("fileType%3Ajpeg") || href.includes("fileType:jpeg");
+    });
 
     const url = kupua.page.url();
     // Must contain "fileType:jpeg" (or similar short form), NOT "fileType:image"
@@ -854,14 +679,15 @@ test.describe("S6 — clear-on-search navigation", () => {
   test("sort-only change preserves selection", async ({ kupua }) => {
     await kupua.goto();
     await clearSelection(kupua.page);
-    await selectNGridCells(kupua.page, 2);
-    expect(await getSelectionCount(kupua.page)).toBe(2);
+    const selectedIds = await selectNGridCells(kupua.page, 2);
+    expect(selectedIds).toHaveLength(2);
 
     // SPA navigate with only orderBy changing → isSortOnly=true → no clear.
     await spaNavigateSearch(kupua.page, { orderBy: "-lastModified" });
     await kupua.waitForResults();
 
     expect(await getSelectionCount(kupua.page)).toBe(2);
+    expect(await getSelectionIds(kupua.page)).toEqual(selectedIds);
   });
 
   test("density toggle preserves selection", async ({ kupua }) => {
@@ -895,21 +721,20 @@ test.describe("S6 — clear-on-search navigation", () => {
       { timeout: 5000 },
     );
 
-    expect(await getSelectionCount(kupua.page)).toBe(2);
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
 
     // Close image detail (remove image param).
-    await spaNavigateSearch(kupua.page, {});
     await kupua.page.evaluate(() => {
-      // Remove the image param by navigating without it.
       const router = (window as any).__kupua_router__;
-      if (!router) return;
+      if (!router) throw new Error("__kupua_router__ not exposed");
       const url = new URL(window.location.href);
       const search: Record<string, string> = {};
       url.searchParams.forEach((v, k) => { if (k !== "image") search[k] = v; });
       router.navigate({ to: url.pathname, search });
     });
+    await kupua.waitForDetailClosed();
 
-    expect(await getSelectionCount(kupua.page)).toBe(2);
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
   });
 
   test("reload preserves selection and populates multi-panel", async ({ kupua }) => {
@@ -926,17 +751,19 @@ test.describe("S6 — clear-on-search navigation", () => {
     await kupua.page.reload();
     await kupua.waitForResults();
 
-    // Selection should survive via persist middleware.
-    expect(await getSelectionCount(kupua.page)).toBe(2);
+    // Selection should survive via persist middleware with exact identities.
+    await expect.poll(async () => (await getSelectionIds(kupua.page)).sort()).toEqual(
+      [...ids].sort(),
+    );
 
-    // Multi-image panel: the reconciledView should eventually be populated
-    // (hydrate() fetches metadata and triggers reconciliation).
-    // Wait up to 5s for the panel to show something other than all-dashes.
+    // hydrate() must fetch metadata, complete reconciliation and render the
+    // multi-image panel rather than merely restoring the status count.
+    await waitForReconcile(kupua.page);
+    await kupua.page.locator('button[aria-label*="Details panel"]').click();
     await expect(
-      kupua.page.locator('[aria-label="Combined metadata for 2 images"]').or(
-        kupua.page.locator('[role="status"]', { hasText: "2 selected" })
-      ),
-    ).toBeVisible({ timeout: 5000 });
+      kupua.page.locator('text=Focus an image to see its metadata'),
+    ).not.toBeVisible({ timeout: 5000 });
+    expect(await getSelectionIds(kupua.page)).toEqual(ids);
   });
 
   test("new-images ticker click clears selection", async ({ kupua }) => {
