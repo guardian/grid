@@ -428,8 +428,10 @@ object ImageResponse {
     config.fieldAliasConfigs.flatMap { config =>
       val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
       val lookupResult = nestedLookup(JsDefined(source.source), parts)
-      lookupResult.toOption.map {
-        config.alias -> _
+      lookupResult.toOption match {
+        case Some(value) => Some(config.alias -> value)
+        case None if config.matchViaExistence => Some(config.alias -> JsBoolean(false))
+        case None => None
       }
     }
   }

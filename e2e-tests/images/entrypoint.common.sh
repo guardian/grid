@@ -9,6 +9,7 @@
 declare -A PORTS=(
   [media-api]=9001
   [thrall]=9002
+  [image-loader]=9003
   [kahuna]=9005
   [cropper]=9006
   [metadata-editor]=9007
@@ -17,7 +18,7 @@ declare -A PORTS=(
   [leases]=9012
 )
 
-export SERVICES="auth collections cropper kahuna leases media-api metadata-editor thrall"
+export SERVICES="auth collections cropper image-loader kahuna leases media-api metadata-editor thrall"
 
 # Install a TERM/INT trap that kills the given child pids, waits for them, and
 # exits cleanly. Pass the pids to tear down as arguments, e.g.

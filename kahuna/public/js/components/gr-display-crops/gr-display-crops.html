@@ -1,10 +1,10 @@
 <div class="image-info">
-    <dl class="image-info__group image-info__wrap" ng-if="ctrl.crops.length > 0">
+    <dl class="image-info__group image-info__wrap image-info__group--expandable" ng-if="ctrl.crops.length > 0">
         <div class="gr-display-crops">
             <button class="gr-display-crops"
                     ng-click="ctrl.showCrops = !ctrl.showCrops">
-                <span ng-hide="ctrl.showCrops">▸ Show</span>
-                <span ng-show="ctrl.showCrops">▾ Hide</span>
+                <span ng-hide="ctrl.showCrops"><gr-icon>chevron_right</gr-icon> Show</span>
+                <span ng-show="ctrl.showCrops"><gr-icon>expand_more</gr-icon> Hide</span>
                 crops
             </button>
         </div>
