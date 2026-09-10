@@ -26,6 +26,7 @@
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image"
        class="side-padded"
+       ng-click="ctrl.onSingleDownloadClicked()"
     >
         <gr-icon-label gr-icon="file_download" class="download-icon-label">
             Download

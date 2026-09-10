@@ -3,18 +3,24 @@ import './gr-downloader.css';
 import template from './gr-downloader.html';
 import '../../services/image/downloads';
 
+import '../../services/api/media-api';
+
 export const downloader = angular.module('gr.downloader', [
-  'gr.image-downloads.service'
+  'gr.image-downloads.service',
+  'kahuna.services.api.media'
 ]);
 
 downloader.controller('DownloaderCtrl', [
   '$window',
   '$q',
+  '$rootScope',
   '$scope',
   'inject$',
   'imageDownloadsService',
+  'apiPoll',
+  'mediaApi',
 
-  function Controller($window, $q, $scope, inject$, imageDownloadsService) {
+  function Controller($window, $q, $rootScope, $scope, inject$, imageDownloadsService, apiPoll, mediaApi) {
 
     let ctrl = this;
 
@@ -60,6 +66,23 @@ downloader.controller('DownloaderCtrl', [
 
       inject$($scope, uris$, ctrl, 'firstImageUris');
 
+      function pollForDownloadUsageUpdate(image, downloadedAt) {
+        return mediaApi.getSession().then(session => {
+          return apiPoll(() => image.get().then(updatedImage => {
+            const hasNewUsageByCurrentUser = updatedImage.data.usages.data.some(
+              u => u.data.platform === 'download' &&
+                   u.data.downloadUsageMetadata &&
+                   u.data.downloadUsageMetadata.downloadedBy === session.user.email &&
+                   new Date(u.data.dateAdded) > downloadedAt
+            );
+            if (!hasNewUsageByCurrentUser) {
+              return $q.reject();
+            }
+            $rootScope.$emit('images-updated', [updatedImage]);
+          }));
+        });
+      }
+
       ctrl.download = (downloadKey) => {
 
         ctrl.downloading = true;
@@ -93,6 +116,12 @@ downloader.controller('DownloaderCtrl', [
             ctrl.downloading = false;
             throw e;
           });
+      };
+
+      ctrl.onSingleDownloadClicked = () => {
+        if (window._clientConfig.recordDownloadAsUsage && ctrl.firstImageUris && ctrl.firstImageUris.uris.downloadUri) {
+          pollForDownloadUsageUpdate(ctrl.imagesArray()[0], new Date()).catch(() => {});
+        }
       };
     };
   }]);
