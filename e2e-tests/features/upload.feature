@@ -52,9 +52,6 @@ Feature: Uploading images to the Grid
     Then I should be taken to a search filtered to images I uploaded
   # Evidence: kahuna/public/js/upload/view.html lines 22-23
 
-  # Currently unreachable: ui-router destroys the UploadCtrl scope before broadcasting
-  # $locationChangeStart, so the controller's warning listener never runs on a ui-sref click.
-  @todo
   Scenario: Warning before leaving the page with uploads in progress
     Given I have an upload in progress
     When I try to navigate away from the upload page via the following buttons:
