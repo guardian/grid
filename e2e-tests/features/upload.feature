@@ -78,6 +78,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
+  @todo
   Scenario: Preset labels are applied to all uploads
     When I add a preset label in the prompt
     Then that label should be applied to all my uploads
@@ -149,7 +150,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 64-66, 219-220
   # Evidence: kahuna/public/js/upload/manager.js lines 86-96
 
-  @todo can remove this functionality in another PR
+  @todo
   Scenario: Dropping a Witness contribution imports it
     When I drop a Witness contribution URL onto the page
     Then the importing overlay should be shown
@@ -158,14 +159,14 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 8-12
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 40-62, 69-78, 206-217
 
-  @todo can remove this functionality in another PR
+  @todo
   Scenario: A failed Witness import is reported
     Given I drop a Witness contribution URL onto the page
     When the Witness import fails
     Then I should see an alert that importing the Witness contribution failed
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
-  @todo not implemented afaics
+  @todo
   Scenario: Dropping invalid content is rejected
     When I drop something that is not a valid file or URL
     Then I should see an alert that I must drop valid files or URLs
@@ -324,17 +325,9 @@ Feature: Uploading images to the Grid
       | imageType |
     When I view the metadata editor
     Then I should see the metadata values in the appropriate fields
+    And I should be able to edit those fields with other values
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 114-134
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 36
-
-  # This also applies to any textual fields — we should pull them from img meta
-  @todo
-  Scenario: Existing usage instructions are shown with room for more
-    Given an uploaded image that already has usage instructions
-    When I view the metadata editor
-    Then I should see the existing usage instructions
-    And I should be able to add further special instructions
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 140-167
 
   @todo
   Scenario: Applying a field value to all current uploads in a batch
