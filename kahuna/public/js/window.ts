@@ -48,6 +48,7 @@ declare global {
       agencyPicksIngredients: {
         [field: string]: string[];
       }
+      imageTakedownEnabled: boolean;
     };
   }
 }
