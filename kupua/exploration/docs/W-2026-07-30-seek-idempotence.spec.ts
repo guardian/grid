@@ -4,7 +4,7 @@
  * NOT part of the main suite (this file lives next to its findings doc, not
  * under e2e/, so it's outside the configured testDir entirely). Run manually
  * against the seek-tier server: VITE_POSITION_MAP_THRESHOLD=0
- * npm run dev -- --port 3030 (see playwright.tiers.config.ts for the exact
+ * npm run dev -- --port 3030 (the habitual forced-seek project uses the exact
  * command), pointed at by a manual single-project config with baseURL
  * http://localhost:3030.
  *

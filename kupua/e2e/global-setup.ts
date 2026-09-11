@@ -9,10 +9,9 @@
  *    prevents accidental test runs against TEST/CODE/PROD when the
  *    developer has `start.sh --use-TEST` still running.
  *
- * This makes local test runs resilient to the common workflow:
- *   ./scripts/start.sh --use-TEST  →  run smoke tests  →  stop app  →  run local tests
- * The --use-TEST startup shuts down Docker ES, so local tests would fail
- * without this auto-recovery.
+ * This makes local test runs resilient after a TEST-mode app session. The
+ * --use-TEST startup shuts down Docker ES, so local tests would fail without
+ * this auto-recovery after the app is stopped.
  */
 
 import { execSync } from "child_process";

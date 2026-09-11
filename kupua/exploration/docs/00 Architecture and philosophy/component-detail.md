@@ -297,7 +297,7 @@ Test counts and surfaces: see `kupua/AGENTS.md` Testing Summary (single source o
 
 **Notable test strategies:** null-zone seek/extend with sparse `MockDataSource` (50k images, 20% coverage), reverse-compute edge cases (cold-start, sub-row, End key, buffer-shrink), selection reconciliation (chip-array, summary, mixed frequency, inflation bugs), cost/validity/graphic-blur. E2E: scrubber flash-prevention golden table with **0px scroll-drift tolerance**, **0 items CLS** settle-window, **rAF scrollTop monotonicity**, selections (desktop + mobile Pixel 5 emulation), browser history.
 
-Full reference: `e2e/README.md` (8 test modes, decision tree, env vars). npm scripts: `test`, `test:e2e`, `test:e2e:full`, `test:smoke`, `test:perf`, `test:experiment`, `test:diag`.
+Full reference: `e2e/README.md` (test modes, decision tree, env vars). npm scripts: `test`, `test:e2e`, `test:e2e:full`, `test:perf`, `test:experiment`, `test:diag`.
 
 ## Perceived-Performance Instrumentation (`lib/perceived-trace.ts`)
 

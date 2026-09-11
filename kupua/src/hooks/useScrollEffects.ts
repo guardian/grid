@@ -423,7 +423,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // total row count. The old formula (ceil(new/cols) - ceil(old/cols)) gives
     // the total-row-count delta, which can overshoot by 1 row when
     // prependCount % columns ≠ 0. The overshoot is exactly 1 row (= `columns`
-    // items) — matching the +3 item jump observed in S26a with 3-column grid.
+    // items), which would produce a +3 item jump in a 3-column grid.
     //
     // Correct formula: the topmost visible item was at local index v (row
     // floor(v/cols)). After prepend it's at index v + prependCount (row

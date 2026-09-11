@@ -1,8 +1,7 @@
 /**
- * Playwright config for rendering performance smoke tests.
+ * Playwright config for rendering performance tests.
  *
- * Runs ONLY perf.spec.ts — narrowed from the old playwright.smoke.config.ts
- * which ran both manual-smoke-test.spec.ts and rendering-perf-smoke.spec.ts.
+ * Runs only perf.spec.ts.
  *
  * Key differences from the main playwright.config.ts:
  * - testDir is ./e2e-perf (this directory)
@@ -23,7 +22,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["**/perf.spec.ts", "**/selection-stress.spec.ts"],
+  testMatch: ["**/perf.spec.ts"],
 
   /* No globalSetup — we don't want the local ES health check.
    * The perf tests themselves check total > 100k and skip if local. */

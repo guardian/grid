@@ -260,7 +260,7 @@ Phases are ordered by value-for-effort. Each is independently shippable.
 **Run the test surfaces named in each phase before declaring it done.** Unit
 tests are mandatory after any `src/` change; e2e is mandatory after any change
 touching components/hooks/scroll/focus. **Before any Playwright run, warn the
-user that port 3000 (and 3010/3020/3030 for tier-matrix) must be free and
+user that ports 3000 and 3030 for habitual E2E must be free and
 wait for confirmation.**
 
 ### Phase A — Foundations
@@ -402,7 +402,7 @@ facet-added search in a new tab); active facets still toggle off in-tab.
    kupua …` from the repo root, tee output to `"$TMPDIR/kupua-test-output.txt"`,
    foreground, no `tail`/`head`/`sleep`.
 4. **Playwright port warning is mandatory** — warn + wait before any e2e/perf
-   run (port 3000; 3010/3020/3030 for tier-matrix).
+  run (ports 3000 and 3030 for habitual E2E).
 5. **A broken test may mean the change is wrong** — do not weaken an assertion
    without reasoning about which of (test wrong / fix wrong / behaviour change
    intentional) is true.

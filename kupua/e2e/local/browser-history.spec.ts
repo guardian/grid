@@ -949,24 +949,9 @@ test.describe("Reload survival — position restoration on reload", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     await kupua.closeDetailViaButton();
-    const signedCenterDistance = await kupua.page.waitForFunction(
-      (imageId) => {
-        const region = document.querySelector<HTMLElement>(
-          '[role="region"][aria-label="Image results grid"]',
-        );
-        const cell = document.querySelector<HTMLElement>(
-          `[data-grid-cell][data-image-id="${imageId}"]`,
-        );
-        if (!region || !cell) return false;
-        const regionRect = region.getBoundingClientRect();
-        const cellRect = cell.getBoundingClientRect();
-        return (cellRect.top + cellRect.bottom - regionRect.top - regionRect.bottom) / 2;
-      },
-      traversedImageId,
-      { timeout: 10_000 },
-    );
-
-    expect(Math.abs(await signedCenterDistance.jsonValue())).toBeLessThan(50);
+    const placement = await kupua.waitForUsableViewportPlacement(traversedImageId);
+    expect(placement).toMatchObject({ imageId: traversedImageId, visible: true });
+    expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
 
     await kupua.page.goForward();
     await expect(
@@ -979,24 +964,9 @@ test.describe("Reload survival — position restoration on reload", () => {
     await kupua.detailPrevAndWait();
     const reverseTraversedImageId = (await kupua.getDetailImageId())!;
     await kupua.closeDetailViaButton();
-    const reverseSignedCenterDistance = await kupua.page.waitForFunction(
-      (imageId) => {
-        const region = document.querySelector<HTMLElement>(
-          '[role="region"][aria-label="Image results grid"]',
-        );
-        const cell = document.querySelector<HTMLElement>(
-          `[data-grid-cell][data-image-id="${imageId}"]`,
-        );
-        if (!region || !cell) return false;
-        const regionRect = region.getBoundingClientRect();
-        const cellRect = cell.getBoundingClientRect();
-        return (cellRect.top + cellRect.bottom - regionRect.top - regionRect.bottom) / 2;
-      },
-      reverseTraversedImageId,
-      { timeout: 10_000 },
-    );
-
-    expect(Math.abs(await reverseSignedCenterDistance.jsonValue())).toBeLessThan(50);
+    const reversePlacement = await kupua.waitForUsableViewportPlacement(reverseTraversedImageId);
+    expect(reversePlacement).toMatchObject({ imageId: reverseTraversedImageId, visible: true });
+    expect(Math.abs(reversePlacement.signedCenterDistance)).toBeLessThan(50);
   });
 
   test("reload restores current entry via pagehide snapshot", async ({ kupua }) => {

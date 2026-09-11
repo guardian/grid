@@ -96,6 +96,64 @@ test.describe("No-focus mode — scroll only", () => {
     expect(await kupua.getFocusedImageId()).toBeNull();
   });
 
+  test("End under Credit sort reaches a missing-Credit tail", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.selectSort("Credit");
+
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const source = store.getState().dataSource;
+      (window as any).__creditEndFixtureUsed__ = false;
+      const wrappedSource = new Proxy(source, {
+        get(target, property, receiver) {
+          if (property === "searchAfter") {
+            return async (...args: any[]) => {
+              const result = await target.searchAfter(...args);
+              const reverse = args[4] === true;
+              const seekToEnd = args[5] === true;
+              if (!reverse || !seekToEnd) return result;
+
+              (window as any).__creditEndFixtureUsed__ = true;
+              return {
+                ...result,
+                hits: result.hits.map((image: any) => ({
+                  ...image,
+                  metadata: { ...image.metadata, credit: undefined },
+                })),
+              };
+            };
+          }
+          const value = Reflect.get(target, property, receiver);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+      store.setState({ dataSource: wrappedSource });
+    });
+
+    const genBefore = (await kupua.getStoreState()).seekGeneration;
+    await kupua.page.keyboard.press("End");
+    await kupua.waitForSeekGenerationBump(genBefore);
+
+    const tail = await kupua.page.evaluate(() => {
+      const state = (window as any).__kupua_store__?.getState();
+      return {
+        total: state?.total ?? 0,
+        bufferOffset: state?.bufferOffset ?? 0,
+        ids: (state?.results ?? []).map((image: any) => image.id),
+        credits: (state?.results ?? []).map((image: any) => image.metadata?.credit ?? null),
+      };
+    });
+
+    expect(tail.ids.length).toBeGreaterThan(0);
+  expect(await kupua.page.evaluate(() => (window as any).__creditEndFixtureUsed__)).toBe(true);
+    expect(tail.bufferOffset + tail.ids.length).toBeGreaterThanOrEqual(tail.total - 1);
+    expect(tail.credits.every((credit: string | null) => credit === null)).toBe(true);
+    await expect(
+      kupua.page.locator(`[data-image-id="${tail.ids.at(-1)}"]`),
+    ).toBeVisible();
+    expect(await kupua.getFocusedImageId()).toBeNull();
+  });
+
 });
 
 // ===========================================================================

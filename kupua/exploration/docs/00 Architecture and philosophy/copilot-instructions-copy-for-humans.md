@@ -89,9 +89,8 @@ directive in one place, copy the change to the other.
 | Playwright e2e | `npm --prefix kupua run test:e2e` | After component/hook/store/scroll change | — |
 | Jank perf | `npm --prefix kupua run test:perf -- --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
 | Perceived perf | `npm --prefix kupua run test:perf -- --perceived-only --runs 4 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
-| Tier-matrix | `npm --prefix kupua run test:e2e:tiers` | Never | Only when user asks |
 
-Playwright + perf surfaces: stop dev server on :3000 (and :3010/3020/3030 for tier-matrix) first — warn user, wait. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.
+Playwright E2E: ports :3000 and :3030 must be free for the normal and forced-seek projects; ask the user to stop the app only when they have said it is running. Perf surfaces require :3000 free. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.
 
 **Directive: Ask rather than spiral.** If the agent has attempted a fix or approach and
 it didn't work, or if there are multiple plausible interpretations of a request with

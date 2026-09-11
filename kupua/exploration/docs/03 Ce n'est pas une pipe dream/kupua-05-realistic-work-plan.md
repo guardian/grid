@@ -909,7 +909,8 @@ After completing these sessions, add this to the agent directives
 - After changing component structure, hooks, store subscriptions, or anything
   that affects rendering: run `npx playwright test` (E2E, ~70 seconds). Ask
   the user to stop any running dev server on port 3000 first.
-- Never run perf tests (`run-audit.mjs`) or smoke tests (`run-smoke.mjs`)
+- Historical note: perf and the now-retired smoke runner required explicit
+  permission rather than incidental execution.
   habitually — those are manual, purpose-driven.
 ```
 
@@ -955,7 +956,7 @@ integration. Not needed after pure-function changes that unit tests already cove
 **When to run:** Before and after changes expected to affect rendering performance.
 Never habitually. The agent must never run these without the user asking.
 
-### Smoke tests (`scripts/run-smoke.mjs`) — MANUAL ONLY
+### Retired smoke tests (historical)
 
 **Speed:** Varies.
 **What they test:** Real-world behaviour against TEST cluster (~1.3M docs).

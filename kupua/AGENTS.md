@@ -51,7 +51,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Field registry** | `field-registry.tsx` (33 static fields + config aliases) |
 | **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Collections panel** | `stores/collection-store.ts`, `components/CollectionTree.tsx`, `exploration/docs/00 Architecture and philosophy/06-collections.md`, `dal/adapters/elasticsearch/cql.ts` (`~` shorthand already present), `lib/typeahead-fields.ts` (collection resolver) |
-| **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.tiers.config.ts` |
+| **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.config.ts` |
 | **Special-date ES oracle** | `integration/special-sort-es.test.ts`, `vitest.special-sort-es.config.ts`, archived obscure-sorting workplan | Opt-in local-ES mutation test. Run after changing special sort clauses, reverse pagination, cursor extraction, position maps, date distributions, `countBefore`, relevant mappings, or Elasticsearch version. Never habitual. |
 | **Performance** | `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
@@ -84,14 +84,14 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 - **1288 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **203 Playwright E2E** tests (~4.4min, 2 workers) -- `npm run test:e2e`
-- **18 × 3 tier-matrix** tests (~10min) — `npm run test:e2e:tiers` (buffer/two-tier/seek, manual)
+- **206 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
+- **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **18 perf tests** + experiment infrastructure — `npm run test:perf`
 - **35 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
-- **27 smoke tests** against TEST cluster — `npm run test:smoke`
+- **Retired smoke surface** — 57 direct-config/29 menu cases removed after elected evidence moved or was explicitly dropped
 - **12 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
-- Full reference: **`e2e/README.md`** (8 test modes, decision tree, env vars)
+- Full reference: **`e2e/README.md`** (test modes, decision tree, env vars)
 - Logging/observability: use `devLog()` and DEV-only window signals (including `__kupua_getSearchLifecycle__`) for E2E; production builds DCE them
 
 ## Design Documents

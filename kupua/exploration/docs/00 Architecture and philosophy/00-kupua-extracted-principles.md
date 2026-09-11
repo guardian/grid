@@ -41,7 +41,7 @@
 - **Never write to non-local ES.** No index/delete/bulk/update against real clusters. Safeguards in `es-config.ts` must not be weakened without explicit approval.
 - **Never touch files outside `kupua/`.** The agent's scope is kupua only — no exceptions without user permission.
 - **Never commit without asking.** Batch changes by problem solved, never push to remote.
-- **Never run smoke tests against real ES.** Only the human developer may invoke manual smoke tests against TEST/PROD.
+- **Real-ES browser and performance work requires explicit user permission.** Keep it read-only and purpose-driven.
 - **Never hardcode real cluster URLs, index names, or credentials** in source code.
 
 ### Process (always follow)
@@ -49,6 +49,6 @@
 - **Think UX, not just tech.** Raise concerns about usability, consistency, accessibility — don't just implement what's asked.
 - **Document deviations.** Any intentional departure from Grid/kahuna or library conventions gets an entry in `deviations.md` with what, why, and trade-off.
 - **Performance-gate changes.** If a change likely impacts performance, explain the risk and suggest mitigations before proceeding.
-- **Smoke → local feedback loop.** Every smoke test failure must produce at least one local test improvement that catches the same bug class.
+- **Live findings → local feedback loop.** Every useful TEST finding should produce a deterministic local owner where practical.
 
 

@@ -152,6 +152,16 @@ returned 56 with zero ref-hunting — the most reliable way to enumerate/target 
 
 ## 3. Known traps
 
+**[V] A temporary D-Center tolerance overlay can be injected without exposing
+image identity.** After a real FullscreenPreview traversal and app-owned
+Backspace exit, keep the target ID inside `page.evaluate`, measure the active
+container and target cell, then draw a fixed green usable-centre +/-50px band,
+green centre line, red cell outline and red cell-centre line. Return only signed
+offset, visibility and pass/fail. On 11 September 2026 a fresh TEST tab landed
+at +47.0px. A local case starting at item 5 had measured +130.5px; because that
+target is near the dataset top, first rule out the scrollTop=0 centering bound
+with a genuinely deep setup before treating the difference as viewport drift.
+
 **[V] Vertical scrolling works via direct `scrollTop` assignment — the KAD #9
 proxy-div trap is horizontal-only.** The real vertical scroll container is
 `[role="region"][aria-label="Image results grid"]` (a plain `div` with classes

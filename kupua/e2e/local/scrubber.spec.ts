@@ -344,6 +344,16 @@ test.describe("Flash prevention — seek scroll preservation", () => {
 // scrollTop (which may not fire scroll events in headless Chromium).
 
 test.describe("Post-seek scroll-up", () => {
+  type ReverseDirectionSample = {
+    globalPosition: number;
+    prependGeneration: number;
+  };
+
+  const findReverseDirectionViolations = (samples: ReverseDirectionSample[]) =>
+    samples.slice(1).filter((sample, index) =>
+      sample.globalPosition > samples[index].globalPosition,
+    );
+
   // NOTE: grid and table variants merged (14 Apr 2026 culling).
   // Structurally identical — only difference was grid vs table locator.
   for (const density of ["grid", "table"] as const) {
@@ -380,6 +390,50 @@ test.describe("Post-seek scroll-up", () => {
 
       // Phase 2: Continue scrolling to trigger extendBackward
       const beforeExtend = await kupua.getStoreState();
+      if (density === "grid") {
+        expect(findReverseDirectionViolations([
+          { globalPosition: 100, prependGeneration: beforeExtend.prependGeneration },
+          { globalPosition: 101, prependGeneration: beforeExtend.prependGeneration },
+        ])).toHaveLength(1);
+        await kupua.page.evaluate(() => {
+          const globalObject = window as any;
+          globalObject.__reverseDirectionSamples__ = [];
+          globalObject.__reverseDirectionSamplerActive__ = true;
+          const sample = () => {
+            if (!globalObject.__reverseDirectionSamplerActive__) return;
+            const container = document.querySelector(
+              '[aria-label="Image results grid"]',
+            ) as HTMLElement | null;
+            const store = globalObject.__kupua_store__;
+            if (container && store) {
+              const containerRect = container.getBoundingClientRect();
+              const visibleCells = Array.from(
+                container.querySelectorAll<HTMLElement>("[data-image-id]"),
+              ).filter((cell) => {
+                const rect = cell.getBoundingClientRect();
+                return rect.bottom > containerRect.top && rect.top < containerRect.bottom;
+              }).sort((left, right) =>
+                left.getBoundingClientRect().top - right.getBoundingClientRect().top,
+              );
+              const imageId = visibleCells[0]?.dataset.imageId;
+              const state = store.getState();
+              const globalPosition = imageId
+                ? state.imagePositions.get(imageId)
+                : undefined;
+              const samples = globalObject.__reverseDirectionSamples__;
+              const previous = samples.at(-1);
+              if (globalPosition !== undefined && previous?.globalPosition !== globalPosition) {
+                samples.push({
+                  globalPosition,
+                  prependGeneration: state._prependGeneration,
+                });
+              }
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        });
+      }
       const moreEvents = density === "grid" ? 20 : 15;
       for (let i = 0; i < moreEvents; i++) {
         await kupua.page.mouse.wheel(0, -200);
@@ -387,6 +441,19 @@ test.describe("Post-seek scroll-up", () => {
       }
 
       await kupua.waitForBackwardPrepend(beforeExtend);
+
+      if (density === "grid") {
+        const samples = await kupua.page.evaluate(() => {
+          const globalObject = window as any;
+          globalObject.__reverseDirectionSamplerActive__ = false;
+          return globalObject.__reverseDirectionSamples__ as ReverseDirectionSample[];
+        });
+        expect(samples.length).toBeGreaterThan(1);
+        expect(
+          Math.max(...samples.map((sample) => sample.prependGeneration)),
+        ).toBeGreaterThan(beforeExtend.prependGeneration);
+        expect(findReverseDirectionViolations(samples)).toEqual([]);
+      }
 
       const storeAfterScroll = await kupua.getStoreState();
       expect(
@@ -1407,11 +1474,11 @@ test.describe("Bug #7 — Keyword sort seek", () => {
   // further — see the archived keyword-sorts evidence §6 for why iterating was rejected
   // (it was measured to oscillate). This test validates seek accuracy via
   // the ratio assertion, which is the user-visible outcome, on TEST-scale
-  // large-bucket behaviour via smoke test S10.
+  // large-bucket behaviour through the maintained PIT fallback owners.
   //
   // NOTE: PIT race condition (stale PIT from concurrent search) is NOT
   // testable locally — local ES skips PIT entirely. That bug class is
-  // covered by the PIT fallback in es-adapter.ts and smoke test S10.
+  // covered by the PIT fallback in es-adapter.ts and its focused tests.
   test("seek to 75% under Credit sort lands near 75%", async ({ kupua }) => {
     await kupua.goto();
     await kupua.selectSort("Credit");
@@ -1565,29 +1632,6 @@ test.describe("Bug #3 — Wheel scroll on scrubber", () => {
     expect(topAfter).toBeGreaterThan(topBefore);
   });
 
-  test("wheel scroll works after a scrubber seek", async ({ kupua }) => {
-    await kupua.goto();
-
-    // Seek somewhere via scrubber click
-    await kupua.seekTo(0.3);
-
-    // Move mouse to the scrubber
-    const trackBox = await kupua.scrubber.boundingBox();
-    expect(trackBox).not.toBeNull();
-    await kupua.page.mouse.move(
-      trackBox!.x + trackBox!.width / 2,
-      trackBox!.y + trackBox!.height / 2,
-    );
-
-    const topBefore = await kupua.getScrollTop();
-
-    // Wheel down — should forward to content
-    await kupua.page.mouse.wheel(0, 500);
-    await kupua.page.waitForTimeout(300);
-
-    const topAfter = await kupua.getScrollTop();
-    expect(topAfter).toBeGreaterThan(topBefore);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1647,7 +1691,7 @@ test.describe("Bug #12 — Wheel scroll after scrubber seek", () => {
 //
 // With Credit sort, pressing End should seek to the last results.
 //
-// Root cause (discovered via smoke test S5 on TEST, 1.3M docs):
+// Root cause (discovered on TEST with a 1.3M-document corpus):
 //   1. findKeywordSortValue composite agg skips null/missing-credit docs
 //      (~16k on TEST), so search_after from last keyword lands ~16k short.
 //   2. countBefore can't handle null sort values — skips the field and
@@ -1661,10 +1705,9 @@ test.describe("Bug #12 — Wheel scroll after scrubber seek", () => {
 //   - Skip countBefore for reverse fallback (null sort values); use
 //     actualOffset = total - hits.length directly
 //
-// Local limitation: sample data has no missing credit values, so the
-// null-value code paths only activate on TEST. The smoke test S5 is the
-// authoritative guard. If local sample data is ever enhanced with
-// null-credit docs, these tests would cover it fully.
+// The local keyboard-nav owner wraps only the reverse seek-to-end response
+// with a deterministic missing-Credit tail. These cases retain generic Credit
+// End coverage against unmodified local ES data.
 // ---------------------------------------------------------------------------
 
 test.describe("Bug #14 — End key under non-date sort", () => {

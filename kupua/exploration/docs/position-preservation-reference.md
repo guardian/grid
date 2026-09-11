@@ -103,4 +103,4 @@ non-reactive ref for visual consumers.
 
 **Reproducible:** ~~3 sites (#1 sev 3, #8 sev 2, #9 sev 2)~~ → **All 3 fixed as of 27 Apr 2026.** #1 and #9 via `_scrollResetGeneration` (deferred scroll reset); #8 via 2-frame rAF chain with `abortExtends()`. No reproducible flash sites remain.
 
-**Measurement infrastructure:** `e2e/shared/drift-flash-probes.ts`, `e2e/smoke/cited-scenario.spec.ts`, `e2e/smoke/flash-measurement.spec.ts`. See `e2e/README.md` § Drift & Flash.
+**Historical measurement infrastructure:** the retired smoke and tier drift/flash specs used a shared DOM/rank probe. It was deleted with its final caller because it was not valid painted-pixel evidence.

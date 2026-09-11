@@ -11,21 +11,11 @@ e2e/
     keyboard-nav.spec.ts
     buffer-corruption.spec.ts
     ui-features.spec.ts
-    tier-matrix.spec.ts           ← cross-tier only (own config)
+    forced-seek.spec.ts           ← habitual, isolated port-3030 project
     visual-baseline.spec.ts
     visual-baseline.spec.ts-snapshots/
-  smoke/                          ← node scripts/run-smoke.mjs (TEST)
-    manual-smoke-test.spec.ts
-    smoke-scroll-stability.spec.ts
-    cited-scenario.spec.ts        ← drift+flash probes on real data
-    phantom-drift-diag.spec.ts    ← back/forward drift diagnostics
-    focus-preservation-smoke.spec.ts
-    history-diag.spec.ts
-    home-logo-diag.spec.ts
-    smoke-report.ts
-  shared/                         ← imported by local, smoke, perf, and diag
+  shared/                         ← imported by local, tier, perf, and diag
     helpers.ts
-    drift-flash-probes.ts         ← drift & flash measurement probes
   scrubber-debug.spec.ts          ← diagnostic (own config)
   global-setup.ts                 ← local E2E infra (Docker ES health check)
   tsconfig.json                   ← covers all subdirectories
@@ -43,8 +33,6 @@ e2e-perf/                         ← separate (own configs, own results)
 | **Unit/Integration** | `npm test` | In-memory mock | After any `src/` change. ~5s. Non-negotiable. |
 | **Local E2E** | `npm run test:e2e` | Docker ES, 10k docs | After changing components, hooks, store, scroll effects. ~5min. |
 | **Local E2E (full)** | `npm run test:e2e:full` | Docker ES, 10k docs | Same as above but orchestrates Docker + data loading first. |
-| **Cross-tier matrix** | `npm run test:e2e:tiers` | Docker ES, 10k docs | 18 tests × 3 tiers (buffer/two-tier/seek). Starts 3 Vite servers on ports 3010/3020/3030. ~4min. Manual, not habitual. |
-| **Smoke (TEST)** | `npm run test:smoke` | Real ES, 1.3M docs | After behavioural changes. Requires `start.sh --use-TEST`. |
 | **Perf** | `npm run test:perf` | Real ES, 1.3M docs | Manual, purpose-driven. Never habitual. |
 | **Experiment** | `npm run test:experiment` | Local or real ES | Agent-driven A/B tuning. Requires user consent for TEST. |
 | **Diagnostic** | `npm run test:diag` | Local or real ES | Scrubber coordinate-space investigation. Headed only. |
@@ -52,14 +40,14 @@ e2e-perf/                         ← separate (own configs, own results)
 ## Environment Variables
 
 All env vars are optional. Pass them as prefixes to any command, e.g.
-`CPU_THROTTLE=4 npm run test:e2e` or `CPU_THROTTLE=4 npm run test:smoke`.
+`CPU_THROTTLE=4 npm run test:e2e`.
 
 ### Test runner env vars (affect Playwright test execution)
 
 | Variable | Type | Default | Used by | Purpose |
 |----------|------|---------|---------|---------|
 | `CPU_THROTTLE` | number | 0 (off) | All modes via shared fixture | CDP `Emulation.setCPUThrottlingRate`. Rate=4 simulates 4× slower CPU. Used for slow-hardware experiments. |
-| `PERF_STABLE_UNTIL` | ISO date string | — | Smoke, perf, experiments | Pins the result corpus at a fixed date (`&until=` URL param) to prevent metric drift from new images. Auto-set by `run-smoke.mjs` and `run-audit.mjs`. |
+| `PERF_STABLE_UNTIL` | ISO date string | — | Perf, experiments | Pins the result corpus at a fixed date (`&until=` URL param) to prevent metric drift from new images. Auto-set by `run-audit.mjs`. |
 | `EXP_OVERSCAN_TABLE` | number or `"current"` | `"current"` | Experiments (E1) | Override TanStack Virtual overscan for table scroll experiments. |
 | `EXP_OVERSCAN_GRID` | number or `"current"` | `"current"` | Experiments (E2) | Override TanStack Virtual overscan for grid scroll experiments. |
 
@@ -107,14 +95,6 @@ report it separately and the dashboard hides it by default with no target:
 node kupua/e2e-perf/run-audit.mjs --short-perceived-only --dry-run PP10
 ```
 
-### Smoke runner CLI args (`run-smoke.mjs`)
-
-| Arg | Example | Purpose |
-|-----|---------|---------|
-| Number(s) | `2` or `2,3,5` | Run specific test(s) by menu number |
-| `all` | `all` | Run all smoke tests |
-| (none) | — | Interactive picker |
-
 ### Playwright built-in flags (useful combinations)
 
 | Flag | Example | Purpose |
@@ -134,8 +114,7 @@ cadences — running the wrong one wastes minutes (or requires a live cluster).
 |----------|-----|-----|------|
 | Anything in `src/` | `npm test` (~36s) | Unit/integration. **Always.** Non-negotiable. | Never skip. |
 | Components, hooks, store, scroll effects | + `npm run test:e2e` (~5min) | Tests real browser behaviour: scroll races, focus drift, buffer corruption. | Skip for doc-only, pure-util, or test-only changes. |
-| Scroll thresholds, seek logic, density-switch, Home/End handlers, scrubber | + `npm run test:e2e:tiers` (~4min) | Same 18 operations at all three tier boundaries (buffer/two-tier/seek). This is where bugs hide. | Skip if you only changed a panel, table column, or UI feature. |
-| Need to validate at real scale (1M+ docs) | `npm run test:smoke` | Catches data-shape bugs (null sort values, missing fields) that 10k sample data can't reproduce. | Requires `start.sh --use-TEST` + explicit user permission. |
+| Scroll thresholds, seek logic, Home/End handlers, scrubber | + `npm run test:e2e` | Natural buffer/indexed owners plus the isolated forced-seek case run habitually. | — |
 | Tuning overscan, buffer capacity, etc. | `npm run test:perf` or `test:experiment` | Measures actual metrics. Never habitual — purpose-driven only. | Don't run "just in case". |
 | Scrubber coordinate-space investigation | `npm run test:diag` | Headed diagnostic scan. Not pass/fail. | Only when debugging scrubber mapping. |
 
@@ -153,7 +132,6 @@ image identities must never be written to reports or artifacts.
 
 - **Port 3000 conflict:** Local E2E starts its own Vite. Stop any running `npm run dev` or `start.sh` first.
 - **Running E2E when TEST is connected:** The safety gate (global-setup + per-test check) will refuse. Stop `--use-TEST` first.
-- **Running smoke when local ES is connected:** Tests auto-skip (total < 100k). No harm, just wasted time.
 - **Piping test output through tail/head:** Don't. The list reporter streams results live.
 - **Confusing runner filters:** `run-audit.mjs` positional values are metric IDs;
   habitual E2E uses Playwright's title-based `--grep` after the npm `--` separator.
@@ -176,7 +154,6 @@ than a production event bus.
 
 | Artefact | Location |
 |----------|----------|
-| Smoke JSON report | `test-results/smoke-report.json` |
 | Experiment results | `e2e-perf/results/experiments/` |
 | Perf audit results | `e2e-perf/results/` |
 | Playwright HTML report | `playwright-report/` |
@@ -194,28 +171,14 @@ than a production event bus.
 | `local/buffer-corruption.spec.ts` | 12 | Logo click / metadata click / query change after deep seek — stale prepend regression |
 | `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
-| `local/tier-matrix.spec.ts` | 18 | Cross-tier tests (seek, Home/End, density switch, sort-around-focus) — runs via `playwright.tiers.config.ts` only |
-| `local/drift-flash-matrix.spec.ts` | 4 | Cross-tier drift + flash probes on local Docker ES. Same probe infrastructure as smoke `cited-scenario`. |
+| `local/forced-seek.spec.ts` | 1 | Compact forced-seek midpoint and exact End/Home owner — runs habitually against port 3030 |
 | `local/focus-preservation.spec.ts` | ~30 | Focus preservation across sort/filter/scrubber/density in explicit and phantom mode |
 
-### Smoke (`npm run test:smoke` — `playwright.smoke.config.ts` → `e2e/smoke/`)
-
-| File | Tests | What it covers |
-|------|-------|----------------|
-| `smoke/manual-smoke-test.spec.ts` | S1–S11 | Date/keyword/null-zone seek accuracy, End key, Home key, sort-around-focus, density switch at scale |
-| `smoke/smoke-scroll-stability.spec.ts` | S12–S27 | Seek accuracy sweep, flash prevention, swimming detection, settle-window rAF trace + CLS, headroom-zone stability, cold-start seek, sustained scroll-up swimming, FOCC DOM-level detection |
-| `smoke/cited-scenario.spec.ts` | 4 | Drift + flash probes during sort change, direction toggle, no-focus phantom mode, and two-tier (Dublin). Uses rAF sampling, position flash analysis, content flash analysis. |
-| `smoke/phantom-drift-diag.spec.ts` | D1–D3 | Phantom and explicit anchor back/forward drift over multiple cycles. Full coordinate-system capture. |
-| `smoke/focus-preservation-smoke.spec.ts` | T1–T5 | Focus preservation across sort/filter at real scale |
-| `smoke/history-diag.spec.ts` | — | Browser-history snapshot diagnostic |
-| `smoke/home-logo-diag.spec.ts` | — | Logo-click reset-to-home diagnostic |
-
-### Shared (`e2e/shared/` — imported by all modes)
+### Shared (`e2e/shared/` — imported by maintained test modes)
 
 | File | What it provides |
 |------|------------------|
 | `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()` |
-| `shared/drift-flash-probes.ts` | Position probes, visible-cell snapshots, rAF transition sampling, drift/flash/position-flash analysis and logging |
 
 ### Infrastructure (`e2e/` root)
 
@@ -397,38 +360,15 @@ The 100px margin is conservative — overscan rows are typically 1–3 rows
 
 | Test file | Data source | What it measures |
 |-----------|-------------|------------------|
-| `smoke/cited-scenario.spec.ts` | Real TEST (1.3M images), city:Dublin (14k) | Drift + content flash + position flash during sort change, direction toggle, no-focus mode. 4 tests covering seek and two-tier modes. |
-| `smoke/phantom-drift-diag.spec.ts` | Real TEST (1.3M images) | Back/forward cycle drift (phantom and explicit anchor). D1–D3 covering 4-cycle phantom, 3-cycle explicit, DOM-vs-geometry coordinate delta at multiple seek positions. |
-| `local/drift-flash-matrix.spec.ts` | Local Docker ES (10k) | Same probe infrastructure as cited-scenario, but on local data. Cross-tier via `playwright.tiers.config.ts`. |
 | `local/focus-preservation.spec.ts` | Local Docker ES (10k) | Focus preservation (focusedImageId survives sort/filter/scrubber/density). Not probe-based but covers the same domain. |
 
 ### Running the tests
 
-**Smoke tests (real data, headed):**
-
-Requires `start.sh --use-TEST` running on :3000. Stop any other server first.
-
-```bash
-# All cited-scenario tests (4 tests, ~50s)
-npm --prefix kupua run test:smoke -- cited-scenario
-
-# Phantom drift diagnostics (D1–D3, ~40s)
-npm --prefix kupua run test:smoke -- phantom-drift-diag
-
-# Direct Playwright invocation (same thing)
-cd /path/to/grid/kupua && npx playwright test \
-  --config playwright.smoke.config.ts \
-  e2e/smoke/cited-scenario.spec.ts 2>&1 | tee /tmp/kupua-test-output.txt
-```
-
 **Local tests (Docker ES):**
 
 ```bash
-# All local E2E including drift-flash-matrix
+# All habitual local E2E, including the isolated forced-seek owner
 npm --prefix kupua run test:e2e
-
-# Just drift-flash-matrix on all tiers
-npm --prefix kupua run test:e2e:tiers
 ```
 
 ### Reading the output

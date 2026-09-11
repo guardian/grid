@@ -22,9 +22,6 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e/local",
   testMatch: "**/*.spec.ts",
-  /* Cross-tier diagnostics run only via playwright.tiers.config.ts, which
-   * starts three separate Vite servers with different env vars. */
-  testIgnore: ["**/tier-matrix.spec.ts", "**/drift-flash-matrix.spec.ts"],
 
   /* Verify ES + sample data before starting any tests.
    * Fails fast with a clear message instead of 46 individual timeouts. */
@@ -66,19 +63,29 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/forced-seek.spec.ts",
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "forced-seek",
+      testMatch: "**/forced-seek.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3030" },
     },
   ],
 
-  /* Auto-start vite dev server if not already running */
-  webServer: {
-    command: "npm run dev",
-    port: 3000,
-    reuseExistingServer: true,
-    /* Give Vite time to start + ES proxy to connect.
-     * If ES isn't running, Vite starts but the proxy fails silently —
-     * tests will fail on first page load with "store not exposed".
-     * run-e2e.sh prevents this by checking ES before invoking Playwright. */
-    timeout: 60_000,
-  },
+  /* Auto-start the normal app and one isolated forced-seek app. */
+  webServer: [
+    {
+      command: "npm run dev",
+      port: 3000,
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: "VITE_POSITION_MAP_THRESHOLD=0 npm run dev -- --port 3030",
+      port: 3030,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
+  ],
 });

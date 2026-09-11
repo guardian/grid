@@ -817,7 +817,7 @@ Config-driven alias fields from `grid-config.ts` are merged into the registry.
 |---|---|
 | `buffer-corruption.spec.ts` | Buffer integrity during scroll |
 | `scrubber.spec.ts` | Scrubber interactions |
-| `manual-smoke-test.spec.ts` | Manual smoke test script |
+| Retired TEST smoke surface | Historical migration source; elected evidence now lives in habitual E2E or was explicitly dropped |
 
 ---
 

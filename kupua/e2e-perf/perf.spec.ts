@@ -1,5 +1,5 @@
 /**
- * Rendering Performance Smoke Tests — real ES cluster diagnostics.
+ * Rendering Performance Tests — real ES cluster diagnostics.
  *
  * ╔══════════════════════════════════════════════════════════════════════╗
  * ║  MANUAL INVOCATION ONLY — DO NOT RUN IN CI, SCRIPTS, OR AGENTS.   ║
@@ -1102,7 +1102,7 @@ function logTraversalSummary(id: string, timings: ImageRenderTiming[], landing: 
 }
 
 // ---------------------------------------------------------------------------
-// Smoke tests
+// Performance scenarios
 // ---------------------------------------------------------------------------
 
 test.describe("Rendering Performance Smoke", () => {

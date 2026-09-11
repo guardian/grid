@@ -542,6 +542,7 @@ test.describe("URL state", () => {
 test.describe("Fullscreen preview — navigation", () => {
   test("ArrowLeft in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
     await kupua.goto();
+    await kupua.seekTo(0.5);
 
     // Focus an image in the middle of the grid (not the edge — avoids boundary issues)
     await kupua.focusNthItem(5);
@@ -589,10 +590,65 @@ test.describe("Fullscreen preview — navigation", () => {
     await kupua.page.keyboard.press("ArrowRight");
     await expect.poll(() => kupua.getFocusedImageId()).toBe(beforeId);
 
-    // Exit fullscreen
-    await kupua.page.keyboard.press("Escape");
+    // Exit on a traversed identity so FullscreenPreview's return-centering
+    // branch runs; returning to the entry identity intentionally preserves
+    // the unchanged underlying scroll position.
+    await kupua.page.keyboard.press("ArrowLeft");
+    await expect.poll(() => kupua.getFocusedImageId()).toBe(beforeState.expectedPrevId);
+
+    // Use the app-owned exit command; browser-native Escape can be swallowed
+    // by Chromium's fullscreen permission overlay.
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForFunction(() =>
+      document.fullscreenElement === null
+      && document.querySelector('[data-fullscreen-preview="active"]') === null,
+    );
+    const placement = await kupua.waitForUsableViewportPlacement(beforeState.expectedPrevId!);
+    expect(placement).toMatchObject({ imageId: beforeState.expectedPrevId, visible: true });
+    expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
   });
 
+  test("table fullscreen preview returns the last-viewed image to usable centre", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    await kupua.focusNthItem(8);
+    const startId = await kupua.getFocusedImageId();
+    expect(startId).not.toBeNull();
+
+    await kupua.page.keyboard.press("f");
+    await kupua.page.waitForFunction(() => document.fullscreenElement !== null);
+    await kupua.page.keyboard.press("ArrowRight");
+    await expect.poll(() => kupua.getFocusedImageId()).not.toBe(startId);
+    const lastViewedId = await kupua.getFocusedImageId();
+    expect(lastViewedId).not.toBeNull();
+
+    await kupua.page.keyboard.press("Backspace");
+    await kupua.page.waitForFunction(() =>
+      document.fullscreenElement === null
+      && document.querySelector('[data-fullscreen-preview="active"]') === null,
+    );
+    const placement = await kupua.waitForUsableViewportPlacement(lastViewedId!);
+    expect(placement).toMatchObject({ imageId: lastViewedId, visible: true });
+    expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
+  });
+
+});
+
+test.describe("Table image detail — return placement", () => {
+  test("table detail returns the last-viewed image to usable centre", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.switchToTable();
+    const entryId = await kupua.openDetailForNthItem(8);
+    await kupua.detailNextAndWait();
+    const lastViewedId = await kupua.getDetailImageId();
+    expect(lastViewedId).not.toBeNull();
+    expect(lastViewedId).not.toBe(entryId);
+
+    await kupua.closeDetailViaBackspace();
+    const placement = await kupua.waitForUsableViewportPlacement(lastViewedId!);
+    expect(placement).toMatchObject({ imageId: lastViewedId, visible: true });
+    expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
+  });
 });
 
 // ===========================================================================

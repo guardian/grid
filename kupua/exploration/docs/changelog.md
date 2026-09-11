@@ -14,6 +14,31 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 11 September 2026 — Retire legacy browser harnesses
+
+  The smoke and three-project tier-matrix suites were retired after every
+  claim was mapped to stronger maintained evidence or explicitly dropped as
+  warning-only, combinatorial or invalid measurement. Ownerless diagnostics,
+  the direct-store selection performance prototype, smoke reporters/runners,
+  both tier matrices, obsolete configs and the final generic DOM/rank probe
+  were removed. Live package, config, documentation and agent directives now
+  describe two maintained browser outcomes: habitual local correctness and
+  purpose-driven performance evidence.
+
+  Habitual coverage gained deterministic missing-Credit End wiring, bounded
+  reverse/prepend DOM-direction integrity, exact usable-viewport return
+  placement for grid/table detail and FullscreenPreview paths, and one compact
+  forced-seek owner. Source overlap review removed duplicated sort/density work
+  from that forced case and bypassed an impossible position-map wait, reducing
+  it from about 35 seconds to 2-3 seconds. Reverse P8 performance remains
+  deliberately unmeasured because no current comparison decision needs it.
+
+  Final validation passed 1,288/1,288 units, 206/206 habitual Playwright cases
+  in 4.5 minutes without retry, 35/35 performance-harness tests and the
+  production build. Playwright discovery lists exactly 206 tests in 14 files;
+  directive copies are byte-identical, live retired-surface references are
+  absent, diagnostics are clean and `git diff --check` passes.
+
   ### 10 September 2026 — Make habitual browser evidence smaller and stronger
 
   The habitual Playwright suite was consolidated from 236 to 203 tests by

@@ -233,6 +233,43 @@ export class KupuaHelpers {
     });
   }
 
+  /** Wait for an exact image to be painted near the active usable viewport centre. */
+  async waitForUsableViewportPlacement(imageId: string, timeout = 10_000) {
+    const handle = await this.page.waitForFunction(
+      (targetId) => {
+        const container = document.querySelector<HTMLElement>(
+          '[aria-label="Image results grid"], [aria-label="Image results table"]',
+        );
+        const cell = container?.querySelector<HTMLElement>(
+          `[data-image-id="${CSS.escape(targetId)}"]`,
+        );
+        if (!container || !cell) return false;
+
+        const containerRect = container.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const stickyHeader = container.querySelector<HTMLElement>("[data-table-header]");
+        const usableTop = stickyHeader?.getBoundingClientRect().bottom ?? containerRect.top;
+        const usableBottom = containerRect.bottom;
+        const visible = cellRect.bottom > usableTop && cellRect.top < usableBottom;
+        if (!visible) return false;
+
+        return {
+          imageId: targetId,
+          visible,
+          signedCenterDistance:
+            (cellRect.top + cellRect.bottom - usableTop - usableBottom) / 2,
+        };
+      },
+      imageId,
+      { timeout },
+    );
+    return handle.jsonValue() as Promise<{
+      imageId: string;
+      visible: true;
+      signedCenterDistance: number;
+    }>;
+  }
+
   /**
    * Pixel top of the focused cell relative to the results container, or
    * null if there's no focus or the cell isn't in the DOM. Used to assert

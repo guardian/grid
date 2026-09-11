@@ -7,8 +7,8 @@
  * - Longer timeouts (real cluster has more data → seeks take longer)
  *
  * Usage:
- *   npx playwright test --config playwright.buffer-corruption.config.ts
- *   npx playwright test --config playwright.buffer-corruption.config.ts --headed
+ *   npx playwright test --config playwright.run-manually-on-TEST.config.ts
+ *   npx playwright test --config playwright.run-manually-on-TEST.config.ts --headed
  */
 
 import { defineConfig, devices } from "@playwright/test";

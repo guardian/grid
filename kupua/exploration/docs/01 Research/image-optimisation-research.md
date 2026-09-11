@@ -457,11 +457,8 @@ Local ES has only 10k docs with synthetic data — imgproxy latency is unrealist
    This runs **8 scenarios** (4 speed tiers × 2 view modes) and takes ~2-3 min.
    Run in the **foreground** (not background, not piped through tail/head).
 
-5. Results land in `e2e-perf/results/experiments/exp-*.json`. Quick inspection:
-   ```
-   cd kupua && python3 scripts/read-results.py
-   ```
-   This prints landing time, rendered count, imgproxy stats per tier.
+5. Results land in `e2e-perf/results/experiments/exp-*.json`; inspect the
+  structured experiment files or dashboard directly.
 
 6. **Build a dashboard.** Per the "Visualise experiment results" directive,
    generate a standalone HTML dashboard with Chart.js and open it in the
