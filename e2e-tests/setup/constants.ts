@@ -60,9 +60,6 @@ export const SERVICE_PORTS: Record<string, number> = {
 export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
 export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 
-/** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
-export const URLS_FILE = path.join(import.meta.dirname, '..', '.grid-urls.json');
-
 /**
  * Generated per-service config, bind-mounted into the app container.
  */

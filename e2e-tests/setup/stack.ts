@@ -37,12 +37,21 @@ import {
   REGION,
   REPO_ROOT,
   SERVICE_PORTS,
-  URLS_FILE,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
-import { provisionCoreStack } from './provision.ts';
+import { reportTo, runTasks } from './progress.ts';
+import type { ListrTask } from './progress.ts';
+import {
+  createCoreStack,
+  provisioningClients,
+  provisionPermissionsBucket,
+  seedBuckets,
+  seedKclLeaseTable,
+} from './provision.ts';
+import type { StackProps } from './provision.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
+import type { ListrTaskFn } from 'listr2';
 
 const LOCALSTACK_SERVICES = [
   "cloudformation",
@@ -65,17 +74,36 @@ export interface StartStackOptions {
   seed?: boolean;
 }
 
+// Every service is bound to a fixed host port, so its URL is the same whether this process
+// started the stack or attached to one already running.
+const KAHUNA_URL = `http://localhost:${KAHUNA_PORT}`;
+const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
+const ELASTICSEARCH_URL = `http://localhost:${ELASTICSEARCH_PORT}`;
+
 /** How much of the stack is already listening on the fixed host ports. */
 type StackProbe = 'none' | 'healthy' | 'partial';
 
+const PROBE_OUTCOMES: Record<StackProbe, string> = {
+  none: 'No running Grid stack found',
+  healthy: `Found a Grid stack already running on ${KAHUNA_URL}`,
+  partial: 'Found a partially running Grid stack',
+};
+
 const PROBE_TIMEOUT_MS = 2_000;
+
+/** Names a container by its role in the stack, since Docker otherwise assigns a random one. */
+const ROLE_LABEL = 'uk.co.guardian.grid.role';
 
 /** The subset of a started stack that teardown needs; a partially-booted stack also fits. */
 interface StoppableStack {
   network?: StartedNetwork;
   containers: StartedTestContainer[];
   configDir?: string;
-  urlsFile?: string;
+}
+
+/** What the boot tasks build up. Each task mutates it in place for the ones that follow. */
+interface BootContext extends StoppableStack {
+  coreStackProps?: StackProps;
 }
 
 /**
@@ -179,180 +207,329 @@ process.on('exit', () => {
   }
 });
 
+function elasticsearchContainer(network: StartedNetwork): GenericContainer {
+  return new GenericContainer(ELASTICSEARCH_IMAGE)
+    .withNetwork(network)
+    .withNetworkAliases(ELASTICSEARCH_ALIAS)
+    .withLabels({ [ROLE_LABEL]: 'Elasticsearch' })
+    .withEnvironment({
+      'discovery.type': 'single-node',
+      'xpack.security.enabled': 'false',
+      ES_JAVA_OPTS: '-Xms1024m -Xmx1024m',
+    })
+    .withExposedPorts({ container: ELASTICSEARCH_PORT, host: ELASTICSEARCH_PORT })
+    .withWaitStrategy(
+      Wait.forHttp('/_cluster/health', ELASTICSEARCH_PORT).forStatusCodeMatching((code) => code < 300),
+    )
+    .withStartupTimeout(180_000);
+}
+
+function localstackContainer(network: StartedNetwork): LocalstackContainer {
+  return new LocalstackContainer(LOCALSTACK_IMAGE)
+    .withNetwork(network)
+    .withNetworkAliases(LOCALSTACK_ALIAS)
+    .withLabels({ [ROLE_LABEL]: 'LocalStack' })
+    // Pin to the fixed host port dev-nginx expects for the S3 vanity domains
+    // (images.media / public.media / localstack.media -> 4566).
+    .withExposedPorts({ container: LOCALSTACK_PORT, host: LOCALSTACK_PORT })
+    .withEnvironment({
+      SERVICES: LOCALSTACK_SERVICES,
+      DEFAULT_REGION: REGION,
+      KINESIS_ERROR_PROBABILITY: '0.0',
+      // Make resource URLs resolve via the network alias so the
+      // app container can reach them, and keep queue URLs path-style.
+      LOCALSTACK_HOST: `${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`,
+      SQS_ENDPOINT_STRATEGY: 'path',
+    })
+    .withStartupTimeout(120_000);
+}
+
+/**
+ * imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
+ * the `localstack` alias on 4566, so it shares the stack network.
+ */
+function imgopsContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
+  return image
+    .withNetwork(network)
+    .withNetworkAliases(IMGOPS_ALIAS)
+    .withLabels({ [ROLE_LABEL]: 'imgops' })
+    .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
+    .withExposedPorts({ container: 80, host: IMGOPS_PORT })
+    .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
+    .withStartupTimeout(120_000);
+}
+
+/**
+ * All Grid services under test run inside this single container and talk to each
+ * other over its localhost. Each is published on the fixed host port its
+ * dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
+ * dev-nginx routes the https://*.media.<domain> domains straight into this
+ * container.
+ */
+function gridContainer(
+  network: StartedNetwork,
+  configDir: string,
+  startupTimeoutMs: number,
+): GenericContainer {
+  const container = new GenericContainer(GRID_IMAGE)
+    .withNetwork(network)
+    .withNetworkAliases(GRID_ALIAS)
+    .withLabels({ [ROLE_LABEL]: 'the Grid services' })
+    .withExposedPorts(
+      ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
+    )
+    .withBindMounts([
+      // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
+      { source: configDir, target: '/root/.grid', mode: 'ro' },
+      { source: configDir, target: '/etc/grid', mode: 'ro' },
+      // Outside CI the grid-e2e-dev image runs services under sbt; mount the repo
+      // over /build so host edits recompile live.
+      ...(process.env.CI ? [] : [{ source: REPO_ROOT, target: '/build', mode: 'rw' as const }]),
+    ])
+    .withEnvironment({
+      AWS_ACCESS_KEY_ID: 'test',
+      AWS_SECRET_ACCESS_KEY: 'test',
+      AWS_REGION: REGION,
+      AWS_DEFAULT_REGION: REGION,
+      AWS_CBOR_DISABLE: 'true',
+    })
+    // Waiting on the healthchecks here would collapse every service into one opaque wait;
+    // the first line of output is enough to hand over to the per-service checks below.
+    .withWaitStrategy(Wait.forLogMessage(/./))
+    .withStartupTimeout(10_000);
+
+  if (!process.env.GRID_DEBUG) {
+    return container;
+  }
+
+  const logStream = fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'));
+  return container.withLogConsumer((stream) => {
+    stream.on('data', (line) => logStream.write(line));
+    stream.on('err', (line) => logStream.write(line));
+  });
+}
+
+/**
+ * Locally, the browser reaches the https://*.media.<domain> domains via the developer's
+ * dev-nginx. CI has no dev-nginx, so a Caddy proxy replays the same subdomain routing and
+ * terminates TLS with a self-signed cert, published on the https port the domains resolve to.
+ */
+function proxyContainer(network: StartedNetwork, caddyfile: string): GenericContainer {
+  return new GenericContainer(PROXY_IMAGE)
+    .withNetwork(network)
+    .withLabels({ [ROLE_LABEL]: 'the reverse proxy' })
+    .withExposedPorts({ container: 443, host: 443 })
+    .withCopyContentToContainer([{ content: caddyfile, target: '/etc/caddy/Caddyfile' }])
+    .withWaitStrategy(Wait.forListeningPorts())
+    .withStartupTimeout(60_000);
+}
+
+/** Poll a fixed host port until its healthcheck passes, reporting how long it has waited. */
+async function waitForHealthy(
+  port: number,
+  healthPath: string,
+  timeoutMs: number,
+  report: (message: string) => void,
+): Promise<void> {
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
+
+  for (; ;) {
+    const { healthy } = await isServiceHealthy(healthPath)(port);
+    if (healthy) {
+      return;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`localhost:${port}/${healthPath} did not pass its healthcheck within ${timeoutMs}ms`);
+    }
+
+    report(`waiting on localhost:${port} (${Math.round((Date.now() - startedAt) / 1000)}s)`);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+}
+
+/**
+ * Start LocalStack and provision everything held in it. Sequential: each step needs the
+ * resources the one before it created.
+ */
+function localstackTasks(): ListrTask<BootContext>[] {
+  let clients: ReturnType<typeof provisioningClients>;
+
+  return [
+    {
+      title: 'Start container',
+      task: async (ctx) => {
+        const localstack = await localstackContainer(ctx.network!).start();
+        ctx.containers.push(localstack);
+        clients = provisioningClients(localstack.getConnectionUri());
+      },
+    },
+    {
+      title: 'Apply CloudFormation template',
+      task: async (ctx) => {
+        ctx.coreStackProps = await createCoreStack(clients.cfn);
+      },
+    },
+    {
+      title: 'Seed config buckets',
+      task: (ctx) => seedBuckets(clients.s3, ctx.coreStackProps!),
+    },
+    {
+      title: 'Create permissions bucket',
+      task: async (ctx) => {
+        ctx.coreStackProps!.PermissionsBucket = await provisionPermissionsBucket(clients.s3);
+      },
+    },
+    {
+      title: 'Seed KCL lease tables',
+      task: async (ctx) => {
+        await Promise.all(
+          [
+            ctx.coreStackProps!.ThrallMessageStream,
+            ctx.coreStackProps!.ThrallLowPriorityMessageStream,
+          ].map((stream) => seedKclLeaseTable(clients.dynamo, clients.kinesis, stream)),
+        );
+      },
+    },
+  ];
+}
+
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   const { proxy = !!process.env.CI, seed = true } = options;
 
-  const started: StartedTestContainer[] = [];
-  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
+  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 120_000);
+  const context: BootContext = { containers: [] };
 
-  let network: StartedNetwork | undefined;
-  let configDir: string | undefined;
+  const tasks: ListrTask<BootContext>[] = [
+    {
+      title: 'Create network',
+      task: async (ctx) => {
+        ctx.network = await new Network().start();
+      },
+    },
+    {
+      // These three share only the network, and Elasticsearch is by far the slowest to come
+      // up, so provisioning LocalStack costs nothing beyond it.
+      title: 'Start infrastructure',
+      task: (_, task) =>
+        task.newListr(
+          [
+            {
+              title: 'Elasticsearch',
+              task: async (ctx) => {
+                ctx.containers.push(await elasticsearchContainer(ctx.network!).start());
+              },
+            },
+            {
+              // nginx resolves the `localstack` alias per request, so this need not wait for it.
+              title: 'imgops',
+              task: (_, imgopsTask) => {
+                let image: GenericContainer;
+
+                return imgopsTask.newListr(
+                  [
+                    {
+                      title: 'Build image',
+                      task: async () => {
+                        image = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(
+                          IMGOPS_IMAGE,
+                          { deleteOnExit: false },
+                        );
+                      },
+                    },
+                    {
+                      title: 'Start container',
+                      task: async (ctx) => {
+                        ctx.containers.push(await imgopsContainer(image, ctx.network!).start());
+                      },
+                    },
+                  ],
+                  { concurrent: false },
+                );
+              },
+            },
+            {
+              title: 'LocalStack',
+              task: (_, task) => task.newListr(localstackTasks(), { concurrent: false }),
+            },
+          ],
+          { concurrent: true },
+        ),
+    },
+    {
+      title: 'Generate service config',
+      task: (ctx) => {
+        // Reaching here means the probe found no live stack, so recreating the shared path is
+        // safe and clears anything a killed run left behind.
+        fs.rmSync(CONFIG_DIR, { recursive: true, force: true });
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        ctx.configDir = CONFIG_DIR;
+        ownedConfigDir = CONFIG_DIR;
+        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!);
+      },
+    },
+    {
+      title: 'Start Grid services',
+      task: (_, task) =>
+        task.newListr([
+          {
+            title: 'Start container',
+            task: async (ctx) => {
+              ctx.containers.push(
+                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
+              );
+            },
+          },
+          {
+            title: 'Wait for services',
+            task: (_, services) => {
+              const readiness: ListrTask<BootContext>[] = [
+                ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
+                  title: service,
+                  task: (_, serviceTask) =>
+                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
+                })),
+                {
+                  // Waits for the `Images_Current` alias the app assigns on startup, so this
+                  // only needs the container running, not every service healthy.
+                  title: 'Seed Elasticsearch',
+                  skip: () => !seed && 'seeding not requested',
+                  task: async (_, seedTask) => {
+                    await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
+                  },
+                },
+              ];
+
+              return services.newListr(readiness, { concurrent: true });
+            },
+          },
+        ]),
+    },
+    {
+      title: 'Start reverse proxy',
+      skip: () => !proxy && 'using dev-nginx',
+      task: async (ctx) => {
+        const caddy = await proxyContainer(ctx.network!, buildCaddyfile(ctx.coreStackProps!)).start();
+        ctx.containers.push(caddy);
+      },
+    },
+  ];
 
   try {
-    network = await new Network().start();
-
-    // Infrastructure: Elasticsearch + LocalStack
-    const elasticsearch = await new GenericContainer(ELASTICSEARCH_IMAGE)
-      .withNetwork(network)
-      .withNetworkAliases(ELASTICSEARCH_ALIAS)
-      .withEnvironment({
-        'discovery.type': 'single-node',
-        'xpack.security.enabled': 'false',
-        ES_JAVA_OPTS: '-Xms1024m -Xmx1024m',
-      })
-      .withExposedPorts({ container: ELASTICSEARCH_PORT, host: ELASTICSEARCH_PORT })
-      .withWaitStrategy(
-        Wait.forHttp('/_cluster/health', ELASTICSEARCH_PORT).forStatusCodeMatching((code) => code < 300),
-      )
-      .withStartupTimeout(180_000)
-      .start();
-    started.push(elasticsearch);
-
-    const localstack = await new LocalstackContainer(LOCALSTACK_IMAGE)
-      .withNetwork(network)
-      .withNetworkAliases(LOCALSTACK_ALIAS)
-      // Pin to the fixed host port dev-nginx expects for the S3 vanity domains
-      // (images.media / public.media / localstack.media -> 4566).
-      .withExposedPorts({ container: LOCALSTACK_PORT, host: LOCALSTACK_PORT })
-      .withEnvironment({
-        SERVICES: LOCALSTACK_SERVICES,
-        DEFAULT_REGION: REGION,
-        KINESIS_ERROR_PROBABILITY: '0.0',
-        // Make resource URLs resolve via the network alias so the
-        // app container can reach them, and keep queue URLs path-style.
-        LOCALSTACK_HOST: `${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`,
-        SQS_ENDPOINT_STRATEGY: 'path',
-      })
-      .withStartupTimeout(120_000)
-      .start();
-    started.push(localstack);
-
-    // imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
-    // the `localstack` alias on 4566, so it shares this network.
-    const imgopsImage = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(IMGOPS_IMAGE, {
-      deleteOnExit: false,
-    });
-    const imgops = await imgopsImage
-      .withNetwork(network)
-      .withNetworkAliases(IMGOPS_ALIAS)
-      .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
-      .withExposedPorts({ container: 80, host: IMGOPS_PORT })
-      .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
-      .withStartupTimeout(120_000)
-      .start();
-    started.push(imgops);
-
-    // Provisioning + config generation
-    const coreStackProps = await provisionCoreStack(localstack.getConnectionUri());
-
-    // Reaching here means the probe found no live stack, so recreating the shared path is
-    // safe and clears anything a killed run left behind.
-    configDir = CONFIG_DIR;
-    fs.rmSync(configDir, { recursive: true, force: true });
-    fs.mkdirSync(configDir, { recursive: true });
-    ownedConfigDir = configDir;
-    generateServiceConfig(configDir, coreStackProps);
-
-    // All Grid services under test run inside this single container and talk to each
-    // other over its localhost. Each is published on the fixed host port its
-    // dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
-    // dev-nginx routes the https://*.media.<domain> domains straight into this
-    // container.
-    let gridBuilder = new GenericContainer(GRID_IMAGE)
-      .withNetwork(network)
-      .withNetworkAliases(GRID_ALIAS)
-      .withExposedPorts(
-        ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
-      )
-      .withBindMounts([
-        // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
-        { source: configDir, target: '/root/.grid', mode: 'ro' },
-        { source: configDir, target: '/etc/grid', mode: 'ro' },
-        // Outside CI the grid-e2e-dev image runs services under sbt; mount the repo
-        // over /build so host edits recompile live.
-        ...(process.env.CI ? [] : [{ source: REPO_ROOT, target: '/build', mode: 'rw' as const }]),
-      ])
-      .withEnvironment({
-        AWS_ACCESS_KEY_ID: 'test',
-        AWS_SECRET_ACCESS_KEY: 'test',
-        AWS_REGION: REGION,
-        AWS_DEFAULT_REGION: REGION,
-        AWS_CBOR_DISABLE: 'true',
-      })
-      .withWaitStrategy(
-        Wait.forAll(Object.values(SERVICE_PORTS).map(port =>
-          Wait.forHttp('/management/healthcheck', port).forStatusCode(200),
-        ))
-      )
-      .withStartupTimeout(startupTimeoutMs);
-
-    if (process.env.GRID_DEBUG) {
-      const logStream = fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'));
-      gridBuilder = gridBuilder.withLogConsumer((stream) => {
-        stream.on('data', (line) => logStream.write(line));
-        stream.on('err', (line) => logStream.write(line));
-      });
-    }
-
-    const grid = await gridBuilder.start();
-    started.push(grid);
-
-    // Seed Elasticsearch with image fixtures
-    //
-    // The app creates the `images` index + `Images_Current` alias on startup; seed once the
-    // stack is healthy so searches during the tests return the fixture documents.
-    if (seed) {
-      const esBaseUrl = `http://${elasticsearch.getHost()}:${elasticsearch.getMappedPort(ELASTICSEARCH_PORT)}`;
-      await seedElasticsearch(esBaseUrl);
-    }
-
-    // CI routing: bundled reverse proxy
-    //
-    // Locally, the browser reaches the https://*.media.<domain> domains via the developer's
-    // dev-nginx. CI has no dev-nginx, so when running under CI (GitHub Actions sets CI=true)
-    // start a Caddy proxy that replays the same subdomain routing and terminates TLS with a
-    // self-signed cert, published on the standard https port the domains resolve to.
-    if (proxy) {
-      const caddy = await new GenericContainer(PROXY_IMAGE)
-        .withNetwork(network)
-        .withExposedPorts({ container: 443, host: 443 })
-        .withCopyContentToContainer([
-          { content: buildCaddyfile(coreStackProps), target: '/etc/caddy/Caddyfile' },
-        ])
-        .withWaitStrategy(Wait.forListeningPorts())
-        .withStartupTimeout(60_000)
-        .start();
-      started.push(caddy);
-    }
-
-    const host = grid.getHost();
-    const baseUrl = `http://${host}:${grid.getMappedPort(KAHUNA_PORT)}`;
-    const mediaApiUrl = `http://${host}:${grid.getMappedPort(MEDIA_API_PORT)}`;
-
-    fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
+    await runTasks(tasks, context);
 
     return {
-      network,
-      containers: started,
-      configDir,
-      urlsFile: URLS_FILE,
-      baseUrl,
-      mediaApiUrl,
+      network: context.network,
+      containers: context.containers,
+      configDir: context.configDir,
+      baseUrl: KAHUNA_URL,
+      mediaApiUrl: MEDIA_API_URL,
     };
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
-    await stopStack({ network, containers: started, configDir });
+    await stopStack(context);
     throw error;
-  }
-}
-
-/** Run a best-effort teardown step, warning (not throwing) so the rest still runs. */
-async function warnOnException(label: string, fn: () => unknown): Promise<void> {
-  try {
-    await fn();
-  } catch (error) {
-    console.warn(`${label}: ${(error as Error).message}`);
   }
 }
 
@@ -403,6 +580,7 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
   const reuseAllowed = !process.env.CI;
 
   const { state, healthy, ports } = await probeStack();
+  console.log(PROBE_OUTCOMES[state]);
 
   if (state === 'partial') {
     const missing = ports.filter((port) => !healthy.includes(port));
@@ -430,25 +608,24 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
  * so `stopStack` leaves everything running.
  */
 async function attachToStack(options: StartStackOptions): Promise<GridEnvironment> {
-  const baseUrl = `http://localhost:${KAHUNA_PORT}`;
-  const mediaApiUrl = `http://localhost:${MEDIA_API_PORT}`;
-
-  console.log(`Reusing the Grid stack already running on ${baseUrl}`);
-
   // Re-seeding is opt-in: whoever started the stack already seeded it, and the fixtures
   // are only reloaded on request because tests may have since changed the data.
-  if (options.seed === true || process.env.GRID_RESEED === 'true') {
-    await seedElasticsearch(`http://localhost:${ELASTICSEARCH_PORT}`);
-  }
+  const reseed = options.seed === true || process.env.GRID_RESEED === 'true';
 
-  // Only claim the URLs file if it is missing, so teardown never deletes another stack's.
-  let urlsFile: string | undefined;
-  if (!fs.existsSync(URLS_FILE)) {
-    fs.writeFileSync(URLS_FILE, JSON.stringify({ kahuna: baseUrl, mediaApi: mediaApiUrl }));
-    urlsFile = URLS_FILE;
-  }
+  await runTasks(
+    [
+      {
+        title: 'Seed Elasticsearch',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+    ],
+    {},
+  );
 
-  return { containers: [], urlsFile, baseUrl, mediaApiUrl };
+  return { containers: [], baseUrl: KAHUNA_URL, mediaApiUrl: MEDIA_API_URL };
 }
 
 /** Stop what this process started and delete what it wrote; anything else is left alone. */
@@ -457,22 +634,32 @@ export async function stopStack(environment: StoppableStack | undefined): Promis
     return;
   }
 
-  const { containers, network, configDir, urlsFile } = environment;
+  const { containers, network, configDir } = environment;
 
-  for (const container of [...containers].reverse()) {
-    await warnOnException('Failed to stop container', () => container.stop());
+  const tasks: ListrTask<object>[] = [
+    // Reverse start order, so nothing is stopped before whatever depends on it.
+    ...[...containers].reverse().map((container) => ({
+      title: `Stop ${container.getLabels()[ROLE_LABEL] ?? container.getName()}`,
+      task: () => container.stop(),
+    })),
+    ...(network ? [{ title: 'Remove network', task: () => network.stop() }] : []),
+    ...(configDir
+      ? [
+        {
+          title: 'Remove generated config',
+          task: () => {
+            fs.rmSync(configDir, { recursive: true, force: true });
+            ownedConfigDir = undefined;
+          },
+        },
+      ]
+      : []),
+  ];
+
+  if (tasks.length === 0) {
+    return;
   }
 
-  if (network) {
-    await warnOnException('Failed to stop network', () => network.stop());
-  }
-  if (configDir) {
-    await warnOnException('Failed to remove config dir', () =>
-      fs.rmSync(configDir, { recursive: true, force: true }),
-    );
-    ownedConfigDir = undefined;
-  }
-  if (urlsFile) {
-    await warnOnException('Failed to remove urls file', () => fs.rmSync(urlsFile, { force: true }));
-  }
+  // Every step is best-effort: a failure is reported against its task and the rest still run.
+  await runTasks(tasks, {}, { exitOnError: false });
 }

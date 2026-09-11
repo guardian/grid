@@ -18,8 +18,6 @@ export interface GridEnvironment {
   containers: StartedTestContainer[];
   /** Absolute path to the generated config directory mounted into the app container. */
   configDir?: string;
-  /** Set only when this process wrote the URLs file, so teardown does not delete another stack's. */
-  urlsFile?: string;
   /** Base URL of the Kahuna UI, e.g. http://localhost:9005 */
   baseUrl: string;
   /** Base URL of the media-api, e.g. http://localhost:9001 */

@@ -20,11 +20,14 @@
   "license": "ISC",
   "devDependencies": {
     "@aws-sdk/client-cloudformation": "^3.658.0",
+    "@aws-sdk/client-dynamodb": "^3.1127.0",
+    "@aws-sdk/client-kinesis": "^3.1127.0",
     "@aws-sdk/client-s3": "^3.658.0",
     "@playwright/test": "^1.61.1",
     "@testcontainers/localstack": "^10.13.2",
     "@types/node": "^26.1.1",
     "json5": "^2.2.3",
+    "listr2": "^10.1.2",
     "playwright-bdd": "^9.2.0",
     "testcontainers": "^10.13.2"
   }
