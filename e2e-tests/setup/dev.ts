@@ -1,7 +1,7 @@
 /**
  * Boots the Grid stack outside Playwright and holds it open until Ctrl-C.
  *
- * Set `GRID_PROXY=true` to also start the bundled Caddy reverse proxy, which
+ * Set `CI=true` to also start the bundled Caddy reverse proxy, which
  * serves the https://*.media.<domain> domains for anyone without dev-nginx
  * running locally.
  */

@@ -52,7 +52,7 @@ holds it open until you press Ctrl-C, which tears it all down.
 
 ```bash
 npm run dev:e2e                  # uses your local dev-nginx for the https://*.media.<domain> domains
-GRID_PROXY=true npm run dev:e2e  # no dev-nginx? start the bundled Caddy proxy on :443 instead
+CI=true npm run dev:e2e  # Run as CI: start the bundled Caddy proxy on :443 instead
 ```
 
 The stack binds fixed host ports, so two stacks cannot run
