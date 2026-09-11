@@ -65,11 +65,6 @@ const LOCALSTACK_SERVICES = [
 ].join(",");
 
 export interface StartStackOptions {
-  /**
-   * Start the bundled Caddy reverse proxy instead of relying on the developer's
-   * dev-nginx. Defaults to true under CI, which has no dev-nginx.
-   */
-  proxy?: boolean;
   /** Seed Elasticsearch with the image fixtures. Defaults to true. */
   seed?: boolean;
 }
@@ -396,7 +391,8 @@ function localstackTasks(): ListrTask<BootContext>[] {
 
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
-  const { proxy = !!process.env.CI, seed = true } = options;
+  const { seed = true } = options;
+  const proxy = !!process.env.CI;
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 120_000);
   const context: BootContext = { containers: [] };

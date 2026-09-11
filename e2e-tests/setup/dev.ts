@@ -75,7 +75,7 @@ async function dev(): Promise<void> {
   }
 
   const startedAt = Date.now();
-  environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
+  environment = await startStack();
   console.log(banner(Date.now() - startedAt));
 
   // Hold the process open indefinitely.
