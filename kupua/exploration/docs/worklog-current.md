@@ -12,7 +12,8 @@ If you DO see your own check-in in your conversation history, carry on.
 
 # Current Task
 
-None - awaiting next task.
+PP7b oracle fix validated; awaiting isolated commit before the completed
+dead-code cleanup is documented and committed separately.
 
 ## Session Log
 

@@ -14,6 +14,25 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 12 September 2026 — Make PP7 seek settlement refresh-rate independent
+
+  PP7b intermittently failed after a successful 2.1-second TEST seek because
+  its visual-settlement helper spent a fixed 180-animation-frame budget waiting
+  for both network readiness and rendered stability. At 120Hz that allowed only
+  about 1.5 seconds, so the oracle could expire before the store became ready
+  even though the final result was populated and stable. Git history traced the
+  faulty revision-2 oracle to `a7a6caa05`; later application changes and the
+  pending dead-code cleanup did not alter the seek settlement path.
+
+  The helper now uses a 15-second wall-clock deadline that includes readiness,
+  then applies the existing consecutive-frame 1px geometry tolerance to one
+  persistent centre-nearest image identity. This removes the refresh-rate-bound
+  network timeout while strengthening the visual assertion against comparing
+  different first-visible cells. Four headed direct-ES PP7b dry-run repetitions
+  passed; the fourth recorded 1ms acknowledgement, 738ms store readiness, 919ms
+  first visible frame and 935ms visual settlement. The 35 pure performance-
+  harness tests, TypeScript diagnostics and `git diff --check` also passed.
+
   ### 11 September 2026 — Retire legacy browser harnesses
 
   The smoke and three-project tier-matrix suites were retired after every

@@ -703,6 +703,7 @@ async function appendChipRemovalVisualPhases(
 
 async function appendSeekVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
   return kupua.page.evaluate(async ({ targetInteractionId, targetPosition }) => {
+    const deadline = performance.now() + 15_000;
     const readRect = (element: Element) => {
       const rect = element.getBoundingClientRect();
       return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
@@ -710,8 +711,8 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
-    let first = null;
-    for (let attempt = 0; attempt < 180; attempt++) {
+    let first: { imageId: string; container: Record<string, number>; item: Record<string, number>; t: number } | null = null;
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       const state = (window as any).__kupua_store__?.getState();
       const track = document.querySelector('[data-testid="scrubber-track"]');
@@ -728,12 +729,27 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
         first = null;
         continue;
       }
-      const item = visibleItems[0];
-      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
       if (!first) {
-        first = current;
+        const containerRect = container.getBoundingClientRect();
+        const centreY = containerRect.top + containerRect.height / 2;
+        const item = visibleItems.reduce((nearest, candidate) => {
+          const nearestRect = nearest.getBoundingClientRect();
+          const candidateRect = candidate.getBoundingClientRect();
+          const nearestDistance = Math.abs(nearestRect.top + nearestRect.height / 2 - centreY);
+          const candidateDistance = Math.abs(candidateRect.top + candidateRect.height / 2 - centreY);
+          return candidateDistance < nearestDistance ? candidate : nearest;
+        });
+        const imageId = item.getAttribute("data-image-id");
+        if (!imageId) continue;
+        first = { imageId, container: readRect(container), item: readRect(item), t: performance.now() };
         continue;
       }
+      const item = container.querySelector(`[data-image-id="${CSS.escape(first.imageId)}"]`);
+      if (!item) {
+        first = null;
+        continue;
+      }
+      const current = { container: readRect(container), item: readRect(item), t: performance.now() };
       if (close(first.container, current.container) && close(first.item, current.item)) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
         entries.push({ action: "scrubber-seek", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
@@ -753,9 +769,9 @@ async function appendSeekVisualPhases(kupua: any, interactionId: string, request
           achievedRatio,
         };
       }
-      first = current;
+      first = { ...current, imageId: first.imageId };
     }
-    throw new Error("PP7 seek content did not become visibly stable within 180 frames");
+    throw new Error("PP7 seek content did not become visibly stable within 15 seconds");
   }, { targetInteractionId: interactionId, targetPosition: requestedPosition });
 }
 
