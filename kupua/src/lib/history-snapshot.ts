@@ -11,8 +11,6 @@
  *      exploration/docs/browser-history-future-polish-handoff.md
  */
 
-import type { SortValues } from "@/dal";
-
 // ---------------------------------------------------------------------------
 // Snapshot shape
 // ---------------------------------------------------------------------------
@@ -24,8 +22,6 @@ export interface HistorySnapshot {
   anchorImageId: string | null;
   /** True when anchorImageId came from viewport anchor (phantom), not explicit focus. */
   anchorIsPhantom: boolean;
-  /** ES sort cursor of the anchor image (null if extraction failed). */
-  anchorCursor: SortValues | null;
   /** Global offset of the anchor at time of push. */
   anchorOffset: number;
   /**

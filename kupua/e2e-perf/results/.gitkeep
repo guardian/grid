@@ -1,3 +1,0 @@
-# Keep this directory in git even when empty.
-# The audit harness writes audit-log.json and audit-log.md here.
-

@@ -12,23 +12,6 @@ import { MockDataSource } from "./mock-data-source";
 describe("ImageDataSource contract (MockDataSource)", () => {
   const ds = new MockDataSource(100);
 
-  it("search() returns hits array and total ≥ 0", async () => {
-    const result = await ds.search({});
-    expect(Array.isArray(result.hits)).toBe(true);
-    expect(result.total).toBeGreaterThanOrEqual(0);
-  });
-
-  it("search() respects offset/length", async () => {
-    const result = await ds.search({ offset: 5, length: 3 });
-    expect(result.hits.length).toBeLessThanOrEqual(3);
-  });
-
-  it("search() sortValues has same length as hits", async () => {
-    const result = await ds.search({});
-    expect(result.sortValues).toBeDefined();
-    expect(result.sortValues!.length).toBe(result.hits.length);
-  });
-
   it("getById(known) returns image with matching id", async () => {
     const img = await ds.getById("img-42");
     expect(img).toBeDefined();

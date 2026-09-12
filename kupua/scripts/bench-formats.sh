@@ -199,7 +199,6 @@ ALL_IDS=()
 ALL_WIDTHS=()
 ALL_HEIGHTS=()
 ALL_MIMES=()
-ALL_LABELS=()
 MONSTER_IDS=()
 MONSTER_WIDTHS=()
 MONSTER_HEIGHTS=()
@@ -230,7 +229,6 @@ add_from_json() {
       ALL_WIDTHS+=("$w")
       ALL_HEIGHTS+=("$h")
       ALL_MIMES+=("$mime")
-      ALL_LABELS+=("$label")
     fi
 
     local mp

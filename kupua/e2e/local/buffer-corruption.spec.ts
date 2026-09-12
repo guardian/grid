@@ -549,14 +549,6 @@ test.describe("Seek data arrival — no rogue extends", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Scenario H removed (14 Apr 2026 culling): "logo click after 80% seek resets
-// bufferOffset to 0 with no errors" was a weaker version of Scenario A's
-// "grid: logo click returns to clean top state after deep seek" (same flow:
-// seek deep → click logo → assert offset 0). Deleted to reduce redundancy.
-// ---------------------------------------------------------------------------
-
-
-// ---------------------------------------------------------------------------
 // Scenario I: Logo click resets scroll when already at bufferOffset 0
 //
 // Regression test for the bug introduced by the "Home/logo flash elimination"

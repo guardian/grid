@@ -107,7 +107,7 @@ export function FullscreenPreview() {
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
   const onNavigate = useCallback(
-    (image: Image, _globalIndex: number, _direction: "forward" | "backward") => {
+    (image: Image) => {
       useSearchStore.getState().setFocusedImageId(image.id);
       setCurrentImage(image);
       setImageUrl(getImageUrl(image));

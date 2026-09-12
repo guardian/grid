@@ -162,8 +162,6 @@ interface TraversalSession {
   lastCallAt: number;
   /** EMA-smoothed interval between calls (ms), or null before 2nd call. */
   cadenceMs: number | null;
-  /** Last known movement direction. */
-  direction: "forward" | "backward";
   /** In-flight prefetch requests keyed by image ID. */
   inFlight: Map<string, HTMLImageElement>;
   /** setTimeout handle for post-burst full-radius prefetch. */
@@ -263,7 +261,6 @@ export function prefetchNearbyImages(
     _currentSession = {
       lastCallAt: now,
       cadenceMs: null,
-      direction,
       inFlight: new Map(),
       pendingBurstEnd: null,
       pendingTimeout: null,
@@ -275,7 +272,6 @@ export function prefetchNearbyImages(
     const interval = now - _currentSession.lastCallAt;
     _currentSession.cadenceMs = computeCadence(_currentSession.cadenceMs, interval);
     _currentSession.lastCallAt = now;
-    _currentSession.direction = direction;
     prefetchLog("session:update", { cadenceMs: _currentSession.cadenceMs, direction });
   }
 

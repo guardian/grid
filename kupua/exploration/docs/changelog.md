@@ -14,6 +14,49 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 12 September 2026 — Remove dead and stray Kupua code
+
+  The 37 actionable entries from the current-tree dead-code audit were executed
+  after fresh reachability checks. Obsolete experiment runners, unused fixture
+  helpers, inert props and state, copied tests that exercised local replicas,
+  dead store branches, stale CSS/config declarations and fused DAL contract
+  residue were removed. Live E2E guidance was rewritten around the maintained
+  habitual, diagnostic and performance roots. Decision-gated APIs, migration
+  reserves and explicitly live traps were preserved.
+
+  The cleanup narrowed traversal, data-window, history-snapshot, enrichment,
+  scroll-geometry and DAL types without changing their live behavior. The
+  direct-ES source allowlist dropped raw cost, validity, actions and unused
+  collection description fields; TypeScript still derives the direct-ES
+  baseline from rights, leases, usages and metadata, while media-api remains
+  the server-authoritative overlay. `ImageDataSource.search()` was removed after
+  method fusion, but the distinct `searchRange` migration reserve remains. The
+  Phase 3 findings and live architecture/safeguard docs now state those exact
+  boundaries.
+
+  Disconnected test removal reduced the unit count from 1,288 to 1,223 while
+  retaining production-linked hook and velocity coverage. Final validation
+  passed 1,223/1,223 units, 206/206 habitual Playwright cases in 4.4 minutes,
+  35/35 performance-harness tests and the production build. A four-run headed
+  direct-ES PP7b check also passed after the separately committed oracle fix;
+  the failed full perf campaign was not written as evidence. Focused tests,
+  source diagnostics, removed-symbol searches and `git diff --check` were clean.
+  No live media-api or full performance campaign was completed. The commit also
+  accepts npm 10.9.0's lockfile normalization, which removes obsolete platform
+  `libc` metadata without changing dependency versions.
+
+  After completion, the dead-code report and the finished position-preservation
+  consolidation specification/workplan were moved to `zz Archive`; their active
+  AGENTS routes and archived cross-links were updated accordingly.
+
+  A final documentation review also moved the completed May metrics refresh to
+  `zz Archive`. All six actions had shipped in `bfe2c172`, and the September
+  harness rebuild in `a7a6caa` superseded its measurement model. Its archive
+  banner now routes readers to `e2e-perf/README.md`; only conditional request
+  attribution/cross-mode campaign work and the RTT-probe caveat remain noted.
+  The retracted/medium-confidence M7 seek-idempotence findings were likewise
+  moved beside their later all-tier follow-up in `zz Archive/wandering`.
+
   ### 12 September 2026 — Make PP7 seek settlement refresh-rate independent
 
   PP7b intermittently failed after a successful 2.1-second TEST seek because
@@ -2378,7 +2421,7 @@ focus-preservation tests, deep-link synthesis tests.
 - `e2e/local/browser-history.spec.ts` — regression test + 4 tightened assertions
 - `e2e/local/ui-features.spec.ts` — 5 tightened assertions
 
-### 29 May 2026 — Perf harness metrics refresh (items 1–6 of metrics-refresh.md)
+### 29 May 2026 — Perf harness metrics refresh (items 1–6 of `zz Archive/metrics-refresh.md`)
 
 **Context:** The e2e-perf harness could measure perceived latency and jank but had no
 layer attribution — when a number moved it was impossible to say whether ES, the network,

@@ -69,7 +69,8 @@ the interesting branch.
 
 Previously only tested in seek tier, where a real medium-confidence effect
 was found (F2: click vs. drag-from-above vs. drag-from-below landing on
-measurably different positions, `wandering-findings/W-2026-07-30-seek-idempotence.md`).
+measurably different positions; see the
+[seek-tier findings](W-2026-07-30-seek-idempotence.md)).
 This session tests the same 3-route comparison (identical target pixel on the
 scrubber track, fresh tab per route per the established anti-confound
 methodology) in the two tiers that use `scrollContentTo()` instead of a

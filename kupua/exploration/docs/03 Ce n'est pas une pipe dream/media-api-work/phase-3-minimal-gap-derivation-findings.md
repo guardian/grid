@@ -46,6 +46,19 @@ acceptance decisions before their special-sort behavior is built in Scala.
 
 **Build status**
 
+> **Contract correction (12 September 2026):** B2's fused `search()` wrapper
+> has now been removed from `ImageDataSource` and all adapters because the store
+> bootstraps exclusively through first-page `searchAfter`. Historical row 1 and
+> the `search` detail section below are superseded where they prescribe keeping
+> a thin wrapper. The distinct `searchRange()` offset contract remains reserved
+> and unimplemented on media-api exactly as stated.
+>
+> The same cleanup removed client-only `SearchParams.countAll`, legacy
+> `SearchResult.tickerCounts`, and `IdRangeResult.fetchDuration`. This does not
+> remove the D3 media-api request body's independently derived `countAll`, the
+> live `CountWithTickersResult`, or D2's IDs/truncation/walked contract. Range
+> timing remains measured by the calling hook.
+
 | Bucket / item | Status |
 |---|---|
 | B1 — shape-leak elimination (Section 4a) | ✅ DONE — `bcde65a58` |

@@ -53,7 +53,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "../e2e/shared/helpers";
@@ -70,7 +70,6 @@ test.beforeEach(async ({ kupua }) => {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXPERIMENTS_DIR = resolve(__dirname, "results/experiments");
-const EXPERIMENT_LOG = resolve(EXPERIMENTS_DIR, "experiments-log.md");
 
 // ---------------------------------------------------------------------------
 // Corpus pinning — same fixed cutoff as perf tests so results are stable
@@ -179,10 +178,6 @@ type SmoothScrollSpeed = keyof typeof SMOOTH_SCROLL_SPEEDS;
 // ---------------------------------------------------------------------------
 
 const TRAVERSAL_SPEEDS = {
-  /** Studying each image — 2.5s per image. NOT USED in experiments
-   *  (every image renders trivially at this speed — measures imgproxy, not app).
-   *  Kept as a reference value. */
-  glacial:  { intervalMs: 2500 },
   /** Deliberate browsing — reading captions, looking at each one. ~1/sec.
    *  At 1000ms, the 400ms debounced prefetch fires every step. Tests
    *  whether the prefetch pipeline actually works when it has time. */
@@ -633,10 +628,6 @@ function recordResult(result: ExperimentResult) {
   const file = resolve(EXPERIMENTS_DIR, `${result.runId}.json`);
   writeFileSync(file, JSON.stringify(result, null, 2) + "\n");
   console.log(`  📊 Result saved: ${file}`);
-}
-
-function appendToLog(line: string) {
-  appendFileSync(EXPERIMENT_LOG, line + "\n");
 }
 
 // ---------------------------------------------------------------------------

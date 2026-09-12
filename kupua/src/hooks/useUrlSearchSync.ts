@@ -241,7 +241,7 @@ export function useUrlSearchSync() {
     // Sort-only relaxation: skip viewport anchor when only orderBy changed.
     let focusPreserveId: string | null = null;
     let phantomAnchor: string | null = null;
-    let snapshotHints: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number } | undefined;
+    let snapshotHints: { anchorOffset: number } | undefined;
     let frozenUntil: string | undefined;
 
     if (isPopstate) {
@@ -296,7 +296,6 @@ export function useUrlSearchSync() {
           }
           focusPreserveId = snapshot.anchorImageId;
           snapshotHints = {
-            anchorCursor: snapshot.anchorCursor,
             anchorOffset: snapshot.anchorOffset,
           };
           // Inject the viewport ratio so Effect #9 restores the image

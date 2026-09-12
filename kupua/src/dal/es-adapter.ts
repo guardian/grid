@@ -46,7 +46,6 @@ import { detectNullZoneCursor, remapNullZoneSortValues } from "./null-zone";
 import {
   ES_BASE,
   ES_INDEX,
-  SOURCE_EXCLUDES,
   SOURCE_INCLUDES,
   ALLOWED_ES_PATHS,
   ALLOWED_ES_METHODS,
@@ -685,10 +684,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
     return data;
   }
 
-  async search(params: SearchParams): Promise<SearchResult> {
-    return this.searchAfter(params, null, null);
-  }
-
   /**
    * Search without using the shared abort controller.
    * Range loads are additive and shouldn't cancel each other or cancel
@@ -990,11 +985,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // _source filtering — noSource: true omits all source fields (only sort values needed)
     if (noSource) {
       body._source = false;
-    } else if (SOURCE_EXCLUDES.length > 0 || SOURCE_INCLUDES.length > 0) {
-      body._source = {
-        ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
-        ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
-      };
+    } else if (SOURCE_INCLUDES.length > 0) {
+      body._source = { includes: SOURCE_INCLUDES };
     }
 
     // Cursor — omit for the first page
@@ -1250,11 +1242,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
       };
     }
 
-    if (SOURCE_INCLUDES.length > 0 || SOURCE_EXCLUDES.length > 0) {
-      body._source = {
-        ...(SOURCE_INCLUDES.length > 0 ? { includes: SOURCE_INCLUDES } : {}),
-        ...(SOURCE_EXCLUDES.length > 0 ? { excludes: SOURCE_EXCLUDES } : {}),
-      };
+    if (SOURCE_INCLUDES.length > 0) {
+      body._source = { includes: SOURCE_INCLUDES };
     }
 
     const result = (await this.esRequest("_search", body, signal)) as {
@@ -2281,7 +2270,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
     // sortValues without needing _source.
     const idIdx = sortClause.findIndex((c) => Object.keys(c)[0] === "id");
 
-    const t0 = Date.now();
     // eslint-disable-next-line no-constant-condition
     while (true) {
       if (signal?.aborted) break;
@@ -2313,7 +2301,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         // Stop as soon as a hit sorts strictly past toCursor
         if (sortValuesStrictlyAfter(sv, toCursor, sortClause)) {
-          return { ids: collectedIds, truncated: false, walked, fetchDuration: Date.now() - t0 };
+          return { ids: collectedIds, truncated: false, walked };
         }
 
         const docId = sv[idIdx] as string;
@@ -2321,7 +2309,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
         if (collectedIds.length >= hardCapPlusOne) {
           truncated = true;
-          return { ids: collectedIds.slice(0, hardCap), truncated, walked, fetchDuration: Date.now() - t0 };
+          return { ids: collectedIds.slice(0, hardCap), truncated, walked };
         }
       }
 
@@ -2342,7 +2330,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       }
     }
 
-    return { ids: collectedIds, truncated, walked, fetchDuration: Date.now() - t0 };
+    return { ids: collectedIds, truncated, walked };
   }
 }
 

@@ -146,7 +146,6 @@ interface HistorySnapshot {
   searchKey: string;                    // buildSearchKey fingerprint at capture time
   anchorImageId: string | null;         // per anchor-priority rule
   anchorIsPhantom: boolean;             // true if anchor is viewport-centre, not explicit focus
-  anchorCursor: SortValues | null;      // ES sort cursor of the anchor image
   anchorOffset: number;                 // global offset at capture time
   viewportRatio: number | null;         // (rowTop - scrollTop) / clientHeight
 }

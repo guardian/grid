@@ -8,7 +8,7 @@
 >
 > This is project history, not a live work queue. Detailed product decisions
 > and protocol maps live in
-> `../scroll-and-position-preservation-consolidation-spec.md`.
+> `scroll-and-position-preservation-consolidation-spec.md`.
 
 ## What this project delivered
 

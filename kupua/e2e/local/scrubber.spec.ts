@@ -959,12 +959,6 @@ test.describe("Buffer extension", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Density switch — strict", () => {
-  // NOTE: Two tests were removed here (7 Apr 2026 culling):
-  // - "focused image ID survives grid→table→grid" — shallow ID-only check,
-  //   subsumed by "rapid density toggling" which does 6 toggles at depth.
-  // - "density switch after deep seek preserves focused image" — deep seek
-  //   + single toggle, subsumed by "rapid density toggling" (seek + 6 toggles).
-
   test("rapid density toggling doesn't corrupt state", async ({ kupua }) => {
     await kupua.goto();
 

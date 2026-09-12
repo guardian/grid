@@ -15,7 +15,6 @@
  * Usage in ImageTable: rendered in the fixed-width selection column cell.
  *
  * @param imageId   - The image this tickbox represents.
- * @param disabled  - True for skeleton cells (image not yet loaded). Renders null.
  * @param onTickClick - Forwarded click handler (parent builds interpretClick ctx).
  *                      Called BEFORE stopPropagation so the event is available
  *                      if the parent needs modifier keys.
@@ -26,18 +25,14 @@ import { useIsSelected } from "@/hooks/useIsSelected";
 
 interface TickboxProps {
   imageId: string;
-  disabled?: boolean;
   onTickClick: (e: React.MouseEvent) => void;
 }
 
 export const Tickbox = memo(function Tickbox({
   imageId,
-  disabled,
   onTickClick,
 }: TickboxProps) {
   const isSelected = useIsSelected(imageId);
-
-  if (disabled) return null;
 
   return (
     <button
@@ -83,12 +78,9 @@ export const Tickbox = memo(function Tickbox({
  */
 export const TableTickbox = memo(function TableTickbox({
   imageId,
-  disabled,
   onTickClick,
 }: TickboxProps) {
   const isSelected = useIsSelected(imageId);
-
-  if (disabled) return null;
 
   return (
     <button

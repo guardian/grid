@@ -393,10 +393,10 @@ abandoned with no corruption). Also clean in scroll tier from the
 Seek to the same scrubber position twice via different routes (drag from left vs
 drag from right vs keyboard). Compare resulting anchor and buffer offset.
 *Oracle: 7.2, 7.3.* Strong candidate — bidirectional seek has asymmetric code paths.
-See `wandering-findings/W-2026-07-30-seek-idempotence.md` (seek tier —
+See `W-2026-07-30-seek-idempotence.md` (seek tier —
 medium-confidence F2: click/drag-from-above/drag-from-below land on
 measurably different positions) and
-`wandering-findings/W-2026-07-31-m7-m9-final-coverage.md` (buffer and
+`W-2026-07-31-m7-m9-final-coverage.md` (buffer and
 two-tier — clean, bit-for-bit identical across all 3 routes in both tiers,
 confirming F2's route-bias mechanism is seek-tier-specific).
 
@@ -412,9 +412,9 @@ Also clean in scroll tier from the 2026-07-30 scroll-batch session.
 ### M9 — Focus as bookmark across tiers ✅ RUN (all 3 tiers; 31 July 2026)
 Set explicit focus, seek far away, seek back. Then repeat having crossed a tier
 boundary by changing the query. *Oracle: 7.4.*
-See `wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md` (original
+See `../W-2026-07-31-focus-bookmark-across-tiers.md` (original
 F3/F4 discovery — now fixed, commits `34c168e41`/`dbb332f5f`) and
-`wandering-findings/W-2026-07-31-m7-m9-final-coverage.md` (post-fix
+`W-2026-07-31-m7-m9-final-coverage.md` (post-fix
 re-verification of the exact explicit-focus+sort-toggle mechanism, live TEST,
 all 3 tiers — clean, including catching buffer tier's async settle process
 mid-flight with focus correctly present throughout). Also documents a
@@ -449,9 +449,10 @@ One home: `kupua/exploration/docs/wandering-findings/`. A finding is a
 to it with the **same filename stem**:
 
 ```
-kupua/exploration/docs/wandering-findings/W-2026-07-30-seek-idempotence.md
-kupua/exploration/docs/wandering-findings/W-2026-07-30-seek-idempotence.spec.ts
+kupua/exploration/docs/zz Archive/wandering/W-2026-07-30-seek-idempotence.md
 ```
+
+The paired repro spec was later deleted after its sole premise was retracted.
 
 These `.spec.ts` files are **not** picked up by `npm run test:e2e` (they're
 outside the configured `testDir`, and outside `e2e/` entirely) — they are

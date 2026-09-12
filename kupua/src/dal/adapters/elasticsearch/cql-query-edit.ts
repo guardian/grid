@@ -71,8 +71,6 @@ function findInExpr(
       return matchField(expr, expr.content, key, value, query);
     case "CqlBinary":
       return findInBinary(expr.content, key, value, query);
-    case "CqlGroup":
-      return findInBinary(expr.content.content, key, value, query);
     default:
       return undefined;
   }
@@ -242,9 +240,6 @@ function collectByKey(
     case "CqlBinary":
       collectInBinary(expr.content, key, query, out);
       break;
-    case "CqlGroup":
-      collectInBinary(expr.content.content, key, query, out);
-      break;
   }
 }
 
@@ -310,9 +305,6 @@ function collectHasTargetsInExpr(expr: CqlExpr, out: Map<string, string>): void 
     }
     case "CqlBinary":
       collectHasTargetsInBinary(expr.content, out);
-      break;
-    case "CqlGroup":
-      collectHasTargetsInBinary(expr.content.content, out);
       break;
   }
 }

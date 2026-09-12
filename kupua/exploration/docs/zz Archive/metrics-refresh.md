@@ -1,5 +1,17 @@
 # Metrics Refresh — Perf Harness Audit & Media-API Migration Readiness
 
+> **Archived 12 September 2026.** This May snapshot is no longer active
+> guidance. All six checklist items shipped in `bfe2c172`; the September
+> performance-harness rebuild (`a7a6caa`) superseded its measurement model, and
+> the D3 media-api migration has shipped. The current reference is the
+> [Perf Test Suite](../../../e2e-perf/README.md).
+>
+> Do not treat the speculative recommendations below as a backlog. Reconsider
+> action-correlated request attribution or a controlled direct-ES/media-api
+> paired campaign only when a concrete migration decision requires them. The
+> RTT probe's acceptance of failed/non-2xx responses and its direct-ES-only
+> route remain a small harness-quality follow-up.
+
 **Date:** 2026-05-29  
 **Purpose:** Assess what the e2e-perf harness measures, what it misses, and what
 instrumentation to add before the staged media-api migration begins.

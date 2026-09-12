@@ -328,7 +328,7 @@ export interface CohereV4Embedding {
 
 /**
  * Image embedding vectors. Only `cohereEmbedV4` is currently written to ES.
- * Note: kupua excludes embedding from ES `_source` (SOURCE_EXCLUDES in es-config.ts).
+ * Note: embedding is absent from kupua's ES `_source` `SOURCE_INCLUDES` allowlist.
  * The exact wire shape of this field should be verified before use.
  */
 export interface Embedding {

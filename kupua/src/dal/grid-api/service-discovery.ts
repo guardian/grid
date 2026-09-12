@@ -119,11 +119,3 @@ export class ServiceDiscovery {
     return Array.from(this.links.entries()).map(([rel, href]) => ({ rel, href }));
   }
 }
-
-/**
- * Singleton ServiceDiscovery instance — shared across the app.
- *
- * Call `serviceDiscovery.init()` once at app startup (before any Grid API calls).
- * Tests create their own ServiceDiscovery instances for isolation.
- */
-export const serviceDiscovery = new ServiceDiscovery();

@@ -6,8 +6,7 @@
  * Tickbox component tests.
  *
  * Covers:
- * - Renders nothing when disabled (skeleton cell guard).
- * - Renders a button when not disabled.
+ * - Renders a button.
  * - Shows no checkmark when not selected.
  * - Shows a checkmark when selected.
  * - Calls onTickClick (with stopPropagation) on click.
@@ -46,14 +45,7 @@ describe("Tickbox", () => {
     cleanup();
   });
 
-  it("renders nothing when disabled", () => {
-    const { container } = render(
-      <Tickbox imageId="img-1" disabled onTickClick={vi.fn()} />
-    );
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("renders a button when not disabled", () => {
+  it("renders a button", () => {
     render(<Tickbox imageId="img-1" onTickClick={vi.fn()} />);
     const btn = screen.getByRole("button");
     expect(btn).toBeDefined();
@@ -114,13 +106,6 @@ describe("TableTickbox", () => {
   });
   afterEach(() => {
     cleanup();
-  });
-
-  it("renders nothing when disabled", () => {
-    const { container } = render(
-      <TableTickbox imageId="img-1" disabled onTickClick={vi.fn()} />
-    );
-    expect(container.firstChild).toBeNull();
   });
 
   it("reflects selection state via aria-checked", () => {

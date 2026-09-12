@@ -441,14 +441,13 @@ change needed — the "Show more" button fetches 100.**
 
 | Knob | Value | Location |
 |---|---|---|
-| `SOURCE_EXCLUDES` | `["fileMetadata.exif", "fileMetadata.exifSub", "fileMetadata.getty", "embedding"]` | dal/es-config.ts:46 |
-| `SOURCE_INCLUDES` | `[]` (empty) | dal/es-config.ts:66 |
+| `SOURCE_INCLUDES` | Explicit fields required by Kupua | dal/es-config.ts |
 
-**What it does:** Strips heavy fields from ES responses. EXIF metadata,
-Getty metadata, and the 1024-dim embedding vector are never displayed.
-Each excluded field can be 2-50KB per document.
+**What it does:** Allows only fields Kupua needs in ES responses. Heavy EXIF,
+Getty metadata, the embedding vector, and every other unlisted field are
+excluded implicitly.
 
-**Performance impact:** Critical. Without excludes, each document is
+**Performance impact:** Critical. Without source filtering, each document is
 ~50-100KB (per es-config.ts measurements). With excludes, ~5-10KB.
 At PAGE_SIZE=200, that's **10-20MB** vs **1-2MB** per request — a 10×
 reduction. Over SSH tunnel this is the difference between 2s and 200ms.

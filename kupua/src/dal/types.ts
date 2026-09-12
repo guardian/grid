@@ -73,8 +73,6 @@ export interface SearchParams {
   // --- Pagination (not in URL, managed internally) ---
   offset?: number;
   length?: number;
-  /** Whether to return total count for all result subsets */
-  countAll?: boolean;
   /**
    * Fetch hint: when true, forces ES to return an exact total hit count
    * (track_total_hits: true). Should only be passed by the initial search()
@@ -99,12 +97,6 @@ export interface SearchResult {
    * Used for `search_after` cursor management.
    */
   sortValues?: SortValues[];
-  /**
-   * Ticker counts from filter aggregations.
-   * Keyed by ticker name (e.g. "GNM-owned", "agency picks").
-   * Returned by countWithTickers(); not bundled into searchRange or search.
-   */
-  tickerCounts?: Record<string, TickerCountResult>;
 }
 
 /**
@@ -262,14 +254,9 @@ export interface IdRangeResult {
    * errored mid-way). Useful for telemetry.
    */
   walked: number;
-  /** Wall-clock ms for the entire multi-page walk (all searchAfter calls combined). */
-  fetchDuration?: number;
 }
 
 export interface ImageDataSource {
-  /** Full-text search with filters, pagination, and sorting. */
-  search(params: SearchParams): Promise<SearchResult>;
-
   /**
    * Search without cancelling in-flight requests.
    * Range loads are additive and shouldn't abort each other or other

@@ -69,10 +69,6 @@ export interface ImageTraversalResult {
   goToPrev: () => void;
   /** Navigate to the next image. No-op if at boundary. */
   goToNext: () => void;
-  /** Current movement direction (for prefetch and UI hints). */
-  direction: "forward" | "backward";
-  /** True if a pending navigation is waiting for a buffer extend/seek. */
-  pending: boolean;
   /** The global index of the current image, or -1 if not found. */
   currentGlobalIndex: number;
 }
@@ -107,9 +103,8 @@ function globalIndexOf(imageId: string): number {
  */
 export function useImageTraversal(
   currentImageId: string | null,
-  onNavigate: (image: Image, globalIndex: number, direction: "forward" | "backward") => void,
+  onNavigate: (image: Image, globalIndex: number) => void,
 ): ImageTraversalResult {
-  const directionRef = useRef<"forward" | "backward">("forward");
   const pendingRef = useRef<"forward" | "backward" | null>(null);
   // Track whether the user has navigated at least once. Proactive extend
   // only fires after a navigation — not on mount, which would cause infinite
@@ -207,8 +202,7 @@ export function useImageTraversal(
     if (targetImage) {
       // Target is now in the buffer — complete the navigation.
       pendingRef.current = null;
-      directionRef.current = dir;
-      onNavigateRef.current(targetImage, targetGlobalIdx, dir);
+      onNavigateRef.current(targetImage, targetGlobalIdx);
 
       // Prefetch around the new position
       const { results: res, bufferOffset: bo } = useSearchStore.getState();
@@ -240,8 +234,7 @@ export function useImageTraversal(
     if (targetImage) {
       // Immediate navigation — target is in the buffer.
       pendingRef.current = null;
-      directionRef.current = direction;
-      onNavigateRef.current(targetImage, targetGlobalIdx, direction);
+      onNavigateRef.current(targetImage, targetGlobalIdx);
 
       // Prefetch around the new position
       const { results: res, bufferOffset: bo } = useSearchStore.getState();
@@ -252,7 +245,6 @@ export function useImageTraversal(
     } else {
       // Target is outside the buffer — request a buffer slide and pend.
       pendingRef.current = direction;
-      directionRef.current = direction;
 
       const { extendForward, extendBackward, seek, bufferOffset: bo, results: res } = useSearchStore.getState();
       const bufferEnd = bo + res.length;
@@ -279,8 +271,6 @@ export function useImageTraversal(
     nextImage,
     goToPrev,
     goToNext,
-    direction: directionRef.current,
-    pending: pendingRef.current !== null,
     currentGlobalIndex,
   };
 }

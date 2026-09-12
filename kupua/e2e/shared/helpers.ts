@@ -326,20 +326,6 @@ export class KupuaHelpers {
   }
 
   /**
-   * Get the ID and global position of the image at buffer-local index `localIdx`.
-   */
-  async getImageAtLocalIndex(localIdx: number): Promise<{ id: string; globalPos: number } | null> {
-    return this.page.evaluate((idx) => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return null;
-      const s = store.getState();
-      const img = s.results[idx];
-      if (!img) return null;
-      return { id: img.id, globalPos: s.imagePositions.get(img.id) ?? -1 };
-    }, localIdx);
-  }
-
-  /**
    * Verify imagePositions map integrity: every image in the buffer must
    * have a globalPos === bufferOffset + localIndex.
    */
@@ -653,14 +639,6 @@ export class KupuaHelpers {
     return this.page.locator('[data-scrubber-thumb="true"]');
   }
 
-  /** Get the scrubber tooltip text (when visible). */
-  async getScrubberTooltip(): Promise<string | null> {
-    const tooltip = this.page.locator('[data-scrubber-thumb]')
-      .locator('..').locator('.pointer-events-none');
-    if (await tooltip.count() === 0) return null;
-    return tooltip.textContent();
-  }
-
   /** Get the scrubber aria-valuenow (current position). */
   async getScrubberPosition(): Promise<number> {
     const val = await this.scrubber.getAttribute("aria-valuenow");
@@ -691,16 +669,6 @@ export class KupuaHelpers {
       if (!el) return 0;
       const maxScroll = el.scrollHeight - el.clientHeight;
       return maxScroll > 0 ? el.scrollTop / maxScroll : 0;
-    });
-  }
-
-  /** Check if the store has all results in the buffer (scroll mode). */
-  async isScrollMode(): Promise<boolean> {
-    return this.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      if (!store) return false;
-      const s = store.getState();
-      return s.total > 0 && s.results.length >= s.total;
     });
   }
 
@@ -874,13 +842,6 @@ export class KupuaHelpers {
       },
       previousOrderBy,
     );
-  }
-
-  /** Get the current sort direction from the UI. */
-  async getSortDirection(): Promise<"asc" | "desc"> {
-    const btn = this.page.locator('button[aria-label*="Sort"][aria-label*="click to sort"]');
-    const label = await btn.getAttribute("aria-label");
-    return label?.includes("Sort descending") ? "desc" : "asc";
   }
 
   // -------------------------------------------------------------------------
@@ -1114,12 +1075,6 @@ export class KupuaHelpers {
     await this.page.waitForTimeout(300);
   }
 
-  /** Press Page Up in the content area. */
-  async pageUp() {
-    await this.page.keyboard.press("PageUp");
-    await this.page.waitForTimeout(300);
-  }
-
   /**
    * Wait for sort-around-focus to complete (status null, loading false).
    */
@@ -1183,30 +1138,8 @@ export class KupuaHelpers {
     // (32px) to scroll far enough to trigger extend+evict cycles.
     // We also dispatch a synthetic scroll event because headless Chromium
     // doesn't reliably fire native scroll events for programmatic scrollTop
-    // changes (same fix as Bug #17's scrollDeep).
+    // changes.
     for (let i = 0; i < 15; i++) {
-      await this.page.evaluate(() => {
-        const grid = document.querySelector('[aria-label="Image results grid"]');
-        const table = document.querySelector('[aria-label="Image results table"]');
-        const el = grid ?? table;
-        if (el) {
-          el.scrollTop = el.scrollHeight;
-          el.dispatchEvent(new Event("scroll"));
-        }
-      });
-      await this.page.waitForTimeout(400);
-    }
-    await this.page.waitForTimeout(1000);
-    return this.getStoreState();
-  }
-
-  /**
-   * Scroll to near-bottom repeatedly (without an initial seek) to trigger
-   * extend+evict cycles starting from the current scroll position.
-   * Used when already at a deep offset (e.g. after a density switch test).
-   */
-  async scrollDeep(iterations = 8) {
-    for (let i = 0; i < iterations; i++) {
       await this.page.evaluate(() => {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
@@ -1353,22 +1286,6 @@ export class KupuaHelpers {
   }
 
   /**
-   * Navigate to previous image in detail via ArrowLeft.
-   * Does NOT wait for image to load — use for rapid traversal.
-   */
-  async detailPrev() {
-    await this.page.keyboard.press("ArrowLeft");
-  }
-
-  /**
-   * Navigate to next image in detail via ArrowRight.
-   * Does NOT wait for image to load — use for rapid traversal.
-   */
-  async detailNext() {
-    await this.page.keyboard.press("ArrowRight");
-  }
-
-  /**
    * Navigate to next image and wait for the URL ?image= param to change.
    * Use for normal-speed traversal where you want to confirm each step.
    */
@@ -1419,7 +1336,7 @@ export class KupuaHelpers {
    * measurement primitive for swimming detection: a 50ms setTimeout poll has ~50%
    * chance of missing a 16-32ms event, while rAF captures every painted frame.
    *
-   * Used by both local E2E and smoke tests.
+  * Used by maintained browser tests and diagnostics.
    */
   async sampleScrollTopAtFrameRate(durationMs: number): Promise<number[]> {
     return this.page.evaluate((duration) => {
@@ -1447,19 +1364,4 @@ export class KupuaHelpers {
     }, durationMs);
   }
 
-  // -------------------------------------------------------------------------
-  // CQL search helpers
-  // -------------------------------------------------------------------------
-
-  /**
-   * Navigate to a search with a CQL query via the URL.
-   * This is the reliable way to set the CQL input — the web component
-   * syncs from the `value` attribute which is set from the URL param.
-   */
-  async gotoWithQuery(query: string) {
-    await this.page.goto(
-      `/search?nonFree=true&query=${encodeURIComponent(query)}`,
-    );
-    await this.waitForResults();
-  }
 }

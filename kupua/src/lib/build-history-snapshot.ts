@@ -14,7 +14,7 @@ import type { HistorySnapshot } from "@/lib/history-snapshot";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
-import { buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -34,7 +34,7 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
  * same as click-to-open mode.
  */
 export function buildHistorySnapshot(): HistorySnapshot {
-  const { params, focusedImageId, imagePositions, bufferOffset, results, newCountSince } =
+  const { params, focusedImageId, imagePositions, bufferOffset, newCountSince } =
     useSearchStore.getState();
 
   // --- searchKey ---
@@ -58,20 +58,13 @@ export function buildHistorySnapshot(): HistorySnapshot {
     anchorIsPhantom = !!anchorImageId;
   }
 
-  // --- anchor cursor + offset ---
-  let anchorCursor: (string | number | null)[] | null = null;
+  // --- anchor offset ---
   let anchorOffset = 0;
 
   if (anchorImageId) {
     const globalIdx = imagePositions.get(anchorImageId);
     if (globalIdx !== undefined) {
       anchorOffset = globalIdx;
-      // Extract sort cursor from the in-memory image.
-      const localIdx = globalIdx - bufferOffset;
-      const image = localIdx >= 0 && localIdx < results.length ? results[localIdx] : undefined;
-      if (image) {
-        anchorCursor = extractSortValues(image, params.orderBy) ?? null;
-      }
     }
   }
 
@@ -104,7 +97,6 @@ export function buildHistorySnapshot(): HistorySnapshot {
     searchKey,
     anchorImageId,
     anchorIsPhantom,
-    anchorCursor,
     anchorOffset,
     viewportRatio,
     newCountSince,

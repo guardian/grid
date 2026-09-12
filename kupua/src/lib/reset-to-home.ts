@@ -47,8 +47,8 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // Pre-compute the home URL dedup key BEFORE clearing state. This is set
   // on _prevParamsSerialized immediately to prevent useUrlSearchSync from
   // firing a rogue search() during the await below. Without this, the race
-  // is: resetSearchSync() clears dedup → React re-renders → useUrlSearchSync
-  // sees "" !== current and fires search(viewportAnchor) → _findAndFocusImage
+  // is: the reset triggers a React render → useUrlSearchSync sees stale params
+  // and fires search(viewportAnchor) → _findAndFocusImage
   // overwrites the fresh first-page buffer with deep-offset data.
   const homeSearchOnly = Object.fromEntries(
     Object.entries(DEFAULT_SEARCH).filter(([, v]) => v !== undefined)

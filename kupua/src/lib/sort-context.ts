@@ -111,9 +111,6 @@ const SORT_LABEL_MAP: Record<
   },
 };
 
-/** Aliases are no longer needed — all keys in SORT_LABEL_MAP are now short form. */
-const SORT_KEY_ALIASES: Record<string, string> = {};
-
 /**
  * Look up the human-readable display name for a sort key from the field registry.
  * Returns a lowercase label suitable for "No {label}" boundary tick phrases.
@@ -141,7 +138,7 @@ export function resolvePrimarySortKey(orderBy: string | undefined): string | nul
   const effective = orderBy || DEFAULT_ORDER_BY;
   const primary = effective.split(",")[0].trim();
   const bare = primary.startsWith("-") ? primary.slice(1) : primary;
-  return (SORT_KEY_ALIASES[bare] ?? bare) || null;
+  return bare || null;
 }
 
 /** Format + truncate a keyword value for tooltip display. */
@@ -269,8 +266,7 @@ function resolveSortMapping(orderBy: string | undefined) {
   const effective = orderBy || DEFAULT_ORDER_BY;
   const primary = effective.split(",")[0].trim();
   const bare = primary.startsWith("-") ? primary.slice(1) : primary;
-  const field = SORT_KEY_ALIASES[bare] ?? bare;
-  return SORT_LABEL_MAP[field] ?? null;
+  return SORT_LABEL_MAP[bare] ?? null;
 }
 
 /**

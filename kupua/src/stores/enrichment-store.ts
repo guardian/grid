@@ -52,9 +52,6 @@ interface EnrichmentState {
    */
   data: Map<string, EnrichmentFields>;
 
-  /** True while a mirror-search is in flight. */
-  loading: boolean;
-
   /** Replace the entire enrichment dataset (called after mirror-search completes). */
   setEnrichment: (entries: Map<string, EnrichmentFields>) => void;
 
@@ -65,19 +62,12 @@ interface EnrichmentState {
    * earlier pages are preserved; same-id entries are overwritten.
    */
   upsertEnrichment: (entries: Map<string, EnrichmentFields>) => void;
-
-  /** Mark loading state. */
-  setLoading: (loading: boolean) => void;
-
-  /** Get enrichment for a single image, or undefined if not available. */
-  getForImage: (id: string) => EnrichmentFields | undefined;
 }
 
-export const useEnrichmentStore = create<EnrichmentState>()((set, get) => ({
+export const useEnrichmentStore = create<EnrichmentState>()((set) => ({
   data: new Map(),
-  loading: false,
 
-  setEnrichment: (entries) => set({ data: entries, loading: false }),
+  setEnrichment: (entries) => set({ data: entries }),
 
   upsertEnrichment: (entries) =>
     set((state) => {
@@ -86,8 +76,4 @@ export const useEnrichmentStore = create<EnrichmentState>()((set, get) => ({
       for (const [id, fields] of entries) merged.set(id, fields);
       return { data: merged };
     }),
-
-  setLoading: (loading) => set({ loading }),
-
-  getForImage: (id) => get().data.get(id),
 }));

@@ -10,7 +10,7 @@
 > usable DOM geometry. Current work is governed by
 > `scroll-and-position-preservation-testing-3-workplan.md`; completed findings
 > are archived in
-> `zz Archive/scroll-and-position-preservation-testing-4-findings.md`.
+> `scroll-and-position-preservation-testing-4-findings.md`.
 
 ## Product model
 

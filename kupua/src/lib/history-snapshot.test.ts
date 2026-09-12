@@ -14,7 +14,6 @@ function makeSnap(overrides?: Partial<HistorySnapshot>): HistorySnapshot {
     searchKey: '["nonFree","true"]',
     anchorImageId: "img-001",
     anchorIsPhantom: false,
-    anchorCursor: ["2026-03-20T14:30:00.000Z", "img-001"],
     anchorOffset: 42,
     viewportRatio: 0.35,
     newCountSince: null,

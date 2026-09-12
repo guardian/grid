@@ -30,6 +30,7 @@
   .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
   .card h3 { margin: 0; font-size: 13px; font-weight: 600; }
   .card .action-tag { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 10px; }
+  .metric-summary { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
   .metrics-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
   .metric-chip { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 1px solid; }
   .metric-chip.ok { color: var(--ok); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.08); }
@@ -137,6 +138,7 @@
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
   <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
   <label><input type="checkbox" id="showDiagnostics" /> background diagnostics</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable to latest</label>
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
   <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
   <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
@@ -146,7 +148,7 @@
 <div id="grid" class="grid" hidden></div>
 <h2 id="diagnosticHeading" hidden style="padding:0 24px;">Background diagnostics <span style="font-size:12px;color:var(--muted);font-weight:normal;">not ranked against user-action targets</span></h2>
 <div id="diagnosticGrid" class="grid" hidden></div>
-<div class="legend" id="legend" hidden>Each sparkline point = one audit run. Hover for details. Targets from perceived-perf-audit.md. <strong>"—" cells are by-design gaps</strong>: actions emit only the explicit phases they own. Pre-revision-2 first-pixel/settled fields remain available under <strong>Legacy evidence</strong> and are not treated as revision-2 browser boundaries.</div>
+<div class="legend" id="legend" hidden>Each sparkline point = one comparable audit run. Cards show the latest value and its delta from the preceding comparable run. Scenarios that never emit the selected metric are hidden. Uncheck "comparable to latest" to inspect legacy evidence across changed corpus, environment or scenario contracts. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
 
 <!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
 <script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
@@ -172,6 +174,7 @@ let currentMetric = "dt_ack_ms";
 let showShort = true;
 let showLong = true;
 let showDiagnostics = false;
+let comparableOnly = true;
 function entryKind(e) { return e.kind ?? "short"; }
 function entryMode(e) {
   const mode = e.environment?.dataMode;
@@ -216,6 +219,45 @@ const METRIC_LABELS = {
   matched_control_first_visible_p95_ms: "Matched control first visible p95 (ms)",
   matched_control_settled_p95_ms: "Matched control settled p95 (ms)",
 };
+
+function metricUnit(metric) {
+  if (["requestedRatio", "achievedRatio"].includes(metric)) return "";
+  if (["sampleCount", "mapEntryCount"].includes(metric)) return "";
+  return "ms";
+}
+
+function formatMetricValue(metric, value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const maximumFractionDigits = Math.abs(value) < 1 && value !== 0 ? 4 : 1;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })}${metricUnit(metric)}`;
+}
+
+function environmentKey(entry) {
+  const environment = entry.environment;
+  if (!environment) return "legacy";
+  return JSON.stringify({
+    dataMode: environment.dataMode,
+    browserName: environment.browserName,
+    browserVersion: environment.browserVersion,
+    viewport: environment.viewport,
+    screen: environment.screen,
+    deviceScaleFactor: environment.deviceScaleFactor,
+    appBaseUrl: environment.appBaseUrl,
+    os: environment.os,
+    headed: environment.headed,
+    cpuThrottle: environment.cpuThrottle,
+    cacheClass: environment.cacheClass,
+    workers: environment.workers,
+    stableUntil: entry.stableUntil,
+  });
+}
+
+function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
+  if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
+  if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
+  if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  return true;
+}
 
 // Contract: every numeric field on PerceivedMetrics that the dashboard
 // is allowed to render. If perceived-short.spec.ts (or anything else
@@ -309,6 +351,14 @@ document.getElementById("showLong").addEventListener("change", (e) => {
 });
 document.getElementById("showDiagnostics").addEventListener("change", (e) => {
   showDiagnostics = e.target.checked;
+  document.getElementById("diagnosticGrid").innerHTML = "";
+  for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("comparableOnly").addEventListener("change", (e) => {
+  comparableOnly = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
   document.getElementById("diagnosticGrid").innerHTML = "";
   for (const c of charts.values()) c.destroy();
   charts.clear();
@@ -433,8 +483,17 @@ function render() {
   diagnosticHeading.hidden = !showDiagnostics;
   // Create or update cards
   for (const id of allIds) {
-    const latestScenarioEntry = [...entries].reverse().find((entry) => entry.perceived?.[id]);
-    const latestMetrics = latestScenarioEntry?.perceived?.[id];
+    const referenceIndex = entries.findLastIndex((entry) => entry.perceived?.[id]?.[currentMetric] != null);
+    if (referenceIndex < 0) {
+      if (charts.has(id)) {
+        charts.get(id).destroy();
+        charts.delete(id);
+      }
+      document.getElementById(`card-${id}`)?.remove();
+      continue;
+    }
+    const latestScenarioEntry = entries[referenceIndex];
+    const latestMetrics = latestScenarioEntry.perceived[id];
     const action = latestMetrics?.action ?? id;
     const metricClass = latestMetrics?.metricClass
       ?? (id === "PP10" ? "background-diagnostic" : "user-action");
@@ -444,10 +503,28 @@ function render() {
     }
 
     // Collect sparkline data across entries
-    const points = entries.map((e) => {
-      const m = e.perceived?.[id];
-      return m ? (m[currentMetric] ?? null) : null;
+    const points = entries.map((entry) => {
+      const metric = entry.perceived?.[id];
+      if (!metric) return null;
+      if (comparableOnly && !metricsComparable(entry, metric, latestScenarioEntry, latestMetrics)) return null;
+      return metric[currentMetric] ?? null;
     });
+    if (points.every((point) => point == null)) {
+      if (charts.has(id)) {
+        charts.get(id).destroy();
+        charts.delete(id);
+      }
+      document.getElementById(`card-${id}`)?.remove();
+      continue;
+    }
+    const latestIndex = points.findLastIndex((point) => point != null && Number.isFinite(point));
+    const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null && Number.isFinite(point));
+    const latestValue = points[latestIndex];
+    const previousValue = previousIndex >= 0 ? points[previousIndex] : null;
+    const delta = previousValue == null ? null : latestValue - previousValue;
+    const deltaText = delta == null
+      ? "no comparable predecessor"
+      : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
 
     // Get or create card
     let card = document.getElementById(`card-${id}`);
@@ -476,6 +553,7 @@ function render() {
         <h3>${id}: ${latestMetrics?.label ?? id}</h3>
         <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}</span>
       </div>
+      <div class="metric-summary">${METRIC_LABELS[currentMetric]} — latest ${formatMetricValue(currentMetric, latestValue)} · ${deltaText}</div>
       <div class="metrics-row">${chipsHtml}</div>
       <canvas id="canvas-${id}"></canvas>
     `;
@@ -493,7 +571,8 @@ function render() {
       data: points,
       borderColor: "#58a6ff",
       backgroundColor: "rgba(88,166,255,0.15)",
-      pointRadius: 3,
+      pointRadius: entries.map((_, index) => index === latestIndex ? 4 : 3),
+      pointBackgroundColor: entries.map((_, index) => index === latestIndex ? "#f85149" : "#58a6ff"),
       pointHoverRadius: 5,
       tension: 0.2,
       spanGaps: true,
@@ -523,7 +602,7 @@ function render() {
             callbacks: {
               label: (ctx) => {
                 const v = ctx.parsed.y;
-                return v != null ? `${ctx.dataset.label}: ${v}ms` : `${ctx.dataset.label}: —`;
+                return `${ctx.dataset.label}: ${formatMetricValue(currentMetric, v)}`;
               },
             },
           },
@@ -531,7 +610,7 @@ function render() {
         scales: {
           x: { ticks: { color: "#8b949e", font: { size: 9 }, maxRotation: 0 }, grid: { color: "#21262d" } },
           y: {
-            ticks: { color: "#8b949e", font: { size: 9 }, callback: (v) => v + "ms" },
+            ticks: { color: "#8b949e", font: { size: 9 }, callback: (v) => formatMetricValue(currentMetric, v) },
             grid: { color: "#21262d" },
             min: 0,
           },

@@ -474,8 +474,8 @@ function exprToClauses(expr: CqlExpr): QueryClause[] {
       return [fieldToClause(expr.content, negated)];
     case "CqlBinary":
       return binaryToClauses(expr.content);
-    case "CqlGroup":
-      return binaryToClauses(expr.content.content);
+    default:
+      return [];
   }
 }
 

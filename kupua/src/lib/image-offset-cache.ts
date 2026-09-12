@@ -30,13 +30,13 @@ const PREFIX = "kupua:imgOffset:";
  */
 export function buildSearchKey(params: Record<string, unknown>): string {
   // Exclude display-only keys (image, density) and internal pagination
-  // fields (offset, length, countAll) — they describe fetch mechanics,
+  // fields (offset, length) — they describe fetch mechanics,
   // not the search context. This ensures keys match regardless of
   // whether params come from the URL or from the store.
   const entries = Object.entries(params)
     .filter(([k, v]) =>
       k !== "image" && k !== "density" &&
-      k !== "offset" && k !== "length" && k !== "countAll" &&
+      k !== "offset" && k !== "length" &&
       v != null && v !== "")
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(entries);

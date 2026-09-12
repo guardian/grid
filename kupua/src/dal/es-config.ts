@@ -24,14 +24,6 @@ export const ES_BASE = import.meta.env.VITE_ES_BASE ?? "/es";
 export const ES_INDEX = import.meta.env.VITE_ES_INDEX ?? "images";
 
 /**
- * _source fields to exclude from search responses.
- *
- * Now empty — we use SOURCE_INCLUDES (whitelist) instead.
- * Kept as an export so es-adapter.ts doesn't need a code change.
- */
-export const SOURCE_EXCLUDES: string[] = [];
-
-/**
  * _source fields to explicitly include in search responses (whitelist).
  *
  * Only these fields are returned from ES. Everything else — the bulk of
@@ -115,14 +107,10 @@ export const SOURCE_INCLUDES = [
   "fileMetadata.icc.Profile Description",
   "fileMetadata.xmp.Iptc4xmpExt:DigitalSourceType",
   "fileMetadata.xmp.Iptc4xmpCore:Scene",
-  // Enrichment baseline — previously fetched via background loop, now sourced from ES
-  "cost",
-  "valid",
-  "invalidReasons",
+  // Enrichment baseline inputs
   "usageRights",                                  // full object (supersedes usageRights.category)
   "leases",
   "usages",
-  "actions",
   // syndicationRights — minimal dot-path fetch (dot-path filtering for nested arrays
   // verified against PROD 16 May 2026; strips rightCode, properties[], suppliers[]).
   "syndicationRights.published",
@@ -131,7 +119,6 @@ export const SOURCE_INCLUDES = [
   "fileMetadata.xmp.pur:adultContentWarning",     // for isImagePotentiallyGraphic (direct-ES mode)
   // Collections — required for CollectionTree display + field-registry chip rendering
   "collections.pathId",
-  "collections.description",
   "collections.actionData.date",
   "collections.path",
   // Soft deletion — parent path fetch returns both deleteTime and deletedBy subfields.

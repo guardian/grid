@@ -63,8 +63,8 @@ describe("buildSearchKey", () => {
     expect(with_).toBe(without);
   });
 
-  it("strips internal pagination fields (length, countAll)", () => {
-    const with_ = buildSearchKey({ query: "cats", length: 200, countAll: true });
+  it("strips internal pagination length", () => {
+    const with_ = buildSearchKey({ query: "cats", length: 200 });
     const without = buildSearchKey({ query: "cats" });
     expect(with_).toBe(without);
   });

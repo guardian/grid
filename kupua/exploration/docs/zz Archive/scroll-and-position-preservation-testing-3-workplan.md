@@ -36,12 +36,12 @@ offset-correction protocol producerless and removable in the next commit.
 
 ## Authoritative artifacts
 
-- `zz Archive/scroll-and-position-preservation-testing-4-findings.md` - delivered
+- `scroll-and-position-preservation-testing-4-findings.md` - delivered
   commit summary and final dispositions; historical, not a live work queue.
 - `scroll-and-position-preservation-consolidation-spec.md` - product contract,
   current-protocol map and rejected consolidation design. Reference material,
   not an active migration plan.
-- `zz Archive/scroll-and-position-preservation-testing-3.1-tests-inventory.md` - completed evidence inventory
+- `scroll-and-position-preservation-testing-3.1-tests-inventory.md` - completed evidence inventory
   map and test-maintenance source. It is not authority to delete tests.
 - `worklog-current.md` - current item only.
 

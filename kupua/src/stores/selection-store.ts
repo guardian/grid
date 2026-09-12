@@ -81,18 +81,6 @@ class LruMap<K, V> {
   has(key: K): boolean {
     return this.map.has(key);
   }
-
-  delete(key: K): boolean {
-    return this.map.delete(key);
-  }
-
-  get size(): number {
-    return this.map.size;
-  }
-
-  values(): IterableIterator<V> {
-    return this.map.values();
-  }
 }
 
 // ---------------------------------------------------------------------------

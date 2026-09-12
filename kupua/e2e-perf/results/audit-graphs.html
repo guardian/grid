@@ -89,6 +89,7 @@
     </select>
   </label>
   <label><input type="checkbox" id="hideQuiet" checked /> hide quiet tests (max value &lt; 1)</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable to latest</label>
   <label><input type="checkbox" id="showLabels" /> show run labels on x-axis</label>
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
   <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
@@ -102,9 +103,10 @@
 </details>
 <div class="legend" id="legend-text" hidden>
   Each card = one perf test. X-axis = audit runs in chronological order.
-  Latest run highlighted in red. Hover for run label + value. Caveat: many of
-  these runs are not directly comparable — corpus, methodology, frame-rate
-  target, and severe-rate normalisation all changed over time.
+  Latest comparable run highlighted in red. Cards show its delta from the
+  preceding comparable run. Tests that never emit the selected metric are
+  hidden. Uncheck "comparable to latest" to inspect legacy evidence across
+  changed corpus, methodology, environment or scenario contracts.
 </div>
 <div class="grid" id="grid"></div>
 
@@ -298,6 +300,48 @@ function metricLabel(metric) {
   return KNOWN_METRICS[metric]?.label ?? `${metric} (unknown)`;
 }
 
+function metricUnit(metric) {
+  if (["cls", "clsMax", "focusDriftRatio", "clsOccurrenceRate", "clsConditionalMagnitude"].includes(metric)) return "";
+  if (["focusVisible", "landingAlreadyRendered", "landingCacheHit"].includes(metric)) return "";
+  if (metric === "severeRate") return "‰";
+  if (metric.endsWith("Px")) return "px";
+  if (metric.toLowerCase().includes("frame") || metric.endsWith("Ms") || metric === "loafBlocking") return "ms";
+  return "";
+}
+
+function formatMetricValue(metric, value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const maximumFractionDigits = Math.abs(value) < 1 && value !== 0 ? 4 : 1;
+  return `${value.toLocaleString(undefined, { maximumFractionDigits })}${metricUnit(metric)}`;
+}
+
+function environmentKey(entry) {
+  const environment = entry.environment;
+  if (!environment) return "legacy";
+  return JSON.stringify({
+    dataMode: environment.dataMode,
+    browserName: environment.browserName,
+    browserVersion: environment.browserVersion,
+    viewport: environment.viewport,
+    screen: environment.screen,
+    deviceScaleFactor: environment.deviceScaleFactor,
+    appBaseUrl: environment.appBaseUrl,
+    os: environment.os,
+    headed: environment.headed,
+    cpuThrottle: environment.cpuThrottle,
+    cacheClass: environment.cacheClass,
+    workers: environment.workers,
+    stableUntil: entry.stableUntil,
+  });
+}
+
+function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
+  if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
+  if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
+  if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  return true;
+}
+
 function entryMode(entry) {
   const mode = entry.environment?.dataMode;
   return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
@@ -331,6 +375,7 @@ function buildCharts() {
   const metric = metricSel.value;
   const yscale = document.getElementById("yscale").value;
   const hideQuiet = document.getElementById("hideQuiet").checked;
+  const comparableOnly = document.getElementById("comparableOnly").checked;
   const showLabels = document.getElementById("showLabels").checked;
 
   for (const c of charts.values()) c.destroy();
@@ -341,15 +386,34 @@ function buildCharts() {
   const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
 
   for (const t of TESTS) {
-    const data = entries.map(e => pickValue(metric, e.metrics?.[t]));
+    const referenceIndex = entries.findLastIndex((entry) => pickValue(metric, entry.metrics?.[t]) != null);
+    if (referenceIndex < 0) continue;
+    const referenceEntry = entries[referenceIndex];
+    const referenceMetric = referenceEntry.metrics[t];
+    const data = entries.map((entry) => {
+      const current = entry.metrics?.[t];
+      if (!current) return null;
+      if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric)) return null;
+      return pickValue(metric, current);
+    });
     const finite = data.filter(v => v != null && Number.isFinite(v));
+    if (finite.length === 0) continue;
     const max = finite.length ? Math.max(...finite) : 0;
     const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
     if (hideQuiet && max < quietThreshold) continue;
 
+    const latestIndex = data.findLastIndex((value) => value != null && Number.isFinite(value));
+    const previousIndex = data.findLastIndex((value, index) => index < latestIndex && value != null && Number.isFinite(value));
+    const latestValue = data[latestIndex];
+    const previousValue = previousIndex >= 0 ? data[previousIndex] : null;
+    const delta = previousValue == null ? null : latestValue - previousValue;
+    const deltaText = delta == null
+      ? "no comparable predecessor"
+      : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — max ${max.toLocaleString(undefined, { maximumFractionDigits: max < 1 ? 4 : 1 })}</div><canvas></canvas>`;
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — latest ${formatMetricValue(metric, latestValue)} · ${deltaText}</div><canvas></canvas>`;
     grid.appendChild(card);
     const ctx = card.querySelector("canvas").getContext("2d");
 
@@ -361,8 +425,8 @@ function buildCharts() {
           data,
           borderColor: "#58a6ff",
           backgroundColor: "rgba(88,166,255,0.15)",
-          pointBackgroundColor: entries.map((_, i) => i === entries.length - 1 ? "#f85149" : "#58a6ff"),
-          pointRadius: entries.map((_, i) => i === entries.length - 1 ? 4 : 2.5),
+          pointBackgroundColor: entries.map((_, i) => i === latestIndex ? "#f85149" : "#58a6ff"),
+          pointRadius: entries.map((_, i) => i === latestIndex ? 4 : 2.5),
           tension: 0.2,
           spanGaps: true,
         }],
@@ -378,7 +442,7 @@ function buildCharts() {
                 const e = entries[i];
                 return `#${i + 1} ${e.label} [${entryMode(e)}]`;
               },
-              label: (item) => `${metricLabel(metric)}: ${item.raw == null ? "n/a" : item.raw.toLocaleString(undefined, { maximumFractionDigits: 4 })}`,
+              label: (item) => `${metricLabel(metric)}: ${formatMetricValue(metric, item.raw)}`,
               afterLabel: (item) => {
                 const e = entries[item.dataIndex];
                 return `${(e.timestamp || "").slice(0, 10)} · ${e.gitSha || "?"} · runs:${e.runs ?? "?"}`;
@@ -438,6 +502,7 @@ metricSel.addEventListener("change", buildCharts);
 document.querySelectorAll(".mode-filter").forEach((input) => input.addEventListener("change", buildCharts));
 document.getElementById("yscale").addEventListener("change", buildCharts);
 document.getElementById("hideQuiet").addEventListener("change", buildCharts);
+document.getElementById("comparableOnly").addEventListener("change", buildCharts);
 document.getElementById("showLabels").addEventListener("change", buildCharts);
 
 // Arrow key navigation: left/right cycles through metrics without touching the dropdown.

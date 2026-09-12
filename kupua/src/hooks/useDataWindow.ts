@@ -254,12 +254,6 @@ interface DataWindow {
   virtualizerCount: number;
   /** Whether a search or seek is currently in flight. */
   loading: boolean;
-  /** Last error message, or null. */
-  error: string | null;
-  /** Extend the buffer forward (append pages). */
-  extendForward: () => Promise<void>;
-  /** Extend the buffer backward (prepend pages). */
-  extendBackward: () => Promise<void>;
   /** Seek to a global offset — clear buffer and refill at that position. */
   seek: (globalOffset: number) => Promise<void>;
   /** @deprecated Alias for extendForward — kept for view compatibility. */
@@ -302,7 +296,7 @@ interface DataWindow {
  * ```ts
  * const {
  *   results, total, bufferOffset, virtualizerCount, loading,
- *   extendForward, extendBackward, loadMore,
+ *   loadMore,
  *   focusedImageId, setFocusedImageId,
  *   reportVisibleRange, getImage, findImageIndex,
  * } = useDataWindow();
@@ -313,7 +307,6 @@ export function useDataWindow(): DataWindow {
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const total = useSearchStore((s) => s.total);
   const loading = useSearchStore((s) => s.loading);
-  const error = useSearchStore((s) => s.error);
   const extendForward = useSearchStore((s) => s.extendForward);
   const extendBackward = useSearchStore((s) => s.extendBackward);
   const seek = useSearchStore((s) => s.seek);
@@ -493,9 +486,6 @@ export function useDataWindow(): DataWindow {
     total,
     virtualizerCount,
     loading,
-    error,
-    extendForward,
-    extendBackward,
     seek,
     loadMore,
     focusedImageId,
@@ -508,8 +498,8 @@ export function useDataWindow(): DataWindow {
 }
 
 // Expose viewport-anchor helpers on window in dev mode for E2E inspection.
-// Smoke tests need the real anchor ID (set by the virtualizer) rather than
-// re-deriving it from pixel math, which diverges in two-tier mode.
+// Browser diagnostics need the real anchor ID (set by the virtualizer) rather
+// than re-deriving it from pixel math, which diverges in two-tier mode.
 if (import.meta.env.DEV && typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).__kupua_getViewportAnchorId__ = getViewportAnchorId;
   (window as unknown as Record<string, unknown>).__kupua_getVisibleImageIds__ = getVisibleImageIds;

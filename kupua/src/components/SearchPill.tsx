@@ -8,7 +8,7 @@
  *
  * Multi-select variants:
  * - MultiSearchPill: direct callback, full (all images) or partial (some images).
- * - DataSearchPill: delegated click via data attrs, also supports partial styling.
+ * - DataSearchPill: delegated click via data attrs.
  *
  * A "partial" chip means the value appears on some but not all images in the
  * selection. Rendered hollow (transparent bg, dim text) to distinguish from
@@ -72,8 +72,6 @@ export function SearchPill({ value, cqlKey, label, onSearch, accent }: SearchPil
 interface DataSearchPillProps {
   value: string;
   cqlKey: string;
-  /** Optional: marks chip as partial (on some but not all images). */
-  partial?: boolean;
   /** Accent variant (Guardian blue bg) — used for labels. */
   accent?: boolean;
 }
@@ -82,20 +80,16 @@ interface DataSearchPillProps {
  * A pill that carries data-cql-key and data-cql-value attributes for
  * delegated click handling in the table. The table's row click handler
  * reads these attributes to trigger search -- no callback prop needed.
- *
- * `partial` adds a data-partial attribute for CSS hollow-chip styling.
  */
 export function DataSearchPill({
   value,
   cqlKey,
-  partial,
   accent,
 }: DataSearchPillProps) {
   return (
     <span
       data-cql-key={cqlKey}
       data-cql-value={value}
-      data-partial={partial ? "true" : undefined}
       className={accent
         ? PILL_ACCENT + " shrink-0"
         : PILL_DEFAULT + " shrink-0"

@@ -1,5 +1,12 @@
 # Wandering findings — 2026-07-30 seek idempotence (M7)
 
+> **Archived 12 September 2026.** This is historical wandering evidence, not
+> an active work item. F1 was retracted as a storage-contamination artifact;
+> F2 remains a medium-confidence seek-tier observation that was never promoted
+> to a confirmed product bug. The later [all-tier M7/M9 follow-up](W-2026-07-31-m7-m9-final-coverage.md)
+> found exact route agreement in buffer and indexed-scroll tiers and closed the
+> wandering mission without prescribing implementation work.
+
 **Bed:** local (10,102-doc sample corpus), seek tier forced via
 `VITE_POSITION_MAP_THRESHOLD=0` (`:3030`).
 **Query:** `credit:Avalon` (`nonFree=true`) — ~2,130 docs, same corpus used for M10

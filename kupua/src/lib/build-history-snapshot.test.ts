@@ -41,7 +41,7 @@ vi.mock("@/lib/scroll-container-ref", () => ({
 }));
 
 vi.mock("@/lib/scroll-geometry-ref", () => ({
-  getScrollGeometry: () => ({ rowHeight: 303, columns: 5, isTable: false }),
+  getScrollGeometry: () => ({ rowHeight: 303, columns: 5 }),
 }));
 
 // buildSearchKey and extractSortValues — use real implementations
@@ -103,7 +103,6 @@ describe("buildHistorySnapshot", () => {
   it("returns null anchor when no images exist", () => {
     const snap = buildHistorySnapshot();
     expect(snap.anchorImageId).toBeNull();
-    expect(snap.anchorCursor).toBeNull();
     expect(snap.anchorOffset).toBe(0);
   });
 
@@ -129,7 +128,6 @@ describe("buildHistorySnapshot", () => {
       const snap = buildHistorySnapshot();
       expect(snap.anchorImageId).toBe("img-a");
       expect(snap.anchorOffset).toBe(42);
-      expect(snap.anchorCursor).toEqual(["2026-03-20T14:30:00.000Z", "img-a"]);
     });
 
     it("falls back to viewport anchor in click-to-focus mode with no focus", () => {
@@ -167,7 +165,7 @@ describe("buildHistorySnapshot", () => {
     });
   });
 
-  it("handles anchor image not in buffer (offset known but no cursor)", () => {
+  it("handles anchor image not in buffer when offset is known", () => {
     mockFocusMode = "explicit";
     mockStoreState.focusedImageId = "img-a";
     mockStoreState.imagePositions = new Map([["img-a", 500]]);
@@ -177,7 +175,6 @@ describe("buildHistorySnapshot", () => {
     const snap = buildHistorySnapshot();
     expect(snap.anchorImageId).toBe("img-a");
     expect(snap.anchorOffset).toBe(500);
-    expect(snap.anchorCursor).toBeNull(); // can't extract — image not in buffer
   });
 
   it("captures newCountSince from store", () => {

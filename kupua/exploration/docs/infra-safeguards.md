@@ -40,11 +40,10 @@ We keep `fileMetadata.colourModel`, `fileMetadata.colourModelInformation`,
 and specific sub-fields of `fileMetadata.iptc`, `fileMetadata.icc`, and
 `fileMetadata.xmp` that are used by config-driven alias columns.
 
-**Config:** `SOURCE_EXCLUDES` array in `src/dal/es-config.ts`.
+**Config:** `SOURCE_INCLUDES` allowlist in `src/dal/es-config.ts`.
 
-**To relax:** Add fields to `SOURCE_EXCLUDES` to strip more, or remove
-entries to include more. If a new column needs a currently-excluded field,
-remove it from the excludes list.
+**To relax:** Add only the required field path to `SOURCE_INCLUDES`. Unlisted
+fields remain absent from search responses.
 
 ---
 

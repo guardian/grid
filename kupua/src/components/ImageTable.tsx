@@ -776,7 +776,6 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       () => ({
         rowHeight: ROW_HEIGHT,
         columns: 1,
-        isTable: true,
         headerOffset: headerHeight,
         preserveScrollLeftOnSort: true,
       }),

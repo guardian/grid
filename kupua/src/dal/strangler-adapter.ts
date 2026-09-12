@@ -24,7 +24,6 @@ export class StranglerAdapter implements ImageDataSource {
     if (es.fetchPositionIndex) this.fetchPositionIndex = es.fetchPositionIndex.bind(es);
   }
 
-  search(p: SearchParams) { return this.es.search(p); }
   searchRange(p: SearchParams, s?: AbortSignal) { return this.es.searchRange(p, s); }
   count(p: SearchParams) { return this.es.count(p); }
   countWithTickers(p: SearchParams) { return this.es.countWithTickers(p); }

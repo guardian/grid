@@ -89,15 +89,6 @@ function evictStale() {
  *   be0cbabc59a9... → b/e/0/c/b/a/be0cbabc59a9...
  */
 function idToS3Key(imageId) {
-  // First 6 characters become 3 directory pairs: a/b/c/d/e/f/
-  const prefix = imageId
-    .slice(0, 6)
-    .split("")
-    .map((c, i) => (i % 2 === 0 ? c : c + "/"))
-    .join("");
-  // Wait — looking at the actual data, the key structure is individual chars:
-  // b/e/0/c/b/a/be0cbabc59a9c87072c5a17c7f125a5e8e45a92b
-  // That's: first 6 chars, each as a directory, then the full ID
   const dirPrefix = imageId
     .slice(0, 6)
     .split("")

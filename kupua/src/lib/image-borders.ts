@@ -78,9 +78,3 @@ export function getImageBorderColour(image: Image): string | undefined {
 
   return undefined;
 }
-
-/**
- * @deprecated Use getImageBorderColour(image) instead.
- * Kept for any external callers; will be removed once all sites are migrated.
- */
-export const IMAGE_BORDERS: Record<string, string> = CATEGORY_BORDERS;

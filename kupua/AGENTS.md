@@ -53,7 +53,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Collections panel** | `stores/collection-store.ts`, `components/CollectionTree.tsx`, `exploration/docs/00 Architecture and philosophy/06-collections.md`, `dal/adapters/elasticsearch/cql.ts` (`~` shorthand already present), `lib/typeahead-fields.ts` (collection resolver) |
 | **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.config.ts` |
 | **Special-date ES oracle** | `integration/special-sort-es.test.ts`, `vitest.special-sort-es.config.ts`, archived obscure-sorting workplan | Opt-in local-ES mutation test. Run after changing special sort clauses, reverse pagination, cursor extraction, position maps, date distributions, `countBefore`, relevant mappings, or Elasticsearch version. Never habitual. |
-| **Performance** | `e2e-perf/` (incl. `results/audit-graphs.html` — jank dashboard, `results/perceived-graphs.html` — perceived-perf dashboard) |
+| **Performance** | `e2e-perf/README.md` (authoritative harness reference), `e2e-perf/results/audit-graphs.html` (jank dashboard), `e2e-perf/results/perceived-graphs.html` (perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
 | **Architecture / philosophy** | `exploration/docs/00 Architecture and philosophy/`, `component-detail.md` |
 
@@ -102,8 +102,6 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Focus, phantom focus, position engine, relaxation model, mobile |
 | Scroll architecture | `exploration/docs/00 Architecture and philosophy/03-scroll-architecture.md` | Windowed buffer, search_after + PIT, seek, extend/evict, two-tier, swimming |
 | Browser history architecture | `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md` | kupuaKey, snapshot capture, popstate restore, reload survival |
-| Position consolidation workplan | `exploration/docs/scroll-and-position-preservation-testing-3-workplan.md` | Active reset: product contract → current-protocol ledger → target protocol → gated migration slices. Random fuzzer retired. |
-| Position preservation contract | `exploration/docs/scroll-and-position-preservation-consolidation-spec.md` | Active Phase 1 worksheet: preserve-by-default policy, anchor sources, placement ladder, decided/open transition rules. |
 | Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix |
 | Selections field catalogue | `exploration/docs/00 Architecture and philosophy/field-catalogue.md` | Per-field reference: multi-select behaviour, ES presence, Kupua/Kahuna parity (46 fields) |
 | Keyboard navigation | `exploration/docs/00 Architecture and philosophy/keyboard-navigation.md` | Focus modes, page-scroll math, arrow key behaviour |

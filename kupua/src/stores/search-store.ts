@@ -440,7 +440,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -672,7 +672,7 @@ function sortDistCacheKey(params: SearchParams): string {
   return aggCacheKey(params) + "|" + (params.orderBy ?? "");
 }
 
-function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void, skipInitialTick = false) {
+function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
   const gen = ++_newImagesPollGeneration;
   const tick = async () => {
@@ -725,12 +725,6 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
       // Silently ignore — ticker is non-critical
     }
   };
-  // Fire immediately so the ticker appears without waiting a full interval.
-  // For fresh searches this counts 0 (harmless). For popstate restores with
-  // a frozenUntil timestamp, it shows the correct count right away.
-  // skipInitialTick: when the search action already fetched initial ticker
-  // counts in parallel (countWithTickers in Promise.all), skip the immediate
-  // tick to avoid a redundant size:0 request that would return 0 deltas.
   const scheduleInterval = () => {
     if (_newImagesPollTimer) clearInterval(_newImagesPollTimer);
     const interval =
@@ -749,7 +743,6 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
     document.addEventListener("visibilitychange", _newImagesPollVisibilityHandler);
   }
 
-  if (!skipInitialTick) tick();
   scheduleInterval();
 }
 
@@ -1963,7 +1956,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorCursor: import("@/dal").SortValues | null; anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => {
+  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => {
     trace("search", "t_0");
     // Bump generation so any in-flight stale search bails out after its
     // next await. Captured locally — after every await below, if the
@@ -2266,8 +2259,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // stays visible (or empty on first load) until the focused image's
           // neighbourhood is loaded, preventing flash of wrong content.
         });
-        // skipInitialTick: ticker counts already set from countWithTickers above.
-        startNewImagesPoll(get, set, /* skipInitialTick */ true);
+        startNewImagesPoll(get, set);
         // Fire async — stays loading until complete.
         // Pass the first-page results as fallback so the view shows
         // correct content if the focused image isn't in the new results
@@ -2397,8 +2389,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // outruns the 200-item buffer into permanent skeletons.
         _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-        // skipInitialTick: ticker counts already set from countWithTickers above.
-        startNewImagesPoll(get, set, /* skipInitialTick */ true);
+        startNewImagesPoll(get, set);
 
         // -----------------------------------------------------------
         // Scroll-mode fill: if the total is small enough, eagerly

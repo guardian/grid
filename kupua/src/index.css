@@ -17,7 +17,6 @@
   --color-grid-text-bright: #ffffff;
   --color-grid-text-muted: #cfcfcf;
   --color-grid-text-dim: #8a8a8a;
-  --color-grid-placeholder: #888888;
 
   /* Borders / separators */
   --color-grid-border: #999999;
@@ -28,11 +27,9 @@
   --color-grid-accent-hover: #008fc5;
   --color-grid-accent-dark: #005689;
   --color-grid-accent-light: #5e9ed6;
-  --color-grid-accent-shadow: #00729c;
 
   /* Semantic */
   --color-grid-error: #ed5935;
-  --color-grid-error-dark: #bb1212;
   --color-grid-warning: #ffbc01;
   --color-grid-success: #228b22;
 

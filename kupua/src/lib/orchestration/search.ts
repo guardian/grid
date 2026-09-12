@@ -236,8 +236,7 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }):
 // ===========================================================================
 
 /** Module-level ref for the dedup comparison string. Shared between
- *  useUrlSearchSync (writes on every sync) and resetSearchSync (clears
- *  to force a re-search on the next URL change or re-render). */
+ *  useUrlSearchSync and reset-to-home orchestration. */
 export let _prevParamsSerialized = "";
 export function setPrevParamsSerialized(s: string) {
   devLog("[setPrevParams]", s);

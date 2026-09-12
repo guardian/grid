@@ -221,7 +221,7 @@ const GridCell = memo(function GridCell({
   );
 
   if (!image) {
-    // Placeholder skeleton — no Tickbox (disabled prop renders null)
+    // Placeholder skeleton — no Tickbox because there is no image identity.
     return (
       <div
         className="shrink-0 bg-grid-cell/30 rounded"
@@ -573,7 +573,6 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       () => ({
         rowHeight: ROW_HEIGHT,
         columns,
-        isTable: false,
         headerOffset: 0,
         preserveScrollLeftOnSort: false,
         minCellWidth: MIN_CELL_WIDTH,

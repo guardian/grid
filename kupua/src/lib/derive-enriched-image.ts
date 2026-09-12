@@ -56,14 +56,6 @@ export type { EnrichmentFields } from "@/stores/enrichment-store";
  */
 export interface EnrichedImage extends Image, ComputedBaseline {
   /**
-   * True when an intent-driven API enrichment overlay is present for this image
-   * (e.g. from a single-image detail fetch). When false, all fields are ES-baseline
-   * (accurate since SOURCE_INCLUDES widening on 10 May 2026 — cost, valid,
-   * invalidReasons, usageRights, leases, usages, actions are all returned directly
-   * from ES search hits).
-   */
-  hasEnrichment: boolean;
-  /**
    * Lease summary — API overlay only. Undefined when API is unavailable.
    * ES baseline leases are available on the raw `image.leases` field.
    */
@@ -88,10 +80,9 @@ export interface EnrichedImage extends Image, ComputedBaseline {
 /**
  * Merge an ES Image with an optional intent-driven API enrichment overlay.
  *
- * When `overlay` is undefined (API not yet fired for this image), all
- * baseline fields are still computed and accurate (ES baseline is
- * authoritative since SOURCE_INCLUDES widening). The overlay is only
- * applied for images that have had an explicit single-image API fetch.
+ * When `overlay` is undefined, baseline fields are computed from ES-sourced
+ * rights, leases, usages, metadata, and configuration. The overlay is applied
+ * only when media-api supplies server-authoritative enrichment.
  *
  * When `overlay` is present, its fields win for cost/valid/invalidReasons
  * (server-authoritative, includes overquota). API-only fields (persisted,
@@ -118,7 +109,6 @@ export function deriveImage(
 
   return {
     ...image,
-    hasEnrichment: overlay !== undefined,
     cost,
     valid,
     invalidReasons,

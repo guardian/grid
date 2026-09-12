@@ -222,9 +222,6 @@ describe("contract: extractEnrichment → deriveImage overlay wins", () => {
     expect(enriched.syndicationStatus).toBe("sent"); // not "unsuitable"
     expect(enriched.actions).toEqual(actions);
     expect(enriched.enrichedUsages).toEqual([usage]);
-
-    // Confirm hasEnrichment is set
-    expect(enriched.hasEnrichment).toBe(true);
   });
 
   it("absent overlay fields fall through to baseline — no silent undefined bleed", () => {

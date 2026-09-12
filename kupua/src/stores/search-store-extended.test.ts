@@ -123,8 +123,8 @@ describe("sort-context label — resolveSortMapping", () => {
     expect(label).not.toBeNull();
   });
 
-  it("resolves -taken alias to dateTaken label", async () => {
-    // "taken" → "metadata.dateTaken" via SORT_KEY_ALIASES
+  it("resolves -taken to dateTaken label", async () => {
+    // "taken" is a direct SORT_LABEL_MAP key for metadata.dateTaken.
     await actions().search();
     const img = state().results[0]!;
     // Our mock images don't have dateTaken, so should be null
@@ -423,7 +423,7 @@ describe("sort-around-focus — different sorts", () => {
     // Non-1 columns so a column-misalignment regression would actually be
     // observable here too (pins alignBufferStart at the
     // _loadBufferAroundImage call site, not just the async-correction one).
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     actions().setFocusedImageId("img-300");
@@ -433,7 +433,7 @@ describe("sort-around-focus — different sorts", () => {
 
     assertPositionsConsistent("after sort-around-focus");
     expect(state().bufferOffset % 4).toBe(0);
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
 
     // The focused image should be at a known position
     const { imagePositions, focusedImageId } = state();
@@ -479,13 +479,13 @@ describe("sort-around-focus — different sorts", () => {
 
 describe("sort-around-focus atomic publication", () => {
   afterEach(() => {
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
   });
 
   it("keeps the old buffer visible until the exact aligned offset is ready", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     const oldResults = state().results;
@@ -1085,7 +1085,7 @@ describe("ascending null-zone seek (sparse lastModified)", () => {
 describe("extendBackward column-trim guard (audit #9)", () => {
   afterEach(() => {
     // Restore default 1-column geometry so other tests are not affected.
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
   });
 
   it("does not discard all items when hits.length < columns", async () => {
@@ -1111,7 +1111,7 @@ describe("extendBackward column-trim guard (audit #9)", () => {
     const bufferLengthBefore = state().results.length;
 
     // Switch to 3-column grid before the extend fires.
-    registerScrollGeometry({ columns: 3, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 3, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().extendBackward();
     await flush();
@@ -1168,13 +1168,13 @@ describe("extendBackward column-trim guard (audit #9)", () => {
 
 describe("extendBackward + resize (wandering M3 follow-up)", () => {
   afterEach(() => {
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
   });
 
   it("resize mid-flight: bufferOffset aligns to the post-resize column count, not the pre-fetch one", async () => {
     mock = new MockDataSource(300);
     useSearchStore.setState({ dataSource: mock });
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     await actions().seek(150);
@@ -1195,7 +1195,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
     const extendPromise = actions().extendBackward();
     await flush(); // let extendBackward start and reach the await on searchAfter
 
-    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT });
 
     resolveFetch();
     await extendPromise;
@@ -1208,7 +1208,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
   it("no race needed: same fix applies when the resize is fully settled BEFORE extendBackward is even called", async () => {
     mock = new MockDataSource(300);
     useSearchStore.setState({ dataSource: mock });
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     await actions().seek(150);
@@ -1217,7 +1217,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
     // Resize fully settles first — this is what an ordinary panel toggle or
     // window resize looks like while scrolled to a non-edge position. No
     // race, no timing dependency, no interception needed.
-    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 6, rowHeight: GRID_ROW_HEIGHT });
     await flush();
 
     await actions().extendBackward();
@@ -1230,7 +1230,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
   it("columns=1 (table density) is immune — every offset is trivially aligned", async () => {
     mock = new MockDataSource(300);
     useSearchStore.setState({ dataSource: mock });
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     await actions().seek(150);
@@ -1239,7 +1239,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
     expect(bufferOffsetBefore, "setup: seek(150) should leave room to extend backward").toBeGreaterThan(0);
 
     // Density switch to table (1 column), fully settled, then extend.
-    registerScrollGeometry({ columns: 1, rowHeight: TABLE_ROW_HEIGHT, isTable: true });
+    registerScrollGeometry({ columns: 1, rowHeight: TABLE_ROW_HEIGHT });
     await flush();
 
     await actions().extendBackward();
@@ -1260,7 +1260,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
     // exercise the symptom this test exists to rule out).
     mock = new MockDataSource(999);
     useSearchStore.setState({ dataSource: mock });
-    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 4, rowHeight: GRID_ROW_HEIGHT });
 
     await actions().search();
     await actions().seek(800);
@@ -1283,7 +1283,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
     const observedOffsets: number[] = [state().bufferOffset];
 
     for (const columns of columnsSequence) {
-      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT });
       await flush();
       await actions().extendBackward();
       await flush();
@@ -1326,7 +1326,7 @@ describe("extendBackward + resize (wandering M3 follow-up)", () => {
 
 describe("atomic sort-around-focus — column alignment (buffer tier)", () => {
   afterEach(() => {
-    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+    registerScrollGeometry({ columns: 1, rowHeight: GRID_ROW_HEIGHT });
   });
 
   // Buffer tier (total <= SCROLL_MODE_THRESHOLD) never has a position map.
@@ -1345,7 +1345,7 @@ describe("atomic sort-around-focus — column alignment (buffer tier)", () => {
   it.each(cases)(
     "never leaves bufferOffset misaligned to columns while settling after a sort-around-focus (target=%s, columns=%i)",
     async (targetId, columns) => {
-      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT, isTable: false });
+      registerScrollGeometry({ columns, rowHeight: GRID_ROW_HEIGHT });
       mock = new MockDataSource(958);
       useSearchStore.setState({ dataSource: mock });
 

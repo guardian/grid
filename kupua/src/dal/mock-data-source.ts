@@ -388,7 +388,7 @@ export class MockDataSource implements ImageDataSource {
 
   // --- ImageDataSource interface ---
 
-  async search(params: SearchParams): Promise<SearchResult> {
+  async searchRange(params: SearchParams): Promise<SearchResult> {
     this.requestCount++;
     const offset = params.offset ?? 0;
     const length = params.length ?? 20;
@@ -412,10 +412,6 @@ export class MockDataSource implements ImageDataSource {
     }
 
     return { hits, total: this.totalImages, sortValues };
-  }
-
-  async searchRange(params: SearchParams): Promise<SearchResult> {
-    return this.search(params);
   }
 
   async count(): Promise<number> {
