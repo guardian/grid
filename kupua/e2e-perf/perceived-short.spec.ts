@@ -111,6 +111,15 @@ interface PerceivedMetrics {
   mapEntryCount?: number;
 }
 
+interface DeepHistorySetup {
+  anchorImageId: string;
+  globalPosition: number;
+  bufferOffset: number;
+  bufferLength: number;
+  relativeTop: number;
+  viewportHeight: number;
+}
+
 function captureSuccessfulDataRoutes(kupua: any) {
   const routes = new Set<string>();
   const onResponse = (response: any) => {
@@ -699,6 +708,215 @@ async function appendChipRemovalVisualPhases(
     }
     throw new Error("PP9 removed-chip context did not keep the app-owned viewport anchor visibly stable within 180 frames");
   }, { targetInteractionId: interactionId, targetAnchor: anchor, stableUntil: STABLE_UNTIL });
+}
+
+async function beginDeepHistoryBack(
+  kupua: any,
+): Promise<{ interactionId: string; previousGeneration: number }> {
+  return kupua.page.evaluate(() => {
+    const globalObject = window as any;
+    const store = globalObject.__kupua_store__;
+    const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+    const entries = globalObject.__perceivedTrace__ as TraceEntry[] | undefined;
+    if (!store || typeof getLifecycle !== "function" || !entries) {
+      throw new Error("PP11 trace prerequisites are unavailable");
+    }
+
+    const previousGeneration = getLifecycle().started;
+    const interactionId = `history-back:${Math.round(performance.now())}:browser`;
+    entries.push({
+      action: "history-back",
+      phase: "t_0",
+      t: performance.now(),
+      interactionId,
+    });
+
+    let acknowledged = false;
+    let storeReady = false;
+    const unsubscribe = store.subscribe((state: any) => {
+      if (!acknowledged && state.loading) {
+        acknowledged = true;
+        entries.push({
+          action: "history-back",
+          phase: "t_ack",
+          t: performance.now(),
+          interactionId,
+        });
+      }
+      const lifecycle = getLifecycle();
+      if (
+        !storeReady
+        && lifecycle.started > previousGeneration
+        && lifecycle.settled === lifecycle.started
+        && !state.loading
+        && state.sortAroundFocusStatus === null
+      ) {
+        storeReady = true;
+        entries.push({
+          action: "history-back",
+          phase: "t_store_ready",
+          t: performance.now(),
+          interactionId,
+        });
+      }
+    });
+    globalObject.__pp11HistoryProbe__ = { interactionId, unsubscribe };
+    history.back();
+    return { interactionId, previousGeneration };
+  });
+}
+
+async function appendDeepHistoryBackVisualPhases(
+  kupua: any,
+  interactionId: string,
+  previousGeneration: number,
+) {
+  return kupua.page.evaluate(async ({
+    targetInteractionId,
+    priorGeneration,
+    stableUntil,
+  }: {
+    targetInteractionId: string;
+    priorGeneration: number;
+    stableUntil: string;
+  }) => {
+    const globalObject = window as any;
+    const entries = globalObject.__perceivedTrace__ as TraceEntry[];
+    const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+    const probe = globalObject.__pp11HistoryProbe__;
+    const targetSetup = globalObject.__pp11HistorySetup__ as DeepHistorySetup | undefined;
+    if (!targetSetup) throw new Error("PP11 browser-local history setup is unavailable");
+    const deadline = performance.now() + 15_000;
+    let firstVisibleTime: number | null = null;
+    let previousRect: { top: number; left: number; width: number; height: number } | null = null;
+
+    const cleanup = () => {
+      probe?.unsubscribe?.();
+      delete globalObject.__pp11HistoryProbe__;
+      delete globalObject.__pp11HistorySetup__;
+    };
+
+    try {
+      while (performance.now() < deadline) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const state = globalObject.__kupua_store__?.getState?.();
+        const lifecycle = typeof getLifecycle === "function" ? getLifecycle() : null;
+        const url = new URL(location.href);
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+        const item = container?.querySelector<HTMLElement>(
+          `[data-image-id="${CSS.escape(targetSetup.anchorImageId)}"]`,
+        );
+        const correctContext = state?.params?.query == null
+          && state?.params?.until === (stableUntil || undefined)
+          && url.pathname === "/search"
+          && !url.searchParams.has("query")
+          && url.searchParams.get("nonFree") === "true"
+          && (stableUntil ? url.searchParams.get("until") === stableUntil : !url.searchParams.has("until"));
+        const lifecycleSettled = lifecycle
+          && lifecycle.started > priorGeneration
+          && lifecycle.settled === lifecycle.started;
+        const stateReady = state
+          && !state.loading
+          && !state.error
+          && !state.sortAroundFocusStatus
+          && correctContext
+          && lifecycleSettled;
+
+        if (
+          stateReady
+          && !entries.some((entry) =>
+            entry.interactionId === targetInteractionId && entry.phase === "t_store_ready"
+          )
+        ) {
+          entries.push({
+            action: "history-back",
+            phase: "t_store_ready",
+            t: performance.now(),
+            interactionId: targetInteractionId,
+          });
+        }
+
+        if (
+          !stateReady
+          || state.focusedImageId !== targetSetup.anchorImageId
+          || state.bufferOffset <= 500 || !container || !item
+        ) {
+          previousRect = null;
+          continue;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        if (itemRect.bottom <= containerRect.top || itemRect.top >= containerRect.bottom) {
+          previousRect = null;
+          continue;
+        }
+
+        const now = performance.now();
+        if (firstVisibleTime === null) {
+          firstVisibleTime = now;
+          entries.push({
+            action: "history-back",
+            phase: "t_first_visible_frame",
+            t: now,
+            interactionId: targetInteractionId,
+          });
+        }
+
+        const currentRect = {
+          top: itemRect.top - containerRect.top,
+          left: itemRect.left - containerRect.left,
+          width: itemRect.width,
+          height: itemRect.height,
+        };
+        if (
+          previousRect
+          && Object.keys(currentRect).every((key) =>
+            Math.abs(
+              currentRect[key as keyof typeof currentRect]
+              - previousRect![key as keyof typeof previousRect],
+            ) <= 1
+          )
+        ) {
+          entries.push({
+            action: "history-back",
+            phase: "t_visual_settled",
+            t: now,
+            interactionId: targetInteractionId,
+          });
+          const restoredPosition = state.imagePositions.get(targetSetup.anchorImageId);
+          if (restoredPosition !== targetSetup.globalPosition) {
+            throw new Error(
+              `PP11 restored global position ${restoredPosition}; expected ${targetSetup.globalPosition}`,
+            );
+          }
+          const anchorDriftPx = currentRect.top - targetSetup.relativeTop;
+          cleanup();
+          return {
+            settledTotal: state.total,
+            resultRegime: state.total <= 1_000
+              ? "buffer" as const
+              : state.total <= 65_000
+                ? "indexed" as const
+                : "seek" as const,
+            setupGlobalPosition: targetSetup.globalPosition,
+            setupBufferOffset: targetSetup.bufferOffset,
+            setupBufferLength: targetSetup.bufferLength,
+            anchorDriftPx: Math.round(anchorDriftPx),
+            anchorDriftRatio: anchorDriftPx / targetSetup.viewportHeight,
+          };
+        }
+        previousRect = currentRect;
+      }
+      throw new Error("PP11 deep history anchor did not become visibly stable within 15 seconds");
+    } finally {
+      cleanup();
+    }
+  }, {
+    targetInteractionId: interactionId,
+    priorGeneration: previousGeneration,
+    stableUntil: STABLE_UNTIL,
+  });
 }
 
 async function appendSeekVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
@@ -1579,6 +1797,130 @@ test.describe("Perceived Performance Suite", () => {
     );
     const timing10 = await readStoreTiming(kupua);
     if (timing10) Object.assign(metrics, timing10);
+    emitMetrics(metrics);
+  });
+
+  // ── PP11: Deep browser Back restoration ──────────────────────────────────
+  test("PP11: history-back — restore exact deep focused anchor", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "perf-history-setup");
+    });
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__?.getState?.();
+      return state && !state.loading && state.bufferOffset > 500 && state.results.length > 0;
+    }, null, { timeout: 15_000 });
+
+    await kupua.focusNthItem(0);
+    const setup = await kupua.page.evaluate(() => {
+      const globalObject = window as any;
+      const state = (window as any).__kupua_store__?.getState?.();
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+      const anchorImageId = state?.focusedImageId;
+      const item = anchorImageId
+        ? container?.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(anchorImageId)}"]`)
+        : null;
+      if (!state || !container || !anchorImageId || !item) {
+        throw new Error("PP11 deep focused setup is unavailable");
+      }
+      const containerRect = container.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      const globalPosition = state.imagePositions.get(anchorImageId);
+      if (
+        globalPosition === undefined
+        || itemRect.bottom <= containerRect.top
+        || itemRect.top >= containerRect.bottom
+      ) {
+        throw new Error("PP11 deep focused setup is not visibly positioned");
+      }
+      const browserLocalSetup: DeepHistorySetup = {
+        anchorImageId,
+        globalPosition,
+        bufferOffset: state.bufferOffset,
+        bufferLength: state.results.length,
+        relativeTop: itemRect.top - containerRect.top,
+        viewportHeight: containerRect.height,
+      };
+      globalObject.__pp11HistorySetup__ = browserLocalSetup;
+      return {
+        globalPosition,
+        bufferOffset: state.bufferOffset,
+        bufferLength: state.results.length,
+      };
+    });
+    expect(setup.bufferOffset).toBeGreaterThan(500);
+
+    const alternateGeneration = await kupua.page.evaluate(({ stableUntil }) => {
+      const globalObject = window as any;
+      const getLifecycle = globalObject.__kupua_getSearchLifecycle__;
+      const previousGeneration = getLifecycle().started;
+      globalObject.__kupua_markPushSnapshot__?.();
+      globalObject.__kupua_markUserNav__?.();
+      globalObject.__kupua_router__.navigate({
+        to: "/search",
+        search: {
+          nonFree: "true",
+          query: "credit:Reuters",
+          ...(stableUntil ? { until: stableUntil } : {}),
+        },
+        state: { kupuaKey: crypto.randomUUID() },
+      });
+      return previousGeneration;
+    }, { stableUntil: STABLE_UNTIL });
+    await kupua.page.waitForFunction((previousGeneration: number) => {
+      const lifecycle = (window as any).__kupua_getSearchLifecycle__?.();
+      const state = (window as any).__kupua_store__?.getState?.();
+      return lifecycle?.started > previousGeneration
+        && lifecycle.settled === lifecycle.started
+        && !state?.loading
+        && state?.params?.query === "credit:Reuters";
+    }, alternateGeneration, { timeout: 15_000 });
+    expect((await kupua.getStoreState()).bufferOffset).toBe(0);
+
+    await clearTrace(kupua);
+    await kupua.page.evaluate(() => performance.clearResourceTimings());
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    let context;
+    let routes: string[] = ["client-only"];
+    try {
+      const armed = await beginDeepHistoryBack(kupua);
+      context = await appendDeepHistoryBackVisualPhases(
+        kupua,
+        armed.interactionId,
+        armed.previousGeneration,
+      );
+      routes = finishRouteCapture();
+    } finally {
+      routes = finishRouteCapture();
+      await kupua.page.evaluate(() => {
+        const globalObject = window as any;
+        globalObject.__pp11HistoryProbe__?.unsubscribe?.();
+        delete globalObject.__pp11HistoryProbe__;
+        delete globalObject.__pp11HistorySetup__;
+      });
+    }
+    const entries = await readTrace(kupua);
+    const correlated = computeCorrelatedMetrics({
+      id: "PP11",
+      label: "history-back (exact deep focused anchor)",
+      action: "history-back",
+      requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+      entries,
+    });
+    const metrics: PerceivedMetrics = {
+      ...correlated,
+      scenarioRevision: 1,
+      ...context,
+      routes,
+    };
+    console.log(
+      `PP11 history-back: ack=${metrics.dt_ack_ms}ms store=${metrics.dt_store_ready_ms}ms `
+      + `visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms `
+      + `drift=${metrics.anchorDriftPx}px`,
+    );
+    const timing11 = await readStoreTiming(kupua);
+    if (timing11) Object.assign(metrics, timing11);
     emitMetrics(metrics);
   });
 

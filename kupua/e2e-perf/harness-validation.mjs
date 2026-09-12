@@ -10,6 +10,62 @@ export function assertBalancedLongRuns({ runLong, runs, dryRun }) {
   }
 }
 
+export const JANK_SCENARIO_AGGREGATION = {
+  P17: {
+    invariantFields: [
+      "scenarioRevision", "completionBoundary", "routes", "maxInputEvents", "stepIntervalMs",
+      "settleQuietMs",
+    ],
+    medianFields: [
+      "inputEvents", "prependGenerationDelta", "bufferOffsetDelta", "directionViolations",
+    ],
+  },
+  P18: {
+    invariantFields: [
+      "scenarioRevision", "completionBoundary", "cacheClass", "routes", "targetIndex",
+      "selectedAdded", "metadataCacheWarmBefore", "selectedCount",
+      "metadataCacheWarmAfter", "rangeWalked", "idleCallbackCount",
+    ],
+    medianFields: [
+      "selectionPublishMs", "metadataSettleMs", "reconcileSettleMs",
+      "selectionVisualSettledMs", "idleCallbackMaxMs",
+    ],
+  },
+};
+
+export function aggregateScenarioFields(entries, scenarioId, config) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error(`${scenarioId} has no entries to aggregate`);
+  }
+
+  const result = {};
+  for (const field of config.invariantFields ?? []) {
+    const values = entries.map((entry) => entry[field]);
+    if (values.some((value) => value == null)) {
+      throw new Error(`${scenarioId} missing ${field}`);
+    }
+    if (new Set(values.map((value) => JSON.stringify(value))).size !== 1) {
+      throw new Error(`${scenarioId} changed ${field} across repetitions`);
+    }
+    result[field] = values[0];
+  }
+
+  for (const field of config.medianFields ?? []) {
+    const values = entries.map((entry) => entry[field]);
+    if (values.some((value) => !Number.isFinite(value))) {
+      throw new Error(`${scenarioId} missing numeric ${field}`);
+    }
+    values.sort((left, right) => left - right);
+    const middle = Math.floor(values.length / 2);
+    const median = values.length % 2 === 0
+      ? (values[middle - 1] + values[middle]) / 2
+      : values[middle];
+    result[field] = Math.round(median);
+  }
+
+  return result;
+}
+
 export function parseJsonLines(contents, sourcePath) {
   const rows = [];
 
@@ -83,12 +139,14 @@ const JANK_METRIC_MANIFEST = [
   ["P14d: image traversal", ["P14d"]],
   ["P15: image detail fullscreen", ["P15a", "P15b", "P15c"]],
   ["P16: table column resize", ["P16a", "P16b"]],
+  ["P17: reverse grid scroll", ["P17"]],
+  ["P18: selection details", ["P18"]],
 ];
 
 export const PERCEIVED_METRIC_IDS = {
   short: [
     "PP1", "PP2", "PP3", "PP4", "PP5", "PP6", "PP7", "PP7b", "PP7c",
-    "PP8", "PP9", "PP10", "PP6b", "PP6c",
+    "PP8", "PP9", "PP10", "PP11", "PP6b", "PP6c",
   ],
   long: ["JA1", "JA2", "JA3", "JB1", "JB2", "JB3", "JB4", "JB5"],
 };

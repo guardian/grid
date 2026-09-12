@@ -55,6 +55,11 @@ const METRICS_FILE = resolve(__dirname, "results/.metrics-tmp.jsonl");
 // ---------------------------------------------------------------------------
 
 const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
+// Keep in sync with EXTEND_THRESHOLD in src/constants/tuning.ts. Importing
+// tuning.ts here would evaluate Vite-only import.meta.env in Playwright's Node
+// transform. The setup-generation assertion below fails if this assumption
+// stops placing the viewport outside the real backward threshold.
+const P17_BACKWARD_EXTEND_THRESHOLD = 50;
 
 /**
  * Navigate to the perf-stable result set (frozen corpus).
@@ -71,6 +76,23 @@ async function gotoPerfSearch(kupua: any, extraParams?: string) {
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
   await kupua.waitForResults();
+}
+
+function captureSuccessfulDataRoutes(kupua: any) {
+  const routes = new Set<string>();
+  let stopped = false;
+  const onResponse = (response: any) => {
+    if (!response.ok()) return;
+    const path = new URL(response.url()).pathname;
+    if (path.startsWith("/api/")) routes.add("media-api");
+    if (path.startsWith("/es/")) routes.add("direct-es");
+  };
+  kupua.page.on("response", onResponse);
+  return () => {
+    if (!stopped) kupua.page.off("response", onResponse);
+    stopped = true;
+    return routes.size > 0 ? [...routes].sort() : ["client-only"];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +467,10 @@ async function injectPerfProbes(kupua: any) {
       paintEntries,
       blankFlashes,
       esRequests,
+      resetFrameClock: () => {
+        _lastFrameTime = performance.now();
+        _lastScrollTop = -1;
+      },
       stop: () => { _rafRunning = false; mutObserver.disconnect(); },
     };
   });
@@ -793,6 +819,7 @@ async function resetPerfProbes(kupua: any) {
     p.blankFlashes.maxDurationMs = 0;
     p.blankFlashes._pending.clear();
     p.esRequests.length = 0;
+    p.resetFrameClock?.();
   });
 }
 
@@ -1511,6 +1538,462 @@ test.describe("Rendering Performance Smoke", () => {
 
     const store = await kupua.getStoreState();
     console.log(`  [P8] Post-scroll: offset=${store.bufferOffset}, len=${store.resultsLength}`);
+  });
+
+  // ─── P17: Reverse grid scroll through backward prepend cascade ──
+  test("P17: reverse grid scroll — jank from first backward-prepend trigger to quiescence", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    await kupua.seekTo(0.5);
+    await kupua.page.waitForTimeout(1500);
+    await kupua.assertNoVisiblePlaceholders();
+
+    const grid = kupua.page.locator('[aria-label="Image results grid"]');
+    const gridBox = await grid.boundingBox();
+    expect(gridBox).not.toBeNull();
+    await kupua.page.mouse.move(
+      gridBox!.x + gridBox!.width / 2,
+      gridBox!.y + gridBox!.height / 2,
+    );
+
+    // Setup only: move to a deterministic position just outside the backward
+    // extend threshold. Assert that setup itself neither starts nor commits a
+    // prepend, then arm probes against the quiescent generation.
+    const beforeSetup = await kupua.getStoreState();
+    const setup = await grid.evaluate((element, { threshold, rowHeight }) => {
+      const firstRow = element.querySelector(":scope > div > div");
+      const columns = firstRow?.children.length ?? 0;
+      if (columns < 1) throw new Error("P17 grid columns are unavailable");
+      const targetFlatStart = threshold + columns * 8;
+      element.scrollTop = Math.ceil(targetFlatStart / columns) * rowHeight;
+      return { columns };
+    }, { threshold: P17_BACKWARD_EXTEND_THRESHOLD, rowHeight: GRID_ROW_HEIGHT });
+    await kupua.page.waitForTimeout(300);
+    await kupua.page.evaluate(() => new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    ));
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__?.getState?.();
+      return state && !state._extendBackwardInFlight && !state.loading;
+    }, null, { timeout: 5_000 });
+    const before = await kupua.getStoreState();
+    expect(before.bufferOffset).toBeGreaterThan(0);
+    expect(before.prependGeneration).toBe(beforeSetup.prependGeneration);
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    try {
+      await kupua.page.evaluate(({ columns, rowHeight }) => {
+      const globalObject = window as any;
+      const store = globalObject.__kupua_store__;
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+      if (!store || !container) {
+        throw new Error("P17 direction-probe prerequisites are unavailable");
+      }
+      const samples: Array<{ globalPosition: number; prependGeneration: number }> = [];
+      const sample = () => {
+        const state = store.getState();
+        const localPosition = Math.floor(container.scrollTop / rowHeight) * columns;
+        const globalPosition = state.bufferOffset + localPosition;
+        const prependGeneration = state._prependGeneration;
+        const previous = samples.at(-1);
+        if (
+          previous?.globalPosition !== globalPosition
+          || previous?.prependGeneration !== prependGeneration
+        ) {
+          samples.push({ globalPosition, prependGeneration });
+        }
+      };
+      const onScroll = () => sample();
+      container.addEventListener("scroll", onScroll, { passive: true });
+      sample();
+      globalObject.__p17DirectionProbe__ = {
+        samples,
+        sample,
+        cleanup: () => {
+          container.removeEventListener("scroll", onScroll);
+        },
+      };
+      }, { columns: setup.columns, rowHeight: GRID_ROW_HEIGHT });
+
+      await resetPerfProbes(kupua);
+
+      let samples: Array<{ globalPosition: number; prependGeneration: number }> = [];
+      const maxInputEvents = 20;
+      const stepIntervalMs = 100;
+      let inputEvents = 0;
+      let routes: string[] = ["client-only"];
+      for (; inputEvents < maxInputEvents; inputEvents++) {
+        await kupua.page.mouse.wheel(0, -200);
+        await kupua.page.waitForTimeout(stepIntervalMs);
+        const sample = await kupua.page.evaluate(() => {
+          const state = (window as any).__kupua_store__?.getState?.();
+          if (!state) throw new Error("P17 store is unavailable during input");
+          return {
+            prependGeneration: state._prependGeneration,
+            extendBackwardInFlight: state._extendBackwardInFlight,
+          };
+        });
+        if (
+          sample.extendBackwardInFlight
+          || sample.prependGeneration > before.prependGeneration
+        ) {
+          inputEvents++;
+          break;
+        }
+      }
+
+      const settleQuietMs = 200;
+      const settled = await kupua.page.evaluate(async ({
+        baselineGeneration,
+        baselineOffset,
+        quietMs,
+      }) => {
+        const deadline = performance.now() + 8_000;
+        let stableSince: number | null = null;
+        let lastGeneration = -1;
+        let lastOffset = -1;
+        let lastScrollTop = -1;
+
+        while (performance.now() < deadline) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          const state = (window as any).__kupua_store__?.getState?.();
+          const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+          if (
+            !state || !container || state.loading || state._extendBackwardInFlight
+            || state._prependGeneration <= baselineGeneration
+            || state.bufferOffset >= baselineOffset
+          ) {
+            stableSince = null;
+            continue;
+          }
+
+          const now = performance.now();
+          const sameState = state._prependGeneration === lastGeneration
+            && state.bufferOffset === lastOffset
+            && Math.abs(container.scrollTop - lastScrollTop) <= 1;
+          if (!sameState) {
+            stableSince = now;
+            lastGeneration = state._prependGeneration;
+            lastOffset = state.bufferOffset;
+            lastScrollTop = container.scrollTop;
+            continue;
+          }
+          if (stableSince !== null && now - stableSince >= quietMs) {
+            return {
+              prependGeneration: state._prependGeneration,
+              bufferOffset: state.bufferOffset,
+            };
+          }
+        }
+        throw new Error("P17 backward prepend cascade did not become quiescent within 8 seconds");
+      }, {
+        baselineGeneration: before.prependGeneration,
+        baselineOffset: before.bufferOffset,
+        quietMs: settleQuietMs,
+      });
+      await kupua.assertNoVisiblePlaceholders();
+      samples = await kupua.page.evaluate(() => {
+        const probe = (window as any).__p17DirectionProbe__;
+        if (!probe) throw new Error("P17 direction probe is unavailable");
+        probe.sample();
+        return probe.samples;
+      });
+      routes = finishRouteCapture();
+      const directionViolations = samples.slice(1).filter((sample, index) =>
+        sample.globalPosition > samples[index].globalPosition
+      ).length;
+      const after = await kupua.getStoreState();
+      expect(after.prependGeneration).toBe(settled.prependGeneration);
+      expect(after.bufferOffset).toBe(settled.bufferOffset);
+
+      const snap = await collectPerfSnapshot(kupua, "P17: Reverse grid prepend cascade");
+      logPerfReport("P17: Reverse Grid Scroll through Backward Prepend Cascade", snap);
+      emitMetric("P17", snap, {
+        scenarioRevision: 4,
+        completionBoundary: "first-backward-prepend-trigger-to-200ms-quiescent-real-content",
+        routes,
+        maxInputEvents,
+        inputEvents,
+        stepIntervalMs,
+        settleQuietMs,
+        prependGenerationDelta: after.prependGeneration - before.prependGeneration,
+        bufferOffsetDelta: after.bufferOffset - before.bufferOffset,
+        directionViolations,
+      });
+
+      expect(after.prependGeneration).toBeGreaterThan(before.prependGeneration);
+      expect(after.bufferOffset).toBeLessThan(before.bufferOffset);
+      expect(inputEvents).toBeLessThanOrEqual(maxInputEvents);
+      expect(routes).not.toEqual(["client-only"]);
+      expect(samples.length).toBeGreaterThan(1);
+      expect(directionViolations).toBe(0);
+    } finally {
+      finishRouteCapture();
+      await kupua.page.evaluate(() => {
+        const globalObject = window as any;
+        globalObject.__p17DirectionProbe__?.cleanup?.();
+        delete globalObject.__p17DirectionProbe__;
+      });
+    }
+  });
+
+  // ─── P18: In-buffer range selection with Details open ───────────
+  test("P18: selection details — 100-item in-buffer range reconciliation", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+
+    const setupReady = await kupua.page.evaluate(() => {
+      const search = (window as any).__kupua_store__?.getState?.();
+      const selection = (window as any).__kupua_selection_store__?.getState?.();
+      const firstRendered = document.querySelector<HTMLElement>("[data-grid-cell]")?.dataset.imageId;
+      return Boolean(
+        search && selection
+        && search.bufferOffset === 0
+        && search.results.length >= 100
+        && search.results[0]?.id === firstRendered
+        && selection.selectedIds.size === 0,
+      );
+    });
+    expect(setupReady).toBe(true);
+
+    await kupua.page.getByRole("button", { name: "Show Details panel" }).click();
+    await expect(
+      kupua.page.getByRole("separator", { name: "Resize right panel (double-click to close)" }),
+    ).toHaveCount(1);
+
+    const firstCell = kupua.page.locator("[data-grid-cell]").first();
+    await firstCell.hover();
+    await firstCell.getByRole("button", { name: "Select image" }).click();
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_selection_store__?.getState?.();
+      return state?.selectedIds.size === 1
+        && state.pendingFetchIds.size === 0
+        && !state.isReconciling
+        && state.reconciledView !== null;
+    }, null, { timeout: 15_000 });
+
+    const setup = await kupua.page.evaluate(
+      ({ targetIndex, minCellWidth, rowHeight }) => {
+        const search = (window as any).__kupua_store__.getState();
+        const selection = (window as any).__kupua_selection_store__.getState();
+        const grid = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+        if (!grid || !search.results[targetIndex]) {
+          throw new Error("P18 target is unavailable in the initial buffer");
+        }
+
+        const targetImages = search.results.slice(0, targetIndex + 1).filter(Boolean);
+        const metadataCacheWarmBefore = targetImages.filter(
+          (image: any) => selection.metadataCache.has(image.id),
+        ).length;
+        const columns = Math.max(1, Math.floor(grid.clientWidth / minCellWidth));
+        grid.scrollTop = Math.floor(targetIndex / columns) * rowHeight;
+        return {
+          bufferedCount: targetImages.length,
+          columns,
+          metadataCacheWarmBefore,
+        };
+      },
+      { targetIndex: 99, minCellWidth: GRID_MIN_CELL_WIDTH, rowHeight: GRID_ROW_HEIGHT },
+    );
+    expect(setup).toMatchObject({ bufferedCount: 100, metadataCacheWarmBefore: 1 });
+
+    await kupua.page.waitForFunction((targetIndex: number) => {
+      const search = (window as any).__kupua_store__?.getState?.();
+      const targetId = search?.results?.[targetIndex]?.id;
+      const cell = targetId
+        ? document.querySelector<HTMLElement>(`[data-grid-cell][data-image-id="${CSS.escape(targetId)}"]`)
+        : null;
+      if (!cell) return false;
+      const grid = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+      const gridRect = grid?.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      if (!gridRect || cellRect.bottom <= gridRect.top || cellRect.top >= gridRect.bottom) return false;
+      cell.dataset.perfSelectionTarget = "true";
+      return true;
+    }, 99, { timeout: 5_000 });
+    const targetCell = kupua.page.locator('[data-perf-selection-target="true"]');
+    await expect(targetCell).toBeVisible();
+
+    await injectPerfProbes(kupua);
+    await kupua.page.waitForTimeout(300);
+    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+
+    let phases: any;
+    let routes: string[] = ["client-only"];
+    try {
+      await kupua.page.evaluate(() => {
+        const globalObject = window as any;
+        const store = globalObject.__kupua_selection_store__;
+        if (!store) throw new Error("P18 selection store unavailable");
+
+        const originalRequestIdleCallback = window.requestIdleCallback?.bind(window);
+        const timings: any = {
+          actionStart: null,
+          selectionPublished: null,
+          metadataSettled: null,
+          reconcileStarted: null,
+          reconcileSettled: null,
+          idleCallbacks: [],
+        };
+        const target = document.querySelector<HTMLElement>('[data-perf-selection-target="true"]');
+        if (!target) throw new Error("P18 selection target unavailable while arming probe");
+        target.addEventListener("click", () => {
+          timings.actionStart = performance.now();
+        }, { capture: true, once: true });
+        let previous = store.getState();
+        const unsubscribe = store.subscribe((state: any) => {
+          const now = performance.now();
+          if (state.selectedIds.size === 100 && timings.selectionPublished === null) {
+            timings.selectionPublished = now;
+          }
+          if (previous.pendingFetchIds.size > 0 && state.pendingFetchIds.size === 0) {
+            timings.metadataSettled = now;
+          }
+          if (!previous.isReconciling && state.isReconciling) timings.reconcileStarted = now;
+          if (previous.isReconciling && !state.isReconciling) timings.reconcileSettled = now;
+          previous = state;
+        });
+
+        if (originalRequestIdleCallback) {
+          window.requestIdleCallback = ((callback: IdleRequestCallback, options?: IdleRequestOptions) =>
+            originalRequestIdleCallback((deadline) => {
+              const started = performance.now();
+              try {
+                callback(deadline);
+              } finally {
+                timings.idleCallbacks.push(performance.now() - started);
+              }
+            }, options)) as typeof window.requestIdleCallback;
+        }
+
+        globalObject.__p18SelectionProbe__ = {
+          originalRequestIdleCallback,
+          timings,
+          unsubscribe,
+        };
+      });
+
+      await resetPerfProbes(kupua);
+
+      await targetCell.click({ modifiers: ["Shift"] });
+      await kupua.page.waitForFunction(() => {
+        const state = (window as any).__kupua_selection_store__?.getState?.();
+        return state?.selectedIds.size === 100
+          && state.pendingFetchIds.size === 0
+          && !state.isReconciling
+          && state.reconciledView !== null;
+      }, null, { timeout: 15_000 });
+
+      phases = await kupua.page.evaluate(async () => {
+      const globalObject = window as any;
+      const probe = globalObject.__p18SelectionProbe__;
+      if (!probe) throw new Error("P18 selection probe unavailable");
+
+      let previousGeometry: { width: number; height: number; scrollHeight: number } | null = null;
+      let visualSettled = 0;
+      for (let attempt = 0; attempt < 120; attempt++) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const state = globalObject.__kupua_selection_store__?.getState?.();
+        const separator = document.querySelector<HTMLElement>(
+          '[role="separator"][aria-label="Resize right panel (double-click to close)"]',
+        );
+        const panel = separator?.nextElementSibling as HTMLElement | null;
+        if (
+          !state || state.selectedIds.size !== 100 || state.pendingFetchIds.size !== 0
+          || state.isReconciling || state.reconciledView === null || !panel
+        ) {
+          previousGeometry = null;
+          continue;
+        }
+        const rect = panel.getBoundingClientRect();
+        const currentGeometry = {
+          width: rect.width,
+          height: rect.height,
+          scrollHeight: panel.scrollHeight,
+        };
+        if (
+          previousGeometry
+          && Math.abs(previousGeometry.width - currentGeometry.width) <= 1
+          && Math.abs(previousGeometry.height - currentGeometry.height) <= 1
+          && Math.abs(previousGeometry.scrollHeight - currentGeometry.scrollHeight) <= 1
+        ) {
+          visualSettled = performance.now();
+          break;
+        }
+        previousGeometry = currentGeometry;
+      }
+      if (!visualSettled) throw new Error("P18 Details panel did not become visibly stable");
+
+      const state = globalObject.__kupua_selection_store__.getState();
+      const search = globalObject.__kupua_store__.getState();
+      const targetImages = search.results.slice(0, 100).filter(Boolean);
+      const metadataCacheWarmAfter = targetImages.filter(
+        (image: any) => state.metadataCache.has(image.id),
+      ).length;
+      if (probe.timings.actionStart === null) {
+        throw new Error("P18 real click boundary was not captured");
+      }
+      const elapsed = (value: number | null) => value === null
+        ? null
+        : Math.round(value - probe.timings.actionStart);
+      const idleCallbacks = probe.timings.idleCallbacks as number[];
+
+      probe.unsubscribe();
+      if (probe.originalRequestIdleCallback) {
+        window.requestIdleCallback = probe.originalRequestIdleCallback;
+      }
+      delete globalObject.__p18SelectionProbe__;
+
+        return {
+        selectedCount: state.selectedIds.size,
+        metadataCacheWarmAfter,
+        rangeWalked: state.rangeWalkTime !== null,
+        selectionPublishMs: elapsed(probe.timings.selectionPublished),
+        metadataSettleMs: elapsed(probe.timings.metadataSettled),
+        reconcileSettleMs: elapsed(probe.timings.reconcileSettled),
+        selectionVisualSettledMs: Math.round(visualSettled - probe.timings.actionStart),
+        idleCallbackCount: idleCallbacks.length,
+        idleCallbackMaxMs: idleCallbacks.length ? Math.round(Math.max(...idleCallbacks)) : 0,
+        };
+      });
+      routes = finishRouteCapture();
+    } finally {
+      routes = finishRouteCapture();
+      await kupua.page.evaluate(() => {
+        const globalObject = window as any;
+        const probe = globalObject.__p18SelectionProbe__;
+        probe?.unsubscribe?.();
+        if (probe?.originalRequestIdleCallback) {
+          window.requestIdleCallback = probe.originalRequestIdleCallback;
+        }
+        delete globalObject.__p18SelectionProbe__;
+      });
+    }
+
+    const snap = await collectPerfSnapshot(kupua, "P18: 100-item selection with Details open");
+    logPerfReport("P18: In-Buffer Selection with Details Open", snap);
+    emitMetric("P18", snap, {
+      scenarioRevision: 1,
+      completionBoundary: "100-selected-metadata-reconciled-details-two-stable-frames",
+      cacheClass: "cold-except-anchor",
+      routes,
+      targetIndex: 99,
+      selectedAdded: 99,
+      metadataCacheWarmBefore: setup.metadataCacheWarmBefore,
+      ...phases,
+    });
+
+    expect(phases).toMatchObject({
+      selectedCount: 100,
+      metadataCacheWarmAfter: 100,
+      rangeWalked: false,
+      idleCallbackCount: 1,
+    });
+    expect(routes).not.toEqual(["client-only"]);
+    expect(phases.selectionPublishMs).not.toBeNull();
+    expect(phases.metadataSettleMs).not.toBeNull();
+    expect(phases.reconcileSettleMs).not.toBeNull();
   });
 
   // ─── P9: Sort field change ───────────────────────────────────────

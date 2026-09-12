@@ -10,11 +10,13 @@ import {
   assertEnvironmentMatches,
   assertSameEnvironment,
   assertPlaywrightSucceeded,
+  aggregateScenarioFields,
   createDeferredWrites,
   expectedJankMetricIds,
   expectedPerceivedMetricIds,
   parseJsonLines,
   parseSuccessfulRun,
+  JANK_SCENARIO_AGGREGATION,
   PERCEIVED_METRIC_IDS,
   requireSingleEnvironment,
 } from "./harness-validation.mjs";
@@ -24,6 +26,17 @@ import {
   pruneAuditHistory,
 } from "./history-files.mjs";
 import { computeCorrelatedMetrics } from "./perceived-metrics.mjs";
+
+test("dashboards compare checked data modes as separate series", () => {
+  for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
+    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+
+    assert.match(source, /"direct-es": \{ label: "direct ES", color: "#58a6ff"/);
+    assert.match(source, /"media-api": \{ label: "media-api", color: "#f2a65a"/);
+    assert.match(source, /entryMode\(entry\) === mode/);
+    assert.match(source, /comparable within each mode/);
+  }
+});
 
 test("rejects a nonzero Playwright exit", () => {
   assert.throws(
@@ -152,20 +165,134 @@ test("selects one isolated P14 cadence by title", () => {
   assert.deepEqual(expectedJankMetricIds("P14b"), ["P14b"]);
 });
 
-test("manifests account for all 52 maintained unique metric IDs", () => {
+test("manifests account for all 55 maintained unique metric IDs", () => {
   const jankIds = expectedJankMetricIds("");
 
-  assert.equal(jankIds.length, 30);
-  assert.equal(new Set(jankIds).size, 30);
-  assert.equal(PERCEIVED_METRIC_IDS.short.length, 14);
-  assert.equal(new Set(PERCEIVED_METRIC_IDS.short).size, 14);
+  assert.equal(jankIds.length, 32);
+  assert.equal(new Set(jankIds).size, 32);
+  assert.equal(PERCEIVED_METRIC_IDS.short.length, 15);
+  assert.equal(new Set(PERCEIVED_METRIC_IDS.short).size, 15);
   assert.equal(PERCEIVED_METRIC_IDS.long.length, 8);
   assert.equal(new Set(PERCEIVED_METRIC_IDS.long).size, 8);
 });
 
+test("preserves P17/P18 scenario contracts and numeric diagnostics across repetitions", () => {
+  const p17Entries = [
+    {
+      scenarioRevision: 4,
+      completionBoundary: "prepend-cascade-quiescent",
+      routes: ["direct-es"],
+      maxInputEvents: 20,
+      inputEvents: 12,
+      stepIntervalMs: 100,
+      settleQuietMs: 200,
+      prependGenerationDelta: 2,
+      bufferOffsetDelta: -200,
+      directionViolations: 0,
+    },
+    {
+      scenarioRevision: 4,
+      completionBoundary: "prepend-cascade-quiescent",
+      routes: ["direct-es"],
+      maxInputEvents: 20,
+      inputEvents: 14,
+      stepIntervalMs: 100,
+      settleQuietMs: 200,
+      prependGenerationDelta: 2,
+      bufferOffsetDelta: -202,
+      directionViolations: 0,
+    },
+  ];
+  assert.deepEqual(
+    aggregateScenarioFields(p17Entries, "P17", JANK_SCENARIO_AGGREGATION.P17),
+    {
+      scenarioRevision: 4,
+      completionBoundary: "prepend-cascade-quiescent",
+      routes: ["direct-es"],
+      maxInputEvents: 20,
+      inputEvents: 13,
+      stepIntervalMs: 100,
+      settleQuietMs: 200,
+      prependGenerationDelta: 2,
+      bufferOffsetDelta: -201,
+      directionViolations: 0,
+    },
+  );
+
+  const p18Entries = [
+    {
+      scenarioRevision: 1,
+      completionBoundary: "settled",
+      cacheClass: "cold-except-anchor",
+      routes: ["direct-es"],
+      targetIndex: 99,
+      selectedAdded: 99,
+      metadataCacheWarmBefore: 1,
+      selectedCount: 100,
+      metadataCacheWarmAfter: 100,
+      rangeWalked: false,
+      idleCallbackCount: 1,
+      selectionPublishMs: 18,
+      metadataSettleMs: 170,
+      reconcileSettleMs: 180,
+      selectionVisualSettledMs: 300,
+      idleCallbackMaxMs: 2,
+    },
+    {
+      scenarioRevision: 1,
+      completionBoundary: "settled",
+      cacheClass: "cold-except-anchor",
+      routes: ["direct-es"],
+      targetIndex: 99,
+      selectedAdded: 99,
+      metadataCacheWarmBefore: 1,
+      selectedCount: 100,
+      metadataCacheWarmAfter: 100,
+      rangeWalked: false,
+      idleCallbackCount: 1,
+      selectionPublishMs: 22,
+      metadataSettleMs: 190,
+      reconcileSettleMs: 200,
+      selectionVisualSettledMs: 340,
+      idleCallbackMaxMs: 4,
+    },
+  ];
+
+  assert.deepEqual(
+    aggregateScenarioFields(p18Entries, "P18", JANK_SCENARIO_AGGREGATION.P18),
+    {
+      scenarioRevision: 1,
+      completionBoundary: "settled",
+      cacheClass: "cold-except-anchor",
+      routes: ["direct-es"],
+      targetIndex: 99,
+      selectedAdded: 99,
+      metadataCacheWarmBefore: 1,
+      selectedCount: 100,
+      metadataCacheWarmAfter: 100,
+      rangeWalked: false,
+      idleCallbackCount: 1,
+      selectionPublishMs: 20,
+      metadataSettleMs: 180,
+      reconcileSettleMs: 190,
+      selectionVisualSettledMs: 320,
+      idleCallbackMaxMs: 3,
+    },
+  );
+
+  assert.throws(
+    () => aggregateScenarioFields(
+      [{ ...p18Entries[0] }, { ...p18Entries[1], targetIndex: 98 }],
+      "P18",
+      JANK_SCENARIO_AGGREGATION.P18,
+    ),
+    /P18 changed targetIndex across repetitions/,
+  );
+});
+
 test("derives perceived metric IDs from the requested filter", () => {
   assert.deepEqual(expectedPerceivedMetricIds("short", "PP1"), ["PP1"]);
-  assert.deepEqual(expectedPerceivedMetricIds("short", "PP1|PP10"), ["PP1", "PP10"]);
+  assert.deepEqual(expectedPerceivedMetricIds("short", "PP1|PP1[01]"), ["PP1", "PP10", "PP11"]);
   assert.deepEqual(expectedPerceivedMetricIds("long", "JB[34]"), ["JB3", "JB4"]);
 });
 

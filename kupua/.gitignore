@@ -31,6 +31,10 @@ Thumbs.db
 playwright-report/
 test-results/
 
+# Authenticated perf-harness bridge. The credential-bearing storageState file
+# must live outside the repository; this path may only be an ephemeral symlink.
+e2e-perf/.panda-auth.json
+
 # Perf harness scratch file — overwritten on every run, not for git
 e2e-perf/results/.metrics-tmp.jsonl
 e2e-perf/results/.perceived-short-tmp.jsonl

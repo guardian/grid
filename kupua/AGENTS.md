@@ -82,14 +82,14 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1288 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1223 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **206 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
-- **18 perf tests** + experiment infrastructure — `npm run test:perf`
-- **35 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
+- **22 jank perf tests / 32 metric IDs** + experiment infrastructure — `npm run test:perf`
+- **37 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
 - **Retired smoke surface** — 57 direct-config/29 menu cases removed after elected evidence moved or was explicitly dropped
-- **12 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
+- **15 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
 - Full reference: **`e2e/README.md`** (test modes, decision tree, env vars)
 - Logging/observability: use `devLog()` and DEV-only window signals (including `__kupua_getSearchLifecycle__`) for E2E; production builds DCE them

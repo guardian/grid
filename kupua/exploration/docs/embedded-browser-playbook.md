@@ -23,6 +23,15 @@ Mark every entry with its status:
 
 Downgrade or delete entries that turn out to be wrong. Do not leave known-false
 notes in place with a correction bolted on.
+**[!] Bring the target page to the foreground before any rAF performance
+probe.** With many integrated-browser tabs open, a reverse-scroll probe ran in
+a backgrounded page: a nominal 2.5-second input sequence stretched to 29
+seconds, only 78 rAF callbacks fired, and apparent frame gaps reached two
+seconds. Those are browser background-throttling artefacts, not app jank. Call
+`await page.bringToFront()` immediately before arming the probe and sanity-check
+that action wall time and rAF count match the intended cadence. LoAF/request
+observations may still be descriptive, but discard all frame percentiles from
+a throttled run.
 
 ---
 
@@ -68,6 +77,17 @@ to a URL already visited in this tab does NOT reset storage; a per-search
 `kupua:histSnap:*` sessionStorage entry survives it and silently restores the
 prior scroll/anchor position, which produced a false "confirmed bug" in the M7
 session (see §3, "Reused-page storage confound").
+
+**[V] `selectionStore.clear()` does not clear its metadata LRU, and a reload can
+restore a deep viewport.** A panel-open selection profile warmed 200 metadata
+entries; calling `clear()` before a panel-closed control left those entries in
+memory, so the control skipped hydration and reconciliation. Reloading the same
+tab then restored its deep history position, making the first rendered cell a
+mid-buffer item rather than global result 0 and turning an intended 100-item
+range into 16 items. For cold selection controls, use a brand-new tab (or the
+test-only cache reset when appropriate), assert `bufferOffset === 0`, and assert
+the first rendered cell is `results[0]` before electing it as the range anchor.
+Return only booleans/counts; keep image identities inside the page.
 
 **[?] Even `localStorage.clear(); sessionStorage.clear()` immediately before a
 `page.reload()` did NOT always produce a position-0 landing in the seek tier,
@@ -862,6 +882,70 @@ session). Only escalate to a real finding if a future session finds a case
 that keeps moving past 3-4 cycles instead of settling, or if it's ever seen to
 affect **explicit** focus (unaffected in every trial so far — always exact,
 always rendered).
+
+**[V] Install navigation/reload probes with `page.addInitScript`; ordinary
+in-page globals are destroyed by navigation.** A position-map interference
+probe assigned to `window` immediately before `page.reload()` vanished before
+the map began. An init script installed from the outer Playwright controller
+survived the reload and observed the first application frame. Use this for cold
+navigation, initial-load, and reload profiling. Remove or abandon the page after
+the mission; init scripts persist for later navigations in that page/context.
+
+**[V] Match diagnostic overhead in A/B performance probes.** A P8 wide-table
+run with CDP CPU sampling stretched the nominal four-second input sequence and
+could not be compared numerically with a lightweight four-column run. Repeating
+the wide control with the identical lightweight frame/LoAF/mutation probe
+confirmed the result. CPU profiles are attribution evidence; they are not a
+matched benchmark unless both variants carry the same profiler overhead.
+
+**[V] Save and restore persisted UI stores around diagnostics.** Column and
+panel stores write to shared `localStorage`, so changing visibility in one tab
+changes subsequent fresh tabs too. Before a diagnostic, `structuredClone()` the
+exact store config into browser memory; restore it in a `finally`-equivalent
+cleanup and verify the original visible-count/state afterward. Never assume
+closing the tab rolls a preference back.
+
+**[V] Do not include timestamps in geometry-equality signatures.** A two-frame
+stability oracle compared every property of `{ geometry..., t }`; the timestamp
+necessarily changed, so a fully stable Home page timed out forever. Keep time
+beside the signature, compare geometry/state fields only, and freeze the first
+successful pair so later frames do not overwrite the true settle boundary.
+
+**[V] Open shadow roots have two selector worlds.** Playwright locators pierce
+the CQL component's open shadow root, but `document.querySelector()` and a
+document-level MutationObserver inside `page.evaluate` do not. A typeahead
+probe saw real `.Cql__Option` elements through `page.locator()` while its
+in-page selector reported none. Keep request timing in-page, but use a
+Playwright locator (or explicitly traverse `element.shadowRoot`) for the visual
+option boundary.
+
+**[V] Development React Strict Mode can invalidate production-latency
+inference.** Expanding Filters in the Vite dev app appeared to bypass a 500ms
+aggregation debounce because the newly mounted effect ran twice; the second
+store call resolves the first pending debounce. Calling the same action once
+showed the request starting at ~500ms. When an effect-triggered action is
+suspiciously faster than its source constant, compare a single imperative call
+or production build before declaring the delay absent.
+
+**[V] Match Resource Timing entries by action time and current source, not
+`entries[0]`.** Reusing an image URL can leave multiple entries. Selecting the
+first produced an impossible negative TTFB; `performance.getEntriesByName(img.currentSrc)`
+showed the current request as the later entry. Filter to `startTime >= actionAt`
+or take the latest matching entry before calculating phases.
+
+**[V] `loading="lazy"` does not imply serial thumbnail requests inside the
+virtualizer window.** On a cache-cleared pinned Home load, all 19 rendered and
+overscan thumbnail requests started within roughly 1ms. Measure request starts
+before proposing eager loading or priority changes; browser lazy-load distance
+can already classify every rendered virtual row as eligible.
+
+**[F] Integrated-browser `browserContext.storageState()` may be unavailable.**
+In this VS Code browser backend it failed with an unsupported
+`Storage.getCookies` protocol method even after interactive authentication.
+Do not improvise by printing or ferrying cookies through the model. Use the
+project's standalone Playwright codegen flow, save state directly to a private
+path outside the repository, and expose only an ignored symlink or external
+path to the harness.
 
 ---
 

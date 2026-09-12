@@ -14,6 +14,18 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 13 September 2026 — Extend performance measurement coverage
+
+  Added maintained owners for reverse/prepend jank (P17), 100-image selection Details rendering
+  (P18), and exact deep browser-Back restoration (PP11). The harness now validates all metric IDs,
+  preserves scenario diagnostics across repeated runs, separates direct-ES and media-api dashboard
+  series, and records coarse route attribution without persisting image identity.
+
+  Recorded matched direct-ES and local-media-api campaigns, documented secure media-api auth and
+  explicit app/runner mode pairing, and added embedded-browser measurement lessons. Pure harness
+  validation passed 37/37, the production build passed, and direct-ES dry runs passed for P17,
+  P18, and PP11. No runtime source behavior changed.
+
   ### 12 September 2026 — Remove dead and stray Kupua code
 
   The 37 actionable entries from the current-tree dead-code audit were executed

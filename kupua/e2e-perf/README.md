@@ -23,6 +23,9 @@ one trace API (`src/lib/perceived-trace.ts`), one correlated calculator
 one log file, and one dashboard. The only difference is test length:
 short tests are one user action each; long tests chain several to simulate
 realistic workflows. They're tagged `kind: "short" | "long"` per log entry.
+PP11 is the browser-owned deep Back restoration action: it reports readiness,
+exact-anchor paint, stable geometry and aggregate drift without letting image
+identity leave the page. It has no target until its first reviewed baseline.
 
 ## Flag matrix
 
@@ -52,17 +55,36 @@ Other flags:
 
 ## How to run
 
+Run these commands from the `kupua/` directory. The app mode and audit-runner
+mode are configured separately: a media-api campaign requires
+`--use-media-api` in **both terminals**. Omitting it from the runner uses the
+direct-ES Playwright origin/expectation even if the app was started in
+media-api mode, and the environment check rejects the mismatch.
+
+### Direct-ES campaign
+
 ```bash
-# Terminal 1 — start app against real ES (manual-only, per session permission)
+# Terminal 1
 ./scripts/start.sh --use-TEST
 
-# Terminal 2 — examples
+# Terminal 2
 node e2e-perf/run-audit.mjs --label "Baseline" --runs 3
 node e2e-perf/run-audit.mjs P4a,P4b,P6 --label "Quick jank check"
 node e2e-perf/run-audit.mjs P8 --dry-run                         # no log writes
-node e2e-perf/run-audit.mjs --short-perceived-only --dry-run     # iterate on PP1-PP10
+node e2e-perf/run-audit.mjs --short-perceived-only --dry-run     # iterate on PP1-PP11
 node e2e-perf/run-audit.mjs --long-perceived-only --runs 4       # journey baseline
 node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 4
+```
+
+### Local media-api campaign
+
+```bash
+# Terminal 1
+./scripts/start.sh --use-media-api
+
+# Terminal 2 — every invocation includes the matching runner flag
+node e2e-perf/run-audit.mjs --use-media-api --short-perceived-only --dry-run --label "local-media-api sanity"
+node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "local-media-api baseline" --runs 4
 ```
 
 `--dry-run` is the recommended first step whenever running the perceived suite
@@ -87,6 +109,40 @@ through the same rollback-capable file transaction as normal history writes.
 This routes `searchAfter` through the local media-api instead of going
 directly to ES. Useful for measuring the media-api code path end-to-end.
 
+**Topology warning:** in this harness, `Mode: media-api` currently means:
+
+```text
+Playwright
+  → https://kupua.media.local.dev-gutools.co.uk
+  → local Vite
+  → local media-api
+  → SSH tunnel
+  → TEST Elasticsearch
+```
+
+It does **not** mean Kupua is calling a deployed TEST media-api. Results include
+local JVM, local proxy, authentication, and tunnel effects that a deployed
+media-api does not share. The environment fingerprint records `dataMode` and the
+Kupua origin, but does not yet encode media-api deployment topology; put
+`local-media-api` in the label and interpretation.
+
+The 12 September 2026 campaign labelled `Matched media-api baseline 2026-09-12`
+used this local-media-api topology. Its comparison direct-ES campaign used
+`http://localhost:3000`, whereas media-api authentication required the HTTPS
+Kupua origin. The application code was the same, but the browser origins were
+not, so the pair is suitable for broad local-path characterization rather than
+isolating only the `searchAfter` implementation. A future controlled pair should
+run direct ES through the same HTTPS Kupua origin using `KUPUA_PERF_BASE_URL`, or
+record origin/proxy overhead separately.
+
+**Deployed-TEST evidence:** the June 2026 before/after deployment experiment
+measured shared Elasticsearch-client gzip behavior on deployed TEST media-api's
+existing `/images` route. It did not run Kupua's D3 `/images/search-after`
+journeys. The D3 TS and Scala commits are not ancestors of `origin/main`, and no
+checked-in evidence has been found of a full Kupua perf campaign against a
+deployed TEST build containing D3. Treat that as a distinct, currently unmeasured
+topology unless deployment records establish otherwise.
+
 **Prerequisites (every session):**
 
 1. The full Grid dev stack must be running — media-api needs to be up.
@@ -96,16 +152,30 @@ directly to ES. Useful for measuring the media-api code path end-to-end.
    ```
    This implies `--use-TEST` (ES tunnel on port 9200) plus
    `VITE_USE_MEDIA_API=true`.
+3. Pass `--use-media-api` to the audit runner too. The runner then uses
+  `https://kupua.media.local.dev-gutools.co.uk` as Playwright's origin. This is
+  required because the authenticated Grid cookies are domain-scoped and are not
+  sent by a page on `http://localhost:3000`. If the environment fingerprint says
+  `Base URL: http://localhost:3000`, the media-api runner flag was omitted or the
+  Playwright config was invoked directly.
+4. Local media-api must have the same `field.aliases` configuration as TEST. See
+  the alias preflight below.
 
-**One-time auth setup (redo when panda session expires):**
+#### Authentication state
 
-The Playwright browser needs a valid panda cookie to authenticate to
-media-api. Generate a `storageState` file once while logged in:
+Playwright `storageState` is the appropriate mechanism for this manual harness,
+but the file contains live session credentials. **Never place the real JSON file
+under `kupua/`, inspect it, print it, paste it into chat or a report, or commit it.**
+
+Generate it at a private location outside the repository. The example path is
+deliberately generic; choose any user-private directory outside a Git worktree:
 
 ```bash
-# Run from kupua/ — saves relative to that directory
-npx playwright codegen \
-  --save-storage=e2e-perf/.panda-auth.json \
+# Run from the grid repository root.
+mkdir -p "$HOME/.config/kupua-playwright"
+chmod 700 "$HOME/.config/kupua-playwright"
+kupua/node_modules/.bin/playwright codegen \
+  --save-storage="$HOME/.config/kupua-playwright/panda-auth.json" \
   https://kupua.media.local.dev-gutools.co.uk
 ```
 
@@ -114,27 +184,84 @@ In the browser that opens, sign in to **both**:
 - `https://media.local.dev-gutools.co.uk/` — captures the `.local.dev-gutools.co.uk` cookie (used by local media-api)
 
 Then **close the browser** — the file is written on exit, not during the session.
-
-Add it to your local git exclude (never commit — it contains your session token):
-```bash
-# Run from repo root (grid/)
-echo "kupua/e2e-perf/.panda-auth.json" >> .git/info/exclude
-```
-
-The harness will print this generation command and exit if the file is
-missing. Panda sessions expire periodically — re-run codegen when you see
-auth failures or empty results.
-
-**Examples:**
+Restrict access to the result:
 
 ```bash
-# Terminal 1
-./scripts/start.sh --use-media-api
-
-# Terminal 2
-node e2e-perf/run-audit.mjs --use-media-api --short-perceived-only --dry-run --label "media-api sanity"
-node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "media-api baseline" --runs 4
+chmod 600 "$HOME/.config/kupua-playwright/panda-auth.json"
 ```
+
+The current runner expects `e2e-perf/.panda-auth.json`. Bridge that expected name
+to the external file with a symlink; do not copy the JSON into the repository:
+
+```bash
+# Run from the grid repository root.
+ln -s "$HOME/.config/kupua-playwright/panda-auth.json" \
+  kupua/e2e-perf/.panda-auth.json
+
+# Must succeed silently before running the harness.
+git check-ignore -q kupua/e2e-perf/.panda-auth.json
+```
+
+That bridge path is tracked in `kupua/.gitignore` as defense in depth. Ignoring it
+does not make an in-repository credential safe: the symlink target remains the
+only acceptable arrangement. Remove only the bridge after the campaign; retain
+or delete the external state according to local policy:
+
+```bash
+rm kupua/e2e-perf/.panda-auth.json
+```
+
+The harness exits if the bridge is missing. Auth failures, redirects, HTTP
+401/419, empty authenticated responses, or API errors invalidate the campaign;
+refresh the external state rather than treating them as performance evidence.
+Never route passwords, MFA prompts, cookie values, or the state file through an
+agent. Complete interactive sign-in directly in the opened browser.
+
+**Future hardening:** the runner should accept an explicit external auth-file
+path, reject regular credential files inside the repository, and remove the
+symlink bridge entirely. The Playwright configs already consume
+`KUPUA_PERF_AUTH_FILE`; the runner is the remaining hardcoded layer.
+
+#### Field-alias preflight
+
+D3's media-api `searchAfter` response intentionally omits bulk `fileMetadata`.
+It adds back only the small leaf paths listed by media-api's runtime
+`field.aliases`, then exposes their values under `image.aliases`. The same config
+also resolves CQL aliases such as `colourModel` and `colourProfile` to their real
+Elasticsearch paths.
+
+Kupua currently carries its own alias list in `src/lib/grid-config.ts`. If local
+media-api starts with `field.aliases=[]`, the two sides silently diverge:
+
+- alias-backed metadata disappears from every media-api search hit;
+- alias CQL can query a literal unmapped field and return misleading results;
+- the long perceived journey fails, but shorter scenarios may still pass.
+
+This commonly occurs with `dev/script/start.sh --use-TEST`: deployed TEST reads
+aliases from its common configuration, while the script downloads only the
+per-app media-api and kahuna files. Ordinary local setup also usually embeds
+shared settings into each service-specific file, so `~/.grid/common.conf` may
+legitimately be absent.
+
+For a representative media-api perf run, place **only the reviewed TEST
+`field.aliases` block** in `~/.grid/common.conf`, never an unreviewed complete TEST
+configuration, then restart media-api. The larger product fix is to establish one
+server-authoritative runtime-config path and fail loudly on alias-contract drift;
+the perf harness must not conceal that architecture gap.
+
+Run the long suite once as a dry preflight after media-api restarts. JA exercises
+returned alias metadata; JB exercises an alias-backed filter and indexed scrolling:
+
+```bash
+node e2e-perf/run-audit.mjs \
+  --use-media-api \
+  --long-perceived-only \
+  --dry-run \
+  --label "media-api auth and alias preflight"
+```
+
+Do not start a recorded campaign unless the preflight is green and its environment
+fingerprint reports both `Mode: media-api` and the HTTPS Kupua base URL.
 
 ## Dashboards
 
@@ -149,6 +276,13 @@ doesn't recognise, it shows a red banner** asking you to update
 `KNOWN_METRICS` / `KNOWN_ENTRY_KEYS` near the top of the file. That banner is
 the contract — when adding a new metric to `perf.spec.ts` / `run-audit.mjs`,
 also add it to `KNOWN_METRICS`.
+
+Both dashboards plot every checked data mode on the same chart: direct ES is
+blue, media-api is amber, and legacy/unknown is gray. "Comparable within each
+mode" filters each line against that mode's own latest environment and scenario
+contract, rather than allowing the globally latest mode to hide the others.
+Latest values and deltas are likewise mode-local; they are not claims that two
+different deployment topologies are equivalent.
 
 `perceived-graphs.html` shows one sparkline per scenario across
 every `perceived-log.json` entry, with checkboxes to filter by kind
@@ -171,7 +305,7 @@ Tests fall into three categories. This matters for result stability:
 | Category | Tests | Single-run noise | Notes |
 |----------|-------|-------------------|-------|
 | **Client-only** | P4a, P4b, P5a/b/c, P7, P13a/b, P14a/b/c/d, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests inside the measured action. P7 preloads lazy distribution setup and excludes pointer release/seek. |
-| **Mixed** (client work triggered by ES response) | P2, P8 | **Medium** (±15%) | Scroll can trigger `extendForward`/`extendBackward`; jank spikes may correlate with response timing. |
+| **Mixed** (client work triggered by ES response) | P2, P8, P17, P18 | **Medium** (±15%) | Scroll can trigger buffer requests; P18 hydrates 99 selected images before publishing reconciled Details. Jank spikes may correlate with response timing. |
 | **ES-dominated** | P1, P3, P3b, P6, P9, P11, P11b | **High** (±20%+) | Test measures the full round-trip: ES query → response processing → render. SSH tunnel latency and cluster load dominate. |
 
 **Practical guidance:**
@@ -223,6 +357,8 @@ signed vertical and horizontal pixel drift plus final visibility.
 | **P14d** | Image traversal, rapid discrete burst (20 fwd @ 12/s) | ~5s | Cancellation stress test. Most images should not render; landing latency and CLS occurrence are primary. |
 | **P15a/b/c** | Fullscreen enter/traverse/exit | ~4s | maxFrame. Should be near-zero (Fullscreen API is cheap). |
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
+| **P17** | Reverse grid scroll from first backward-prepend trigger through 200ms quiescence | ~5s | severe, p95Frame, LoAF, DOM churn, route class, prepend count, direction violations. Includes any natural causally-following prepend cascade rather than suppressing it. |
+| **P18** | Shift-click result 99 from a settled result-0 anchor with Details open | ~2s | maxFrame, LoAF, selection publication, metadata/reconcile/visual settlement. Cold-except-anchor, exactly 100 selected. |
 
 ### Jank metrics glossary
 
@@ -269,6 +405,14 @@ Apply these rules before adding a metric or using one to justify an optimization
   row should not impersonate all three.
 10. **Prefer deletion to ceremonial coverage.** If TEST falsifies a scenario's
    distinct premise, remove it rather than manufacturing a weaker substitute.
+
+**Playwright spec import trap:** a perf spec is transformed in Node before the
+browser starts. Do not import a browser/Vite module that evaluates
+`import.meta.env` at module scope (for example `src/constants/tuning.ts`), or
+test discovery fails with `import.meta.env` undefined. Prefer an environment-
+independent module; if a fixed setup assumption is unavoidable, define it next
+to the scenario, link it to the source constant, and add a fail-closed runtime
+guard that invalidates the scenario when the assumption no longer holds.
 
 For optimization work, write down before editing: the user-visible hypothesis,
 the metric expected to move, a metric expected not to regress, and the cheapest

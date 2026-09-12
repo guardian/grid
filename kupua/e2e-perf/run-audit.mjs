@@ -63,11 +63,13 @@ import {
   assertEnvironmentMatches,
   assertPlaywrightSucceeded,
   assertSameEnvironment,
+  aggregateScenarioFields,
   createDeferredWrites,
   expectedJankMetricIds,
   expectedPerceivedMetricIds,
   parseJsonLines,
   parseSuccessfulRun,
+  JANK_SCENARIO_AGGREGATION,
   PERCEIVED_METRIC_IDS,
   requireSingleEnvironment,
 } from "./harness-validation.mjs";
@@ -854,6 +856,10 @@ function aggregateMetrics(allRunMetrics) {
             : values[0];
         }
       }
+    }
+    const scenarioAggregation = JANK_SCENARIO_AGGREGATION[id];
+    if (scenarioAggregation) {
+      Object.assign(agg, aggregateScenarioFields(entries, id, scenarioAggregation));
     }
     // Traversal image-render fields (P14a–d) — only aggregate when present.
     const landingRenderValues = entries.map((e) => e.landingRenderMs).filter((v) => v != null);

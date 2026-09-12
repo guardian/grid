@@ -33,6 +33,8 @@
   .card { background: var(--panel); border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; }
   .card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
   .card .meta { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .mode-summary { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+  .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
   canvas { display: block; width: 100% !important; height: 180px !important; }
   .legend { padding: 0 24px 12px; font-size: 11px; color: var(--muted); }
   details { margin: 4px 24px; }
@@ -89,7 +91,7 @@
     </select>
   </label>
   <label><input type="checkbox" id="hideQuiet" checked /> hide quiet tests (max value &lt; 1)</label>
-  <label><input type="checkbox" id="comparableOnly" checked /> comparable to latest</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable within each mode</label>
   <label><input type="checkbox" id="showLabels" /> show run labels on x-axis</label>
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
   <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
@@ -103,10 +105,12 @@
 </details>
 <div class="legend" id="legend-text" hidden>
   Each card = one perf test. X-axis = audit runs in chronological order.
-  Latest comparable run highlighted in red. Cards show its delta from the
-  preceding comparable run. Tests that never emit the selected metric are
-  hidden. Uncheck "comparable to latest" to inspect legacy evidence across
-  changed corpus, methodology, environment or scenario contracts.
+  Each checked mode is a separate line: direct ES is blue, media-api is amber,
+  and legacy/unknown is gray. Larger outlined points are the latest value in
+  each mode. Cards show each mode's delta from its own preceding comparable
+  run. Tests that never emit the selected metric are hidden. Uncheck
+  "comparable within each mode" to inspect legacy evidence across changed
+  corpus, methodology, environment or scenario contracts.
 </div>
 <div class="grid" id="grid"></div>
 
@@ -148,6 +152,15 @@ const KNOWN_METRICS = {
   landingCacheHit:   { label: "Landing cache hit (1 = yes; browser cache)",    lowerIsBetter: false, defaultShow: true, quietThreshold: 0.001 },
   clsOccurrenceRate: { label: "CLS occurrence rate across runs", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
   clsConditionalMagnitude: { label: "CLS magnitude when shifts occur", lowerIsBetter: true, defaultShow: true, quietThreshold: 0.001 },
+  selectionPublishMs: { label: "Selection publication (ms)", lowerIsBetter: true, defaultShow: true },
+  metadataSettleMs: { label: "Selection metadata settled (ms)", lowerIsBetter: true, defaultShow: true },
+  reconcileSettleMs: { label: "Selection reconciliation settled (ms)", lowerIsBetter: true, defaultShow: true },
+  selectionVisualSettledMs: { label: "Selection Details visually settled (ms)", lowerIsBetter: true, defaultShow: true },
+  idleCallbackMaxMs: { label: "Selection idle callback max (ms)", lowerIsBetter: true, defaultShow: true },
+  directionViolations: { label: "Reverse direction violations", lowerIsBetter: true, defaultShow: true },
+  inputEvents: { label: "Reverse input events before prepend", lowerIsBetter: null, defaultShow: true },
+  prependGenerationDelta: { label: "Backward prepend count", lowerIsBetter: null, defaultShow: true },
+  bufferOffsetDelta: { label: "Buffer offset delta", lowerIsBetter: null, defaultShow: true },
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
@@ -161,6 +174,9 @@ const KNOWN_METRIC_META_KEYS = new Set([
   "probeStart", "responseEndMs", "domContentLoadedMs", "loadEventMs",
   "firstPaintMs", "firstContentfulPaintMs", "resultsWidthDeltaPx",
   "focusHorizontalDriftPx", "widthDeltaPx",
+  "routes", "maxInputEvents", "settleQuietMs",
+  "targetIndex", "selectedAdded", "selectedCount", "metadataCacheWarmBefore",
+  "metadataCacheWarmAfter", "rangeWalked", "idleCallbackCount",
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -347,6 +363,12 @@ function entryMode(entry) {
   return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
 }
 
+const MODE_STYLES = {
+  "direct-es": { label: "direct ES", color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
+  "media-api": { label: "media-api", color: "#f2a65a", fill: "rgba(242,166,90,0.12)" },
+  unknown: { label: "legacy/unknown", color: "#8b949e", fill: "rgba(139,148,158,0.10)" },
+};
+
 function visibleModeSet() {
   return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
 }
@@ -382,59 +404,87 @@ function buildCharts() {
   charts.clear();
   grid.innerHTML = "";
 
-  const entries = ENTRIES.filter((entry) => visibleModeSet().has(entryMode(entry)));
+  const selectedModes = [...visibleModeSet()];
+  const entries = ENTRIES.filter((entry) => selectedModes.includes(entryMode(entry)));
   const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
 
   for (const t of TESTS) {
-    const referenceIndex = entries.findLastIndex((entry) => pickValue(metric, entry.metrics?.[t]) != null);
-    if (referenceIndex < 0) continue;
-    const referenceEntry = entries[referenceIndex];
-    const referenceMetric = referenceEntry.metrics[t];
-    const data = entries.map((entry) => {
-      const current = entry.metrics?.[t];
-      if (!current) return null;
-      if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric)) return null;
-      return pickValue(metric, current);
+    const modeSeries = selectedModes.flatMap((mode) => {
+      const referenceIndex = entries.findLastIndex((entry) =>
+        entryMode(entry) === mode && pickValue(metric, entry.metrics?.[t]) != null
+      );
+      if (referenceIndex < 0) return [];
+      const referenceEntry = entries[referenceIndex];
+      const referenceMetric = referenceEntry.metrics[t];
+      const data = entries.map((entry) => {
+        if (entryMode(entry) !== mode) return null;
+        const current = entry.metrics?.[t];
+        if (!current) return null;
+        if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric)) return null;
+        return pickValue(metric, current);
+      });
+      const latestIndex = data.findLastIndex((value) => value != null && Number.isFinite(value));
+      if (latestIndex < 0) return [];
+      const previousIndex = data.findLastIndex(
+        (value, index) => index < latestIndex && value != null && Number.isFinite(value),
+      );
+      return [{
+        mode,
+        data,
+        latestIndex,
+        latestValue: data[latestIndex],
+        previousValue: previousIndex >= 0 ? data[previousIndex] : null,
+      }];
     });
-    const finite = data.filter(v => v != null && Number.isFinite(v));
+    const finite = modeSeries.flatMap((series) =>
+      series.data.filter((value) => value != null && Number.isFinite(value))
+    );
     if (finite.length === 0) continue;
     const max = finite.length ? Math.max(...finite) : 0;
     const quietThreshold = KNOWN_METRICS[metric]?.quietThreshold ?? 1;
     if (hideQuiet && max < quietThreshold) continue;
 
-    const latestIndex = data.findLastIndex((value) => value != null && Number.isFinite(value));
-    const previousIndex = data.findLastIndex((value, index) => index < latestIndex && value != null && Number.isFinite(value));
-    const latestValue = data[latestIndex];
-    const previousValue = previousIndex >= 0 ? data[previousIndex] : null;
-    const delta = previousValue == null ? null : latestValue - previousValue;
-    const deltaText = delta == null
-      ? "no comparable predecessor"
-      : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+    const summaries = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
+      const deltaText = delta == null
+        ? "no predecessor"
+        : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}</span>`;
+    }).join("");
 
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — latest ${formatMetricValue(metric, latestValue)} · ${deltaText}</div><canvas></canvas>`;
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}</div><canvas></canvas>`;
     grid.appendChild(card);
     const ctx = card.querySelector("canvas").getContext("2d");
+
+    const datasets = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      return {
+        label: style.label,
+        data: series.data,
+        borderColor: style.color,
+        backgroundColor: style.fill,
+        pointBackgroundColor: style.color,
+        pointBorderColor: entries.map((_, index) => index === series.latestIndex ? "#f0f6fc" : style.color),
+        pointBorderWidth: entries.map((_, index) => index === series.latestIndex ? 2 : 0),
+        pointRadius: entries.map((_, index) => index === series.latestIndex ? 5 : 2.5),
+        tension: 0.2,
+        spanGaps: true,
+      };
+    });
 
     const chart = new Chart(ctx, {
       type: "line",
       data: {
         labels: xLabels,
-        datasets: [{
-          data,
-          borderColor: "#58a6ff",
-          backgroundColor: "rgba(88,166,255,0.15)",
-          pointBackgroundColor: entries.map((_, i) => i === latestIndex ? "#f85149" : "#58a6ff"),
-          pointRadius: entries.map((_, i) => i === latestIndex ? 4 : 2.5),
-          tension: 0.2,
-          spanGaps: true,
-        }],
+        datasets,
       },
       options: {
         animation: false,
         plugins: {
-          legend: { display: false },
+          legend: { display: datasets.length > 1, labels: { color: "#8b949e", font: { size: 10 }, boxWidth: 20 } },
           tooltip: {
             callbacks: {
               title: (items) => {
@@ -442,7 +492,7 @@ function buildCharts() {
                 const e = entries[i];
                 return `#${i + 1} ${e.label} [${entryMode(e)}]`;
               },
-              label: (item) => `${metricLabel(metric)}: ${formatMetricValue(metric, item.raw)}`,
+              label: (item) => `${item.dataset.label}: ${formatMetricValue(metric, item.raw)}`,
               afterLabel: (item) => {
                 const e = entries[item.dataIndex];
                 return `${(e.timestamp || "").slice(0, 10)} · ${e.gitSha || "?"} · runs:${e.runs ?? "?"}`;

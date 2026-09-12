@@ -31,6 +31,8 @@
   .card h3 { margin: 0; font-size: 13px; font-weight: 600; }
   .card .action-tag { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 10px; }
   .metric-summary { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+  .mode-summary { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; white-space: nowrap; }
+  .mode-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
   .metrics-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
   .metric-chip { font-size: 11px; padding: 2px 8px; border-radius: 12px; border: 1px solid; }
   .metric-chip.ok { color: var(--ok); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.08); }
@@ -117,6 +119,8 @@
       <option value="sampleCount">Samples across repetitions</option>
       <option value="requestedRatio">Requested result ratio</option>
       <option value="achievedRatio">Achieved result ratio</option>
+      <option value="anchorDriftPx">Anchor drift (px)</option>
+      <option value="anchorDriftRatio">Anchor drift (viewport ratio)</option>
       <option value="mapEntryCount">Position-map entries</option>
       <option value="matched_control_first_visible_ms">Matched control first visible (ms)</option>
       <option value="matched_control_settled_ms">Matched control settled (ms)</option>
@@ -138,7 +142,7 @@
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
   <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
   <label><input type="checkbox" id="showDiagnostics" /> background diagnostics</label>
-  <label><input type="checkbox" id="comparableOnly" checked /> comparable to latest</label>
+  <label><input type="checkbox" id="comparableOnly" checked /> comparable within each mode</label>
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
   <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
   <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
@@ -148,7 +152,7 @@
 <div id="grid" class="grid" hidden></div>
 <h2 id="diagnosticHeading" hidden style="padding:0 24px;">Background diagnostics <span style="font-size:12px;color:var(--muted);font-weight:normal;">not ranked against user-action targets</span></h2>
 <div id="diagnosticGrid" class="grid" hidden></div>
-<div class="legend" id="legend" hidden>Each sparkline point = one comparable audit run. Cards show the latest value and its delta from the preceding comparable run. Scenarios that never emit the selected metric are hidden. Uncheck "comparable to latest" to inspect legacy evidence across changed corpus, environment or scenario contracts. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
+<div class="legend" id="legend" hidden>Each checked mode is a separate line: direct ES is blue, media-api is amber, and legacy/unknown is gray. Larger outlined points are the latest value in each mode. Cards show each mode's delta from its own preceding comparable run. Uncheck "comparable within each mode" to inspect legacy evidence across changed corpus, environment or scenario contracts. The green dashed line is the target. <strong>"—" chips are by-design gaps</strong>: actions emit only the explicit phases they own.</div>
 
 <!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
 <script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
@@ -180,6 +184,11 @@ function entryMode(e) {
   const mode = e.environment?.dataMode;
   return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
 }
+const MODE_STYLES = {
+  "direct-es": { label: "direct ES", color: "#58a6ff", fill: "rgba(88,166,255,0.12)" },
+  "media-api": { label: "media-api", color: "#f2a65a", fill: "rgba(242,166,90,0.12)" },
+  unknown: { label: "legacy/unknown", color: "#8b949e", fill: "rgba(139,148,158,0.10)" },
+};
 function visibleModeSet() {
   return new Set([...document.querySelectorAll(".mode-filter:checked")].map((input) => input.value));
 }
@@ -213,6 +222,8 @@ const METRIC_LABELS = {
   sampleCount: "Samples across repetitions",
   requestedRatio: "Requested result ratio",
   achievedRatio: "Achieved result ratio",
+  anchorDriftPx: "Anchor drift (px)",
+  anchorDriftRatio: "Anchor drift (viewport ratio)",
   mapEntryCount: "Position-map entries",
   matched_control_first_visible_ms: "Matched control first visible (ms)",
   matched_control_settled_ms: "Matched control settled (ms)",
@@ -221,7 +232,8 @@ const METRIC_LABELS = {
 };
 
 function metricUnit(metric) {
-  if (["requestedRatio", "achievedRatio"].includes(metric)) return "";
+  if (["requestedRatio", "achievedRatio", "anchorDriftRatio"].includes(metric)) return "";
+  if (metric === "anchorDriftPx") return "px";
   if (["sampleCount", "mapEntryCount"].includes(metric)) return "";
   return "ms";
 }
@@ -293,6 +305,8 @@ const KNOWN_METRICS = new Set([
   "sampleCount",
   "requestedRatio",
   "achievedRatio",
+  "anchorDriftPx",
+  "anchorDriftRatio",
   "matched_control_first_visible_ms",
   "matched_control_first_visible_p95_ms",
   "matched_control_settled_ms",
@@ -302,7 +316,7 @@ const KNOWN_METRICS = new Set([
 // Non-numeric fields on each per-scenario record. Listed so the
 // unknown-metric scan can ignore them rather than warning.
 const NON_METRIC_FIELDS = new Set([
-  "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "anchorDriftPx", "anchorDriftRatio", "metricClass",
+  "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "metricClass",
   "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
   "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
 ]);
@@ -479,12 +493,40 @@ function render() {
   const gridEl = document.getElementById("grid");
   const diagnosticGridEl = document.getElementById("diagnosticGrid");
   const diagnosticHeading = document.getElementById("diagnosticHeading");
+  const selectedModes = [...visibleModeSet()];
   diagnosticGridEl.hidden = !showDiagnostics;
   diagnosticHeading.hidden = !showDiagnostics;
   // Create or update cards
   for (const id of allIds) {
-    const referenceIndex = entries.findLastIndex((entry) => entry.perceived?.[id]?.[currentMetric] != null);
-    if (referenceIndex < 0) {
+    const modeSeries = selectedModes.flatMap((mode) => {
+      const referenceIndex = entries.findLastIndex((entry) =>
+        entryMode(entry) === mode && Number.isFinite(entry.perceived?.[id]?.[currentMetric])
+      );
+      if (referenceIndex < 0) return [];
+      const referenceEntry = entries[referenceIndex];
+      const referenceMetric = referenceEntry.perceived[id];
+      const points = entries.map((entry) => {
+        if (entryMode(entry) !== mode) return null;
+        const metric = entry.perceived?.[id];
+        if (!metric) return null;
+        if (comparableOnly && !metricsComparable(entry, metric, referenceEntry, referenceMetric)) return null;
+        const value = metric[currentMetric];
+        return Number.isFinite(value) ? value : null;
+      });
+      const latestIndex = points.findLastIndex((point) => point != null);
+      if (latestIndex < 0) return [];
+      const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null);
+      return [{
+        mode,
+        points,
+        latestIndex,
+        latestValue: points[latestIndex],
+        previousValue: previousIndex >= 0 ? points[previousIndex] : null,
+        latestEntry: entries[latestIndex],
+        latestMetrics: entries[latestIndex].perceived[id],
+      }];
+    });
+    if (modeSeries.length === 0) {
       if (charts.has(id)) {
         charts.get(id).destroy();
         charts.delete(id);
@@ -492,8 +534,11 @@ function render() {
       document.getElementById(`card-${id}`)?.remove();
       continue;
     }
-    const latestScenarioEntry = entries[referenceIndex];
-    const latestMetrics = latestScenarioEntry.perceived[id];
+    const latestSeries = modeSeries.reduce((latest, series) =>
+      series.latestIndex > latest.latestIndex ? series : latest
+    );
+    const latestScenarioEntry = latestSeries.latestEntry;
+    const latestMetrics = latestSeries.latestMetrics;
     const action = latestMetrics?.action ?? id;
     const metricClass = latestMetrics?.metricClass
       ?? (id === "PP10" ? "background-diagnostic" : "user-action");
@@ -502,29 +547,14 @@ function render() {
       continue;
     }
 
-    // Collect sparkline data across entries
-    const points = entries.map((entry) => {
-      const metric = entry.perceived?.[id];
-      if (!metric) return null;
-      if (comparableOnly && !metricsComparable(entry, metric, latestScenarioEntry, latestMetrics)) return null;
-      return metric[currentMetric] ?? null;
-    });
-    if (points.every((point) => point == null)) {
-      if (charts.has(id)) {
-        charts.get(id).destroy();
-        charts.delete(id);
-      }
-      document.getElementById(`card-${id}`)?.remove();
-      continue;
-    }
-    const latestIndex = points.findLastIndex((point) => point != null && Number.isFinite(point));
-    const previousIndex = points.findLastIndex((point, index) => index < latestIndex && point != null && Number.isFinite(point));
-    const latestValue = points[latestIndex];
-    const previousValue = previousIndex >= 0 ? points[previousIndex] : null;
-    const delta = previousValue == null ? null : latestValue - previousValue;
-    const deltaText = delta == null
-      ? "no comparable predecessor"
-      : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
+    const summaries = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      const delta = series.previousValue == null ? null : series.latestValue - series.previousValue;
+      const deltaText = delta == null
+        ? "no predecessor"
+        : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
+    }).join("");
 
     // Get or create card
     let card = document.getElementById(`card-${id}`);
@@ -536,7 +566,6 @@ function render() {
     (metricClass === "background-diagnostic" ? diagnosticGridEl : gridEl).appendChild(card);
 
     const target = metricClass === "background-diagnostic" ? null : getTargetForAction(action, currentMetric);
-    const latest_val = latestMetrics ? latestMetrics[currentMetric] : null;
 
     // Chips for latest values
     const CHIP_METRICS = ["dt_ack_ms", "dt_store_ready_ms", "dt_first_visible_frame_ms", "dt_visual_settled_ms", "status_total_ms"];
@@ -553,7 +582,7 @@ function render() {
         <h3>${id}: ${latestMetrics?.label ?? id}</h3>
         <span class="action-tag">${action} · ${entryKind(latestScenarioEntry)} · ${entryMode(latestScenarioEntry)}${latestMetrics?.routes ? ` · ${latestMetrics.routes.join("+")}` : ""}</span>
       </div>
-      <div class="metric-summary">${METRIC_LABELS[currentMetric]} — latest ${formatMetricValue(currentMetric, latestValue)} · ${deltaText}</div>
+      <div class="metric-summary">${METRIC_LABELS[currentMetric]} — ${summaries}</div>
       <div class="metrics-row">${chipsHtml}</div>
       <canvas id="canvas-${id}"></canvas>
     `;
@@ -566,17 +595,22 @@ function render() {
       return `${e.gitSha}${e.gitDirty ? "*" : ""} (${d.toLocaleDateString()})`;
     });
 
-    const datasets = [{
-      label: METRIC_LABELS[currentMetric],
-      data: points,
-      borderColor: "#58a6ff",
-      backgroundColor: "rgba(88,166,255,0.15)",
-      pointRadius: entries.map((_, index) => index === latestIndex ? 4 : 3),
-      pointBackgroundColor: entries.map((_, index) => index === latestIndex ? "#f85149" : "#58a6ff"),
-      pointHoverRadius: 5,
-      tension: 0.2,
-      spanGaps: true,
-    }];
+    const datasets = modeSeries.map((series) => {
+      const style = MODE_STYLES[series.mode];
+      return {
+        label: style.label,
+        data: series.points,
+        borderColor: style.color,
+        backgroundColor: style.fill,
+        pointRadius: entries.map((_, index) => index === series.latestIndex ? 5 : 3),
+        pointBackgroundColor: style.color,
+        pointBorderColor: entries.map((_, index) => index === series.latestIndex ? "#f0f6fc" : style.color),
+        pointBorderWidth: entries.map((_, index) => index === series.latestIndex ? 2 : 0),
+        pointHoverRadius: 5,
+        tension: 0.2,
+        spanGaps: true,
+      };
+    });
 
     // Target line
     if (target != null) {
@@ -594,6 +628,7 @@ function render() {
       type: "line",
       data: { labels, datasets },
       options: {
+        animation: false,
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
