@@ -9,16 +9,21 @@ vi.mock("@/lib/image-urls", () => ({
 
 // Provide a minimal DOM Image constructor for Node environment.
 // The real Image is a browser global; we just need .src, .decode(), .onload.
-if (typeof globalThis.Image === "undefined") {
-  (globalThis as Record<string, unknown>).Image = class MockImage {
-    src = "";
-    onload: (() => void) | null = null;
-    onerror: (() => void) | null = null;
-    decode() {
-      return Promise.resolve();
-    }
-  };
+const mockImages: MockImage[] = [];
+class MockImage {
+  src = "";
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+
+  constructor() {
+    mockImages.push(this);
+  }
+
+  decode() {
+    return Promise.resolve();
+  }
 }
+(globalThis as Record<string, unknown>).Image = MockImage;
 
 import {
   computeCadence,
@@ -106,6 +111,7 @@ function makeResults(n: number): Image[] {
 describe("prefetchNearbyImages — session behaviour", () => {
   beforeEach(() => {
     __resetPrefetchForTests();
+    mockImages.length = 0;
   });
 
   it("opens a session on first call", () => {
@@ -143,6 +149,20 @@ describe("prefetchNearbyImages — session behaviour", () => {
     prefetchNearbyImages(15, results, "forward");
     const afterJump = getPrefetchStats();
     expect(afterJump.lastCancelledCount).toBeGreaterThan(0);
+  });
+
+  it("does not cancel the in-flight prefetch for the newly visible image", () => {
+    const results = makeResults(20);
+
+    prefetchNearbyImages(5, results, "forward");
+    const newlyVisiblePrefetch = mockImages.find(
+      (image) => image.src === "https://test/full/img-6",
+    );
+    expect(newlyVisiblePrefetch).toBeDefined();
+
+    prefetchNearbyImages(6, results, "forward");
+
+    expect(newlyVisiblePrefetch?.src).toBe("https://test/full/img-6");
   });
 
   it("does not re-issue requests for images already in-flight", () => {

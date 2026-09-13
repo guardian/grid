@@ -78,12 +78,16 @@ async function gotoPerfSearch(kupua: any, extraParams?: string) {
   await kupua.waitForResults();
 }
 
-function captureSuccessfulDataRoutes(kupua: any) {
+function captureSuccessfulDataRoutes(
+  kupua: any,
+  ownsPath: (path: string) => boolean = () => true,
+) {
   const routes = new Set<string>();
   let stopped = false;
   const onResponse = (response: any) => {
     if (!response.ok()) return;
     const path = new URL(response.url()).pathname;
+    if (!ownsPath(path)) return;
     if (path.startsWith("/api/")) routes.add("media-api");
     if (path.startsWith("/es/")) routes.add("direct-es");
   };
@@ -94,6 +98,9 @@ function captureSuccessfulDataRoutes(kupua: any) {
     return routes.size > 0 ? [...routes].sort() : ["client-only"];
   };
 }
+
+const isP18SelectionMetadataPath = (path: string) =>
+  path.startsWith("/es/") && path.endsWith("/_mget");
 
 // ---------------------------------------------------------------------------
 // Guard: per-test cluster checks live in the harness (run-audit.mjs probes
@@ -1817,7 +1824,13 @@ test.describe("Rendering Performance Smoke", () => {
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(300);
-    const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
+    // Selection metadata is still owned by ElasticsearchDataSource.getByIds
+    // in both app modes. Ignore unrelated /api responses that happen to
+    // complete during this window (for example delayed service discovery).
+    const finishRouteCapture = captureSuccessfulDataRoutes(
+      kupua,
+      isP18SelectionMetadataPath,
+    );
 
     let phases: any;
     let routes: string[] = ["client-only"];
@@ -1990,7 +2003,7 @@ test.describe("Rendering Performance Smoke", () => {
       rangeWalked: false,
       idleCallbackCount: 1,
     });
-    expect(routes).not.toEqual(["client-only"]);
+    expect(routes).toEqual(["direct-es"]);
     expect(phases.selectionPublishMs).not.toBeNull();
     expect(phases.metadataSettleMs).not.toBeNull();
     expect(phases.reconcileSettleMs).not.toBeNull();

@@ -82,10 +82,24 @@ node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 4
 # Terminal 1
 ./scripts/start.sh --use-media-api
 
-# Terminal 2 — every invocation includes the matching runner flag
-node e2e-perf/run-audit.mjs --use-media-api --short-perceived-only --dry-run --label "local-media-api sanity"
-node e2e-perf/run-audit.mjs --use-media-api --perceived-only --label "local-media-api baseline" --runs 4
+# Terminal 2 — required fast preflight before any recorded campaign
+node e2e-perf/run-audit.mjs P14d,P17,P18 --use-media-api --dry-run --runs 2 --label "media-api jank invariant preflight"
+node e2e-perf/run-audit.mjs --use-media-api --long-perceived-only --dry-run --runs 2 --label "media-api long invariant preflight"
+
+# Record only after both preflights pass
+node e2e-perf/run-audit.mjs --use-media-api --perceived --label "local-media-api baseline" --runs 4
 ```
+
+The two preflights take roughly two minutes total, write no history, and exercise
+the rapid-traversal landing plus cross-repetition contracts that previously failed
+only after a full run.
+The runner also aggregates after every repetition, so a future mismatch stops
+at the first failing pair rather than after all four repetitions.
+
+A transient proxy error for `/usage/quotas` is optional quota enrichment and
+degrades to absent data; it does not invalidate search/perceived scenarios that
+do not own quota behavior. Search-after, authentication, alias, or scenario-
+owned route failures still invalidate the campaign.
 
 `--dry-run` is the recommended first step whenever running the perceived suite
 on a new setup or after changing traced paths. It still runs Playwright; it
@@ -249,14 +263,16 @@ configuration, then restart media-api. The larger product fix is to establish on
 server-authoritative runtime-config path and fail loudly on alias-contract drift;
 the perf harness must not conceal that architecture gap.
 
-Run the long suite once as a dry preflight after media-api restarts. JA exercises
-returned alias metadata; JB exercises an alias-backed filter and indexed scrolling:
+The required two-run long preflight above also validates field aliases after a
+media-api restart. JA exercises returned alias metadata; JB exercises an alias-
+backed filter and indexed scrolling:
 
 ```bash
 node e2e-perf/run-audit.mjs \
   --use-media-api \
   --long-perceived-only \
   --dry-run \
+  --runs 2 \
   --label "media-api auth and alias preflight"
 ```
 
@@ -305,7 +321,7 @@ Tests fall into three categories. This matters for result stability:
 | Category | Tests | Single-run noise | Notes |
 |----------|-------|-------------------|-------|
 | **Client-only** | P4a, P4b, P5a/b/c, P7, P13a/b, P14a/b/c/d, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests inside the measured action. P7 preloads lazy distribution setup and excludes pointer release/seek. |
-| **Mixed** (client work triggered by ES response) | P2, P8, P17, P18 | **Medium** (±15%) | Scroll can trigger buffer requests; P18 hydrates 99 selected images before publishing reconciled Details. Jank spikes may correlate with response timing. |
+| **Mixed** (client work triggered by data response) | P2, P8, P17, P18 | **Medium** (±15%) | Scroll can trigger buffer requests. P18 hydrates 99 selected images through direct-ES `_mget` in both app modes; its route attribution deliberately ignores unrelated `/api` responses. Jank spikes may correlate with response timing. |
 | **ES-dominated** | P1, P3, P3b, P6, P9, P11, P11b | **High** (±20%+) | Test measures the full round-trip: ES query → response processing → render. SSH tunnel latency and cluster load dominate. |
 
 **Practical guidance:**

@@ -11,6 +11,7 @@ import {
   assertSameEnvironment,
   assertPlaywrightSucceeded,
   aggregateScenarioFields,
+  aggregateSettledTotal,
   createDeferredWrites,
   expectedJankMetricIds,
   expectedPerceivedMetricIds,
@@ -53,6 +54,13 @@ test("rejects unbalanced long audits before suite execution", () => {
   assert.doesNotThrow(() => assertBalancedLongRuns({ runLong: true, runs: 4, dryRun: false }));
   assert.doesNotThrow(() => assertBalancedLongRuns({ runLong: false, runs: 3, dryRun: false }));
   assert.doesNotThrow(() => assertBalancedLongRuns({ runLong: true, runs: 1, dryRun: true }));
+});
+
+test("P18 route ownership includes only the direct-ES selection metadata request", () => {
+  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  assert.match(source, /const isP18SelectionMetadataPath = \(path: string\) =>/);
+  assert.match(source, /path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)/);
+  assert.match(source, /captureSuccessfulDataRoutes\(\s*kupua,\s*isP18SelectionMetadataPath/);
 });
 
 test("rejects a malformed nonblank JSONL row with source and line", () => {
@@ -152,6 +160,37 @@ test("accepts exactly one row for every expected metric ID", () => {
   assert.equal(
     assertCompleteMetricIds(metrics, ["JB1", "JB2"], "perceived (long) run 3"),
     metrics,
+  );
+});
+
+test("allows bounded live-corpus total drift only in the seek regime", () => {
+  assert.deepEqual(
+    aggregateSettledTotal([
+      { settledTotal: 1_226_746, resultRegime: "seek" },
+      { settledTotal: 1_226_751, resultRegime: "seek" },
+    ], "JA3"),
+    { settledTotalMin: 1_226_746, settledTotalMax: 1_226_751 },
+  );
+  assert.deepEqual(
+    aggregateSettledTotal([
+      { settledTotal: 531, resultRegime: "buffer" },
+      { settledTotal: 531, resultRegime: "buffer" },
+    ], "JA1"),
+    { settledTotal: 531 },
+  );
+  assert.throws(
+    () => aggregateSettledTotal([
+      { settledTotal: 2_928, resultRegime: "indexed" },
+      { settledTotal: 2_929, resultRegime: "indexed" },
+    ], "JB3"),
+    /JB3 changed settledTotal.*2,?928.*2,?929/,
+  );
+  assert.throws(
+    () => aggregateSettledTotal([
+      { settledTotal: 1_000_000, resultRegime: "seek" },
+      { settledTotal: 999_000, resultRegime: "seek" },
+    ], "JA3"),
+    /JA3 seek settledTotal drift 1000 exceeds 100/,
   );
 });
 

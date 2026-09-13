@@ -14,6 +14,19 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 13 September 2026 — Preserve the visible traversal image request
+
+    Rapid P14d traversal intermittently committed all 20 image identities but left the final
+    full-resolution image unresolved for five seconds. The failed trace showed that the prefetch
+    session cancelled an adjacent image exactly when navigation made it visible; Chromium could
+    coalesce the centre image request with that cancelled request. Stale neighbours are still
+    cancelled, but the current visible image is now protected until its request settles.
+
+    A failing-first unit test reproduced the full URL being cleared on the next traversal step.
+    Validation passed 1,230 unit tests, the production build, four cold-cache embedded-browser
+    bursts, and four formal media-api P14d repetitions. Formal landing times were 262ms, 306ms,
+    316ms and 225ms. P14d is now part of the required fast media-api campaign preflight.
+
   ### 13 September 2026 — Make explicit Filters expansion immediate
 
   Explicitly activating Filters now skips only the 500ms aggregation debounce. Query changes,
@@ -39,6 +52,18 @@
   explicit app/runner mode pairing, and added embedded-browser measurement lessons. Pure harness
   validation passed 37/37, the production build passed, and direct-ES dry runs passed for P17,
   P18, and PP11. No runtime source behavior changed.
+
+  P18 route attribution was later narrowed to its owned selection-metadata `_mget` request. The
+  selection store still uses direct ES in both app modes; unrelated media-api responses completing
+  during the measured window no longer make repeated P18 route metadata disagree. Seek-regime
+  perceived totals now retain min/max across repetitions, while buffer/indexed totals remain exact;
+  this allows tiny live-TEST corpus drift without hiding a regime or bounded-corpus mismatch.
+
+  The runner now aggregates after every repetition and the README requires two short media-api
+  dry-run preflights (P14d/P17/P18 twice; long journeys twice) before a four-run campaign. Future
+  invariant failures stop at the first failing pair rather
+  than after the full campaign. Optional `/api/usage/quotas` DNS failure remains graceful-absence
+  noise and does not invalidate search-after scenarios.
 
   ### 12 September 2026 — Remove dead and stray Kupua code
 

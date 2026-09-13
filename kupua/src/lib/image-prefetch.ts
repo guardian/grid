@@ -288,7 +288,7 @@ export function prefetchNearbyImages(
   const desired = _buildDesiredSet(currentIndex, results, direction, isFastBurst);
 
   // Cancel in-flight requests that left the radius
-  _cancelLeftRadius(desired);
+  _cancelLeftRadius(desired, results[currentIndex]?.id);
 
   // Issue missing prefetches (thumbnails first on mobile, then full-res)
   _issueMissing(currentIndex, results, desired);
@@ -365,11 +365,14 @@ function _addIfExists(
  * Sets `img.src = ""` to abort the fetch (works on Chromium + WebKit;
  * on Firefox the request continues but the connection slot is freed).
  */
-function _cancelLeftRadius(desired: Map<string, DesiredEntry>): void {
+function _cancelLeftRadius(
+  desired: Map<string, DesiredEntry>,
+  visibleImageId?: string,
+): void {
   if (!_currentSession) return;
   let cancelled = 0;
   for (const [id, img] of _currentSession.inFlight) {
-    if (!desired.has(id)) {
+    if (!desired.has(id) && id !== visibleImageId) {
       img.src = "";
       _currentSession.inFlight.delete(id);
       cancelled++;
@@ -485,7 +488,7 @@ function _scheduleBurstEnd(
 
     // Recompute at full (stable) radius — not fast-burst
     const desired = _buildDesiredSet(currentIndex, results, direction, false);
-    _cancelLeftRadius(desired);
+    _cancelLeftRadius(desired, results[currentIndex]?.id);
     _issueMissing(currentIndex, results, desired);
   }, burstEndMs);
 }

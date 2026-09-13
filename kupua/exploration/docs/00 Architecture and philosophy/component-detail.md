@@ -95,7 +95,7 @@ Restores focus and scroll position when the image detail overlay closes (the oth
 
 ## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
-Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). EMA-smoothed cadence determines prefetch radius: fast bursts → narrow (i±1 + far lookahead); stable cadence → full radius. Post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests cancelled via `img.src = ""`. `fetchPriority` hints keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. All thresholds tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
+Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). EMA-smoothed cadence determines prefetch radius: fast bursts → narrow (i±1 + far lookahead); stable cadence → full radius. Post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests are cancelled via `img.src = ""`, except the newly visible image whose prefetch may be coalesced with the centre `<img>` request. `fetchPriority` hints keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. All thresholds tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
 
 ## Prepend Transform — DEAD CODE
 

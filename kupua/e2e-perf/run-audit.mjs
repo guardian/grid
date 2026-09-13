@@ -64,6 +64,7 @@ import {
   assertPlaywrightSucceeded,
   assertSameEnvironment,
   aggregateScenarioFields,
+  aggregateSettledTotal,
   createDeferredWrites,
   expectedJankMetricIds,
   expectedPerceivedMetricIds,
@@ -459,7 +460,7 @@ function aggregatePerceivedMetrics(allRunMetrics) {
       }
     }
     for (const field of [
-      "interactionId", "scenarioRevision", "settledTotal", "resultRegime", "matchedControlDesign",
+      "interactionId", "scenarioRevision", "resultRegime", "matchedControlDesign",
       "metricClass", "mapEntryCount",
       "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
       "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration",
@@ -467,17 +468,13 @@ function aggregatePerceivedMetrics(allRunMetrics) {
     ]) {
       const values = entries.map((entry) => entry[field]).filter((value) => value != null);
       if (values.length > 0) {
-        if (id === "PP1" && field === "settledTotal") {
-          agg.settledTotalMin = Math.min(...values);
-          agg.settledTotalMax = Math.max(...values);
-          continue;
-        }
         if (field !== "interactionId" && new Set(values.map((value) => JSON.stringify(value))).size !== 1) {
           throw new Error(`${id} changed ${field} across repetitions`);
         }
         if (field !== "interactionId") agg[field] = values[0];
       }
     }
+    Object.assign(agg, aggregateSettledTotal(entries, id));
     const routeValues = entries.map((entry) => entry.routes).filter(Boolean);
     if (routeValues.length > 0) {
       const routeFingerprints = new Set(routeValues.map((routes) => JSON.stringify(routes)));
@@ -604,6 +601,7 @@ async function runPerceivedKind(kind, git, baselineRttMs, historyWrites, history
     const m = readPerceivedTmp(kind, exitCode);
     assertCompleteMetricIds(m, expectedPerceivedMetricIds(kind, grepArg), `${kindLabel} run ${run}`);
     allRunMetrics.push(m);
+    aggregatePerceivedMetrics(allRunMetrics);
 
     if (runs > 1) {
       console.log(`  ${kindLabel} run ${run}: captured ${m.length} metric entries`);
@@ -1185,6 +1183,7 @@ async function main() {
     const metrics = readMetrics(exitCode);
     assertCompleteMetricIds(metrics, expectedJankIds, `jank run ${run}`);
     allRunMetrics.push(metrics);
+    aggregateMetrics(allRunMetrics);
 
     if (runs > 1) {
       console.log(`  Run ${run}: captured ${metrics.length} metric entries`);

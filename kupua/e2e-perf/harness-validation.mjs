@@ -118,6 +118,40 @@ export function assertCompleteMetricIds(metrics, expectedIds, runLabel) {
   return metrics;
 }
 
+export function aggregateSettledTotal(entries, scenarioId) {
+  const values = entries
+    .map((entry) => entry.settledTotal)
+    .filter((value) => value != null);
+  if (values.length === 0) return {};
+
+  const regimes = new Set(entries.map((entry) => entry.resultRegime).filter(Boolean));
+  if (regimes.size !== 1) {
+    throw new Error(`${scenarioId} changed resultRegime across repetitions`);
+  }
+
+  if (regimes.has("seek")) {
+    const minimum = Math.min(...values);
+    const maximum = Math.max(...values);
+    const tolerance = Math.max(100, Math.ceil(minimum * 0.0001));
+    if (maximum - minimum > tolerance) {
+      throw new Error(
+        `${scenarioId} seek settledTotal drift ${maximum - minimum} exceeds ${tolerance}: ${values.join(", ")}`,
+      );
+    }
+    return {
+      settledTotalMin: minimum,
+      settledTotalMax: maximum,
+    };
+  }
+
+  if (new Set(values).size !== 1) {
+    throw new Error(
+      `${scenarioId} changed settledTotal across repetitions: ${values.join(", ")}`,
+    );
+  }
+  return { settledTotal: values[0] };
+}
+
 const JANK_METRIC_MANIFEST = [
   ["P1: initial load", ["P1"]],
   ["P2: mousewheel scroll", ["P2"]],
