@@ -13,7 +13,6 @@
 
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchStore } from "@/stores/search-store";
-import { usePanelStore } from "@/stores/panel-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { FIELD_REGISTRY, type FieldDefinition } from "@/lib/field-registry";
@@ -63,7 +62,7 @@ export function AggCircuitBreaker() {
 
   return (
     <button
-      onClick={() => fetchAggregations(true)}
+      onClick={() => fetchAggregations("force")}
       className="text-grid-accent hover:underline cursor-pointer"
     >
       Refresh (slow)
@@ -76,12 +75,10 @@ export function AggCircuitBreaker() {
 // ---------------------------------------------------------------------------
 
 export function FacetFilters() {
-  const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
   const aggregations = useSearchStore((s) => s.aggregations);
   const tickerCounts = useSearchStore((s) => s.tickerCounts);
   const isFilterCounts = useSearchStore((s) => s.isFilterCounts);
   const usageFilterCounts = useSearchStore((s) => s.usageFilterCounts);
-  const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
   const total = useSearchStore((s) => s.total);
   const expandedAggs = useSearchStore((s) => s.expandedAggs);
   const expandedAggsLoading = useSearchStore((s) => s.expandedAggsLoading);
@@ -135,15 +132,6 @@ export function FacetFilters() {
       scroller.scrollTop += drift;
     }
   }, [aggregations]);
-
-  // Fetch aggregations when Filters section is expanded and cache is stale.
-  // Also re-fetches when search params change (total is a cheap proxy —
-  // it changes on every new search).
-  useEffect(() => {
-    if (filtersExpanded) {
-      fetchAggregations();
-    }
-  }, [filtersExpanded, fetchAggregations, total, currentQuery]);
 
   const handleFacetClick = useCallback(
     (fieldPath: string, cqlKey: string, value: string, bucketKey: string, e: React.MouseEvent) => {

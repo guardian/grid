@@ -36,6 +36,7 @@ import { UsagesSection, MultiUsagesSummary } from "@/components/UsagesSection";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
+import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
@@ -88,8 +89,47 @@ function SearchPage() {
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const bufferLength = useSearchStore((s) => s.results.length);
   const loading = useSearchStore((s) => s.loading);
+  const searchError = useSearchStore((s) => s.error);
+  const searchParams = useSearchStore((s) => s.params);
   const seek = useSearchStore((s) => s.seek);
   const visibleRange = useVisibleRange();
+  const leftPanelVisible = usePanelStore((s) => s.config.left.visible);
+  const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
+  const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
+  const filtersActive = leftPanelVisible && filtersExpanded;
+  const previousFiltersActiveRef = useRef(filtersActive);
+  const previousSearchParamsRef = useRef(searchParams);
+  const pendingAggregationModeRef = useRef<"debounced" | "immediate" | null>(
+    filtersActive ? "debounced" : null,
+  );
+
+  // A hidden/collapsed → visible/expanded transition is an unambiguous
+  // request for facets, so skip only the aggregation debounce. Query changes
+  // while Filters remains active retain trailing-edge debounce protection.
+  // Initial persisted-open state is also debounced.
+  useEffect(() => {
+    const wasActive = previousFiltersActiveRef.current;
+    const contextChanged = previousSearchParamsRef.current !== searchParams;
+    previousFiltersActiveRef.current = filtersActive;
+    previousSearchParamsRef.current = searchParams;
+
+    if (!filtersActive) {
+      pendingAggregationModeRef.current = null;
+      return;
+    }
+
+    if (!wasActive) {
+      pendingAggregationModeRef.current = "immediate";
+    } else if (contextChanged && pendingAggregationModeRef.current !== "immediate") {
+      pendingAggregationModeRef.current = "debounced";
+    }
+    if (loading || searchError) return;
+
+    const mode = pendingAggregationModeRef.current;
+    if (!mode) return;
+    pendingAggregationModeRef.current = null;
+    void fetchAggregations(mode);
+  }, [filtersActive, fetchAggregations, loading, searchError, searchParams]);
 
   // Position map state — drives the scrubber's tristate mode signal.
   // When non-null, the scrubber enters 'indexed' mode (fast seek via map).

@@ -299,6 +299,31 @@ test.describe("Panel toggles", () => {
     await expect(rightSeparator).not.toBeVisible();
   });
 
+  test("explicit Filters expansion requests aggregations immediately", async ({ kupua }) => {
+    await kupua.goto();
+
+    await kupua.page.evaluate(() => {
+      const globalObject = window as any;
+      const store = globalObject.__kupua_store__;
+      const original = store.getState().fetchAggregations;
+      globalObject.__aggregationFetchModes__ = [];
+      store.setState({
+        fetchAggregations: async (mode?: "debounced" | "immediate" | "force") => {
+          globalObject.__aggregationFetchModes__.push(mode ?? "debounced");
+          if (mode === "immediate") return;
+          return original(mode);
+        },
+      });
+    });
+
+    await kupua.page.locator('button[aria-label*="Browse panel"]').click();
+    await kupua.page.getByRole("button", { name: "Filters", exact: true }).click();
+
+    await expect.poll(() => kupua.page.evaluate(
+      () => (window as any).__aggregationFetchModes__,
+    )).toEqual(["immediate"]);
+  });
+
   // ---------------------------------------------------------------------
   // Regression (2026-08-01): repeated panel toggles without explicit focus
   // used to progressively shift the grid viewport — see

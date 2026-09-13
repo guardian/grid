@@ -116,6 +116,10 @@ beforeEach(() => {
     _prependGeneration: 0,
     _seekGeneration: 0,
     _seekTargetLocalIndex: -1,
+    aggregations: null,
+    aggLoading: false,
+    aggCircuitOpen: false,
+    _aggCacheKey: null,
     params: {
       query: undefined,
       offset: 0,
@@ -2154,6 +2158,140 @@ describe("restoreAroundCursor", () => {
 // ---------------------------------------------------------------------------
 
 describe("fetchAggregations", () => {
+  it("immediate skips only the debounce and still honours the circuit breaker and cache", async () => {
+    mock = new MockDataSource(500);
+    const getAggregations = vi.spyOn(mock, "getAggregations");
+    useSearchStore.setState({
+      dataSource: mock,
+      aggCircuitOpen: true,
+      _aggCacheKey: null,
+    });
+
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).not.toHaveBeenCalled();
+
+    useSearchStore.setState({ aggCircuitOpen: false });
+    const immediate = actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+    await immediate;
+
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+  });
+
+  it("ordinary calls remain a trailing-edge debounce", async () => {
+    vi.useFakeTimers();
+    try {
+      mock = new MockDataSource(500);
+      const getAggregations = vi.spyOn(mock, "getAggregations");
+      useSearchStore.setState({
+        dataSource: mock,
+        aggCircuitOpen: false,
+        _aggCacheKey: null,
+      });
+
+      const first = actions().fetchAggregations();
+      await vi.advanceTimersByTimeAsync(250);
+      const second = actions().fetchAggregations();
+      await Promise.resolve();
+      expect(getAggregations).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(499);
+      expect(getAggregations).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await Promise.all([first, second]);
+      expect(getAggregations).toHaveBeenCalledTimes(1);
+    } finally {
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+    }
+  });
+
+  it("a cached context cancels a different in-flight aggregation before it can publish", async () => {
+    mock = new MockDataSource(500);
+    let resolveSlow!: () => void;
+    const slowBarrier = new Promise<void>((resolve) => { resolveSlow = resolve; });
+    const original = mock.getAggregations.bind(mock);
+    let calls = 0;
+    mock.getAggregations = async (...args: Parameters<typeof mock.getAggregations>) => {
+      calls++;
+      if (calls === 2) await slowBarrier; // Ignore abort deliberately; generation must guard publish.
+      return original(...args);
+    };
+    useSearchStore.setState({ dataSource: mock });
+
+    await actions().fetchAggregations("immediate"); // Cache context A.
+    const cachedA = state().aggregations;
+
+    actions().setParams({ query: "context-b" });
+    const slowB = actions().fetchAggregations("immediate");
+    await flush();
+
+    actions().setParams({ query: undefined });
+    await actions().fetchAggregations("immediate"); // Cache hit for A must still cancel B.
+    resolveSlow();
+    await slowB;
+
+    expect(state().aggregations).toBe(cachedA);
+    expect(state()._aggCacheKey).not.toContain("context-b");
+  });
+
+  it("AI aggregation cache is keyed by the settled result IDs", async () => {
+    mock = new MockDataSource(500);
+    const getAggregations = vi.spyOn(mock, "getAggregations");
+    const initialHits = (await mock.searchRange({ offset: 0, length: 4 })).hits;
+    useSearchStore.setState({
+      dataSource: mock,
+      params: { ...state().params, aiQuery: "mountains", useAISearch: "true" },
+      results: initialHits.slice(0, 2),
+    });
+
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+    expect(getAggregations.mock.calls[0][0].ids).toBe("img-0,img-1");
+
+    useSearchStore.setState({ results: initialHits.slice(0, 2).reverse() });
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+
+    useSearchStore.setState({ results: initialHits.slice(2, 4) });
+    await actions().fetchAggregations("immediate");
+    expect(getAggregations).toHaveBeenCalledTimes(2);
+    expect(getAggregations.mock.calls[1][0].ids).toBe("img-2,img-3");
+  });
+
+  it("does not schedule automatic aggregations while search results are loading", async () => {
+    mock = new MockDataSource(500);
+    const getAggregations = vi.spyOn(mock, "getAggregations");
+    useSearchStore.setState({ dataSource: mock, loading: true });
+
+    await actions().fetchAggregations("immediate");
+    await actions().fetchAggregations("debounced");
+
+    expect(getAggregations).not.toHaveBeenCalled();
+  });
+
+  it("does not start a debounced aggregation if loading begins before the timer expires", async () => {
+    vi.useFakeTimers();
+    try {
+      mock = new MockDataSource(500);
+      const getAggregations = vi.spyOn(mock, "getAggregations");
+      useSearchStore.setState({ dataSource: mock, loading: false });
+
+      const pending = actions().fetchAggregations("debounced");
+      await vi.advanceTimersByTimeAsync(499);
+      useSearchStore.setState({ loading: true });
+      await vi.advanceTimersByTimeAsync(1);
+      await pending;
+
+      expect(getAggregations).not.toHaveBeenCalled();
+    } finally {
+      await vi.runOnlyPendingTimersAsync();
+      vi.useRealTimers();
+    }
+  });
+
   it("second call during debounce does not leave first promise hanging", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
@@ -2179,16 +2317,18 @@ describe("fetchAggregations", () => {
     expect(result).toBe("resolved");
   });
 
-  it("force=true bypasses debounce entirely", async () => {
+  it("force mode bypasses debounce entirely", async () => {
     mock = new MockDataSource(500);
     useSearchStore.setState({ dataSource: mock });
 
     await actions().search();
     await flush();
 
-    // force=true should skip debounce and complete quickly
-    await actions().fetchAggregations(true);
-    // No hang — if we get here, the promise resolved
+    // Force should skip debounce and complete quickly.
+    const getAggregations = vi.spyOn(mock, "getAggregations");
+    const forced = actions().fetchAggregations("force");
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+    await forced;
     expect(state().aggLoading).toBe(false);
   });
 
@@ -2234,7 +2374,7 @@ describe("fetchAggregations", () => {
       },
     });
 
-    await actions().fetchAggregations(true);
+    await actions().fetchAggregations("force");
 
     expect(state().dynamicFacetBuckets["fileMetadata.xmp.dc:creator"]).toEqual([
       { key: "Jane Doe", count: 2 },

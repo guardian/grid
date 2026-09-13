@@ -497,7 +497,7 @@ interface SearchState {
    * On failure (image deleted), clears focus.
    */
   seekToFocused: () => Promise<void>;
-  fetchAggregations: (force?: boolean) => Promise<void>;
+  fetchAggregations: (mode?: "debounced" | "immediate" | "force") => Promise<void>;
   fetchExpandedAgg: (field: string) => Promise<void>;
   collapseExpandedAgg: (field: string) => void;
   /**
@@ -626,11 +626,14 @@ export function clearSuppressRestore(): void { _suppressRestore = false; }
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Resolve function for the pending debounce promise (prevents zombie leak). */
-let _aggDebouncedResolve: (() => void) | null = null;
+/** Resolve function for the pending debounce promise (false = superseded). */
+let _aggDebouncedResolve: ((shouldRun: boolean) => void) | null = null;
 
 /** Abort controller for the current aggregation request. */
 let _aggAbortController: AbortController | null = null;
+
+/** Monotonic guard preventing stale aggregation requests from publishing. */
+let _aggRequestGeneration = 0;
 
 /** Abort controller for in-flight expanded aggregation requests. */
 let _expandedAggAbortController: AbortController | null = null;
@@ -654,14 +657,41 @@ let _positionMapAbortController: AbortController | null = null;
  * or display params. This way, scrolling doesn't invalidate the agg cache.
  */
 function aggCacheKey(params: SearchParams): string {
-  const { query, nonFree, since, until, takenSince, takenUntil,
+  const { query, aiQuery, useAISearch, vecWeight, nonFree, payType,
+    since, until, dateField, takenSince, takenUntil,
     modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
     hasRightsAcquired, syndicationStatus, persisted } = params;
   return JSON.stringify({
-    query, nonFree, since, until, takenSince, takenUntil,
+    query, aiQuery, useAISearch, vecWeight, nonFree, payType,
+    since, until, dateField, takenSince, takenUntil,
     modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
     hasRightsAcquired, syndicationStatus, persisted,
   });
+}
+
+function aggregationParams(get: () => SearchState): SearchParams {
+  return decorateParamsForAggregations(
+    frozenParams(get().params, get),
+    get().results.map((image) => image?.id).filter(Boolean) as string[],
+  );
+}
+
+function cancelAggregationFetch(): number {
+  if (_aggDebounceTimer) {
+    clearTimeout(_aggDebounceTimer);
+    _aggDebounceTimer = null;
+  }
+  if (_aggDebouncedResolve) {
+    const resolveSuperseded = _aggDebouncedResolve;
+    _aggDebouncedResolve = null;
+    resolveSuperseded(false);
+  }
+  if (_aggAbortController) {
+    _aggAbortController.abort();
+    _aggAbortController = null;
+  }
+  _aggRequestGeneration += 1;
+  return _aggRequestGeneration;
 }
 
 /**
@@ -2039,6 +2069,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
     if (_expandedAggAbortController) _expandedAggAbortController.abort();
     if (_positionMapAbortController) _positionMapAbortController.abort();
+    cancelAggregationFetch();
 
     // Clear extend-in-flight flags — the abort above cancels any in-flight
     // extends or scroll-mode fill from the previous search. Without this,
@@ -2046,6 +2077,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // stuck at true, blocking sort-around-focus and future extends.
     set({
       _extendForwardInFlight: false, _extendBackwardInFlight: false,
+      aggLoading: false,
       sortDistribution: null, _sortDistCacheKey: null,
       nullZoneDistribution: null, _nullZoneDistCacheKey: null,
       positionMap: null, positionMapLoading: false,
@@ -3882,40 +3914,40 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     });
   },
 
-  fetchAggregations: async (force) => {
-    const { dataSource, aggCircuitOpen, _aggCacheKey } = get();
+  fetchAggregations: async (mode = "debounced") => {
+    const { dataSource } = get();
+    const force = mode === "force";
+    if (!force && (get().loading || get().error)) return;
+    const requestGeneration = cancelAggregationFetch();
+    if (get().aggLoading) set({ aggLoading: false });
 
-    const params = frozenParams(get().params, get);
-    const key = aggCacheKey(params);
-    if (!force && key === _aggCacheKey) return;
-    if (!force && aggCircuitOpen) return;
+    let callParams = aggregationParams(get);
+    let key = aggCacheKey(callParams);
+    if (!force && key === get()._aggCacheKey) return;
+    if (!force && get().aggCircuitOpen) return;
 
-    if (_aggDebouncedResolve) _aggDebouncedResolve();
-    if (_aggDebounceTimer) clearTimeout(_aggDebounceTimer);
-    if (_aggAbortController) _aggAbortController.abort();
-
-    if (!force) {
-      await new Promise<void>((resolve) => {
+    if (mode === "debounced") {
+      const shouldRun = await new Promise<boolean>((resolve) => {
         _aggDebouncedResolve = resolve;
         _aggDebounceTimer = setTimeout(() => {
+          _aggDebounceTimer = null;
           _aggDebouncedResolve = null;
-          resolve();
+          resolve(true);
         }, AGG_DEBOUNCE_MS);
       });
+      if (!shouldRun) return;
+      if (requestGeneration !== _aggRequestGeneration) return;
+      if (get().loading || get().error) return;
     }
 
-    // Re-check after debounce — params may have changed while waiting
-    const currentKey = aggCacheKey(frozenParams(get().params, get));
-    if (!force && currentKey === get()._aggCacheKey) return;
+    // Recompute after debounce — params/results may have changed while waiting.
+    callParams = aggregationParams(get);
+    key = aggCacheKey(callParams);
+    if (!force && key === get()._aggCacheKey) return;
+    if (!force && get().aggCircuitOpen) return;
 
-    // Snapshot params for the actual ES call — use these consistently
-    // for the request AND the cache key stored with the result.
-    const callParams = decorateParamsForAggregations(
-      frozenParams(get().params, get),
-      get().results.map((img) => img?.id).filter(Boolean) as string[],
-    );
-
-    _aggAbortController = new AbortController();
+    const controller = new AbortController();
+    _aggAbortController = controller;
     set({ aggLoading: true });
 
     const startTime = performance.now();
@@ -3947,12 +3979,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       );
 
       const [result, dynamicEntries] = await Promise.all([
-        dataSource.getAggregations(callParams, AGG_FIELDS, _aggAbortController.signal, isFilterRequests, usageFilterRequests),
+        dataSource.getAggregations(callParams, AGG_FIELDS, controller.signal, isFilterRequests, usageFilterRequests),
         // Isolated, one field per request — never merged into the batch above.
         // A non-aggregatable has: target must not take down the static facets.
         Promise.all(dynamicFields.map(async ({ esPath }) => {
           const buckets = await isolateAggregationFailure(
-            async () => (await dataSource.getAggregations(callParams, [{ field: esPath, size: AGG_DEFAULT_SIZE }], _aggAbortController!.signal)).fields[esPath]?.buckets,
+            async () => (await dataSource.getAggregations(callParams, [{ field: esPath, size: AGG_DEFAULT_SIZE }], controller.signal)).fields[esPath]?.buckets,
             undefined,
           );
           return [esPath, buckets] as const;
@@ -3966,13 +3998,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       const elapsed = performance.now() - startTime;
 
+      if (requestGeneration !== _aggRequestGeneration || controller.signal.aborted) return;
+
       set({
         aggregations: result,
         dynamicFacetBuckets,
         aggTook: result.took ?? null,
         aggFetchDuration: result.fetchDuration ?? null,
         aggLoading: false,
-        _aggCacheKey: aggCacheKey(callParams),
+        _aggCacheKey: key,
         aggCircuitOpen: elapsed > AGG_CIRCUIT_BREAKER_MS,
         expandedAggs: {},
         expandedAggsLoading: new Set(),
@@ -3980,11 +4014,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         usageFilterCounts: result.usageFilters ?? null,
       });
     } catch (e) {
+      if (requestGeneration !== _aggRequestGeneration) return;
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ aggLoading: false });
         return;
       }
       set({ aggLoading: false });
+    } finally {
+      if (requestGeneration === _aggRequestGeneration) {
+        _aggAbortController = null;
+      }
     }
   },
 

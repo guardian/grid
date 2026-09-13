@@ -20,6 +20,8 @@ export function decorateParamsForAggregations(
   if (!params.aiQuery) return params;
   return {
     ...params,
-    ids: resultIds.join(","),
+    // Facet aggregations are set-based. Keep the scope stable when the same
+    // AI result set is re-sorted in memory.
+    ids: [...resultIds].sort().join(","),
   };
 }

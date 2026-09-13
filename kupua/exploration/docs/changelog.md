@@ -14,6 +14,20 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 13 September 2026 — Make explicit Filters expansion immediate
+
+  Explicitly activating Filters now skips only the 500ms aggregation debounce. Query changes,
+  hover prefetch and initial persisted-open state remain trailing-edge debounced; query-keyed cache,
+  batching, cancellation and the circuit breaker are unchanged. Manual “Refresh (slow)” retains a
+  separate force intent. No loading UI or other presentation change was added.
+
+  Failing-first tests cover immediate/cache/breaker behavior, stale publication, AI scope and true
+  debounce supersession; a real Playwright interaction covers Browse→Filters activation. SearchPage
+  observes only the store params object identity; query-field semantics and cache keys remain owned
+  by the store, with no React-side field enumeration or serialization. Validation passed 1,229 unit tests,
+  207 habitual Playwright tests and the production build. Progressive detail loading was separately
+  deferred indefinitely by product decision.
+
   ### 13 September 2026 — Extend performance measurement coverage
 
   Added maintained owners for reverse/prepend jank (P17), 100-image selection Details rendering
