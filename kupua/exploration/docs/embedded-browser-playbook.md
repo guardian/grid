@@ -361,6 +361,17 @@ survives reload correctly, including mid-detail reload.** Confirmed via
 `location.href` and `store.focusedImageId` both reflecting the detail image
 after a fresh reload.
 
+**[V] P14d geometry can be attributed without retaining image identity.** On
+13 September 2026, use the pinned perf URL, resolve the start image and next 20
+IDs inside `page.evaluate`, open rank 3, then issue 20 real `ArrowRight` presses
+at 80ms while observing layout shifts and rounded rectangles for the detail
+surface, image container, current image, header and sidebar. Return only counts,
+timings and geometry. In three foregrounded direct-ES repetitions all 20 commits
+completed in 1601-1640ms, each had zero unexpected shifts and 19 shifts excluded
+for recent input. One uncached landing loaded 350ms after final commit with every
+measured rectangle unchanged from commit to load. This distinguishes intrinsic
+image-box changes from surrounding layout movement without persisting IDs or URLs.
+
 **[V] A synthetic `el.scrollTop = N` assignment needs ≥800ms before the anchor
 is "settled" for cross-view-mode preservation (density switch, panel toggle) —
 do not trust a 150–300ms wait here.** This bit a whole mission in the
@@ -790,6 +801,19 @@ that result proves neither absence nor latency. Arm a MutationObserver/request
 recorder before the first key, type only a short distinguishing prefix, and stop
 at first visible option if suggestion latency is the question.
 
+**[V] CQL value options are `.Cql__Option`, not `[role="option"]` (2026-09-13).**
+The `@guardian/cql` popover does not assign option roles. Use
+`.Cql__Option:not(.Cql__Typeahead--pending)` for the first actionable item and
+`.Cql__TypeaheadPopover` for popup visibility. To isolate typeahead traffic from
+later search aggregation refreshes, require a POST body with `size === 0` and
+exactly one top-level aggregation key matching the field under test.
+
+**[V] Full-reload after editing `CqlSearchInput` before live probing (2026-09-13).**
+Vite HMR resets the module-local registration flag while the page retains the
+`cql-input` custom element, causing a duplicate-registration error on remount. A
+full page reload creates a clean registry; this is development HMR state, not
+product behavior.
+
 **[V] `page.setViewportSize({ width, height })` works directly for resize
 testing (M3) — no special handling needed.** Confirmed against the live TEST
 app: resizing mid-fetch (immediately after firing `store.seek()` or a large
@@ -938,6 +962,31 @@ virtualizer window.** On a cache-cleared pinned Home load, all 19 rendered and
 overscan thumbnail requests started within roughly 1ms. Measure request starts
 before proposing eager loading or priority changes; browser lazy-load distance
 can already classify every rendered virtual row as eligible.
+
+**[V] A production React preview against the running TEST app needs the discovered
+build-time index alias and image settings.** A plain `npm run build` used the default `images`
+index and returned 400s even though the preview proxy targeted the correct TEST tunnel. A build
+with only the alias still rendered real data cells but took the explicit `No thumbnail` branch,
+which is not representative for render attribution. Inherit the running app's `VITE_ES_INDEX`
+and `VITE_IMAGE_BUCKET` privately at build time, set `VITE_ES_IS_LOCAL=false`,
+`VITE_S3_PROXY_ENABLED=true` and `VITE_IMGPROXY_ENABLED=true`,
+then serve the production assets on a separate port. Forward `/es`, `/s3`, `/imgproxy`
+and `/api` to the already-running guarded Vite app on `:3000`; after an initial transient
+502, a reload produced the real pinned corpus while `window.__kupua_store__` remained
+absent, confirming DEV code was removed. Never print or write the discovered alias.
+
+**[V] P17's exact development cascade can be attributed without persisting a trace.** Wrap
+`fetch` in-page, subscribe to the DEV store, and observe LoAF, rAF, mutations and grid scrolls;
+return only route classes, aggregate timings/counts and geometry. Wait for the actual
+`_prependGeneration` delta, not a count of `_search` resources: unrelated background searches can
+share that path. In the exact two-generation run, generation 2 entered before generation 1's
+compensated scroll event, isolating the buffer-change `handleScroll()` re-fire as the admission
+point. Always restore `window.fetch`, unsubscribe, disconnect observers and remove the probe.
+
+**[V] Opening Details changes P18 grid geometry.** At the measured desktop viewport the
+closed panel had three columns, but opening Details reduced it to two. Result 99 is then
+the right cell of row 49, not row 33. Re-read live grid geometry after panel activation;
+otherwise a target-readiness predicate can wait forever before any probe is armed.
 
 **[F] Integrated-browser `browserContext.storageState()` may be unavailable.**
 In this VS Code browser backend it failed with an unsupported

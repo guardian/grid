@@ -14,6 +14,24 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 13 September 2026 — Cancel superseded registered-field typeahead requests
+
+    Registered CQL value resolvers now propagate `LazyTypeahead`'s existing
+    `AbortSignal` through the CQL wrapper, field definitions and scoped aggregation
+    helper to `ImageDataSource.getAggregations`. Rapid prefix edits cancel obsolete ES
+    work; local key suggestions, cached/static values, dotted-field cancellation,
+    exact keyword search semantics and popup behavior are unchanged. Abort remains
+    normal supersession with no warning, toast or stale replacement.
+
+    A failing-first controlled-DAL test proved the pre-fix signal was absent. Post-fix
+    it observes the superseded request abort, rejects the stale result, preserves the
+    immediate key option and publishes only the newest value options. Focused typeahead
+    tests passed 12/12, full units 1,231/1,231 and habitual Playwright 207/207. Live TEST
+    `+keyword:foot` produced six isolated typeahead requests: five `net::ERR_ABORTED`
+    and one completion, with the current options still visible. One unmatched post-fix
+    sample reached actionable options in 571ms versus the earlier 434ms baseline, so
+    no latency improvement or regression is claimed.
+
   ### 13 September 2026 — Preserve the visible traversal image request
 
     Rapid P14d traversal intermittently committed all 20 image identities but left the final

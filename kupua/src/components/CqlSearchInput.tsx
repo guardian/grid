@@ -188,10 +188,10 @@ export function CqlSearchInput({
     );
     const fields = fieldDefs.map(({ fieldName, resolver }) => {
       const cqlResolver = resolver
-        ? async (_fieldName: string) => {
+        ? async (_fieldName: string, signal?: AbortSignal) => {
             const suggestions = Array.isArray(resolver)
               ? resolver
-              : await resolver(_fieldName);
+              : await resolver(_fieldName, signal);
             return suggestions.map((s) =>
               typeof s === "string"
                 ? { label: undefined as undefined, value: s }

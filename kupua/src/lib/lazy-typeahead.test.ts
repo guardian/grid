@@ -1,6 +1,9 @@
 import { createParser, TypeaheadField } from "@guardian/cql";
+import type { AggregationRequest, AggregationsResult, SearchParams } from "@/dal";
+import { MockDataSource } from "@/dal/mock-data-source";
 import { describe, expect, it } from "vitest";
 import { LazyTypeahead } from "./lazy-typeahead";
+import { buildTypeaheadFields } from "./typeahead-fields";
 
 const parser = createParser({ shortcuts: { "#": "label", "~": "collection" } });
 
@@ -88,5 +91,74 @@ describe("LazyTypeahead — live query ref", () => {
     const suggestions = await typeahead.getSuggestions(queryAst);
 
     expect(suggestions.some((s) => s.suggestions.some((opt) => opt.value === "Reuters"))).toBe(true);
+  });
+
+  it("aborts a superseded registered-field aggregation and cannot publish its stale options", async () => {
+    type PendingRequest = {
+      signal: AbortSignal | undefined;
+      resolve: (result: AggregationsResult) => void;
+    };
+    const requests: PendingRequest[] = [];
+
+    class ControlledDataSource extends MockDataSource {
+      override async getAggregations(
+        _params: SearchParams,
+        _fields: AggregationRequest[],
+        signal?: AbortSignal,
+      ): Promise<AggregationsResult> {
+        return new Promise((resolve, reject) => {
+          requests.push({ signal, resolve });
+          signal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      }
+    }
+
+    const fieldDefs = buildTypeaheadFields(new ControlledDataSource(10), undefined, () => ({}));
+    const keywordDef = fieldDefs.find((field) => field.fieldName === "keyword");
+    if (!keywordDef || !keywordDef.resolver || Array.isArray(keywordDef.resolver)) {
+      throw new Error("Expected registered keyword resolver");
+    }
+    const field = new TypeaheadField(
+      "keyword",
+      "keyword",
+      "",
+      async (value, signal) => (await keywordDef.resolver!(value, signal)).map((suggestion) => ({
+        label: suggestion.label,
+        value: suggestion.value,
+      })),
+      "TEXT",
+    );
+    const typeahead = new LazyTypeahead([field]);
+
+    const staleSuggestions = typeahead.getSuggestions(parseOrThrow("keyword:f"));
+    const staleRejection = expect(staleSuggestions).rejects.toMatchObject({ name: "AbortError" });
+    expect(requests).toHaveLength(1);
+
+    const currentSuggestions = typeahead.getSuggestions(parseOrThrow("keyword:fo"));
+    expect(requests).toHaveLength(2);
+    expect(requests[0].signal?.aborted).toBe(true);
+
+    requests[1].resolve({
+      fields: {
+        "metadata.keywords": {
+          buckets: [{ key: "football", count: 10 }],
+          total: 10,
+        },
+      },
+    });
+    await staleRejection;
+    const suggestions = await currentSuggestions;
+    expect(suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        position: "chipKey",
+        suggestions: [expect.objectContaining({ value: "keyword" })],
+      }),
+      expect.objectContaining({
+        position: "chipValue",
+        suggestions: [expect.objectContaining({ value: "football" })],
+      }),
+    ]));
   });
 });

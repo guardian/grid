@@ -48,7 +48,7 @@ type LabelledSuggestion = Omit<TypeaheadSuggestion, "label"> & { label: string |
 
 export interface TypeaheadFieldDef {
   fieldName: string;
-  resolver?: ((value: string) => Promise<TypeaheadSuggestion[]>) | string[];
+  resolver?: ((value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]>) | string[];
   /** If false, the field won't appear in key suggestions but its value
    *  resolver still fires when the user types the key manually.
    *  Defaults to true when omitted. */
@@ -199,7 +199,12 @@ export function buildTypeaheadFields(
    *  provided and the query contains that field, the field's chip expression
    *  is stripped before querying — so editing `credit:X` shows ALL credits
    *  (still scoped by other filters) rather than only X. */
-  async function scopedAgg(field: string, size: number = 50, cqlKey?: string): Promise<AggregationResult> {
+  async function scopedAgg(
+    field: string,
+    size: number = 50,
+    cqlKey?: string,
+    signal?: AbortSignal,
+  ): Promise<AggregationResult> {
     const params = getParams?.();
     return isolateAggregationFailure(async () => {
       if (params) {
@@ -208,7 +213,7 @@ export function buildTypeaheadFields(
           const stripped = stripFieldFromQuery(cqlKey, params.query);
           adjustedParams = { ...params, query: stripped || undefined };
         }
-        const result = await dataSource.getAggregations(adjustedParams, [{ field, size }]);
+        const result = await dataSource.getAggregations(adjustedParams, [{ field, size }], signal);
         return result.fields[field] ?? { buckets: [], total: 0 };
       }
       // No params callback — fall back to unscoped (match_all)
@@ -226,7 +231,7 @@ export function buildTypeaheadFields(
     .filter((fa) => fa.searchHintOptions?.length)
     .map((fa) => ({
       fieldName: fa.alias,
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField(fa.alias, query)) {
           const cached = storeBuckets(fa.alias, getAggregations);
@@ -234,7 +239,7 @@ export function buildTypeaheadFields(
             return mergeWithCounts(value, fa.searchHintOptions!, cached);
           }
         }
-        const { buckets } = await scopedAgg(fa.elasticsearchPath, 50, fa.alias);
+        const { buckets } = await scopedAgg(fa.elasticsearchPath, 50, fa.alias, signal);
         return mergeWithCounts(value, fa.searchHintOptions!, buckets);
       },
       showInKeySuggestions: fa.displaySearchHint,
@@ -247,73 +252,73 @@ export function buildTypeaheadFields(
     // independent ES call when the store has no data for this field.
     {
       fieldName: "category",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("category", query)) {
           const cached = storeBuckets("category", getAggregations);
           if (cached) return bucketFilter(value, cached).map((s) => ({ ...s, label: categoryLabel(s.value) }));
         }
-        const { buckets } = await scopedAgg("usageRights.category", 50, "category");
+        const { buckets } = await scopedAgg("usageRights.category", 50, "category", signal);
         return bucketFilter(value, buckets).map((s) => ({ ...s, label: categoryLabel(s.value) }));
       },
     },
     {
       fieldName: "credit",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("credit", query)) {
           const cached = storeBuckets("credit", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("metadata.credit", 50, "credit");
+        const { buckets } = await scopedAgg("metadata.credit", 50, "credit", signal);
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "label",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("label", query)) {
           const cached = storeBuckets("label", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("userMetadata.labels", 50, "label");
+        const { buckets } = await scopedAgg("userMetadata.labels", 50, "label", signal);
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "photoshoot",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("photoshoot", query)) {
           const cached = storeBuckets("photoshoot", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("userMetadata.photoshoot.title", 50, "photoshoot");
+        const { buckets } = await scopedAgg("userMetadata.photoshoot.title", 50, "photoshoot", signal);
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "source",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("source", query)) {
           const cached = storeBuckets("source", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("metadata.source", 50, "source");
+        const { buckets } = await scopedAgg("metadata.source", 50, "source", signal);
         return bucketFilter(value, buckets);
       },
     },
     {
       fieldName: "supplier",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("supplier", query)) {
           const cached = storeBuckets("supplier", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("usageRights.supplier", 50, "supplier");
+        const { buckets } = await scopedAgg("usageRights.supplier", 50, "supplier", signal);
         return bucketFilter(value, buckets);
       },
     },
@@ -323,7 +328,7 @@ export function buildTypeaheadFields(
     // store cache first, falling back to a direct ES agg.
     {
       fieldName: "fileType",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("fileType", query)) {
           const cached = storeBuckets("fileType", getAggregations);
@@ -331,13 +336,13 @@ export function buildTypeaheadFields(
             return mergeWithCounts(value, FILE_TYPES, cached, (k) => k.replace("image/", ""));
           }
         }
-        const { buckets } = await scopedAgg("source.mimeType", 50, "fileType");
+        const { buckets } = await scopedAgg("source.mimeType", 50, "fileType", signal);
         return mergeWithCounts(value, FILE_TYPES, buckets, (k) => k.replace("image/", ""));
       },
     },
     {
       fieldName: "is",
-      resolver: async (prefix: string) => {
+      resolver: async (prefix: string, signal?: AbortSignal) => {
         const org = gridConfig.staffPhotographerOrganisation;
         const countMap = new Map<string, number | undefined>();
 
@@ -382,7 +387,7 @@ export function buildTypeaheadFields(
                 { name: `${org}-owned-photo`, isFilter: `${org}-owned-photo` },
                 { name: `${org}-owned-illustration`, isFilter: `${org}-owned-illustration` },
               ];
-              const aggResult = await dataSource.getAggregations(params, [], undefined, filterRequests);
+              const aggResult = await dataSource.getAggregations(params, [], signal, filterRequests);
               for (const [k, v] of Object.entries(aggResult.filters ?? {})) countMap.set(k, v);
             }
           } catch { /* non-critical — counts just absent */ }
@@ -404,13 +409,13 @@ export function buildTypeaheadFields(
     },
     {
       fieldName: "subject",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("subject", query)) {
           const cached = storeBuckets("subject", getAggregations);
           if (cached) return mergeWithCounts(value, SUBJECTS, cached);
         }
-        const { buckets } = await scopedAgg("metadata.subjects", 50, "subject");
+        const { buckets } = await scopedAgg("metadata.subjects", 50, "subject", signal);
         return mergeWithCounts(value, SUBJECTS, buckets);
       },
     },
@@ -425,13 +430,13 @@ export function buildTypeaheadFields(
 
     {
       fieldName: "uploader",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("uploader", query)) {
           const cached = storeBuckets("uploader", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("uploadedBy", 50, "uploader");
+        const { buckets } = await scopedAgg("uploadedBy", 50, "uploader", signal);
         return bucketFilter(value, buckets);
       },
     },
@@ -439,13 +444,13 @@ export function buildTypeaheadFields(
     // --- Keyword-field resolvers (terms aggregation) ---
     {
       fieldName: "croppedBy",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("croppedBy", query)) {
           const cached = storeBuckets("croppedBy", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("exports.author", 50, "croppedBy");
+        const { buckets } = await scopedAgg("exports.author", 50, "croppedBy", signal);
         return bucketFilter(value, buckets);
       },
     },
@@ -455,13 +460,13 @@ export function buildTypeaheadFields(
     },
     {
       fieldName: "keyword",
-      resolver: async (value: string) => {
+      resolver: async (value: string, signal?: AbortSignal) => {
         const query = getParams?.()?.query;
         if (!queryContainsField("keyword", query)) {
           const cached = storeBuckets("keyword", getAggregations);
           if (cached) return bucketFilter(value, cached);
         }
-        const { buckets } = await scopedAgg("metadata.keywords", 50, "keyword");
+        const { buckets } = await scopedAgg("metadata.keywords", 50, "keyword", signal);
         return bucketFilter(value, buckets);
       },
     },

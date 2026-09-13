@@ -184,17 +184,10 @@ export class LazyTypeahead extends Typeahead {
       // Our own controller already gets aborted above whenever a NEWER
       // getSuggestions call truly supersedes this one.
       //
-      // NOTE — this signal only actually cancels the dynamic-field
-      // fallback path (buildDynamicFieldFallback threads it through to
-      // dataSource.getAggregations). Registered static fields' resolvers
-      // (CqlSearchInput.tsx's `cqlResolver`) are wrapped as a single-arg
-      // `async (_fieldName: string) => ...` that drops the second `signal`
-      // parameter entirely, and `scopedAgg` (typeahead-fields.ts) doesn't
-      // pass a signal to `getAggregations` at all — so static-field
-      // aggregations remain uncancellable on rapid keystrokes regardless
-      // of this fix. Review finding F5: fixing that would mean changing
-      // the static resolver signature and scopedAgg's call, a separate
-      // and larger change not made here.
+      // Both registered-field resolvers and the dynamic-field fallback
+      // thread this signal through to dataSource.getAggregations, so a
+      // newer suggestion pass cancels the obsolete request as well as
+      // rejecting its result below.
       const promises = cqlFields.map((field) =>
         this.suggestField(field, abortController.signal)
       );

@@ -72,7 +72,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from ES agg. Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
 | Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (33 static + config aliases). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. Detail entries carry immutable entry-image identity so traversal centring survives reload. |
-| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Structured queries (`is:`, `fileType:`). `is:` resolver enriches suggestions with counts from ticker store, category aggs, and `getAggregations` (with `isFilters` param) when store cache is cold. |
+| CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Registered and dotted-field aggregation resolvers propagate supersession cancellation. Structured queries (`is:`, `fileType:`). `is:` enriches suggestions from ticker, category and cold aggregation counts. |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
 | Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | `deriveImage()` merges ES baseline ⊕ TS-computed cost/validity/syndication ⊕ optional Grid API overlay. Direct-ES mode: overlay stays `undefined`. `--use-media-api` mode: `apiSearchAfter` extracts server-authoritative enrichment (cost, validity, rights, actions) per hit; `search-store` writes it to `enrichment-store` at commit-to-view points only. |
 | AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs` | KNN semantic search via Bedrock embeddings. Vite middleware proxy (dev-only). Store AI branch: all ≤200 results in-memory, no PIT/pagination. `?aiQuery=` URL param. Gated by `/bedrock/health`. |
@@ -82,7 +82,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ### Testing Summary
 
-- **1230 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1231 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **207 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
