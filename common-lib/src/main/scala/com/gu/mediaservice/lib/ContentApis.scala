@@ -21,7 +21,7 @@ abstract class ContentApiClient(config: CommonConfig)(implicit val executor: Sch
     SearchQuery()
       .q(imageId)
       .queryFields("body,main,thumbnail")
-      .showBlocks("all")
+      .showFields("firstPublicationDate,isLive,internalComposerCode")
   }
 
   def findContentUsingImage(imageId: String)(implicit context: ExecutionContext): Future[List[Content]] = {

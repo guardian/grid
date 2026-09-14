@@ -21,7 +21,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
-import models.{ContentWithImages, ContentWithImagesResponse}
+import models.ImageUsages
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -187,10 +187,14 @@ class MediaApi(
     }
   }
   def getCapiUsages(id: String) = auth.async { _ =>
-    liveContentApi.findContentUsingImage(id).map(searchResults => {
-      val contentWithImages = searchResults.map(sr => ContentWithImages.fromSearchResponse(sr))
-      respond[ContentWithImagesResponse](ContentWithImagesResponse(contentWithImages))
-    })
+    for {
+      liveContent <- liveContentApi.findContentUsingImage(id)
+      liveImages = liveContent.map(sr => ImageUsages.fromSearchResponse(sr))
+      previewContent <- previewContentApi.findContentUsingImage(id)
+      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr))
+    } yield  {
+      respond[List[ImageUsages]](liveImages ++ previewImages)
+    }
   }
 
   /**
