@@ -232,7 +232,7 @@ Feature: Uploading images to the Grid
   @todo
   Scenario: Deleting an image removes it from current uploads
     Given an uploaded image is shown in my current uploads
-    When the image is deleted
+    When the image is deleted using the delete button at the bottom of the job form
     Then it should be removed from my current uploads
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
