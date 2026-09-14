@@ -62,7 +62,7 @@ presetLabels.controller('GrPresetLabelsCtrl', [
             ctrl.newLabel = '';
         }
 
-        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
     }
 ]);

@@ -77,7 +77,7 @@ photoshoot.controller('GrPhotoshootCtrl', [
           return photoshootService.batchRemove({ images: ctrl.images });
       };
 
-      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+      ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
       if (Boolean(ctrl.withBatch)) {
           const batchApplyEvent = 'events:batch-apply:photoshoot';
