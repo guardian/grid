@@ -19,7 +19,13 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
     override def stop(): Future[_] = Future.successful(())
   }
   private val config = new CommonConfig(GridConfigResources(
-    Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)).withFallback(
+    Configuration.from(Map(
+      "usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName,
+      "capi.live.url" -> "",
+      "capi.apiKey" -> "",
+      "capi.preview.role" -> "",
+      "capi.preview.url" -> ""
+    )).withFallback(
       Configuration.load(Environment.simple())),
     actorSystem,
     applicationLifecycle

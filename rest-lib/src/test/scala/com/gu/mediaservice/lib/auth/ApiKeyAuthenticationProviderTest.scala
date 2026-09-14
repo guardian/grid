@@ -26,8 +26,14 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
     override def addStopHook(hook: () => Future[_]): Unit = {}
     override def stop(): Future[_] = Future.successful(())
   }
+  private val testConfiguration = Configuration.from(Map(
+    "capi.live.url" -> "",
+    "capi.apiKey" -> "",
+    "capi.preview.role" -> "",
+    "capi.preview.url" -> ""
+  )).withFallback(Configuration.load(Environment.simple()))
   private val config = new CommonConfig(GridConfigResources(
-    Configuration.load(Environment.simple()),
+    testConfiguration,
     actorSystem,
     applicationLifecycle
   )){}
