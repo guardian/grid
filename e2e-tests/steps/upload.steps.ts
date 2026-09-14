@@ -1,3 +1,4 @@
+import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from './fixtures.ts';
 import { testImages, uploadPage } from './support/upload-page.ts';
 
@@ -42,12 +43,32 @@ Then('the drag-and-drop uploader should be active', async ({ page }) => {
   await expect(uploadPage(page).dragAndDropUploader).toBeAttached();
 });
 
+Given(
+  'I had searched for {string} before opening the upload page',
+  async ({ page, testContext }, query: string) => {
+    await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
+    await expect(page.getByRole('main', { name: 'Image search results' })).toBeVisible();
+    testContext.previousSearchQuery = query;
+
+    await page.getByRole('banner').getByRole('link', { name: 'My recent uploads' }).click();
+    await page.waitForURL('**/upload');
+  },
+);
+
 When('I choose {string} from the top bar', async ({ page }, label: string) => {
   await uploadPage(page).topBarLink(label).click();
 });
 
 Then('I should be taken to the image search page', async ({ page }) => {
   await expect(page).toHaveURL((url) => url.origin === KAHUNA_APP_URL && url.pathname === '/search');
+});
+
+Then('my previous search should be intact', async ({ page, testContext }) => {
+  // The `search` state is a deep-state redirect, so entering it without params sends us
+  // back to the `search.results` params we left behind.
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get('query') === testContext.previousSearchQuery,
+  );
 });
 
 Given('I have an upload in progress', async ({ page }) => {
@@ -78,12 +99,16 @@ Then('I should be taken to a search filtered to images I uploaded', async ({ pag
   await expect(page).toHaveURL((url) => Boolean(url.searchParams.get('uploadedBy')));
 });
 
-When('I try to navigate away from the upload page', async ({ page }) => {
-  // Going back is what a user does, and it is also the only navigation the controller's
-  // guard sees: on a ui-sref click ui-router destroys its scope before broadcasting
-  // $locationChangeStart, so the listener registered there never runs.
-  await page.goBack();
-});
+When(
+  'I try to navigate away from the upload page via the following buttons:',
+  async ({ page }, buttons: DataTable) => {
+    for (const [label] of buttons.raw()) {
+      await uploadPage(page).leaveLink(label).click();
+      // Dismissing the confirm answers "no", so each button leaves us here for the next one.
+      await expect(page).toHaveURL(/\/upload/);
+    }
+  },
+);
 
 Then('I should be warned that uploads are in progress and asked to confirm', async ({ testContext }) => {
   await expect

@@ -15,6 +15,8 @@ interface TestContext {
   /** Messages from alerts and confirms, in the order the page raised them. */
   dialogs: string[];
   fileChooser?: Promise<FileChooser>;
+  /** The query run on the search page before navigating to the upload page. */
+  previousSearchQuery?: string;
 }
 
 /**

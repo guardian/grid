@@ -44,6 +44,8 @@ export const uploadPage = (page: Page) => {
        text, so filter on the text the feature file names rather than the accessible name. */
     uploadButton: (label: string) => prompt.getByRole('button').filter({ hasText: label }),
     topBarLink: (label: string) => page.getByRole('banner').getByRole('link').filter({ hasText: label }),
+    /** Any control that takes you off the upload page, wherever it sits on it. */
+    leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
   };
