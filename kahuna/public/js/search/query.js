@@ -737,7 +737,7 @@ query.controller('SearchQueryCtrl', [
     });
 
     const { nonFree, uploadedByMe } = ctrl.filter;
-    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe);
+    sendTelemetryForQuery(ctrl.filter.query, nonFree, uploadedByMe, ctrl.useAISearch);
   }]);
 
 query.directive('searchQuery', [function() {
