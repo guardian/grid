@@ -78,11 +78,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
 
     val fileUri = image.source.file
 
-    val imageUrl = s3Client.signUrlV2(config.imageBucket, fileUri, image, imageType = Source)
+    val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image, imageType = Source)
     val pngUrl: Option[String] = pngFileUri
-      .map(s3Client.signUrlV2(config.imageBucket, _, image, imageType = OptimisedPng))
+      .map(s3Client.signUrl(config.imageBucket, _, image, imageType = OptimisedPng))
 
-    def s3SignedThumbUrl = s3Client.signUrlV2(config.thumbBucket, fileUri, image, imageType = Thumbnail)
+    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
 
     val thumbUrl = config.cloudFrontDomainThumbBucket
       .map(domain => s"https://$domain${fileUri.getPath}")
@@ -428,8 +428,10 @@ object ImageResponse {
     config.fieldAliasConfigs.flatMap { config =>
       val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
       val lookupResult = nestedLookup(JsDefined(source.source), parts)
-      lookupResult.toOption.map {
-        config.alias -> _
+      lookupResult.toOption match {
+        case Some(value) => Some(config.alias -> value)
+        case None if config.matchViaExistence => Some(config.alias -> JsBoolean(false))
+        case None => None
       }
     }
   }

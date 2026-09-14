@@ -90,11 +90,11 @@ class Projector(config: ImageUploadOpsCfg,
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
 
-        if (!s3.doesObjectExistV2(config.originalFileBucket, s3Key))
+        if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObjectV2(config.originalFileBucket, s3Key)
+        s3.getObject(config.originalFileBucket, s3Key)
       }(logMarker)
 
       try {
@@ -205,13 +205,13 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     bucket: String, key: String, outFile: File
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
-    val doesFileExist = Future { s3.doesObjectExistV2(bucket, key) } recover { case _ => false }
+    val doesFileExist = Future { s3.doesObjectExist(bucket, key) } recover { case _ => false }
     doesFileExist.flatMap {
       case false =>
         logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
         Future.successful(None) // falls back to creating from original file
       case true =>
-        val obj = s3.getObjectV2(bucket, key)
+        val obj = s3.getObject(bucket, key)
         val fos = new FileOutputStream(outFile)
         try {
           IOUtils.copy(obj, fos)

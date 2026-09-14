@@ -51,6 +51,7 @@ const sendFilterTelemetryEvent = (key: string, value: string, searchUuid: string
 
 export const sendTelemetryForQuery = (query: string, nonFree?: string, uploadedByMe?: boolean, useAISearch?: boolean  ) => {
     const structuredQuery = structureQuery(query || "");
+
     const searchUuid = v4();
     const freeToUseOnly = nonFree !== 'true';
     const uploadedByMeOnly = (uploadedByMe);
@@ -73,11 +74,16 @@ export const sendTelemetryForQuery = (query: string, nonFree?: string, uploadedB
             return `GRID_${type.toUpperCase()}`;
         };
 
+        const searchKey = (type: string) => {
+            return type === 'text' ? { searchKey: `${getBrowserId()}::${queryComponent.value}` } : undefined;
+        };
+
         // In case search is empty, as with a search containing only filters
         sendTelemetryEvent(formattedType(type), {
             ...queryComponent,
             searchUuid: searchUuid,
-            useAISearch: useAISearch ?? false
+            useAISearch: useAISearch ?? false,
+            ...searchKey(type)
         }, 1);
     });
 };

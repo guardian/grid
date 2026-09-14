@@ -5,7 +5,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 40;
+    z-index: 200;
 }
 
 .collection-overlay__button:hover {

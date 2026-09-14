@@ -1,7 +1,7 @@
 <div>
     <image-usage-photo-sales ng-if="ctrl.showSendToPhotoSales" props="{'usages':ctrl.photoSalesUsages}"></image-usage-photo-sales>
     <div ng-repeat="(type, usages) in ctrl.usages" ng-if="!ctrl.showSendToPhotoSales || ['downloaded', 'replaced', 'derivative'].includes(type)">
-        <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
+        <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages" has-multiple-status-groups="ctrl.hasMultipleStatusGroups"></gr-image-usage-list>
     </div>
 </div>
 

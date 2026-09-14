@@ -306,6 +306,26 @@ query.controller('SearchQueryCtrl', [
       }
     }
 
+    function resolveNonFree(newFilter) {
+      // Normalise to string immediately to prevent boolean/string oscillation from ui-router URL decode
+      const incomingNonFree = newFilter && newFilter.nonFree !== undefined
+        ? toNonFreeString(newFilter.nonFree)
+        : undefined;
+      let nonFreeCheck = incomingNonFree !== undefined ? incomingNonFree : ctrl.filter.nonFree;
+      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
+        nonFreeCheck = toNonFreeString(storage.getJs("defaultIsNonFree", true));
+      } else if (!ctrl.usePermissionsFilter && (nonFreeCheck === 'false' || nonFreeCheck === false)) {
+        nonFreeCheck = undefined;
+      }
+      ctrl.filter.nonFree = nonFreeCheck;
+      return nonFreeCheck;
+    }
+
+    function emitQueryTelemetry(newFilter) {
+      const nonFreeCheck = resolveNonFree(newFilter);
+      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, ctrl.filter.uploadedByMe, ctrl.useAISearch);
+    }
+
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
       let showPaid = toNonFreeString(newFilter.nonFree);
@@ -339,19 +359,7 @@ query.controller('SearchQueryCtrl', [
       manageDefaultNonFree();
       manageOrgOwnedSetting(newFilter);
 
-      const { uploadedByMe } = ctrl.filter;
-      // Normalise to string immediately to prevent boolean/string oscillation from ui-router URL decode
-      const incomingNonFree = newFilter.nonFree !== undefined ? toNonFreeString(newFilter.nonFree) : undefined;
-      let nonFreeCheck = incomingNonFree !== undefined ? incomingNonFree : ctrl.filter.nonFree;
-      if (ctrl.usePermissionsFilter && nonFreeCheck === undefined) {
-        const defaultShowPaid = storage.getJs("defaultIsNonFree", true);
-        nonFreeCheck = defaultShowPaid === 'true' ? 'true' : 'false';
-      } else if (!ctrl.usePermissionsFilter && nonFreeCheck === 'false') {
-        nonFreeCheck = undefined;
-      }
-      ctrl.filter.nonFree = nonFreeCheck;
-
-      sendTelemetryForQuery(ctrl.filter.query, nonFreeCheck, uploadedByMe);
+      emitQueryTelemetry(newFilter);
 
       function normaliseParamForComparison(key, val) {
         if (key === 'nonFree' && !ctrl.usePermissionsFilter && val === 'false') {
@@ -633,9 +641,19 @@ query.controller('SearchQueryCtrl', [
       $state.go('search.results', stateGoParams);
     }));
 
+    let aiSearchInitialised = false;
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
-      // This is the behaviour we want so that the URL is updated based on the AI search toggle
+      // This is the behaviour we want so that the URL is updated based on the AI search toggle.
+      // We only emit telemetry on an actual toggle though - the load-time search event is emitted
+      // exactly once via the getSession() -> watchSearchChange path, so emitting here on init would double-count.
+      if (aiSearchInitialised) {
+        emitQueryTelemetry();
+      } else {
+        resolveNonFree();
+      }
+      aiSearchInitialised = true;
+
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,

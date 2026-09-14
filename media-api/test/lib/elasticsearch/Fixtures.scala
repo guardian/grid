@@ -153,7 +153,7 @@ trait Fixtures {
     out
   }
 
-  private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status, date: DateTime): Usage = {
+  def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status, date: DateTime): Usage = {
     Usage(
       UUID.randomUUID().toString,
       List(UsageReference(t)),

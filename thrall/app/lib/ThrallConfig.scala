@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.AwsClientV2BuilderUtils
+import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
 import com.gu.mediaservice.lib.cleanup.ReapableEligibiltyResources
 import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources, ReapableEligibilityLoader}
 import com.gu.mediaservice.lib.elasticsearch.ReapableEligibility
@@ -21,16 +21,16 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.postfixOps
 
 case class KinesisReceiverConfig(
-  override val awsRegionV2: Region,
-  override val awsCredentialsV2: AwsCredentialsProvider,
+  override val awsRegion: Region,
+  override val awsCredentials: AwsCredentialsProvider,
   override val awsLocalEndpointUri: Option[URI],
   override val isDev: Boolean,
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
-) extends AwsClientV2BuilderUtils {
+) extends AwsClientBuilderUtils {
   lazy val kinesisClient: KinesisAsyncClient = {
-    val clientBuilder = withAWSCredentialsV2(KinesisAsyncClient.builder())
+    val clientBuilder = withAWSCredentials(KinesisAsyncClient.builder())
     if (isDev) {
       clientBuilder.httpClientBuilder(NettyNioAsyncHttpClient
         .builder()
@@ -38,14 +38,14 @@ case class KinesisReceiverConfig(
     }
     clientBuilder.build()
   }
-  lazy val dynamoClient: DynamoDbAsyncClient = withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
-  lazy val cloudwatchClient: CloudWatchAsyncClient = withAWSCredentialsV2(CloudWatchAsyncClient.builder()).build()
+  lazy val dynamoClient: DynamoDbAsyncClient = withAWSCredentials(DynamoDbAsyncClient.builder()).build()
+  lazy val cloudwatchClient: CloudWatchAsyncClient = withAWSCredentials(CloudWatchAsyncClient.builder()).build()
 }
 
 object KinesisReceiverConfig {
   def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
-    thrallConfig.awsRegionV2,
-    thrallConfig.awsCredentialsV2,
+    thrallConfig.awsRegion,
+    thrallConfig.awsCredentials,
     thrallConfig.awsLocalEndpointUri,
     thrallConfig.isDev,
     streamName,

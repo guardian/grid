@@ -12,14 +12,14 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
 
   def lookupIdentity(key: String): Option[ApiAccessor] = store.get().get(key)
 
-  def findKey(prefix: String): Option[String] = s3.syncFindKeyV2(bucket, prefix)
+  def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
   def update(): Unit = {
     store.set(fetchAll)
   }
 
   private def fetchAll: Map[String, ApiAccessor] = {
-    val contents = s3.clientV2.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
+    val contents = s3.client.listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
       .contents().asScala.toList
     val keys = contents.map(_.key())
     keys.flatMap(k => getS3Object(k).map(k -> ApiAccessor(_))).toMap

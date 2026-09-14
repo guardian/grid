@@ -7,6 +7,14 @@ gr-image-usage-list .gr-image-usage__field_title {
     color: #999;
     vertical-align: top;
     text-align: left;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+gr-image-usage-list .gr-image-usage__field_title > button {
+    display: inline-flex;
+    align-items: center;
 }
 
 gr-image-usage-list .date-added {
@@ -18,8 +26,9 @@ gr-image-usage-list .gr-image-usage__record {
     width: 90%;
 }
 
-gr-image-usage-list .source-list__icon svg {
-    padding: 0 2px;
+gr-image-usage-list .usage-list__icon {
+    padding-right: 4px;
+    font-size:1.4em;
 }
 
 gr-image-usage-list gr-frontend-icon svg {
@@ -46,7 +55,6 @@ gr-image-usage-list .reference-list__icon:hover svg path {
 
 gr-image-usage-list gr-icon {
     position: relative;
-    top: -2px;
     color: #999;
 }
 

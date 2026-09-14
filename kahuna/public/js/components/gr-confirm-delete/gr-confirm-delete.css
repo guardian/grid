@@ -8,6 +8,8 @@ gr-confirm-delete.gr-delete-image {
   line-height: inherit;
   width: 100%;
   height: 100%;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .gr-confirm-delete:hover {

@@ -4,7 +4,6 @@ import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
-import com.amazonaws.util.IOUtils
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
@@ -563,7 +562,7 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  lazy val replicaS3: S3Client = S3Ops.buildS3ClientV2(config, maybeRegionOverride = Some(Region.US_WEST_1))
+  lazy val replicaS3: S3Client = S3Ops.buildS3Client(config, maybeRegionOverride = Some(Region.US_WEST_1))
   def doesObjectExist(bucket: String, key: String) = {
     try {
       replicaS3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
@@ -590,7 +589,7 @@ class ImageLoaderController(auth: Authentication,
 
     Future {
       config.maybeImageReplicaBucket match {
-        case _ if store.doesOriginalExistV2(imageId) =>
+        case _ if store.doesOriginalExist(imageId) =>
           Future.successful(Conflict("Image already exists in main bucket"))
         case None =>
           Future.successful(NotImplemented("No replica bucket configured"))
