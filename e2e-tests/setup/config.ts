@@ -6,17 +6,22 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRequire } from 'module';
 import JSON5 from 'json5';
 import {
   DOMAIN,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
   SERVICE_PORTS,
-} from './constants';
+} from './constants.ts';
+
+/** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
+const require = createRequire(import.meta.url);
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
@@ -54,7 +59,6 @@ function rewriteEndpoints(conf: string): string {
  * Generate all service config files into `configDir`.
  */
 export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
     fs.readFileSync(path.join(GENERATE_CONFIG_DIR, 'config.json5'), 'utf8'),
@@ -72,7 +76,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     coreStackProps,
     es6: {
       ...defaultConfig.es6,
-      url: `http://${ELASTICSEARCH_ALIAS}:9200`,
+      url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
     },
   };
 

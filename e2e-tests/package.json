@@ -3,23 +3,31 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning setup/dev.ts",
     "test": "bddgen && playwright test",
     "test:headed": "bddgen && playwright test --headed",
     "test:report": "playwright show-report",
     "test:ui": "bddgen && playwright test --ui-port 6080",
     "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080"
   },
+  "engines": {
+    "node": ">=22.12"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@aws-sdk/client-cloudformation": "^3.658.0",
+    "@aws-sdk/client-dynamodb": "^3.1127.0",
+    "@aws-sdk/client-kinesis": "^3.1127.0",
     "@aws-sdk/client-s3": "^3.658.0",
     "@playwright/test": "^1.61.1",
     "@testcontainers/localstack": "^10.13.2",
     "@types/node": "^26.1.1",
     "json5": "^2.2.3",
+    "listr2": "^10.1.2",
     "playwright-bdd": "^9.2.0",
     "testcontainers": "^10.13.2"
   }
