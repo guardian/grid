@@ -79,7 +79,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
   Scenario: Preset labels are applied to all uploads
-    When I add a preset label in the prompt
+    When I add a preset label via the 'apply label to all uploads' button
     Then that label should be applied to all my uploads
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 43, 113-114
