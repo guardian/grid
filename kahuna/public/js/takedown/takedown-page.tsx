@@ -6,46 +6,34 @@ import { semanticSpacing } from "@guardian/stand";
 import { Layout } from "@guardian/stand/Layout";
 import { Button } from "@guardian/stand/Button";
 import { Typography } from "@guardian/stand/Typography";
-import { TakedownStep, TakedownStepStatus } from "./takedown-step";
+import { TakedownStep } from "./takedown-step";
+import { DeleteFromContentStep } from "./delete-from-content-step";
+import {
+  TakedownContextProvider,
+  TakedownStepId,
+  useTakedownContext
+} from "./takedown-context";
 import { GridImage } from "../types/image";
 import {
   standThemeOverride,
   standRootFontSizeCompensation
 } from "../util/constants/standThemeOverride";
 
-type StepId = "delete-from-content" | "delete-from-grid" | "purge-cache";
-
 type Step = {
-  id: StepId;
+  id: TakedownStepId;
   title: string;
-  getStatus: () => TakedownStepStatus;
-  Component: React.FC<{ image: GridImage | null }>;
+  Component: React.FC;
 };
 
 const STEPS: Step[] = [
   {
     id: "delete-from-content",
     title: "Delete from content",
-    getStatus: () => "complete",
-    Component: () => (
-      // @TODO: Delete from content step
-      <>
-        <Typography
-          element="p"
-          variant="bodySm"
-          theme={standThemeOverride.typography.default}
-        >
-          This image is currently used in the following content. Remove it from
-          each one before continuing.
-        </Typography>
-        <Button>Delete from Content</Button>
-      </>
-    )
+    Component: DeleteFromContentStep
   },
   {
     id: "delete-from-grid",
     title: "Delete from Grid",
-    getStatus: () => "current",
     Component: () => (
       // @TODO: Delete from Grid step
       <>
@@ -64,7 +52,6 @@ const STEPS: Step[] = [
   {
     id: "purge-cache",
     title: "Purge Fastly cache",
-    getStatus: () => "locked",
     Component: () => (
       // @TODO: Purge cache step
       <>
@@ -85,6 +72,26 @@ const STEPS: Step[] = [
 export type TakedownPageProps = {
   image: GridImage | null;
   imageId: string;
+};
+
+const TakedownSteps: React.FC = () => {
+  const { getStepStatus } = useTakedownContext();
+
+  return (
+    <>
+      {STEPS.map((step, index) => (
+        <TakedownStep
+          key={index}
+          title={step.title}
+          stepNumber={index + 1}
+          status={getStepStatus(step.id)}
+          isLastStep={index === STEPS.length - 1}
+        >
+          <step.Component />
+        </TakedownStep>
+      ))}
+    </>
+  );
 };
 
 export const TakedownPage: React.FC<TakedownPageProps> = ({
@@ -124,17 +131,12 @@ export const TakedownPage: React.FC<TakedownPageProps> = ({
             ID: {imageId}
           </Typography>
 
-          {STEPS.map((step, index) => (
-            <TakedownStep
-              key={index}
-              title={step.title}
-              stepNumber={index + 1}
-              status={step.getStatus()}
-              isLastStep={index === STEPS.length - 1}
-            >
-              <step.Component image={image} />
-            </TakedownStep>
-          ))}
+          <TakedownContextProvider
+            image={image}
+            stepIds={STEPS.map((step) => step.id)}
+          >
+            <TakedownSteps />
+          </TakedownContextProvider>
         </Layout.Main>
       </Layout>
     </div>

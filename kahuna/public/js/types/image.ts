@@ -17,6 +17,7 @@ export type UsageResource = {
 
 export type UsagesResource = {
   getData: () => Promise<UsageResource[]>;
+  get: () => Promise<UsagesResource>;
 };
 
 export type GridImage = {
