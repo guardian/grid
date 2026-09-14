@@ -3,7 +3,9 @@ package com.gu.mediaservice.lib.cleanup
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
+import org.joda.time.DateTime
 
+import java.text.Normalizer
 import scala.util.matching.Regex
 
 /**
@@ -337,15 +339,190 @@ object GettyXmpParser extends ImageProcessor {
     Agencies
       .getWithCollection("getty", suppliersCollection)
 
+  private val PhotoByPattern = """(?i)^\s*(.*?)\s*\(Photo (?:by|credit should read)\s+(.+?)\s*/\s*(.+?)\)\s*(.*?)\s*$""".r
+
+  /** Normalise a string for comparison only: strips accent/diacritic marks (e.g. é→e, ç→c),
+    * folds to lowercase, and collapses whitespace/punctuation. Never used on data written back. */
+  private def normalise(s: String): String = {
+    val folded = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+    folded.toLowerCase.replaceAll("[.\\s]+", " ").trim
+  }
+
+  /**
+    * Remove the "(Photo by [Byline] / [Credit(s)])" from the description
+    * when both the byline and every credit component already exist in their respective metadata fields.
+    * Preserves any text before or after the Photo by section.
+    *
+    * Credit in the description may use "via" as a separator (e.g. "AFP via Getty Images")
+    * while the metadata credit uses "/" (e.g. "AFP/Getty Images"), so we normalise both before comparing.
+    */
+
+  private def doByLinesMatch(byline: Option[String], descByline: String): Boolean = {
+    byline.exists(b => normalise(b) == normalise(descByline))
+  }
+  private def doCreditsMatch(credit: Option[String], descCredits: String): Boolean = {
+    val normalisedDescCredits = descCredits.replaceAll("(?i)\\s+via\\s+", "/")
+
+    credit.exists(c => normalise(c) == normalise(normalisedDescCredits))
+  }
+
+  def cleanDescription(description: String, byline: Option[String], credit: Option[String]): String = {
+    PhotoByPattern.findFirstMatchIn(description).map(_.subgroups) match {
+      case Some(before :: descByline :: descCredits :: trailing :: Nil)
+        if doByLinesMatch(byline, descByline) && doCreditsMatch(credit, descCredits) =>
+          val cleanedDescription = List(before, trailing).filter(_.nonEmpty).mkString(" ").trim
+          cleanedDescription
+      case _ => description
+    }
+}
+
+  // Matches: "LOC1, LOC2 - MONTH DAY:" or "LOC1, LOC2 - MONTH DAY, YEAR:" or "LOC1, LOC2 - MON DAY, YEAR - "
+  private val LocationDatePrefix = """(?i)^([^,]+),\s+(.+?)\s+-\s+([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?\s*(?:\:\s*|-\s+)(.*)$""".r
+
+  private val monthNumbers: Map[String, Int] = Map(
+    "january" -> 1, "jan" -> 1, "february" -> 2, "feb" -> 2,
+    "march" -> 3, "mar" -> 3, "april" -> 4, "apr" -> 4,
+    "may" -> 5, "june" -> 6, "jun" -> 6, "july" -> 7, "jul" -> 7,
+    "august" -> 8, "aug" -> 8, "september" -> 9, "sep" -> 9, "sept" -> 9,
+    "october" -> 10, "oct" -> 10, "november" -> 11, "nov" -> 11,
+    "december" -> 12, "dec" -> 12
+  )
+
+  /**
+    * Remove the leading "LOCATION1, LOCATION2 - MONTH DAY[, YEAR](:|−) " prefix from the description
+    * when at least one of the two location parts matches any location metadata field (case-insensitive)
+    * and the date matches dateTaken (±1 day for timezone, but only within the same month).
+    * Prefers not cleaning over risking incorrect cleaning.
+    */
+
+    val caseInsensitiveExists = (list: List[String], value: String) => list.exists(_.equalsIgnoreCase(value))
+    val caseInsensitiveSuffixMatch = (list: List[String], value: String) => list.find(f => value.toLowerCase.endsWith(f.toLowerCase))
+
+    private def doesLocalMatch(locationFields: List[String], loc1: String, loc2: String) = {
+      // loc1 may contain leading content (e.g. "***BESTPIX*** LONDON").
+      // Check direct match first, then fall back to suffix match preserving the prefix.
+        caseInsensitiveSuffixMatch(locationFields, loc1).nonEmpty ||
+        caseInsensitiveExists(locationFields, loc2)
+    }
+
+  private def doesDateMatch(dateTaken: Option[DateTime], monthStr: String, day: Int, yearOpt: Option[Int]): Boolean = {
+    (for {
+      dt <- dateTaken
+      month <- monthNumbers.get(monthStr)
+    } yield {
+      // Allow ±1 day for timezone differences, but only within the same month
+      val monthMatch = dt.getMonthOfYear == month
+      val dayMatch = Math.abs(dt.getDayOfMonth - day) <= 1
+      val yearMatch = yearOpt.forall(_ == dt.getYear)
+      monthMatch && dayMatch && yearMatch
+    }).getOrElse(false)
+  }
+
+  private def prefixLocationToRetain(locationFields: List[String], loc1: String) = {
+    val loc1SuffixMatch = caseInsensitiveSuffixMatch(locationFields, loc1)
+    loc1SuffixMatch.map(field => {
+      loc1.substring(0, loc1.length - field.length).trim
+    }).filter(_.nonEmpty)
+  }
+
+
+  def cleanLocationDatePrefix(
+    description: String,
+    metadata: ImageMetadata
+  ): String= {
+    val cleanedDescription = description match {
+      case LocationDatePrefix(location1, location2, month, dayOfMonth, year, rest) =>
+        val loc1 = location1.trim
+        val loc2 = location2.trim
+        val monthStr = month.toLowerCase
+        val day = dayOfMonth.toInt
+        val locationFields = List(metadata.subLocation, metadata.city, metadata.state, metadata.country).flatten
+        val yearOpt = Option(year).map(_.toInt)
+        for {
+          day <- Option(day)
+          if doesLocalMatch(locationFields, loc1, loc2)
+          if doesDateMatch(metadata.dateTaken, monthStr, day, yearOpt)
+        } yield {
+          prefixLocationToRetain(locationFields, loc1)
+            .map(prefix => s"$prefix $rest")
+            .getOrElse(rest)
+        }
+      case _ => None
+    }
+    cleanedDescription.getOrElse(description)
+  }
+
+  /**
+    * Fix cases where the byline field contains a credit component (e.g. "Anadolu") and the
+    * real photographer name (e.g. "Filip Stevanovic") only appears in the "Photo by" description.
+    *
+    * Example: Description "(Photo by Filip Stevanovic/Anadolu via Getty Images)"
+    *   with Byline = "Anadolu", Credit = "Getty Images"
+    *   becomes Byline = "Filip Stevanovic", Credit = "Anadolu/Getty Images"
+    *
+    * Only applies when prepending the current byline to the current credit exactly matches the
+    * credit string in the description, ensuring correctness.
+    */
+  def fixMisplacedBylineCredit(
+    description: Option[String],
+    byline: Option[String],
+    credit: Option[String]
+  ): (Option[String], Option[String]) = {
+    val fixedBylineAndCredit = for {
+      PhotoByPattern(_, descriptionByline, descriptionCredits, _) <- description
+      currentByline <- byline
+      currentCredit <- credit
+      if normalise(currentByline) != normalise(descriptionByline)
+      normalisedDescriptionCredits = descriptionCredits.replaceAll("(?i)\\s+via\\s+", "/")
+      candidateCredit = s"$currentByline/$currentCredit"
+      if normalise(candidateCredit) == normalise(normalisedDescriptionCredits)
+    } yield (Some(descriptionByline), Some(candidateCredit))
+    fixedBylineAndCredit.getOrElse((byline, credit))
+  }
+
+  /**
+    * Apply the standard byline cleaners to a byline extracted from a description string.
+    * These cleaners normally run in MetadataCleaners before SupplierProcessors, so extracted
+    * bylines need to go through them explicitly.
+    */
+  private def cleanExtractedByline(byline: String): String = {
+    val metadata = ImageMetadata(byline = Some(byline))
+    val cleaned = List[MetadataCleaner](
+      GuardianStyleByline,
+      CapitaliseByline,
+      InitialJoinerByline,
+      PhotographerRenamer
+    ).foldLeft(metadata) { (m, cleaner) => cleaner.clean(m) }
+    cleaned.byline.getOrElse(byline)
+  }
+
+
   def apply(image: Image): Image = {
     if (hasGettyMetadata(image)) {
       val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
         .orElse(image.metadata.source)
+
+      val (rawFixedByline, fixedCredit) = fixMisplacedBylineCredit(image.metadata.description, image.metadata.byline, image.metadata.credit)
+
+      val sanitizeDescription: String => String =
+        ((d: String) => cleanDescription(d, rawFixedByline, fixedCredit)) andThen
+          ((d: String) => cleanLocationDatePrefix(d, image.metadata))
+
+
+      val fixedByline = (image.metadata.byline, rawFixedByline) match {
+        case (original, Some(extracted)) if !original.contains(extracted) =>
+          Some(cleanExtractedByline(extracted))
+        case (_, fallback) =>
+          fallback
+      }
+
       image.copy(
         usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one
         metadata = image.metadata.copy(
-          credit = Some(image.metadata.credit.getOrElse("Getty Images")),
+          description = image.metadata.description.map(sanitizeDescription),
+          byline = fixedByline,
+          credit = Some(fixedCredit.getOrElse("Getty Images")),
           suppliersReference = getSuppliersReference(image)
         )
       )
