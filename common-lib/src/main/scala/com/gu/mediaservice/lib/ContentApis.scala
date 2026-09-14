@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib
 
-import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
+import com.gu.contentapi.client.model.v1.{Content, SearchResponse}
+import com.gu.contentapi.client.model.{HttpResponse, ItemQuery, SearchQuery}
 import com.gu.contentapi.client.{BackoffStrategy, GuardianContentClient, IAMEncoder, IAMSigner, RetryableContentApiClient, ScheduledExecutor}
 import com.gu.mediaservice.lib.config.CommonConfig
 import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, ProfileCredentialsProvider}
@@ -15,6 +16,18 @@ import scala.concurrent.{ExecutionContext, Future}
 
 abstract class ContentApiClient(config: CommonConfig)(implicit val executor: ScheduledExecutor)
     extends GuardianContentClient(apiKey = config.capiApiKey) {
+
+  def imageSearchQuery(imageId: String): SearchQuery = {
+    SearchQuery()
+      .q(imageId)
+      .queryFields("body,main,thumbnail")
+      .showBlocks("all")
+  }
+
+  def findContentUsingImage(imageId: String)(implicit context: ExecutionContext): Future[List[Content]] = {
+    val imageSearchQ = imageSearchQuery(imageId)
+    paginateAccum(imageSearchQ)(sr => sr.results.toList, (l1: List[Content], l2: List[Content]) => l1 ++ l2)
+  }
 
   def usageQuery(contentId: String): ItemQuery = {
     ItemQuery(contentId)
