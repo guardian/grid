@@ -42,6 +42,8 @@ trait Fixtures {
     "grid.appName",
     "capi.live.url",
     "capi.apiKey",
+    "capi.preview.role",
+    "capi.preview.url",
   )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
