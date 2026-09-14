@@ -239,7 +239,7 @@ Feature: Uploading images to the Grid
   @todo
   Scenario: Uploading a previously deleted image displays it for undeletion
     Given an image is uploaded
-    And then deleted
+    And then deleted using the delete button at the bottom of the job form
     And the same image is uploaded again
     And I have delete permission
     Then it should be present in my current uploads
