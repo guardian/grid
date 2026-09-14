@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 import com.gu.contentapi.client.model.ItemQuery
+import com.gu.mediaservice.lib.LiveContentApi
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}

@@ -1,20 +1,19 @@
-package lib
+package com.gu.mediaservice.lib
 
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
+import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
+import com.gu.contentapi.client.{BackoffStrategy, GuardianContentClient, IAMEncoder, IAMSigner, RetryableContentApiClient, ScheduledExecutor}
+import com.gu.mediaservice.lib.config.CommonConfig
+import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, ProfileCredentialsProvider}
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sts.StsClient
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
-import software.amazon.awssdk.services.sts.StsClient
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
-
-import com.gu.contentapi.client._
-import com.gu.contentapi.client.model.{HttpResponse, ItemQuery}
 
 import java.net.URI
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor: ScheduledExecutor)
+abstract class ContentApiClient(config: CommonConfig)(implicit val executor: ScheduledExecutor)
     extends GuardianContentClient(apiKey = config.capiApiKey) {
 
   def usageQuery(contentId: String): ItemQuery = {
@@ -25,16 +24,16 @@ abstract class UsageContentApiClient(config: UsageConfig)(implicit val executor:
   }
 }
 
-class LiveContentApi(config: UsageConfig)(implicit val ex: ScheduledExecutor)
-    extends UsageContentApiClient(config) with RetryableContentApiClient {
+class LiveContentApi(config: CommonConfig)(implicit val ex: ScheduledExecutor)
+    extends ContentApiClient(config) with RetryableContentApiClient {
 
   override val targetUrl: String = config.capiLiveUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
 }
 
-class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: ScheduledExecutor)
+class PreviewContentApi(protected val config: CommonConfig)(implicit val ex: ScheduledExecutor)
   // ensure IAMAuthContentApiClient is the first trait in this list!
-    extends UsageContentApiClient(config) with IAMAuthContentApiClient with RetryableContentApiClient {
+    extends ContentApiClient(config) with IAMAuthContentApiClient with RetryableContentApiClient {
 
   override val targetUrl: String = config.capiPreviewUrl
   override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
@@ -49,10 +48,10 @@ class PreviewContentApi(protected val config: UsageConfig)(implicit val ex: Sche
 //     with IAMAuthContentApiClient with RetryableContentApiClient with MyOtherClientTraits
 // ie. the super calls will travel "from right to left" along the trait list, and this trait can sign the accumulated headers
 trait IAMAuthContentApiClient extends ContentApiClient {
-  protected val config: UsageConfig
+  protected val config: CommonConfig
 
   lazy val sts: StsClient = StsClient.builder()
-    .region(Region.of(config.awsRegionName))
+    .region(Region.of(config.awsRegion.id()))
     .build()
 
   private lazy val sessionId: String = "session-" + Math.random()
@@ -78,7 +77,7 @@ trait IAMAuthContentApiClient extends ContentApiClient {
     // no mutation of uris, and no easy way to create from a given one
     val encodedUri = new URI(uri.getScheme, uri.getAuthority, uri.getPath, encodedQuery, uri.getFragment)
 
-    val signer = new IAMSigner(capiCredentials, config.awsRegionName)
+    val signer = new IAMSigner(capiCredentials, config.awsRegion.id())
 
     val withIamHeaders = signer.addIAMHeaders(headers, encodedUri)
 
