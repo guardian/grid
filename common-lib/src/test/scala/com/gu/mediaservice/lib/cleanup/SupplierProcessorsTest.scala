@@ -21,11 +21,12 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
   private val config = new CommonConfig(GridConfigResources(
     Configuration.from(Map(
       "usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName,
-      "capi.live.url" -> "",
-      "capi.apiKey" -> "",
-      "capi.preview.role" -> "",
-      "capi.preview.url" -> ""
-    )).withFallback(
+      "capi.live.url" -> "https://content.guardianapis.com",
+      "capi.apiKey" -> "test-api-key",
+      "capi.preview.role" -> "arn:aws:iam::123456789012:role/test-capi-preview",
+      "capi.preview.url" -> "https://preview.content.guardianapis.com"
+    )
+    ).withFallback(
       Configuration.load(Environment.simple())),
     actorSystem,
     applicationLifecycle

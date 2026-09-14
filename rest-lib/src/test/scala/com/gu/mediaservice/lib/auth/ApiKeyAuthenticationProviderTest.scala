@@ -27,10 +27,10 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
     override def stop(): Future[_] = Future.successful(())
   }
   private val testConfiguration = Configuration.from(Map(
-    "capi.live.url" -> "",
-    "capi.apiKey" -> "",
-    "capi.preview.role" -> "",
-    "capi.preview.url" -> ""
+    "capi.live.url" -> "https://content.guardianapis.com",
+    "capi.apiKey" -> "test-api-key",
+    "capi.preview.role" -> "arn:aws:iam::123456789012:role/test-capi-preview",
+    "capi.preview.url" -> "https://preview.content.guardianapis.com"
   )).withFallback(Configuration.load(Environment.simple()))
   private val config = new CommonConfig(GridConfigResources(
     testConfiguration,
