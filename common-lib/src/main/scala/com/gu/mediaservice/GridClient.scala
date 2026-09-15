@@ -104,12 +104,23 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
    * process before returning data.
    * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
    */
-  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
-                         (implicit ec: ExecutionContext): Future[Response] = {
+  def buildRequest(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None): WSRequest = {
     val request: WSRequest = wsClient.url(url.toString)
     val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
-    val authorisedRequest = authFn(requestWithTimeout)
+    authFn(requestWithTimeout)
+  }
+  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
+                         (implicit ec: ExecutionContext): Future[Response] = {
+    val authorisedRequest = buildRequest(url, authFn, requestTimeout)
     authorisedRequest.get().map { response => validateResponse(response, url)}
+  }
+
+  def makeDeleteRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
+                         (implicit ec: ExecutionContext): Future[Response] = {
+    val authorisedRequest = buildRequest(url, authFn, requestTimeout)
+    authorisedRequest.delete().map { response =>
+      validateResponse(response, url)
+    }
   }
 
   private def validateResponse(
@@ -264,6 +275,17 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     val url = new URL(s"${services.metadataBaseUri}/metadata/$mediaId/archived")
     val request = authFn(wsClient.url(url.toString))
     request.put(Json.obj("data" -> JsTrue)).map { response => validateResponse(response, url)}
+  }
+
+  def deleteUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    logger.info("attempt to delete usages")
+    val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
+    makeGetRequestAsync(url, authFn) map { response =>
+      response.status match {
+        case 200 => true
+        case _ => false
+      }
+    }
   }
 }
 
