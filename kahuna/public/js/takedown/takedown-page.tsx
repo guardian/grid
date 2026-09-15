@@ -8,6 +8,7 @@ import { Button } from "@guardian/stand/Button";
 import { Typography } from "@guardian/stand/Typography";
 import { TakedownStep } from "./takedown-step";
 import { DeleteFromContentStep } from "./delete-from-content-step";
+import { DeleteFromGridStep } from "./delete-from-grid-step";
 import {
   TakedownContextProvider,
   TakedownStepId,
@@ -34,20 +35,7 @@ const STEPS: Step[] = [
   {
     id: "delete-from-grid",
     title: "Delete from Grid",
-    Component: () => (
-      // @TODO: Delete from Grid step
-      <>
-        <Typography
-          element="p"
-          variant="bodySm"
-          theme={standThemeOverride.typography.default}
-        >
-          This image is currently used in the following crops and usages. Remove
-          it from each one in Grid before continuing.
-        </Typography>
-        <Button>Delete from Grid</Button>
-      </>
-    )
+    Component: DeleteFromGridStep
   },
   {
     id: "purge-cache",

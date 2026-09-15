@@ -20,9 +20,31 @@ export type UsagesResource = {
   get: () => Promise<UsagesResource>;
 };
 
+export type Crop = {
+  id: string;
+  specification: {
+    aspectRatio?: string;
+  };
+  master?: {
+    dimensions: { width: number; height: number };
+  };
+};
+
+export type CropsResource = {
+  getData: () => Promise<Crop[]>;
+};
+
+// `crops` is not embedded on the image entity (unlike `usages`), it's only a
+// link - so it's reached via `.follow(rel)`, which returns a lazy resource
+// with no cached response, then `.get()` performs the actual HTTP GET.
+export type FollowableResource = {
+  get: () => Promise<CropsResource>;
+};
+
 export type GridImage = {
   data: {
     id: string;
     usages: UsagesResource;
   };
+  follow: (rel: string) => FollowableResource;
 };
