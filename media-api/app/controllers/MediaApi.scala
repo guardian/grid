@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
+import models.ImageUsages
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -50,6 +51,7 @@ class MediaApi(
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
+                previewContentApi: PreviewContentApi,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
@@ -118,6 +120,7 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeCapiUsagesLink: Option[Link] = Some(Link("capiUsages", s"${config.rootUri}/capiUsages/{id}")).filter(_ => config.takedownEnabled)
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -135,7 +138,7 @@ class MediaApi(
       Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete"),
       Link("usage",           config.usageUri),
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeCapiUsagesLink.toList
     respond(indexData, indexLinks)
   }
 
@@ -180,6 +183,15 @@ class MediaApi(
       case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
       case _ => ImageNotFound(id)
+    }
+  }
+  def getCapiUsages(id: String) = auth.async { _ =>
+    val composerDomain = config.composerDomain
+    for {
+      previewContent <- previewContentApi.findContentUsingImage(id)
+      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr, composerDomain))
+    } yield  {
+      respond[List[ImageUsages]](previewImages)
     }
   }
 
