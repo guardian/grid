@@ -136,7 +136,7 @@ Given('I have not applied any preset labels', async ({ page }) => {
 
 Then('I should see a suggested example label to apply to all uploads', async ({ page }) => {
   // The example label offered by the prompt comes from kahuna/public/js/strings.json.
-  await expect(uploadPage(page).prompt).toContainText(`label e.g. Observer`);
+  await expect(uploadPage(page).prompt).toContainText(`label e.g. culture`);
 });
 
 /**
