@@ -96,7 +96,7 @@ When('I choose {string}', async ({ page }, label: string) => {
 });
 
 Then('I should be taken to a search filtered to images I uploaded', async ({ page }) => {
-  await expect(page).toHaveURL((url) => Boolean(url.searchParams.get('uploadedBy')));
+  await expect(page).toHaveURL((url) => url.searchParams.get('uploadedBy') === 'johndoe@example.com');
 });
 
 When(
