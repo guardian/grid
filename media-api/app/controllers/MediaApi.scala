@@ -348,6 +348,14 @@ class MediaApi(
       case _ => ImageNotFound(imageId)
     }
   }
+  def takeDownImage(id: String) = auth.async { request =>
+    for {
+      deletedCrops <- gridClient.deleteCrops(id, auth.getOnBehalfOfPrincipal(request.user))
+      deletedUsages <- gridClient.deleteUsages(id, auth.getOnBehalfOfPrincipal(request.user))
+      if(deletedCrops && deletedUsages)
+  } yield {
+    Ok("able to delete")
+  }
 
   def hardDeleteImage(id: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
@@ -377,6 +385,7 @@ class MediaApi(
       case _ => ImageNotFound(id)
     }
   }
+
 
   def deleteImage(id: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
@@ -415,6 +424,7 @@ class MediaApi(
       case _ => ImageNotFound(id)
     }
   }
+
 
   def unSoftDeleteImage(id: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(

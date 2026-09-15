@@ -1,7 +1,7 @@
 package com.gu.mediaservice
 
 import java.net.URL
-import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
+import com.gu.mediaservice.GridClient.{Accepted, Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SyndicationRights}
 import com.gu.mediaservice.model.leases.LeasesByMedia
@@ -53,6 +53,9 @@ object GridClient extends LazyLogging {
   }
   case class NotFound(body: String, underlying: WSResponse) extends Response {
     val status = 404
+  }
+  case class Accepted(json: JsValue, underlying: WSResponse) extends Response {
+    val status = 202
   }
   case class Error(status: Int, url: URL, underlying: WSResponse) extends Response {
     def logErrorAndThrowException(): Nothing = {
@@ -129,6 +132,7 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
                                  ): Response = {
     response.status match {
       case 200 => Found(Json.parse(response.body), response)
+      case 202 => Accepted(Json.parse(response.body), response)
       case 404 => NotFound(response.body, response)
       case failCode => Error(failCode, url, response)
     }
@@ -278,15 +282,18 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   }
 
   def deleteUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
-    logger.info("attempt to delete usages")
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync(url, authFn) map { response =>
-      response.status match {
-        case 200 => true
-        case _ => false
-      }
+    makeDeleteRequestAsync(url, authFn) map {
+      case Found(_, _) => true
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
+
+  def deleteCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
+    val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
+    makeDeleteRequestAsync(url, authFn) map {
+      case Accepted(_, _) => true
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
 }
 
 class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {
