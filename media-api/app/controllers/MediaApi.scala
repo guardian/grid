@@ -120,6 +120,7 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeCapiUsagesLink: Option[Link] = Some(Link("capiUsages", s"${config.rootUri}/capiUsages/{id}")).filter(_ => config.takedownEnabled)
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -137,7 +138,7 @@ class MediaApi(
       Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete"),
       Link("usage",           config.usageUri),
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeCapiUsagesLink.toList
     respond(indexData, indexLinks)
   }
 
@@ -185,9 +186,10 @@ class MediaApi(
     }
   }
   def getCapiUsages(id: String) = auth.async { _ =>
+    val composerDomain = config.composerDomain
     for {
       previewContent <- previewContentApi.findContentUsingImage(id)
-      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr))
+      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr, composerDomain))
     } yield  {
       respond[List[ImageUsages]](previewImages)
     }

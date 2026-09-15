@@ -48,10 +48,10 @@ class PreviewContentApi(protected val config: MediaApiConfig)(implicit val ex: S
 //     with IAMAuthContentApiClient with RetryableContentApiClient with MyOtherClientTraits
 // ie. the super calls will travel "from right to left" along the trait list, and this trait can sign the accumulated headers
 trait IAMAuthContentApiClient extends ContentApiClient {
-  protected val config: CommonConfig
+  protected val config: MediaApiConfig
 
   lazy val sts: StsClient = StsClient.builder()
-    .region(Region.of(config.awsRegion.id()))
+    .region(Region.of(config.awsRegionName))
     .build()
 
   private lazy val sessionId: String = "session-" + Math.random()
