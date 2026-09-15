@@ -1,6 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
-import { Given, KAHUNA_APP_URL, Then, When, expect } from './fixtures.ts';
-import { testImages, uploadPage } from './support/upload-page.ts';
+import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
+import { testImages, uploadPage } from './setup.ts';
 
 /** Example label offered by the prompt, from kahuna/public/js/strings.json. */
 const EXAMPLE_LABEL = 'Observer';
