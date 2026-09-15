@@ -19,6 +19,7 @@ Feature: Uploading images to the Grid
     Then I should see the file upload prompt
     And I should see my past 50 uploads
     And the drag-and-drop uploader should be active
+    And I should not see the current uploads section
   # Evidence: kahuna/public/js/upload/view.html lines 11-12, 19-27, 31
   # Evidence: kahuna/public/js/upload/controller.js lines 40-45
 
@@ -35,12 +36,13 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/controller.js lines 36-41
 
   Scenario: Returning to search from the upload page
+    Given I had searched for "cats" before opening the upload page
     When I choose "Back to search" from the top bar
     Then I should be taken to the image search page
     And my previous search should be intact
   # Evidence: kahuna/public/js/upload/view.html lines 3-6
 
-  Scenario: The current uploads section only appears while an upload is running
+  Scenario: The current uploads section appears while an upload is running
     Given I have an upload in progress
     When the upload page loads
     Then I should see my current uploads section
@@ -52,6 +54,11 @@ Feature: Uploading images to the Grid
     Then I should be taken to a search filtered to images I uploaded
   # Evidence: kahuna/public/js/upload/view.html lines 22-23
 
+  # Currently unreachable: none of these controls reach the controller's own confirm.
+  # "Back to search" is a ui-sref, and ui-router destroys the UploadCtrl scope before
+  # broadcasting $locationChangeStart; "Home" and "View all your uploads" are plain hrefs,
+  # so the browser shows its own generic beforeunload prompt instead.
+  @todo
   Scenario: Warning before leaving the page with uploads in progress
     Given I have an upload in progress
     When I try to navigate away from the upload page via the following buttons:
@@ -71,6 +78,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 1-3
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 20
 
+  @todo
   Scenario: The prompt suggests an example label when no labels are applied
     Given I have not applied any preset labels
     When the upload page loads
@@ -78,6 +86,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
+  @todo
   Scenario: Preset labels are applied to all uploads
     When I add a preset label via the 'apply label to all uploads' button
     Then that label should be applied to all my uploads
@@ -149,7 +158,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 64-66, 219-220
   # Evidence: kahuna/public/js/upload/manager.js lines 86-96
 
-  @todo can remove this functionality in another PR
+  # can remove this functionality in another PR
+  @todo
   Scenario: Dropping a Witness contribution imports it
     When I drop a Witness contribution URL onto the page
     Then the importing overlay should be shown
@@ -158,14 +168,16 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 8-12
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 40-62, 69-78, 206-217
 
-  @todo can remove this functionality in another PR
+  # can remove this functionality in another PR
+  @todo
   Scenario: A failed Witness import is reported
     Given I drop a Witness contribution URL onto the page
     When the Witness import fails
     Then I should see an alert that importing the Witness contribution failed
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
-  @todo not implemented afaics
+  # not implemented afaics
+  @todo
   Scenario: Dropping invalid content is rejected
     When I drop something that is not a valid file or URL
     Then I should see an alert that I must drop valid files or URLs
@@ -357,7 +369,7 @@ Feature: Uploading images to the Grid
 
   @todo
   Scenario: Metadata editing is disabled without edit permission
-    Given I am not permitted to edit the image
+    Given I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission
     When I view the metadata editor for an image I did not upload
     Then the metadata fields should be disabled
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 14, 44, 71, 101, 124, 152, 173

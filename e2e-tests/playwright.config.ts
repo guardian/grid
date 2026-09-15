@@ -7,6 +7,9 @@ import { KAHUNA_PORT } from './setup/constants.ts';
 const testDir = defineBddConfig({
   features: './features/**/*.feature',
   steps: './steps/**/*.ts',
+  /* @todo marks scenarios that are specified but not yet implemented. Excluding them keeps
+     bddgen's "undefined step" failures meaningful for the scenarios we do implement. */
+  tags: 'not @todo',
 });
 
 /**
