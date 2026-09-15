@@ -188,12 +188,10 @@ class MediaApi(
   }
   def getCapiUsages(id: String) = auth.async { _ =>
     for {
-      liveContent <- liveContentApi.findContentUsingImage(id)
-      liveImages = liveContent.map(sr => ImageUsages.fromSearchResponse(sr))
       previewContent <- previewContentApi.findContentUsingImage(id)
       previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr))
     } yield  {
-      respond[List[ImageUsages]](liveImages ++ previewImages)
+      respond[List[ImageUsages]](previewImages)
     }
   }
 
