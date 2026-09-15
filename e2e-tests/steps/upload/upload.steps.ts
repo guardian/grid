@@ -4,9 +4,9 @@ import { testImages, uploadPage } from './setup.ts';
 
 const filesToUpload = [testImages.smaller, testImages.larger];
 
-// ---------------------------------------------------------------------------
-// Upload page shell
-// ---------------------------------------------------------------------------
+/**
+ * Upload page shell
+ */
 
 Given('I am permitted to upload images', async ({ page }) => {
   // Kahuna decides whether to show the upload tools by looking for a `loader` link on the
@@ -112,9 +112,9 @@ Then('I should be warned that uploads are in progress and asked to confirm', asy
     .toContain('You have uploads in progress. Are you sure you want to leave this page?');
 });
 
-// ---------------------------------------------------------------------------
-// File upload prompt
-// ---------------------------------------------------------------------------
+/**
+ * File upload prompt
+ */
 
 Then('I should see a message telling me to drag and drop or click to upload to the system', async ({ page }) => {
   const systemName = await page.evaluate(() => window._clientConfig.systemName);
@@ -135,9 +135,9 @@ Then('I should see a suggested example label to apply to all uploads', async ({ 
   await expect(uploadPage(page).prompt).toContainText(`label e.g. Observer`);
 });
 
-// ---------------------------------------------------------------------------
-// Select-files uploader
-// ---------------------------------------------------------------------------
+/**
+ * Select-files uploader
+ */
 
 When('I click the {string} button', async ({ page, testContext }, label: string) => {
   testContext.fileChooser = page.waitForEvent('filechooser');
