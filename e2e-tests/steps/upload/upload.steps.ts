@@ -37,6 +37,10 @@ Then('the drag-and-drop uploader should be active', async ({ page }) => {
   await expect(uploadPage(page).dragAndDropUploader).toBeAttached();
 });
 
+Then('I should not see the current uploads section', async ({ page }) => {
+  await expect(uploadPage(page).currentUploads).not.toBeVisible();
+});
+
 Given(
   'I had searched for {string} before opening the upload page',
   async ({ page, testContext }, query: string) => {

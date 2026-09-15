@@ -19,6 +19,7 @@ Feature: Uploading images to the Grid
     Then I should see the file upload prompt
     And I should see my past 50 uploads
     And the drag-and-drop uploader should be active
+    And I should not see the current uploads section
   # Evidence: kahuna/public/js/upload/view.html lines 11-12, 19-27, 31
   # Evidence: kahuna/public/js/upload/controller.js lines 40-45
 
@@ -41,7 +42,7 @@ Feature: Uploading images to the Grid
     And my previous search should be intact
   # Evidence: kahuna/public/js/upload/view.html lines 3-6
 
-  Scenario: The current uploads section only appears while an upload is running
+  Scenario: The current uploads section appears while an upload is running
     Given I have an upload in progress
     When the upload page loads
     Then I should see my current uploads section
