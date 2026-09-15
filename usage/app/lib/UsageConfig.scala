@@ -26,6 +26,7 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val capiPreviewRole = stringOpt("capi.preview.role")
   val capiApiKey = string("capi.apiKey")
   val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
+  val fastlyKey = string("fastly.key")
 
   val usageDateLimit: String = stringDefault("usage.dateLimit", defaultDateLimit)
 

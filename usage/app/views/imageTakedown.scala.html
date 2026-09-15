@@ -1,0 +1,95 @@
+@import helper._
+@import model.ContentWithImages
+@import com.gu.mediaservice.model.Crop
+@import com.gu.mediaservice.model.usage.Usage
+@import com.gu.mediaservice.model.ImageStatusRecord
+@(imageId: Option[String], capiResults: List[ContentWithImages], crops: List[Crop], usages: List[Usage],  softDeleteMetadata: Option[ImageStatusRecord])(implicit request: RequestHeader)
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Image Takedown</title>
+        <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+    </head>
+    <body>
+        <main>
+        <h1>Image Takedown</h1>
+        @request.flash.get("response").map { message =>
+            <div class="flash-message flash-message--success" role="status">
+                @message
+            </div>
+        }
+
+        @if(imageId.isEmpty) {
+            <h2>Query CAPI for Content Using Image</h2>
+            @form(routes.ImageTakedownController.takedownImage) {
+                @CSRF.formField
+                <label for="imageId">Image ID:</label>
+                <input type="text" id="imageId" name="imageId">
+                <input type="submit" value="Submit">
+                }
+        }else {
+            <p>Found the following information for @{imageId.get}</p>
+            @if(capiResults.isEmpty) {
+                <p>No content found in CAPI for image ID</p>
+            } else {
+                <p>Found @capiResults.size content items in CAPI for image ID</p>
+                <ul>
+                @for(capiResult <- capiResults) {
+                    <li><a href="@{capiResult.webUrl}">@{capiResult.webTitle}</a></li>
+                }
+                </ul>
+                <p>Found @{capiResults.flatMap(r => r.imageIds).size} urls </p>
+                @for(capiResult <- capiResults) {
+                    @for(image <- capiResult.imageIds) {
+                        <ul>
+                            <li>@{
+                                image
+                            }</li>
+                        </ul>
+                    }
+                }
+            }
+
+            <p>Found @{crops.size} crops and @{usages.size} usages</p>
+            @for(usage <- usages) {
+                <li>@{usage.platform}: @{usage.status}</li>
+                @for(reference <- usage.references) {
+                    <ul>
+                        <li>@{reference.`type`}: <a href=@{reference.uri}>@{reference.name}</a></li>
+                    </ul>
+                }
+            }
+            <br>
+            @for(softDeleteMetadata <- softDeleteMetadata) {
+                <p>Image was soft deleted on @{softDeleteMetadata.deleteTime} by @{softDeleteMetadata.deletedBy}</p>
+            }
+
+            @form(routes.ImageTakedownController.removeImageMetadata(imageId.get)) {
+                @CSRF.formField
+                <button type="submit">Remove Image Metadata</button>
+            }
+
+
+            @form(routes.ImageTakedownController.deleteImage(imageId.get)) {
+                @CSRF.formField
+                <label for="delete-select">Delete action:</label>
+                <select id="delete-select" name="deleteAction" required>
+                    <option value="">--Please choose an option--</option>
+                    <option value="soft-delete">Soft Delete</option>
+                    <option value="hard-delete">Hard Delete</option>
+                    <option value="deny-lease">Deny Lease</option>
+                </select>
+                <button type="submit"  @if(!(capiResults.isEmpty && crops.isEmpty && usages.isEmpty)) { disabled="disabled" }>Remove from grid</button>
+            }
+
+            @form(routes.ImageTakedownController.decache(imageId.get)) {
+                @CSRF.formField
+                <button type="submit" @if(!(capiResults.isEmpty && crops.isEmpty && usages.isEmpty)) { disabled="disabled" }>Remove from fastly</button>
+            }
+        }
+        </main>
+
+
+    </body>
+</html>

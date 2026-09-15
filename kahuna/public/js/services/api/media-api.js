@@ -70,6 +70,10 @@ mediaApi.factory('mediaApi',
         }).get();
     }
 
+    function capiUsages(id) {
+      return root.follow('capiUsages', {id: id}).get();
+    }
+
     function maybeStringToBoolean(maybeString) {
         if (maybeString === 'true') {
             return true;
@@ -140,6 +144,7 @@ mediaApi.factory('mediaApi',
         root,
         search,
         find,
+        capiUsages,
         getSession,
         metadataSearch,
         labelSearch,
