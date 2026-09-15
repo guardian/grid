@@ -1,0 +1,86 @@
+package lib
+
+import com.gu.contentapi.client.model.v1.Content
+import com.gu.contentapi.client.model.{HttpResponse, ItemQuery, SearchQuery}
+import com.gu.contentapi.client._
+import com.gu.mediaservice.lib.config.CommonConfig
+import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, ProfileCredentialsProvider}
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sts.StsClient
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest
+
+import java.net.URI
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+
+abstract class ContentApiClient(config: MediaApiConfig)(implicit val executor: ScheduledExecutor)
+    extends GuardianContentClient(apiKey = config.capiApiKey) {
+
+  def imageSearchQuery(imageId: String): SearchQuery = {
+    SearchQuery()
+      .q(imageId)
+      .queryFields("body,main,thumbnail")
+      .showFields("firstPublicationDate,isLive,internalComposerCode")
+  }
+
+  def findContentUsingImage(imageId: String)(implicit context: ExecutionContext): Future[List[Content]] = {
+    val imageSearchQ = imageSearchQuery(imageId)
+    paginateAccum(imageSearchQ)(sr => sr.results.toList, (l1: List[Content], l2: List[Content]) => l1 ++ l2)
+  }
+
+}
+
+class PreviewContentApi(protected val config: MediaApiConfig)(implicit val ex: ScheduledExecutor)
+  // ensure IAMAuthContentApiClient is the first trait in this list!
+    extends ContentApiClient(config) with IAMAuthContentApiClient with RetryableContentApiClient {
+
+  override val targetUrl: String = config.capiPreviewUrl
+  override val backoffStrategy: BackoffStrategy = BackoffStrategy.doublingStrategy(2.seconds, config.capiMaxRetries)
+}
+
+// order of mixing is important. Some client traits (notably RetryableContentApiClient!)
+// also override get, adding header(s) (and could potentially edit the uri too) before calling super.get(). Those
+// traits must be executed BEFORE this trait, so that the get override in this trait
+// receives the headers that will actually be sent over the wire.
+// so any class mixing this in should have it first in the list of traits, eg.
+//   class MyCapiClient extends GuardianContentApiClient(apiKey)
+//     with IAMAuthContentApiClient with RetryableContentApiClient with MyOtherClientTraits
+// ie. the super calls will travel "from right to left" along the trait list, and this trait can sign the accumulated headers
+trait IAMAuthContentApiClient extends ContentApiClient {
+  protected val config: CommonConfig
+
+  lazy val sts: StsClient = StsClient.builder()
+    .region(Region.of(config.awsRegion.id()))
+    .build()
+
+  private lazy val sessionId: String = "session-" + Math.random()
+  lazy val capiCredentials: AwsCredentialsProvider =
+    config.capiPreviewRole.map(arn => {
+
+      val assumeRoleRequest = AssumeRoleRequest.builder().roleArn(arn).roleSessionName(sessionId).build()
+
+      StsAssumeRoleCredentialsProvider.builder()
+        .refreshRequest(assumeRoleRequest)
+        .stsClient(sts)
+        .build()
+    }).getOrElse(ProfileCredentialsProvider.create("capi")) // will be used if stream is ever run locally (unusual)
+
+  abstract override def get(
+    url: String,
+    headers: Map[String, String]
+  )(implicit context: ExecutionContext): Future[HttpResponse] = {
+
+    val uri = new URI(url)
+    val encodedQuery = IAMEncoder.encodeParams(uri.getQuery)
+
+    // no mutation of uris, and no easy way to create from a given one
+    val encodedUri = new URI(uri.getScheme, uri.getAuthority, uri.getPath, encodedQuery, uri.getFragment)
+
+    val signer = new IAMSigner(capiCredentials, config.awsRegion.id())
+
+    val withIamHeaders = signer.addIAMHeaders(headers, encodedUri)
+
+    super.get(encodedUri.toString, withIamHeaders)
+  }
+}

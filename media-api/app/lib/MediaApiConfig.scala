@@ -56,7 +56,11 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val collectionsUri: String = services.collectionsBaseUri
 
   val requiredMetadata = NonEmptyList("credit", "description", "usageRights")
-
+  val capiPreviewUrl = string("capi.preview.url")
+  val capiPreviewRole = stringOpt("capi.preview.role")
+  val defaultMaxRetries = 4
+  val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
+  val capiApiKey = string("capi.apiKey")
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten

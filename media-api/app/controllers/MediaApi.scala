@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
+import models.ImageUsages
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -50,6 +51,7 @@ class MediaApi(
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
+                previewContentApi: PreviewContentApi,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
@@ -180,6 +182,14 @@ class MediaApi(
       case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
       case _ => ImageNotFound(id)
+    }
+  }
+  def getCapiUsages(id: String) = auth.async { _ =>
+    for {
+      previewContent <- previewContentApi.findContentUsingImage(id)
+      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr))
+    } yield  {
+      respond[List[ImageUsages]](previewImages)
     }
   }
 

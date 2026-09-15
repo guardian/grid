@@ -39,7 +39,11 @@ trait Fixtures {
     "s3.image.bucket",
     "s3.thumb.bucket",
     "grid.stage",
-    "grid.appName"
+    "grid.appName",
+    "capi.live.url",
+    "capi.apiKey",
+    "capi.preview.role",
+    "capi.preview.url",
   )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
