@@ -21,6 +21,7 @@ trait Fixtures {
     "usageRights" -> Map(
       "applicable" -> List()
     ),
+    "aws.region" -> "eu-west-1",
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
   )
   val NOT_USED_IN_TEST = "not used in test"
@@ -44,6 +45,7 @@ trait Fixtures {
     "capi.apiKey",
     "capi.preview.role",
     "capi.preview.url",
+    "composer.domain"
   )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(
