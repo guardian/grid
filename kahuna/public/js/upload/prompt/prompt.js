@@ -1,16 +1,16 @@
 import angular from 'angular';
 
 import './prompt.css';
-import '../../components/gr-preset-labels/gr-preset-labels';
 import template from './prompt.html';
+import '../../components/gr-preset-labels/gr-preset-labels';
+
 import strings from '../../strings.json';
 
 export let prompt = angular.module('kahuna.upload.prompt', [
-    'gr.presetLabels',
-    'kahuna.services.presetLabel'
+    'gr.presetLabels'
 ]);
 
-prompt.directive('filePrompt', ['presetLabelService', function (presetLabelService) {
+prompt.directive('filePrompt', [function () {
     return {
         restrict: 'E',
         transclude: 'replace',
@@ -19,7 +19,6 @@ prompt.directive('filePrompt', ['presetLabelService', function (presetLabelServi
         link: function($scope) {
             $scope.systemName = window._clientConfig.systemName;
             $scope.exampleLabel = strings.exampleLabel;
-            $scope.hasPresetLabels = () => presetLabelService.getLabels().length > 0;
         }
     };
 }]);

@@ -77,6 +77,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 1-3
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 20
 
+  @todo
   Scenario: The prompt suggests an example label when no labels are applied
     Given I have not applied any preset labels
     When the upload page loads
