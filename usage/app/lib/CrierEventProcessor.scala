@@ -4,6 +4,7 @@ import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.contentapi.client.model.ContentApiError
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
+import com.gu.mediaservice.lib.{LiveContentApi, PreviewContentApi, ContentApiClient}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
 import com.gu.thrift.serializer.ThriftDeserializer
@@ -70,7 +71,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
   implicit val codec: ThriftStructCodec[Event] = Event
 
-  val contentApiClient: UsageContentApiClient
+  val contentApiClient: ContentApiClient
 
   override def initialize(initializationInput: InitializationInput): Unit = {
     logger.debug(s"Initialized an event processor for shard ${initializationInput.shardId}")

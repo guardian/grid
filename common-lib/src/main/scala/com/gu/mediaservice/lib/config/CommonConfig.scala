@@ -100,6 +100,12 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins, domainRootOverride)
+  val defaultMaxRetries = 4
+  val capiLiveUrl = string("capi.live.url")
+  val capiPreviewUrl = string("capi.preview.url")
+  val capiPreviewRole = stringOpt("capi.preview.role")
+  val capiApiKey = string("capi.apiKey")
+  val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

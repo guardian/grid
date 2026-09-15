@@ -77,7 +77,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.12.797"
-val awsSdkV2Version = "2.54.13"
+val awsSdkV2Version = "2.49.5"
 val elastic4sVersion = "8.19.1"
 val awsKclVersion = "3.4.3"
 val okHttpVersion = "3.12.1"
@@ -93,6 +93,8 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "editorial-permissions-client" % "7.0.0",
     "com.gu" %% "pan-domain-auth-play_3-0" % "19.0.0",
+    "com.gu" %% "content-api-client-default" % "32.0.0",
+    "com.gu" %% "content-api-client-aws" % "1.0.1",
     "software.amazon.awssdk" % "iam" % awsSdkV2Version,
     "software.amazon.awssdk" % "s3" % awsSdkV2Version,
     "software.amazon.awssdk" % "sns" % awsSdkV2Version,
@@ -161,6 +163,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
+      "com.gu" %% "content-api-client-default" % "32.0.0",
       "org.parboiled" %% "parboiled" % "2.1.7",
       "org.http4s" %% "http4s-core" % "0.23.17",
       "com.github.blemale" %% "scaffeine" % "5.3.0"

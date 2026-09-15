@@ -1,4 +1,5 @@
 import com.gu.contentapi.client.ScheduledExecutor
+import com.gu.mediaservice.lib.LiveContentApi
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi

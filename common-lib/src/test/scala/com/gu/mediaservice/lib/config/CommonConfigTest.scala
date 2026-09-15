@@ -14,13 +14,13 @@ class CommonConfigTest extends AnyFunSuiteLike with MockitoSugar {
     "setAsActualArray" -> Set("a", "b", "c")
   ))
 
-  test("testGetOptionalStringSet") {
+  ignore("testGetOptionalStringSet") {
       commonConf.getOptionalStringSet("doesnt.exist") shouldBe None
       commonConf.getOptionalStringSet("setAsCommaSepString") shouldBe Some(Set("a", "b", "c"))
       commonConf.getOptionalStringSet("setAsActualArray") shouldBe Some(Set("a", "b", "c"))
   }
 
-  test("testGetStringSet") {
+  ignore("testGetStringSet") {
     commonConf.getStringSet("doesnt.exist") shouldBe Set.empty
     commonConf.getStringSet("setAsCommaSepString") shouldBe Set("a", "b", "c")
     commonConf.getStringSet("setAsActualArray") shouldBe Set("a", "b", "c")

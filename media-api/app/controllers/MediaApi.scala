@@ -2,6 +2,7 @@ package controllers
 
 import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import com.google.common.net.HttpHeaders
+import com.gu.mediaservice.lib.{LiveContentApi, PreviewContentApi}
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
@@ -20,6 +21,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
+import models.ImageUsages
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -50,6 +52,8 @@ class MediaApi(
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
+                liveContentApi: LiveContentApi,
+                previewContentApi: PreviewContentApi,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
@@ -180,6 +184,14 @@ class MediaApi(
       case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
       case _ => ImageNotFound(id)
+    }
+  }
+  def getCapiUsages(id: String) = auth.async { _ =>
+    for {
+      previewContent <- previewContentApi.findContentUsingImage(id)
+      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr))
+    } yield  {
+      respond[List[ImageUsages]](previewImages)
     }
   }
 

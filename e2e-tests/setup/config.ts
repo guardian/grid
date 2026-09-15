@@ -92,7 +92,14 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
   // rather than injecting it as a JVM option in the container.
   fs.writeFileSync(
     path.join(configDir, 'common.conf'),
-    'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"\n',
+    [
+      'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
+      'capi.live.url = "https://content.guardianapis.com"',
+      'capi.apiKey = "test-api-key"',
+      'capi.preview.role = "arn:aws:iam::123456789012:role/test-capi-preview"',
+      'capi.preview.url = "https://preview.content.guardianapis.com"',
+      '',
+    ].join('\n'),
   );
 
   for (const service of GRID_SERVICES) {

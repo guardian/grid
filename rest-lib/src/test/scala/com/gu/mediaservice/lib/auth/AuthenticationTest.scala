@@ -51,14 +51,20 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
   private def parseCookie(cookie: Cookie): Option[AuthToken] = {
     Try(Json.parse(cookie.value)).toOption.flatMap(_.asOpt[AuthToken])
   }
-
+  private val testConfiguration = Configuration.from(Map(
+    "capi.live.url" -> "https://content.guardianapis.com",
+    "capi.apiKey" -> "test-api-key",
+    "capi.preview.role" -> "arn:aws:iam::123456789012:role/test-capi-preview",
+    "capi.preview.url" -> "https://preview.content.guardianapis.com"
+  )).withFallback(Configuration.load(Environment.simple()))
   def makeAuthenticationInstance(testProviders: AuthenticationProviders): Authentication = {
     val applicationLifecycle = new ApplicationLifecycle {
       override def addStopHook(hook: () => Future[_]): Unit = {}
       override def stop(): Future[_] = Future.successful(())
     }
+
     val config = new CommonConfig(GridConfigResources(
-      Configuration.load(Environment.simple()),
+      testConfiguration,
       actorSystem,
       applicationLifecycle
     )){}
