@@ -1,8 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
-import { testImages, uploadPage } from './setup.ts';
-
-const filesToUpload = [testImages.smaller, testImages.larger];
+import { filesToUpload, testImages, uploadPage } from './setup.ts';
 
 /**
  * Upload page shell

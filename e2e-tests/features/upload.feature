@@ -127,14 +127,12 @@ Feature: Uploading images to the Grid
   # Drag-and-drop uploader (dnd-uploader.html + dnd-uploader.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Dragging valid content over the page shows the dropzone
     When I drag files over the upload page
     Then the dropzone overlay should appear with an explanation
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1-6
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 113, 116, 158-171
 
-  @todo
   Scenario: The dropzone hides when I stop dragging
     Given the dropzone overlay is showing
     When I drag away from the upload page
@@ -142,7 +140,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 117, 173-180
 
-  @todo
   Scenario: Dropping files uploads them
     When I drop one or more image files onto the page
     Then those files should be queued for upload
@@ -150,6 +147,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-37, 182-205
   # Evidence: kahuna/public/js/upload/manager.js lines 68-83
 
+  # image-loader fetches the URL server-side, so it must be reachable from inside the
+  # stack's network. Needs somewhere to host a fixture image that the container can reach.
   @todo
   Scenario: Dropping a URL loads the image from that URL
     When I drop an image URL onto the page
@@ -176,14 +175,16 @@ Feature: Uploading images to the Grid
     Then I should see an alert that importing the Witness contribution failed
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
-  # not implemented afaics
+  # Confirmed unreachable: `drop` only calls `performDropAction` when `isGridFriendly`, which
+  # needs a Files or uri-list type, and the alert is the last branch after those are ruled
+  # out. Dropping genuinely invalid content is ignored silently; only a Grid thumbnail URL
+  # reaches the alert.
   @todo
   Scenario: Dropping invalid content is rejected
     When I drop something that is not a valid file or URL
     Then I should see an alert that I must drop valid files or URLs
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 222-231
 
-  @todo
   Scenario: Dragging a Grid image back onto the page is ignored
     When I drag an image that is already in the Grid over the page
     Then the dropzone overlay should not appear
