@@ -367,7 +367,7 @@ Feature: Uploading images to the Grid
 
   @todo
   Scenario: Metadata editing is disabled without edit permission
-    Given I am not permitted to edit the image
+    Given I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission
     When I view the metadata editor for an image I did not upload
     Then the metadata fields should be disabled
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 14, 44, 71, 101, 124, 152, 173
