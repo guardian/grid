@@ -2,13 +2,7 @@ import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
 import { testImages, uploadPage } from './setup.ts';
 
-/** Example label offered by the prompt, from kahuna/public/js/strings.json. */
-const EXAMPLE_LABEL = 'Observer';
-
-const FILES_TO_UPLOAD = [testImages.smaller, testImages.larger];
-
-/** Long enough for a scenario's assertions, short enough not to drag out teardown. */
-const UPLOAD_HOLD_MS = 5_000;
+const filesToUpload = [testImages.smaller, testImages.larger];
 
 // ---------------------------------------------------------------------------
 // Upload page shell
@@ -74,11 +68,13 @@ Then('my previous search should be intact', async ({ page, testContext }) => {
 Given('I have an upload in progress', async ({ page }) => {
   // Hold the transfer to the ingest bucket open, otherwise the job reaches a terminal
   // state within a second or so and is no longer "in progress" by the time we assert.
+  // This is long enough for a scenario's assertions, short enough not to drag out teardown.
+  const uploadHoldMs = 5_000;
   await page.route(
     (url) => url.hostname.startsWith('localstack.'),
     async (route) => {
       if (route.request().method() !== 'PUT') return route.fallback();
-      await new Promise((resolve) => setTimeout(resolve, UPLOAD_HOLD_MS));
+      await new Promise((resolve) => setTimeout(resolve, uploadHoldMs));
       await route.abort();
     },
   );
@@ -135,7 +131,8 @@ Given('I have not applied any preset labels', async ({ page }) => {
 });
 
 Then('I should see a suggested example label to apply to all uploads', async ({ page }) => {
-  await expect(uploadPage(page).prompt).toContainText(`label e.g. ${EXAMPLE_LABEL}`);
+  // The example label offered by the prompt comes from kahuna/public/js/strings.json.
+  await expect(uploadPage(page).prompt).toContainText(`label e.g. Observer`);
 });
 
 // ---------------------------------------------------------------------------
@@ -154,11 +151,11 @@ Then('the system file picker should open', async ({ testContext }) => {
 });
 
 When('I select one or more image files to upload', async ({ page }) => {
-  await uploadPage(page).fileInput.setInputFiles(FILES_TO_UPLOAD.map(({ path }) => path));
+  await uploadPage(page).fileInput.setInputFiles(filesToUpload.map(({ path }) => path));
 });
 
 Then('those files should be queued for upload', async ({ page }) => {
-  for (const { fileName } of FILES_TO_UPLOAD) {
+  for (const { fileName } of filesToUpload) {
     await expect(uploadPage(page).job(fileName)).toBeVisible();
   }
 });
@@ -177,7 +174,7 @@ Given('an upload size limit is configured', async ({ page }) => {
 });
 
 When('I select a file that is larger than the size limit', async ({ page }) => {
-  await uploadPage(page).fileInput.setInputFiles(FILES_TO_UPLOAD.map(({ path }) => path));
+  await uploadPage(page).fileInput.setInputFiles(filesToUpload.map(({ path }) => path));
 });
 
 Then('I should be warned that the oversized file will be skipped', async ({ testContext }) => {
