@@ -84,6 +84,7 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
+  @todo
   Scenario: Preset labels are applied to all uploads
     When I add a preset label via the 'apply label to all uploads' button
     Then that label should be applied to all my uploads
@@ -155,7 +156,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 64-66, 219-220
   # Evidence: kahuna/public/js/upload/manager.js lines 86-96
 
-  @todo can remove this functionality in another PR
+  # can remove this functionality in another PR
+  @todo
   Scenario: Dropping a Witness contribution imports it
     When I drop a Witness contribution URL onto the page
     Then the importing overlay should be shown
@@ -164,14 +166,16 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 8-12
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 40-62, 69-78, 206-217
 
-  @todo can remove this functionality in another PR
+  # can remove this functionality in another PR
+  @todo
   Scenario: A failed Witness import is reported
     Given I drop a Witness contribution URL onto the page
     When the Witness import fails
     Then I should see an alert that importing the Witness contribution failed
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
-  @todo not implemented afaics
+  # not implemented afaics
+  @todo
   Scenario: Dropping invalid content is rejected
     When I drop something that is not a valid file or URL
     Then I should see an alert that I must drop valid files or URLs
