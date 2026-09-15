@@ -147,9 +147,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-37, 182-205
   # Evidence: kahuna/public/js/upload/manager.js lines 68-83
 
-  # image-loader fetches the URL server-side, so it must be reachable from inside the
-  # stack's network. Needs somewhere to host a fixture image that the container can reach.
-  @todo
   Scenario: Dropping a URL loads the image from that URL
     When I drop an image URL onto the page
     Then the image at that URL should be loaded for upload

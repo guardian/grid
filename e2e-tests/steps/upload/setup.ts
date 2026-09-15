@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
+import { KAHUNA_PORT } from '../../setup/constants.ts';
 
 declare global {
   interface Window {
@@ -32,6 +33,13 @@ export const testImages = {
 
 /** The set that both the file picker and drag-and-drop scenarios upload. */
 export const filesToUpload = [testImages.smaller, testImages.larger];
+
+/**
+ * An image to import by URL. image-loader fetches the URL itself, so it has to be reachable
+ * from inside the stack: Kahuna serves this one unauthenticated, and every service shares a
+ * container in the e2e image, so localhost reaches it.
+ */
+export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images/blocked-cookies.png`;
 
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
