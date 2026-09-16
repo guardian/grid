@@ -1,9 +1,8 @@
 package lib
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.contentapi.client.model.{HttpResponse, ItemQuery, SearchQuery}
+import com.gu.contentapi.client.model.{HttpResponse, SearchQuery}
 import com.gu.contentapi.client._
-import com.gu.mediaservice.lib.config.CommonConfig
 import software.amazon.awssdk.auth.credentials.{AwsCredentialsProvider, ProfileCredentialsProvider}
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sts.StsClient

@@ -3,17 +3,17 @@ package models
 import com.gu.contentapi.client.model.v1.Content
 import lib.MediaApiConfig
 
-case class ImageUsages(contentId: String, webTitle: String, webUrl: String, composerUrl: Option[String], publishedAt: Option[Long] = None, isLive: Option[Boolean] = None)
+case class UsagesInContent(contentId: String, webTitle: String, webUrl: String, composerUrl: Option[String], publishedAt: Option[Long] = None, isLive: Option[Boolean] = None)
 
-object ImageUsages {
+object UsagesInContent {
 
   import play.api.libs.json._
 
-  implicit val imageUsagesWrites: Writes[ImageUsages] = Json.writes[ImageUsages]
-  implicit val imageUsagesReads: Reads[ImageUsages] = Json.reads[ImageUsages]
+  implicit val imageUsagesWrites: Writes[UsagesInContent] = Json.writes[UsagesInContent]
+  implicit val imageUsagesReads: Reads[UsagesInContent] = Json.reads[UsagesInContent]
 
   def fromSearchResponse(content: Content, composerDomain: String) = {
-      ImageUsages(
+    UsagesInContent(
         content.id,
         content.webTitle,
         content.webUrl,
