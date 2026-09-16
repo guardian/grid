@@ -234,7 +234,7 @@
             <span>
                 No matches, sorry! Try altering your search.
                 <span ng-if="!ctrl.isAiSearch && ctrl.shouldDisplayAISearchOption">
-                    Or <a href="" ng-click="ctrl.tryAiSearchFromNoResults()">try AI search instead</a>.
+                    Or <a href="" ng-click="$event.preventDefault(); ctrl.tryAiSearchFromNoResults()">try AI search instead</a>.
                 </span>
             </span>
         </div>
