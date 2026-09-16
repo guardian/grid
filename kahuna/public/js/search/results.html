@@ -230,13 +230,21 @@
         </div>
 
         <div ng-if="! ctrl.filtersOnlyAiSearch && ctrl.totalResults == 0"
-             class="image-no-results">
-            <span>
-                No matches, sorry! Try altering your search.
-                <span ng-if="!ctrl.isAiSearch && ctrl.shouldDisplayAISearchOption">
-                    Or <a href="" ng-click="$event.preventDefault(); ctrl.tryAiSearchFromNoResults()">try AI search instead</a>.
-                </span>
-            </span>
+             class="image-no-results image-no-results--normal-search">
+            <div class="image-no-results__heading">No matches, sorry.</div>
+            <div class="image-no-results__instructions">Try altering your search terms or filters.</div>
+            <div ng-if="!ctrl.isAiSearch && ctrl.shouldDisplayAISearchOption"
+                 class="image-no-results__ai-suggestion image-notice">
+                <div class="image-no-results__ai-title">Try AI search instead</div>
+                <div class="image-no-results__ai-copy">
+                    AI search always shows the best 200 similarity-ranked results and can match visual content, not just metadata.
+                </div>
+                <a href=""
+                   class="image-no-results__ai-link coloured-link"
+                   ng-click="$event.preventDefault(); ctrl.tryAiSearchFromNoResults()">
+                    Switch to AI search
+                </a>
+            </div>
         </div>
     </div>
 </div>
