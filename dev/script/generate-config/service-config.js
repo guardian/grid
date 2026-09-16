@@ -222,6 +222,11 @@ function getMediaApiConfig(config) {
         |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
+        |capi.preview.url="previewurl"
+        |capi.preview.role="previewrole"
+        |capi.maxRetries=3
+        |capi.apiKey="apikey"
+        |composer.domain="composerdomain"
         |`;
 }
 

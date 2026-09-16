@@ -79,7 +79,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
 
   val restrictDownload: Boolean = boolean("restrictDownload")
-  val takedownEnabled: Boolean = booleanOpt("takedown.enabled").getOrElse(false)
+  val takedownEnabled: Boolean = booleanOpt("image.takedown.enabled").getOrElse(false)
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
 

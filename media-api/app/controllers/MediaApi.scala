@@ -20,7 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
-import models.ImageUsages
+import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -189,9 +189,9 @@ class MediaApi(
     val composerDomain = config.composerDomain
     for {
       previewContent <- previewContentApi.findContentUsingImage(id)
-      previewImages = previewContent.map(sr => ImageUsages.fromSearchResponse(sr, composerDomain))
+      previewImages = previewContent.map(sr => UsagesInContent.fromSearchResponse(sr, composerDomain))
     } yield  {
-      respond[List[ImageUsages]](previewImages)
+      respond[List[UsagesInContent]](previewImages)
     }
   }
 
