@@ -508,7 +508,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
     },
     {
       title: 'Start reverse proxy',
-      skip: () => !proxy && 'using dev-nginx',
       task: async (ctx) => {
         const caddy = await proxyContainer(ctx.network!, buildCaddyfile(ctx.coreStackProps!)).start();
         ctx.containers.push(caddy);
