@@ -91,6 +91,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe.each([
+  {
+    form: "timestamp",
+    boundary: "2026-01-15T12:00:00.000Z",
+    expected: "2026-01-15T12:00:00.000Z",
+  },
+  {
+    form: "date-only",
+    boundary: "2026-01-15",
+    expected: "2026-01-15T00:00:00.000Z",
+  },
+])("top-level date bounds ($form)", ({ boundary, expected }) => {
+  it.each([
+    ["since", "uploadTime", "gt"],
+    ["until", "uploadTime", "lt"],
+    ["takenSince", "metadata.dateTaken", "gt"],
+    ["takenUntil", "metadata.dateTaken", "lt"],
+    ["modifiedSince", "lastModified", "gt"],
+    ["modifiedUntil", "lastModified", "lt"],
+  ] as const)("excludes equality for %s (%s %s)", async (parameter, field, operator) => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(esSearchHits()));
+
+    await ds.searchAfter({ nonFree: "true", [parameter]: boundary }, null);
+
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(body.query.bool.filter).toContainEqual({
+      range: { [field]: { [operator]: expected } },
+    });
+  });
+});
+
 describe("getKeywordDistribution coverage provenance", () => {
   it("separates exact valued coverage from the represented bucket prefix", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({

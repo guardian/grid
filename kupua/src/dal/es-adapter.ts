@@ -454,6 +454,10 @@ function parseTickerAggs(
 
 // ---------------------------------------------------------------------------
 
+function normalizeDateBound(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value;
+}
+
 function buildQuery(params: SearchParams): Record<string, unknown> {
   const must: Record<string, unknown>[] = [];
   const mustNot: Record<string, unknown>[] = [];
@@ -495,24 +499,24 @@ function buildQuery(params: SearchParams): Record<string, unknown> {
   // Upload time range
   if (params.since || params.until) {
     const range: Record<string, string> = {};
-    if (params.since) range.gte = params.since;
-    if (params.until) range.lte = params.until;
+    if (params.since) range.gt = normalizeDateBound(params.since);
+    if (params.until) range.lt = normalizeDateBound(params.until);
     filter.push({ range: { uploadTime: range } });
   }
 
   // Date taken range
   if (params.takenSince || params.takenUntil) {
     const range: Record<string, string> = {};
-    if (params.takenSince) range.gte = params.takenSince;
-    if (params.takenUntil) range.lte = params.takenUntil;
+    if (params.takenSince) range.gt = normalizeDateBound(params.takenSince);
+    if (params.takenUntil) range.lt = normalizeDateBound(params.takenUntil);
     filter.push({ range: { "metadata.dateTaken": range } });
   }
 
   // Last modified range
   if (params.modifiedSince || params.modifiedUntil) {
     const range: Record<string, string> = {};
-    if (params.modifiedSince) range.gte = params.modifiedSince;
-    if (params.modifiedUntil) range.lte = params.modifiedUntil;
+    if (params.modifiedSince) range.gt = normalizeDateBound(params.modifiedSince);
+    if (params.modifiedUntil) range.lt = normalizeDateBound(params.modifiedUntil);
     filter.push({ range: { lastModified: range } });
   }
 

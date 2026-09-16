@@ -19,6 +19,80 @@ test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
 
+test("top-level date bounds exclude equality from results, counts and ranks", async ({ kupua }) => {
+  const initialSearch = kupua.page.waitForRequest((request) =>
+    request.method() === "POST" &&
+    new URL(request.url()).pathname === "/es/images/_search" &&
+    request.postDataJSON()?.size > 0,
+  );
+  await kupua.goto();
+  const query = (await initialSearch).postDataJSON().query;
+
+  for (const [field, lower, upper] of [
+    ["uploadTime", "since", "until"],
+    ["metadata.dateTaken", "takenSince", "takenUntil"],
+    ["lastModified", "modifiedSince", "modifiedUntil"],
+  ] as const) {
+    const samples = await kupua.page.evaluate(async ({ field, query }) => {
+      const response = await fetch("/es/images/_search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          size: 0,
+          query,
+          aggs: {
+            dates: {
+              terms: { field, size: 3, order: { _key: "asc" } },
+              aggs: { image: { top_hits: { size: 1, _source: ["id"] } } },
+            },
+          },
+        }),
+      });
+      if (!response.ok) throw new Error(`Date fixture lookup failed: ${response.status}`);
+      const data = await response.json() as {
+        aggregations: {
+          dates: {
+            buckets: Array<{
+              key: number;
+              image: { hits: { hits: Array<{ _source: { id: string } }> } };
+            }>;
+          };
+        };
+      };
+      return data.aggregations.dates.buckets.map((bucket) => ({
+        id: bucket.image.hits.hits[0]._source.id,
+        date: new Date(bucket.key).toISOString(),
+      }));
+    }, { field, query });
+
+    expect(samples, `${field} needs before/equal/after samples`).toHaveLength(3);
+    for (const [parameter, expectedId] of [
+      [lower, samples[2].id],
+      [upper, samples[0].id],
+    ]) {
+      await kupua.gotoWithParams(new URLSearchParams({
+        ids: samples.map((sample) => sample.id).join(","),
+        orderBy: "uploadTime",
+        [parameter]: samples[1].date,
+      }).toString());
+
+      const result = await kupua.page.evaluate(async () => {
+        const state = (window as any).__kupua_store__.getState();
+        return {
+          ids: state.results.filter(Boolean).map((image: { id: string }) => image.id),
+          total: state.total,
+          count: await state.dataSource.count(state.params),
+          rank: await state.dataSource.countBefore(state.params, state.startCursor),
+          error: state.error,
+        };
+      });
+      expect(result, parameter).toEqual({
+        ids: [expectedId], total: 1, count: 1, rank: 0, error: null,
+      });
+    }
+  }
+});
+
 // ===========================================================================
 // Image detail — opening
 // ===========================================================================

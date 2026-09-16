@@ -72,7 +72,11 @@ API-only operation must have zero browser ES traffic; transitional hybrid develo
 supported. Index migrations are unsupported and the prototype may simply be unavailable during
 them. No migration-transparent behavior, atomic exclusion or detection deadline is promised.
 
-**Next task:** bounded D3 readiness reassessment of known new findings, not another general review.
+**D3 amendments:** E2 client changes are implemented and locally validated: six top-level date
+bounds are exclusive, date-only values mean UTC midnight, and CQL dates remain inclusive.
+Next is C1 authoritative cursor retention, followed by E1/N4, C2 and C3 in
+`exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-01-readiness-findings.md`.
+Combined direct-ES and live D3-mode verification remains pending.
 Use the active media-api index. Stronger snapshot guarantees, Dynamo storage, Thrall hooks and the
 archived migration programme need separate justification and approval; none is a default prerequisite.
 Authorization, validation, ordinary paging correctness and production load remain real concerns.
@@ -99,9 +103,9 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 
 ### Testing Summary
 
-- **1231 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1243 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **207 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
+- **208 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **22 jank perf tests / 32 metric IDs** + experiment infrastructure — `npm run test:perf`
 - **39 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)

@@ -14,6 +14,23 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 16 September 2026 — Align top-level date bounds with Grid
+
+    E2 of the D3 amendment batch changes the shared direct-ES query builder to use exclusive
+    lower/upper bounds for upload, taken and modified dates, matching existing Grid/D3 semantics.
+    Date-only URL values are expanded to explicit UTC midnight: passing them directly to ES with
+    exclusive operators rounds across the day and changes membership. Search, counts and positional
+    queries share the correction. CQL-inclusive date expressions, date-picker behavior, the
+    media-api request mapping and Scala date helpers are unchanged.
+
+    Twelve failing-first unit cases cover timestamp and date-only inputs across all six bounds.
+    A new habitual E2E case selects before/equal/after images from the local sample corpus using
+    read-only requests and checks identities, totals, counts and ranks. The existing date-filter
+    position-map test exposed the date-only rounding issue and passes without changing its fixture
+    or assertions. Final validation passed 1,243 unit tests and all 208 habitual E2Es, including
+    forced seek. The opt-in special-sort oracle is unchanged. Live TEST/media-api verification
+    was not performed for this slice; combined mode validation remains required for the batch.
+
   ### 13 September 2026 — Cancel superseded registered-field typeahead requests
 
     Registered CQL value resolvers now propagate `LazyTypeahead`'s existing
