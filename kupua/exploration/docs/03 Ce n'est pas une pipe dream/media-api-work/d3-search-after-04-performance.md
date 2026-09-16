@@ -14,8 +14,8 @@ A/B) was applied live and reverted; nothing committed.
 > load remains unmeasured and should be monitored after rollout.
 
 > **Why this doc exists.** Two earlier docs
-> ([payload-perf-findings](phase-3-d3-searchafter-payload-perf-findings.md),
-> [perf-review](phase-3-d3-searchafter-perf-review.md)) established that
+> ([payload-perf-findings](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-payload-perf-findings.md),
+> [perf-review](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-review.md)) established that
 > `--use-media-api` Home reload is ~3× slower than `--use-TEST` (direct ES) in dev. But
 > their *interpretation* of the gap was wrong in an important way: they attributed ~2/3 of
 > the slowdown to "the SSH tunnel" — a cost **both** routes supposedly share equally. That
@@ -92,7 +92,7 @@ All numbers below come from one of three instruments:
   experiment. The same behavior later shipped through PR #4784.
 
 The 4-point envelope instrumentation (ES `took`, transport, per-hit `create`, per-hit
-signing, client parse) is from the [perf-review doc](phase-3-d3-searchafter-perf-review.md)
+signing, client parse) is from the [perf-review doc](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-review.md)
 and not repeated here.
 
 ---
@@ -221,7 +221,7 @@ guessed the projection shape might be contributing to the cross-session `took` g
 
 ### F5 — The Argo envelope build is ~137ms (the prod lever)
 
-From the [perf-review 4-point instrumentation](phase-3-d3-searchafter-perf-review.md):
+From the [perf-review 4-point instrumentation](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-review.md):
 `hitToImageEntity` → `imageResponse.create` ×200 = ~129ms, + serialisation ~8ms. Within that:
 S3 presigning ~29ms (22%), and the 12-step chained `JsObject.transform` pipeline +
 validity/persistence/aliases/links ~100ms (78%). A `createForBrowse` lean one-pass writer
@@ -372,7 +372,7 @@ envelope (F5), not transport, is the thing worth optimising** — the opposite o
 The F1 change (`setCompressionEnabled(true)` via `JavaClient.fromRestClient`) was first applied
 to the `mk-media-api-gzip-on` PR branch and measured against real Grid TEST. It subsequently
 merged to `main` as PR #4784 (`ce3d347`). Full data and scripts are in
-[zz Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md](../../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md).
+[zz Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md).
 
 **Signal used:** Kibana `duration` field = media-api's `executeAndLog` elapsed time on the
 ES round-trip (send + ES `took` + read body + parse). This is the gzip-sensitive leg. Tunnel

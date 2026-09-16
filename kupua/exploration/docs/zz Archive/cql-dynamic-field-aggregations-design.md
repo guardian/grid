@@ -129,7 +129,7 @@ Both capabilities call **only** `dataSource.getAggregation`/
 `es-adapter.ts` directly. Today, `StranglerAdapter.getAggregations` is a
 one-line passthrough to direct-ES (`--use-media-api` mode hasn't migrated
 this method yet — it's Gap 18/C1, "not started" per
-`phase-3-minimal-gap-derivation-findings.md`'s status table). Section 7,
+`../03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`'s status table). Section 7,
 note 13 of that doc already requires the planned `POST /images/aggregations`
 endpoint to treat field paths as opaque verbatim ES paths — explicitly
 covering this exact scenario (`has:fileMetadata.xmp.SomeKey` → real
@@ -166,7 +166,7 @@ through the DAL interface rather than the concrete adapter.
 
 ## Cross-references
 
-- `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`
+- `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`
   — Section 7 note 13 (opaque field paths requirement), Gap 18/C1 (`POST /images/aggregations`).
 - `changelog.md`, 9 August 2026 entry — the CQL quoting fix this design
   depends on for `has:"field:with:colons"` to round-trip correctly.

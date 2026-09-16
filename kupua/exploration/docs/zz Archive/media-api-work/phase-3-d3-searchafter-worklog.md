@@ -206,7 +206,7 @@ CODE REVIEW WORK (2026-06-12/13):
 - Commits: NOT done. Waiting on user approval. Plan: Scala-only → main; TS stays on
   mk-next-next-next.
 
-⚠️  Ordering note: gap derivation (phase-3-minimal-gap-derivation-findings.md §7 obs 5) says
+⚠️  Ordering note: gap derivation (media-api-01-capability-inventory.md §7 obs 5) says
 D8 (PIT endpoints) should precede D3 (searchAfter). We built D3 first. This works because:
 kupua still manages PITs directly via the ES adapter (openPit/closePit hit ES directly).
 searchAfterImages() accepts pitId as a parameter and is PIT-agnostic. When D8 is implemented
@@ -275,7 +275,7 @@ reinstated the WHOLE `fileMetadata` blob whenever an alias touched it (>2× per-
 2026-06-14 — perf deep-dive
 
 Phase 3 D3 — perf deep-dive into WHY `--use-media-api` is ~3× slower than direct-ES in dev.
-Wrote `media-api-work/phase-3-d3-searchafter-perf-deep-dive.md` (evidence-based, corrects the
+Wrote `../../03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-04-performance.md` (evidence-based, corrects the
 prior perf-review's "it's all the tunnel" interpretation). Investigation only; nothing committed.
 
 

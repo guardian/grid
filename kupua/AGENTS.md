@@ -36,7 +36,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Touch & desktop gestures (swipe, dismiss, zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts` (touch + mouse + wheel + keyboard zoom), `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `search-store.ts` (seek paths, `buildSeekCursorAnchors`, `fetchNullZoneDistribution`), `dal/null-zone.ts`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
-| **Grid API adapter / media-api integration** | `dal/strangler-adapter.ts`, `dal/grid-api-search-adapter.ts`, `dal/grid-api/grid-api-adapter.ts`, `dal/grid-api/` directory, `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`, `exploration/docs/01 Research/grid-api-contract-audit-findings.md` |
+| **Grid API adapter / media-api integration** | Start with `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md` for current scope and reading order; then `dal/strangler-adapter.ts`, `dal/grid-api-search-adapter.ts`, `dal/grid-api/` and the task-specific evidence it links. |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (`searchByAi`), `zz Archive/ai-search-workplan.md` |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx`, `exploration/docs/zz Archive/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md` |
@@ -59,13 +59,30 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
-**Status:** `POST /images/search-after` routes cursor pagination through media-api when `VITE_USE_MEDIA_API=true`; its validated cursor contract leaves existing Grid/Kahuna paths unchanged. Direct-ES mode remains available. Remaining gaps: `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`.
+**Status:** `POST /images/search-after` routes cursor pagination through media-api when
+`VITE_USE_MEDIA_API=true`; direct ES still owns every other query path plus selection and collection
+counts. `--use-TEST` is direct ES through an SSH tunnel; `--use-media-api` calls locally running
+modified media-api connected to TEST. The operator confirms one laptop caller, one successful D3
+TEST deployment, and PR #4849 back in draft without human review. Copilot comments and local
+performance campaigns do not establish production deployment or other callers.
+
+**Current scope (15 September):** incrementally add media-api capabilities to make this read-only
+prototype deployable, preserving all current workflows and accepted compromises. Eventual deployed
+API-only operation must have zero browser ES traffic; transitional hybrid development remains
+supported. Index migrations are unsupported and the prototype may simply be unavailable during
+them. No migration-transparent behavior, atomic exclusion or detection deadline is promised.
+
+**Next task:** bounded D3 readiness reassessment of known new findings, not another general review.
+Use the active media-api index. Stronger snapshot guarantees, Dynamo storage, Thrall hooks and the
+archived migration programme need separate justification and approval; none is a default prerequisite.
+Authorization, validation, ordinary paging correctness and production load remain real concerns.
+Mode-independent audit candidates can be assessed individually, not blocked on a global plan.
 
 ### System Summary
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface. `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional). `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
 | Store | `stores/search-store.ts` | Centre of gravity (~3,900 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map. |
@@ -154,7 +171,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
    Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
 
-3. **DAL interface** — `ImageDataSource` with 13 methods. `StranglerAdapter` is the live Phase 3 adapter: wraps `ElasticsearchDataSource`, overrides `searchAfter` to call the media-api endpoint. `GridApiDataSource` handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
+3. **DAL interface** — `ImageDataSource` with 18 methods (5 optional). `StranglerAdapter` is the live Phase 3 adapter: wraps `ElasticsearchDataSource`, overrides `searchAfter` to call the media-api endpoint. Selection and collection still own direct ES datasources. `GridApiDataSource` separately handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 

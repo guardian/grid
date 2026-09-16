@@ -24,10 +24,17 @@ task that adds, removes, or changes features, architecture, files, or key decisi
 table, Context Routing table, Backlog, Known Issues, Key Architecture Decisions, or
 Tech Stack as needed. For detailed component descriptions, update
 `exploration/docs/00 Architecture and philosophy/component-detail.md` instead.
-(2) Append the detailed narrative (bug fixes, implementation steps, reverted experiments,
-root-cause analysis, dates) to `kupua/exploration/docs/changelog.md` under the current
-phase heading at top (after `DO NOT delete or reorder existing entries. --> line)`.
-This keeps AGENTS.md lean for fresh sessions while preserving full history.
+(2) For code changes, append implementation, fixes, relevant rationale and validation to
+`kupua/exploration/docs/changelog.md` under the current phase heading at top (after the
+`DO NOT delete or reorder existing entries. -->` line). Do not add planning-only, audit-only,
+document-reorganization or session narratives there. Keep current decisions in the owning guide
+and detailed findings in their existing research document; do not create a planning-history log.
+
+**Directive: Preserve prototype scope.** Moving Kupua behind APIs must preserve current workflows
+and explicitly accepted compromises, not silently demand universal exactness. Separate observed
+defects from proposed stronger guarantees. Index-migration support, durable session storage and
+production migration changes require explicit justification and approval. The active media-api
+index owns current scope; archived prompts and their execution gates are not active instructions.
 
 **Directive:** Performance is crucial. If any requested change is likely to seriously impact
 performance, do not proceed without checking with the user first — explain the potential
@@ -115,10 +122,11 @@ and encouraged.
 `kupua/exploration/docs/worklog-current.md`. Format: a "Current Task" header
 (1-3 sentences) followed by a "Session Log" (append-only, max ~40 lines of key
 decisions, failed approaches, blockers, and findings). This survives agent death
-mid-task so the next agent can pick up where you left off. When the user says
-the task is done or explicitly starts a new task, or when user asks for a commit, move the
-session log content to `changelog.md` and start `worklog-current.md` fresh.
-Never delete the file.
+mid-task so the next agent can pick up where you left off. Contents are session-only: never commit
+anything beyond the scaffold. When a task ends, a new task starts or a commit is requested, retain
+only durable decisions in the owning docs and code-change history in `changelog.md`;
+do not transfer the session log wholesale. Reset the worklog to its scaffold before staging.
+Never delete the file, and never discard another active session's notes without checking.
 
 **Directive: Graceful API absence.** All code that fetches from Grid services —
 whether via the `/api` proxy (media-api) or satellite proxies (`/grid-leases`,

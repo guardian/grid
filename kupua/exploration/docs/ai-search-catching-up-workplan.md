@@ -6,7 +6,7 @@
 > **Companion / background:** [`00 Architecture and philosophy/08-ai-search.md`](00 Architecture and philosophy/08-ai-search.md)
 > (kupua's current AI design — note the staleness corrections in §10 below),
 > and the media-api migration plan
-> [`03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`](03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md).
+> [`03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-01-capability-inventory.md).
 
 ---
 
@@ -465,7 +465,7 @@ archived `ai-searchContext-future-abstraction.md`. Do not rewrite them.
 ### 11.1 AI-specific perf notes (for Slice 2 + the team pitch)
 
 > Context and measurements:
-> [`phase-3-d3-searchafter-perf-deep-dive.md`](03 Ce n'est pas une pipe dream/media-api-work/phase-3-d3-searchafter-perf-deep-dive.md).
+> [`03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-04-performance.md`](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md).
 > (Perf levers are currently scattered across that doc, the perf-review, and here
 > — acknowledged; consolidate later.)
 

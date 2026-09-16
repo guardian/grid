@@ -3,8 +3,8 @@
 **For:** Sonnet High (single session, ~2h budget)
 **Mode:** Research only. No code changes. No commits. No PRs.
 **Deliverables:** Two files in `kupua/exploration/docs/03 Ce n'est pas une pipe dream/`:
-  1. `media-api-conventions.md` — full reference (long, detailed)
-  2. `media-api-instructions-for-agents.md` — distilled rules (≤80 lines)
+  1. `../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` — full reference (long, detailed)
+  2. `../03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md` — distilled rules (≤80 lines)
 
 ---
 
@@ -164,7 +164,7 @@ which looks current.
 
 ---
 
-## 3 — Deliverable 1: `media-api-conventions.md`
+## 3 — Deliverable 1: `../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
 
 Full reference. Long is fine. Use the 14 topics above as sections. Each section:
 
@@ -183,7 +183,7 @@ End with:
 
 ---
 
-## 4 — Deliverable 2: `media-api-instructions-for-agents.md`
+## 4 — Deliverable 2: `../03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`
 
 Short. Maximum 80 lines. This file is loaded into every implementing agent's context.
 
@@ -234,8 +234,8 @@ hand back. Don't fabricate consistency that isn't there.
 ## 7 — Done when
 
 - Both files exist in the target folder.
-- `media-api-conventions.md` cites file:line for every concrete pattern.
-- `media-api-instructions-for-agents.md` is ≤80 lines, no formatting rules,
+- `../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` cites file:line for every concrete pattern.
+- `../03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md` is ≤80 lines, no formatting rules,
   references the conventions doc for detail.
 - "Questions for the team" section has 5-10 specific questions.
 - I can hand the instructions file to an implementing agent without further editing.

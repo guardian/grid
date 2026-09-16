@@ -232,7 +232,7 @@ the 3-pause repro; one closed a PIT id that did not match the currently-stored s
 "close the previous settled search's PIT" mechanism).
 
 **New finding, relevant to the planned media-api PIT endpoints** (see
-`03 Ce n'est pas une pipe dream/media-api-work/phase-3-d7-d8-d9-workplan.md`):
+`../03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`):
 `strangler-adapter.ts` shows `openPit`, `closePit`, and `countWithTickers` are **not
 routed through media-api at all today** — they fall straight through to `this.es.*`
 (direct ES), regardless of `--use-media-api` mode.

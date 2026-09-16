@@ -611,7 +611,7 @@ the `Content-Type` is not `application/json`, rather than silently returning `No
 
 **Trade-off:** Establishes a new convention in a file that didn't have one before.
 Future body-carrying read endpoints should use the same `auth.async(parse.json)`
-pattern for consistency. `media-api-conventions.md` should be updated if more
+pattern for consistency. `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` should be updated if more
 body-carrying endpoints are added.
 
 ### 28. Vite proxy spoofs `Origin` header to `media.local.dev-gutools.co.uk`

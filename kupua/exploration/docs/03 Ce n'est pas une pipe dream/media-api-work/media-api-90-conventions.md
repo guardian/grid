@@ -222,17 +222,18 @@ val searchRequest = prepareSearch(query)
 ```
 Cite: `ElasticSearch.scala:315-325`.
 
-### `prepareSearch` — always use this
+### `prepareSearch` — preserve live-query routing
 
 ```scala
 private def prepareSearch(query: Query): SearchRequest
 ```
 Handles migration-aware index selection (current alias vs migration index).
-Never call `ElasticDsl.search(imagesCurrentAlias)` directly from new methods —
-use `prepareSearch` or its result. Cite: `ElasticSearch.scala:440`.
+Existing live keyword/filter searches use this helper; do not alter their routing for Kupua.
+Cite: `ElasticSearch.scala:440`.
 
-Exception: `knnSearch` skips `prepareSearch` because KNN uses only the current
-alias. For standard keyword/filter searches, always use `prepareSearch`.
+Exceptions include current-index KNN and D3's PIT branch, which searches the PIT target and
+deliberately bypasses `prepareSearch`. Apply the timeout separately there. New target-specific
+methods need an explicit ordinary-operation contract; do not blindly copy multi-index routing.
 
 ### `executeAndLog` — always use this
 
@@ -560,9 +561,9 @@ existing file's case when adding to it; for new files use PascalCase.
 3. **Using `var`** — `var` should not appear in controllers. Raised in PR #4201
    review: "factor out mutable Map".
 
-4. **Bypassing `prepareSearch`** — calling `ElasticDsl.search(imagesCurrentAlias)`
-   directly from controller/ES layer methods skips migration-aware index routing.
-   Always use `prepareSearch(query)`.
+4. **Changing live routing accidentally** — bypassing `prepareSearch` in an existing live
+  search changes migration-aware behavior. Conversely, adding it to D3's PIT branch is wrong.
+  Preserve each established path; review a new target-specific method's contract explicitly.
 
 5. **Constructing image JSON manually** — always use `imageResponse.create(...)`.
    S3 URL signing, thumb URL selection, validity maps etc. are all handled there.

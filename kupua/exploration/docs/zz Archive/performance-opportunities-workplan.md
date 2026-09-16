@@ -210,7 +210,7 @@ Phase 3 is a **method-level strangler**, not two complete interchangeable backen
 The dispatch is explicit in
 [`StranglerAdapter`](../../../src/dal/strangler-adapter.ts#L17-L67). D7 count/tickers and D8 PIT are
 planned next; D9 multi-get requires a focused review before implementation
-([D7–D9 workplan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/phase-3-d7-d8-d9-workplan.md#L1-L38)).
+([D7–D9 workplan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md#L1-L38)).
 
 ### Migration guardrails for any frontend optimization
 
@@ -234,7 +234,7 @@ planned next; D9 multi-get requires a focused review before implementation
   must fail closed on any API failure; never record an error or fallback run as latency evidence.
 
 The current migration constraints and special-date caveats are summarized in the
-[Phase 3 findings](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/phase-3-minimal-gap-derivation-findings.md#L14-L109).
+[Phase 3 findings](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-01-capability-inventory.md#L14-L109).
 
 ---
 
@@ -1419,7 +1419,7 @@ These may be higher-value than frontend work, but they are not authorized for im
 The canonical scalar-field evidence is
 [Materialized scalars for semantic sort values](../materialized-scalars-for-lastUsed-lastAddedToCollection.md).
 The media-api envelope evidence is in the
-[D3 deep dive](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/phase-3-d3-searchafter-perf-deep-dive.md).
+[D3 deep dive](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md).
 
 One additional item to preserve for later review: the current API request derives exact counting
 for cursorless calls, not solely the ordinary first page. Before changing it, enumerate every

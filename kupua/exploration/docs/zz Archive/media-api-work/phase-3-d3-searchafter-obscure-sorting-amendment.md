@@ -78,7 +78,7 @@ not enlarge D7/D8/D9 while those independent endpoints are being built.
 The six-file prototype commit must be harvested onto `mk-api-1of9-searchAfter` only after that
 branch's conflicts with `main` are resolved. The final D3 production and test files on the PR
 branch must be compared with the prototype branch exactly. Update the GitHub PR description from
-the amended `phase-3-d3-searchafter-scala-pr.md` only after that parity check and focused Scala
+the amended `../../03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-02-pr.md` only after that parity check and focused Scala
 validation on the PR branch. Never push through an agent.
 
 Slice D was transferred with exact stable patch parity after merging current main and resolving

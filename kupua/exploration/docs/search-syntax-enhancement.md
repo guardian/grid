@@ -17,7 +17,7 @@
 ## 0. The headline finding
 
 **None of this requires touching the Phase 3 media-api gap-closing plan.** See
-[phase-3-minimal-gap-derivation-findings.md](03%20Ce%20n%27est%20pas%20une%20pipe%20dream/media-api-work/phase-3-minimal-gap-derivation-findings.md)
+[media-api-01-capability-inventory.md](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-01-capability-inventory.md)
 for the full DAL-method migration (D1–D9, C1–C3, etc.) — every one of those endpoints treats
 the search query as an **opaque `q: String`**, parsed server-side by `Parser.run(q)` after
 receipt. Confirmed at the two live call sites: `SearchParamsBody.fromJson` (used by the

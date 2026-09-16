@@ -5,7 +5,7 @@
 **Scope:** the first media-api Scala endpoint built for kupua, plus the TypeScript DAL
 wiring that routes `searchAfter` through it — in its **current post-fix state**.
 **Inputs consulted:** the first review (`phase-3-d3-searchafter-code-review.md`), the
-workplan, the conventions reference (`media-api-conventions.md`), the agent instructions
+workplan, the conventions reference (`../../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`), the agent instructions
 (`.github/instructions/media-api.instructions.md`), the worklog (`worklog-current.md`),
 the blur-graphic follow-up (`post-phase-3-d3-searchafter-blur-graphic-work.md`),
 `deviations.md`, and the actual diff/code in both `media-api/` and `kupua/src/`.

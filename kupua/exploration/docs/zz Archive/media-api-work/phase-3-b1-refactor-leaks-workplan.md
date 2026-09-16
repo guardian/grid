@@ -15,7 +15,7 @@ raw ES DSL objects that leaked into the public DAL boundary. Removing them:
 
 ## Source of truth
 
-`kupua/exploration/docs/03 Ce n'est pas une pipe dream/phase-3-minimal-gap-derivation-findings.md`
+`kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`
 Section 4a — the leak table. Each item there has full context.
 
 ## The 7 leaks, grouped by affected code

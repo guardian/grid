@@ -5,7 +5,7 @@
 **Scope:** the first media-api Scala endpoint built for kupua, plus the TypeScript
 DAL wiring that routes `searchAfter` through it.
 **Inputs consulted:** the workplan (`phase-3-d3-searchafter-workplan.md`), the
-conventions reference (`media-api-conventions.md`), the worklog
+conventions reference (`../../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`), the worklog
 (`worklog-current.md`), the payload-perf findings, and the actual diff/code in both
 `media-api/` and `kupua/src/`.
 
@@ -360,7 +360,7 @@ about — nothing to revert.
 - The handler uses `auth.async(parse.json)` — note the conventions doc explicitly says
   "There is no `auth.async(parse.json)` in MediaApi (POST body parsing done manually
   with `request.body.asJson`)"
-  ([media-api-conventions.md §6](kupua/exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-conventions.md)).
+  ([media-api-90-conventions.md §6](../../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-90-conventions.md)).
   This endpoint **introduces a new convention** (body parser combinator). That's
   defensible (it's the first body-carrying read endpoint), but per the kupua "document
   deviations" directive it should get a short note in `deviations.md`, and ideally a
@@ -441,7 +441,7 @@ overwrite-same-id, replace-vs-extend distinction). The tests are solid; the prob
 
 ---
 
-## Section 5 — Conventions adherence (vs `media-api-conventions.md`)
+## Section 5 — Conventions adherence (vs `../../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`)
 
 | Convention | Status |
 |---|---|

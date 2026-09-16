@@ -1220,7 +1220,7 @@ during the 3-pause repro, one closing a PIT id that didn't match the current sto
 `pitId` — proof the new path fired, distinct from the pre-existing cleanup. Full
 reasoning and evidence: `zz Archive/search-request-cancellation-workplan.md` §10 update;
 also added a `closePit`-idempotency requirement + downgraded (not dropped) `signal`-param
-suggestion to `03 Ce n'est pas une pipe dream/media-api-work/phase-3-d7-d8-d9-workplan.md`
+suggestion to `03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`
 for whoever builds the real media-api PIT endpoints.
 
 ### 11 August 2026 — `search()` now cancels stale in-flight `searchAfter` requests (workplan: `zz Archive/search-request-cancellation-workplan.md`)
@@ -1867,38 +1867,38 @@ Documentation pass after D3 (`POST /images/search-after`) shipped: a `media-api-
 cleanup (~30 docs → **9 active + 22 archived**) **plus the next buildable workplan**. No code changed.
 
 **Edits:**
-- **`phase-3-minimal-gap-derivation-findings.md`** — added a top **status banner** (B1/B2/D3 ✅,
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`** — added a top **status banner** (B1/B2/D3 ✅,
   D1/D2/D4–D9 ⬜; recommended next order D7+D8+D9 → D1 → D2) and the **post-D3 standing constraints**
   (Option-B sort template, migration-aware PIT, enrichment-at-commit, lean projection, POST adopted),
   plus the unbuilt-perf-lever line and an "executing a gap? use live TS; archived `ref--` docs hold
   the elastic4s/PIT Scala notes" pointer. Gap-1 / Section-5 marked done.
-- **`phase-3-d3-searchafter-scala-pr.md`** — corrected the `createForBrowse` claim (prototyped +
+- **`03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-02-pr.md`** — corrected the `createForBrowse` claim (prototyped +
   **reverted**, not shipped; `searchAfterImages` uses `hitToImageEntity` → `imageResponse.create`)
   and added a Performance note (lean writer = the unbuilt prod lever; dev slowness = uncompressed
   media-api↔ES leg).
 - **`changelog.md`** — same `createForBrowse` correction in the 12–15 June D3 entry (two places).
-- **`media-api-conventions.md`** — §14.1/§15.1 GET-vs-POST marked **resolved by D3** (pending team
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`** — §14.1/§15.1 GET-vs-POST marked **resolved by D3** (pending team
   sign-off, N-3); removed two dangling refs to a non-existent `media-api-conventions-POST-research.md`.
-- **`media-api-instructions-for-agents.md`** (+ the `.github` mirror) — items 3 & 22 de-staled;
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`** (+ the `.github` mirror) — items 3 & 22 de-staled;
   **new items 23–27** capture the Scala mechanics (Option-B sort, PIT bypass, lean projection +
   strip-before-validate, shared `fromJson`/`hitToImageEntity`, one-commit-per-gap).
-- **`_index.md`** — rewritten to "Active docs" + "Archived" sections (now lists the new workplan).
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`** — rewritten to "Active docs" + "Archived" sections (now lists the new workplan).
 
 **Added:**
-- **`phase-3-d7-d8-d9-workplan.md`** — a detailed, buildable workplan for the next three searchAfter
+- **`03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`** — a detailed, buildable workplan for the next three searchAfter
   companions (D7 `countWithTickers`, D8 PIT lifecycle, D9 `mget`), to the D3 standard, built from
   four read-only research passes. §0 records the research: items #1–#3 **resolved** (server already
   emits the agency-picks supplier sub-counts; multi-index `createPointInTime` via comma-joined
   `Index`; shared `mapLeanImageFrom` strip helper) and baked into the plan; **#4**
   (enrichment-overlay population for `getById`/`getByIds`) left as a team decision with a
-  recommended default (populate both). Listed in `_index.md` as "next to build".
+  recommended default (populate both). Listed in `03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md` as "next to build".
 
 **Archived to `zz Archive/media-api-work/` (22 docs):** the D3 build history (workplan, worklog,
 both code reviews, payload-perf, perf-review, fileMetadata companion), the B1/B2 workplans, the
 gap-derivation handoff, the Phase-1/2/2.5 research inputs, and all 6 `ref--*` docs. Active folder is
-now: `phase-3-minimal-gap-derivation-findings.md`, `phase-3-d7-d8-d9-workplan.md`,
+now: `03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`, `03 Ce n'est pas une pipe dream/media-api-work/media-api-02-next-endpoints-d7-d8-d9-workplan.md`,
 `phase-3-d3-searchafter-{scala-pr, sort-companion-workplan, perf-deep-dive}.md`,
-`media-api-{conventions, instructions-for-agents, worknotes}.md`, `_index.md`.
+`media-api-{conventions, instructions-for-agents, worknotes}.md`, `03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`.
 
 ### 15 June 2026 — Fix 5 pre-existing TypeScript errors (zero TS errors now)
 
@@ -2048,7 +2048,7 @@ writer, and the `--use-media-api` perf harness flag.
   Argo writer was explored to replace the 12-step `.transform` chain (measured ~42% envelope
   reduction). It was reverted before ship; `searchAfterImages` enriches via the lifted
   `hitToImageEntity` → `imageResponse.create`. The lean writer remains the main unbuilt prod
-  perf lever — see `phase-3-d3-searchafter-perf-deep-dive.md`.
+  perf lever — see `03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-04-performance.md`.
 
 ---
 
@@ -2232,7 +2232,7 @@ Full implementation of the usages feature (Kahuna parity), plus several pre-exis
 #### Documentation updates
 
 - `deviations.md`: added §14 (CQL chip reading — DateFilter "Last used" problem), expanded §7 obs 3 (orderBy vocabulary now includes `usagesDateAdded`), added obs 11 (nested agg consolidation complexity for C1), obs 12 (`must_not` replaced filter default).
-- `phase-3-minimal-gap-derivation-findings.md`: §7 obs 3, obs 11, obs 12 updated to reflect 2026-06-09 state.
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`: §7 obs 3, obs 11, obs 12 updated to reflect 2026-06-09 state.
 - `phase-3-d3-searchafter-worklog.md`: added "Note on 2026-06-09 kupua changes" section for the D3 implementing agent.
 
 ---
@@ -2362,22 +2362,22 @@ No code was changed.
 
 **media-api docs** (`kupua/exploration/docs/03 Ce n'est pas une pipe dream/`):
 
-- `media-api-conventions.md` — comprehensive reference covering controller anatomy,
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` — comprehensive reference covering controller anatomy,
   route conventions, Argo response patterns, elastic4s usage, auth/permissions, error
   handling, test conventions, logging, imports, naming, and anti-patterns. Produced
   by codebase read (media-api + common-lib) cross-referenced against PRs #4122 #4145
   #4201 #4334. Includes Appendix A on GET vs POST trade-offs for cursor-carrying
   endpoints, which is an open team decision.
 
-- `media-api-instructions-for-agents.md` — condensed agent-facing checklist derived
-  from `media-api-conventions.md`. Meant to be pasted into implementation prompts so
+- `03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md` — condensed agent-facing checklist derived
+  from `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`. Meant to be pasted into implementation prompts so
   agents don't have to re-derive conventions from the codebase.
 
 - `media-api-conventions-POST-research.md` (archived to `zz Archive/`) — raw audit
   of all Grid services for POST body parsing usage. Found ~25 endpoints across 6
   services using `auth.async(parse.json)`, confirming POST+body is not untested
   territory for the team; media-api is the outlier. Referenced by Appendix A of
-  `media-api-conventions.md`.
+  `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`.
 
 - `media-api-conventions-research-handoff.md` (archived to `zz Archive/`) — the
   original research handoff prompt that produced the conventions doc.

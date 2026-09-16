@@ -66,7 +66,7 @@ a second source of truth that must stay byte-identical forever (the cursor shape
 derived from this exact clause — see validation note). The full rationale, the
 breakage analysis for the “server builds the clause” alternative, the longer-term
 **Option A** (server owns a *semantic* `orderBy`), and the production-Kahuna safety
-constraints live in the companion: `phase-3-d3-searchafter-sort-companion-workplan.md`.
+constraints live in the companion: `../../03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-03-sort-options.md`.
 **Build the companion's Option B changes in the SAME Scala and TS commits as this
 endpoint — never land this endpoint with `orderBy`-driven sorting.**
 
@@ -695,7 +695,7 @@ Integration tests in `ElasticSearchTest.scala`:
 - [ ] **All kupua sorts** work via the API path (Option B — client `sort` clause):
       `uploadTime` (both), `taken` (both), every keyword/numeric alias,
       `dateAddedToCollection` (both orders), `usagesDateAdded` (both orders, once
-      it ships). See companion `phase-3-d3-searchafter-sort-companion-workplan.md`.
+      it ships). See companion `../../03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-03-sort-options.md`.
 - [ ] Null-zone cursors round-trip correctly (keyword sort, images missing primary field)
 - [ ] `reverse=true` works through API path
 - [ ] `seekToEnd=true` works through API path
@@ -724,7 +724,7 @@ Integration tests in `ElasticSearchTest.scala`:
 - **Server-owned semantic sorting (Option A):** Deferred. This endpoint uses
   Option B (client sends the resolved `sort` clause). The rationale, the breakage
   analysis, the Option A general shape, and the migration trigger live in
-  `phase-3-d3-searchafter-sort-companion-workplan.md`. The Option B *build steps*
+  `../../03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-03-sort-options.md`. The Option B *build steps*
   are in THIS doc — they are not out of scope; they are the buildable core that
   makes the keyword/nested sort acceptance criteria pass.
 
@@ -741,8 +741,8 @@ These contain verified Scala implementation details. Hand to the implementing ag
 | `ref--media-api-gap-01-searchAfter-findings-3.md` | `respondCollection` / `CollectionResponse` shape; why to use custom writes instead |
 | `ref--media-api-gap-01-searchAfter-findings-4.md` | 22 call-site matrix; E1 anomaly; proof that `extraFilter` is always one shape |
 | `ref--media-api-gap-closure-feasibility.md` | Per-gap Scala file locations, method names, risk analysis |
-| `media-api-conventions.md` | Scala conventions extracted from the codebase |
-| `media-api-instructions-for-agents.md` | Agent instructions for media-api work |
+| `../../03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` | Scala conventions extracted from the codebase |
+| `../../03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md` | Agent instructions for media-api work |
 
 ---
 

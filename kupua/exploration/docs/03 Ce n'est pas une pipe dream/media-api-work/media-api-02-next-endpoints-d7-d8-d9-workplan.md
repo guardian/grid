@@ -1,7 +1,26 @@
-# Phase 3 — D7 + D8 + D9: searchAfter companions — Workplan
+# Next endpoints: D7 counts, D8 PIT lifecycle, D9 image reads
 
-> **D9 review amendment — 7 September 2026:** D7 and D8 remain ready on their
-> documented contracts. Before implementing D9, perform a focused plan review;
+> **Current scope, 15 September 2026:** use [media-api-00-index.md](media-api-00-index.md). Prepare one additive
+> capability at a time after bounded D3 readiness assessment. This is not one approved batch.
+> Preserve current workflows and accepted compromises; index-migration support is out of scope.
+>
+> - **D7/initial count:** polling is required. Initial-count ownership is an explicit D7/D3
+>   choice, not a compulsory fusion experiment before unrelated work.
+> - **D8:** replace the multi-index/no-dedup design below. Thrall retains both copies
+>   during migration and marks the old one `migratedTo`; that PIT can snapshot duplicate
+>   identities. Decide ordinary-operation PIT lifecycle and dependent consumers without
+>   importing the archived architecture, Dynamo storage or Thrall hooks.
+> - **D9:** retain the existing focused review and add datasource wiring. Selection owns
+>   a directly constructed `ElasticsearchDataSource`, so a `StranglerAdapter` override
+>   alone will not migrate `getByIds`. The same issue affects D2 `getIdRange`.
+>
+> The detailed endpoint sketches below are research input, not build instructions, until
+> these reviews amend them. See the authoritative banner in
+> `media-api-01-capability-inventory.md` and the migration addendum in
+> `../../performance-first-dry-consolidation-audit-2026-09-13.md`.
+
+> **Historical D9 review amendment — 7 September 2026 (D7/D8 readiness superseded
+> by the 13 September amendment above):** Before implementing D9, perform a focused plan review;
 > do not treat its current section as ready. Resolve three material issues:
 > (1) apply `isVisibleToAccessor` and omit unauthorized images exactly like
 > missing IDs; (2) align client chunking and server per-request limits because
@@ -10,31 +29,31 @@
 > commit-to-view writes and adapter-side `upsertEnrichment`. The review must also
 > retain the special-date projection regression added below.
 
-**Status:** D7 and D8 READY TO IMPLEMENT. D9 REQUIRES FOCUSED REVIEW. Build as
-three separate Scala commits (one per gap) for clean per-gap PR extraction. Each
-reuses the POST plumbing D3 already shipped.
+**Status:** D7 needs a count-ownership decision; D8 needs an ordinary PIT contract;
+D9 needs focused contract review and datasource wiring. None is approved merely by this document.
+If implemented, keep separate
+Scala commits (one per gap) for per-gap PR extraction and reuse D3's POST plumbing.
 
-**The three gaps** (from `phase-3-minimal-gap-derivation-findings.md` §5):
+**The three gaps** (from `media-api-01-capability-inventory.md` §5):
 
 | Gap | New capability | Size | Kupua DAL methods served |
 |-----|----------------|------|--------------------------|
 | **D7** | `countWithTickers` — `size=0` count + ticker aggs, no hits | S | `countWithTickers`, `count` (degenerate) |
-| **D8** | PIT lifecycle — open/close a point-in-time snapshot | S | `openPit`, `closePit` |
-| **D9** | `mget` — multi-doc fetch by ID, no 200-cap | S | `getByIds`, `getById` (degenerate) |
+| **D8** | PIT lifecycle and page/expiry contract | Unestimated | `openPit`, `closePit` and consumers |
+| **D9** | Bounded, visible, enriched multi-image reads | Unestimated | `getByIds`, `getById` |
 
-**Why originally batched:** all three are S-sized, mutually independent (no ordering dependency
-among them), and reuse the same D3 controller plumbing (`auth.async(parse.json)`, the route-
-ordering rule, the StranglerAdapter override pattern). D7 and D8 may still share one oversight
-session. D9 must wait for the focused review in the amendment above.
+**Why originally batched (sizing premise now superseded):** they appeared S-sized and reused the
+same D3 controller plumbing. The review found contract coupling in D7/D3, high-risk membership in
+D8, and migration/envelope/routing work in D9. They are no longer one implementation batch.
 
 **Why now:** D8 (PIT) is also the consistency dependency for the future L-items D1
 (`fetchPositionIndex`) and D2 (`getIdRange`), so it should land before them. D7 and D9 are
 high-frequency, must-have paths (D7 fires on every new-images poll tick; D9 backs every
 multi-selection load) — they take kupua meaningfully closer to "100% on media-api".
 
-**Build order (revised):** D7 → D8, then D9 only after its focused review. D7 is the simplest
-(count, no image enrichment); D8 is structurally different (infra, no `SearchParams`). D9 remains
-independent but not implementation-ready.
+**Provisional preparation order:** D3 readiness, D7, D9; resolve D8 before implementing its
+dependent positional capabilities. D3 findings may change this order. No archived document-number
+gate applies. Amend only the next capability's contract before its implementation is authorized.
 
 ---
 
@@ -56,13 +75,12 @@ at `:332` and mapped into `ExtraCount.subCounts` at `:350-362` (with an `"other"
 (`grid-config.ts:149`). **No server change needed** — the endpoint reuses the existing extraCounts
 mapping as-is. (Baked into §2.)
 
-### #2 (D8) Multi-index `createPointInTime` spelling — ✅ RESOLVED
-`createPointInTime(index: Index)` takes a single `Index`; the elastic4s handler builds the URL as
-`s"/${index.name}/_pit"` (raw string interpolation), so multi-index is the standard comma-join —
-the same mechanism `SearchHandlers` uses (`.mkString(",")`). There is **no `Indexes` overload** and
-**no raw-request fallback needed**. Buildable spelling:
-`createPointInTime(Index(List(imagesCurrentAlias, migrationIndexName).mkString(","))).keepAlive(1.minute)`
-→ `POST /a,b/_pit?keep_alive=60s`. (Baked into §3.)
+### #2 (D8) PIT spelling — library mechanism resolved, architecture unresolved
+`createPointInTime(index: Index)` can open a single index; comma-joining can technically address
+multiple indexes. That proves transport mechanics only. It does not establish canonical-copy
+selection, logical-ID uniqueness, page-one consistency, refreshed-ID ownership or expiry behavior.
+The dedicated D8 research must choose the index/session model and decide whether raw `pitId` remains
+the correct D3 contract.
 
 ### #3 (D9) Lean projection + strip for mget — ✅ RESOLVED: extract a shared helper
 `resolveSearchAfterHit` (`ElasticSearch.scala:512`) uses only `hit.sourceAsString`/`.index`/`.id`,
@@ -104,7 +122,7 @@ at D3's commit-to-view discipline (on result commit, never inside a probe call).
 ## 1. Shared foundation (built by D3 — reuse, do not rebuild)
 
 All three endpoints inherit the conventions D3 established. See
-`media-api-instructions-for-agents.md` items 23–27 for the Scala spelling.
+`media-api-91-instructions-for-agents.md` items 23–27 for the Scala spelling.
 
 | Asset | Location | Reused by |
 |-------|----------|-----------|
@@ -113,7 +131,7 @@ All three endpoints inherit the conventions D3 established. See
 | Lifted private `hitToImageEntity(request, include)` | `MediaApi.scala` (lifted in D3) | D9 |
 | `mapImageFrom(sourceAsString, id, index) → SourceWrapper[Image]` | `ElasticSearch.scala:466` | D9 |
 | Lean `_source` projection + strip-before-validate | `ElasticSearch.scala:495-521` (`resolveSearchAfterHit`) | D9 |
-| Migration-aware index list | `prepareSearch`, `ElasticSearch.scala:464` | D8 (replicate for PIT open) |
+| Existing live query routing | `prepareSearch` | Reuse where appropriate; do not copy its multi-index migration target into a PIT. |
 | Route-ordering rule (specific before `/:id`) | `conf/routes:15` (`search-after` before `GET /images/:id`) | D7, D8, D9 |
 | Typed response case class + `OWrites` | D3's `SearchAfterResponse` in `MediaApi.scala` | D7, D8, D9 |
 | StranglerAdapter override pattern | `strangler-adapter.ts:51` (`searchAfter` → `apiSearchAfter`) | D7, D8, D9 |
@@ -122,11 +140,17 @@ All three endpoints inherit the conventions D3 established. See
 **Standing constraints that apply** (findings doc banner): POST + `auth.async(parse.json)`;
 new `*Params`/`*Results` case classes in `ElasticSearchModel.scala` with `OWrites`; never touch
 Kahuna-serving code (`createSort`, `imageSearch` behaviour) non-additively; one Scala commit per
-gap; one PR doc per Scala commit (`phase-3-d3-searchafter-scala-pr.md` is the template).
+gap; one PR doc per Scala commit (`d3-search-after-02-pr.md` is the template).
 
 ---
 
 ## 2. D7 — `POST /images/count` (count + tickers)
+
+> **Decision needed:** D7 serves polling/count-only calls. Before using it at startup, name the
+> owner of the displayed initial total and tickers. Options include retaining current parallel
+> behavior with its documented timing limitation or consolidating into D3/D7 with explicit count
+> intent. Preserve exact totals. Do not fuse responses or strengthen snapshot guarantees merely
+> to satisfy this plan. Measure if choosing between materially different cost/latency paths.
 
 ### Endpoint contract
 
@@ -147,9 +171,9 @@ Cookie: <panda>
 }
 ```
 
-One endpoint serves both DAL methods: `countWithTickers` reads `{total, tickerCounts}`; `count`
-reads `total` only (F2 — `count(params) ≡ countWithTickers(params).total`). Tickers are cheap
-`size=0` aggs, so always return them.
+The D7 endpoint serves actual `countWithTickers` callers. Do not add a standalone count route
+solely for an unused interface wrapper. The initial-search pattern follows the ownership decision
+above; the contract below sketches the polling response only.
 
 ### Server (Scala)
 
@@ -158,7 +182,7 @@ reads `total` only (F2 — `count(params) ≡ countWithTickers(params).total`). 
 | `conf/routes` | `POST /images/count` — before `GET /images/:id`. |
 | `ElasticSearchModel.scala` | New `CountWithTickersResults(total: Long, tickerCounts: Map[String, ExtraCount])` + `OWrites`. |
 | `ElasticSearch.scala` | New `countWithTickers(params): Future[CountWithTickersResults]`. |
-| `MediaApi.scala` | New `countImages()` action. |
+| `MediaApi.scala` | New `countImages()` action; change D3 only if selected by the count decision. |
 
 **`ElasticSearch.countWithTickers`:** mirror the ticker path `imageSearch` already runs.
 Build the filtered query exactly as `searchAfter` does (`queryBuilder.buildFilterOpt`), then a
@@ -186,8 +210,9 @@ Mirror `searchAfterImages` (`MediaApi.scala:801`) exactly, minus the hit-enrichm
 | `strangler-adapter.ts` | Override `countWithTickers` → `apiCountWithTickers`; keep `count` delegating to `countWithTickers().then(r => r.count)` (or override too). |
 | `vite.config.ts` | Whitelist `POST /api/images/count` in the write guard (as for `search-after`). |
 
-Call sites unaffected (`search-store.ts:619` poll, `:1917` AI, `:1971` initial) — they call the
-DAL method, which now routes to the server in `--use-media-api` mode.
+Poll/AI count call sites continue through the DAL. Startup changes depend on the chosen contract.
+Poll failures must not publish zero as a successful count. Eventual API-only failure cannot invoke
+browser ES; the hybrid mode's behavior remains a separate contract.
 
 ### Test plan
 - Scala: `ElasticSearchTest` — total matches a known fixture count; ticker counts match the
@@ -195,77 +220,42 @@ DAL method, which now routes to the server in `--use-media-api` mode.
   sub-counts present (if verify-item #1 requires the sub-agg).
 - TS: `apiCountWithTickers` request-body shape + response mapping; `StranglerAdapter.countWithTickers`
   routes to the api fn.
+- If changing initial-count ownership, test publication and compare latency/work against the
+  current path. Do not run live experiments without permission or make fusion a precondition.
 
 ### Done when
 - [ ] `POST /images/count` returns `{total, tickerCounts}` (curl).
+- [ ] Initial total/ticker ownership and consistency are explicit and tested for the selected
+  contract; any intentional timing compromise is accepted rather than hidden.
 - [ ] `--use-media-api` poll banner + status bar counts correct; `--use-media-api=false` unchanged.
 - [ ] Sub-counts (agency-by-supplier) present — reused from the existing `ExtraCount.subCounts` (§0 #1).
 
 ---
 
-## 3. D8 — `POST /images/pit` + `DELETE /images/pit/:pitId`
+## 3. D8 — Ordinary-operation PIT lifecycle (decision required)
 
-### Endpoint contract
+Decide the smallest ordinary-operation contract needed to remove browser PIT calls. Compare
+sequential use of D3, combined opening/page one, and protected continuation transport only as
+necessary. Shared storage is not predetermined by multiple API servers. Identify current handling
+of refreshed IDs, failed/lost responses, expiry and cleanup; distinguish existing limitations from
+regressions or stronger guarantees. No multi-index PIT or Thrall change is authorized.
 
-```
-POST /images/pit              → 200 { "pitId": "abc..." }      (body optional: { "keepAlive": "1m" })
-DELETE /images/pit/:pitId     → 204 (or 200 { "closed": true })
-```
+Constraints that survive every option:
 
-### Server (Scala)
-
-| File | Change |
-|------|--------|
-| `conf/routes` | `POST /images/pit` and `DELETE /images/pit/:pitId` — **both before** `DELETE /images/:id` (`conf/routes:25`) and `GET /images/:id`, else Play routes `pit` as an `:id`. |
-| `ElasticSearch.scala` | New `openPit(keepAlive): Future[String]` and `closePit(pitId): Future[Unit]`. |
-| `MediaApi.scala` | New `openPit()` + `closePit(pitId)` actions. |
-
-**`ElasticSearch.openPit`:** build the **migration-aware index list** exactly as `prepareSearch`
-does (`ElasticSearch.scala:464`):
-```
-val indexes = migrationStatus match {
-  case cp: CompletionPreview => List(cp.migrationIndexName)
-  case r:  Running           => List(imagesCurrentAlias, r.migrationIndexName)
-  case _                     => List(imagesCurrentAlias)
-}
-```
-then open the PIT with the comma-joined index spelling (§0 #2 — resolved):
-`createPointInTime(Index(indexes.mkString(","))).keepAlive(keepAlive)` → `POST /a,b/_pit?keep_alive=60s`.
-(elastic4s has no `Indexes` overload for PIT; the handler interpolates `index.name` into the URL,
-so comma-joining is the standard multi-index mechanism — same as `SearchHandlers`.) Reason it
-matters: a PIT opened only against the old index during a migration would make already-migrated
-images invisible to every `searchAfter` that uses it (the mirror of D3's F-6 fix).
-
-**`ElasticSearch.closePit`:** `deletePointInTime(pitId)`, fire-and-forget, ignore the response
-(matches the client's current `closePit`).
-
-**`MediaApi` actions:** `openPit` — `auth.async` (no body parser needed; keepAlive optional via a
-tiny JSON body or a query param), respond `{pitId}`. `closePit` — `auth.async`, respond 204.
-Both are minimal; no `SearchParams`, no enrichment.
-
-### Kupua (TypeScript)
-
-| File | Change |
-|------|--------|
-| `grid-api-search-adapter.ts` | New `apiOpenPit(keepAlive?)` (POST, returns `pitId`) and `apiClosePit(pitId)` (DELETE). |
-| `strangler-adapter.ts` | Override `openPit`/`closePit` (`:38-39`) to route to the api fns. |
-| `vite.config.ts` | Whitelist `POST /api/images/pit` and `DELETE /api/images/pit/*`. |
-
-The store's PIT lifecycle (`search-store.ts:1957` open in `Promise.all`, `:1835` close) is
-unchanged — it calls the DAL methods. **Compatibility note:** the `pitId` the server returns is a
-real ES PIT id, valid for both server-routed `searchAfter` and (if ever) direct-ES, because kupua
-and the local media-api point at the same cluster (`KUPUA_ES_URL`, `vite.config.ts:133`). This is
-the same assumption D3 already relies on.
-
-### Test plan
-- Scala: `openPit` returns a non-empty id; a `searchAfter` using that id paginates consistently;
-  `closePit` succeeds; (if feasible) a migration-status fixture proves the index list spans both.
-- TS: `apiOpenPit`/`apiClosePit` request shapes; `StranglerAdapter` routes both.
+- logical image IDs appear at most once and public sort tuples stay deterministic;
+- the ordinary-operation target and the limits of any snapshot guarantee are explicit;
+- page-one versus continuation consistency is stated explicitly rather than implied;
+- close is idempotent and the selected continuation transport is authenticated and lossless;
+- D3's deliberate `_shard_doc` truncation is not casually changed;
+- hybrid behavior is distinct from eventual API-only operation, which cannot fall back to browser ES;
+- known limitations need explicit acceptance; authorization/integrity risks must not be hidden.
 
 ### Done when
-- [ ] `POST /images/pit` → id; `DELETE /images/pit/:id` closes it (curl).
-- [ ] `--use-media-api` scroll/seek session opens its PIT via the server and paginates correctly.
-- [ ] Route ordering verified (`DELETE /images/pit/x` is NOT matched as `deleteImage("pit")`).
+
+- [ ] Current PIT behavior/tests are read and the smallest unresolved question has a focused check.
+- [ ] Record the chosen ordinary contract, limitations, caller changes and tests here before
+  implementation; any new infrastructure needs explicit approval.
+- [ ] Identify affected D3/positional consumers; do not claim migration support.
 
 **Addendum (12 August 2026, from `search-request-cancellation-workplan.md` §10):**
 - `closePit` must gracefully no-op on a PIT id that's unfamiliar, already-expired, or was
@@ -282,8 +272,8 @@ the same assumption D3 already relies on.
   queueing under many concurrent users). Cheap to include now, expensive to retrofit later.
 
 **Addendum (17 August 2026) — do NOT "fix" the PIT cursor tiebreaker.** D8 makes the PIT
-branch of `searchAfter` reachable for the first time, so this will look like a live bug the
-moment you exercise it: ES appends an implicit `_shard_doc` to every hit's sort array under a
+branch of `searchAfter` a server lifecycle concern; it is already reachable in hybrid mode.
+ES appends an implicit `_shard_doc` to every hit's sort array under a
 PIT, and `searchAfter` truncates it away. That truncation is deliberate and correct —
 cursors outlive the PIT (kupua persists them and retries without a PIT on 404/410, where a
 `_shard_doc` value is rejected with a 400), and client-synthesised cursors could never
@@ -294,13 +284,21 @@ contain one. It was measured, "fixed", and reverted. Full reasoning:
 
 ## 4. D9 — `POST /images/mget`
 
+> **Additional review gate:** route or inject the selection store's datasource before claiming
+> that the Strangler override migrates this method. Add a media-api-mode routing test for selection
+> hydration; preserve exactly one commit-to-view enrichment owner. Also measure before selecting a
+> cap: D3's current enriched Argo envelope costs about 137ms per 200 hits, so applying the same path
+> to 1,000 selected images can make this endpoint neither S-sized nor operationally cheap. Prefer a
+> measured smaller client chunk and/or a bulk response that omits unused signed URLs/links while
+> retaining aliases and the server-authoritative fields selection actually consumes.
+
 ### Endpoint contract
 
 ```
 POST /images/mget
 Content-Type: application/json
 
-{ "ids": ["abc001", "abc002", ...] }     // no 200 cap; missing ids silently absent
+{ "ids": ["abc001", "abc002", ...] }     // explicit server cap to be selected; hidden/missing IDs omitted
 
 → 200  application/vnd.argo+json
 { "data": [ <EmbeddedEntity per found image> ] }
@@ -326,13 +324,19 @@ extracted from the body of `resolveSearchAfterHit`** (§0 #3 — resolved). Do *
 `mapImageFrom` (`:478`) directly — it does a raw `validate[Image]` that fails on the partial
 `fileMetadata` the lean projection produces; the strip-before-validate is mandatory. This is
 *not* `lookupIds` (`:166`) — that uses `pinned_query` + the 200 cap and must not be reused.
-The focused review should adopt a 1,000-ID server per-request cap with stable 422 unless it finds
-evidence for a different bounded value.
+The focused review must measure envelope CPU, signing work, payload and memory before choosing the
+server cap. Do not default to 1,000 merely because direct `_mget` uses that chunk size; the response
+path now enriches every image.
+
+> **Scope:** this sketch targets ordinary operation. Existing `migrationAwareGetter` prefers
+> migration copies; do not change it or promise equivalent behavior during migration. Dual-index
+> batching is not required for the unsupported case. Before general Grid API use, agree and disclose
+> the supported scope and maintenance behavior with the team.
 
 > **Review required — limit/chunking:** the existing 1,000-ID chunking is inside
 > `ElasticsearchDataSource.getByIds`. Overriding `StranglerAdapter.getByIds`
 > bypasses it. Choose one contract before implementation: preferably the API
-> client issues abort-aware parallel chunks of at most 1,000 IDs and the server
+> client issues abort-aware parallel chunks at the measured cap and the server
 > rejects larger individual requests with a stable 422. Do not claim “no cap”
 > while also relying on an implicit client cap.
 
@@ -361,6 +365,10 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
   IDs are both absent; a mixed visible/hidden request leaks no existence signal;
   over-cap input receives stable 422; enriched fields remain present; lean
   projection and aliases remain intact.
+- Migration fixture: a batch containing migration-only/current-only/both/missing IDs returns one
+  result per found ID, prefers the migration copy when both exist, and falls back to current.
+- Performance: measure 200/500/1,000-ID envelope CPU, signed-URL/link work, payload and heap before
+  accepting a cap. Reject a design that scales D3's full browse envelope blindly to bulk selection.
 - Scala/TS projection regression: include one image with multiple
   `usages.dateAdded` values and multiple `collections.actionData.date` values.
   Prove the mget response preserves both complete arrays and that Kupua's
@@ -374,6 +382,7 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
 ### Done when
 - [ ] `POST /images/mget` returns enriched images, missing ids absent (curl).
 - [ ] Unauthorized IDs are indistinguishable from missing IDs.
+- [ ] Running migration batches prefer the migration copy and fall back to current without duplicates.
 - [ ] Client chunking and server request cap agree and are tested above the cap.
 - [ ] Enrichment writes have one documented owner.
 - [ ] Multiple usage/collection dates survive projection and synthesize the
@@ -388,12 +397,12 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
 
 ## 5. Ordering, commits, PRs
 
-Per `media-api-worknotes.md` and standing constraint #27:
+Per `../../zz Archive/media-api-work/media-api-worknotes.md` and standing constraint #27:
 
 - **One session, six commits:** three Scala (one per gap) + three TS (one per gap), split by
   folder so each gap cherry-picks cleanly onto `main` as its own PR.
 - **One PR doc per Scala commit:** `phase-3-d7-count-scala-pr.md`, `phase-3-d8-pit-scala-pr.md`,
-  `phase-3-d9-mget-scala-pr.md` (template: `phase-3-d3-searchafter-scala-pr.md`). Each notes the
+  `phase-3-d9-mget-scala-pr.md` (template: `d3-search-after-02-pr.md`). Each notes the
   POST + `auth.async(parse.json)` pattern (now established) and any verify-item resolution.
 - **No Kahuna risk:** all three are purely additive new routes. None touches `createSort`,
   `imageSearch` behaviour, or `prepareSearch` (D8 *reads* its index-selection logic but does not
@@ -422,10 +431,10 @@ Per `media-api-worknotes.md` and standing constraint #27:
 
 | Source | What |
 |--------|------|
-| `phase-3-minimal-gap-derivation-findings.md` | The plan + standing constraints (status banner). D7/D8/D9 detail in §2 + §5. |
-| `phase-3-d3-searchafter-scala-pr.md` | PR-doc template; the POST/`auth.async(parse.json)`/`fromJson`/`hitToImageEntity` precedent. |
-| `media-api-instructions-for-agents.md` | Scala mechanics, items 23–27 (Option-B, PIT bypass, lean projection, shared blocks, commit discipline). |
-| `media-api-conventions.md` | Controller/route/Argo/test conventions. |
-| `media-api-worknotes.md` | Branch + PR-extraction recipe. |
+| `media-api-01-capability-inventory.md` | The plan + standing constraints (status banner). D7/D8/D9 detail in §2 + §5. |
+| `d3-search-after-02-pr.md` | PR-doc template; the POST/`auth.async(parse.json)`/`fromJson`/`hitToImageEntity` precedent. |
+| `media-api-91-instructions-for-agents.md` | Scala mechanics, items 23–27 (pre-review semantic sort, PIT research gate, lean projection, shared blocks, commit discipline). |
+| `media-api-90-conventions.md` | Controller/route/Argo/test conventions. |
+| `../../zz Archive/media-api-work/media-api-worknotes.md` | Branch + PR-extraction recipe. |
 | `zz Archive/media-api-work/ref--media-api-gap-01-searchAfter-findings-2.md` | elastic4s PIT API notes (for D8). |
 | `zz Archive/media-api-work/ref--media-api-gap-closure-feasibility.md` | Per-gap feasibility (Gap 12 = mget, Gap 17 = count). |

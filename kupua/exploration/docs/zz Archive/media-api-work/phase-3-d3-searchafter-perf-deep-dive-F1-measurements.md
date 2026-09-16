@@ -1,6 +1,6 @@
 # F1 (ES-client gzip) — measurement runbook
 
-**Companion to:** [phase-3-d3-searchafter-perf-deep-dive.md](phase-3-d3-searchafter-perf-deep-dive.md) (Finding F1).
+**Companion to:** [d3-search-after-04-performance.md](../../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md) (Finding F1).
 **Date started:** 2026-06-27
 **Status:** Plan — not yet executed.
 **Audience:** A Sonnet agent executing this **together with the operator** (who has Kibana +

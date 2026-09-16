@@ -1,5 +1,13 @@
 # PR: `POST /images/search-after`
 
+> **Draft pending targeted readiness assessment (15 September 2026).** D3 is implemented.
+> The operator confirms one laptop caller through local modified media-api, one successful TEST
+> deployment, and PR #4849 back in draft without human review. Copilot comments are different
+> evidence. Use [media-api-00-index.md](media-api-00-index.md) for scope. The next assessment classifies known new
+> findings; it does not require the archived migration programme or predetermine replacement of
+> sort/PIT transport. Update this draft to match any approved changes before review.
+> Historical tests below are not a fresh run.
+
 ## What does this change?
 
 Adds authenticated cursor pagination to media-api for Kupua:
@@ -62,9 +70,14 @@ configured alias leaves. Results still pass through the existing
 
 - Confirm POST-with-JSON and `auth.async(parse.json)` as the convention for
   cursor/body-heavy read endpoints.
-- Confirm that client-resolved Elasticsearch sort clauses are acceptable at this
-  migration stage. The server validates their shape but does not own the semantic
-  sort registry yet.
+- Assess sort validation and semantic `orderBy` on concrete risks/costs. Either approach must
+  preserve Kupua sorting without changing legacy `createSort`.
+- Disclose actual PIT/page-one, renewal, expiry and client-tuple behavior. Separate defects from
+  existing limitations and stronger session guarantees. Shared storage is not preselected.
+- Reassess newly raised authorization, inclusive-date/default-filter, partial-hit integrity and
+  client enrichment/alias-tuple findings against current source and earlier reviews.
+- Grid index migration is unsupported by the prototype. Broader maintenance behavior needs team
+  agreement; this draft promises neither atomic exclusion nor migration-transparent browsing.
 - `include=fileMetadata` remains an open contract question: the lean projection
   does not fetch full file metadata, so the endpoint should eventually reject that
   include explicitly or support it only when requested.

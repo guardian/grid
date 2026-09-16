@@ -1,11 +1,19 @@
 # media-api Instructions for Implementing Agents
 
+> **Tracked source:** `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`.
 > **Deployed copy:** `.github/instructions/media-api.instructions.md` (local-only, in `.git/info/exclude`, never committed).
 > That file has `applyTo: media-api/**` frontmatter so Copilot loads it automatically.
 > When you update this doc, copy changes there too.
-> **Instructions are not yet final** — see item 19 re open questions.
+> Current scope and reading order: `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-00-index.md`.
+> Open convention questions are in item 22.
 
-See `media-api-conventions.md` for full detail and file:line cites.
+Kupua is a working read-only prototype adopting additive APIs incrementally. Preserve accepted
+behavior, including explicitly approximate presentation. Index migrations are unsupported;
+Dynamo sessions, Thrall hooks and the archived architecture are not prerequisites. D3 is draft
+pending bounded readiness reassessment. Authorization and existing Grid behavior stay protected.
+
+See `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
+for full detail and file:line cites.
 
 1. **Class declaration.** Extend `BaseController` with `ArgoHelpers`. Constructor
    injection only — no `@Inject`. Wire the new class in `MediaApiComponents.scala`.
@@ -46,9 +54,10 @@ See `media-api-conventions.md` for full detail and file:line cites.
 10. **New result/param case classes go in `ElasticSearchModel.scala`.** Suffix
     convention: `*Params`, `*Results`. Cite: `ElasticSearchModel.scala:16,55`.
 
-11. **Always use `prepareSearch(query)` in the ES layer.** Never call
-    `ElasticDsl.search(imagesCurrentAlias)` directly — `prepareSearch` handles
-    migration-aware index routing. Cite: `ElasticSearch.scala:440`.
+11. **Preserve existing live-query routing.** Existing live search uses `prepareSearch(query)`;
+    do not change its migration-aware behavior for Kupua. D3's PIT branch bypasses it (item 24).
+    A new target-specific ordinary method needs an explicit contract, not a blanket copy of the
+    live multi-index routing or the PIT branch.
 
 12. **Always use `executeAndLog(request, "description")`.** Wraps execution with
     logging and metrics. Cite: `ElasticSearch.scala:332`.
@@ -84,7 +93,7 @@ See `media-api-conventions.md` for full detail and file:line cites.
 
 21. **`resolveHit` turns a raw `SearchHit` into `Option[SourceWrapper[Image]]`.** Never parse `hit.sourceAsString` manually. Use `resolveHit` (private to `ElasticSearch`) or mirror its pattern exactly. Cite: `ElasticSearch.scala:153`.
 
-22. **Before writing any code,** read §14-15 of `media-api-conventions.md`. **§15.1 (GET vs POST)
+22. **Before writing any code,** read §14-15 of `media-api-90-conventions.md`. **§15.1 (GET vs POST)
     is RESOLVED** — D3 adopted POST + `auth.async(parse.json)` (pending team sign-off, N-3). Argo
     format (§15.4) and PIT availability (§15.5) are also resolved. Remaining open questions for
     team input: testing bar (§15.2), sort-value serialisation (§15.3), cluster PIT overhead (§15.6),
@@ -92,28 +101,30 @@ See `media-api-conventions.md` for full detail and file:line cites.
 
 ---
 
-## Post-D3 standing constraints (Scala mechanics for future cursor/image endpoints)
+## D3 standing constraints (Scala mechanics for cursor/image endpoints)
 
-> Added 2026-06-20 after D3 shipped. Design-level rationale is in
-> `phase-3-minimal-gap-derivation-findings.md` (status banner); this is the Scala spelling.
+> Current scope corrected 15 September 2026. The inventory and index own current scope;
+> historical architecture mandates do not override these instructions.
 
-23. **Option B sort handling — every cursor endpoint, never `createSort`.** The client (kupua
-    `buildSortClause`) sends the fully-resolved ES sort clause in the request body. Deserialise it
-    with `sorts.jsonToSort` (flat `{field:"asc"}` and nested-object
-    `{field:{order,missing,mode,nested}}` shapes), apply verbatim, and use `sorts.reverseSorts` for
-    reverse pagination. Do **not** call `sorts.createSort` on a cursor path — it serves Kahuna and
-    must not change. Read `orderBy` only for the `dateAddedToCollection` companion `pathHierarchy`
-    filter (both token orders).
+23. **D3 readiness is a bounded assessment of known new findings.** Option B is implemented;
+    Option A is an alternative, not automatically required. If selected, a semantic builder
+    must be parallel to legacy
+    `sorts.createSort` and backed by fixtures for every static/configured/special sort. **Never call
+    or modify `sorts.createSort` for Kupua** — it serves Kahuna and must not change.
 
-24. **PIT consumers bypass `prepareSearch`.** When a `pitId` is present, build the request as
-    `ElasticDsl.search(Nil).query(q).pit(...)` (still apply `withSearchQueryTimeout`) — the migration
-    dedup filter from `prepareSearch` must NOT be applied to a PIT (it shrinks results mid-migration).
-    When D8 builds `POST /images/pit`, open the PIT across both `imagesCurrentAlias` and the running
-    migration index. **Do NOT "fix" the `_shard_doc` truncation in `searchAfter`** — ES appends an
+24. **State the PIT guarantee actually provided.** Existing D3 consumes the
+    raw single-index PIT that Kupua opens today with `ElasticDsl.search(Nil).query(q).pit(...)`
+    (still apply `withSearchQueryTimeout`); do not add `prepareSearch` to that branch. A multi-index
+    PIT cannot assume unique logical IDs during migration. D8 needs an ordinary-operation decision
+    about opening, refreshed IDs, expiry and cleanup, not canonical migration machinery.
+    Distinguish current limitations from regressions. Shared state or a stronger guarantee needs
+    justification and approval. A live status lookup is not frozen context.
+    **Do NOT "fix" the `_shard_doc` truncation in `searchAfter`** — ES appends an
     implicit tiebreaker under a PIT and the code drops it on purpose, because cursors outlive the PIT
     and client-synthesised cursors cannot contain one. It has already been measured, "fixed" and
     reverted once; read `zz Archive/media-api-work/phase-3-d3-searchafter-post-pr-review.md` §D-6
-    before touching it. Cite: `ElasticSearch.searchAfter` PIT branch; `phase-3-d3-searchafter-scala-pr.md`.
+    before touching it. Cite: `ElasticSearch.searchAfter` PIT branch;
+    `media-api-01-capability-inventory.md` (13 September correction).
 
 25. **Image-returning endpoints reuse the lean projection + strip-before-validate.** `_source` is the
     schema-derived `Image` field set minus `{embedding, originalMetadata, fileMetadata}` plus
@@ -127,10 +138,11 @@ See `media-api-conventions.md` for full detail and file:line cites.
     `EmbeddedEntity`) are reused by all new POST/image endpoints (D7/D9). New `*Params`/`*Results`
     case classes go in `ElasticSearchModel.scala` with `OWrites`.
 
-27. **Branch/PR discipline.** One Scala commit per gap (even when building several in one session) so
-    each cherry-picks cleanly onto `main` as its own PR. One PR doc per Scala commit
-    (`phase-3-d3-searchafter-scala-pr.md` is the template). See `media-api-worknotes.md` for the
-    extraction recipe — **but check the 2026-07-25 caveat there first**: "cherry-picks cleanly"
-    stops being true once `main` independently touches the same files while the gap is in flight
-    (this happened to D3). Dry-run with `merge-tree` before assuming a plain cherry-pick will work;
-    use the harvest-from-merged-branch fallback if it doesn't.
+27. **Branch/PR discipline.** No commit or branch without permission; never push from an agent
+    session. Approved commits keep Scala/Kupua work separable for focused endpoint PRs. An isolated
+    cherry-pick can conflict even when the full feature branch merges cleanly, as happened to D3.
+    With permission, check using `git merge-tree --write-tree --merge-base=<commit>^ <main> <commit>`.
+    If it conflicts, extract endpoint-only reconciled changes from a branch already verified
+    against that main and inspect the complete diff. Never blindly copy shared files containing
+    unrelated changes. `../../zz Archive/media-api-work/media-api-worknotes.md` preserves the historical recipe, not permission
+    to run its commit/push commands. Do not perform PR extraction during a read-only assessment.

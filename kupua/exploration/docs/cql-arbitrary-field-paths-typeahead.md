@@ -69,7 +69,7 @@ name as input (see table below).
 
 ## Why none of the 9 already-planned D-items (or the C-items) cover this
 
-Checked against `phase-3-minimal-gap-derivation-findings.md`'s full
+Checked against `03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`'s full
 inventory — Section 5 (Bucket-D, 9 items, D3 shipped) and Section 4c
 (Bucket-C, 4 items):
 

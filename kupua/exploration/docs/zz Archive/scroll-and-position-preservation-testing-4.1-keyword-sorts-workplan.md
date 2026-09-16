@@ -13,7 +13,7 @@
 > Proposals to enumerate the complete PROD vocabulary are rejected. Section 13
 > is an unapproved, deferred design spike, not a current plan. Generic future
 > media-api D5/D6 contracts are owned by
-> `03 Ce n'est pas une pipe dream/media-api-work/phase-3-minimal-gap-derivation-findings.md`;
+> `../03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`;
 > this document does not define those endpoints.
 
 > Companion to `scroll-and-position-preservation-testing-4-findings.md` §F1.
@@ -295,7 +295,7 @@ place for it.)
 
 ### media-api implication — deferred until the fix is proven
 
-**Do not amend `phase-3-minimal-gap-derivation-findings.md` yet.** This fix is
+**Do not amend `../03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md` yet.** This fix is
 entirely client-side; nothing in media-api needs to exist or change for it to be
 built, tested, or perf-tested. The evidence for the endpoint shape *is* the fix
 working — specifically T2 (ES call count ≤ 4) plus the Phase 4 TEST re-run. If

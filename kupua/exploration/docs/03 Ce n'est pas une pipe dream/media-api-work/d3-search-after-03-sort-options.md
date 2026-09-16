@@ -1,18 +1,17 @@
 # Phase 3 — D3 searchAfter: Sort Companion (decision record + Option A shape)
 
-**Companion to:** `phase-3-d3-searchafter-workplan.md` ("D3 main").
-**Status:** Decision recorded. Option B is the chosen first build; its **build
-steps live in D3 main**, not here. This doc is the rationale, the breakage
-analysis, the longer-term **Option A** shape, the migration trigger, and the
-production-Kahuna safety constraints.
+**Companion to:** `d3-search-after-02-pr.md` (current draft).
+**Status (15 September 2026):** Options and historical rationale, not an accepted implementation
+plan. Option B is implemented; Option A is a server-owned alternative. Bounded D3 readiness must
+classify whether a change is necessary before review, a team choice, or later work.
+The production-Kahuna safety constraints in this document remain binding.
 
 > **Why a separate doc?** The buildable instructions for sorting are inseparable
 > from the `searchAfter()` endpoint (same method, same payload), so they live in
 > D3 main. But *which* clause-ownership model to use is a real architectural fork
-> with an Option A/B choice and a deferred-refactor horizon. That decision record
-> doesn't belong buried inside an endpoint plan — it lives here. This doc contains
-> **no build steps**; it is allowed to drift slightly because nothing is built
-> from it directly.
+> whose first-build decision and pre-review correction need one record. That record
+> doesn't belong buried inside an endpoint plan. Do not create another Option-A plan unless that
+> option is selected; amend this document with the decision instead.
 
 ---
 
@@ -52,7 +51,10 @@ identical forever.
 
 ---
 
-## 2. What breaks if this doc is not actioned (D3 main built with `createSort`)
+## 2. Historical counterexample: using legacy `createSort` for D3
+
+This is not the current implementation: D3 already avoids this builder. These are the reasons
+blind reuse was rejected, not a list of current D3 failures.
 
 Tracing each kupua sort through `appendTiebreaker(createSort(orderBy))` (no
 replication of the `search()` special-case match; `createSort` knows only the
@@ -87,7 +89,7 @@ entire sort dropdown except "newest/oldest uploaded".
 
 ## 3. The two options
 
-### Option B — client sends the resolved ES sort clause (CHOSEN, build now)
+### Option B — client sends the resolved ES sort clause (current implementation)
 
 kupua sends `sort: buildSortClause(orderBy)` (the full clause) in the POST body;
 the server deserialises it into elastic4s `Sort`s and applies it verbatim. The
@@ -106,7 +108,7 @@ asc-variant, no convention. The existing null-zone code stays generic (head ==
   kupua-coupled (kupua already builds it in ES-direct mode), so the "API" isn't
   fully ES-agnostic yet.
 
-### Option A — server owns a *semantic* `orderBy` (deferred, end-state)
+### Option A — server owns a *semantic* `orderBy` (alternative, not selected here)
 
 The API stays semantic (`orderBy: "-dateAddedToCollection"`); the server reproduces
 kupua's `buildSortClause` in Scala: alias map (8 fixed + config `fieldAliases`),
@@ -125,7 +127,7 @@ the `uploadTime` fallback with date-direction-inheritance + `DATE_SORT_FIELDS`, 
 
 ---
 
-## 4. Recommendation: Option B first
+## 4. Historical rationale for Option B first
 
 1. **Invariant for free.** One builder cannot diverge from itself; A's safety rests
    on perpetual tests.
@@ -140,8 +142,9 @@ the `uploadTime` fallback with date-direction-inheritance + `DATE_SORT_FIELDS`, 
 4. **No Kahuna risk in the sort layer.** B never touches `createSort`. A's tempting
    implementation path runs straight through Kahuna-serving code (§5).
 
-A is **deferred, not abandoned.** It is the more correct API end-state once the
-sort logic stabilises or a second client appears.
+That rationale justified building Option B as a fast, safe prototype. It does not decide the
+reviewed contract. Bounded readiness should identify the concrete issue, if any, requiring change
+now. Additional consumers and mixed-version compatibility are not assumed.
 
 ---
 
@@ -150,11 +153,11 @@ sort logic stabilises or a second client appears.
 media-api serves **production Kahuna**. The endpoint is purely additive; nothing
 Kahuna depends on may change.
 
-- **Option B is the safe option.** The new endpoint does not call `createSort` and
+- **Option B isolates sort building from legacy behavior.** The new endpoint does not call `createSort` and
   only reads the companion-filter logic read-only (lift-and-reuse,
   behaviour-preserving). `createSort`, `dateAddedToCollectionDescending`, and the
   `search()` `pathHierarchy` filter are untouched.
-- **Option A carries the Kahuna risk, not B.** `createSort` is *currently wrong*
+- **Neither option permits changing Kahuna's builder.** `createSort` differs from Kupua's contract
   (alias non-resolution, no asc variant, dash-convention collision). "Fixing" it in
   place to match kupua would silently change Kahuna's sort behaviour. Therefore:
 
@@ -162,8 +165,8 @@ Kahuna depends on may change.
   > cursor endpoint. Do NOT modify `createSort` to make A "correct". The
   > buggy-but-load-bearing `createSort` stays as-is for Kahuna.**
 
-  That A requires two coexisting builders (one knowingly wrong, kept for Kahuna) is
-  itself a reason A is deferred — it is more work *and* slightly absurd.
+  A therefore requires two coexisting builders during transition: the new correct
+  cursor builder and the unchanged legacy Kahuna builder.
 - **Shared extractions still need care.** D3 main's `buildFilteredQuery` and
   `hitToImageEntity` lift DO modify Kahuna-serving code; they must be strictly
   behaviour-preserving with existing `search()`/`imageSearch()` tests green. The
@@ -173,16 +176,17 @@ Kahuna depends on may change.
 
 ---
 
-## 6. When to migrate B → A
+## 6. B → A trigger and transition
 
-Refactor to Option A when **either** trigger fires:
+These are candidate triggers, not automatic approval. A stable inventory may lower the cost of
+Option A, but does not establish that D3 must change before review:
 
 - **The sort logic stabilises** — the alias set, fallback rules, and nested sorts
   stop changing, so a Scala re-implementation won't immediately rot; **or**
 - **A second, non-kupua client** needs the cursor endpoint and cannot reasonably be
   asked to speak the ES sort DSL.
 
-Migration shape (general, not line-level — speccing it now is premature):
+Conditional transition if Option A is selected (not a Grid index migration):
 
 1. Add a **new** Scala sort builder (parallel to `createSort`; do not touch
    `createSort`) reproducing `buildSortClause`: alias resolution, `uploadTime`
@@ -195,23 +199,26 @@ Migration shape (general, not line-level — speccing it now is premature):
    client `sort` field (or keep accepting it transitionally).
 4. Update kupua's adapter to stop sending `sort`.
 
-Until a trigger fires, **do not** write the line-level Option A workplan. It will
-drift before it is built.
+If Option A is selected, amend this document with the transition and parity fixtures. The sole
+local caller can change with the endpoint. Do not invent unknown-consumer compatibility or
+require the archived migration programme.
 
 ---
 
-## 7. Build sequencing (hard rule)
+## 7. Revised build sequencing
 
-Option B's build steps live in D3 main and land in **the same two commits** as the
-endpoint:
+The current Option-B build remains useful evidence and a rollback reference:
 
 - **Scala** clause-deserialisation (`jsonToSort`, `reverseSorts`, `SearchAfterParams.sort`,
   the both-orders companion filter) → D3's **Commit A**.
 - **kupua** `sort: buildSortClause(orderBy)` in the adapter → D3's **Commit B**.
 
-> **Never land the D3 endpoint with `orderBy`-driven server sorting.** Doing so
-> ships a build where most of the sort dropdown is silently corrupt or 422s (§2).
-> The endpoint and its Option B sort handling are one buildable unit.
+> **Never implement Option A with legacy `createSort`.** That produces the failures in §2
+> and changes production Kahuna behavior. D3 may land with semantic `orderBy` only after a
+> new media-api-only builder and exhaustive parity tests cover every current sort.
+
+Next: bounded D3 readiness, explicit choice, then only the approved change and relevant tests.
+This document neither authorizes implementation nor blocks independent consolidation work.
 
 ---
 
@@ -224,4 +231,4 @@ endpoint:
 | `media-api/app/lib/elasticsearch/sorts.scala` | `createSort` / `dateAddedToCollectionDescending` — the Kahuna-serving sort code that must NOT change |
 | `media-api/app/lib/elasticsearch/ElasticSearch.scala` | `search()` `dateAddedToCollectionFilter` (the companion `pathHierarchy` filter) + the `orderBy match` that picks the special sort |
 | `usages-findings.md` §11 | `usagesDateAdded` nested sort shape (`mode:max`, `nested:{path:usages}`, `missing:_last`) |
-| `media-api-instructions-for-agents.md` | media-api Scala conventions (additive endpoint, no `var`, fluent DSL, tests) |
+| `media-api-91-instructions-for-agents.md` | media-api Scala conventions (additive endpoint, no `var`, fluent DSL, tests) |

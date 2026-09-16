@@ -1,5 +1,10 @@
 # Media-API Gap Closure — Work Notes
 
+> **Historical notes, archived 15 September 2026.** These capture early agreements and
+> PR-extraction experience, not current execution order or permission to run commands below.
+> The relevant extraction caveat is retained in the active implementing-agent instructions.
+> Start at [the current index](../../03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-00-index.md).
+
 > **Perf note:** When writing the new grid-api adapter, replicate the `Date.now()` wrapping that `es-adapter.ts` does on its 4 public methods — the types (`fetchDuration?: number`), store, UI, and harness all consume it generically and will Just Work.
 
 **Date:** 28–29 May 2026  

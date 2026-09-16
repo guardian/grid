@@ -108,7 +108,7 @@ gets surfaced before producing a bad plan.
 
 ## Deliverable shape
 
-Write to: `kupua/exploration/docs/03 Ce n'est pas une pipe dream/phase-3-minimal-gap-derivation-findings.md`
+Write to: `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`
 
 ### Section structure (mandatory)
 

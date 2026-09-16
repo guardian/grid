@@ -16,7 +16,7 @@ signature. Check `searchAfter`'s current param count before starting F3.
 
 ## Source of truth
 
-`kupua/exploration/docs/03 Ce n'est pas une pipe dream/phase-3-minimal-gap-derivation-findings.md`
+`kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`
 Section 4b — the fusion catalogue. Each entry has full context.
 
 ## The 4 fusions, ordered by implementation effort
