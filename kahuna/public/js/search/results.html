@@ -231,7 +231,12 @@
 
         <div ng-if="! ctrl.filtersOnlyAiSearch && ctrl.totalResults == 0"
              class="image-no-results">
-            <span>No matches, sorry! Try altering your search.</span>
+            <span>
+                No matches, sorry! Try altering your search.
+                <span ng-if="!ctrl.isAiSearch && ctrl.shouldDisplayAISearchOption">
+                    Or <a href="" ng-click="ctrl.tryAiSearchFromNoResults()">try AI search instead</a>.
+                </span>
+            </span>
         </div>
     </div>
 </div>
