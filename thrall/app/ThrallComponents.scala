@@ -31,7 +31,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   es.ensureIndexExistsAndAliasAssigned()
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(wsClient)
+  val gridClient: GridClient = GridClient(services, services.thrallBaseUri)(wsClient)
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
   private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)

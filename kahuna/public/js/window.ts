@@ -8,6 +8,7 @@ declare global {
     _clientConfig: {
       rootUri: string;
       telemetryUri: string;
+      aiSearchEnabled: boolean;
       aiSearchResultLimit: number;
       featureSwitches: Array<FeatureSwitchData>;
       interimFilterOptions: Array<PermissionOption>;

@@ -44,7 +44,7 @@ abstract class CloudWatchMetrics(
     protected def toDatum(value: Long, dimensions: List[Dimension]): MetricDatum = datum(StandardUnit.MILLISECONDS, value.toDouble, dimensions)
   }
 
-  private val client = config.withAWSCredentialsV2(CloudWatchClient.builder()).build()
+  private val client = config.withAWSCredentials(CloudWatchClient.builder()).build()
 
   private val random = new Random()
   private[CloudWatchMetrics] val metricsActor = actorSystem.actorOf(MetricsActor.props(namespace, client), s"metricsactor-${random.alphanumeric.take(8).mkString}")

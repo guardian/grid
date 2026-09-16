@@ -9,7 +9,7 @@ import java.nio.file.{Files, Path}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, S3Vectors, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{Embedder, EmbedderMessage, S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -25,12 +25,13 @@ import lib.storage.ImageLoaderStore
 import model.Uploader.{fromUploadRequestShared, toImageUploadOpsCfg}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.Json
 import play.api.libs.ws.WSRequest
-import software.amazon.awssdk.services.s3vectors.model.PutVectorsResponse
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.MapHasAsScala
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
@@ -320,7 +321,8 @@ object Uploader extends GridLogging {
   }
 
   def patchUploadRequestWithS3Metadata(request: UploadRequest, s3Object: S3Object): UploadRequest = {
-    val metadata = S3FileExtractedMetadata(s3Object.metadata.objectMetadata.lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
+    val lastModified = s3Object.metadata.objectMetadata.lastModified
+    val metadata = S3FileExtractedMetadata(lastModified.getOrElse(new DateTime), s3Object.metadata.userMetadata)
     request.copy(
       uploadTime = metadata.uploadTime,
       uploadedBy = metadata.uploadedBy,
@@ -471,8 +473,12 @@ class Uploader(
           logger.info(logMarker, s"Copying $mediaId to lower environment queue bucket $lowerEnvironmentQueueBucket")
           try {
             store.client.copyObject(
-              config.imageBucket, fileKeyFromId(mediaId),
-              lowerEnvironmentQueueBucket, s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}"
+              CopyObjectRequest.builder()
+                .sourceBucket(config.imageBucket)
+                .sourceKey(fileKeyFromId(mediaId))
+                .destinationBucket(lowerEnvironmentQueueBucket)
+                .destinationKey(s"${uploadRequest.uploadedBy}/${uploadRequest.uploadInfo.filename.getOrElse(mediaId)}")
+                .build()
             )
           } catch {
             case e: Throwable =>

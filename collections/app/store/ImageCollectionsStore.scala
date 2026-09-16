@@ -19,7 +19,7 @@ case class ImageRecord(id: String, collections: List[Collection])
 class ImageCollectionsStore(config: CollectionsConfig) extends DynamoHelpers {
 
   override val tableName = config.imageCollectionsTable
-  lazy val client: DynamoDbAsyncClient = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  lazy val client: DynamoDbAsyncClient = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
 
   import org.scanamo.generic.semiauto._
   implicit val dateTimeFormat: Typeclass[DateTime] =

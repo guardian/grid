@@ -68,6 +68,18 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.usageRights should be(ContractPhotographer("Murdo MacLeod", Option("The Guardian")))
       processedImage.metadata.byline should be(Some("Murdo MacLeod"))
     }
+
+    it("should only assign Photographer rights if agency rights not already assigned") {
+      val image = createImageFromMetadata(
+        "byline" -> "Murdo MacLeod",
+        "credit" -> "PA Wire/PA Images"
+      )
+      val processedImage = applyProcessors(image)
+      // UsageRights assigned to PA agency rather than ContractPhotographer("Murdo MacLeod") as PA
+      // runs first, and Staff/ContractPhotographer only assign rights if nothing else has first.
+      processedImage.usageRights should be(Agency("PA"))
+      processedImage.metadata.byline should be(Some("Murdo MacLeod"))
+    }
   }
 
   describe("AAP") {

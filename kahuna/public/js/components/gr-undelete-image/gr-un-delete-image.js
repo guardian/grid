@@ -7,27 +7,27 @@ export const undeleteImage = angular.module('gr.undeleteImage', [
 ]);
 
 undeleteImage.controller('grUnDeleteImageCtrl', [
-    '$rootScope', '$q', '$timeout', 'mediaApi', 'apiPoll',
-    function ($rootScope, $q, $timeout, mediaApi, apiPoll) {
+    '$rootScope', '$q', 'mediaApi', 'apiPoll',
+    function ($rootScope, $q, mediaApi, apiPoll) {
       var ctrl = this;
 
       ctrl.$onInit = () => {
 
-        function pollDeleted (image) {
+        function pollUndeleted (image) {
             const findImage = () => mediaApi.find(image.data.id).then(
-                () => $q.reject(),
-                // resolve when image cannot be found, i.e. image has been deleted.
-                () => $q.resolve()
+                (i) => i.data.softDeletedMetadata === undefined && i.data.userMetadata?.data?.archived
+                    ? $q.resolve()
+                    : $q.reject()
             );
 
-            apiPoll(findImage);
+            return apiPoll(findImage);
         }
 
         ctrl.unDeleteImage = function (image) {
             return mediaApi.undelete(image.data.id)
-                .then(() => pollDeleted(image))
+                .then(() => pollUndeleted(image))
                 .catch((err) => {
-                    $rootScope.$emit('image-delete-failure', err, image);
+                    $rootScope.$emit('image-undelete-failure', err, image);
                 });
         };
 
@@ -35,7 +35,7 @@ undeleteImage.controller('grUnDeleteImageCtrl', [
             // HACK to wait for thrall to process the message so that when we
             // poll the api, it will be up to date.
             return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.unDeleteImage(image)))
-                .then(() => $rootScope.$emit('images-deleted', ctrl.images));
+                .then(() => $rootScope.$emit('images-undeleted', ctrl.images));
         };
       };
     }

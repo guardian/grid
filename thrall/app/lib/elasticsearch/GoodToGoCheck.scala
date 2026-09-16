@@ -1,16 +1,14 @@
 package lib.elasticsearch
 
-import com.amazonaws.util.EC2MetadataUtils
+import com.gu.mediaservice.lib.aws.EC2MetadataUtils
+import software.amazon.awssdk.imds.Ec2MetadataClient
 import com.gu.mediaservice.lib.elasticsearch.{MappingTest, Running}
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.Image
-import com.sksamuel.elastic4s.Response
-import com.sksamuel.elastic4s.requests.delete.{DeleteByQueryResponse, DeleteResponse}
 import com.typesafe.scalalogging.StrictLogging
 import org.joda.time.{DateTime, Period}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
 
 /**
   * This implements a good to go check that validates when Thrall starts up that it can successfully write and read
@@ -19,7 +17,7 @@ import scala.util.Success
 object GoodToGoCheck extends StrictLogging {
   def run(es: ElasticSearch)(implicit ex: ExecutionContext): Future[Unit] = {
     // make a test image with an ID that is unique to the node so that multiple nodes can run the check at once
-    val uniqueId = Option(EC2MetadataUtils.getInstanceId).map(_.stripPrefix("i-")).getOrElse("abcdef")
+    val uniqueId = EC2MetadataUtils.getInstanceId.map(_.stripPrefix("i-")).getOrElse("abcdef")
     val checkTime = DateTime.now
     val image: Image = MappingTest.testImage.copy(
       id = s"${MappingTest.testImage.id}$uniqueId",

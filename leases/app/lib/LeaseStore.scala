@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 class LeaseStore(config: LeasesConfig) {
-  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  val client = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
 
   implicit val dateTimeFormat: Typeclass[DateTime] =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse, _.toString)

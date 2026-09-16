@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.metadata
 
-import com.amazonaws.services.dynamodbv2.model.BatchWriteItemResult
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.ImageStatusRecord
 import org.scanamo._
@@ -11,7 +10,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
 import scala.concurrent.{ExecutionContext, Future}
 
 class SoftDeletedMetadataTable(config: CommonConfig) {
-  val client = config.withAWSCredentialsV2(DynamoDbAsyncClient.builder()).build()
+  val client = config.withAWSCredentials(DynamoDbAsyncClient.builder()).build()
 
   private val softDeletedMetadataTable = Table[ImageStatusRecord](config.softDeletedMetadataTable)
 

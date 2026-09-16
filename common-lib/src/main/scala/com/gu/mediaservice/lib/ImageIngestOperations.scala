@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib
 
-import com.amazonaws.services.s3.model.{DeleteObjectsRequest, MultiObjectDeleteException}
 
 import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -8,6 +7,8 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 import org.joda.time.DateTime
+import software.amazon.awssdk.core.exception.SdkClientException
+import software.amazon.awssdk.services.s3.model.{Delete, DeleteObjectsRequest, HeadObjectRequest, NoSuchKeyException, ObjectIdentifier}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
@@ -45,24 +46,24 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
       overwrite = true)
 
+
   private def bulkDelete(bucket: String, keys: List[String]): Future[Map[String, Boolean]] = keys match {
     case Nil => Future.successful(Map.empty)
     case _ => Future {
-      try {
-        client.deleteObjects(
-          new DeleteObjectsRequest(bucket).withKeys(keys: _*)
-        )
-        keys.map { key =>
-          key -> true
-        }.toMap
-      } catch {
-        case partialFailure: MultiObjectDeleteException =>
-          logger.warn(s"Partial failure when deleting images from $bucket: ${partialFailure.getMessage} ${partialFailure.getErrors}")
-          val errorKeys = partialFailure.getErrors.asScala.map(_.getKey).toSet
-          keys.map { key =>
-            key -> !errorKeys.contains(key)
-          }.toMap
-      }
+      val objects = keys.map { key =>
+        ObjectIdentifier.builder()
+          .key(key)
+          .build()
+      }.asJava
+      val response = client.deleteObjects(
+        DeleteObjectsRequest.builder().bucket(bucket)
+          .delete(Delete.builder().objects(objects).build())
+          .build()
+      )
+      val errorKeys = response.errors().asScala.toList.map(_.key())
+      keys.map { key =>
+        key -> !errorKeys.contains(key)
+      }.toMap
     }
   }
 
@@ -73,8 +74,10 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePNG(id: String)(implicit logMarker: LogMarker): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
   def deletePNGs(ids: Set[String]) = bulkDelete(imageBucket, ids.map(optimisedPngKeyFromId).toList)
 
-  def doesOriginalExist(id: String): Boolean =
-    client.doesObjectExist(imageBucket, fileKeyFromId(id))
+  def doesOriginalExist(id: String): Boolean = {
+    this.doesObjectExist(imageBucket, fileKeyFromId(id))
+  }
+
 }
 
 sealed trait ImageWrapper {

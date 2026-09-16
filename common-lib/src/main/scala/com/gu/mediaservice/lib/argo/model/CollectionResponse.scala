@@ -19,8 +19,16 @@ case class ExtraCount(
   subCounts: Option[Map[String, Long]] = None
 )
 
+// Describes an AI search that had no text/similar-image query to rank by, so the
+// client can tell the user how many images are in the pool a query would rank over
+// (filteredPool) and prompt them to add a query.
+case class FilterPoolCounts(
+  filteredPool: Long
+)
+
 case class ExtraCounts(
-  tickerCounts: Map[String, ExtraCount]
+  tickerCounts: Map[String, ExtraCount],
+  filterPoolCounts: Option[FilterPoolCounts] = None
 )
 
 case class CollectionResponse[T](
@@ -37,6 +45,7 @@ case class CollectionResponse[T](
 object CollectionResponse extends WriteHelpers {
 
   implicit val extraCountWrites: Writes[ExtraCount] = Json.writes[ExtraCount]
+  implicit val filterPoolCountsWrites: Writes[FilterPoolCounts] = Json.writes[FilterPoolCounts]
   implicit val extraCountsWrites: Writes[ExtraCounts] = Json.writes[ExtraCounts]
 
   implicit def collectionResponseWrites[T: Writes]: Writes[CollectionResponse[T]] = (

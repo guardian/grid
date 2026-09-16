@@ -28,6 +28,9 @@ import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
 import { List } from 'immutable';
+
+const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
+
 const image = angular.module('kahuna.image.controller', [
   'util.rx',
   'util.storage',
@@ -156,6 +159,13 @@ image.controller('ImageCtrl', [
 
     ctrl.image = image;
     if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+
+    $scope.$watch('ctrl.image.data.softDeletedMetadata', () => {
+        if (ctrl.image) {
+          ctrl.isDeleted = ctrl.image?.data.softDeletedMetadata !== undefined;
+        }
+    });
+
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
 
@@ -183,9 +193,6 @@ image.controller('ImageCtrl', [
       const usageTab = ctrl.tabs.find(_ => _.key === 'usages');
       usageTab.value = `Usages (${value > 0 ? value : 'None'})`;
       usageTab.disabled = value === 0;
-
-      // stop watching
-      freeUsageCountWatch();
     });
 
     // TODO: we should be able to rely on ctrl.crop.id instead once
@@ -217,9 +224,9 @@ image.controller('ImageCtrl', [
     };
 
     ctrl.shareImage = () => {
-       const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
-       navigator.clipboard.writeText(sharedUrl);
-       globalErrors.trigger('clipboard', sharedUrl);
+      const sharedUrl = $window._clientConfig.rootUri + "/images/" + ctrl.image.data.id;
+      navigator.clipboard.writeText(sharedUrl);
+      globalErrors.trigger('clipboard', sharedUrl);
     };
     ctrl.onCropsDeleted = () => {
       // a bit nasty - but it updates the state of the page better than trying to do that in
@@ -232,11 +239,11 @@ image.controller('ImageCtrl', [
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
         const defaultNonFreeFilter = {
           isDefault: true,
-          isNonFree: showPaid ? showPaid : false
+          isNonFree: toNonFreeString(showPaid)
         };
         storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
-          detail: {showPaid: defaultNonFreeFilter.isNonFree},
+          detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true
         }));
         scrollPosition.resetToTop();
@@ -285,8 +292,8 @@ image.controller('ImageCtrl', [
             if (largestWidth != crop.master.dimensions.width) {
               const imageId = getImageIdFromCropResource(cropsResource);
               console.log('The largest cropped asset of ' + crop.id + ' available for image ' + imageId +
-              ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
-              'Please correct this inconsistency.');
+                ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
+                'Please correct this inconsistency.');
             }
             crop.downloadLink = largestAsset.downloadLink;
           }
@@ -312,6 +319,7 @@ image.controller('ImageCtrl', [
       const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
       if (maybeUpdatedImage) {
         ctrl.image = maybeUpdatedImage;
+        ctrl.usagesCount = ctrl.image.data.usages.data.length;
       }
     });
 
@@ -333,5 +341,6 @@ image.controller('ImageCtrl', [
       freeImagesUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();
+      freeUsageCountWatch();
     });
   }]);

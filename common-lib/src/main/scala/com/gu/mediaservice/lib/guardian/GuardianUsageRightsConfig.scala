@@ -81,7 +81,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     )),
     PublicationPhotographers(GuardianPublication, List(
       PublicationPhotographer("Alicia Canter"),
-      PublicationPhotographer("Antonio Olmos"),
       PublicationPhotographer("Christopher Thomond"),
       PublicationPhotographer("David Levene"),
       PublicationPhotographer("Eamonn McCabe"),

@@ -16,7 +16,7 @@ class UsageStoreTest extends AnyFunSpec with Matchers {
 
       val list = UsageStore.csvParser(lines)
 
-      list.head should be (SupplierUsageSummary(Agency("Australian Associated Press Pty Limited (Stacey Shipton)"), 397))
+      list.head should be (SupplierQuotaCount(Agency("Australian Associated Press Pty Limited (Stacey Shipton)"), 397))
     }
 
     it("should parse non-ASCII RCS usage emails") {

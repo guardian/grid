@@ -18,8 +18,14 @@ imageList.factory("imageList", [
         }, new Map());
     }
 
-    function occurrencesToTuple(countsMap) {
-        return countsMap.map((count, data) => ({data, count})).toArray();
+    function occurrencesToArray(countsMap) {
+      // Map is a Keyed collection, so toArray() on it returns [key, value]
+      // entry pairs rather than just the mapped values. Use valueSeq() first
+      // to get a flat array of the mapped {data, count} objects.
+      return countsMap
+        .map((count, data) => ({ data, count }))
+        .valueSeq()
+        .toArray();
     }
 
     // TODO: a lot of these are boilerplate around imageAccessor, can
@@ -54,7 +60,7 @@ imageList.factory("imageList", [
 
     function getOccurrences(items) {
         const valueCounts = countOccurrences(items);
-        return occurrencesToTuple(valueCounts);
+        return occurrencesToArray(valueCounts);
     }
 
     function getSetOfProperties(objects) {

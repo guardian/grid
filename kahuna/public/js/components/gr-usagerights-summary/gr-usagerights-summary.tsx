@@ -107,7 +107,7 @@ const UsageRightsSummary: React.FC<UsageRightsWrapperProps> = ({ props }) => {
 
   return (<div>
     <div className="usage-rights-container">
-      <div className="usage-rights-element">{ category || 'None'}</div>
+      <div className="usage-rights-element">{ category || 'Unknown'}</div>
       <div className="usage-rights-element">
         <div className={agencyStyle} title={agencyTitle}></div>
       </div>

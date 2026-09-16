@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.services.sqs.model.{Message => SQSMessage}
+import software.amazon.awssdk.services.sqs.model.{MessageSystemAttributeName, Message => SQSMessage}
 import com.gu.mediaservice.lib.net.URI.{decode => uriDecode}
 import play.api.libs.json.Json
 
@@ -8,9 +8,9 @@ import scala.util.Try
 
 trait SqsHelpers {
 
-  val attrApproximateReceiveCount = "ApproximateReceiveCount"
+  val attrApproximateReceiveCount = MessageSystemAttributeName.APPROXIMATE_RECEIVE_COUNT
   def getApproximateReceiveCount(message: SQSMessage): Int =
-   Try(message.getAttributes.get(attrApproximateReceiveCount).toInt).toOption.getOrElse(-1)
+   Try(message.attributes().get(attrApproximateReceiveCount).toInt).toOption.getOrElse(-1)
 
   def extractS3KeyFromSqsMessage(message: SQSMessage): Try[String] = Try {
 
@@ -21,7 +21,7 @@ trait SqsHelpers {
     // note that we don't bother reading the bucket name currently, but attempt the read elsewhere based on the
     // configured bucket value, this could be checked here if we're concerned (s3Records.head \ "bucket" \ "name")
 
-    (Json.parse(message.getBody) \ "Records" \\ "s3").toList match {
+    (Json.parse(message.body()) \ "Records" \\ "s3").toList match {
       case head :: Nil => uriDecode((head \ "object" \ "key").as[String])
       case s3Records => throw new Exception(s"Expected 1 record containing 's3' in message body, got ${s3Records.size}")
     }

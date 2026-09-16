@@ -25,7 +25,7 @@ object Bedrock {
 }
 
 class Bedrock(config: CommonConfig)
-  extends AwsClientV2BuilderUtils {
+  extends AwsClientBuilderUtils {
 
   // TODO: figure out what the more usual pattern for turning off localstack behaviour is
   override def awsLocalEndpointUri: Option[URI] = None
@@ -33,7 +33,7 @@ class Bedrock(config: CommonConfig)
   override def isDev: Boolean = config.isDev
 
   val client: BedrockRuntimeClient = {
-    withAWSCredentialsV2(BedrockRuntimeClient.builder())
+    withAWSCredentials(BedrockRuntimeClient.builder())
       .build()
   }
 
@@ -76,14 +76,14 @@ class Bedrock(config: CommonConfig)
     }
   }
 
-  def createTextEmbedding(inputData: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Float]] = {
+  def createTextEmbedding(inputData: String)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[List[Double]] = {
     val requestBody = createRequestBody(inputData)
     val bedrockFuture = Future { sendBedrockEmbeddingRequest(requestBody) }
     bedrockFuture.map { response =>
       val responseBody = response.body().asUtf8String()
       val json = Json.parse(responseBody)
       // Extract the embedding array (first element since it's an array of arrays)
-      val embedding = (json \ "embeddings" \ "float")(0).as[List[Float]]
+      val embedding = (json \ "embeddings" \ "float")(0).as[List[Double]]
       logger.info(
         logMarker,
         s"Successfully extracted text embedding. Vector size: ${embedding.size}"
