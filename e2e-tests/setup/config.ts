@@ -6,17 +6,22 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRequire } from 'module';
 import JSON5 from 'json5';
 import {
   DOMAIN,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
   SERVICE_PORTS,
-} from './constants';
+} from './constants.ts';
+
+/** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
+const require = createRequire(import.meta.url);
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
@@ -34,20 +39,26 @@ function rewriteEndpoints(conf: string): string {
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = 'http://localhost:4576';
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
-  return conf
+
+  const rewrittenConf = conf
     .split(guardianLocalstackUrl)
     .join(localstackUrl)
     .split(legacyLocalstackUrl)
     .join(localstackUrl)
     .split(localLocalstackUrl)
     .join(localstackUrl);
+
+  // The S3 client reaches LocalStack over the container network (localstack:4566), but
+  // presigned URLs are handed to the browser, which can only reach LocalStack via the
+  // `localstack.media.<domain>` vanity domain (dev-nginx locally, the Caddy proxy in CI).
+  // Sign against that host so the URLs resolve outside the container network.
+  return `${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`;
 }
 
 /**
  * Generate all service config files into `configDir`.
  */
 export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
     fs.readFileSync(path.join(GENERATE_CONFIG_DIR, 'config.json5'), 'utf8'),
@@ -65,7 +76,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     coreStackProps,
     es6: {
       ...defaultConfig.es6,
-      url: `http://${ELASTICSEARCH_ALIAS}:9200`,
+      url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
     },
   };
 
@@ -89,6 +100,7 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     if (!conf) {
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
+
     fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
   }
 }

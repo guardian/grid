@@ -1,6 +1,7 @@
+import * as os from 'os';
 import * as path from 'path';
 
-export const REPO_ROOT = path.resolve(__dirname, '..', '..');
+export const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
 
 export const DOMAIN = 'local.dev-gutools.co.uk';
 export const EMAIL_DOMAIN = 'guardian.co.uk';
@@ -22,8 +23,22 @@ export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
 /** Reverse proxy used in CI to stand in for the developer's dev-nginx (see global-setup). */
 export const PROXY_IMAGE = 'caddy:2.8-alpine';
 
+/**
+ * imgops: standalone nginx on-the-fly image resizer, built from dev/imgops at setup time.
+ * Its nginx.conf proxies to the `localstack` alias on 4566, so it shares the stack network.
+ * Published on IMGOPS_PORT, the fixed host port dev-nginx maps `media-imgops` to.
+ */
+export const IMGOPS_ALIAS = 'imgops';
+export const IMGOPS_PORT = 9008;
+export const IMGOPS_CONTEXT = path.join(REPO_ROOT, 'dev', 'imgops');
+export const IMGOPS_NGINX_CONF = path.join(IMGOPS_CONTEXT, 'nginx.conf');
+/** Stable tag for the imgops image so it persists across runs and Docker reuses cached layers. */
+export const IMGOPS_IMAGE = 'grid-e2e-imgops';
+
 /** Network aliases the app container uses to reach the infrastructure containers. */
 export const ELASTICSEARCH_ALIAS = 'elasticsearch';
+/** Fixed host port, so a stack started by `dev.ts` can be reached without a container handle. */
+export const ELASTICSEARCH_PORT = 9200;
 export const LOCALSTACK_ALIAS = 'localstack';
 export const LOCALSTACK_PORT = 4566;
 /** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
@@ -33,6 +48,7 @@ export const GRID_ALIAS = 'grid-e2e-ci';
 export const SERVICE_PORTS: Record<string, number> = {
   'media-api': 9001,
   thrall: 9002,
+  'image-loader': 9003,
   kahuna: 9005,
   cropper: 9006,
   'metadata-editor': 9007,
@@ -44,8 +60,10 @@ export const SERVICE_PORTS: Record<string, number> = {
 export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
 export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
 
-/** File (repo-relative to e2e-tests) where global-setup records the resolved service URLs. */
-export const URLS_FILE = path.join(__dirname, '..', '.grid-urls.json');
+/**
+ * Generated per-service config, bind-mounted into the app container.
+ */
+export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';

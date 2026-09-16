@@ -1,12 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 import { defineBddConfig } from 'playwright-bdd';
-import { KAHUNA_PORT } from './testcontainers/constants';
+import { KAHUNA_PORT } from './setup/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
    Run via `bddgen` (see package.json scripts) before `playwright test`. */
 const testDir = defineBddConfig({
   features: './features/**/*.feature',
   steps: './steps/**/*.ts',
+  /* @todo marks scenarios that are specified but not yet implemented. Excluding them keeps
+     bddgen's "undefined step" failures meaningful for the scenarios we do implement. */
+  tags: 'not @todo',
 });
 
 /**
@@ -25,8 +28,8 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Boot the Grid stack with Testcontainers before tests, and tear it down after. */
-  globalSetup: './global-setup.ts',
-  globalTeardown: './global-teardown.ts',
+  globalSetup: './setup/global-setup.ts',
+  globalTeardown: './setup/global-teardown.ts',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL (Kahuna) to use in actions like `await page.goto('/')`. Set by global-setup. */

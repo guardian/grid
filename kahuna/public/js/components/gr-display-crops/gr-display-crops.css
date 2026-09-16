@@ -12,3 +12,6 @@
     justify-content: flex-start;
 }
 
+.gr-display-crops + dd {
+    width: 100%;
+}

@@ -23,10 +23,12 @@ forwardPorts:
   - 9005
   - 9006
   - 9007
+  - 9008
   - 9009
   - 9010
   - 9011
   - 9012
+  - 4566
   - 6080
 
 # Optional: Mount directories from host to container

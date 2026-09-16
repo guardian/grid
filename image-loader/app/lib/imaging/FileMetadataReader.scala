@@ -67,7 +67,10 @@ object FileMetadataReader extends GridLogging {
       metadata <- readMetadata(image)
       colourModelInformation <- getColorModelInformation(image, metadata, mimeType)
     }
-    yield getMetadataWithIPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
+    yield getMetadataWithIPTCHeaders(metadata, imageId).copy(
+      colourModelInformation = colourModelInformation,
+      c2pa = if (C2paDetector.hasC2paManifest(image, mimeType)) FileMetadata.C2paAvailable else FileMetadata.NoC2PA
+    )
 
   private def getMetadataWithIPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
     FileMetadata(

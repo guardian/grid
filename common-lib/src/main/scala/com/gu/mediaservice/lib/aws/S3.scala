@@ -226,7 +226,7 @@ object S3Ops {
       .credentialsProvider(config.awsCredentials)
       .region(config.awsRegion)
 
-    config.awsLocalEndpointUri match {
+    config.awsLocalPresigningEndpointUri match {
       case Some(endpoint) if config.isDev => builder.endpointOverride(endpoint)
         .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build()).build()
       case _ => builder.build()
