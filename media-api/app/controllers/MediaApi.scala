@@ -20,7 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
-import models.{ImageUsages, UsagesInContent}
+import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
