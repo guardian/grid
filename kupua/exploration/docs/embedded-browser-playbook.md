@@ -1125,3 +1125,21 @@ checks looked healthy. The discriminating check is
 `countBefore(startCursor) === bufferOffset` under the same frozen `until`
 context. The fix keeps plain cursorless non-zero-offset calls on direct ES and
 makes D3 reject offset; cursor, PIT, reverse and End calls remain D3-backed.
+
+**[V] The browser tool's outer JavaScript realm may not have `URL` (17 September 2026).**
+`new URL(page.url())` stopped a script after opening detail. Read URL state with
+`page.evaluate(() => new URL(window.location.href).searchParams.get(...))` instead.
+Keep live identities in page/tool memory and return only booleans/counts.
+
+**[V] Resource timing can silently stop recording new API requests after image browsing
+(17 September 2026).** The default buffer filled at 250 entries; a successful retired-PIT
+replay then produced an empty timing slice despite an observed 410 and enriched retry result.
+Do not infer zero requests or an exact retry count from that slice. Increase the buffer before
+the workflow or capture response events when exact request evidence is required.
+
+**[V] A normal search can supply a retired app-owned PIT for a bounded live recovery probe.**
+Capture its cursor/PIT in memory, observe and await the existing `closePit` call made by
+`search()`, and restore any temporary method wrapper in `finally`. A two-hit Strangler probe
+with that retired ID verified a cleared returned PIT, public cursor arity, API enrichment and
+no overlay publication. A one-request browser route abort separately verified live ES fallback;
+label that as fault injection, not a naturally observed API outage. Remove the route in `finally`.

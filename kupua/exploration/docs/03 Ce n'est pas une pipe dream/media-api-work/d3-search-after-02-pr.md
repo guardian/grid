@@ -1,100 +1,67 @@
 # PR: `POST /images/search-after`
 
-> **Draft pending targeted readiness assessment (15 September 2026).** D3 is implemented.
-> The operator confirms one laptop caller through local modified media-api, one successful TEST
-> deployment, and PR #4849 back in draft without human review. Copilot comments are different
-> evidence. Use [media-api-00-index.md](media-api-00-index.md) for scope. The next assessment classifies known new
-> findings; it does not require the archived migration programme or predetermine replacement of
-> sort/PIT transport. Update this draft to match any approved changes before review.
-> Historical tests below are not a fresh run.
-
 ## What does this change?
 
-Adds authenticated cursor pagination to media-api for Kupua:
+Adds cursor-based image search to media-api for Kupua, the experimental Grid frontend.
 
-```text
-POST /images/search-after
-```
+The existing `GET /images` uses offset pagination. Deep offsets become expensive and are
+bounded by Elasticsearch's result window. Kupua currently queries ES directly to browse
+beyond that window; this endpoint lets those paging requests go through Grid's authenticated
+API instead, without replacing the search endpoint Kahuna uses.
 
-Kupua currently talks directly to Elasticsearch. This endpoint is the first
-server-side capability needed to move that traffic behind media-api while still
-supporting deep, stable navigation through millions of images.
+## How does it work?
 
-The request is JSON because cursors are ordered, mixed-type arrays and may contain
-null. It accepts Kupua's search filters plus:
+The client sends search filters, an ES sort clause and, when continuing a search, the sort
+values from a previous result. The server uses `search_after` to fetch the next page. It also
+supports paging backwards and fetching the last page without walking through earlier results.
+JSON POST carries the structured sort and cursor data.
 
-- a fully resolved Elasticsearch sort clause;
-- optional `sortValues` and PIT ID;
-- reverse pagination and seek-to-End flags.
+Results use the existing Grid image enrichment, including cost, validity, rights and actions,
+and include the cursor values needed to continue. To keep browse responses small, the ES
+request excludes `embedding`, `originalMetadata` and full `fileMetadata`, while preserving
+configured field aliases.
 
-The response contains enriched Argo image entities, total count, per-hit sort
-cursors, the next cursor, and the refreshed PIT ID.
+Deleted-image searches apply the existing permission/uploader restriction to both results
+and counts. Deleted images and replaced usages stay hidden by default, including when the
+query is absent or cannot be parsed. Invalid cursor shapes and non-zero offsets are rejected.
 
-## Cursor contract
+Requests can use an ES point-in-time (PIT). An expired PIT returns a specific 410 error so
+the client can retry against the live index. Cursors deliberately omit PIT-specific
+`_shard_doc` values and rely on a unique image ID as the final tiebreaker.
 
-The endpoint supports Kupua's one-semantic-sort model: one user sort plus the
-automatic `uploadTime` fallback and unique `id` tiebreaker. Object-form special
-date sorts retain `mode:max`, missing-value behavior, and the nested `usages`
-context.
+## Effect on existing Grid
 
-A leading null primary value enters the missing-primary phase, where pagination
-continues on `[uploadTime,id]`; returned cursors are remapped to their full public
-shape. Elasticsearch's Long missing-value sentinels are serialized as null so End
-cursors remain round-trippable.
+Kahuna continues to use `GET /images`. There are two shared changes worth calling out:
 
-This is a cursor endpoint, not an offset endpoint. Non-zero `offset` is rejected.
-Malformed sort/cursor JSON, duplicate fields, unresolved Kupua aliases, unsupported
-residual nulls, and cursor/sort arity mismatches return deliberate 4xx responses.
+- GET now honors the previously ignored `hasRightsAcquired` parameter. True matches any
+  acquired right; false matches none, including missing information. Omitting it preserves
+  existing results. Kahuna's UI does not set this flag; it only passes through values supplied
+  in the URL. Manually constructed or external links using it would be affected, but existing
+  use of such links is unverified. `syndicationStatus` filtering is unchanged.
+- Direct GET callers can request ascending Added to collection, with unmapped-field guards
+  in both directions. Kahuna offers only new-to-old collection sorting; even an ascending
+  token supplied in its URL falls back to upload date.
 
-PIT searches intentionally omit Elasticsearch's implicit `_shard_doc` value from
-public cursors. Kupua persists cursors beyond a PIT's lifetime and may retry without
-the PIT, where `_shard_doc` is invalid; callers therefore end every supported sort
-with the unique `id` tiebreaker.
-
-## Containment
-
-`POST /images/search-after` is a new route with no existing production callers.
-The existing `GET /images`, `createSort`, source shaping for existing endpoints,
-and Kahuna behavior are unchanged.
-
-The one intentional adjacent change makes ascending Added to collection work for
-direct `GET /images` API callers. Kahuna canonicalizes that token to Uploaded before
-it reaches media-api, so its UI behavior is unaffected.
-
-Search-after uses a lean schema-derived `_source` projection, excluding the large
-`embedding`, `originalMetadata`, and full `fileMetadata` objects while retaining
-configured alias leaves. Results still pass through the existing
-`imageResponse.create` enrichment path.
+GET authorization is unchanged. The new route also retains the existing POST restrictions
+for ReadOnly and Syndication API keys. New traffic, would it ever actually occur, still shares media-api and ES resources;
+this is not a claim of zero production cost.
 
 ## Review points
 
-- Confirm POST-with-JSON and `auth.async(parse.json)` as the convention for
-  cursor/body-heavy read endpoints.
-- Assess sort validation and semantic `orderBy` on concrete risks/costs. Either approach must
-  preserve Kupua sorting without changing legacy `createSort`.
-- Disclose actual PIT/page-one, renewal, expiry and client-tuple behavior. Separate defects from
-  existing limitations and stronger session guarantees. Shared storage is not preselected.
-- Reassess newly raised authorization, inclusive-date/default-filter, partial-hit integrity and
-  client enrichment/alias-tuple findings against current source and earlier reviews.
-- Grid index migration is unsupported by the prototype. Broader maintenance behavior needs team
-  agreement; this draft promises neither atomic exclusion nor migration-transparent browsing.
-- `include=fileMetadata` remains an open contract question: the lean projection
-  does not fetch full file metadata, so the endpoint should eventually reject that
-  include explicitly or support it only when requested.
-- Present-but-wrong JSON types for `pitId`, `reverse`, and `seekToEnd` still fall
-  back to their absent/default values. Kupua emits the correct types, but the API
-  boundary should be tightened before production traffic.
+- JSON POST and client-supplied ES sort clauses are intentional choices for review.
+- PITs assume a single index and are not bound to a principal or query. Index migration
+  is unsupported; the prototype also opens its PIT separately from its first page.
+- `include=fileMetadata` currently returns empty metadata. Handling that request, stricter
+  optional-parameter validation and the response to partial ES results remain open questions.
 
-## Validation
+## How should a reviewer test this change?
 
-- `ElasticSearchTest`: 77 integration tests passing.
-- `SortsTest`: 14 parser tests passing.
-- The exact PR-branch files passed both focused suites above; the corresponding
-  Kupua change passed 1,270 unit tests and 236 habitual E2E tests.
-- Live TEST checks passed for Last used and Added to collection in both directions:
-  initial/forward/backward pagination, seek, End/null continuation, focus, and
-  restore all agreed between direct Elasticsearch and media-api.
-- A deterministic local Elasticsearch fixture proves exact order, cursor, position
-  map, rank, and range behavior independently of either adapter.
+Run `TZ=UTC sbt "media-api/test"` from the repository root. Tests cover pagination in both
+directions, missing sort values, filter behavior, deleted-image permissions and counts,
+and PIT expiry. GET regression coverage includes the shared rights and sort changes.
 
-No production data is written by this endpoint.
+For a UI check, run local Grid with `--use-TEST` and Kupua with `--use-media-api`.
+Browse deep into a search, move backwards, change sort and open/return from an image.
+Check that cursor-page requests reach the local media-api; the prototype still uses ES
+directly for other operations. Ordinary Kahuna searches should retain their behavior
+apart from the two, speculative from users’ POV, changes above.

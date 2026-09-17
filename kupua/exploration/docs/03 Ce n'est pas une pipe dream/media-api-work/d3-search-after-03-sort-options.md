@@ -1,9 +1,9 @@
 # Phase 3 — D3 searchAfter: Sort Companion (decision record + Option A shape)
 
 **Companion to:** `d3-search-after-02-pr.md` (current draft).
-**Status (15 September 2026):** Options and historical rationale, not an accepted implementation
-plan. Option B is implemented; Option A is a server-owned alternative. Bounded D3 readiness must
-classify whether a change is necessary before review, a team choice, or later work.
+**Status (17 September 2026):** The [agreed D3 amendment batch](d3-search-after-01-readiness-findings.md)
+is complete with Option B retained. This document preserves options and historical rationale,
+not pending D3 implementation work. Option A remains an unselected server-owned alternative.
 The production-Kahuna safety constraints in this document remain binding.
 
 > **Why a separate doc?** The buildable instructions for sorting are inseparable
@@ -217,8 +217,9 @@ The current Option-B build remains useful evidence and a rollback reference:
 > and changes production Kahuna behavior. D3 may land with semantic `orderBy` only after a
 > new media-api-only builder and exhaustive parity tests cover every current sort.
 
-Next: bounded D3 readiness, explicit choice, then only the approved change and relevant tests.
-This document neither authorizes implementation nor blocks independent consolidation work.
+The bounded D3 assessment and agreed amendments are complete; they retained Option B.
+Any future Option-A change requires a new explicit choice and its own relevant tests.
+This document neither authorizes that implementation nor blocks independent consolidation work.
 
 ---
 

@@ -430,3 +430,71 @@ describe("apiSearchAfter request body — media-api wire contract", () => {
     expect((body.sort as unknown[]).length).toBeGreaterThan(0);
   });
 });
+
+describe("apiSearchAfter recovery classification", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    { status: 410, errorKey: "search-after-pit-expired", kind: "pit-expired" },
+    { status: 410, errorKey: "different-refusal", kind: "refused" },
+    { status: 404, errorKey: "search-after-pit-expired", kind: "refused" },
+    { status: 502, errorKey: "maintenance", kind: "refused" },
+    ...[400, 401, 403, 404, 405, 409, 410, 419, 422, 429, 500, 501, 503]
+      .map((status) => ({ status, errorKey: undefined, kind: "refused" })),
+    ...[502, 504].map((status) => ({ status, errorKey: undefined, kind: "unavailable" })),
+  ])("classifies HTTP $status/$errorKey as $kind", async ({ status, errorKey, kind }) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      errorKey ? JSON.stringify({ errorKey }) : "gateway response", { status },
+    )));
+
+    await expect(apiSearchAfter(probeParams, null, "pit-id", undefined, undefined, undefined)).rejects.toMatchObject({ kind, status });
+  });
+
+  it("does not bypass gateway Retry-After refusals", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("wait", {
+      status: 502, headers: { "Retry-After": "60" },
+    })));
+
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "refused", status: 502 });
+  });
+
+  it("classifies a fetch network failure as unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toMatchObject({ kind: "unavailable" });
+  });
+
+  it("preserves unexpected failures instead of making them recoverable", async () => {
+    const error = new Error("unexpected fixture error");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(error));
+
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined)).rejects.toBe(error);
+  });
+
+  it("classifies a response-body transport failure as unavailable", async () => {
+    const body = new ReadableStream({
+      start(controller) { controller.error(new TypeError("connection closed")); },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined))
+      .rejects.toMatchObject({ kind: "unavailable" });
+  });
+
+  it("does not classify malformed response JSON as availability", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{")));
+
+    await expect(apiSearchAfter(probeParams, null, undefined, undefined, undefined, undefined))
+      .rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("does not dispatch an already cancelled request", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(makeApiResponse("late"))));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(apiSearchAfter(probeParams, null, null, controller.signal, undefined, undefined)).rejects.toBe(controller.signal.reason);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+});

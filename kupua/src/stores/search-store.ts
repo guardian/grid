@@ -1012,6 +1012,7 @@ async function _fillBufferForScrollMode(
   // Apply frozen-until cap — scroll-mode fill should not include new images.
   const frozenP = frozenParams(params, get);
   let currentCursor = cursor;
+  let currentPitId = pitId;
   let fetched = loadedSoFar;
 
   devLog(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
@@ -1033,13 +1034,17 @@ async function _fillBufferForScrollMode(
       const result = await dataSource.searchAfter(
         { ...frozenP, length: chunkSize },
         currentCursor,
-        pitId,
+        currentPitId,
         signal,
       );
 
       if (signal.aborted) {
         set({ _extendForwardInFlight: false });
         return;
+      }
+      if (result.pitId === null) {
+        currentPitId = null;
+        set({ pitId: null });
       }
       if (result.hits.length === 0) break;
 
@@ -1314,18 +1319,19 @@ async function _loadBufferAroundImage(
   params: SearchParams,
   pitId: string | null,
   signal: AbortSignal,
-  dataSource: SearchState["dataSource"],
+  searchAfter: ImageDataSource["searchAfter"],
+  targetEnrichment?: EnrichmentFields,
 ): Promise<BufferAroundImage | null> {
   // Forward + backward pages are independent ES requests against the same
   // cursor/PIT — run in parallel (same pattern as seek() position-map path).
   const [forwardResult, backwardResult] = await Promise.all([
-    dataSource.searchAfter(
+    searchAfter(
       { ...params, length: Math.floor(PAGE_SIZE / 2) },
       sortValues,
       pitId,
       signal,
     ),
-    dataSource.searchAfter(
+    searchAfter(
       { ...params, length: Math.floor(PAGE_SIZE / 2) },
       sortValues,
       pitId,
@@ -1379,18 +1385,34 @@ async function _loadBufferAroundImage(
     total: forwardResult.total,
     // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
     // clears the stale PIT instead of preserving it via ??.
-    pitId: forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
+    pitId: backwardResult.pitId === null ? null : forwardResult.pitId !== undefined ? forwardResult.pitId : pitId,
     /** Buffer-local index of the target image. */
     targetLocalIndex: bwHits.length,
     // Merge enrichment from forward + backward results (both carry enrichment on the
     // media-api path; undefined on direct-ES path). Forward wins on id conflict (harmless
     // — same image can't be in both directions of a bidirectional search_after).
-    enrichment: (forwardResult.enrichment || backwardResult.enrichment)
+    enrichment: (forwardResult.enrichment || backwardResult.enrichment || targetEnrichment)
       ? new Map<string, EnrichmentFields>([
           ...(backwardResult.enrichment ?? []),
           ...(forwardResult.enrichment ?? []),
+          ...(targetEnrichment ? [[targetHit.id, targetEnrichment] as const] : []),
         ])
       : undefined,
+  };
+}
+
+function createExpiryAwareSearchAfter(
+  dataSource: ImageDataSource,
+  get: () => SearchState,
+  set: (state: Partial<SearchState>) => void,
+): ImageDataSource["searchAfter"] {
+  return async (params, cursor, pitId, signal, reverse, seekToEnd) => {
+    signal?.throwIfAborted();
+    const requestedPitId = pitId && get().pitId === null ? null : pitId;
+    const result = await dataSource.searchAfter(params, cursor, requestedPitId, signal, reverse, seekToEnd);
+    signal?.throwIfAborted();
+    if (requestedPitId && result.pitId === null && get().pitId === requestedPitId) set({ pitId: null });
+    return pitId && get().pitId === null && result.pitId !== null ? { ...result, pitId: null } : result;
   };
 }
 
@@ -1423,6 +1445,7 @@ async function _findAndFocusImage(
   fallbackFirstPage?: {
     hits: Image[];
     sortValues: SortValues[];
+    enrichment?: Map<string, EnrichmentFields>;
     startCursor: SortValues | null;
     endCursor: SortValues | null;
     pitId: string | null;
@@ -1479,6 +1502,7 @@ async function _findAndFocusImage(
     timeoutController.abort();
     if (fallbackFirstPage) {
       retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1487,7 +1511,7 @@ async function _findAndFocusImage(
         imagePositions: buildPositions(fallbackFirstPage.hits, 0),
         startCursor: fallbackFirstPage.startCursor,
         endCursor: fallbackFirstPage.endCursor,
-        pitId: fallbackFirstPage.pitId ?? get().pitId,
+        pitId: get().pitId,
         focusedImageId: null,
         _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
@@ -1560,6 +1584,7 @@ async function _findAndFocusImage(
 
         if (combinedSignal.aborted) return;
         retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+        if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
         set({
           results: fallbackFirstPage.hits,
           bufferOffset: 0,
@@ -1568,7 +1593,7 @@ async function _findAndFocusImage(
           imagePositions: buildPositions(fallbackFirstPage.hits, 0),
           startCursor: fallbackFirstPage.startCursor,
           endCursor: fallbackFirstPage.endCursor,
-          pitId: fallbackFirstPage.pitId ?? get().pitId,
+          pitId: get().pitId,
           focusedImageId: null,
           _phantomFocusImageId: null,
           sortAroundFocusStatus: null,
@@ -1763,7 +1788,8 @@ async function _findAndFocusImage(
 
       const buf = await _loadBufferAroundImage(
         targetHit, imageSortValues, offset, fp,
-        get().pitId, combinedSignal, dataSource,
+        get().pitId, combinedSignal, createExpiryAwareSearchAfter(dataSource, get, set),
+        sortResult.enrichment?.get(targetHit.id),
       );
       if (!buf) return; // aborted
 
@@ -1823,7 +1849,7 @@ async function _findAndFocusImage(
         imagePositions: buildPositions(finalResults, finalBufferOffset),
         startCursor: finalStartCursor,
         endCursor: buf.endCursor,
-        pitId: buf.pitId,
+        pitId: get().pitId === null ? null : buf.pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         sortAroundFocusStatus: null,
@@ -1860,6 +1886,7 @@ async function _findAndFocusImage(
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (fallbackFirstPage) {
       retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
+      if (fallbackFirstPage.enrichment) useEnrichmentStore.getState().setEnrichment(fallbackFirstPage.enrichment);
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1868,7 +1895,7 @@ async function _findAndFocusImage(
         imagePositions: buildPositions(fallbackFirstPage.hits, 0),
         startCursor: fallbackFirstPage.startCursor,
         endCursor: fallbackFirstPage.endCursor,
-        pitId: fallbackFirstPage.pitId ?? get().pitId,
+        pitId: get().pitId,
         focusedImageId: null,
         _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
@@ -2315,6 +2342,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         _findAndFocusImage(sortAroundFocusId, params, get, set, {
           hits: result.hits,
           sortValues: result.sortValues,
+          enrichment: result.enrichment,
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
@@ -2527,7 +2555,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
       const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
-      const result = await dataSource.searchAfter(
+      const result = await createExpiryAwareSearchAfter(dataSource, get, set)(
         { ...params, length: PAGE_SIZE },
         endCursor,
         effectivePitId,
@@ -2535,6 +2563,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       );
 
       if (signal.aborted) return;
+      if (result.pitId === null) set({ pitId: null });
       if (result.hits.length === 0) {
         set({ _extendForwardInFlight: false });
         return;
@@ -2593,7 +2622,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor: newStartCursor,
           // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
           // clears the stale PIT instead of preserving it via ??.
-          pitId: result.pitId !== undefined ? result.pitId : state.pitId,
+          pitId: state.pitId === null ? null : result.pitId !== undefined ? result.pitId : state.pitId,
           imagePositions: newPositions,
           _extendForwardInFlight: false,
           // Signal views to compensate scrollTop for evicted items (Bug #16)
@@ -2662,7 +2691,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
       const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
-      const result = await dataSource.searchAfter(
+      const result = await createExpiryAwareSearchAfter(dataSource, get, set)(
         { ...params, length: fetchCount },
         startCursor,
         effectivePitId,
@@ -2671,6 +2700,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       );
 
       if (signal.aborted) return;
+      if (result.pitId === null) set({ pitId: null });
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
         return;
@@ -2789,6 +2819,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string) => {
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const params = frozenParams(rawParams, get);
+    const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
 
     // Clamp to valid range
     const { total } = get();
@@ -2867,7 +2898,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // slightly short of the end and the buffer won't reach total.
       // ---------------------------------------------------------------
       if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
-        result = await dataSource.searchAfter(
+        result = await searchAfter(
           { ...params, length: PAGE_SIZE },
           null,
           effectivePitId,
@@ -2884,7 +2915,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // ---------------------------------------------------------------
         // Shallow seek — from/size is fast at small offsets (<10k)
         // ---------------------------------------------------------------
-        result = await dataSource.searchAfter(
+        result = await searchAfter(
           { ...params, offset: fetchStart, length: PAGE_SIZE },
           null,
           null,
@@ -2914,7 +2945,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
         if (forwardCursor === null) {
           // Position 0 — fetch from the start (no search_after cursor)
-          result = await dataSource.searchAfter(
+          result = await searchAfter(
             { ...params, length: PAGE_SIZE },
             null,
             effectivePitId,
@@ -2935,7 +2966,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           if (!skipBackward) {
             const backwardCursor = posMap.sortValues[clampedOffset];
             if (backwardCursor) {
-              backwardPromise = dataSource.searchAfter(
+              backwardPromise = searchAfter(
                 { ...params, length: halfBuffer },
                 backwardCursor,
                 effectivePitId,
@@ -2946,7 +2977,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           }
 
           // Forward fetch — null-zone cursors are handled transparently by the adapter
-          const forwardPromise = dataSource.searchAfter(
+          const forwardPromise = searchAfter(
             { ...params, length: PAGE_SIZE },
             forwardCursor,
             effectivePitId,
@@ -2963,7 +2994,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           if (signal.aborted) return;
 
           // Combine results
-          result = forwardResult;
+          result = backwardResult?.pitId === null ? { ...forwardResult, pitId: null } : forwardResult;
 
           if (backwardResult && backwardResult.hits.length > 0) {
             const combinedHits = [
@@ -2978,9 +3009,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             const newBufferStart = Math.max(0, clampedOffset - backwardResult.hits.length);
 
             result = {
-              ...forwardResult,
+              ...result,
               hits: combinedHits,
               sortValues: combinedSortValues,
+              enrichment: (backwardResult.enrichment || forwardResult.enrichment)
+                ? new Map([...(backwardResult.enrichment ?? []), ...(forwardResult.enrichment ?? [])])
+                : undefined,
             };
             actualOffset = newBufferStart;
             backwardItemCount = backwardResult.hits.length;
@@ -3158,7 +3192,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             const nullZoneCursor: SortValues = [null, uploadTimeEstimate, ""];
 
             usedNullZoneFilter = true;
-            result = await dataSource.searchAfter(
+            result = await searchAfter(
               { ...params, length: PAGE_SIZE },
               nullZoneCursor,
               effectivePitId,
@@ -3233,7 +3267,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // get direction-aware anchors (see buildSeekCursorAnchors).
           const searchAfterValues = buildSeekCursorAnchors(sortClause, estimatedValue);
 
-          result = await dataSource.searchAfter(
+          result = await searchAfter(
             { ...params, length: PAGE_SIZE },
             searchAfterValues,
             effectivePitId,
@@ -3299,7 +3333,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               ? [bucket.key, Math.round(uploadTimeEstimate), ""]
               : buildSeekCursorAnchors(sortClause, bucket.key);
 
-            result = await dataSource.searchAfter(
+            result = await searchAfter(
               { ...params, length: PAGE_SIZE },
               searchAfterValues,
               effectivePitId,
@@ -3344,7 +3378,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 `[seek] search_after cursor: ${JSON.stringify(searchAfterValues)}`,
               );
 
-              result = await dataSource.searchAfter(
+              result = await searchAfter(
                 { ...params, length: PAGE_SIZE },
                 searchAfterValues,
                 effectivePitId,
@@ -3383,7 +3417,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
                 fetchStart > total - MAX_RESULT_WINDOW
               ) {
                 if (signal.aborted) return;
-                const reverseResult = await dataSource.searchAfter(
+                const reverseResult = await searchAfter(
                   { ...params, length: PAGE_SIZE },
                   null,
                   effectivePitId,
@@ -3401,7 +3435,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               // exceeded page limit, or target past end). Fall back to
               // from/size at the capped position.
               const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
-              result = await dataSource.searchAfter(
+              result = await searchAfter(
                 { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
                 null,
                 null,
@@ -3412,7 +3446,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           } else {
             // No keyword seek available — fall back to from/size at capped position.
             const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
-            result = await dataSource.searchAfter(
+            result = await searchAfter(
               { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
               null,
               null,
@@ -3455,16 +3489,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const landedCursor = result.sortValues[0];
 
         // Null-zone cursors are handled transparently by the adapter.
-        const backwardResult = await dataSource.searchAfter(
+        const backwardResult = await searchAfter(
           { ...params, length: halfBuffer },
           landedCursor,
-          effectivePitId,
+          result.pitId === null ? null : effectivePitId,
           signal,
           true, // reverse
         );
 
         if (signal.aborted) return;
 
+        if (backwardResult.pitId === null) result = { ...result, pitId: null };
         if (backwardResult.hits.length > 0) {
           // Combine: backward (reversed to restore original order) + forward
           const combinedHits = [
@@ -3484,6 +3519,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             ...result,
             hits: combinedHits,
             sortValues: combinedSortValues,
+            enrichment: (backwardResult.enrichment || result.enrichment)
+              ? new Map([...(backwardResult.enrichment ?? []), ...(result.enrichment ?? [])])
+              : undefined,
           };
           actualOffset = newBufferStart;
           backwardItemCount = backwardResult.hits.length;
@@ -3508,6 +3546,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
+      if (result.pitId === null) set({ pitId: null });
       if (result.hits.length === 0) {
         set({ loading: false });
         return;
@@ -3663,7 +3702,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
       retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
-      // Commit-to-view (seek): merge enrichment from the seek's forward fetch.
+      // Commit-to-view (seek): merge enrichment from the committed pages.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set({
         results: result.hits,
@@ -3677,7 +3716,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         endCursor,
         // Use !== undefined so explicit null (PIT-expiry fallback, audit #21)
         // clears the stale PIT instead of preserving it via ??.
-        pitId: result.pitId !== undefined ? result.pitId : effectivePitId,
+        pitId: get().pitId === null ? null : result.pitId !== undefined ? result.pitId : effectivePitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,
@@ -3844,7 +3883,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Step 3: Load a buffer centered on the target image
       const buf = await _loadBufferAroundImage(
         targetHit, targetSortValues, exactOffset,
-        params, effectivePitId, signal, dataSource,
+        params, effectivePitId, signal, createExpiryAwareSearchAfter(dataSource, get, set),
+        targetResult.enrichment?.get(targetHit.id),
       );
       if (!buf) return; // aborted
 
@@ -3884,7 +3924,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
         startCursor: buf.startCursor,
         endCursor: buf.endCursor,
-        pitId: buf.pitId,
+        pitId: get().pitId === null ? null : buf.pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         _seekGeneration: get()._seekGeneration + 1,

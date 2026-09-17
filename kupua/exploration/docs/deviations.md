@@ -575,27 +575,20 @@ metadata/XMP). Kahuna has the same false-negative risk — the server field reli
 on the same keyword scan. The XMP flag path reduces false-negatives for images
 with the proper metadata flag set at ingest time.
 
-### 26. `is:deleted` search bypasses per-user deletion permission restriction
+### 26. Direct-ES `is:deleted` searches lack per-user uploader scoping
 
-**What:** When a user searches `is:deleted` in Kupua, all soft-deleted images are
-returned regardless of who deleted them or whether the user has `DeleteImagePermission`.
+**What:** Direct-ES requests have no current-user permission context, so deleted searches
+are not restricted to the current uploader. This also matters for the remaining direct-ES
+companions in hybrid mode; it is not resolved merely by fixing the D3 page endpoint.
 
-**Kahuna/media-api behaviour:** `MediaApi.scala` applies a `canViewDeletedImages`
-restriction: users without `DeleteImagePermission` have `uploadedBy` forced to their
-own identity, so they only see images they personally deleted. Users with
-`DeleteImagePermission` see all deleted images.
+**Server behavior:** Legacy GET's existing exact-query authorization is unchanged.
+D3 now recognizes positive parsed deleted intent, including compound, case-insensitive and
+quoted forms, and applies the existing permission/uploader rule before both hits and totals.
+Ordinary users are scoped to images they uploaded, not images they personally deleted.
 
-**Kupua:** Queries ES directly. The `buildQuery()` function has no concept of the
-current user's identity or roles. The `is:deleted` CQL clause translates correctly to
-`{ exists: { field: "softDeletedMetadata" } }` (verified in `cql.test.ts`) and
-returns all deleted images from all uploaders.
-
-**Why acceptable for now:** Kupua is not yet user-facing. All dev and test access is
-unrestricted by design.
-
-**Migration path:** When Kupua serves real users, the `/api` proxy (media-api) can
-enforce the same `uploadedBy` gate server-side before queries reach ES. No code
-change to `buildQuery()` needed — the restriction is purely an API-layer concern.
+**Trade-off:** Transitional direct-ES development remains an accepted prototype mode,
+not a production authorization guarantee. Eventual API-only deployment must cover the
+remaining companion operations; this amendment does not claim whole-hybrid permission parity.
 
 ### 27. `auth.async(parse.json)` body-parser combinator in `MediaApi.scala`
 
@@ -1346,30 +1339,23 @@ current-schema exact filter-bank alternative was rejected on PROD performance.
 
 
 
-### 25. PIT fallback: retry without PIT on 404/410
+### 25. Bounded hybrid availability and non-PIT expiry recovery
 
-When `searchAfter()` is called with a PIT ID and ES returns 404 or 410
-(PIT expired or closed), kupua retries the same request without a PIT —
-querying the index directly instead.
+Direct ES retains its existing PIT recovery heuristic. Media-api recovery instead requires
+HTTP 410 with `search-after-pit-expired`, then makes one further API attempt without the PIT.
+It never infers expiry from an arbitrary 404. Fetch/body transport failures and unstructured
+502/504 responses without `Retry-After` may make one additional call to the existing ES adapter.
+Authentication, validation, throttling, 503, structured refusals, malformed JSON and unexpected
+errors do not activate that fallback. There is no chained retry or automatic mode switch.
 
-This is needed because `seek()` can read a stale PIT from the store
-that was already closed by a concurrent `search()` (e.g. when a sort
-change triggers both a new search and a scrubber seek in quick
-succession). The old PIT is closed before the new one is stored.
+**Why:** Preserve existing hybrid prototype availability without routing around deliberate
+server refusals. Explicit null PIT results clear active state and cannot be resurrected by
+late page/coordinate commits; cancellation protects replacement searches. The initial page
+still runs outside its parallel-opened PIT.
 
-Elasticsearch's PIT documentation says results should always use the
-same PIT for consistency. Kupua intentionally breaks this — the retry
-uses a non-PIT search, which means the results reflect the current
-index state rather than a frozen snapshot.
-
-**Trade-off:** A concurrent index update between the PIT-based search
-and the fallback retry could cause a minor position inconsistency (a
-document appearing or disappearing). In practice this is invisible:
-(1) kupua is read-only — it never mutates the index; (2) the retry
-only fires during seek(), which replaces the entire buffer anyway;
-(3) the alternative (failing the seek entirely, leaving the user
-staring at stale data) is worse. The fallback is logged as a console
-warning for diagnostics.
+**Trade-off:** A successful non-PIT retry reads current index state, not the expired snapshot.
+Other writers can change neighbours or positions. This is an accepted availability compromise,
+not a promise of invisible drift, stronger snapshots, migration support or API-only readiness.
 
 ### 26. Sort-around-focus uses ratio preservation, not centre alignment
 
@@ -1983,4 +1969,19 @@ in `ElasticSearchTest.scala`.
 
 Reference: `media-api/app/lib/elasticsearch/ElasticSearch.scala` (`searchAfter`),
 `kupua/src/dal/es-adapter.ts` (`_searchAfterImpl`).
+
+### 34. D3 default hiding is based on parsed intent, unlike legacy GET
+
+**What:** `SearchParamsBody` parses and normalizes the submitted query before adding default
+deleted/replaced exclusions. Positive or negative parsed conditions suppress only their own
+default; deleted intent is case-insensitive. Absent/wrong-typed queries, parse failures and
+literal text containing a hidden token cannot remove the defaults. Quoted positive intent no
+longer receives a contradictory implicit exclusion.
+
+**Why:** The shared parser's raw-substring default injection is not a safe authorization
+boundary. The correction is local to D3 body parsing, preserving legacy GET/parser behavior
+and the existing permissive treatment of unrelated body fields.
+
+**Trade-off:** D3 intentionally has safer query defaults than legacy GET. This is not a global
+CQL rewrite or broad request-validation policy; controller/ES fixtures pin the selected behavior.
 

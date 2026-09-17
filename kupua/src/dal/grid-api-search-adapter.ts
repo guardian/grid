@@ -78,6 +78,18 @@ export function extractEnrichment(entity: { data?: unknown; actions?: unknown })
   }];
 }
 
+export class SearchAfterApiError extends Error {
+  readonly kind: "unavailable" | "pit-expired" | "refused";
+  readonly status?: number;
+
+  constructor(kind: SearchAfterApiError["kind"], status?: number) {
+    super(status ? `search-after API ${status}` : "search-after API unavailable");
+    this.name = "SearchAfterApiError";
+    this.kind = kind;
+    this.status = status;
+  }
+}
+
 export async function apiSearchAfter(
   params: SearchParams,
   searchAfterValues: SortValues | null,
@@ -128,19 +140,40 @@ export async function apiSearchAfter(
   if (params.hasRightsAcquired === "true") body.hasRightsAcquired = true;
   else if (params.hasRightsAcquired === "false") body.hasRightsAcquired = false;
 
-  const res = await fetch("/api/images/search-after", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`search-after API ${res.status}: ${text.slice(0, 200)}`);
+  signal?.throwIfAborted();
+  let res: Response;
+  try {
+    res = await fetch("/api/images/search-after", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");
+    throw error;
   }
 
-  const json = (await res.json()) as SearchAfterApiResponse;
+  if (!res.ok) {
+    const errorBody: unknown = await res.json().catch(() => undefined);
+    signal?.throwIfAborted();
+    const errorKey = errorBody && typeof errorBody === "object" && "errorKey" in errorBody
+      ? errorBody.errorKey : undefined;
+    const kind = res.status === 410 && errorKey === "search-after-pit-expired"
+      ? "pit-expired"
+      : (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")
+        ? "unavailable"
+        : "refused";
+    throw new SearchAfterApiError(kind, res.status);
+  }
+
+  const json = (await res.json().catch((error: unknown) => {
+    signal?.throwIfAborted();
+    if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");
+    throw error;
+  })) as SearchAfterApiResponse;
+  signal?.throwIfAborted();
 
   // Single pass: build enrichment map and hits array together.
   // Previously two separate passes over json.data (a for-loop then three chained

@@ -17,6 +17,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
+import { useEnrichmentStore } from "./enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
 import type {
@@ -25,6 +26,7 @@ import type {
   AggregationsResult,
   FilterAggRequest,
   UsageFilterAggRequest,
+  SearchAfterResult,
 } from "@/dal";
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,7 @@ let mock: MockDataSource;
 beforeEach(() => {
   // Reset the store to initial state
   mock = new MockDataSource(10_000);
+  useEnrichmentStore.getState().setEnrichment(new Map());
 
   // Inject mock data source and reset state
   useSearchStore.setState({
@@ -529,7 +532,159 @@ describe("sort-around-focus", () => {
 // Tests: Focus survives search context change
 // ---------------------------------------------------------------------------
 
+describe("enrichment publication", () => {
+  function addEnrichment() {
+    const searchAfter = mock.searchAfter.bind(mock);
+    return vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      const source = args[0].ids ? "target" : args[4] ? "backward" : "forward";
+      return {
+        ...result,
+        enrichment: new Map(result.hits.map((image) => [image.id, { invalidReasons: { source } }])),
+      };
+    });
+  }
+
+  it.each(["focus", "restore"] as const)("publishes the inserted %s target's enrichment", async (mode) => {
+    addEnrichment();
+    await actions().search();
+    const target = await mock.searchAfter({ ...state().params, ids: "img-500", length: 1 }, null);
+    expect(useEnrichmentStore.getState().data.has("img-500")).toBe(false);
+
+    if (mode === "focus") {
+      await actions().search("img-500");
+      await waitFor(() => !state().loading && state().sortAroundFocusStatus === null);
+    } else {
+      await actions().restoreAroundCursor("img-500", target.sortValues[0], 500);
+    }
+
+    expect(state().results.some((image) => image?.id === "img-500")).toBe(true);
+    expect(useEnrichmentStore.getState().data.get("img-500")).toEqual({ invalidReasons: { source: "target" } });
+    expect(useEnrichmentStore.getState().data.get("img-499")).toEqual({ invalidReasons: { source: "backward" } });
+    expect(useEnrichmentStore.getState().data.get("img-501")).toEqual({ invalidReasons: { source: "forward" } });
+    assertPositionsConsistent();
+  });
+
+  it.each([30_000, 70_000])("publishes backward seek enrichment with %i results", async (total) => {
+    mock = new MockDataSource(total);
+    useSearchStore.setState({ dataSource: mock });
+    const searchAfter = addEnrichment();
+    await actions().search();
+    if (total === 30_000) await waitFor(() => state().positionMap?.length === total);
+    useEnrichmentStore.getState().upsertEnrichment(new Map([["earlier-page", { valid: true }]]));
+    searchAfter.mockClear();
+
+    await actions().seek(total / 2);
+
+    const backwardCall = searchAfter.mock.calls.findIndex((args) => args[4] === true);
+    expect(backwardCall).toBeGreaterThanOrEqual(0);
+    const backward = await searchAfter.mock.results[backwardCall].value;
+    const committed = backward.hits.find((image: { id: string }) => state().results.some((hit) => hit?.id === image.id));
+    expect(committed).toBeDefined();
+    expect(useEnrichmentStore.getState().data.get(committed!.id)).toEqual({ invalidReasons: { source: "backward" } });
+    expect(useEnrichmentStore.getState().data.get("earlier-page")).toEqual({ valid: true });
+    assertPositionsConsistent();
+  });
+
+  it("does not publish a discarded focus probe after a newer search", async () => {
+    const searchAfter = mock.searchAfter.bind(mock);
+    const target = await searchAfter({ ...state().params, ids: "img-500", length: 1 }, null);
+    let resolveProbe!: (result: SearchAfterResult) => void;
+    const probe = new Promise<SearchAfterResult>((resolve) => { resolveProbe = resolve; });
+    const fetch = vi.spyOn(mock, "searchAfter").mockImplementation((...args) =>
+      args[0].ids === "img-500" ? probe : searchAfter(...args));
+    await actions().search("img-500");
+    await waitFor(() => fetch.mock.calls.some((args) => args[0].ids === "img-500"));
+
+    await actions().search(null);
+    resolveProbe({ ...target, enrichment: new Map([["img-500", { valid: false }]]) });
+    await flush();
+
+    expect(state().results[0]?.id).toBe("img-0");
+    expect(useEnrichmentStore.getState().data.has("img-500")).toBe(false);
+  });
+
+  it.each(["focus", "restore", "mapped seek", "deep seek"] as const)("does not publish cancelled %s pages", async (mode) => {
+    const total = mode === "deep seek" ? 70_000 : 30_000;
+    mock = new MockDataSource(total);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    if (total === 30_000) await waitFor(() => state().positionMap?.length === total);
+    const searchAfter = mock.searchAfter.bind(mock);
+    const target = await searchAfter({ ...state().params, ids: "img-15000", length: 1 }, null);
+    let resolvePage!: (result: SearchAfterResult) => void;
+    const page = new Promise<SearchAfterResult>((resolve) => { resolvePage = resolve; });
+    const fetch = vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      if (args[4]) return page;
+      const result = await searchAfter(...args);
+      return { ...result, enrichment: new Map(result.hits.map((image) => [image.id, { valid: true }])) };
+    });
+
+    const operation = mode === "focus"
+      ? actions().search("img-15000")
+      : mode === "restore"
+        ? actions().restoreAroundCursor("img-15000", target.sortValues[0], 15000)
+        : actions().seek(total / 2);
+    await waitFor(() => fetch.mock.calls.some((args) => args[4]));
+    const backwardArgs = fetch.mock.calls.find((args) => args[4])!;
+    const backward = await searchAfter(...backwardArgs);
+
+    await actions().search(null);
+    const committedEnrichment = useEnrichmentStore.getState().data;
+    resolvePage({ ...backward, enrichment: new Map(backward.hits.map((image) => [image.id, { valid: false }])) });
+    await operation;
+    await flush();
+
+    expect(state().results[0]?.id).toBe("img-0");
+    expect(useEnrichmentStore.getState().data).toEqual(committedEnrichment);
+  });
+
+  it.each(["failure", "timeout"] as const)("publishes fallback enrichment after a focus %s", async (mode) => {
+    vi.useFakeTimers();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const searchAfter = mock.searchAfter.bind(mock);
+      vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+        if (args[0].ids) {
+          if (mode === "failure") throw new Error("fixture failure");
+          return new Promise<SearchAfterResult>(() => {});
+        }
+        const result = await searchAfter(...args);
+        return { ...result, enrichment: new Map([["img-0", { valid: false }]]) };
+      });
+      useEnrichmentStore.getState().setEnrichment(new Map([["old-image", { valid: true }]]));
+
+      await actions().search("img-500");
+      await vi.advanceTimersByTimeAsync(mode === "timeout" ? 8000 : 0);
+
+      expect(state().loading).toBe(false);
+      expect(state().results[0]?.id).toBe("img-0");
+      expect(useEnrichmentStore.getState().data).toEqual(new Map([["img-0", { valid: false }]]));
+    } finally {
+      warning.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("focus survives search context change", () => {
+  it("replaces enrichment when a missing focus commits the fallback page", async () => {
+    const searchAfter = mock.searchAfter.bind(mock);
+    const overlay = { valid: false, invalidReasons: { fixture: "fallback" } };
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      return { ...result, enrichment: new Map(result.hits.map((image) => [image.id, overlay])) };
+    });
+    useEnrichmentStore.getState().setEnrichment(new Map([["old-image", { valid: true }]]));
+
+    await actions().search("img-missing");
+    await waitFor(() => !state().loading && state().sortAroundFocusStatus === null);
+
+    expect(state().results[0]?.id).toBe("img-0");
+    expect(useEnrichmentStore.getState().data.get("img-0")).toEqual(overlay);
+    expect(useEnrichmentStore.getState().data.has("old-image")).toBe(false);
+  });
+
   it("preserves focus when image exists in new results (first page)", async () => {
     await actions().search();
     // Focus an image that is in the first page (index < 200 = PAGE_SIZE)

@@ -14,6 +14,51 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 17 September 2026 — Complete hybrid page enrichment and bounded recovery
+
+  C2 publishes enrichment for every contributing API page: missing/failed/timed-out focus
+  fallbacks replace the overlay with their first-page data, inserted focus/restore targets
+  contribute their selected probe entry, and both mapped and sequential backward seek pages
+  merge their overlays before publication. Discarded probes and cancelled pages remain silent.
+
+  C3 distinguishes the explicit D3 expired-PIT contract from transport absence and refusals.
+  Expiry permits one further API attempt without the PIT; fetch/body transport failures or
+  unstructured 502/504 responses without Retry-After can call the existing ES adapter once.
+  Authentication, validation, throttling, 503, structured refusals, malformed JSON and unexpected
+  failures do not trigger fallback. Adapter mode and cancellation semantics are preserved.
+
+  Expired PITs stay cleared through fill, empty pages, failed page pairs, concurrent extensions,
+  keyword correction requests and delayed focus-rank commits. Independent reviews produced
+  failing-first regressions for those races and response-stream failures. Type-only corrections
+  let search-key construction accept SearchParams and preserve resolver narrowing in its test;
+  runtime cursor extraction, public tuple length and all existing assertions are unchanged.
+
+  Validation passed the full build, 1,342 units, 210 habitual E2Es and the guarded local cursor
+  oracle, all unsandboxed. Scoped direct-ES and live media-api/TEST browsing, focus, history,
+  enrichment and expiry checks passed. A separately labelled one-request network fault verified
+  live ES fallback without probe publication. No performance campaign or production-capacity
+  claim was made. The separate restore-rank concern and deferred E3/C4/lifecycle scope remain.
+
+  ### 17 September 2026 — Scope D3 deleted searches and classify expired PITs
+
+  Scala-only commit e6485be4b completes E1 and the minimal server support needed by C3.
+  D3 applies the existing uploader/permission rule to positive parsed deleted intent before
+  both hits and totals, including compound, case-insensitive and quoted queries. Default
+  deleted/replaced exclusions survive absent/wrong-typed queries, parse failures and misleading
+  literal text. Legacy GET authorization and machine-tier POST restrictions are unchanged.
+
+  N4's existing shared rights-filter and collection-sort corrections are retained, not replaced
+  with a D3-only exception. Controller/local-ES fixtures cover omitted/true/false rights filters,
+  missing/empty/unset/mixed rights records, existing syndication-status behavior, and all six
+  GET/D3 exclusive date boundaries including UTC date-only inputs. Scala date helpers are unchanged.
+
+  A supplied PIT whose structured 404 identifies a missing search context returns HTTP 410 with
+  search-after-pit-expired. Malformed PITs and unrelated failures do not receive that recovery
+  classification, and shared Elasticsearch error handling is unchanged. The full media-api suite
+  passed 305 tests across 13 suites under TZ=UTC, unsandboxed, after the final Scala edit.
+  Independent code reviews and read-only live D3 paging/expiry checks also completed. The five
+  code/test files form one extraction boundary; this changelog stays in the paired Kupua commit.
+
   ### 17 September 2026 — Retain authoritative cursors through browsing and selection
 
   C1 of the D3 amendment batch retains committed response tuples by image ID and search

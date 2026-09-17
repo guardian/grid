@@ -22,6 +22,7 @@ vi.mock("@/dal/es-config", async (importOriginal) => {
 
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
+import type { SearchAfterResult } from "@/dal";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,6 +31,16 @@ import { MockDataSource } from "@/dal/mock-data-source";
 const state = () => useSearchStore.getState();
 const actions = () => useSearchStore.getState();
 const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
+
+function deferredPage() {
+  let resolve!: (result: SearchAfterResult) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<SearchAfterResult>((resolvePage, rejectPage) => {
+    resolve = resolvePage;
+    reject = rejectPage;
+  });
+  return { promise, resolve, reject };
+}
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -72,6 +83,188 @@ function resetStore(ds: MockDataSource) {
 beforeEach(() => {
   mock = new MockDataSource(10_000);
   resetStore(mock);
+});
+
+describe("PIT expiry recovery", () => {
+  it("does not resurrect a PIT when focus waits for rank after its pages arrive", async () => {
+    mock = new MockDataSource(70_000);
+    resetStore(mock);
+    await actions().search();
+    let resolveRank!: (offset: number) => void;
+    const rank = new Promise<number>((resolve) => { resolveRank = resolve; });
+    vi.spyOn(mock, "countBefore").mockImplementationOnce(() => rank);
+    const searchAfter = mock.searchAfter.bind(mock);
+    let surroundingPages = 0;
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      if (args[0].length === 100 && args[2]) surroundingPages++;
+      return { ...result, pitId: args[5] ? null : args[2] };
+    });
+
+    await actions().search("img-15000");
+    await vi.waitFor(() => expect(surroundingPages).toBe(2));
+    await actions().seek(69_999);
+    expect(state().pitId).toBeNull();
+    resolveRank(15_000);
+    await vi.waitFor(() => expect(state().results.some((image) => image?.id === "img-15000")).toBe(true));
+
+    expect(state().pitId).toBeNull();
+  });
+
+  it("does not resurrect a PIT from a concurrent forward extension after backward recovery", async () => {
+    await actions().search();
+    await actions().seek(5000);
+    await waitPastCooldown();
+    const searchAfter = mock.searchAfter.bind(mock);
+    const forward = deferredPage();
+    const backward = deferredPage();
+    const fetch = vi.spyOn(mock, "searchAfter").mockImplementation((...args) => args[4] ? backward.promise : forward.promise);
+    const forwardOperation = actions().extendForward();
+    const backwardOperation = actions().extendBackward();
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const backwardArgs = fetch.mock.calls.find((args) => args[4])!;
+    const forwardArgs = fetch.mock.calls.find((args) => !args[4])!;
+
+    backward.resolve({ ...await searchAfter(...backwardArgs), pitId: null });
+    await backwardOperation;
+    expect(state().pitId).toBeNull();
+    forward.resolve({ ...await searchAfter(...forwardArgs), pitId: "mock-pit-id" });
+    await forwardOperation;
+
+    expect(state().pitId).toBeNull();
+  });
+
+  it.each(["focus", "restore", "mapped seek", "deep seek"] as const)("keeps a recovered %s PIT cleared when the backward page fails", async (mode) => {
+    const total = mode === "deep seek" ? 70_000 : 30_000;
+    mock = new MockDataSource(total);
+    resetStore(mock);
+    await actions().search();
+    if (total === 30_000) await vi.waitFor(() => expect(state().positionMap?.length).toBe(total));
+    const searchAfter = mock.searchAfter.bind(mock);
+    const target = await searchAfter({ ...state().params, ids: "img-15000", length: 1 }, null);
+    const backward = deferredPage();
+    let recovered = false;
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      if (args[4]) return backward.promise;
+      const result = await searchAfter(...args);
+      if (!args[2]) return result;
+      recovered = true;
+      return { ...result, pitId: null };
+    });
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const operation = mode === "focus"
+        ? actions().search("img-15000")
+        : mode === "restore"
+          ? actions().restoreAroundCursor("img-15000", target.sortValues[0], 15000)
+          : actions().seek(total / 2);
+      await vi.waitFor(() => expect(recovered).toBe(true));
+      backward.reject(new Error("deliberate refusal"));
+      await operation;
+      await vi.waitFor(() => expect(state().loading).toBe(false));
+
+      expect(state().pitId).toBeNull();
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
+  it("does not resend an expired PIT in keyword end correction", async () => {
+    mock = new MockDataSource(70_000);
+    resetStore(mock);
+    await actions().search();
+    const landed = await mock.searchAfter({ ...state().params, offset: 50_000, length: 200 }, null);
+    const fetchSortDistribution = state().fetchSortDistribution;
+    useSearchStore.setState({
+      params: { ...state().params, orderBy: "credit" },
+      sortDistribution: null,
+      fetchSortDistribution: async () => {},
+    });
+    vi.spyOn(mock, "estimateSortValue").mockResolvedValue(null);
+    mock.findKeywordSortValue = vi.fn().mockResolvedValue("fixture");
+    vi.spyOn(mock, "countBefore").mockResolvedValue(50_000);
+    const fetch = vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => ({
+      ...landed,
+      sortValues: landed.hits.map((image) => ["fixture", Date.parse(image.uploadTime), image.id]),
+      pitId: args[5] ? args[2] : null,
+    }));
+    try {
+      await actions().seek(65_000);
+
+      const correction = fetch.mock.calls.find((args) => args[5]);
+      expect(correction).toBeDefined();
+      expect(correction![2]).toBeNull();
+      expect(state().pitId).toBeNull();
+    } finally {
+      useSearchStore.setState({ fetchSortDistribution });
+    }
+  });
+
+  it("clears the PIT during scroll-mode fill and stops sending it on later chunks", async () => {
+    mock = new MockDataSource(650);
+    resetStore(mock);
+    const searchAfter = mock.searchAfter.bind(mock);
+    const fetch = vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      return { ...result, pitId: args[1] ? null : undefined };
+    });
+
+    await actions().search();
+    await vi.waitFor(() => expect(state().results).toHaveLength(650));
+
+    expect(state().pitId).toBeNull();
+    const chunks = fetch.mock.calls.filter((args) => args[1]);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks[0][2]).toBe("mock-pit-id");
+    expect(chunks.slice(1).every((args) => args[2] === null)).toBe(true);
+  });
+
+  it.each([
+    { direction: "forward", empty: false }, { direction: "forward", empty: true },
+    { direction: "backward", empty: false }, { direction: "backward", empty: true },
+  ])("clears the PIT after $direction extension recovery (empty=$empty)", async ({ direction, empty }) => {
+    await actions().search();
+    await actions().seek(5000);
+    await waitPastCooldown();
+    const searchAfter = mock.searchAfter.bind(mock);
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      return { ...result, ...(empty ? { hits: [], sortValues: [] } : {}), pitId: null };
+    });
+
+    if (direction === "forward") await actions().extendForward();
+    else await actions().extendBackward();
+
+    expect(state().pitId).toBeNull();
+    expect(state().error).toBeNull();
+  });
+
+  it.each(["focus", "restore", "mapped seek", "deep seek"] as const)("does not retain the forward PIT when the backward %s page recovered", async (mode) => {
+    const total = mode === "deep seek" ? 70_000 : 30_000;
+    mock = new MockDataSource(total);
+    resetStore(mock);
+    await actions().search();
+    if (total === 30_000) await vi.waitFor(() => expect(state().positionMap?.length).toBe(total));
+    const searchAfter = mock.searchAfter.bind(mock);
+    const target = await searchAfter({ ...state().params, ids: "img-15000", length: 1 }, null);
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await searchAfter(...args);
+      return { ...result, pitId: args[4] ? null : args[2] };
+    });
+
+    if (mode === "focus") {
+      await actions().search("img-15000");
+      await vi.waitFor(() => expect(state().loading).toBe(false));
+    } else if (mode === "restore") {
+      await actions().restoreAroundCursor("img-15000", target.sortValues[0], 15000);
+    } else {
+      await actions().seek(total / 2);
+    }
+
+    expect(state().pitId).toBeNull();
+    expect(state().error).toBeNull();
+    expect(state().results.length).toBeGreaterThan(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

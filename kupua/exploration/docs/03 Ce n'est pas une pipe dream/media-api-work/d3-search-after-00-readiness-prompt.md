@@ -1,10 +1,13 @@
 # D3 search-after: targeted readiness reassessment
 
-**Status:** Ready to run when explicitly requested. Writing this prompt does not execute it.
+**Status: COMPLETED — historical prompt only.** The assessment and agreed D3 amendment
+batch are complete as of 17 September 2026. This preserves the original assessment instructions;
+it is not a pending task and must not be rerun without a new explicit request.
 **Decision:** What, if anything, must change or be disclosed before PR #4849 returns to human
 review, given current source, earlier reviews and the agreed additive prototype scope?
-**Output:** `d3-search-after-01-readiness-findings.md` beside this prompt. Do not create it until
-the assessment is performed. No new master plan, architecture programme or implementation prompt.
+**Completed output:** [Findings and amendment record](d3-search-after-01-readiness-findings.md),
+including current completion status and verification in Section 7. No new master plan,
+architecture programme or implementation prompt is required to close this assessment.
 
 ## Scope and operator facts
 

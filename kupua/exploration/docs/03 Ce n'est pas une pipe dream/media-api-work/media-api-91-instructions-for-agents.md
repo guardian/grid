@@ -9,8 +9,8 @@
 
 Kupua is a working read-only prototype adopting additive APIs incrementally. Preserve accepted
 behavior, including explicitly approximate presentation. Index migrations are unsupported;
-Dynamo sessions, Thrall hooks and the archived architecture are not prerequisites. D3 is draft
-pending bounded readiness reassessment. Authorization and existing Grid behavior stay protected.
+Dynamo sessions, Thrall hooks and the archived architecture are not prerequisites.
+Authorization and existing Grid behavior stay protected.
 
 See `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
 for full detail and file:line cites.
@@ -103,14 +103,14 @@ for full detail and file:line cites.
 
 ## D3 standing constraints (Scala mechanics for cursor/image endpoints)
 
-> Current scope corrected 15 September 2026. The inventory and index own current scope;
+> The inventory and active index own current scope;
 > historical architecture mandates do not override these instructions.
 
-23. **D3 readiness is a bounded assessment of known new findings.** Option B is implemented;
-    Option A is an alternative, not automatically required. If selected, a semantic builder
-    must be parallel to legacy
-    `sorts.createSort` and backed by fixtures for every static/configured/special sort. **Never call
-    or modify `sorts.createSort` for Kupua** — it serves Kahuna and must not change.
+23. **Preserve existing sort ownership unless a change is explicitly approved.**
+    Any new server-side semantic builder must be separate from legacy
+    `sorts.createSort` and backed by fixtures for every supported static,
+    configured and special sort. Never call or modify Kahuna's
+    `sorts.createSort` to implement Kupua behavior.
 
 24. **State the PIT guarantee actually provided.** Existing D3 consumes the
     raw single-index PIT that Kupua opens today with `ElasticDsl.search(Nil).query(q).pit(...)`

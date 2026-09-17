@@ -1,7 +1,7 @@
 # Media-api capability inventory
 
 **Date:** 2026-05-31
-**Current summary updated:** 15 September 2026. Scope and reading order: [media-api-00-index.md](media-api-00-index.md).
+**Current summary updated:** 17 September 2026. Scope and reading order: [media-api-00-index.md](media-api-00-index.md).
 **Historical derivation:** Sections 1-9 are the May assessment with later corrections, not current
 build instructions. The summary below supersedes their readiness, sizing, endpoint and migration
 policy claims. Current source decides what exists; the operator decides new guarantees.
@@ -24,7 +24,7 @@ is useful coverage evidence, not a mandatory architecture or endpoint list.
 | Capability | Current status | Next bounded decision or correction |
 |---|---|---|
 | B1/B2 DAL cleanup | Implemented; later cleanup removed the unused `search()` wrapper. | Do not recreate removed methods to match the historical inventory. |
-| D3 cursor search | Implemented; PR #4849 draft, sole laptop caller. | Assess newly identified endpoint and client findings before human review. |
+| D3 cursor search | Code-complete for the agreed amendment scope; integrated PR branch pushed as `95a45f4ee`. | Human review; draft/ready status is the operator's choice, not a hold for known pending amendments. |
 | D7 live counts/tickers | Still direct ES. | Prepare polling/count route; decide initial-count ownership and preserve exact totals/ticker names. |
 | D9 detail/selection image reads | Still direct ES for these owners. | Visibility, bounded batches, ordering, aliases/enrichment and selection datasource injection. |
 | D8 PIT lifecycle | Browser opens/closes PITs today. | Decide ordinary-operation opening, continuation, renewal, expiry and cleanup; not migration transparency. |
@@ -39,22 +39,31 @@ is useful coverage evidence, not a mandatory architecture or endpoint list.
 | Media delivery | Development S3/imgproxy paths still used. | No-browser-ES is distinct from replacing media delivery; production reachability/auth needs its own decision. |
 | `searchRange`, standalone `count`, corpus aggregation fallback | Reserved or unused application surfaces. | Confirm callers before building endpoints; do not mirror unused methods. |
 
-Provisional sequence after D3 readiness: prepare D7, then D9; resolve D8 before implementing
-dependent positional capabilities. This is not one approved batch, and D3 findings may change the
-sequence. The [next-endpoints workplan](media-api-02-next-endpoints-d7-d8-d9-workplan.md) owns those bounded choices.
+The [agreed D3 amendment batch](d3-search-after-01-readiness-findings.md) is complete.
+Scala commit `e6485be4b` was ported onto `mk-api-1of9-searchAfter` after merging `main`;
+the reconciled commit `95a45f4ee` is pushed to PR #4849. All 305 media-api tests passed
+on that integrated PR tree. The client amendments remain on the prototype branch.
+There are no known pending amendments within the agreed batch. Human review, merge and
+deployment are separate from this code-completion status; deferred questions below are not
+an instruction to keep the PR in draft.
 
-### Evidence to retain for D3 readiness
+For separately authorized API work, the provisional preparation order is D7, then D9;
+resolve D8 before implementing dependent positional capabilities. These are not unfinished
+D3 amendments or one approved batch. The [next-endpoints workplan](media-api-02-next-endpoints-d7-d8-d9-workplan.md)
+owns those bounded choices.
 
-- Query defaults, deleted-image authorization, inclusive dates, malformed JSON, invalid projected
-  hits and partial responses need current-source classification, not automatic findings by citation.
-- API alias values live under `aliases`; eviction/range reconstruction and per-ID server tuples
-  need checking. Fallback/focus commits must retain enrichment without probe side effects.
-  These client questions are distinct from Scala endpoint readiness.
-- Raw sort/PIT transport versus semantic server ownership is a contract choice. Keep measured
-  cursor mechanics; do not change Kahuna's `createSort` to reproduce Kupua behavior.
-- Initial page, count, map, rank and range have differing consistency today. Name each consequence
-  and whether it is a regression, existing limitation or proposed stronger guarantee. Shared state
-  does not follow automatically from discovering that difference.
+### Evidence retained from the completed D3 amendments
+
+- Safe query defaults, parsed deleted-image authorization and all six top-level client date
+  bounds are implemented and tested. CQL dates remain inclusive. Partial-result policy and
+  broader malformed-input strictness remain explicitly deferred questions.
+- Authoritative response tuples survive paging, eviction, focus, ranges and history. Fallback,
+  inserted-target and backward-page enrichment publishes only at guarded commit points.
+- Option B and deliberate `_shard_doc` truncation are retained. A semantic server builder is
+  not selected; do not change Kahuna's `createSort` to reproduce Kupua behavior.
+- Bounded hybrid availability/expiry recovery is implemented. Page-one/PIT timing, initial-count
+  ownership and wider snapshot/lifecycle questions remain separate; completion of this batch
+  neither resolves them nor authorizes stronger infrastructure.
 
 ### Accepted behavior and safety
 
@@ -111,17 +120,18 @@ records the former research sequence, not current readiness or implementation au
 These items preserve concerns raised then. Their proposed remedies are not automatically
 approved. Use the current capability summary for their present disposition.
 
-- **D3 review is held.** Initial research 02 recommends coordinated D3/D8 and semantic
-  `orderBy`. Current D3 readiness belongs to the bounded reassessment, not that programme. POST/JSON,
-  cursor/null-zone behavior and lean projection remain evidence, not immutable contract.
-- **D3 still has a client-integration blocker for configured-alias sorts.** The endpoint returns
-  authoritative per-hit tuples, but Kupua later reconstructs eviction/range cursors from lean
-  images whose alias value lives under `aliases`, not raw `fileMetadata.*`. Retain response tuples
-  by image ID through commit/eviction and prefer them over reconstruction. No D3 wire change.
-- **D3 focus/fallback publication must retain enrichment.** Fallback-first-page state currently
-  drops that page's overlay; successful sort-around-focus also inserts the probe target while
-  committing only surrounding-page enrichment. Fix these commit-to-view paths without making
-  probes mutate the enrichment store. No endpoint change.
+- **Earlier D3 review hold (agreed amendments now complete).** Initial research 02 recommended
+  coordinated D3/D8 and semantic `orderBy`. The completed bounded assessment retained Option B;
+  the archived programme was not a prerequisite. POST/JSON, cursor/null-zone behavior and lean
+  projection remain evidence, not an immutable future contract.
+- **Earlier configured-alias cursor blocker (resolved by D3 amendment C1).** The endpoint returned
+  authoritative tuples, but Kupua reconstructed eviction/range cursors from lean images lacking
+  raw `fileMetadata.*` fields. Response tuples are now retained by image ID/search identity and
+  preferred through paging, eviction, ranges and history. No D3 wire change was needed.
+- **Earlier focus/fallback enrichment gaps (resolved by D3 amendment C2).** Fallback pages and
+  inserted probe targets previously lost their overlays. Committed fallback, target and backward
+  pages now carry enrichment without making discarded probes mutate the store. No endpoint
+  change was needed.
 - **Initial search must not retain two exact-count owners.** D7 remains required for polling.
   The eventual workplan must compare D3 ticker fusion with D7-owned initial total/tickers,
   map count intent explicitly and decide whether to consolidate the initial count. This is a
@@ -179,7 +189,7 @@ approved. Use the current capability summary for their present disposition.
 |---|---|
 | B1 — shape-leak elimination (Section 4a) | ✅ DONE — `bcde65a58` |
 | B2 — method fusions (Section 4b) | ✅ DONE |
-| D3 — `searchAfter` cursor endpoint (Section 5) | ⚠️ implemented (`49cae4bb7` TS + `b52d027da` Scala), review held for PIT research + semantic-sort revision |
+| D3 — `searchAfter` cursor endpoint (Section 5) | DONE for agreed scope; amendments integrated and pushed as `95a45f4ee`. No known pending amendment hold; human review remains. |
 | D1 | ⬜ not started — blocked on D8 + finalized D3 sort/snapshot contract; special-sort algorithm exists in live TS |
 | D2 | ⬜ not started — blocked on D8 + finalized D3/D2 boundary + selection-owner wiring |
 | D4 | ⬜ not started — exact TS algorithm exists; blocked on finalized snapshot/sort contract and production cost |
@@ -195,13 +205,14 @@ numbered architecture sequence is not an implementation gate.
 
 **Standing constraints established by D3** (every new gap workplan must honour these):
 
-1. **D3 readiness reassessment chooses the review disposition.** The current Option-B
-  build and Option-A companion are evidence. Any server semantic builder must be parallel
+1. **The completed D3 amendments retain Option B.** Option A remains an unselected
+  alternative requiring explicit approval. Any server semantic builder must be parallel
   to legacy `createSort`; never call or modify Kahuna's builder to satisfy Kupua.
 2. **PIT consumers and snapshot opening must be designed together.** Existing D3 consumes
   raw single-index PITs opened by Kupua; do not alter that branch opportunistically. D8's
   ordinary-operation boundary remains a scoped decision, not an archived-programme dependency.
-  The result may change D3 before review. A live migration-status lookup is not frozen context.
+  A later D8 decision may require separately approved D3 changes; it does not reopen the
+  completed amendment batch. A live migration-status lookup is not frozen context.
 3. **Enrichment flows through the overlay, written at commit-to-view points only.** Server-authoritative
    `cost`/`valid`/`persisted`/`actions` ride in each hit; the store writes them at fresh-search /
    extend / seek, never inside the adapter fetch (the F-1 clobber lesson). D9 and any future
@@ -1112,9 +1123,10 @@ C4 is noted here because it is a C-sized addition to the D-sized `searchAfter` e
 
 Sorted by size descending.
 
-> **Status (updated 2026-09-13):** D3 is implemented but review-held for PIT research and
-> semantic-sort revision. D1, D2, D4–D9 are not started.
-> See the status banner at the top of this doc for the recommended build order.
+> **D3 status (17 September 2026):** agreed amendments are code-complete, validated and
+> pushed to PR #4849 as `95a45f4ee`; there is no known pending amendment hold. Option B
+> is retained, not awaiting a semantic-sort rewrite. Other rows retain historical sizing
+> and dependencies; use the current capability checklist for their disposition.
 
 | # | New capability | Size (S/M/L) | DAL methods served | Phase 1 closest existing thing |
 |---|----------------|--------------|--------------------|---------------------------------|
@@ -1141,7 +1153,7 @@ The original plan numbered gaps 1–18 (with skips). For each:
 
 | Original gap | Verdict | Reason |
 |---|---|---|
-| **Gap 1** — `searchAfter` cursor pagination | **IMPLEMENTED, REVIEW HELD — D3** (`49cae4bb7` + `b52d027da`) | Core pagination exists; PIT research and pre-review semantic-sort revision remain. |
+| **Gap 1** — `searchAfter` cursor pagination | **CODE-COMPLETE FOR AGREED SCOPE - D3** (`95a45f4ee` on PR branch) | Agreed amendments validated and pushed; Option B retained. Human review remains, not a known pending code-amendment hold. |
 | **Gap 2** — PIT (openPit/closePit) | **CONFIRMED D8** (D) — still needed | Absolutely absent. Phase 1 §6.7 confirms no PIT code anywhere. |
 | **Gap 3** — `countBefore` (position lookup) | **CONFIRMED D4** (D) — exact live algorithm exists; Scala port/cost/sort contract remain | Port selected-maximum predicates, never the child-value histogram approximation. |
 | **Gap 4** — `estimateSortValue` (percentile seek) | **CONFIRMED D** (small) — still needed | B1 removes `field` param first. Still needs new endpoint. **⚠️ DO NOT build to the §2 contract — `field` must stay explicit, not derived from `orderBy` (null-zone seek already passes a non-sort field today). Also missing from the §5 D-catalogue. See `zz Archive/scroll-and-position-preservation-testing-4.1-keyword-sorts-workplan.md` §5.** **✅ CONFIRMED (2026-08-29):** the client-side `scope` param (compiled to a `term` filter, never spliced into query text) is now implemented, unit-tested, and proven on live TEST (workplan §9 Phase 4) — scoping `estimateSortValue` to a bucket's keyword value is the mechanism that made keyword-sort deep seek fast and accurate. `scope: [{ field, value }]` is no longer speculative; it's the shape the client already depends on. |

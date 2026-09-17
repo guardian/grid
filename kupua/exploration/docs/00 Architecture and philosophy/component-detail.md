@@ -24,6 +24,13 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 
 **Search path (`--use-media-api` mode):** `apiSearchAfter()` in `grid-api-search-adapter.ts` — builds and sends `POST /api/images/search-after`, maps Argo-wrapped response to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `StranglerAdapter`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard).
 
+**Bounded hybrid recovery:** `SearchAfterApiError` distinguishes explicit HTTP 410 with
+`search-after-pit-expired` from transport absence and refusals. `StranglerAdapter` permits one
+additional DAL attempt: expiry retries media-api without the PIT; fetch/body transport failures
+or unstructured 502/504 responses without `Retry-After` use the existing ES adapter. Authentication,
+validation, throttling, 503, structured non-expiry errors, malformed JSON and unexpected failures
+do not trigger fallback. Cancellation is preserved; this is not API-only deployment behavior.
+
 **Single-image enrichment (intent-driven, not wired to UI):** `GridApiDataSource` (`grid-api/grid-api-adapter.ts`) — HATEOAS service discovery (`service-discovery.ts`). `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort: network failure or non-2xx → `null` → caller degrades gracefully. Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount.
 
 ## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
@@ -36,6 +43,11 @@ Three-layer merge model:
 
 **Consuming enriched data:** Components use `useEnrichedImage(image)` — subscribes per-id to enrichment-store (O(1) `Map.get`), no search-store subscription. Non-React callers use `deriveImage` directly.
 
+Fresh API pages and committed first-page fallbacks replace the overlay map. Fill, extensions,
+focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
+only its selected probe entry; both backward seek paths include backward-page overlays. Discarded
+probes and cancelled pages do not publish, and direct-ES responses do not invent API enrichment.
+
 ## State (`src/stores/search-store.ts`, 3,750 lines)
 
 Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek) — shared by all three scroll tiers (`03-scroll-architecture.md` §2). Scroll-mode fill (`_fillBufferForScrollMode`) loads all results when total ≤ SCROLL_MODE_THRESHOLD (1000). Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD = 65k) enables indexed scroll tier. Above 65k, the scrubber falls back to seek-only. Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
@@ -47,6 +59,12 @@ and focus trimming keeps tuples aligned with images. Desktop/touch ranges and de
 prefer retained tuples over raw-field reconstruction, preserving API-only aliases. Selection
 owns the extra anchor entry through set, re-election, clear and hydrate. Cancelled work cannot
 publish stale extension/neighbour results, and replacing navigation clears cancelled busy flags.
+
+`createExpiryAwareSearchAfter` records explicit PIT invalidation when a still-owned paging
+response completes, including before a paired request fails. Following requests skip cleared
+IDs, and final commits cannot resurrect an ID cleared during a later await. Scroll-mode fill
+also stops reusing an expired ID. The existing parallel page-one/PIT-open split is unchanged;
+this does not introduce stronger snapshots, durable sessions or migration support.
 
 ## Field Registry (`lib/field-registry.tsx`, ~920 lines — renamed `.ts`→`.tsx` for JSX in `cellRenderer`)
 

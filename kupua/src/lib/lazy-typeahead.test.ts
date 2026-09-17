@@ -120,11 +120,12 @@ describe("LazyTypeahead — live query ref", () => {
     if (!keywordDef || !keywordDef.resolver || Array.isArray(keywordDef.resolver)) {
       throw new Error("Expected registered keyword resolver");
     }
+    const keywordResolver = keywordDef.resolver;
     const field = new TypeaheadField(
       "keyword",
       "keyword",
       "",
-      async (value, signal) => (await keywordDef.resolver!(value, signal)).map((suggestion) => ({
+      async (value, signal) => (await keywordResolver(value, signal)).map((suggestion) => ({
         label: suggestion.label,
         value: suggestion.value,
       })),

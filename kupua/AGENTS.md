@@ -63,7 +63,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 `VITE_USE_MEDIA_API=true`; direct ES still owns every other query path plus selection and collection
 counts. `--use-TEST` is direct ES through an SSH tunnel; `--use-media-api` calls locally running
 modified media-api connected to TEST. The operator confirms one laptop caller, one successful D3
-TEST deployment, and PR #4849 back in draft without human review. Copilot comments and local
+TEST deployment, and PR #4849 updated with the agreed amendments; human review remains.
+Draft/ready status is the operator's choice. Copilot comments and local
 performance campaigns do not establish production deployment or other callers.
 
 **Current scope (15 September):** incrementally add media-api capabilities to make this read-only
@@ -76,13 +77,21 @@ them. No migration-transparent behavior, atomic exclusion or detection deadline 
 bounds are exclusive, date-only values mean UTC midnight, and CQL dates remain inclusive.
 C1 now retains authoritative response tuples through paging, focus, range selection and history,
 with bounded recent storage plus one active-anchor tuple and cancellation guards.
-Next are E1/N4, C2 and C3 in
+E1 now scopes parsed deleted intent before D3 hits/totals and applies safe query defaults;
+N4's retained GET rights/sort corrections have contract coverage. C2 publishes fallback,
+inserted-target and backward-page enrichment. C3 provides bounded hybrid recovery against
+an explicit expiry contract without bypassing refusals, and keeps expired PIT IDs cleared.
+Local gates and scoped direct-ES/live D3-mode checks passed on 17 September. Scala-only
+commit `e6485be4b` was ported after merging `main` into the PR branch and pushed as `95a45f4ee`;
+all 305 media-api tests passed on that tree. No known amendments in the agreed batch remain
+pending. The prototype's later merge of `main` remains deferred. Evidence and limits are in
 `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-01-readiness-findings.md`.
-Combined direct-ES and live D3-mode verification remains pending.
 Use the active media-api index. Stronger snapshot guarantees, Dynamo storage, Thrall hooks and the
 archived migration programme need separate justification and approval; none is a default prerequisite.
 Authorization, validation, ordinary paging correctness and production load remain real concerns.
-Mode-independent audit candidates can be assessed individually, not blocked on a global plan.
+Independent fixes must be worthwhile without API migration and help or remain neutral toward
+future migration; assess only the affected boundary, not a global plan. The consolidation
+audit's "Two filters for independent work" section owns this selection rule.
 
 ### System Summary
 
@@ -105,9 +114,10 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 
 ### Testing Summary
 
-- **1273 Vitest** unit/integration tests (~1min) -- `npm test`
-- **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **210 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
+- **1342 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
+- **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
+- **210 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm --prefix kupua run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **22 jank perf tests / 32 metric IDs** + experiment infrastructure — `npm run test:perf`
 - **39 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
@@ -144,11 +154,14 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 
 ## Stable Test Corpora (TEST cluster, pinned via `until`)
 
+Totals are examples, not immutable assertions: the date cap does not freeze metadata or deletions.
+The two-tier and seek totals below were observed on 17 September 2026.
+
 | Mode | Total | URL search params |
 |---|---|---|
 | Scroll (<1k) | 958 | `nonFree=true&query=keyword:"mid length half celebration"&until=2026-03-04T00:00:00Z` |
-| Two-tier (1k–65k) | 14,399 | `nonFree=true&until=2026-03-04T00:00:00Z&query=city:Dublin` |
-| Seek (>65k) | 1,304,298 | `nonFree=true&until=2026-03-04T00:00:00Z` |
+| Two-tier (1k–65k) | 13,260 | `nonFree=true&until=2026-03-04T00:00:00Z&query=city:Dublin` |
+| Seek (>65k) | 1,228,619 | `nonFree=true&until=2026-03-04T00:00:00Z` |
 
 ## Tech Stack
 

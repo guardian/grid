@@ -9,7 +9,7 @@
 
 import type { ImageDataSource, SearchAfterResult, SearchParams, SortValues } from "./types";
 import { ElasticsearchDataSource } from "./es-adapter";
-import { apiSearchAfter } from "./grid-api-search-adapter";
+import { apiSearchAfter, SearchAfterApiError } from "./grid-api-search-adapter";
 
 export class StranglerAdapter implements ImageDataSource {
   private readonly es: ElasticsearchDataSource;
@@ -52,6 +52,7 @@ export class StranglerAdapter implements ImageDataSource {
     reverse?: boolean,
     seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
+    signal?.throwIfAborted();
     if (
       !searchAfterValues &&
       !pitId &&
@@ -61,6 +62,24 @@ export class StranglerAdapter implements ImageDataSource {
     ) {
       return this.es.searchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
     }
-    return apiSearchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
+    try {
+      const result = await apiSearchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
+      signal?.throwIfAborted();
+      return result;
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (!(error instanceof SearchAfterApiError)) throw error;
+      if (error.kind === "pit-expired" && pitId) {
+        const result = await apiSearchAfter(params, searchAfterValues, null, signal, reverse, seekToEnd);
+        signal?.throwIfAborted();
+        return { ...result, pitId: null };
+      }
+      if (error.kind === "unavailable") {
+        const result = await this.es.searchAfter(params, searchAfterValues, pitId, signal, reverse, seekToEnd);
+        signal?.throwIfAborted();
+        return result;
+      }
+      throw error;
+    }
   }
 }

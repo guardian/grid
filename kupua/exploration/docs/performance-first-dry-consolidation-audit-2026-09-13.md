@@ -6,6 +6,12 @@ profilers run.
 **Primary scope:** The 39 implementation files named in the request. Direct source
 call sites and tests were inspected only where needed to establish behavior.
 
+**D3 follow-up status (17 September 2026):** the
+[bounded D3 assessment and agreed amendments](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-01-readiness-findings.md)
+are complete. References below to feeding findings into D3 readiness are dated inputs to
+that completed work, not a pending assessment gate. Other endpoint decisions and independent
+refactor recommendations in this audit are not thereby completed or authorized.
+
 ## Constraint and execution note
 
 The DRY/consolidation assessment was source-only. No architecture, design, README,
@@ -27,13 +33,31 @@ programme. Findings are source-audit evidence, not authorization for a broad ref
 against current source and existing tests before fixing it; already-fixed/refuted claims stay out
 of an implementation queue.
 
+### Two filters for independent work (17 September 2026)
+
+Every proposed fix must answer both questions:
+
+1. **Would this change still be worthwhile if API migration stopped indefinitely?**
+2. **Will it help, impede or have zero effect on future API migration?**
+
+Proceed only when the first answer is yes and the second is **helps** or **neutral**,
+with a brief reason grounded in the touched code and its callers. Helping means removing
+demonstrated coupling or supplying reusable behavior tests, not building speculative API
+infrastructure. Neutral means adding no migration obligation, client-only contract or direct-ES
+dependency outside its existing owner. An adapter-local fix may be neutral even if that code
+is later replaced; future reuse is not required.
+
+If a proposal impedes migration, narrow it, choose another fix or defer it. An unclear effect
+needs a targeted boundary check before approval, not a general API architecture assessment.
+The independent list below contains candidates, not findings already cleared by both filters.
+
 ### Feed into the relevant endpoint assessment
 
 | Findings | Use after architecture and transport decisions | Do not implement first |
 |---|---|---|
 | Q5 | Language-neutral parity inventory for server-owned semantic sort behavior. | No authoritative client sort registry. |
 | Q6 | Null-zone, reverse, special-sort and tuple-remapping behavior fixtures. | No TypeScript abstraction treated as the server contract. |
-| W6 | Complete enrichment publication for every image committed by D3. | No isolated cold-path DRY refactor. |
+| W6 | D3 enrichment omissions fixed; retain the committed-image publication invariants. | No isolated cold-path DRY refactor. |
 | H6 + S5 | Authoritative tuple ownership and the eventual ID-versus-cursor D2 boundary. | No faster image-derived cursor authority or range-intent rewrite. |
 | H3 + Q4 | Separation of local cache fingerprints from authenticated server session/continuation identity. | No client fingerprint, raw `after_key` or client cumulative rank as server authority. |
 
@@ -56,7 +80,8 @@ These findings do not depend on the final D3 contract and have no architecture-d
 - Q4: repeated composite work is real; persistent continuation needs a scoped D5/D6 contract
   decision. Neither its storage model nor abandonment is selected by this audit.
 - Q5: its inventory feeds semantic-sort fixtures, not a client authority.
-- Q6: ownership and fixture placement belong to the relevant D3 contract assessment.
+- Q6: D3 retained the existing cursor/remapping contract and fixtures; any further consolidation
+  is separate work and must preserve that verified behavior.
 - S5: range-intent ownership waits for the migration D2 contract.
 - H6: image-derived cursors remain fallback only; snapshot/server tuples are authoritative.
 - W6: this is D3 client completeness, not independent cleanup.
@@ -246,8 +271,8 @@ long-press policy
 [handleLongPressStart.ts](../../src/lib/handleLongPressStart.ts#L44-L53)).
 
 **Disposition:** do not implement an ID-only `RangeIntent` as a standalone cleanup.
-Preserve this evidence for the relevant D2/D3 assessment, which must decide tuple ownership
-and the range ID-versus-cursor contract before changing these callers. If that contract chooses
+D3 client tuple retention is implemented; preserve this evidence for the remaining D2
+range ID-versus-cursor contract decision before changing these callers. If that contract chooses
 IDs, resolve both endpoints once at the range owner/server boundary and reject unavailable
 endpoints rather than manufacturing valid-looking coordinates. Do not optimize image-derived
 cursor assembly before that decision.
@@ -556,11 +581,11 @@ The image-offset cache rebuilds sort clauses each time it extracts one image's c
 assembly can extract target and anchor separately. If sort configuration is immutable
 during a search, compiling an extractor would remove repeated clause parsing.
 
-**Disposition:** do not implement that optimization before the relevant D3 assessment decides
-authoritative tuple ownership. Server-returned tuples or server resolution must remain
-authoritative; media-api stores configured alias values under `image.aliases` while this
-extractor follows the dropped `fileMetadata.*` path. A compiled image extractor is at most
-a defensive direct-ES/display fallback, not a cursor contract.
+**Current disposition:** D3 amendment C1 implemented authoritative response-tuple retention.
+That resolves the original ownership prerequisite, not approval for this optimization.
+Server-returned tuples or server resolution remain authoritative; a raw-image fallback follows
+fields that lean API images may omit. Compiling that fallback is separate maintainability/
+performance work, not a replacement cursor contract.
 
 ### Keep these boundaries
 
@@ -668,6 +693,10 @@ optimization.
 
 ### W6. Search-store first-page fallback patches repeat publication state
 
+**Update (17 September 2026):** the enrichment omissions described below were fixed by
+the completed D3 amendment batch. The original duplication observation and
+possible maintainability refactor remain historical recommendations, not unfinished D3 work.
+
 Several `_findAndFocusImage` fallbacks publish nearly the same first-page/reset patch
 ([search-store.ts](../../src/stores/search-store.ts#L1468-L1492),
 [search-store.ts](../../src/stores/search-store.ts#L1547-L1572),
@@ -677,7 +706,7 @@ publication cannot replace the overlay. On success, the visible one-image probe 
 inserted into the buffer while `_loadBufferAroundImage` merges only surrounding-page
 enrichment. Both paths can therefore render stale server-authoritative fields.
 
-**Disposition:** this is D3 client completeness, not independent cold-path DRY. Feed it into
+**Original disposition:** this is D3 client completeness, not independent cold-path DRY. Feed it into
 the bounded D3 readiness assessment. Every committed image must bring its enrichment; discarded probes have
 no side effect; fresh/fallback publication replaces while additive buffers upsert. A shared
 publication helper is useful only if it preserves those different semantics.
@@ -1002,7 +1031,7 @@ For performance-sensitive work, capture at least:
 
 | File | Source-only assessment |
 |---|---|
-| `search-store.ts` | Central owner is necessarily large. Independent work: distribution ownership and sort-kind dispatch. D3 publication belongs to bounded readiness assessment. |
+| `search-store.ts` | Central owner is necessarily large. Independent work: distribution ownership and sort-kind dispatch. D3 publication omissions are fixed; preserve its commit-point invariants. |
 | `useDataWindow.ts` | Fix normal/two-tier visible-index conversion; derive two-tier from subscribed total; broad use in detail is avoidable. |
 | `useScrollEffects.ts` | Good shared owner. Measure duplicate bottom detection; consider terminal image-centering API. |
 | `two-tier.ts` | Correct existing canonical predicate; expand its use rather than adding another abstraction. |
@@ -1022,7 +1051,7 @@ For performance-sensitive work, capture at least:
 | `position-map.ts` | Compact representation fits dominant lookup; no eager reverse Map without evidence. |
 | `null-zone.ts` | Existing pagination abstraction is sound; expose a plan builder only if position-index reuse stays simple. |
 | `es-adapter.ts` | Independent wins: no position-map exact totals, direct keyword dispatch and conditional null phase. Resumable composite state is excluded from this audit queue. |
-| `sort-builders.ts` | Supplies parity-fixture evidence to D3 contract assessment. Do not add a second client authority. |
+| `sort-builders.ts` | Supplies retained parity fixtures for any approved future sort work. Do not add a second client authority. |
 | `useListNavigation.ts` | Item/page movement can share a local commit helper, but geometry calculations and direct keyboard handling should remain distinct. |
 | `selection-store.ts` | Independent candidates: scheduler, batch deltas, metadata revision, anchor invariant and non-touching bulk reads. Datasource/range ownership needs the relevant D9/D2 decision. |
 | `ui-prefs-store.ts` | Keep reactive and imperative APIs; choose the reactive API once per renderer. |
@@ -1033,7 +1062,7 @@ For performance-sensitive work, capture at least:
 | `build-history-snapshot.ts` | Good derivation owner; add capture operation/hints to avoid repeated geometry work. |
 | `history-snapshot.ts` | Replace array-filter LRU refresh with Map/read-through caching; keep synchronous pre-navigation durability. |
 | `history-key.ts` | Existing push-versus-replace contract is correct; typed raw pushes must use it. |
-| `image-offset-cache.ts` | Cursor ownership and any compiled extraction need the relevant D3 contract assessment. Do not optimize an invalid API-image reconstruction. |
+| `image-offset-cache.ts` | D3 retains authoritative tuples. Any compiled raw-fallback optimization remains separate, unapproved work; it must not replace response cursors. |
 | `orchestration/search.ts` | Existing navigation/snapshot ordering is valuable; add explicit typed-search primitive rather than a generic state machine. |
 | `reset-to-home.ts` | Keep awaited direct search; share projection/reset data and repair URL-sync key handoff. |
 | `main.tsx` | Pagehide capture can use shared capture operation; no broader startup consolidation found. |

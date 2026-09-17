@@ -1,7 +1,19 @@
 # D3 search-after: findings and amendment workplan
 
-**Assessed:** 15 September 2026. Report-only; no product tests or live requests executed.
-**Updated:** 16 September 2026 following operator discussion, historical-document checks and review of the public PR description. This specifies later implementation; it does not start code changes or grant backend-edit/deployment permission.
+**Status: DONE — 17 September 2026 (agreed D3 amendment scope).** E1, E2, C1-C3 and
+N4 coverage/disclosure are implemented, independently reviewed, validated and committed.
+Completion commits: E2 `f092d854a`, C1 `1b4922fde`, and Scala `e6485be4b`.
+The paired Kupua/docs amendments accompany this record. Section 7 records the local and
+live verification and its limits.
+
+Sections 1-6 preserve the original findings, decisions and completed execution plan;
+their forward-looking wording is not a pending implementation queue. Explicitly deferred
+findings remain deferred. PR-branch extraction and remote PR updates are separate operator
+actions, not unfinished code in this batch.
+
+**Original assessment:** 15 September 2026, report-only at that time.
+**Original amendment plan:** 16 September 2026, following operator discussion,
+historical-document checks and review of the public PR description.
 
 ## 1. Decision
 
@@ -111,8 +123,58 @@ Use this dependency-led sequence with Section 3's tests and gates. Each defect g
 
 **Mode validation:** test the final combined code in direct-ES and D3/hybrid modes. Group manual/live checks into mode-specific sessions to minimize switching, under the existing port warnings and per-session live-service permissions. Habitual E2E normally blocks API calls: a green run is direct-mode regression evidence, not proof of D3 integration. API-shaped mocks likewise do not replace explicit D3 integration checks. A blocked required check must be reported, not silently omitted.
 
-**Commit boundary:** implementation may alternate between client and server as dependencies require; commits must not mix them. After validation and explicit commit approval, create media-api-only backend/test commit(s) for porting, with no Kupua code, tests or documentation. Put Kupua code/tests and documentation, including backend-change notes, in separate commit(s). Inspect the exact file lists before porting; do not blindly copy shared files or port the whole working branch. This section does not authorize commits, branch changes or porting.
+**Commit boundary:** implementation may alternate between client and server as dependencies require; commits must not mix them. After validation and explicit commit approval, keep all Scala amendments in ONE self-contained media-api-only code/test commit for porting, with no Kupua code, tests or documentation. Put Kupua code/tests and documentation, including backend-change notes, in separate commit(s). Preserve and exclude the session worklog as explicitly requested by the operator. Inspect exact file lists before porting; do not blindly copy shared files or port the whole working branch. This section does not authorize commits, branch changes or porting.
 
 **Done:** all five required findings and N4 coverage pass their applicable checks; the final combination has direct and D3-mode validation, with Scala-only porting boundaries verified. Do not claim whole-hybrid permission consistency without checking remaining direct-ES companions. If a finding is disproved, a required check cannot run, or preservation requires broader policy/infrastructure changes, stop with the concrete blocker rather than expanding scope or weakening assertions.
 
-**Handoff:** record actual refs, commands, results and tested modes. For code changes, update the required [agent snapshot](../../../../AGENTS.md#L1), [changelog](../../changelog.md#L1) and owning guides/deviations as applicable; reset the worklog before approved staging. After approved commit(s), reconcile Section 4 with the final code and update the existing PR-description document. The operator updates GitHub. Do not create another workplan or edit archived assessments.
+**Handoff:** record actual refs, commands, results and tested modes. Update the required [agent snapshot](../../../../AGENTS.md#L1) and owning guides/deviations; update the [changelog](../../changelog.md#L1) at commit boundaries. Preserve the worklog and exclude it from commits (operator override of the usual reset rule). After approved commit(s), reconcile Section 4 with final code and update the existing PR-description document. The operator updates GitHub. Do not create another workplan or edit archived assessments.
+
+## 7. Amendment Verification (17 September 2026)
+
+E1/N4, C2 and C3 were validated together based on C1 `1b4922fde` and E2 `f092d854a`.
+The five media-api code/test files are isolated in Scala-only commit `e6485be4b`; client
+amendments and this documentation are separate. PR-branch extraction has not been performed.
+Independent written-code reviews found additional query-intent,
+cancellation and expiry races; each retained finding was reproduced before its fix. Final
+follow-up review accepted the repairs. The source-only restore-rank concern remains separate.
+
+All commands ran from repository root, unsandboxed, with
+`set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"`:
+
+| Surface | Command | Result |
+|---|---|---|
+| Full Scala | `TZ=UTC sbt "media-api/test"` | 305 passed, 13 suites |
+| Client build | `npm --prefix kupua run build` | TypeScript and Vite passed; non-fatal Vite warnings remain |
+| Full units | `npm --prefix kupua test` | 1,342 passed, 69 files |
+| Habitual E2E | `npm --prefix kupua run test:e2e` | 210 passed, 4.5 minutes |
+| Guarded local oracle | `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` | Passed against runner-managed loopback 9220 |
+
+Scala fixtures exercise GET/D3 handlers over local ES for deleted hits and exact totals,
+safe defaults, rights omission/true/false including mixed records, existing status semantics,
+and all six exclusive date boundaries including UTC date-only inputs. Providers and image
+serialization are mocked in those fixtures; existing sort/parser/response tests also passed.
+The closed-PIT fixture returns HTTP 410 with `search-after-pit-expired`; malformed PITs are not
+misclassified. Client tests cover publication, bounded recovery, refusal preservation and
+PIT clearing across empty pages, concurrent responses, failed pairs and delayed commits.
+
+**Live evidence, explicitly authorized read-only:** the pinned Dublin query returned 13,260
+matches in both direct-ES and media-api modes. Direct-mode mapped paging, detail traversal,
+reload/return and sort-around-focus preserved visible identity, retained tuples and coordinates.
+In media-api mode, the initial page and both mapped seek requests returned 200; all 298 committed
+seek images were enriched. Sort-around-focus refreshed the inserted target's overlay; reload/
+restore retained enrichment; missing-target fallback replaced the map with the fresh 200-image
+page. A >65k seek over 1,228,619 results committed 300 enriched images with consistent coordinates
+and tuples, exercising the sequential backward-page path.
+
+A PIT retired by normal app search was replayed through the live Strangler: HTTP 410 was observed,
+and recovery returned two enriched hits with `pitId: null`, unchanged public cursor length and no
+probe publication. The browser's full resource-timing buffer prevented an exact retry-count
+measurement for that probe; the bound is covered by unit tests. A separate one-request browser
+network abort verified live ES fallback without changing adapter mode or publishing probe data;
+this is **fault-injected availability evidence**, not a naturally observed API outage.
+
+**Limits:** no production deployment, capacity measurement or performance campaign; no live
+multi-principal authorization matrix or new live special-sort/alias campaign. Those contracts
+are covered by the stated local fixtures, not claimed as live evidence. Remaining direct-ES
+companions still prevent a whole-hybrid permission-consistency or API-only completion claim.
+Option B, deliberate `_shard_doc` truncation and the deferred E3/C4/wider-lifecycle scope remain.

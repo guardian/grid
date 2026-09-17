@@ -18,7 +18,7 @@
  */
 
 import type { Image } from "@/types/image";
-import type { SortValues } from "@/dal";
+import type { SearchParams, SortValues } from "@/dal";
 import { buildSortClause, parseSortField, DATE_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "@/dal";
 import { BUFFER_CAPACITY } from "@/constants/tuning";
 
@@ -72,7 +72,7 @@ export function getRetainedSortValues(imageId: string, searchKey: string): SortV
  * Strips display-only keys (image, density) and sorts the rest so
  * key order doesn't affect the fingerprint.
  */
-export function buildSearchKey(params: Record<string, unknown>): string {
+export function buildSearchKey(params: SearchParams | Record<string, unknown>): string {
   // Exclude display-only keys (image, density) and internal pagination
   // fields (offset, length) — they describe fetch mechanics,
   // not the search context. This ensures keys match regardless of

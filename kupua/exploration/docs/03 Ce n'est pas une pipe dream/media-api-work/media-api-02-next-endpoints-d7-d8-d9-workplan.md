@@ -1,7 +1,9 @@
 # Next endpoints: D7 counts, D8 PIT lifecycle, D9 image reads
 
-> **Current scope, 15 September 2026:** use [media-api-00-index.md](media-api-00-index.md). Prepare one additive
-> capability at a time after bounded D3 readiness assessment. This is not one approved batch.
+> **Current scope, 17 September 2026:** use [media-api-00-index.md](media-api-00-index.md).
+> The [agreed D3 amendment batch](d3-search-after-01-readiness-findings.md) is complete.
+> Prepare one separately authorized additive capability at a time; these are not unfinished
+> D3 amendments or one approved implementation batch.
 > Preserve current workflows and accepted compromises; index-migration support is out of scope.
 >
 > - **D7/initial count:** polling is required. Initial-count ownership is an explicit D7/D3
@@ -51,9 +53,10 @@ D8, and migration/envelope/routing work in D9. They are no longer one implementa
 high-frequency, must-have paths (D7 fires on every new-images poll tick; D9 backs every
 multi-selection load) — they take kupua meaningfully closer to "100% on media-api".
 
-**Provisional preparation order:** D3 readiness, D7, D9; resolve D8 before implementing its
-dependent positional capabilities. D3 findings may change this order. No archived document-number
-gate applies. Amend only the next capability's contract before its implementation is authorized.
+**Provisional preparation order after the completed D3 batch:** D7, then D9; resolve D8
+before implementing its dependent positional capabilities. No D3 reassessment or archived
+document-number gate remains. Amend only the next capability's contract before its
+implementation is authorized.
 
 ---
 

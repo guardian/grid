@@ -11,8 +11,9 @@ correctness is information for a decision, not automatic authorization to implem
 - `--use-media-api` uses locally running modified Grid media-api for qualifying `searchAfter`
   requests; other paths still use direct ES. This is a transitional mode, not API-only.
 - The operator confirms that D3 has one caller: Kupua on their laptop. It was deployed to TEST
-  once and worked. PR #4849 is back in draft and has not had human review. Recorded Copilot
-  review comments and local-media-api performance campaigns are different evidence.
+  once and worked. PR #4849 now includes the agreed code amendments; human review remains.
+  Draft/ready status is the operator's choice, not a hold for known pending amendments.
+  Recorded Copilot review comments and local-media-api performance campaigns are different evidence.
 - B1/B2 and D3 are implemented. The remaining endpoints are not implemented merely because a
   research document specifies them. Read current source before implementing a capability.
 
@@ -37,7 +38,7 @@ not replaced by assumptions or repeated without a specific question.
 
 | Purpose | Document | Authority |
 |---|---|---|
-| Current D3 amendments | [Findings and amendment workplan](d3-search-after-01-readiness-findings.md) | Section 6 owns the agreed execution scope and gates. |
+| Completed D3 amendments | [Findings and amendment workplan](d3-search-after-01-readiness-findings.md) | Agreed scope complete; Section 6 records the executed plan and Section 7 the verification. |
 | Assessment background | [Readiness prompt](d3-search-after-00-readiness-prompt.md) | Background for the completed assessment, not an instruction to restart it. |
 | Remaining capabilities and known gaps | [Capability inventory](media-api-01-capability-inventory.md) | Current summary; historical derivation is evidence only. |
 | D7/D8/D9 preparation after D3 | [Next endpoints](media-api-02-next-endpoints-d7-d8-d9-workplan.md) | Bounded choices and per-capability preparation, not one approved implementation batch. |
@@ -48,11 +49,17 @@ not replaced by assumptions or repeated without a specific question.
 | Implementing-agent rules | [Instructions](media-api-91-instructions-for-agents.md) | Safety and repository mechanics; mirrored to the automatic instruction file. |
 | App-wide independent candidates | [Consolidation audit](../../performance-first-dry-consolidation-audit-2026-09-13.md) | Findings, not authorization for a broad refactor. |
 
-**Amendment status (17 September):** E2 date parity and C1 authoritative client cursors are
-implemented with local regression coverage. E1/N4 server work (including minimal expiry
-classification needed by C3), C2 enrichment publication, C3 recovery and final direct/D3-mode
-verification remain. Follow the dependency-led sequence in the findings; do not start another
-general assessment or treat local/mock checks as live D3 or production readiness.
+**Amendment status: DONE (17 September).** E2/C1 and E1/N4/C2/C3 are implemented and committed.
+Independent written-code reviews, 305 Scala tests, 1,342 client units, 210 habitual E2Es, the
+full client build and the guarded local cursor oracle passed. Scoped live direct-ES and locally
+modified media-api/TEST checks also passed; findings Section 7 distinguishes them from mocked
+fixtures and the injected API-outage check. Scala-only commit `e6485be4b` is isolated for
+porting and has been integrated after merging `main` into the PR branch, then pushed as
+`95a45f4ee`. All 305 media-api tests also passed on that integrated PR tree. The paired
+client/docs amendments remain on the prototype. No known amendments in the agreed batch
+remain pending; human review, merge and deployment are separate. Do not restart a general
+assessment or equate these checks with production
+capacity, whole-hybrid permission consistency or API-only readiness.
 
 ## Historical research
 
