@@ -18,6 +18,7 @@ import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
 import type { Image } from "@/types/image";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
+import { buildSearchKey, extractSortValues, retainSortValues } from "@/lib/image-offset-cache";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -35,7 +36,8 @@ vi.mock("@/stores/search-store", () => ({
   },
 }));
 
-vi.mock("@/lib/image-offset-cache", () => ({
+vi.mock("@/lib/image-offset-cache", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/image-offset-cache")>(),
   extractSortValues: vi.fn((_img, _orderBy) => [1234567890, "img-x"]),
 }));
 
@@ -62,6 +64,7 @@ function makeSelState(overrides: {
 function makeSearchState(positions: Record<string, number> = {}) {
   return {
     imagePositions: new Map(Object.entries(positions)),
+    params: { nonFree: "true" },
   };
 }
 
@@ -101,6 +104,7 @@ function makeCtx(overrides: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  retainSortValues("", [], [], true);
 });
 
 describe("handleLongPressStart -- no anchor (mode entry)", () => {
@@ -140,6 +144,19 @@ describe("handleLongPressStart -- same anchor (re-anchor only)", () => {
 });
 
 describe("handleLongPressStart -- different anchor (range)", () => {
+  it("uses a retained anchor tuple before metadata hydration completes", () => {
+    const handleRange = vi.fn();
+    const { ctx } = makeCtx({ cellId: "img-2", anchorId: "img-1", handleRange });
+    const searchKey = buildSearchKey({ nonFree: "true" });
+    const cursor = [1234567890, "img-1"];
+    retainSortValues(searchKey, [{ id: "img-1" } as Image], [cursor]);
+
+    handleLongPressStart(ctx);
+
+    expect(handleRange.mock.calls[0][0].anchorSortValues).toEqual(cursor);
+    expect(extractSortValues).toHaveBeenCalledWith({ id: "img-2" }, undefined, searchKey);
+  });
+
   it("calls handleRange with correct AddRangeEffect and moves anchor", () => {
     const handleRange = vi.fn();
     const selectedIds = new Set(["img-1"]);

@@ -32,7 +32,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useCollectionStore, buildColourMap } from "@/stores/collection-store";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
-import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { pushNavigate, enterFullscreenPreview } from "@/lib/orchestration/search";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
@@ -678,11 +678,12 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       const idx = findImageIndex(imageId);
       if (idx >= 0) {
         const img = getImage(idx);
-        const cursor = img ? extractSortValues(img, searchParams.orderBy) : null;
+        const searchKey = buildSearchKey(searchParams);
+        const cursor = img ? extractSortValues(img, searchParams.orderBy, searchKey) : null;
         // In two-tier mode, idx from findImageIndex is already global.
         // In normal mode, add bufferOffset to get global position.
         const globalOffset = twoTier ? idx : bufferOffset + idx;
-        storeImageOffset(imageId, globalOffset, buildSearchKey(searchParams), cursor);
+        storeImageOffset(imageId, globalOffset, searchKey, cursor);
       }
       pushNavigate(navigate, {
         to: "/search",
@@ -701,6 +702,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
     (imageId: string, modifier: Modifier) => {
       const selState = useSelectionStore.getState();
       const searchState = useSearchStore.getState();
+      const searchKey = buildSearchKey(searchParamsRef.current);
       const idx = findImageIndex(imageId);
       const image = idx >= 0 ? getImage(idx) : undefined;
       const anchorId = selState.anchorId;
@@ -710,9 +712,9 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
       const anchorSortValues = (() => {
         if (!anchorId) return null;
         const anchorImg = selState.metadataCache.get(anchorId);
-        return anchorImg
+        return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
           ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
-          : null;
+          : null);
       })();
       return {
         targetId: imageId,
@@ -722,7 +724,7 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
         targetGlobalIndex: searchState.imagePositions.get(imageId),
         anchorGlobalIndex,
         targetSortValues: image
-          ? extractSortValues(image, searchParamsRef.current.orderBy)
+          ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
           : null,
         anchorSortValues,
       };

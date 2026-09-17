@@ -295,7 +295,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     (img: Image, globalIndex: number) => {
       // Store the target image's offset + sort cursor in sessionStorage so
       // the counter and prev/next survive page reload.
-      const cursor = extractSortValues(img, searchParamsOrderBy);
+      const cursor = extractSortValues(img, searchParamsOrderBy, searchKey);
       storeImageOffset(img.id, globalIndex, searchKey, cursor);
 
       // Raw navigate — not pushNavigate(). Traversal uses replace: true

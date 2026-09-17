@@ -74,7 +74,9 @@ them. No migration-transparent behavior, atomic exclusion or detection deadline 
 
 **D3 amendments:** E2 client changes are implemented and locally validated: six top-level date
 bounds are exclusive, date-only values mean UTC midnight, and CQL dates remain inclusive.
-Next is C1 authoritative cursor retention, followed by E1/N4, C2 and C3 in
+C1 now retains authoritative response tuples through paging, focus, range selection and history,
+with bounded recent storage plus one active-anchor tuple and cancellation guards.
+Next are E1/N4, C2 and C3 in
 `exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-01-readiness-findings.md`.
 Combined direct-ES and live D3-mode verification remains pending.
 Use the active media-api index. Stronger snapshot guarantees, Dynamo storage, Thrall hooks and the
@@ -87,7 +89,7 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 | System | Key entry points | What it does |
 |---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional). `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
-| Store | `stores/search-store.ts` | Centre of gravity (~3,900 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. |
+| Store | `stores/search-store.ts` | Centre of gravity (~3,900 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. Committed response tuples are retained in `lib/image-offset-cache.ts` for alias-safe navigation. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map. |
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from ES agg. Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
@@ -103,9 +105,9 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 
 ### Testing Summary
 
-- **1243 Vitest** unit/integration tests (~1min) -- `npm test`
+- **1273 Vitest** unit/integration tests (~1min) -- `npm test`
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **208 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
+- **210 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **22 jank perf tests / 32 metric IDs** + experiment infrastructure — `npm run test:perf`
 - **39 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
@@ -197,6 +199,7 @@ Mode-independent audit candidates can be assessed individually, not blocked on a
 
 ## Known Issues
 
+- **Restore rank after sorted metadata changes (source-only finding)** — `restoreAroundCursor` counts from the saved tuple but loads neighbours using a refreshed tuple; changed values can give inconsistent coordinates. This predates C1 and was not changed by it. Assess separately under the accepted live-consistency scope; runtime reproduction is pending.
 - **Width/Height sort mismatch** — the UI displays oriented dimensions with raw fallback, but sorting uses raw dimensions. A request-time coalescing field was about 2.2× slower at the median on TEST and would need duplication across every positional query path. Prefer canonical backend `effectiveWidth`/`effectiveHeight` fields; see `exploration/docs/materialized-scalars-for-lastUsed-lastAddedToCollection.md` §5.
 - **P8 table fast-scroll jank** — the four-run TEST baseline measured 207ms max frame, 59ms p95, 91 severe frames/1k, 121,576 DOM mutations and 1,877ms LoAF blocking. It is the clearest rendering-perf target, but much churn is structural and prior broad scroll fixes regressed behavior. Investigate narrowly from the maintained P8 metric.
 

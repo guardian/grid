@@ -18,7 +18,7 @@
 import type { Image } from "@/types/image";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
-import { extractSortValues } from "@/lib/image-offset-cache";
+import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
 
 export interface LongPressStartContext {
@@ -41,6 +41,7 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
     // Builds the same AddRangeEffect a shift-click produces and dispatches it through
     // useRangeSelection (buffer fast path or server walk).
     const searchState = useSearchStore.getState();
+    const searchKey = buildSearchKey({ ...searchState.params, orderBy: ctx.orderBy });
     const idx = ctx.findImageIndex(ctx.cellId);
     const image = idx >= 0 ? ctx.getImage(idx) : undefined;
     const anchorImg = selState.metadataCache.get(anchorId);
@@ -48,12 +49,12 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
       op: "add-range",
       anchorId,
       anchorGlobalIndex: searchState.imagePositions.get(anchorId) ?? null,
-      anchorSortValues: anchorImg
+      anchorSortValues: getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
         ? extractSortValues(anchorImg, ctx.orderBy)
-        : null,
+        : null),
       targetId: ctx.cellId,
       targetGlobalIndex: searchState.imagePositions.get(ctx.cellId) ?? 0,
-      targetSortValues: (image ? extractSortValues(image, ctx.orderBy) : null) ?? [],
+      targetSortValues: (image ? extractSortValues(image, ctx.orderBy, searchKey) : null) ?? [],
 
     });
     selState.setAnchor(ctx.cellId);

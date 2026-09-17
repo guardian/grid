@@ -34,7 +34,7 @@ import type { Image } from "@/types/image";
 import type { SortValues } from "@/dal/types";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
-import { extractSortValues } from "@/lib/image-offset-cache";
+import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { addToast } from "@/stores/toast-store";
 import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
@@ -156,13 +156,14 @@ export function useRangeSelection() {
       // 3. Resolve anchor sort values for server walk.
       //
       // Priority: (1) from effect,
-      //           (2) metadataCache + extractSortValues.
+      //           (2) retained response tuple, (3) metadataCache + extractSortValues.
       //
       // Skip searchAfter fallback -- if setAnchor() correctly called
       // ensureMetadata([anchorId]) (S1 cohesion rule), the cache should
       // always have the anchor's metadata by the time a shift-click fires.
       // ------------------------------------------------------------------
-      let anchorSV: SortValues | null = anchorSVFromEffect;
+      let anchorSV: SortValues | null = anchorSVFromEffect
+        ?? getRetainedSortValues(anchorId, buildSearchKey({ ...searchState.params }));
       if (!anchorSV) {
         const anchorImg = selStore.metadataCache.get(anchorId);
         if (anchorImg) {

@@ -93,6 +93,115 @@ test("top-level date bounds exclude equality from results, counts and ranks", as
   }
 });
 
+test.describe("API-shaped cursors", () => {
+  for (const view of ["grid", "table"] as const) {
+    test(`${view}: retains range anchors and detail history across cache eviction`, async ({ kupua }) => {
+      await kupua.goto();
+      const alias = await kupua.page.evaluate(async () => {
+        const mockPath = "/src/dal/mock-data-source.ts";
+        const configPath = "/src/lib/grid-config.ts";
+        const [{ MockDataSource }, { gridConfig }] = await Promise.all([
+          import(mockPath), import(configPath),
+        ]);
+        const alias = gridConfig.fieldAliases.find((field: { elasticsearchPath: string }) =>
+          field.elasticsearchPath.startsWith("fileMetadata."),
+        );
+        if (!alias) throw new Error("Fixture requires a fileMetadata alias");
+        const source = new MockDataSource(10_000);
+        const searchAfter = source.searchAfter.bind(source);
+        source.searchAfter = async (...args: any[]) => {
+          const result = await searchAfter(...args);
+          return {
+            ...result,
+            hits: result.hits.map((image: any) => ({
+              ...image,
+              fileMetadata: undefined,
+              aliases: { [alias.alias]: "fixture-alias-value" },
+            })),
+            sortValues: result.hits.map((image: any) => [
+              "fixture-alias-value", Date.parse(image.uploadTime), image.id,
+            ]),
+          };
+        };
+        source.getByIds = async () => { throw new Error("fixture metadata unavailable"); };
+        const rangeCursors: any[] = [];
+        const getIdRange = source.getIdRange.bind(source);
+        source.getIdRange = async (...args: any[]) => {
+          rangeCursors.push({ from: args[1], to: args[2] });
+          return getIdRange(...args);
+        };
+        (window as any).__c1_range_cursors__ = rangeCursors;
+        const store = (window as any).__kupua_store__;
+        const selection = (window as any).__kupua_selection_store__;
+        selection.getState().clear();
+        selection.setState({ dataSource: source });
+        store.getState().setFocusedImageId(null);
+        store.setState({ dataSource: source });
+        (window as any).__kupua_markUserNav__();
+        (window as any).__kupua_router__.navigate({
+          to: "/search",
+          search: { nonFree: "true", orderBy: alias.alias },
+          replace: true,
+        });
+        return alias.alias;
+      });
+      await kupua.page.waitForFunction((orderBy) => {
+        const state = (window as any).__kupua_store__.getState();
+        return state.params.orderBy === orderBy && !state.loading && state.results[0]?.id === "img-0";
+      }, alias);
+      if (view === "table") await kupua.switchToTable();
+      await kupua.waitForResults();
+
+      const anchorCell = kupua.page.locator('[data-image-id="img-0"]').first();
+      await anchorCell.hover();
+      await anchorCell.locator('button[aria-label="Select image"]').click();
+      await expect.poll(() => kupua.page.evaluate(() =>
+        (window as any).__kupua_selection_store__.getState().anchorId,
+      )).toBe("img-0");
+
+      await kupua.page.evaluate(async () => {
+        const store = (window as any).__kupua_store__;
+        for (let offset = 200; offset <= 2400; offset += 200) {
+          await store.getState().seek(offset);
+        }
+      });
+      await kupua.seekTo(0.27);
+      const target = await kupua.page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const id = (window as any).__kupua_getViewportAnchorId__();
+        if (!id) throw new Error("Fixture viewport anchor is unavailable");
+        return { id, position: state.imagePositions.get(id) };
+      });
+      expect(target.position).toBeGreaterThan(2000);
+      const targetCell = kupua.page.locator(`[data-image-id="${target.id}"]`).first();
+      await targetCell.locator('button[aria-label="Select image"]').click({ modifiers: ["Shift"] });
+      await expect.poll(() => kupua.page.evaluate(() =>
+        (window as any).__kupua_selection_store__.getState().selectedIds.size,
+      )).toBe(target.position + 1);
+      const ranges = await kupua.page.evaluate(() => (window as any).__c1_range_cursors__);
+      expect(ranges).toHaveLength(1);
+      expect(ranges[0].from).toEqual(["fixture-alias-value", expect.any(Number), "img-0"]);
+      expect(ranges[0].to).toEqual(["fixture-alias-value", expect.any(Number), target.id]);
+
+      await kupua.page.evaluate(() => (window as any).__kupua_selection_store__.getState().clear());
+      await targetCell.dblclick();
+      expect(await kupua.getDetailImageId()).toBe(target.id);
+      const readCursor = () => kupua.page.evaluate(() => {
+        const id = new URL(location.href).searchParams.get("image");
+        const cached = JSON.parse(sessionStorage.getItem(`kupua:imgOffset:${id}`) ?? "null");
+        return { id, cursor: cached?.cursor };
+      });
+      expect((await readCursor()).cursor)
+        .toEqual(["fixture-alias-value", expect.any(Number), target.id]);
+      await kupua.detailNextAndWait();
+      const traversed = await readCursor();
+      expect(traversed.id).not.toBe(target.id);
+      expect(traversed.cursor).toEqual(["fixture-alias-value", expect.any(Number), traversed.id]);
+      await kupua.assertPositionsConsistent();
+    });
+  }
+});
+
 // ===========================================================================
 // Image detail — opening
 // ===========================================================================

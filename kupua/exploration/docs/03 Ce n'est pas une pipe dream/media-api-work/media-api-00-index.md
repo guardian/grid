@@ -37,7 +37,8 @@ not replaced by assumptions or repeated without a specific question.
 
 | Purpose | Document | Authority |
 |---|---|---|
-| Next task: known new D3 findings | [Readiness prompt](d3-search-after-00-readiness-prompt.md) | Run only when requested; output is a bounded readiness assessment, not another architecture plan. |
+| Current D3 amendments | [Findings and amendment workplan](d3-search-after-01-readiness-findings.md) | Section 6 owns the agreed execution scope and gates. |
+| Assessment background | [Readiness prompt](d3-search-after-00-readiness-prompt.md) | Background for the completed assessment, not an instruction to restart it. |
 | Remaining capabilities and known gaps | [Capability inventory](media-api-01-capability-inventory.md) | Current summary; historical derivation is evidence only. |
 | D7/D8/D9 preparation after D3 | [Next endpoints](media-api-02-next-endpoints-d7-d8-d9-workplan.md) | Bounded choices and per-capability preparation, not one approved implementation batch. |
 | Current D3 draft | [PR draft](d3-search-after-02-pr.md) | Implementation/evidence description; not declared ready by this docs pass. |
@@ -47,10 +48,11 @@ not replaced by assumptions or repeated without a specific question.
 | Implementing-agent rules | [Instructions](media-api-91-instructions-for-agents.md) | Safety and repository mechanics; mirrored to the automatic instruction file. |
 | App-wide independent candidates | [Consolidation audit](../../performance-first-dry-consolidation-audit-2026-09-13.md) | Findings, not authorization for a broad refactor. |
 
-**Next assessment:** D3 readiness against newly identified findings, not another general review
-or architecture exercise. Classify endpoint and client findings separately as fix before review,
-team decision/disclosure, later work, or already resolved/refuted. Use the prompt linked above;
-no empty findings document is required, and it has not been executed by this documentation task.
+**Amendment status (17 September):** E2 date parity and C1 authoritative client cursors are
+implemented with local regression coverage. E1/N4 server work (including minimal expiry
+classification needed by C3), C2 enrichment publication, C3 recovery and final direct/D3-mode
+verification remain. Follow the dependency-led sequence in the findings; do not start another
+general assessment or treat local/mock checks as live D3 or production readiness.
 
 ## Historical research
 

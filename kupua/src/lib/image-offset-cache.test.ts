@@ -5,10 +5,15 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   buildSearchKey,
   extractSortValues,
+  getRetainedSortValues,
+  retainSortValues,
   storeImageOffset,
   getImageOffset,
 } from "./image-offset-cache";
 import type { Image } from "@/types/image";
+import type { SortValues } from "@/dal/types";
+import { BUFFER_CAPACITY } from "@/constants/tuning";
+import { gridConfig } from "@/lib/grid-config";
 
 // ---------------------------------------------------------------------------
 // Fixture — same shape as field-registry.test.ts
@@ -72,6 +77,66 @@ describe("buildSearchKey", () => {
   it("strips null and empty-string values", () => {
     const key = buildSearchKey({ query: "cats", orderBy: null, nonFree: "" });
     expect(key).toBe(JSON.stringify([["query", "cats"]]));
+  });
+});
+
+describe("retained sort values", () => {
+  const alias = gridConfig.fieldAliases.find((field) => field.elasticsearchPath.startsWith("fileMetadata."))!;
+  const image = { ...SPARSE_IMAGE, aliases: { [alias.alias]: "fixture-value" } };
+  const searchKey = buildSearchKey({ query: "fixture", orderBy: alias.alias });
+  const cursor: SortValues = ["fixture-value", Date.parse(image.uploadTime), image.id];
+
+  beforeEach(() => {
+    retainSortValues(searchKey, [], [], true);
+    sessionStorage.clear();
+  });
+
+  it("prefers the authoritative tuple for an API-shaped image in the same search", () => {
+    retainSortValues(searchKey, [image], [cursor]);
+    expect(extractSortValues(image, alias.alias, searchKey)).toEqual(cursor);
+    expect(extractSortValues(image, alias.alias)).toEqual([null, cursor[1], image.id]);
+  });
+
+  it("does not reuse a tuple from another query or sort", () => {
+    retainSortValues(searchKey, [image], [cursor]);
+    for (const params of [
+      { query: "other", orderBy: alias.alias },
+      { query: "fixture", orderBy: `-${alias.alias}` },
+    ]) {
+      const otherKey = buildSearchKey(params);
+      expect(getRetainedSortValues(image.id, otherKey)).toBeNull();
+      expect(extractSortValues(image, params.orderBy, otherKey)?.[0]).toBeNull();
+    }
+  });
+
+  it("copies incoming and returned tuples without changing public length", () => {
+    const incoming = [...cursor];
+    retainSortValues(searchKey, [image], [incoming]);
+    incoming[0] = "changed-input";
+    const returned = getRetainedSortValues(image.id, searchKey)!;
+    expect(returned).toEqual(cursor);
+    returned[0] = "changed-output";
+    expect(getRetainedSortValues(image.id, searchKey)).toEqual(cursor);
+  });
+
+  it("bounds storage and retains recently used entries", () => {
+    const images = Array.from({ length: BUFFER_CAPACITY * 2 }, (_, index) => ({
+      ...image, id: `cursor-${index}`,
+    }));
+    retainSortValues(searchKey, images, images.map((entry) => ["fixture-value", cursor[1], entry.id]));
+    expect(getRetainedSortValues(images[0].id, searchKey)).not.toBeNull();
+    const newest = { ...image, id: "cursor-newest" };
+    retainSortValues(searchKey, [newest], [["fixture-value", cursor[1], newest.id]]);
+    expect(getRetainedSortValues(images[0].id, searchKey)).not.toBeNull();
+    expect(getRetainedSortValues(images[1].id, searchKey)).toBeNull();
+    expect(getRetainedSortValues(newest.id, searchKey)).not.toBeNull();
+  });
+
+  it("persists the authoritative history cursor independently of in-memory retention", () => {
+    retainSortValues(searchKey, [image], [cursor]);
+    storeImageOffset(image.id, 500, searchKey, extractSortValues(image, alias.alias, searchKey));
+    retainSortValues(searchKey, [], [], true);
+    expect(getImageOffset(image.id, searchKey)).toEqual({ offset: 500, cursor });
   });
 });
 

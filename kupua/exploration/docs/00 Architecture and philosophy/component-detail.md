@@ -40,6 +40,14 @@ Three-layer merge model:
 
 Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek) — shared by all three scroll tiers (`03-scroll-architecture.md` §2). Scroll-mode fill (`_fillBufferForScrollMode`) loads all results when total ≤ SCROLL_MODE_THRESHOLD (1000). Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD = 65k) enables indexed scroll tier. Above 65k, the scrubber falls back to seek-only. Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
 
+Committed response tuples are retained in `lib/image-offset-cache.ts`: at most `2 * BUFFER_CAPACITY`
+recent entries plus one active selection-anchor tuple, all in memory. Lookups check the image ID
+and search fingerprint; input/output arrays are copied. Fresh searches replace recent entries,
+and focus trimming keeps tuples aligned with images. Desktop/touch ranges and detail history
+prefer retained tuples over raw-field reconstruction, preserving API-only aliases. Selection
+owns the extra anchor entry through set, re-election, clear and hydrate. Cancelled work cannot
+publish stale extension/neighbour results, and replacing navigation clears cancelled busy flags.
+
 ## Field Registry (`lib/field-registry.tsx`, ~920 lines — renamed `.ts`→`.tsx` for JSX in `cellRenderer`)
 
 Single source of truth for all image fields. 37+ hardcoded + config-driven aliases. Fields carry `multiSelectBehaviour` (`"scalar" | "chip-array" | "summary" | "always-suppress"`), `showWhenEmpty` (renders `<Dash />` placeholder), `visibleWhen` (config gate, e.g. `imageTypes?.length`), `summariser`. `RECONCILE_FIELDS` exported (non-`always-suppress` fields). Drives table columns, sort dropdown, facet filters, detail panel, multi-image metadata panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display. `pillVariant?: "default" | "accent"` for field-specific pill styling (accent = Guardian blue, used by `labels`). Exports `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` set for sort controls. `cost` field added (Cluster 1); `labels` field added (`userMetadata.labels`, `pillVariant: "accent"`).
@@ -152,7 +160,7 @@ Pure function `interpretClick(ctx) → ClickEffect[]`. Six-row rule table is the
 
 ## Range Selection (`hooks/useRangeSelection.ts`)
 
-Orchestrates shift-click range selection. In-buffer fast path: walks `imagePositions` directly. Out-of-buffer: server walk via `getIdRange`. AbortController + generation counter prevents stale results racing. `extractSortValues` converts ISO date strings to epoch ms for `DATE_SORT_FIELDS` — ES sort values are epoch ms while `_source` values are ISO strings; callers must not compare them directly. Toasts on hard-cap truncation (warning at 5000) and soft-cap (info at 2000, non-destructive). Mounted once in `routes/search.tsx`; `handleRange` passed as prop to ImageGrid/ImageTable. Image cell + row whitespace dispatch range; field cells (`data-cql-cell`) keep click-to-search.
+Orchestrates shift-click range selection. In-buffer fast path: walks `imagePositions` directly. Out-of-buffer: server walk via `getIdRange`. AbortController + generation counter prevents stale results racing. Effect cursors and matching retained response tuples are preferred; raw `extractSortValues` is the fallback and converts ISO date strings to epoch ms for `DATE_SORT_FIELDS`. The active anchor's tuple survives recent-cache eviction independently of metadata hydration. Toasts on hard-cap truncation (warning at 5000) and soft-cap (info at 2000, non-destructive). Mounted once in `routes/search.tsx`; `handleRange` passed as prop to ImageGrid/ImageTable. Image cell + row whitespace dispatch range; field cells (`data-cql-cell`) keep click-to-search.
 
 ## Selection UI
 

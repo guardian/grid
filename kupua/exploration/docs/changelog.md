@@ -14,53 +14,79 @@
      Order:   newest at top, oldest at bottom.
      DO NOT delete or reorder existing entries. -->
 
+  ### 17 September 2026 — Retain authoritative cursors through browsing and selection
+
+  C1 of the D3 amendment batch retains committed response tuples by image ID and search
+  fingerprint, avoiding false null primaries when API images expose configured aliases without
+  their raw fileMetadata fields. Storage is bounded to twice BUFFER_CAPACITY recent entries
+  plus one active selection-anchor tuple; incoming and returned arrays are copied. Two-argument
+  raw extraction remains available, and public cursor length and sort ordering are unchanged.
+
+  Fresh search, fill, both extensions, seek, first-page fallback, focus and restore carry their
+  tuples to commit points. Focus alignment trims tuples alongside images. Grid/table clicks,
+  touch ranges and detail/traversal history prefer matching retained values. Selection owns the
+  extra anchor entry through set, re-election, clear and hydration, including metadata failure;
+  persisted selection state is unchanged.
+
+  Cancelled extensions and neighbour lookups cannot overwrite newer buffers or tuples. Seek
+  and focus clear the cancelled extension flags when taking ownership, so failed replacement
+  navigation cannot leave paging blocked; existing cooldown timings are preserved. Independent
+  code reviews identified these cancellation and anchor-lifetime cases, which have failing-first
+  regressions alongside eviction, context isolation, history persistence and nonzero trim tests.
+
+  Validation passed all 1,273 unit tests, all 210 habitual E2Es and the unchanged guarded local
+  special-sort oracle. Two new habitual grid/table cases use API-shaped mock pages to exercise
+  range anchors beyond the recent-cache limit and detail/traversal cursor persistence. This is
+  local regression and contract evidence, not live D3 verification. E1/N4 server work, C2
+  enrichment publication, C3 recovery and final live two-mode validation remain pending.
+
   ### 16 September 2026 — Align top-level date bounds with Grid
 
-    E2 of the D3 amendment batch changes the shared direct-ES query builder to use exclusive
-    lower/upper bounds for upload, taken and modified dates, matching existing Grid/D3 semantics.
-    Date-only URL values are expanded to explicit UTC midnight: passing them directly to ES with
-    exclusive operators rounds across the day and changes membership. Search, counts and positional
-    queries share the correction. CQL-inclusive date expressions, date-picker behavior, the
-    media-api request mapping and Scala date helpers are unchanged.
+  E2 of the D3 amendment batch changes the shared direct-ES query builder to use exclusive
+  lower/upper bounds for upload, taken and modified dates, matching existing Grid/D3 semantics.
+  Date-only URL values are expanded to explicit UTC midnight: passing them directly to ES with
+  exclusive operators rounds across the day and changes membership. Search, counts and positional
+  queries share the correction. CQL-inclusive date expressions, date-picker behavior, the
+  media-api request mapping and Scala date helpers are unchanged.
 
-    Twelve failing-first unit cases cover timestamp and date-only inputs across all six bounds.
-    A new habitual E2E case selects before/equal/after images from the local sample corpus using
-    read-only requests and checks identities, totals, counts and ranks. The existing date-filter
-    position-map test exposed the date-only rounding issue and passes without changing its fixture
-    or assertions. Final validation passed 1,243 unit tests and all 208 habitual E2Es, including
-    forced seek. The opt-in special-sort oracle is unchanged. Live TEST/media-api verification
-    was not performed for this slice; combined mode validation remains required for the batch.
+  Twelve failing-first unit cases cover timestamp and date-only inputs across all six bounds.
+  A new habitual E2E case selects before/equal/after images from the local sample corpus using
+  read-only requests and checks identities, totals, counts and ranks. The existing date-filter
+  position-map test exposed the date-only rounding issue and passes without changing its fixture
+  or assertions. Final validation passed 1,243 unit tests and all 208 habitual E2Es, including
+  forced seek. The opt-in special-sort oracle is unchanged. Live TEST/media-api verification
+  was not performed for this slice; combined mode validation remains required for the batch.
 
   ### 13 September 2026 — Cancel superseded registered-field typeahead requests
 
-    Registered CQL value resolvers now propagate `LazyTypeahead`'s existing
-    `AbortSignal` through the CQL wrapper, field definitions and scoped aggregation
-    helper to `ImageDataSource.getAggregations`. Rapid prefix edits cancel obsolete ES
-    work; local key suggestions, cached/static values, dotted-field cancellation,
-    exact keyword search semantics and popup behavior are unchanged. Abort remains
-    normal supersession with no warning, toast or stale replacement.
+  Registered CQL value resolvers now propagate `LazyTypeahead`'s existing
+  `AbortSignal` through the CQL wrapper, field definitions and scoped aggregation
+  helper to `ImageDataSource.getAggregations`. Rapid prefix edits cancel obsolete ES
+  work; local key suggestions, cached/static values, dotted-field cancellation,
+  exact keyword search semantics and popup behavior are unchanged. Abort remains
+  normal supersession with no warning, toast or stale replacement.
 
-    A failing-first controlled-DAL test proved the pre-fix signal was absent. Post-fix
-    it observes the superseded request abort, rejects the stale result, preserves the
-    immediate key option and publishes only the newest value options. Focused typeahead
-    tests passed 12/12, full units 1,231/1,231 and habitual Playwright 207/207. Live TEST
-    `+keyword:foot` produced six isolated typeahead requests: five `net::ERR_ABORTED`
-    and one completion, with the current options still visible. One unmatched post-fix
-    sample reached actionable options in 571ms versus the earlier 434ms baseline, so
-    no latency improvement or regression is claimed.
+  A failing-first controlled-DAL test proved the pre-fix signal was absent. Post-fix
+  it observes the superseded request abort, rejects the stale result, preserves the
+  immediate key option and publishes only the newest value options. Focused typeahead
+  tests passed 12/12, full units 1,231/1,231 and habitual Playwright 207/207. Live TEST
+  `+keyword:foot` produced six isolated typeahead requests: five `net::ERR_ABORTED`
+  and one completion, with the current options still visible. One unmatched post-fix
+  sample reached actionable options in 571ms versus the earlier 434ms baseline, so
+  no latency improvement or regression is claimed.
 
   ### 13 September 2026 — Preserve the visible traversal image request
 
-    Rapid P14d traversal intermittently committed all 20 image identities but left the final
-    full-resolution image unresolved for five seconds. The failed trace showed that the prefetch
-    session cancelled an adjacent image exactly when navigation made it visible; Chromium could
-    coalesce the centre image request with that cancelled request. Stale neighbours are still
-    cancelled, but the current visible image is now protected until its request settles.
+  Rapid P14d traversal intermittently committed all 20 image identities but left the final
+  full-resolution image unresolved for five seconds. The failed trace showed that the prefetch
+  session cancelled an adjacent image exactly when navigation made it visible; Chromium could
+  coalesce the centre image request with that cancelled request. Stale neighbours are still
+  cancelled, but the current visible image is now protected until its request settles.
 
-    A failing-first unit test reproduced the full URL being cleared on the next traversal step.
-    Validation passed 1,230 unit tests, the production build, four cold-cache embedded-browser
-    bursts, and four formal media-api P14d repetitions. Formal landing times were 262ms, 306ms,
-    316ms and 225ms. P14d is now part of the required fast media-api campaign preflight.
+  A failing-first unit test reproduced the full URL being cleared on the next traversal step.
+  Validation passed 1,230 unit tests, the production build, four cold-cache embedded-browser
+  bursts, and four formal media-api P14d repetitions. Formal landing times were 262ms, 306ms,
+  316ms and 225ms. P14d is now part of the required fast media-api campaign preflight.
 
   ### 13 September 2026 — Make explicit Filters expansion immediate
 

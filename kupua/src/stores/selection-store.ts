@@ -39,6 +39,7 @@ import {
   SELECTION_RECONCILE_CHUNK_SIZE,
 } from "@/constants/tuning";
 import { addToast } from "@/stores/toast-store";
+import { setRetainedCursorAnchor } from "@/lib/image-offset-cache";
 
 // ---------------------------------------------------------------------------
 // LRU cache — colocated because it's an implementation detail of this store
@@ -458,6 +459,7 @@ export const useSelectionStore = create<SelectionState>()(
               ? electFallbackAnchor(newIds)
               : undefined; // undefined = no change
 
+          if (newAnchor !== undefined) setRetainedCursorAnchor(newAnchor);
           set((s) => ({
             selectedIds: newIds,
             reconciledView: newView,
@@ -571,6 +573,7 @@ export const useSelectionStore = create<SelectionState>()(
             ? electFallbackAnchor(nextIds)
             : undefined; // undefined = no change
 
+        if (newAnchor !== undefined) setRetainedCursorAnchor(newAnchor);
         set((s) => ({
           selectedIds: nextIds,
           reconciledView: newView,
@@ -584,6 +587,7 @@ export const useSelectionStore = create<SelectionState>()(
         // Reset hydration toast dedup so a future reload with missing IDs
         // can fire the toast again (user has cleared and restarted a session).
         _hydrationToastShown = false;
+        setRetainedCursorAnchor(null);
         set((s) => ({
           selectedIds: new Set<string>(),
           anchorId: null,
@@ -596,6 +600,7 @@ export const useSelectionStore = create<SelectionState>()(
       },
 
       setAnchor(id: string | null): void {
+        setRetainedCursorAnchor(id);
         set({ anchorId: id });
         if (id !== null) {
           // Cohesion rule: range-select server-walk needs anchor metadata.
@@ -652,7 +657,8 @@ export const useSelectionStore = create<SelectionState>()(
       },
 
       async hydrate(): Promise<void> {
-        const { selectedIds, dataSource } = get();
+        const { selectedIds, dataSource, anchorId } = get();
+        setRetainedCursorAnchor(anchorId);
         if (selectedIds.size === 0) return;
 
         const ids = Array.from(selectedIds);

@@ -45,7 +45,7 @@ import { FIELD_REGISTRY } from "@/lib/field-registry";
 import { isolateAggregationFailure } from "@/lib/safe-aggregation";
 import { findHasFieldTargets } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { resolveKeywordSortInfo, resolveDateSortInfo, resolvePrimarySortKey } from "@/lib/sort-context";
-import { extractSortValues } from "@/lib/image-offset-cache";
+import { buildSearchKey, extractSortValues, getRetainedSortValues, retainSortValues } from "@/lib/image-offset-cache";
 import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
@@ -1050,6 +1050,7 @@ async function _fillBufferForScrollMode(
       if (!newEndCursor) break;
       currentCursor = newEndCursor;
 
+      retainSortValues(buildSearchKey(params), result.hits, result.sortValues);
       // Append to buffer — no eviction (we want the full set)
       // Commit-to-view (fill loop): merge enrichment incrementally.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
@@ -1282,6 +1283,7 @@ async function _fetchPositionMap(
  */
 interface BufferAroundImage {
   combinedHits: (Image | undefined)[];
+  sortValues: SortValues[];
   bufferStart: number;
   startCursor: SortValues | null;
   endCursor: SortValues | null;
@@ -1370,6 +1372,7 @@ async function _loadBufferAroundImage(
 
   return {
     combinedHits,
+    sortValues: combinedSortValues,
     bufferStart,
     startCursor,
     endCursor,
@@ -1419,6 +1422,7 @@ async function _findAndFocusImage(
    *  buffer is from a different search context). */
   fallbackFirstPage?: {
     hits: Image[];
+    sortValues: SortValues[];
     startCursor: SortValues | null;
     endCursor: SortValues | null;
     pitId: string | null;
@@ -1470,9 +1474,11 @@ async function _findAndFocusImage(
     ? AbortSignal.any([findFocusSignal, timeoutController.signal])
     : findFocusSignal; // Fallback for environments without AbortSignal.any
   const timeoutId = setTimeout(() => {
+    if (findFocusSignal.aborted) return;
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
     if (fallbackFirstPage) {
+      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -1552,6 +1558,8 @@ async function _findAndFocusImage(
           }
         }
 
+        if (combinedSignal.aborted) return;
+        retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
         set({
           results: fallbackFirstPage.hits,
           bufferOffset: 0,
@@ -1751,6 +1759,7 @@ async function _findAndFocusImage(
       // seeks in two-tier mode can't abort this work.
       _rangeAbortController.abort();
       _rangeAbortController = new AbortController();
+      set({ _extendForwardInFlight: false, _extendBackwardInFlight: false });
 
       const buf = await _loadBufferAroundImage(
         targetHit, imageSortValues, offset, fp,
@@ -1762,6 +1771,7 @@ async function _findAndFocusImage(
       if (combinedSignal.aborted) return;
 
       let finalResults = buf.combinedHits;
+      let finalSortValues = buf.sortValues;
       let finalBufferOffset = buf.bufferStart;
       let finalStartCursor = buf.startCursor;
       if (exactOffset != null) {
@@ -1776,8 +1786,11 @@ async function _findAndFocusImage(
         finalBufferOffset = alignedOffset;
         if (trimCount > 0) {
           finalResults = finalResults.slice(trimCount);
+          finalSortValues = finalSortValues.slice(trimCount);
           if (finalResults[0]) {
-            finalStartCursor = extractSortValues(finalResults[0], fp.orderBy) ?? finalStartCursor;
+            finalStartCursor = finalSortValues[0]
+              ?? extractSortValues(finalResults[0], fp.orderBy)
+              ?? finalStartCursor;
           }
         }
       }
@@ -1797,6 +1810,7 @@ async function _findAndFocusImage(
       //
       // In phantom mode, we use _seekGeneration instead (no focusedImageId
       // to drive the sort-around-focus scroll effect).
+      retainSortValues(buildSearchKey(params), finalResults, finalSortValues, Boolean(fallbackFirstPage));
       // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({
@@ -1840,10 +1854,12 @@ async function _findAndFocusImage(
       void _topUpScrollModeBuffer(get);
     }
   } catch (e) {
+    if (findFocusSignal.aborted) return;
     if (e instanceof DOMException && e.name === "AbortError") return;
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (fallbackFirstPage) {
+      retainSortValues(buildSearchKey(params), fallbackFirstPage.hits, fallbackFirstPage.sortValues, true);
       set({
         results: fallbackFirstPage.hits,
         bufferOffset: 0,
@@ -2298,6 +2314,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // (e.g. query change where the image was filtered out).
         _findAndFocusImage(sortAroundFocusId, params, get, set, {
           hits: result.hits,
+          sortValues: result.sortValues,
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
@@ -2353,6 +2370,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               .map((h) => h.id))
           : new Set();
 
+        retainSortValues(buildSearchKey(params), result.hits, result.sortValues, true);
         // Commit-to-view (fresh search): replace the enrichment overlay.
         // setEnrichment replaces all — fresh search is the only commit that uses set (not upsert).
         if (result.enrichment) useEnrichmentStore.getState().setEnrichment(result.enrichment);
@@ -2501,6 +2519,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return;
     }
 
+    const signal = _rangeAbortController.signal;
     set({ _extendForwardInFlight: true });
 
     try {
@@ -2512,14 +2531,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         { ...params, length: PAGE_SIZE },
         endCursor,
         effectivePitId,
-        _rangeAbortController.signal,
+        signal,
       );
 
+      if (signal.aborted) return;
       if (result.hits.length === 0) {
         set({ _extendForwardInFlight: false });
         return;
       }
 
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
       // Commit-to-view (extend-forward): merge enrichment.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set((state) => {
@@ -2548,13 +2569,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           );
           newBuffer.splice(0, evictedFromStart);
           newOffset += evictedFromStart;
-          // Recompute startCursor from the new first buffer item.
-          // extractSortValues derives ES sort values from the image's
-          // fields (pure field read, no ES call). Without this,
-          // extendBackward has no cursor and the user can't scroll up.
           const firstItem = newBuffer[0];
           const evictedStart = firstItem
-            ? extractSortValues(firstItem, params.orderBy)
+            ? getRetainedSortValues(firstItem.id, buildSearchKey(rawParams))
+              ?? extractSortValues(firstItem, params.orderBy)
             : null;
           // Preserve last good cursor if extraction fails — overwriting with
           // null would permanently block extendBackward (audit #14).
@@ -2586,6 +2604,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         };
       });
     } catch (e) {
+      if (signal.aborted) return;
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendForwardInFlight: false });
         return;
@@ -2631,6 +2650,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     const fetchCount = Math.min(PAGE_SIZE, bufferOffset);
 
+    const signal = _rangeAbortController.signal;
     set({ _extendBackwardInFlight: true });
 
     try {
@@ -2646,10 +2666,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         { ...params, length: fetchCount },
         startCursor,
         effectivePitId,
-        _rangeAbortController.signal,
+        signal,
         true, // reverse
       );
 
+      if (signal.aborted) return;
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
         return;
@@ -2686,6 +2707,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
 
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
       // Commit-to-view (extend-backward): merge enrichment.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set((state) => {
@@ -2711,7 +2733,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // with the startCursor recomputation in extendForward eviction).
           const lastItem = newBuffer[newBuffer.length - 1];
           const evictedEnd = lastItem
-            ? extractSortValues(lastItem, params.orderBy)
+            ? getRetainedSortValues(lastItem.id, buildSearchKey(rawParams))
+              ?? extractSortValues(lastItem, params.orderBy)
             : null;
           // Preserve last good cursor if extraction fails — overwriting with
           // null would permanently block extendForward (audit #14).
@@ -2751,6 +2774,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // "swimming." See POST_EXTEND_COOLDOWN_MS in tuning.ts for constraints.
       _seekCooldownUntil = Date.now() + POST_EXTEND_COOLDOWN_MS;
     } catch (e) {
+      if (signal.aborted) return;
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendBackwardInFlight: false });
         return;
@@ -2791,7 +2815,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // before the seek's async fetch can set the cooldown.
     _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-    set({ loading: true, error: null, _pendingFocusDelta: null });
+    set({
+      loading: true,
+      error: null,
+      _pendingFocusDelta: null,
+      _extendForwardInFlight: false,
+      _extendBackwardInFlight: false,
+    });
     trace(traceAction, "t_ack");
     traceInteraction(traceAction, "t_ack", traceInteractionId);
 
@@ -3632,6 +3662,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Effect #6 in useScrollEffects will only adjust scrollTop if there's
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
       // Commit-to-view (seek): merge enrichment from the seek's forward fetch.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
       set({
@@ -3840,6 +3871,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return inTwoTier ? exactOffset : -1;
       })();
 
+      retainSortValues(buildSearchKey(rawParams), buf.combinedHits, buf.sortValues);
       // Commit-to-view (restoreAroundCursor buffer-around): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
       set({

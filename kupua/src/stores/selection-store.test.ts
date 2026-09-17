@@ -20,6 +20,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useSelectionStore, _resetReconcileQueue, _resetDebounceState, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
 import { useToastStore } from "./toast-store";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { buildSearchKey, getRetainedSortValues, retainSortValues, setRetainedCursorAnchor } from "@/lib/image-offset-cache";
+import { BUFFER_CAPACITY } from "@/constants/tuning";
+import type { Image } from "@/types/image";
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -47,6 +50,7 @@ const cancelIdleCallbackMock = vi.fn();
 let mock: MockDataSource;
 
 beforeEach(() => {
+  setRetainedCursorAnchor(null);
   // Stub browser globals.
   vi.stubGlobal("sessionStorage", sessionStorageMock);
   vi.stubGlobal("requestIdleCallback", requestIdleCallbackMock);
@@ -264,6 +268,51 @@ describe("clear", () => {
 // ---------------------------------------------------------------------------
 
 describe("setAnchor", () => {
+  it.each(["setAnchor", "hydrate"] as const)("retains the active anchor tuple beyond the recent cache when metadata is unavailable (%s)", async (owner) => {
+    vi.spyOn(mock, "getByIds").mockRejectedValue(new Error("fixture metadata unavailable"));
+    const searchKey = buildSearchKey({ query: "fixture", orderBy: "editStatus" });
+    const anchor = { id: "img-3" } as Image;
+    const cursor = ["fixture-alias", 1234567890, anchor.id];
+    retainSortValues(searchKey, [anchor], [cursor], true);
+    useSelectionStore.setState({ selectedIds: new Set([anchor.id]), anchorId: anchor.id });
+    if (owner === "hydrate") await useSelectionStore.getState().hydrate();
+    else useSelectionStore.getState().setAnchor(anchor.id);
+    await vi.waitFor(() => expect(useSelectionStore.getState().pendingFetchIds.size).toBe(0));
+    expect(useSelectionStore.getState().metadataCache.get(anchor.id)).toBeUndefined();
+
+    const laterImages = Array.from({ length: BUFFER_CAPACITY * 2 + 1 }, (_, index) => ({
+      id: `later-${index}`,
+    } as Image));
+    retainSortValues(searchKey, laterImages, laterImages.map((image) => ["fixture-alias", 1234567890, image.id]));
+
+    expect(getRetainedSortValues(anchor.id, searchKey)).toEqual(cursor);
+    useSelectionStore.getState().setAnchor(anchor.id);
+    expect(getRetainedSortValues(anchor.id, searchKey)).toEqual(cursor);
+    await vi.waitFor(() => expect(useSelectionStore.getState().pendingFetchIds.size).toBe(0));
+    useSelectionStore.getState().clear();
+    expect(getRetainedSortValues(anchor.id, searchKey)).toBeNull();
+  });
+
+  it.each(["toggle", "remove"] as const)("moves retained cursor ownership when %s re-elects the anchor", async (operation) => {
+    vi.spyOn(mock, "getByIds").mockRejectedValue(new Error("fixture metadata unavailable"));
+    const searchKey = buildSearchKey({ query: "fixture" });
+    const images = [{ id: "img-0" }, { id: "img-3" }] as Image[];
+    retainSortValues(searchKey, images, [[100, "img-0"], [300, "img-3"]], true);
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-3"]) });
+    useSelectionStore.getState().setAnchor("img-3");
+    await vi.waitFor(() => expect(useSelectionStore.getState().pendingFetchIds.size).toBe(0));
+    if (operation === "toggle") useSelectionStore.getState().toggle("img-3");
+    else useSelectionStore.getState().remove(["img-3"]);
+    const laterImages = Array.from({ length: BUFFER_CAPACITY * 2 + 1 }, (_, index) => ({
+      id: `later-${index}`,
+    } as Image));
+    retainSortValues(searchKey, laterImages, laterImages.map((image) => [1000, image.id]));
+
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(getRetainedSortValues("img-0", searchKey)).toEqual([100, "img-0"]);
+    expect(getRetainedSortValues("img-3", searchKey)).toBeNull();
+  });
+
   it("sets anchorId", () => {
     useSelectionStore.getState().setAnchor("img-3");
     expect(useSelectionStore.getState().anchorId).toBe("img-3");

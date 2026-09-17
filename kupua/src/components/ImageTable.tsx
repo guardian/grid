@@ -32,7 +32,7 @@ import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview } from "@/lib/orchestration/search";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
-import { storeImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
+import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { handleLongPressStart } from "@/lib/handleLongPressStart";
@@ -573,11 +573,12 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       const idx = findImageIndex(imageId);
       if (idx >= 0) {
         const img = getImage(idx);
-        const cursor = img ? extractSortValues(img, searchParamsRef.current.orderBy) : null;
+        const searchKey = buildSearchKey(searchParamsRef.current);
+        const cursor = img ? extractSortValues(img, searchParamsRef.current.orderBy, searchKey) : null;
         // In two-tier mode, idx from findImageIndex is already global.
         // In normal mode, add bufferOffset to get global position.
         const globalOffset = twoTier ? idx : bufferOffset + idx;
-        storeImageOffset(imageId, globalOffset, buildSearchKey(searchParamsRef.current), cursor);
+        storeImageOffset(imageId, globalOffset, searchKey, cursor);
       }
       pushNavigate(navigate, {
         to: "/search",
@@ -602,6 +603,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         const modifier: Modifier =
           e.metaKey || e.ctrlKey ? "meta-or-ctrl" : e.shiftKey ? "shift" : "none";
         const searchState = useSearchStore.getState();
+        const searchKey = buildSearchKey(searchParamsRef.current);
         const idx = findImageIndex(imageId);
         const image = idx >= 0 ? getImage(idx) : undefined;
         const anchorId = selState.anchorId;
@@ -611,9 +613,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         const anchorSortValues = (() => {
           if (!anchorId) return null;
           const anchorImg = selState.metadataCache.get(anchorId);
-          return anchorImg
+          return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
             ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
-            : null;
+            : null);
         })();
         const effects = interpretClick({
           targetId: imageId,
@@ -624,7 +626,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
           targetGlobalIndex: searchState.imagePositions.get(imageId),
           anchorGlobalIndex,
           targetSortValues: image
-            ? extractSortValues(image, searchParamsRef.current.orderBy)
+            ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
             : null,
           anchorSortValues,
         });
@@ -660,6 +662,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     (imageId: string, e: React.MouseEvent) => {
       const selState = useSelectionStore.getState();
       const searchState = useSearchStore.getState();
+      const searchKey = buildSearchKey(searchParamsRef.current);
       const idx = findImageIndex(imageId);
       const image = idx >= 0 ? getImage(idx) : undefined;
       const modifier: Modifier =
@@ -671,9 +674,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       const anchorSortValues = (() => {
         if (!anchorId) return null;
         const anchorImg = selState.metadataCache.get(anchorId);
-        return anchorImg
+        return getRetainedSortValues(anchorId, searchKey) ?? (anchorImg
           ? extractSortValues(anchorImg, searchParamsRef.current.orderBy)
-          : null;
+          : null);
       })();
       const effects = interpretClick({
         targetId: imageId,
@@ -684,7 +687,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         targetGlobalIndex: searchState.imagePositions.get(imageId),
         anchorGlobalIndex,
         targetSortValues: image
-          ? extractSortValues(image, searchParamsRef.current.orderBy)
+          ? extractSortValues(image, searchParamsRef.current.orderBy, searchKey)
           : null,
         anchorSortValues,
       });

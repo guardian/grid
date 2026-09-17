@@ -20,8 +20,52 @@
 import type { Image } from "@/types/image";
 import type { SortValues } from "@/dal";
 import { buildSortClause, parseSortField, DATE_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "@/dal";
+import { BUFFER_CAPACITY } from "@/constants/tuning";
 
 const PREFIX = "kupua:imgOffset:";
+type RetainedCursor = { searchKey: string; values: SortValues };
+const retainedSortValues = new Map<string, RetainedCursor>();
+let cursorAnchor: { id: string; cursor?: RetainedCursor } | null = null;
+
+export function setRetainedCursorAnchor(imageId: string | null): void {
+  if (cursorAnchor?.id === imageId) return;
+  cursorAnchor = imageId === null
+    ? null
+    : { id: imageId, cursor: retainedSortValues.get(imageId) };
+}
+
+export function retainSortValues(
+  searchKey: string,
+  images: readonly (Image | undefined)[],
+  sortValues: readonly SortValues[],
+  replace = false,
+): void {
+  if (replace) retainedSortValues.clear();
+  images.forEach((image, index) => {
+    const values = sortValues[index];
+    if (!image || !values?.length) return;
+    const entry = { searchKey, values: [...values] };
+    retainedSortValues.delete(image.id);
+    retainedSortValues.set(image.id, entry);
+    if (cursorAnchor?.id === image.id) cursorAnchor.cursor = entry;
+  });
+  while (retainedSortValues.size > BUFFER_CAPACITY * 2) {
+    const oldestId = retainedSortValues.keys().next().value;
+    if (oldestId === undefined) break;
+    retainedSortValues.delete(oldestId);
+  }
+}
+
+export function getRetainedSortValues(imageId: string, searchKey: string): SortValues | null {
+  const entry = retainedSortValues.get(imageId)
+    ?? (cursorAnchor?.id === imageId ? cursorAnchor.cursor : undefined);
+  if (!entry || entry.searchKey !== searchKey) return null;
+  if (retainedSortValues.has(imageId)) {
+    retainedSortValues.delete(imageId);
+    retainedSortValues.set(imageId, entry);
+  }
+  return [...entry.values];
+}
 
 /**
  * Build a stable fingerprint from URL search params for cache keying.
@@ -64,8 +108,8 @@ function readFieldPath(image: Image, path: string): string | number | null {
 }
 
 /**
- * Build the sort values array that ES would return for this image under
- * the current sort clause. Pure field extraction — no network call.
+ * Prefer the retained response tuple for a supplied search key, otherwise
+ * extract sort values from the image under the current sort clause.
  *
  * Returns `null` if any required sort field can't be read (defensive —
  * callers should fall back to offset-based restore).
@@ -73,7 +117,12 @@ function readFieldPath(image: Image, path: string): string | number | null {
 export function extractSortValues(
   image: Image,
   orderBy?: string,
+  searchKey?: string,
 ): SortValues | null {
+  if (searchKey !== undefined) {
+    const retained = getRetainedSortValues(image.id, searchKey);
+    if (retained) return retained;
+  }
   const clauses = buildSortClause(orderBy);
   const values: SortValues = [];
   for (const clause of clauses) {
