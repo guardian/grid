@@ -126,12 +126,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             });
           };
 
-          if ($state.current.name === 'search') {
-            mediaApi.getSession().then(session => {
-              storage.setJs('isNonFree', toNonFreeString(session.user.permissions.showPaid), true);
-            });
-          }
-
           ctrl.collectionsPanel = panels.collectionsPanel;
           ctrl.metadataPanel = panels.metadataPanel;
 
@@ -321,19 +315,27 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 // we just land on `/`. See [1].
 search.run(['$rootScope', '$state', '$stateParams', '$timeout', function($rootScope, $state, $stateParams, $timeout) {
   $rootScope.$on('$viewContentLoaded', (_, view) => {
+    // eslint-disable-next-line no-console
+    console.log('[LOOP-DIAG][index.js] viewContentLoaded', {view, stateParamsNonFree: $stateParams.nonFree});
     if (view === 'results@search') {
       // using a timeout of 0 to schedule the task for execution ASAP, but outside the ongoing transition
       $timeout(() => {
+        // eslint-disable-next-line no-console
+        console.log('[LOOP-DIAG][index.js] viewContentLoaded timeout firing $state.go isDeepStateRedirect:false', {stateParamsNonFree: $stateParams.nonFree});
         $state.go('search.results', {isDeepStateRedirect: false});
       });
     }
   });
   $rootScope.$on('$stateChangeSuccess', (_, toState) => {
+    // eslint-disable-next-line no-console
+    console.log('[LOOP-DIAG][index.js] stateChangeSuccess', {toStateName: toState.name, stateParamsNonFree: $stateParams.nonFree});
     if (toState.name === 'search') {
       $state.go('search.results', null, {reload: true});
     }
   });
   $rootScope.$on('$stateChangeStart', (_, toState, toParams) => {
+    // eslint-disable-next-line no-console
+    console.log('[LOOP-DIAG][index.js] stateChangeStart', {toStateName: toState.name, toParamsNonFree: toParams.nonFree});
     if (toState.name === 'search.results') {
       //If moving to a collection, sorts images by time added to a collection by default
       //allows sorting by newest first if set by user. Need to account for 'With Taken Date' tab impacts on query
