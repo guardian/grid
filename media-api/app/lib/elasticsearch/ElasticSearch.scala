@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
@@ -855,7 +855,15 @@ class ElasticSearch(
     val projected = request
       .sourceInclude(projectionIncludes.head, projectionIncludes.tail: _*)
 
-    executeAndLog(projected, "search-after").map { r =>
+    executeAndLog(projected, "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      if (!r.isSuccess) {
+        val missingContext = r.error.`type` == "search_context_missing_exception" ||
+          (r.error.`type` == "search_phase_execution_exception" && r.error.rootCause.nonEmpty &&
+            r.error.rootCause.forall(_.`type` == "search_context_missing_exception"))
+        if (r.status == 404 && params.pitId.nonEmpty && missingContext) throw SearchAfterPitExpired
+        else throw ElasticNotFoundException
+      }
+
       // A PIT search's hit.sort carries an extra implicit _shard_doc tiebreaker. It is dropped
       // deliberately: cursors outlive the PIT (clients persist them, and retry without a PIT when
       // one expires), and a PIT-specific value in a non-PIT search_after is rejected by ES. Callers

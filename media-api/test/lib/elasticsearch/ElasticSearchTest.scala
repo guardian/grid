@@ -1,8 +1,9 @@
 package lib.elasticsearch
 
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
-import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication, Tier}
+import com.gu.mediaservice.lib.argo.model.{Action, Link}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
@@ -15,21 +16,25 @@ import com.sksamuel.elastic4s.Index
 import com.sksamuel.elastic4s.requests.searches.Pit
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import lib.querysyntax._
-import lib.{MediaApiConfig, MediaApiMetrics}
+import lib.{ImageResponse, MediaApiConfig, MediaApiMetrics}
+import org.mockito.ArgumentMatchers.{any, anyBoolean}
+import org.mockito.Mockito.when
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.{JsNull, JsNumber, JsString, JsValue, Json}
-import play.api.mvc.AnyContent
+import play.api.http.HttpEntity
+import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json}
+import play.api.mvc.{AnyContent, Result}
 import play.api.mvc.Security.AuthenticatedRequest
+import play.api.test.FakeRequest
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
+class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar with controllers.MediaApiTestSupport {
 
   implicit val request: AuthenticatedRequest[AnyContent, Principal] = mock[AuthenticatedRequest[AnyContent, Principal]]
 
@@ -771,12 +776,201 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
   }
 
+  describe("GET/D3 contracts") {
+    val uploader = UserPrincipal("Test", "Uploader", "uploader@example.test")
+    val otherUploader = UserPrincipal("Test", "Other", "other@example.test")
+    val sortClause = Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+    val writer = mock[ImageResponse]
+    when(writer.create(any[String], any[SourceWrapper[Image]], anyBoolean(), anyBoolean(), anyBoolean(),
+      any[List[String]], any[Tier])(any[LogMarker])).thenAnswer { invocation =>
+      (Json.obj("id" -> invocation.getArgument[String](0)), List.empty[Link], List.empty[Action])
+    }
+
+    def withImages(fixtures: Seq[Image])(check: JsObject => Unit): Unit = {
+      whenReady(saveImages(fixtures).flatMap(_ => client.execute(refreshIndex(index))), timeout, interval) { _ =>
+        try check(Json.obj("ids" -> fixtures.map(_.id).mkString(","), "length" -> 100, "countAll" -> true))
+        finally {
+          whenReady(Future.sequence(fixtures.map(image => client.execute(deleteById(index, image.id))))
+            .flatMap(_ => client.execute(refreshIndex(index))), timeout, interval)(_ => ())
+        }
+      }
+    }
+
+    def assertPage(response: Future[Result], expected: Set[String]): Unit = {
+      whenReady(response, timeout, interval) { result =>
+        result.header.status shouldBe 200
+        val json = Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+        (json \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String]).toSet shouldBe expected
+        (json \ "total").as[Long] shouldBe expected.size.toLong
+      }
+    }
+
+    def getRequest(queryParams: (String, String)*) = {
+      val query = queryParams.map { case (name, value) =>
+        s"${java.net.URLEncoder.encode(name, "UTF-8")}=${java.net.URLEncoder.encode(value, "UTF-8")}"
+      }.mkString("&")
+      FakeRequest("GET", s"/images?$query")
+    }
+
+    def assertBothModes(body: JsObject, expected: Set[String]): Unit = {
+      val controller = mediaApiFor(uploader, ES, writer, privileged = true)
+      val queryParams = body.fields.map { case (name, value) =>
+        name -> (value match {
+          case JsString(text) => text
+          case other => Json.stringify(other)
+        })
+      }
+      assertPage(controller.imageSearch().apply(getRequest(queryParams.toList: _*)), expected)
+      assertPage(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+        .withBody(body ++ Json.obj("sort" -> sortClause))), expected)
+    }
+
+    it("scopes deleted hits and exact totals through the D3 controller and preserves GET authorization") {
+      val deleted = Seq(uploader, otherUploader).map { principal =>
+        createImage(s"d3-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+          softDeletedMetadata = Some(deletionData(principal.email)))
+      }
+      val live = createImage("d3-visible", Handout(), uploadedBy = uploader.email)
+      val replaced = createImage("d3-replaced", Handout(), uploadedBy = uploader.email,
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage,
+          com.gu.mediaservice.model.usage.ReplacedUsageStatus, DateTime.parse("2020-06-15T00:00:00Z"))))
+
+      withImages(deleted ++ Seq(live, replaced)) { base =>
+        Seq(uploader, otherUploader).foreach { principal =>
+          val controller = mediaApiFor(principal, ES, writer)
+          Seq("is:deleted", "keyword:test is:deleted", "is:DELETED -is:deletedx", "is:\"deleted\"", "is:'deleted'").foreach { query =>
+            assertPage(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(
+              base ++ Json.obj("sort" -> sortClause, "q" -> query, "uploadedBy" -> "not-the-uploader@example.test")
+            )), Set(s"d3-deleted-${principal.lastName}"))
+          }
+          assertPage(controller.imageSearch().apply(getRequest(
+            "q" -> "is:deleted", "ids" -> deleted.map(_.id).mkString(","), "countAll" -> "true"
+          )), Set(s"d3-deleted-${principal.lastName}"))
+        }
+        val privileged = mediaApiFor(uploader, ES, writer, privileged = true)
+        Seq("is:deleted", "is:\"deleted\"", "is:DELETED").foreach { query =>
+          assertPage(privileged.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+            .withBody(base ++ Json.obj("sort" -> sortClause, "q" -> query))), deleted.map(_.id).toSet)
+        }
+        val ordinary = mediaApiFor(uploader, ES, writer)
+        Seq(Json.obj(), Json.obj("q" -> JsNull), Json.obj("q" -> 42), Json.obj("q" -> ""),
+          Json.obj("q" -> "-is:deleted"), Json.obj("q" -> "-is:deletedx"),
+          Json.obj("q" -> "-description:\"is:deleted\""), Json.obj("q" -> "fixture\tterm")).foreach { query =>
+          assertPage(ordinary.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+            .withBody(base ++ Json.obj("sort" -> sortClause) ++ query)), Set(live.id))
+        }
+        assertPage(ordinary.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+          .withBody(base ++ Json.obj("sort" -> sortClause, "q" -> "usages@status:replaced"))), Set(replaced.id))
+      }
+    }
+
+    it("retains omitted, true and false acquired-rights filters and existing mixed-rights status semantics") {
+      def rights(values: List[Option[Boolean]]) = Some(SyndicationRights(None, Nil,
+        values.zipWithIndex.map { case (acquired, position) => com.gu.mediaservice.model.Right(s"right-$position", acquired, Nil) }))
+      val fixtures = Seq(
+        createImage("d3-rights-missing", Handout()),
+        createImage("d3-rights-empty", Handout(), syndicationRights = rights(Nil)),
+        createImage("d3-rights-unset", Handout(), syndicationRights = rights(List(None))),
+        createImage("d3-rights-false", Handout(), syndicationRights = rights(List(Some(false), Some(false)))),
+        createImage("d3-rights-true", Handout(), syndicationRights = rights(List(Some(true), Some(true)))),
+        createImage("d3-rights-mixed", Handout(), syndicationRights = rights(List(Some(false), Some(true)))),
+      )
+      val acquired = Set("d3-rights-true", "d3-rights-mixed")
+      val all = fixtures.map(_.id).toSet
+
+      withImages(fixtures) { base =>
+        assertBothModes(base, all)
+        assertBothModes(base ++ Json.obj("hasRightsAcquired" -> true), acquired)
+        assertBothModes(base ++ Json.obj("hasRightsAcquired" -> false), all -- acquired)
+        assertBothModes(base ++ Json.obj("syndicationStatus" -> "unsuitable"), all - "d3-rights-true")
+      }
+    }
+
+    it("returns a D3 expiry contract for a closed PIT search context") {
+      val controller = mediaApiFor(uploader, ES, writer)
+      val response = for {
+        opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+        _ <- client.execute(deletePointInTime(opened.result.id))
+        result <- controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+          .withBody(Json.obj("sort" -> sortClause, "pitId" -> opened.result.id)))
+      } yield result
+
+      whenReady(response, timeout, interval) { result =>
+        result.header.status shouldBe 410
+        val json = Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+    }
+
+    it("does not classify malformed PIT IDs as D3 expiry") {
+      val controller = mediaApiFor(uploader, ES, writer)
+      val response = controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+        .withBody(Json.obj("sort" -> sortClause, "pitId" -> "not-a-pit")))
+
+      whenReady(response.failed, timeout, interval) { error =>
+        error shouldBe a[com.gu.mediaservice.lib.elasticsearch.ElasticSearchError]
+      }
+    }
+
+    it("excludes equality for all six date bounds in GET and D3, including date-only UTC midnight") {
+      val boundary = DateTime.parse("2020-06-15T00:00:00Z")
+      val fixtures = Seq("before" -> boundary.minusMillis(1), "equal" -> boundary, "after" -> boundary.plusMillis(1))
+        .map { case (position, date) =>
+          val image = createImage(s"d3-date-$position", Handout())
+          image.copy(uploadTime = date, lastModified = Some(date), metadata = image.metadata.copy(dateTaken = Some(date)))
+        }
+
+      withImages(fixtures) { base =>
+        Seq("since", "until", "takenSince", "takenUntil", "modifiedSince", "modifiedUntil").foreach { bound =>
+          val expected = Set(if (bound.toLowerCase.endsWith("since")) "d3-date-after" else "d3-date-before")
+          Seq("2020-06-15T00:00:00.000Z", "2020-06-15").foreach { date =>
+            assertBothModes(base ++ Json.obj(bound -> date), expected)
+          }
+        }
+      }
+    }
+  }
+
   describe("searchAfter") {
     // Mirrors the default kupua sort clause: uploadTime desc, id asc as tiebreaker
     val sortClause = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
 
     describe("request body parsing") {
       val searchParams = SearchParams(tier = Internal, length = 3)
+
+      Seq(
+        "absent" -> Json.obj(),
+        "null" -> Json.obj("q" -> JsNull),
+        "number" -> Json.obj("q" -> 123),
+        "boolean" -> Json.obj("q" -> true),
+        "array" -> Json.obj("q" -> Json.arr("is:deleted")),
+        "object" -> Json.obj("q" -> Json.obj("query" -> "is:deleted")),
+      ).foreach { case (queryType, body) =>
+        it(s"applies default hiding when q is $queryType") {
+          val parsed = SearchParamsBody.fromJson(body, Internal).toOption.get
+
+          parsed.query shouldBe None
+          parsed.structuredQuery shouldBe lib.querysyntax.Parser.run("")
+          parsed.structuredQuery should not be empty
+        }
+      }
+
+      Seq("fixture\tterm", "-is:deletedx", "-description:\"is:deleted\"", "\"usages@status:replaced\"").foreach { query =>
+        it(s"D3 keeps parsed default hiding for non-intent query $query") {
+          val parsed = SearchParamsBody.fromJson(Json.obj("q" -> query), Internal).toOption.get
+
+          parsed.structuredQuery should contain allElementsOf Parser.run("")
+        }
+      }
+
+      Seq("is:\"deleted\"", "is:'deleted'", "is:DELETED", "is:DELETED -is:deletedx").foreach { query =>
+        it(s"D3 preserves explicit parsed deleted intent for $query") {
+          val parsed = SearchParamsBody.fromJson(Json.obj("q" -> query), Internal).toOption.get
+
+          parsed.structuredQuery should not contain Negation(Match(IsField, IsValue("deleted")))
+          parsed.structuredQuery should contain (Parser.run("").last)
+        }
+      }
 
       it("accepts a sort array and an omitted first-page cursor") {
         val body = Json.obj(

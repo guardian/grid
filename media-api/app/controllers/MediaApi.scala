@@ -19,7 +19,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, IsField, IsValue, Match}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
@@ -147,6 +147,7 @@ class MediaApi(
   private def ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
   private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
   private def ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
+  private def SearchAfterPitExpiredResponse = respondError(Gone, "search-after-pit-expired", SearchAfterPitExpired.getMessage)
 
   def index = auth { request => indexResponse(request.user) }
 
@@ -885,6 +886,15 @@ class MediaApi(
     val body    = request.body
 
     SearchParamsBody.fromJson(body, request.user.accessor.tier)
+      .map { params =>
+        val searchesDeleted = params.structuredQuery.exists {
+          case Match(IsField, IsValue(value)) => value.equalsIgnoreCase("deleted")
+          case _ => false
+        }
+        if (searchesDeleted && !authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)) {
+          params.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+        } else params
+      }
       .fold(
         err => Future.successful(respondError(BadRequest, "invalid-params", err)),
         searchParams => SearchParams.validate(searchParams)
@@ -902,6 +912,7 @@ class MediaApi(
                     pitId          = raw.pitId,
                   ))).as(ArgoMediaType)
                 }.recover {
+                  case SearchAfterPitExpired => SearchAfterPitExpiredResponse
                   case e: InvalidUriParams =>
                     respondError(UnprocessableEntity, InvalidUriParams.errorKey, e.message)
                 }
