@@ -56,6 +56,17 @@ query.controller('SearchQueryCtrl', [
   function($rootScope, $scope, $state, $stateParams, $timeout, onValChange, storage, mediaApi) {
 
     const ctrl = this;
+    // TEMP DIAGNOSTIC: unique id per SearchQueryCtrl instance, so we can
+    // correlate log lines from the same controller instantiation together
+    // in the console output, and see how quickly/repeatedly the
+    // controller is being destroyed and recreated.
+    const diagInstanceId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // eslint-disable-next-line no-console
+    console.log('[LOOP-DIAG][SearchQueryCtrl] instantiated', {
+      diagInstanceId,
+      stateParamsNonFree: $stateParams.nonFree,
+      isDeepStateRedirect: $stateParams.isDeepStateRedirect
+    });
     ctrl.costFilterLabel = window._clientConfig.costFilterLabel;
     ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
@@ -175,6 +186,8 @@ query.controller('SearchQueryCtrl', [
         clearDefaultNonFreeFilterTimeout = undefined;
       }
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+      // eslint-disable-next-line no-console
+      console.log('[LOOP-DIAG][disarmDefaultNonFreeFilter] called', {diagInstanceId, defaultNonFreeFilter});
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
         storage.setJs(
           "defaultNonFreeFilter",
@@ -186,6 +199,8 @@ query.controller('SearchQueryCtrl', [
 
     function manageDefaultNonFree() {
       const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+      // eslint-disable-next-line no-console
+      console.log('[LOOP-DIAG][manageDefaultNonFree] called', {diagInstanceId, defaultNonFreeFilter, stateParamsNonFree: $stateParams.nonFree, ctrlFilterNonFreeBefore: ctrl.filter.nonFree});
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
         const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
         storage.setJs("isNonFree", newNonFree, true);
@@ -199,6 +214,8 @@ query.controller('SearchQueryCtrl', [
         ctrl.useAISearch = false;
         Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         raiseFilterChangeEvent(ctrl.filter);
+        // eslint-disable-next-line no-console
+        console.log('[LOOP-DIAG][manageDefaultNonFree] applied default, re-arming timeout', {diagInstanceId, newNonFree});
 
         // IMPORTANT: don't disarm the "isDefault" flag immediately here.
         // A single logo click triggers *several* back-to-back
@@ -222,11 +239,15 @@ query.controller('SearchQueryCtrl', [
         clearDefaultNonFreeFilterTimeout = $timeout(() => {
           storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
           clearDefaultNonFreeFilterTimeout = undefined;
+          // eslint-disable-next-line no-console
+          console.log('[LOOP-DIAG][manageDefaultNonFree] grace period elapsed, disarmed', {diagInstanceId});
         }, 1500);
       }
     }
 
     $scope.$on('$destroy', () => {
+      // eslint-disable-next-line no-console
+      console.log('[LOOP-DIAG][SearchQueryCtrl] $destroy', {diagInstanceId, hadPendingTimeout: !!clearDefaultNonFreeFilterTimeout});
       if (clearDefaultNonFreeFilterTimeout) {
         $timeout.cancel(clearDefaultNonFreeFilterTimeout);
         // ensure disarm logic is correctly managed along with the default settings
@@ -237,6 +258,8 @@ query.controller('SearchQueryCtrl', [
             {isDefault: false, isNonFree: defaultNonFreeFilter.isNonFree},
             true
           );
+          // eslint-disable-next-line no-console
+          console.log('[LOOP-DIAG][SearchQueryCtrl] $destroy disarmed pending default flag', {diagInstanceId});
         }
         clearDefaultNonFreeFilterTimeout = undefined;
       }
@@ -336,6 +359,8 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
+      // eslint-disable-next-line no-console
+      console.log('[LOOP-DIAG][watchSearchChange] called', {diagInstanceId, sender, newFilterNonFree: newFilter.nonFree, stateParamsNonFree: $stateParams.nonFree});
       let showPaid = toNonFreeString(newFilter.nonFree);
       if (ctrl.usePermissionsFilter && sender && sender === "filterChange" && newFilter.nonFree === undefined) {
         showPaid = toNonFreeString(ctrl.user.permissions.showPaid);
@@ -402,6 +427,8 @@ query.controller('SearchQueryCtrl', [
         // already handled and doesn't fire its own extra navigation.
         lastRequestedOrderBy = CollectionSortOption.value;
         const goParams1 = {...ctrl.filter, ...{orderBy: CollectionSortOption.value}};
+        // eslint-disable-next-line no-console
+        console.log('[LOOP-DIAG][watchSearchChange] goParams1 vs stateParams', {diagInstanceId, sender, goParams1, stateParamsNonFree: $stateParams.nonFree, willNavigate: !goParamsAlreadyCurrent(goParams1)});
         if (!goParamsAlreadyCurrent(goParams1)) {
           raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
           const options1 = isOrderByOnlyCorrection(goParams1) ? {location: 'replace'} : undefined;
@@ -410,6 +437,8 @@ query.controller('SearchQueryCtrl', [
       } else {
         lastRequestedOrderBy = ctrl.ordering["orderBy"];
         const goParams2 = {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}};
+        // eslint-disable-next-line no-console
+        console.log('[LOOP-DIAG][watchSearchChange] goParams2 vs stateParams', {diagInstanceId, sender, goParams2, stateParamsNonFree: $stateParams.nonFree, willNavigate: !goParamsAlreadyCurrent(goParams2)});
         if (!goParamsAlreadyCurrent(goParams2)) {
           raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
           const options2 = isOrderByOnlyCorrection(goParams2) ? {location: 'replace'} : undefined;
