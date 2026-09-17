@@ -126,12 +126,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             });
           };
 
-          if ($state.current.name === 'search') {
-            mediaApi.getSession().then(session => {
-              storage.setJs('isNonFree', toNonFreeString(session.user.permissions.showPaid), true);
-            });
-          }
-
           ctrl.collectionsPanel = panels.collectionsPanel;
           ctrl.metadataPanel = panels.metadataPanel;
 

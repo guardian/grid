@@ -229,6 +229,16 @@ query.controller('SearchQueryCtrl', [
     $scope.$on('$destroy', () => {
       if (clearDefaultNonFreeFilterTimeout) {
         $timeout.cancel(clearDefaultNonFreeFilterTimeout);
+        // ensure disarm logic is correctly managed along with the default settings
+        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
+          storage.setJs(
+            "defaultNonFreeFilter",
+            {isDefault: false, isNonFree: defaultNonFreeFilter.isNonFree},
+            true
+          );
+        }
+        clearDefaultNonFreeFilterTimeout = undefined;
       }
     });
 
