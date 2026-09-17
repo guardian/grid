@@ -21,6 +21,7 @@ import '../components/gr-toggle-button/gr-toggle-button';
 import '../components/gr-confirmation-modal/gr-confirmation-modal';
 import '../components/gr-sort-control/gr-sort-control';
 import '../components/gr-sort-control/gr-extended-sort-control';
+import { sendTelemetryEvent } from '../services/telemetry';
 import {
   manageSortSelection,
   DefaultSortOption,
@@ -204,6 +205,16 @@ results.controller('SearchResultsCtrl', [
         ctrl.newImagesLastCheckedMoment = moment();
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
+        ctrl.shouldDisplayAISearchOption = !!$window._clientConfig.aiSearchEnabled;
+        ctrl.tryAiSearchFromNoResults = () => {
+          sendTelemetryEvent('GRID_AI_SEARCH_FROM_NO_RESULTS', {
+            source: 'normalSearchNoResults'
+          }, 1);
+          $state.go('search.results', {
+            ...$stateParams,
+            useAISearch: true
+          });
+        };
 
         // Map to track image->position and help remove duplicates
         let imagesPositions;
