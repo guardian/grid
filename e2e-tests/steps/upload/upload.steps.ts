@@ -129,6 +129,16 @@ Then('I should see a message telling me to drag and drop or click to upload to t
   await expect(uploadPage(page).prompt).toContainText(`to get your images on ${systemName}.`);
 });
 
+Given('I have not applied any preset labels', async ({ page }) => {
+  await page.evaluate(() => window.localStorage.removeItem('preset-labels'));
+  await page.reload();
+});
+
+Then('I should see a suggested example label to apply to all uploads', async ({ page }) => {
+  // The example label offered by the prompt comes from kahuna/public/js/strings.json.
+  await expect(uploadPage(page).prompt).toContainText(`label e.g. culture`);
+});
+
 /**
  * Select-files uploader
  */

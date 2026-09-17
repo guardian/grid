@@ -1,0 +1,9 @@
+<gr-top-bar role="banner" aria-label="Top bar">
+    <gr-top-bar-nav role="navigation" aria-label="Primary">
+        <a class="top-bar-item side-padded clickable" ui-sref="image({imageId: ctrl.imageId})" title="Back to image">
+            <gr-icon-label gr-icon="arrow_back">Back to image</gr-icon-label>
+        </a>
+    </gr-top-bar-nav>
+</gr-top-bar>
+
+<gr-takedown-page image="ctrl.image" image-id="ctrl.imageId"></gr-takedown-page>

@@ -1,3 +1,4 @@
+import com.gu.contentapi.client.ScheduledExecutor
 import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, S3, S3Vectors, SimpleSqsMessageConsumer, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
@@ -30,8 +31,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
 
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val embedder = new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(config.queueUrl, config))
+  val previewContentApi = new PreviewContentApi(config)(ScheduledExecutor())
 
-  val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation, embedder)
+  val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, previewContentApi, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation, embedder)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)

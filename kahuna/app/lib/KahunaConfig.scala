@@ -51,6 +51,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val showSendToPhotoSales: Option[Boolean] = booleanOpt("showSendToPhotoSales")
   val aiSearchResultLimit: Int = intOpt("ai.search.resultLimit").getOrElse(200)
 
+  val imageTakedownEnabled: Boolean = booleanOpt("image.takedown.enabled").getOrElse(false)
+
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeBucketForUIUploads.map { bucket =>
     if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
