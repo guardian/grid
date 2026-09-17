@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
-import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
+import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
 import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
@@ -107,6 +107,8 @@ case class SearchAfterRawResults(
   pitId:          Option[String],
 )
 
+case object SearchAfterPitExpired extends Exception("The search point in time has expired")
+
 object SearchAfterParamsBody {
   def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] = {
     val sort = (body \ "sort").toOption match {
@@ -152,8 +154,17 @@ object SearchParamsBody {
       else ob
     }
 
-    val query           = str("q")
-    val structuredQuery = query.map(Parser.run).getOrElse(List.empty)
+    def intent(condition: Condition): Condition = condition match {
+      case Negation(inner) => intent(inner)
+      case NegationNested(inner) => inner
+      case Match(IsField, IsValue(value)) => Match(IsField, IsValue(value.toLowerCase(java.util.Locale.ROOT)))
+      case other => other
+    }
+
+    val query = str("q")
+    val parsedQuery = Parser.normalise(Parser.parse(query.getOrElse("")))
+    val mentionedConditions = parsedQuery.map(intent)
+    val structuredQuery = parsedQuery ++ Parser.run("").filterNot(condition => mentionedConditions.contains(intent(condition)))
 
     Right(SearchParams(
       query             = query,
