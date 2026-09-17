@@ -59,7 +59,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
               update(ctrl.resource, cleanMetadata, ctrl.image).
               then(resource => {
                   ctrl.resource = resource;
-                  setInterval(() => {console.log(ctrl.metadata);}, 5000);
               }).
               finally(() => ctrl.saving = false);
       };

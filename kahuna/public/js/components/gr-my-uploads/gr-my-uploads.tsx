@@ -17,10 +17,6 @@ export interface MyUploadsWrapperProps {
   props: MyUploadsProps;
 }
 
-//-- logo click event --
-interface LogoClickEventDetail { showPaid: boolean }
-interface LogoClickEvent extends CustomEvent<LogoClickEventDetail> {optional?: string}
-
 //-- filter change event --
 interface Filter { uploadedByMe: boolean }
 interface FilterChangeEventDetail { filter: Filter }
@@ -37,6 +33,10 @@ interface PayableImagesEventDetail { showPaid: boolean }
 const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
 
   const [myUploads, setMyUploads] = useState(props.myUploads);
+
+  useEffect(() => {
+    setMyUploads(prev => prev === props.myUploads ? prev : props.myUploads);
+  }, [props.myUploads]);
 
   const handleCheckboxClick = () => {
     setMyUploads(prevChkd => {
@@ -61,17 +61,18 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
     }
   };
 
-  const handleLogoClick = (event: LogoClickEvent) => {
-    setMyUploads(false);
+  const handleLogoClick = () => {
+    setMyUploads(prev => prev ? false : prev);
   };
 
   const handleFilterChange = (event: FilterChangeEvent) => {
-    setMyUploads(event.detail.filter.uploadedByMe);
+    const next = event.detail.filter.uploadedByMe;
+    setMyUploads(prev => prev === next ? prev : next);
   };
 
   const handleUploadedBy =  (event: UploadedByEvent) => {
     const matches: boolean = (event.detail.userEmail === event.detail.uploadedBy);
-    setMyUploads(matches);
+    setMyUploads(prev => prev === matches ? prev : matches);
   };
 
   useEffect(() => {
