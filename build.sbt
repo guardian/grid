@@ -1,5 +1,6 @@
 import play.sbt.PlayImport.PlayKeys._
 import sbt.Package.FixedTimestamp
+import sbtassembly.AssemblyPlugin.autoImport._
 
 import scala.sys.process._
 import scala.util.control.NonFatal
@@ -61,7 +62,7 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, imageCachePurger, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
@@ -149,6 +150,12 @@ lazy val imageLoader = playProject("image-loader", 9003).settings {
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
   )
 }
+
+lazy val imageCachePurger = project("image-cache-purger").settings(
+  libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+  assembly / assemblyJarName := "image-cache-purger.jar",
+  assembly / test := {},
+)
 
 lazy val kahuna = playProject("kahuna", 9005).settings(
   pipelineStages := Seq(digest, gzip)

@@ -13,4 +13,3 @@ describe('The ImageCachePurger stack', () => {
 		expect(template.toJSON()).toMatchSnapshot();
 	});
 });
-
