@@ -7,7 +7,6 @@ import {
   uniqueImage,
   uploadPage,
 } from './setup.ts';
-
 const { fileName: uploadingFile } = testImages.smaller;
 
 Given('I have several uploads in progress', async ({ page }) => {
@@ -83,5 +82,41 @@ When('the image is deleted using the delete button at the bottom of the job form
 });
 
 Then('it should be removed from my current uploads', async ({ page }) => {
-  await expect(uploadPage(page).currentJobs).toHaveCount(0);
+  // It was the only current upload, so the section drops out entirely when it goes.
+  await expect(uploadPage(page).currentUploads).toBeHidden();
+});
+
+Given('an image is uploaded', async ({ page, testContext }) => {
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+  await expect(uploadPage(page).deleteJobButton).toBeVisible();
+});
+
+Given('then deleted using the delete button at the bottom of the job form', async ({ page }) => {
+  const remove = uploadPage(page).deleteJobButton;
+  await remove.click();
+  await remove.click();
+  // The section clears only once the soft-delete is committed (the app polls for it), so
+  // waiting for it to disappear guarantees the re-upload below sees the image as deleted.
+  await expect(uploadPage(page).currentUploads).toBeHidden();
+});
+
+Given('the same image is uploaded again', async ({ page, testContext }) => {
+  await uploadPage(page).fileInput.setInputFiles(testContext.uploadedImagePath!);
+});
+
+Given('I have delete permission', async () => {
+  // Precondition satisfied by the default e2e permissions (delete_image is granted).
+});
+
+Then('it should be present in my current uploads', async ({ page }) => {
+  await expect(uploadPage(page).editableJob).toBeVisible();
+});
+
+Then('I should be able to undelete it', async ({ page }) => {
+  const undelete = uploadPage(page).undeleteJobButton;
+  await expect(undelete).toBeVisible();
+  await undelete.click();
+  await expect(undelete).toBeHidden();
 });

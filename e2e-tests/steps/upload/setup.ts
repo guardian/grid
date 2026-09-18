@@ -72,11 +72,12 @@ export const failIngest = (page: Page) =>
 
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
+  const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
 
   return {
     prompt,
     main: page.getByRole('main', { name: 'Image uploads' }),
-    currentUploads: page.getByRole('region', { name: 'Your current uploads' }),
+    currentUploads,
     pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
     /* The overlay is `position: fixed`, so the <dnd-uploader> wrapper has no box of its own
@@ -91,15 +92,14 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
-    /** The <li> rows in the current uploads list, whether uploading or completed. */
-    currentJobs: page.getByRole('region', { name: 'Your current uploads' }).locator('li.upload-result'),
     /** A finished upload that has become an editable image, scoped to current uploads. */
-    editableJob: page
-      .getByRole('region', { name: 'Your current uploads' })
-      .getByRole('region', { name: 'Image metadata' }),
+    editableJob: currentUploads.getByRole('region', { name: 'Image metadata' }),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
-    deleteJobButton: page
-      .getByRole('region', { name: 'Your current uploads' })
-      .getByRole('button', { name: 'Delete image' }),
+    deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
+    /* The per-item undelete control, an <a role="button">. The batch action bar renders a
+       second "Undelete" button, so intersect with the anchor to pick the per-item one. */
+    undeleteJobButton: currentUploads
+      .getByRole('button', { name: 'Undelete' })
+      .and(currentUploads.locator('a')),
   };
 };
