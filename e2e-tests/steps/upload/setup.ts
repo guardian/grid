@@ -70,6 +70,20 @@ export const failIngest = (page: Page) =>
     },
   );
 
+/**
+ * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
+ * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
+ * that reaches the `image-delete-failure` handler.
+ */
+export const failDelete = (page: Page) =>
+  page.route(
+    () => true,
+    async (route) => {
+      if (route.request().method() !== 'DELETE') return route.fallback();
+      await route.abort();
+    },
+  );
+
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
