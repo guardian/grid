@@ -44,6 +44,15 @@ export const E2E_METADATA_TEMPLATE = {
   ],
 };
 
+/**
+ * media-api derives `usageInstructions` from an image's usageRights category via this map, so
+ * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
+ */
+export const E2E_USAGE_INSTRUCTIONS = {
+  category: 'agency',
+  text: 'These images are supplied under agency terms; check the licence before use.',
+};
+
 /** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
 function kahunaE2eConfig(): string {
   const metadataFields = E2E_METADATA_TEMPLATE.fields
@@ -60,6 +69,16 @@ function kahunaE2eConfig(): string {
     '    ]',
     '  }',
     ']',
+    '',
+  ].join('\n');
+}
+
+/** Render the e2e-only media-api settings as HOCON to append to the generated `media-api.conf`. */
+function mediaApiE2eConfig(): string {
+  return [
+    'usageInstructions {',
+    `  ${E2E_USAGE_INSTRUCTIONS.category} = "${E2E_USAGE_INSTRUCTIONS.text}"`,
+    '}',
     '',
   ].join('\n');
 }
@@ -117,6 +136,12 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
 
   const serviceConfigs: Record<string, string> = ServiceConfig.getCoreConfigs(config);
 
+  // e2e-only config appended per service on top of the generated base config.
+  const extraConfig: Record<string, string> = {
+    kahuna: kahunaE2eConfig(),
+    'media-api': mediaApiE2eConfig(),
+  };
+
   fs.mkdirSync(configDir, { recursive: true });
 
   // Mark the stage as DEV so services load `~/.grid/<app>.conf` (see GridConfigLoader).
@@ -137,7 +162,8 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     }
 
     const rewritten = rewriteEndpoints(conf);
-    const withExtras = service === 'kahuna' ? `${rewritten}\n${kahunaE2eConfig()}` : rewritten;
+    const extras = extraConfig[service];
+    const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
     fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
   }
 }

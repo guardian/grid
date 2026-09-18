@@ -323,10 +323,9 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 114-134
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 36
 
-  # usageInstructions is not read from embedded file metadata: media-api derives it from the
-  # image's usageRights category via the `usageInstructions` config map (customSpecialInstructions).
-  # Needs that config plus an image with a matching category, so it can't be driven by exiftool.
-  @todo
+  # media-api derives usageInstructions from the image's usageRights category via the
+  # `usageInstructions` config map; the AAP-credited fixture gets the `agency` category, which
+  # the e2e stack config maps to instruction text (see E2E_USAGE_INSTRUCTIONS).
   Scenario: Existing usage instructions are shown with room for more
     Given an uploaded image that already has usage instructions
     When I view the metadata editor
