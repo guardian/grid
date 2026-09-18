@@ -100,9 +100,9 @@ export const uploadPage = (page: Page) => {
     currentUploads,
     pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
-    /* The overlay is `position: fixed`, so the <dnd-uploader> wrapper has no box of its own
-       and always reads as hidden. Assert visibility against the overlay itself. */
-    dropzone: page.getByRole('region', { name: 'Drag and drop uploader' }).locator('.dnd-uploader'),
+    /* The dropzone overlay is a `position: fixed` region rendered only mid-drag; target it by
+       its accessible name (the <dnd-uploader> wrapper has no box of its own). */
+    dropzone: page.getByRole('region', { name: 'Dropzone' }),
     fileInput: prompt.locator('input[name="files"]'),
     /* The upload and back-to-search controls carry aria-labels that override their visible
        text, so filter on the text the feature file names rather than the accessible name. */
@@ -125,10 +125,9 @@ export const uploadPage = (page: Page) => {
       imageType: metadataEditor.locator('select[name="imageType"]'),
       specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
     },
-    /* The read-only usage-instructions block, shown only when the image has usageInstructions. */
-    usageInstructions: metadataEditor.locator('.job-usage-instructions'),
-    /* Credit suggestions rendered by gr-datalist as the user types. */
-    creditSuggestions: metadataEditor.locator('.datalist__option'),
+    /* The read-only usage-instructions block is asserted by its visible text in the steps. */
+    /* Credit suggestions rendered by gr-datalist as options in a listbox. */
+    creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
     metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
