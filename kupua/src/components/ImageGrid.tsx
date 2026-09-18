@@ -513,9 +513,9 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
    * Capture the anchor image and its viewport position.
    * Called from ResizeObserver when column count is about to change.
    *
-  * Anchor preference: the focused image, else the phantom viewport anchor
-  * (nearest rendered image to usable viewport centre, elected lazily) — both
-  * are stable image identities resolved via
+   * Anchor preference: the active selection anchor, then the focused image,
+   * then the phantom viewport anchor (nearest rendered image to usable viewport
+   * centre, elected lazily). These are stable image identities resolved via
    * `imagePositions`. Recomputing a synthetic "first image of the centre
    * row" index from scrollTop/row arithmetic every resize (the old
    * phantom-focus behaviour) doesn't track one real image, so a full
@@ -525,13 +525,15 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
    */
   function captureAnchor(el: HTMLElement, cols: number): CapturedAnchor | null {
     const { imagePositions, bufferOffset, total } = useSearchStore.getState();
+    const { selectedIds, anchorId } = useSelectionStore.getState();
+    const selectionAnchorId = selectedIds.size > 0 ? anchorId : null;
     // Derive twoTier from current store state — NOT from the hook scope,
     // which is stale inside the ResizeObserver closure (useEffect deps=[]).
     const isTwoTier = isTwoTierFromTotal(total);
-    // Try the focused image first, then fall back to the phantom viewport
-    // anchor if the focused image can't be resolved (e.g. it's outside the
-    // current buffer after a seek) — not just when there's no focus at all.
+    // An active selection outranks older focus; unresolved identities fall
+    // through to the next candidate, including after buffer eviction.
     const virtIdx =
+      resolveAnchorVirtIndex(selectionAnchorId, imagePositions, bufferOffset, isTwoTier) ??
       resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, bufferOffset, isTwoTier) ??
       resolveAnchorVirtIndex(getViewportAnchorId(), imagePositions, bufferOffset, isTwoTier);
     if (virtIdx != null) {

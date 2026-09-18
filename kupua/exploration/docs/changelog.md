@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 18 September 2026 - Preserve selection anchors during grid reflow
+
+  Panel and window resizing now prefer the active selection anchor over an older
+  explicit focus or inferred viewport image. Previously, resizing could preserve
+  a different image and move the selected one off-screen. The existing grid anchor
+  capture, coordinate conversion and restoration math are reused; unresolved anchors
+  retain the established fallbacks. Selection does not change explicit focus, and
+  clearing it leaves the viewport stationary. No new render subscriptions are added.
+
   ### 18 September 2026 - Record performance cleanup stages in campaign reports
 
   Performance campaigns and direct perf scripts now log cleanup-stage starts,

@@ -148,27 +148,38 @@ Wired via `zustand/middleware` `persist`, matching the established pattern (`col
 
 Selections surviving a sort change is necessary but not sufficient — without position preservation, the user's viewport resets to the top and they lose their place.
 
-**Two cases, one pipeline:**
-
-1. **User had explicit focus before entering Selection Mode.** `focusedImageId` persists in the store (visually suppressed but not cleared — see §12). On sort change, the existing sort-around-focus mechanism picks it up directly and preserves position around that image. No new code involved; this Just Works because focus is retained in memory.
-
-2. **User entered Selection Mode without prior focus** (the common case — first interaction was a tickbox click, which sets the selection anchor but not focus). `focusedImageId === null`. Without intervention, the viewport would reset to top. A dedicated fallback bridges this gap: when a sort change fires and `focusPreserveId` would otherwise be `null`, `useUrlSearchSync` checks if `selectedIds.size > 0 && anchorId != null` and uses `anchorId` as the position-preservation target via the `phantomOnly` search path.
-
-**Case 2 mechanism in detail:** Effect #7 in `useScrollEffects` saves the anchor image's viewport ratio before the search fires. After the search completes, `_findAndFocusImage` locates the anchor in the new sort order, sets `_phantomFocusImageId`, and bumps `sortAroundFocusGeneration`. Effect #9 restores the anchor at its saved viewport ratio.
+The active selection anchor wins whether or not an older explicit focus remains in
+the store. `useUrlSearchSync` chooses it before `focusedImageId`, and
+`useScrollEffects` captures that same anchor's placement before the search fires.
+The existing phantom preservation path locates it in the new order and restores
+its placement; selection does not become explicit focus.
 
 **Key properties:**
-- Priority chain on sort change: `focusedImageId` (case 1) > `selectionAnchorId` (case 2). If explicit focus exists, it wins; the selection anchor fallback is never reached.
-- Case 2 never sets `focusedImageId` — entering selection mode with no focus, changing sort, and then clearing selection still leaves `focusedImageId` null (no surprise focus ring appears).
-- Both cases use the same phantom-focus pipeline; case 2 just provides a different ID to it.
+- Priority chain on sort change: active `selectionAnchorId` before older `focusedImageId`.
+- `focusedImageId` is unchanged. Clearing selection restores any older focus's ordinary
+  role; a selection created without focus does not gain a surprise focus ring.
+- Both cases use the same preservation pipeline, not a second selection scroll engine.
 - Gated by `isSortOnly` / `sortOnly` — only fires on sort changes, independently of the persistence flag (see below).
 
 **Files:** `useUrlSearchSync.ts` (§ sort-only fallback block), `useScrollEffects.ts` (Effect #7 `preserveId` line).
+
+### Position preservation on grid layout changes
+
+Panel opening, closing or resizing, and browser-width changes can change the grid's
+column count. `ImageGrid.captureAnchor` reads current selection state at the resize
+boundary and tries the active selection anchor, then explicit focus, then the usable
+viewport anchor. Unresolvable identities fall through to the next candidate.
+
+The existing grid capture/restore math handles placement in both global and
+buffer-local coordinates. No new subscription, renderer-wide selection lookup,
+search or focus mutation is introduced. Selecting another image updates the anchor
+used by the next resize. Clearing selection by itself leaves the viewport stationary.
 
 ### Flag: `SELECTIONS_PERSIST_ACROSS_NAVIGATION`
 
 Lives in `constants/tuning.ts`. Default `false`. When `true`, the four "NO" rows above flip to YES — selections survive everything (the original v1-design behaviour). Single-line escape hatch; no UI surface. Intended to be revisited when **Clipboard** (My Places) ships and durable persistence becomes the Clipboard's concern rather than the selection set's. At that point this flag becomes obsolete and is removed.
 
-**Relationship to position preservation:** The flag controls whether selection *survives* a navigation — it has no effect on position preservation logic. Position preservation via the anchor fires **only on sort-only changes** regardless of flag state. With flag=true and a non-sort change (query, filter), the selection survives but position is handled by the viewport-anchor mechanism (existing phantom-focus path), not by the selection anchor. This is deliberate: on a query change the anchor image may not exist in the new results, making it an unreliable position target. Sort changes merely reorder the same result set, so the anchor is always findable.
+**Relationship to position preservation:** The flag controls whether selection *survives* a navigation — it has no effect on position preservation logic. For search navigation, preservation via the selection anchor fires **only on sort-only changes** regardless of flag state. With flag=true and a non-sort change (query, filter), the selection survives but position is handled by the viewport-anchor mechanism (existing phantom-focus path), not by the selection anchor. This is deliberate: on a query change the anchor image may not exist in the new results, making it an unreliable position target. Sort changes merely reorder the same result set, so the anchor is always findable. Grid layout reflow is separate from search navigation and uses the selection anchor independently of this flag.
 
 ### Hydration on mount
 

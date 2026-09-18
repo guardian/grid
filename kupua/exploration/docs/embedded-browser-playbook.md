@@ -1238,3 +1238,26 @@ alongside those classifications. This distinguishes legitimate background work f
 an intermediate rendered panel, and proves membership feedback can update while the
 old coherent content remains visible. Exclude live counters outside the content
 wrapper from equality checks; remove the recorder and subscription after the action.
+
+**[V] Separate selected-image and explicit-focus resize controls (18 September
+2026).** A tickbox click does not clear an older `focusedImageId`; record both
+states before comparing preservation. Escape left explicit focus set in this
+session, so do not assume it clears that baseline. Use the documented store action
+before the test gesture when a no-focus setup is required, not during the resize.
+Keep the target identity in-page and return only global position, relative rectangle,
+visibility, selection/focus flags, buffer offset and buffer length.
+
+**[V] Avoid driver-induced scrolling when ticking a partly visible image
+(18 September 2026).** Move the mouse to the visible tickbox and click its measured
+centre instead of allowing a whole-cell hover/click to scroll the cell fully into
+view. Measure before and after selection as well as after panel changes, so any
+selection-time scroll is not attributed to panel reflow. Remove temporary target
+attributes and probe state before parking the tab for a local-test port handoff.
+
+**[V] Measure the selection anchor, not the passive viewport anchor, in selected
+layout checks (18 September 2026).** Confirm `selection.anchorId` matches the
+chosen image and that `focusedImageId` stays unchanged. With multiple selected
+images, repeat after ticking another image so the check proves the latest anchor
+is used. Distinguish initially partial visibility from a fully visible baseline;
+preserving the former position is not evidence that it became fully visible.
+Check scroll position once more after Clear selection, then remove the probe.

@@ -428,6 +428,122 @@ test.describe("Image detail — position counter", () => {
 // ===========================================================================
 
 test.describe("Panel toggles", () => {
+  for (const focusSetup of ["no focus", "older focus"] as const) {
+    test(`keeps the selected anchor through panel and window resizing (${focusSetup})`, async ({ kupua }) => {
+      await kupua.page.setViewportSize({ width: 1720, height: 960 });
+      await kupua.goto();
+      await kupua.waitForPositionMap();
+
+      const targetPosition = 257;
+      await kupua.page.evaluate((position) => {
+        const grid = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+        const cells = Array.from(grid.querySelectorAll<HTMLElement>("[data-grid-cell]"));
+        const tops = [...new Set(cells.map((cell) => Math.round(cell.getBoundingClientRect().top)))].sort((left, right) => left - right);
+        const columns = cells.filter((cell) => Math.round(cell.getBoundingClientRect().top) === tops[0]).length;
+        const targetTop = grid.clientHeight - cells[0].getBoundingClientRect().height - 30;
+        grid.scrollTop = Math.floor(position / columns) * (tops[1] - tops[0]) - targetTop;
+      }, targetPosition);
+      await kupua.page.waitForFunction((position) => {
+        const state = (window as any).__kupua_store__.getState();
+        return Array.from(document.querySelectorAll<HTMLElement>("[data-grid-cell]")).some(
+          (cell) => state.imagePositions.get(cell.dataset.imageId) === position,
+        );
+      }, targetPosition);
+
+      const { targetId, olderFocusId } = await kupua.page.evaluate((position) => {
+        const state = (window as any).__kupua_store__.getState();
+        const target = Array.from(document.querySelectorAll<HTMLElement>("[data-grid-cell]")).find(
+          (cell) => state.imagePositions.get(cell.dataset.imageId) === position,
+        );
+        if (!target?.dataset.imageId) throw new Error("Selection resize target unavailable");
+        return { targetId: target.dataset.imageId, olderFocusId: (window as any).__kupua_getViewportAnchorId__() as string };
+      }, targetPosition);
+      expect(olderFocusId).not.toBe(targetId);
+
+      if (focusSetup === "older focus") {
+        await kupua.page.locator(`[data-grid-cell][data-image-id="${olderFocusId}"]`).click({ force: true });
+      }
+      const expectedFocus = focusSetup === "older focus" ? olderFocusId : null;
+      expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
+
+      const target = kupua.page.locator(`[data-grid-cell][data-image-id="${targetId}"]`);
+      await target.hover();
+      await target.getByRole("button", { name: "Select image", exact: true }).click();
+      await kupua.page.waitForFunction((imageId) => {
+        const selection = (window as any).__kupua_selection_store__.getState();
+        return selection.selectedIds.has(imageId) && selection.anchorId === imageId
+          && selection.pendingFetchIds.size === 0 && !selection.isReconciling;
+      }, targetId);
+
+      const readTarget = (imageId = targetId) => kupua.page.evaluate((imageId) => {
+        const grid = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
+        const cell = grid.querySelector(`[data-image-id="${CSS.escape(imageId)}"]`);
+        if (!cell) return null;
+        const viewport = grid.getBoundingClientRect();
+        const rect = cell.getBoundingClientRect();
+        return {
+          top: rect.top - viewport.top,
+          fullyVisible: rect.top >= viewport.top && rect.bottom <= viewport.bottom,
+        };
+      }, imageId);
+      const before = await readTarget();
+      if (!before) throw new Error("Selected anchor is not rendered before resize");
+      expect(before.fullyVisible).toBe(true);
+
+      const assertPreserved = async (label: string, imageId = targetId, expectedTop = before.top) => {
+        await expect.poll(async () => {
+          const after = await readTarget(imageId);
+          return after ? Math.abs(after.top - expectedTop) : Number.POSITIVE_INFINITY;
+        }, { message: `${label}: selected anchor must keep its vertical position` }).toBeLessThanOrEqual(1);
+        expect((await readTarget(imageId))?.fullyVisible, `${label}: selected anchor must remain fully visible`).toBe(true);
+        expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
+      };
+
+      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
+        await kupua.page.getByRole("button", { name: button, exact: true }).click();
+        await kupua.page.waitForTimeout(250);
+        await assertPreserved(button);
+      }
+      for (const width of [1123, 1720]) {
+        await kupua.page.setViewportSize({ width, height: 960 });
+        await kupua.page.waitForTimeout(250);
+        await assertPreserved(`window width ${width}`);
+      }
+
+      const nextAnchorId = await kupua.page.evaluate((imageId) => {
+        const grid = document.querySelector('[aria-label="Image results grid"]')!;
+        const target = grid.querySelector(`[data-image-id="${CSS.escape(imageId)}"]`)!;
+        const targetTop = target.getBoundingClientRect().top;
+        const row = Array.from(grid.querySelectorAll<HTMLElement>("[data-grid-cell]")).filter(
+          (cell) => Math.abs(cell.getBoundingClientRect().top - targetTop) <= 1,
+        ).sort((left, right) => left.getBoundingClientRect().left - right.getBoundingClientRect().left);
+        return row[0].dataset.imageId!;
+      }, targetId);
+      expect(nextAnchorId).not.toBe(targetId);
+      const nextAnchor = kupua.page.locator(`[data-grid-cell][data-image-id="${nextAnchorId}"]`);
+      await nextAnchor.hover();
+      await nextAnchor.getByRole("button", { name: "Select image", exact: true }).click();
+      await kupua.page.waitForFunction((imageId) => {
+        const selection = (window as any).__kupua_selection_store__.getState();
+        return selection.selectedIds.size === 2 && selection.anchorId === imageId
+          && selection.pendingFetchIds.size === 0 && !selection.isReconciling;
+      }, nextAnchorId);
+      const nextBefore = await readTarget(nextAnchorId);
+      if (!nextBefore) throw new Error("New selection anchor is not rendered");
+      expect(nextBefore.fullyVisible).toBe(true);
+      for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
+        await kupua.page.getByRole("button", { name: button, exact: true }).click();
+        await kupua.page.waitForTimeout(250);
+        await assertPreserved(`new selection: ${button}`, nextAnchorId, nextBefore.top);
+      }
+
+      const scrollBeforeClear = await kupua.getScrollTop();
+      await kupua.page.getByRole("button", { name: "Clear selection", exact: true }).click();
+      expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
+      expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
+    });
+  }
+
   test("Browse and Details buttons independently toggle their panels", async ({ kupua }) => {
     await kupua.goto();
 

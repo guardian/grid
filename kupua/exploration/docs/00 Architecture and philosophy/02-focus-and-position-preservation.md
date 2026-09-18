@@ -53,6 +53,11 @@ Phantom focus is updated silently on every scroll frame. Explicit focus override
 phantom focus when set — the engine anchors to whichever is active, preferring
 explicit.
 
+Active selection is a separate anchor source, not a focus mode. For grid panel or
+window resizing, its resolvable `anchorId` takes precedence over older explicit
+focus, then viewport inference. All candidates use the same capture/restore math;
+the selection does not acquire a focus ring or change `focusedImageId`. See section 5.
+
 ### 2.2 What It Guarantees
 
 The position anchor (whether explicit or phantom) must survive:
@@ -265,15 +270,17 @@ always the strictest guarantee; we only relax with a reason.
 
 ## 5. Relationship to Selections
 
-Selections are a separate concept, orthogonal to focus. They will be designed
-and implemented as a separate workstream. Brief notes on how they interact:
+Selections are implemented separately from focus, with shared position-preservation
+mechanisms where the transition requires them:
 
 - **Selection is multi-persistent; focus is single-ephemeral.** Selecting images
   does not move focus. Moving focus does not alter the selection.
 - **Selection survives density changes** (same as focus — "Never Lost" applies).
-- **Selection does not need position preservation** in the same way focus does.
-  Selected images are a *set*, not a *position*. When search context changes,
-  selected images that leave the result set are silently dropped.
+- **Selection supplies a position anchor.** The active selection's last-interacted
+  image is the continuity point for sorting and grid panel/window reflow, ahead of
+  an older, visually suppressed focus. Preserving that image does not mean keeping
+  every selected image on screen. Search/filter navigation normally clears the
+  selection; its persistence policy is documented separately.
 - **Selection gestures must not conflict with focus/detail entry.** In explicit
   focus mode, single-click = focus, double-click = detail, so selection needs a
   separate gesture (checkbox, Ctrl/Cmd-click, or a selection-mode toggle). In
@@ -283,7 +290,9 @@ and implemented as a separate workstream. Brief notes on how they interact:
   images are selected; or (b) the focused image, if no selection but explicit
   focus exists; or (c) nothing, if neither. Selection takes priority.
 
-Detailed selection design will be documented separately when we begin that work.
+The [selection guide](05-selections.md) owns the current lifecycle, persistence and
+anchor-precedence details. Clearing selection leaves the viewport stationary and
+restores the older focus's ordinary role without creating new focus.
 
 ---
 
