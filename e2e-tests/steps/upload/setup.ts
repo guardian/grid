@@ -26,6 +26,8 @@ const testImage = (fileName: string): TestImage => {
 export const testImages = {
   smaller: testImage('test-card-f.jpg'),
   larger: testImage('test.jpg'),
+  /** A copy of the smaller image with embedded IPTC metadata (see fixtures/images). */
+  withMetadata: testImage('embedded-metadata.jpg'),
 };
 
 /** The set that both the file picker and drag-and-drop scenarios upload. */
@@ -41,11 +43,12 @@ export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images
 /**
  * A JPEG unique to this run. The Grid dedupes by content hash, so a scenario that deletes
  * its image would otherwise poison the shared fixtures and its own re-runs; random trailing
- * bytes change the hash without stopping the image decoding.
+ * bytes change the hash without stopping the image decoding (or the embedded metadata, which
+ * lives in the leading JPEG segments).
  */
-export const uniqueImage = (): TestImage => {
+export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => {
   const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
-  writeFileSync(filePath, Buffer.concat([readFileSync(testImages.smaller.path), randomBytes(16)]));
+  writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
   return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
 };
 
@@ -116,6 +119,7 @@ export const uploadPage = (page: Page) => {
       description: metadataEditor.locator('textarea[name="description"]'),
       byline: metadataEditor.locator('input[name="byline"]'),
       credit: metadataEditor.locator('[data-cy="image-metadata-credit"]'),
+      copyright: metadataEditor.locator('input[name="copyright"]'),
       imageType: metadataEditor.locator('select[name="imageType"]'),
       specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
     },
