@@ -10,6 +10,32 @@ async function uploadAndOpenEditor(page: import('@playwright/test').Page): Promi
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 }
 
+/**
+ * Required-metadata-editor fields whose batch `⇔` button persists after editing. imageType and
+ * description are excluded: their `⇔` only renders while the value equals the original, so it
+ * vanishes as soon as you type a value to apply.
+ */
+const BATCH_FIELDS: Record<
+  string,
+  { input: (editor: Locator) => Locator; applyTitle: string; value: string }
+> = {
+  Byline: {
+    input: (editor) => editor.locator('input[name="byline"]'),
+    applyTitle: 'Apply this byline to all your current uploads',
+    value: 'Batch byline',
+  },
+  Credit: {
+    input: (editor) => editor.locator('[data-cy="image-metadata-credit"]'),
+    applyTitle: 'Apply this credit to all',
+    value: 'Batch credit',
+  },
+  'Special instructions': {
+    input: (editor) => editor.locator('input[name="special-instructions"]'),
+    applyTitle: 'Apply these instructions to all your current uploads',
+    value: 'Batch instructions',
+  },
+};
+
 Given('an uploaded image is shown in the metadata editor', async ({ page }) => {
   await uploadAndOpenEditor(page);
 });
@@ -170,3 +196,40 @@ Then('I should see the existing usage instructions', async ({ page }) => {
 Then('I should be able to add further special instructions', async ({ page }) => {
   await expect(uploadPage(page).metadataField.specialInstructions).toBeVisible();
 });
+
+Given('I am uploading more than one image', async ({ page }) => {
+  await uploadPage(page).fileInput.setInputFiles([uniqueImage().path, uniqueImage().path]);
+  await expect(uploadPage(page).metadataEditor).toHaveCount(2);
+});
+
+// Precondition satisfied by the default e2e permissions (edit is granted).
+Given('I am permitted to edit', async () => {});
+
+When(
+  'I apply the following field values to all current uploads:',
+  async ({ page, testContext }, table: DataTable) => {
+    const firstEditor = uploadPage(page).metadataEditor.first();
+    testContext.batchApplied = {};
+    for (const [label] of table.raw()) {
+      const field = BATCH_FIELDS[label];
+      await field.input(firstEditor).fill(field.value);
+      await field.input(firstEditor).blur();
+      await firstEditor.getByTitle(field.applyTitle).click();
+      testContext.batchApplied[label] = field.value;
+    }
+  },
+);
+
+Then(
+  'that value should be applied to the same field on every current upload',
+  async ({ page, testContext }) => {
+    const editors = uploadPage(page).metadataEditor;
+    const count = await editors.count();
+    for (const [label, value] of Object.entries(testContext.batchApplied!)) {
+      const field = BATCH_FIELDS[label];
+      for (let i = 0; i < count; i++) {
+        await expect(field.input(editors.nth(i))).toHaveValue(value);
+      }
+    }
+  },
+);

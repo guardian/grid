@@ -333,24 +333,34 @@ Feature: Uploading images to the Grid
     And I should be able to add further special instructions
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 140-167
 
-  @todo
+  # Covers the required-metadata-editor fields whose ⇔ "apply to all" button persists after
+  # editing. imageType/description are excluded — their ⇔ only renders while the value still
+  # equals the original, so it vanishes as you type the value to apply.
   Scenario: Applying a field value to all current uploads in a batch
     Given I am uploading more than one image
     And I am permitted to edit
     When I apply the following field values to all current uploads:
-      | Leases |
-      | Image type |
-      | Description |
       | Byline |
       | Credit |
       | Special instructions |
+    Then that value should be applied to the same field on every current upload
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 76-80, 107-111, 156-160
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 108-119
+
+  # Leases/Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
+  # metadata editor, so they need separate locators and setup.
+  @todo
+  Scenario: Applying an image-editor field value to all current uploads in a batch
+    Given I am uploading more than one image
+    And I am permitted to edit
+    When I apply the following field values to all current uploads:
+      | Leases |
       | Collections |
       | Labels |
       | Keywords |
       | Photoshoot |
     Then that value should be applied to the same field on every current upload
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 20-27, 49-53, 76-80, 107-111, 129-133, 156-160, 179-183
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 108-119
+  # Evidence: kahuna/public/js/edits/image-editor.html
 
   @todo
   Scenario: Metadata editing is disabled without edit permission
