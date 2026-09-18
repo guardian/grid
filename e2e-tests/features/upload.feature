@@ -248,10 +248,6 @@ Feature: Uploading images to the Grid
     Then it should be removed from my current uploads
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  # Reachable but not yet testable reliably: the image must already be soft-deleted, which
-  # dedupe makes sticky across runs on the shared user, and the undelete control is mislabelled
-  # "Delete image" (gr-confirm-delete hardcodes that aria-label) so it can't be found by name.
-  @todo
   Scenario: Uploading a previously deleted image displays it for undeletion
     Given an image is uploaded
     And then deleted using the delete button at the bottom of the job form
