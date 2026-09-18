@@ -1,7 +1,7 @@
 import { Given, Then, When, expect } from '../setup.ts';
 import type { DataTable } from 'playwright-bdd';
 import type { Locator } from '@playwright/test';
-import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE } from '../../setup/config.ts';
+import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
@@ -33,6 +33,12 @@ Given(
 
 // Precondition satisfied by the e2e stack config (see E2E_IMAGE_TYPES in setup/config.ts).
 Given('image types are configured', async () => {});
+
+// The `agency` usageRights category from the AAP-credited fixture triggers usageInstructions.
+Given('an uploaded image that already has usage instructions', async ({ page }) => {
+  await uploadPage(page).fileInput.setInputFiles(uniqueImage(testImages.agency).path);
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
+});
 
 When('I view the description field', async ({ page }) => {
   await expect(uploadPage(page).metadataField.description).toBeVisible();
@@ -153,4 +159,12 @@ Then('the previously overridden fields are restored', async ({ page, testContext
   const byline = uploadPage(page).metadataField.byline;
   await expect(byline).toHaveJSProperty('readOnly', false);
   await expect(byline).toHaveValue(testContext.editedByline!);
+});
+
+Then('I should see the existing usage instructions', async ({ page }) => {
+  await expect(uploadPage(page).usageInstructions).toHaveText(E2E_USAGE_INSTRUCTIONS.text);
+});
+
+Then('I should be able to add further special instructions', async ({ page }) => {
+  await expect(uploadPage(page).metadataField.specialInstructions).toBeVisible();
 });
