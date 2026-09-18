@@ -1,6 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
-import { filesToUpload, testImages, uploadPage } from './setup.ts';
+import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 
 /**
  * Upload page shell
@@ -68,18 +68,9 @@ Then('my previous search should be intact', async ({ page, testContext }) => {
 });
 
 Given('I have an upload in progress', async ({ page }) => {
-  // Hold the transfer to the ingest bucket open, otherwise the job reaches a terminal
-  // state within a second or so and is no longer "in progress" by the time we assert.
-  // This is long enough for a scenario's assertions, short enough not to drag out teardown.
-  const uploadHoldMs = 5_000;
-  await page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await new Promise((resolve) => setTimeout(resolve, uploadHoldMs));
-      await route.abort();
-    },
-  );
+  // Hold the transfer open, otherwise the job reaches a terminal state within a second or so
+  // and is no longer "in progress" by the time we assert.
+  await holdIngest(page);
 
   await uploadPage(page).fileInput.setInputFiles(testImages.smaller.path);
   await expect(uploadPage(page).job(testImages.smaller.fileName)).toBeVisible();

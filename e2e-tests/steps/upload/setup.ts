@@ -1,4 +1,6 @@
-import { statSync } from 'node:fs';
+import { statSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
@@ -36,6 +38,38 @@ export const filesToUpload = [testImages.smaller, testImages.larger];
  */
 export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images/blocked-cookies.png`;
 
+/**
+ * A JPEG unique to this run. The Grid dedupes by content hash, so a scenario that deletes
+ * its image would otherwise poison the shared fixtures and its own re-runs; random trailing
+ * bytes change the hash without stopping the image decoding.
+ */
+export const uniqueImage = (): TestImage => {
+  const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
+  writeFileSync(filePath, Buffer.concat([readFileSync(testImages.smaller.path), randomBytes(16)]));
+  return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
+};
+
+/** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
+export const holdIngest = (page: Page, ms = 5_000) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      await route.abort();
+    },
+  );
+
+/** Reject the transfer to the ingest bucket so the job fails. */
+export const failIngest = (page: Page) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await route.fulfill({ status: 403, body: 'denied' });
+    },
+  );
+
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
 
@@ -57,5 +91,15 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
+    /** The <li> rows in the current uploads list, whether uploading or completed. */
+    currentJobs: page.getByRole('region', { name: 'Your current uploads' }).locator('li.upload-result'),
+    /** A finished upload that has become an editable image, scoped to current uploads. */
+    editableJob: page
+      .getByRole('region', { name: 'Your current uploads' })
+      .getByRole('region', { name: 'Image metadata' }),
+    /** The delete control on a current upload (labelled "Delete image" for both states). */
+    deleteJobButton: page
+      .getByRole('region', { name: 'Your current uploads' })
+      .getByRole('button', { name: 'Delete image' }),
   };
 };
