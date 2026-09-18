@@ -28,6 +28,8 @@ export const testImages = {
   larger: testImage('test.jpg'),
   /** A copy of the smaller image with embedded IPTC metadata (see fixtures/images). */
   withMetadata: testImage('embedded-metadata.jpg'),
+  /** Credited to AAP, so supplier processing gives it the `agency` usageRights category. */
+  agency: testImage('agency-usage.jpg'),
 };
 
 /** The set that both the file picker and drag-and-drop scenarios upload. */
@@ -123,6 +125,8 @@ export const uploadPage = (page: Page) => {
       imageType: metadataEditor.locator('select[name="imageType"]'),
       specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
     },
+    /* The read-only usage-instructions block, shown only when the image has usageInstructions. */
+    usageInstructions: metadataEditor.locator('.job-usage-instructions'),
     /* Credit suggestions rendered by gr-datalist as the user types. */
     creditSuggestions: metadataEditor.locator('.datalist__option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
