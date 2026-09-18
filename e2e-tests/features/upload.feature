@@ -232,10 +232,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-48
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 84-92
 
-  # The default is written server-side (editsService.updateMetadataField), but the metadata
-  # editor never reflects it: its copy of the metadata isn't refreshed, so the field stays
-  # blank in the UI and there is nothing to assert on. Looks like a bug.
-  @todo
   Scenario: A missing description defaults to the file name
     Given an uploaded image has no description
     When the upload completes

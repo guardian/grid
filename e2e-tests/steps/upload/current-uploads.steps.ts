@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import { Given, Then, When, expect } from '../setup.ts';
 import {
   failDelete,
@@ -31,6 +32,25 @@ Given('an upload has failed', async ({ page }) => {
 
 Given('an upload has completed', async ({ page }) => {
   await uploadPage(page).fileInput.setInputFiles(testImages.smaller.path);
+});
+
+Given('an uploaded image has no description', async ({ page, testContext }) => {
+  // The fixture carries no embedded description, so the app falls back to the file name.
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+});
+
+When('the upload completes', async ({ page }) => {
+  await expect(uploadPage(page).editableJob).toBeVisible();
+});
+
+Then('the description should default to the file name without its extension', async ({ page, testContext }) => {
+  const fileName = path.basename(testContext.uploadedImagePath!);
+  const expected = fileName.substring(0, fileName.lastIndexOf('.')).replace(/_/g, ' ');
+  await expect(uploadPage(page).editableJob.locator('textarea[name="description"]')).toHaveValue(
+    expected,
+  );
 });
 
 Given('an uploaded image is shown in my current uploads', async ({ page }) => {
