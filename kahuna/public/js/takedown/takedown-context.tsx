@@ -176,8 +176,9 @@ export const TakedownContextProvider: React.FC<
     };
   }, []);
 
-  const deletedFromContent =
-    activeContent !== null && activeContent.length === 0;
+  const deletedFromContent = true; // @TODO: Revert this!
+  // activeContent !== null && activeContent.length === 0;
+  // @TODO: This should be based on the image being deleted or denied lease
   const deletedFromGrid =
     usages !== null &&
     usages.length === 0 &&

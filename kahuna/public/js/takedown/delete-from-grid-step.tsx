@@ -7,7 +7,7 @@ import { Select, Option } from "@guardian/stand/Select";
 import { Grid, Item } from "@guardian/stand/Grid";
 import { semanticSpacing, semanticColors } from "@guardian/stand";
 import { standThemeOverride } from "../util/constants/standThemeOverride";
-import { Crop } from "../types/image";
+import { Crop, GridImage } from "../types/image";
 import { useTakedownContext } from "./takedown-context";
 
 type DeleteMethod = "hard-delete" | "soft-delete" | "deny-lease";
@@ -41,13 +41,17 @@ const getUsageStatusLabel = (status: string) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
-export const DeleteFromGridStep: React.FC = () => {
+export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
+  image
+}) => {
   const { usages, usagesLoading, crops, cropsLoading, getStepStatus } =
     useTakedownContext();
   const stepStatus = getStepStatus("delete-from-grid");
 
   const [deleteMethod, setDeleteMethod] = useState<DeleteMethod | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const contentUsages = usages
     ? usages.filter((usage) => usage.status !== "downloaded")
@@ -62,15 +66,70 @@ export const DeleteFromGridStep: React.FC = () => {
     }
   };
 
-  const handleConfirm = () => {
-    // @TODO:
-    // 1) Delete crops
-    // 2) Delete usages
-    // 3) Perform soft delete / hard delete / deny lease
+  const deleteUsages = async (): Promise<void> => {
+    if (!image) {
+      return;
+    }
+    await image.perform("delete-usages");
+  };
+
+  const deleteCrops = async (): Promise<void> => {
+    if (!image) {
+      return;
+    }
+    const cropsResource = await image.follow("crops").get();
+    await cropsResource.perform("delete-crops");
+  };
+
+  const softDeleteImage = async (): Promise<void> => {
+    if (!image) {
+      return;
+    }
+    await image.perform("delete");
+  };
+
+  const denyLease = async (): Promise<void> => {
+    if (!image) {
+      return;
+    }
+    // @TODO: Check this - do we need to send an indefinite deny lease date range?
+    await image.perform("add-lease", {
+      body: {
+        access: "deny-use",
+        notes: "Image takedown",
+        mediaId: image.data.id
+      }
+    });
+  };
+
+  const deleteImage = async () => {
+    if (deleteMethod === "hard-delete") {
+      // @TODO: Wire up hard delete
+    } else if (deleteMethod === "soft-delete") {
+      await softDeleteImage();
+    } else if (deleteMethod === "deny-lease") {
+      await denyLease();
+    }
+  };
+
+  const handleConfirm = async () => {
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      await Promise.all([deleteCrops(), deleteUsages()]);
+      await deleteImage();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to delete image"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
     setIsConfirming(false);
+    setSubmitError(null);
   };
 
   const loading =
@@ -93,17 +152,21 @@ export const DeleteFromGridStep: React.FC = () => {
           );
         }
 
-        if (isEmpty) {
-          return (
-            <Typography
-              element="p"
-              variant="bodySm"
-              theme={standThemeOverride.typography.default}
-            >
-              This image has no crops or usages remaining in Grid.
-            </Typography>
-          );
-        }
+        // @TODO: Update this render logic:
+        // - Should display empty crops and usages list but still allow one of the delete methods
+        // - If already deleted: show image is no longer in Grid
+        // - If denied lease: show permanently denied lease
+        // if (isEmpty) {
+        //   return (
+        //     <Typography
+        //       element="p"
+        //       variant="bodySm"
+        //       theme={standThemeOverride.typography.default}
+        //     >
+        //       This image has no crops or usages remaining in Grid.
+        //     </Typography>
+        //   );
+        // }
 
         const listStyles = classNameCss`
           padding: 0 0 0 ${semanticSpacing.stackMd};
@@ -321,7 +384,11 @@ export const DeleteFromGridStep: React.FC = () => {
                   >
                     <Button
                       theme={standThemeOverride.button.destructive}
-                      isDisabled={stepStatus !== "current" || !deleteMethod}
+                      isDisabled={
+                        stepStatus !== "current" ||
+                        !deleteMethod ||
+                        isSubmitting
+                      }
                       onPress={handleConfirm}
                     >
                       Confirm{" "}
@@ -334,11 +401,22 @@ export const DeleteFromGridStep: React.FC = () => {
                     <Button
                       variant="tertiary"
                       theme={standThemeOverride.button.tertiary}
+                      isPending={isSubmitting}
+                      isDisabled={isSubmitting}
                       onPress={handleCancel}
                     >
                       Cancel
                     </Button>
                   </div>
+                  {submitError && (
+                    <Typography
+                      element="span"
+                      variant="bodySm"
+                      theme={standThemeOverride.typography.error}
+                    >
+                      {submitError}
+                    </Typography>
+                  )}
                 </>
               )}
             </div>

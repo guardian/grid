@@ -48,6 +48,9 @@ export type Crop = {
 
 export type CropsResource = {
   getData: () => Promise<Crop[]>;
+  // `delete-crops` bulk-deletes every crop for the image in a single call -
+  // see cropper's CropperController.deleteCrops.
+  perform: (name: string, parameters?: { body?: unknown }) => Promise<unknown>;
 };
 
 // `crops` is not embedded on the image entity (unlike `usages`), it's only a
@@ -57,10 +60,22 @@ export type FollowableResource = {
   get: () => Promise<CropsResource>;
 };
 
+export type ImageAction = {
+  name: string;
+  href: string;
+  method: string;
+};
+
 export type GridImage = {
   data: {
     id: string;
     usages: UsagesResource;
   };
   follow: (rel: string) => FollowableResource;
+  // theseus Resource methods (see kahuna's node_modules/theseus/src/theseus/resource.js):
+  // `getAction` looks up a HAL action by name without invoking it (used to check
+  // permission/availability); `perform` looks it up and invokes it with the HTTP
+  // method the API declared, optionally sending `parameters.body` as the payload.
+  getAction: (name: string) => Promise<ImageAction | undefined>;
+  perform: (name: string, parameters?: { body?: unknown }) => Promise<unknown>;
 };
