@@ -162,7 +162,9 @@ Then('the previously overridden fields are restored', async ({ page, testContext
 });
 
 Then('I should see the existing usage instructions', async ({ page }) => {
-  await expect(uploadPage(page).usageInstructions).toHaveText(E2E_USAGE_INSTRUCTIONS.text);
+  await expect(
+    uploadPage(page).metadataEditor.getByText(E2E_USAGE_INSTRUCTIONS.text),
+  ).toBeVisible();
 });
 
 Then('I should be able to add further special instructions', async ({ page }) => {
