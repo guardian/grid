@@ -19,6 +19,8 @@ interface TestContext {
   previousSearchQuery?: string;
   /** Path of the image uploaded earlier in a scenario, to re-upload the same bytes. */
   uploadedImagePath?: string;
+  /** A field value edited before applying a metadata template, to assert its restoration. */
+  editedByline?: string;
 }
 
 export interface TestImage {
