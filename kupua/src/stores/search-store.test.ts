@@ -20,6 +20,7 @@ import { useSearchStore } from "./search-store";
 import { useEnrichmentStore } from "./enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
+import type { SortDistribution } from "@/dal/types";
 import type {
   SearchParams,
   AggregationRequest,
@@ -130,6 +131,270 @@ beforeEach(() => {
       orderBy: "-uploadTime",
       nonFree: "true",
     },
+  });
+});
+
+describe("Q1 — distribution request ownership", () => {
+  function distribution(key: string): SortDistribution {
+    return { buckets: [{ key, count: 20, startPosition: 0 }], coveredCount: 20 };
+  }
+
+  function deferredDistribution() {
+    let resolve!: (value: SortDistribution | null) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<SortDistribution | null>((resolveValue, rejectValue) => {
+      resolve = resolveValue;
+      reject = rejectValue;
+    });
+    return { promise, resolve, reject };
+  }
+
+  beforeEach(() => {
+    useSearchStore.setState({
+      params: { ...state().params, query: "distribution-fixture", orderBy: "-credit" },
+      total: 100,
+      sortDistribution: distribution("initial"),
+      nullZoneDistribution: null,
+      _sortDistCacheKey: null,
+      _nullZoneDistCacheKey: null,
+    });
+  });
+
+  it.each(["keyword", "date", "null-zone"] as const)("shares pending work and completion for %s", async (kind) => {
+    if (kind === "date") useSearchStore.setState({ params: { ...state().params, orderBy: "-uploadTime" } });
+    const work = deferredDistribution();
+    const request = kind === "keyword"
+      ? vi.spyOn(mock, "getKeywordDistribution").mockReturnValue(work.promise)
+      : vi.spyOn(mock, "getDateDistribution").mockReturnValue(work.promise);
+    const fetchDistribution = kind === "null-zone" ? actions().fetchNullZoneDistribution : actions().fetchSortDistribution;
+    const first = fetchDistribution();
+    const second = fetchDistribution();
+    let secondSettled = false;
+    void second.then(() => { secondSettled = true; });
+    try {
+      await flush();
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(request.mock.calls[0][3]?.aborted).toBe(false);
+      expect(secondSettled).toBe(false);
+      const result = distribution("shared");
+      work.resolve(result);
+      await Promise.all([first, second]);
+      expect(secondSettled).toBe(true);
+      expect(kind === "null-zone" ? state().nullZoneDistribution : state().sortDistribution).toEqual(result);
+      await fetchDistribution();
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      work.resolve(null);
+      await Promise.allSettled([first, second]);
+    }
+  });
+
+  it("separates completed null-zone distributions by missing field", async () => {
+    const credit = distribution("credit-missing");
+    const source = distribution("source-missing");
+    const request = vi.spyOn(mock, "getDateDistribution")
+      .mockResolvedValueOnce(credit)
+      .mockResolvedValueOnce(source);
+    await actions().fetchNullZoneDistribution();
+    useSearchStore.setState({ params: { ...state().params, orderBy: "-source" } });
+    await actions().fetchNullZoneDistribution();
+
+    expect(request.mock.calls.map(call => call[4])).toEqual(["metadata.credit", "metadata.source"]);
+    expect(state().nullZoneDistribution).toEqual(source);
+  });
+
+  it.each(["primary", "null-zone"] as const)("rejects stale A-to-B-to-A publication without clearing newer %s work", async (kind) => {
+    const oldWork = deferredDistribution();
+    const middleWork = deferredDistribution();
+    const newWork = deferredDistribution();
+    const request = kind === "primary"
+      ? vi.spyOn(mock, "getKeywordDistribution")
+      : vi.spyOn(mock, "getDateDistribution");
+    request.mockReturnValueOnce(oldWork.promise).mockReturnValueOnce(middleWork.promise).mockReturnValueOnce(newWork.promise);
+    const fetchDistribution = kind === "primary" ? actions().fetchSortDistribution : actions().fetchNullZoneDistribution;
+    const readDistribution = () => kind === "primary" ? state().sortDistribution : state().nullZoneDistribution;
+    const initial = readDistribution();
+    const pending: Promise<void>[] = [];
+    try {
+      pending.push(fetchDistribution());
+      await flush();
+      useSearchStore.setState({ params: { ...state().params, query: "distribution-other" } });
+      pending.push(fetchDistribution());
+      await flush();
+      useSearchStore.setState({ params: { ...state().params, query: "distribution-fixture" } });
+      pending.push(fetchDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(3);
+      expect(request.mock.calls[0][3]?.aborted).toBe(true);
+      expect(request.mock.calls[1][3]?.aborted).toBe(true);
+      expect(request.mock.calls[2][3]?.aborted).toBe(false);
+
+      oldWork.resolve(distribution("stale-a"));
+      await pending[0];
+      expect(readDistribution()).toEqual(initial);
+      pending.push(fetchDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(3);
+      middleWork.resolve(distribution("stale-b"));
+      await pending[1];
+      expect(readDistribution()).toEqual(initial);
+      const latest = distribution("current-a");
+      newWork.resolve(latest);
+      await Promise.all(pending);
+      expect(readDistribution()).toEqual(latest);
+    } finally {
+      oldWork.resolve(null);
+      middleWork.resolve(null);
+      newWork.resolve(null);
+      await Promise.allSettled(pending);
+    }
+  });
+
+  it.each(["primary", "null-zone"] as const)("retries rejected %s work without retaining a failed cache entry", async (kind) => {
+    const work = deferredDistribution();
+    const result = distribution("retried");
+    const request = kind === "primary"
+      ? vi.spyOn(mock, "getKeywordDistribution")
+      : vi.spyOn(mock, "getDateDistribution");
+    request.mockReturnValueOnce(work.promise).mockResolvedValueOnce(result);
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchDistribution = kind === "primary" ? actions().fetchSortDistribution : actions().fetchNullZoneDistribution;
+    const first = fetchDistribution();
+    const second = fetchDistribution();
+    try {
+      await flush();
+      expect(request).toHaveBeenCalledTimes(1);
+      work.reject(new Error("fixture distribution unavailable"));
+      await Promise.all([first, second]);
+      expect(kind === "primary" ? state()._sortDistCacheKey : state()._nullZoneDistCacheKey).toBeNull();
+      await fetchDistribution();
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(kind === "primary" ? state().sortDistribution : state().nullZoneDistribution).toEqual(result);
+      await fetchDistribution();
+      expect(request).toHaveBeenCalledTimes(2);
+    } finally {
+      work.resolve(null);
+      await Promise.allSettled([first, second]);
+      warning.mockRestore();
+    }
+  });
+
+  it.each(["primary", "null-zone"] as const)("preserves completed null-response behavior for %s", async (kind) => {
+    const request = kind === "primary"
+      ? vi.spyOn(mock, "getKeywordDistribution").mockResolvedValue(null)
+      : vi.spyOn(mock, "getDateDistribution").mockResolvedValue(null);
+    const fetchDistribution = kind === "primary" ? actions().fetchSortDistribution : actions().fetchNullZoneDistribution;
+    await fetchDistribution();
+    await fetchDistribution();
+    expect(request).toHaveBeenCalledTimes(kind === "primary" ? 1 : 2);
+    expect(kind === "primary" ? state().sortDistribution : state().nullZoneDistribution).toBeNull();
+  });
+
+  it.each(["primary", "null-zone"] as const)("starts fresh %s work after same-query search invalidation", async (kind) => {
+    const oldWork = deferredDistribution();
+    const newWork = deferredDistribution();
+    const request = kind === "primary"
+      ? vi.spyOn(mock, "getKeywordDistribution")
+      : vi.spyOn(mock, "getDateDistribution");
+    request.mockReturnValueOnce(oldWork.promise).mockReturnValueOnce(newWork.promise);
+    const fetchDistribution = kind === "primary" ? actions().fetchSortDistribution : actions().fetchNullZoneDistribution;
+    const pending: Promise<void>[] = [];
+    try {
+      pending.push(fetchDistribution());
+      await flush();
+      await actions().search();
+      expect(request.mock.calls[0][3]?.aborted).toBe(true);
+      const initial = distribution("after-search");
+      useSearchStore.setState({ total: 100, sortDistribution: initial, nullZoneDistribution: null });
+      pending.push(fetchDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(2);
+      oldWork.resolve(distribution("stale-search"));
+      await pending[0];
+      expect(kind === "primary" ? state().sortDistribution : state().nullZoneDistribution).toEqual(kind === "primary" ? initial : null);
+      pending.push(fetchDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(2);
+      const current = distribution("fresh-search");
+      newWork.resolve(current);
+      await Promise.all(pending);
+      expect(kind === "primary" ? state().sortDistribution : state().nullZoneDistribution).toEqual(current);
+    } finally {
+      oldWork.resolve(null);
+      newWork.resolve(null);
+      await Promise.allSettled(pending);
+    }
+  });
+
+  it.each(["primary", "null-zone"] as const)("does not dispatch %s work cancelled before its first microtask", async (kind) => {
+    const request = kind === "primary"
+      ? vi.spyOn(mock, "getKeywordDistribution").mockResolvedValue(distribution("cancelled"))
+      : vi.spyOn(mock, "getDateDistribution").mockResolvedValue(distribution("cancelled"));
+    const fetchDistribution = kind === "primary" ? actions().fetchSortDistribution : actions().fetchNullZoneDistribution;
+    const pending = fetchDistribution();
+    await actions().search();
+    await pending;
+    expect(request).not.toHaveBeenCalled();
+    expect(state().sortDistribution).toBeNull();
+    expect(state().nullZoneDistribution).toBeNull();
+  });
+
+  it.each([
+    { label: "missing field", from: "-credit", to: "-source" },
+    { label: "date direction", from: "-taken", to: "taken" },
+  ])("supersedes pending null-zone work when $label changes", async ({ from, to }) => {
+    const oldWork = deferredDistribution();
+    const newWork = deferredDistribution();
+    const request = vi.spyOn(mock, "getDateDistribution")
+      .mockReturnValueOnce(oldWork.promise)
+      .mockReturnValueOnce(newWork.promise);
+    const pending: Promise<void>[] = [];
+    try {
+      useSearchStore.setState({ params: { ...state().params, orderBy: from } });
+      pending.push(actions().fetchNullZoneDistribution());
+      await flush();
+      useSearchStore.setState({ params: { ...state().params, orderBy: to } });
+      pending.push(actions().fetchNullZoneDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(request.mock.calls[0][3]?.aborted).toBe(true);
+      oldWork.resolve(distribution("old-scope"));
+      await pending[0];
+      expect(state().nullZoneDistribution).toBeNull();
+      pending.push(actions().fetchNullZoneDistribution());
+      await flush();
+      expect(request).toHaveBeenCalledTimes(2);
+      const current = distribution("current-scope");
+      newWork.resolve(current);
+      await Promise.all(pending);
+      expect(state().nullZoneDistribution).toEqual(current);
+    } finally {
+      oldWork.resolve(null);
+      newWork.resolve(null);
+      await Promise.allSettled(pending);
+    }
+  });
+
+  it("shares an unchanged null-zone scope across keyword direction changes", async () => {
+    const work = deferredDistribution();
+    const request = vi.spyOn(mock, "getDateDistribution").mockReturnValue(work.promise);
+    const first = actions().fetchNullZoneDistribution();
+    useSearchStore.setState({ params: { ...state().params, orderBy: "credit" } });
+    const second = actions().fetchNullZoneDistribution();
+    try {
+      await flush();
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(request.mock.calls[0][2]).toBe("desc");
+      expect(request.mock.calls[0][3]?.aborted).toBe(false);
+      expect(request.mock.calls[0][4]).toBe("metadata.credit");
+      const result = distribution("shared-null-scope");
+      work.resolve(result);
+      await Promise.all([first, second]);
+      expect(state().nullZoneDistribution).toEqual(result);
+    } finally {
+      work.resolve(null);
+      await Promise.allSettled([first, second]);
+    }
   });
 });
 

@@ -51,6 +51,14 @@ spacing functions as a **density map**. The visual compression of sparse
 ticks and expansion of dense ticks tells the user at a glance where content
 is concentrated. We never linearise ticks by time.
 
+The route memoizes ticks by sort, total and the primary/null-zone distribution
+identities. Equal bucket counts or result totals do not imply equal tick data.
+Results identity and bufferOffset participate only when a date sort uses buffer
+fallback (no primary distribution or fewer than two buckets). Distribution-only
+ticks ignore buffer churn. The existing full-buffer-or-distribution gate remains;
+coveredCount, representedCount, complete and bucketPositionKind retain their
+separate meanings. No content hashing is performed during render.
+
 ### Interval detection and label hierarchy
 
 `computeTrackTicks` detects the histogram interval from the first two

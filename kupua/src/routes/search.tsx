@@ -40,7 +40,7 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
@@ -201,22 +201,16 @@ function SearchPage() {
   // Without distribution in seek mode: empty (linear extrapolation is unreliable).
   // Null-zone aware: includes boundary tick + uploadTime-based ticks in the null zone.
   const allDataInBuffer = total <= bufferLength;
-  const ticksCacheRef = useRef<{ key: string; ticks: ReturnType<typeof computeTrackTicksWithNullZone> }>({ key: "", ticks: [] });
-  const nzDistBucketCount = nullZoneDistribution?.buckets.length ?? 0;
-  const ticksCacheKey = allDataInBuffer
-    ? `buffer:${orderBy ?? ""}:${total}`
-    : sortDistribution
-      ? `dist:${orderBy ?? ""}:${total}:${sortDistribution.buckets.length}:nz${nzDistBucketCount}`
-      : "";
-  if (ticksCacheKey && ticksCacheRef.current.key !== ticksCacheKey) {
-    ticksCacheRef.current = {
-      key: ticksCacheKey,
-      ticks: computeTrackTicksWithNullZone(orderBy, total, bufferOffset, results, sortDistribution, nullZoneDistribution),
-    };
-  } else if (!ticksCacheKey) {
-    ticksCacheRef.current = { key: "", ticks: [] };
-  }
-  const trackTicks = ticksCacheRef.current.ticks;
+  const ticksEnabled = allDataInBuffer || sortDistribution !== null;
+  const tickResults = ticksEnabled && resolveDateSortInfo(orderBy) &&
+    (sortDistribution?.buckets.length ?? 0) < 2 ? results : null;
+  const tickBufferOffset = tickResults ? bufferOffset : 0;
+  const trackTicks = useMemo(
+    () => ticksEnabled
+      ? computeTrackTicksWithNullZone(orderBy, total, tickBufferOffset, tickResults ?? [], sortDistribution, nullZoneDistribution)
+      : [],
+    [ticksEnabled, orderBy, total, tickBufferOffset, tickResults, sortDistribution, nullZoneDistribution],
+  );
 
   const scrubberElement = (
     <Scrubber

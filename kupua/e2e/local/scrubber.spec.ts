@@ -18,6 +18,7 @@
 
 import { test, expect } from "../shared/helpers";
 import { GRID_ROW_HEIGHT, GRID_MIN_CELL_WIDTH, TABLE_ROW_HEIGHT } from "@/constants/layout";
+import type { useSearchStore } from "@/stores/search-store";
 
 // ---------------------------------------------------------------------------
 // Safety gate — refuse to run against a real ES cluster.
@@ -123,6 +124,60 @@ test.describe("Scrubber — basics", () => {
     expect(store.total).toBeGreaterThan(1000); // We have ~10k sample docs
   });
 
+});
+
+test.describe("Scrubber tick input identity", () => {
+  for (const scenario of ["buffer", "single-bucket fallback", "primary distribution", "null-zone distribution"] as const) {
+    test(`refreshes ticks after an equal-sized ${scenario} replacement`, async ({ kupua, page }) => {
+      await kupua.goto();
+
+      const replaceInputs = (year: number, initial = false) => page.evaluate(({ scenario, year, initial }) => {
+        const store = (window as unknown as { __kupua_store__: typeof useSearchStore }).__kupua_store__;
+        const state = store.getState();
+        const bufferBased = scenario === "buffer" || scenario === "single-bucket fallback";
+        const results = bufferBased ? state.results.slice(0, 21).map((image, index) => ({
+          ...image,
+          uploadTime: new Date(Date.UTC(year, index * 3, 1)).toISOString(),
+        })) : state.results;
+        const coveredCount = scenario === "primary distribution" ? 2_000 : 1_000;
+        const dateDistribution = {
+          coveredCount,
+          buckets: [
+            { key: `${year}-01-01T00:00:00.000Z`, count: coveredCount / 2, startPosition: 0 },
+            { key: `${year + 1}-01-01T00:00:00.000Z`, count: coveredCount / 2, startPosition: coveredCount / 2 },
+          ],
+        };
+        let sortDistribution = state.sortDistribution;
+        if (scenario === "buffer") sortDistribution = null;
+        else if (scenario === "primary distribution") sortDistribution = dateDistribution;
+        else if (initial) {
+          sortDistribution = scenario === "single-bucket fallback"
+            ? { coveredCount: 20, buckets: [{ key: "2000-01-01T00:00:00.000Z", count: 20, startPosition: 0 }] }
+            : { coveredCount: 1_000, representedCount: 1_000, complete: true, buckets: [{ key: "fixture", count: 1_000, startPosition: 0 }] };
+        }
+        store.setState({
+          params: { ...state.params, orderBy: scenario === "null-zone distribution" ? "credit" : "uploadTime" },
+          results,
+          total: bufferBased ? 20 : 2_000,
+          bufferOffset: 0,
+          loading: false,
+          focusedImageId: null,
+          positionMap: null,
+          sortDistribution,
+          nullZoneDistribution: scenario === "null-zone distribution" ? dateDistribution : null,
+          extendForward: async () => {},
+          extendBackward: async () => {},
+          fetchNullZoneDistribution: async () => {},
+        });
+      }, { scenario, year, initial });
+
+      await replaceInputs(2000, true);
+      await expect(page.locator('[data-debug-tick-label="2001"]')).toHaveCount(1);
+      await replaceInputs(2020);
+      await expect(page.locator('[data-debug-tick-label="2021"]')).toHaveCount(1);
+      await expect(page.locator('[data-debug-tick-label="2001"]')).toHaveCount(0);
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,43 @@
      New entries go IMMEDIATELY BELOW this comment.
      Format:  ### D Month YYYY — Title
      Order:   newest at top, oldest at bottom.
+     Content: implementation, fixes and rationale; routine testing is assumed.
+     Keep test counts, pass reports, timings and session workflow out of entries.
+     Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
+
+  ### 18 September 2026 - Coalesce pending distribution reads (Q1)
+
+  Primary and null-zone distribution loaders share pending work for the same request
+  scope. A changed scope or new search cancels older work; only the owning request can
+  publish a result or clear its pending slot, including when a query changes away and
+  back. Null-zone cache keys now include the missing primary field as well as the query
+  and uploadTime direction, preventing reuse across different missing-field filters.
+  Existing completed-cache and absence behavior is retained, with ownership kept above
+  the adapter rather than adding a scheduler or changing the DAL API.
+
+  ### 18 September 2026 - Dispatch keyword seeks without an invalid percentile (Q2)
+
+  Deep keyword seeks use cached-bucket or composite lookup directly instead of first
+  asking Elasticsearch for a percentile on a keyword field. Bucket-scoped uploadTime
+  estimation remains intact. Width and height share the distribution descriptor but
+  retain numeric primary estimation, as do date sorts. No new sort registry was added.
+
+  ### 18 September 2026 - Invalidate scrubber ticks by consumed inputs (T1)
+
+  The search route replaces count-based tick cache keys with referential memoization.
+  Equal-total searches and equal-bucket-count distributions can now refresh dates,
+  positions and null-zone ticks. Date buffer fallback retains results/offset dependencies,
+  including distributions shorter than two buckets; distribution-only paths exclude them.
+  Sort-context computation, coverage provenance and the availability gate are unchanged.
+  No bucket hashing, new registry or adapter coupling was introduced.
+
+  ### 18 September 2026 - Omit unused position-map exact totals (Q3)
+
+  Position-index chunks send track_total_hits: false and no longer declare the unused
+  response total. Both populated and missing-primary paging phases, including the
+  default uploadTime missing-value phase, retain complete cursors and refreshed PIT IDs.
+  Ordinary first-page exact counts are unchanged.
 
   ### 17 September 2026 — Complete hybrid page enrichment and bounded recovery
 

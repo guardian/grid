@@ -638,11 +638,17 @@ let _aggRequestGeneration = 0;
 /** Abort controller for in-flight expanded aggregation requests. */
 let _expandedAggAbortController: AbortController | null = null;
 
-/** Abort controller for the sort distribution request (keyword or date). */
-let _sortDistAbortController: AbortController | null = null;
+interface PendingDistributionRequest {
+  key: string;
+  controller: AbortController;
+  promise: Promise<void>;
+}
 
-/** Abort controller for the null-zone (uploadTime) distribution request. */
-let _nullZoneDistAbortController: AbortController | null = null;
+/** Pending sort distribution request (keyword or date). */
+let _sortDistRequest: PendingDistributionRequest | null = null;
+
+/** Pending null-zone (uploadTime) distribution request. */
+let _nullZoneDistRequest: PendingDistributionRequest | null = null;
 
 /** Abort controller for the in-flight position map background fetch. */
 let _positionMapAbortController: AbortController | null = null;
@@ -700,6 +706,12 @@ function cancelAggregationFetch(): number {
  */
 function sortDistCacheKey(params: SearchParams): string {
   return aggCacheKey(params) + "|" + (params.orderBy ?? "");
+}
+
+function nullZoneDistCacheKey(params: SearchParams): string {
+  const dateInfo = resolveDateSortInfo(params.orderBy);
+  const missingField = dateInfo?.field ?? resolveKeywordSortInfo(params.orderBy)?.field ?? "";
+  return aggCacheKey(params) + `|nullzone:uploadTime:${dateInfo?.direction ?? "desc"}|missing:${missingField}`;
 }
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
@@ -2108,8 +2120,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const findFocusSignal = _findFocusAbortController.signal;
 
     // Abort any in-flight sort distribution or expanded agg fetch
-    if (_sortDistAbortController) _sortDistAbortController.abort();
-    if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
+    _sortDistRequest?.controller.abort();
+    _nullZoneDistRequest?.controller.abort();
+    _sortDistRequest = null;
+    _nullZoneDistRequest = null;
     if (_expandedAggAbortController) _expandedAggAbortController.abort();
     if (_positionMapAbortController) _positionMapAbortController.abort();
     cancelAggregationFetch();
@@ -3239,7 +3253,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // If uploadTimeEstimate is null, fall through to the keyword/fallback path below.
         }
 
-        if (!inNullZone) {
+        const keywordInfo = resolveKeywordSortInfo(params.orderBy);
+        const primaryKeyForEstimate = resolvePrimarySortKey(params.orderBy);
+        const numericPrimary = primaryKeyForEstimate === "width" || primaryKeyForEstimate === "height";
+        if (!inNullZone && (!keywordInfo || numericPrimary)) {
           // Compute percentile for the covered range (docs WITH the field).
           const posInCovered = clampedOffset;
           const positionRatio = posInCovered / Math.max(1, coveredCount);
@@ -3290,7 +3307,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         } else if (!result) {
           // Keyword sorts — percentile estimation on the raw field is
           // unavailable (ES rejects `percentiles` on keyword fields).
-          const pField = resolveKeywordSortInfo(params.orderBy)?.field ?? null;
+          const pField = keywordInfo?.field ?? null;
 
           // Fast path: the cached sort distribution (already fetched above
           // for coveredCount) already tells us the exact bucket — no need
@@ -4157,108 +4174,112 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     });
   },
 
-  fetchSortDistribution: async () => {
+  fetchSortDistribution: () => {
     const { dataSource, params, _sortDistCacheKey } = get();
 
     // Check cache — skip if already fetched for this query + sort
     const key = sortDistCacheKey(params);
-    if (key === _sortDistCacheKey) return;
+    if (_sortDistRequest && (_sortDistRequest.key !== key || _sortDistRequest.controller.signal.aborted)) {
+      _sortDistRequest.controller.abort();
+      _sortDistRequest = null;
+    }
+    if (key === _sortDistCacheKey) return Promise.resolve();
 
     // Determine sort type — keyword or date
     const kwInfo = resolveKeywordSortInfo(params.orderBy);
     const dateInfo = resolveDateSortInfo(params.orderBy);
-    if (!kwInfo && !dateInfo) return; // Not a distributable sort (e.g. script sort)
+    if (!kwInfo && !dateInfo) return Promise.resolve(); // Not a distributable sort (e.g. script sort)
+    if (_sortDistRequest) return _sortDistRequest.promise;
 
-    // Abort previous in-flight request
-    if (_sortDistAbortController) _sortDistAbortController.abort();
-    _sortDistAbortController = new AbortController();
+    const controller = new AbortController();
+    const promise = Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      try {
+        let dist: SortDistribution | null = null;
 
-    try {
-      let dist: SortDistribution | null = null;
+        if (kwInfo && dataSource.getKeywordDistribution) {
+          dist = await dataSource.getKeywordDistribution(
+            params, kwInfo.field, kwInfo.direction, controller.signal,
+          );
+        } else if (dateInfo && dataSource.getDateDistribution) {
+          dist = await dataSource.getDateDistribution(
+            params, dateInfo.field, dateInfo.direction, controller.signal,
+          );
+        }
 
-      if (kwInfo && dataSource.getKeywordDistribution) {
-        dist = await dataSource.getKeywordDistribution(
-          params, kwInfo.field, kwInfo.direction,
-          _sortDistAbortController.signal,
-        );
-      } else if (dateInfo && dataSource.getDateDistribution) {
-        dist = await dataSource.getDateDistribution(
-          params, dateInfo.field, dateInfo.direction,
-          _sortDistAbortController.signal,
-        );
+        if (controller.signal.aborted || _sortDistRequest?.controller !== controller || sortDistCacheKey(get().params) !== key) return;
+
+        set({ sortDistribution: dist, _sortDistCacheKey: key });
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        console.warn("[search-store] fetchSortDistribution failed:", error);
       }
-
-      // Guard: params may have changed while awaiting
-      if (sortDistCacheKey(get().params) !== key) return;
-
-      set({
-        sortDistribution: dist,
-        _sortDistCacheKey: key,
-      });
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      console.warn("[search-store] fetchSortDistribution failed:", e);
-    }
+    }).finally(() => {
+      if (_sortDistRequest?.controller === controller) _sortDistRequest = null;
+    });
+    _sortDistRequest = { key, controller, promise };
+    return promise;
   },
 
-  fetchNullZoneDistribution: async () => {
+  fetchNullZoneDistribution: () => {
     const { dataSource, params, sortDistribution, _nullZoneDistCacheKey } = get();
 
     // Only fetch if there's a null zone (coveredCount < total)
-    if (!sortDistribution || sortDistribution.coveredCount >= get().total) return;
+    if (!sortDistribution || sortDistribution.coveredCount >= get().total) return Promise.resolve();
     // Only relevant for non-uploadTime sorts (uploadTime is universal — no null zone)
     const sortKey = resolvePrimarySortKey(params.orderBy);
-    if (!sortKey || sortKey === "uploadTime") return;
-    if (!dataSource.getDateDistribution) return;
+    if (!sortKey || sortKey === "uploadTime") return Promise.resolve();
+    if (!dataSource.getDateDistribution) return Promise.resolve();
 
-    // Cache key: same query params, always uploadTime, direction from sort
+    // Cache key: query params, uploadTime direction and the missing primary field
     const dateInfo = resolveDateSortInfo(params.orderBy);
     const kwInfo = resolveKeywordSortInfo(params.orderBy);
     const direction = dateInfo?.direction ?? "desc";
-    const key = aggCacheKey(params) + `|nullzone:uploadTime:${direction}`;
-    if (key === _nullZoneDistCacheKey) return;
-
-    // Abort previous in-flight
-    if (_nullZoneDistAbortController) _nullZoneDistAbortController.abort();
-    _nullZoneDistAbortController = new AbortController();
-
-    try {
-      // Fetch the uploadTime distribution for NULL-ZONE DOCS ONLY.
-      // Pass primaryField as missingField — adapter builds the must_not:exists
-      // filter internally, narrowing to docs where the primary sort field is
-      // missing.
-      const primaryField = dateInfo?.field ?? kwInfo?.field ?? null;
-
-      const dist = await dataSource.getDateDistribution(
-        params, "uploadTime", direction,
-        _nullZoneDistAbortController.signal,
-        primaryField ?? undefined,
-      );
-
-      // Guard: params may have changed while awaiting
-      if (aggCacheKey(get().params) + `|nullzone:uploadTime:${direction}` !== key) return;
-
-      if (dist) {
-        const nullZoneSize = get().total - (get().sortDistribution?.coveredCount ?? 0);
-
-        if (nullZoneSize > 0 && dist.coveredCount > 0) {
-          // The distribution is already filtered to null-zone docs only,
-          // so bucket positions are accurate — no scaling needed.
-          set({
-            nullZoneDistribution: {
-              buckets: dist.buckets,
-              coveredCount: dist.coveredCount,
-            },
-            _nullZoneDistCacheKey: key,
-          });
-        } else {
-          set({ nullZoneDistribution: null, _nullZoneDistCacheKey: key });
-        }
-      }
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      console.warn("[search-store] fetchNullZoneDistribution failed:", e);
+    const primaryField = dateInfo?.field ?? kwInfo?.field ?? undefined;
+    const key = nullZoneDistCacheKey(params);
+    if (_nullZoneDistRequest && (_nullZoneDistRequest.key !== key || _nullZoneDistRequest.controller.signal.aborted)) {
+      _nullZoneDistRequest.controller.abort();
+      _nullZoneDistRequest = null;
     }
+    if (key === _nullZoneDistCacheKey) return Promise.resolve();
+    if (_nullZoneDistRequest) return _nullZoneDistRequest.promise;
+
+    const controller = new AbortController();
+    const promise = Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      try {
+        const dist = await dataSource.getDateDistribution!(
+          params, "uploadTime", direction, controller.signal, primaryField,
+        );
+
+        if (controller.signal.aborted || _nullZoneDistRequest?.controller !== controller || nullZoneDistCacheKey(get().params) !== key) return;
+
+        if (dist) {
+          const nullZoneSize = get().total - (get().sortDistribution?.coveredCount ?? 0);
+
+          if (nullZoneSize > 0 && dist.coveredCount > 0) {
+            // The distribution is already filtered to null-zone docs only,
+            // so bucket positions are accurate — no scaling needed.
+            set({
+              nullZoneDistribution: {
+                buckets: dist.buckets,
+                coveredCount: dist.coveredCount,
+              },
+              _nullZoneDistCacheKey: key,
+            });
+          } else {
+            set({ nullZoneDistribution: null, _nullZoneDistCacheKey: key });
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        console.warn("[search-store] fetchNullZoneDistribution failed:", error);
+      }
+    }).finally(() => {
+      if (_nullZoneDistRequest?.controller === controller) _nullZoneDistRequest = null;
+    });
+    _nullZoneDistRequest = { key, controller, promise };
+    return promise;
   },
 }));
 

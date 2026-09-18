@@ -2110,7 +2110,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
           // search_after does NOT bypass the limit in ES 8.x.
           size: Math.min(POSITION_MAP_CHUNK_SIZE, MAX_RESULT_WINDOW),
           _source: false,
-          track_total_hits: true,
+          track_total_hits: false,
           pit: { id: pitId, keep_alive: "1m" },
         };
         const requestedSize = body.size as number;
@@ -2123,7 +2123,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
           took?: number;
           pit_id?: string;
           hits: {
-            total: { value: number };
             hits: Array<{ _id: string; sort: SortValues }>;
           };
         };

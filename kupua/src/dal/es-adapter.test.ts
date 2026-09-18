@@ -309,7 +309,42 @@ describe("getDateDistribution special-date provenance", () => {
 // Slice H — special-date position maps remain exact
 // ---------------------------------------------------------------------------
 
-describe("fetchPositionIndex special-date request shape", () => {
+describe("fetchPositionIndex request shape", () => {
+  it("retains the uploadTime missing-value phase without exact totals", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({ id: "position-map-pit" }))
+      .mockResolvedValueOnce(okResponse({
+        hits: { hits: [{ _id: "populated", sort: [1_700_000_000_000, "populated", 1] }] },
+      }))
+      .mockResolvedValueOnce(okResponse({
+        hits: { hits: [{ _id: "missing", sort: ["missing", 2] }] },
+      }))
+      .mockResolvedValueOnce(okResponse({ succeeded: true }));
+
+    const result = await ds.fetchPositionIndex(
+      { nonFree: "true" },
+      new AbortController().signal,
+    );
+
+    const searchBodies = vi.mocked(global.fetch).mock.calls
+      .map(([, init]) => init?.body)
+      .filter((body): body is string => typeof body === "string")
+      .map((body) => JSON.parse(body))
+      .filter((body) => Array.isArray(body.sort));
+    expect(searchBodies).toHaveLength(2);
+    for (const body of searchBodies) {
+      expect(body.track_total_hits).toBe(false);
+    }
+    expect(searchBodies[1].query.bool.filter).toEqual([
+      { bool: { must_not: [{ exists: { field: "uploadTime" } }] } },
+    ]);
+    expect(result).toEqual({
+      length: 2,
+      ids: ["populated", "missing"],
+      sortValues: [[1_700_000_000_000, "populated"], [null, "missing"]],
+    });
+  });
+
   it.each([
     {
       orderBy: "-usagesDateAdded",
@@ -409,7 +444,7 @@ describe("fetchPositionIndex special-date request shape", () => {
     },
   );
 
-  it("paginates both phases with refreshed PIT ids and complete PIT cursors", async () => {
+  it("paginates both phases without exact totals, with refreshed PIT ids and complete PIT cursors", async () => {
     const populatedHits = Array.from({ length: 10_000 }, (_, index) => ({
       _id: `populated-${index}`,
       sort: [
@@ -432,19 +467,19 @@ describe("fetchPositionIndex special-date request shape", () => {
       .mockResolvedValueOnce(okResponse({ id: "pit-initial" }))
       .mockResolvedValueOnce(okResponse({
         pit_id: "pit-populated",
-        hits: { total: { value: 20_000 }, hits: populatedHits },
+        hits: { hits: populatedHits },
       }))
       .mockResolvedValueOnce(okResponse({
         pit_id: "pit-before-missing",
-        hits: { total: { value: 20_000 }, hits: [] },
+        hits: { hits: [] },
       }))
       .mockResolvedValueOnce(okResponse({
         pit_id: "pit-missing",
-        hits: { total: { value: 20_000 }, hits: missingHits },
+        hits: { hits: missingHits },
       }))
       .mockResolvedValueOnce(okResponse({
         pit_id: "pit-final",
-        hits: { total: { value: 20_000 }, hits: [] },
+        hits: { hits: [] },
       }))
       .mockResolvedValueOnce(okResponse({ succeeded: true }));
 
@@ -459,6 +494,9 @@ describe("fetchPositionIndex special-date request shape", () => {
       .map((body) => JSON.parse(body))
       .filter((body) => Array.isArray(body.sort));
     expect(searchBodies).toHaveLength(4);
+    for (const body of searchBodies) {
+      expect(body.track_total_hits).toBe(false);
+    }
     expect(searchBodies[1]).toMatchObject({
       pit: { id: "pit-populated", keep_alive: "1m" },
       search_after: populatedHits.at(-1)?.sort,
@@ -480,6 +518,24 @@ describe("fetchPositionIndex special-date request shape", () => {
       null,
       ...missingHits[0].sort.slice(0, 2),
     ]);
+  });
+});
+
+describe("searchAfter exact totals", () => {
+  it("still requests and returns ordinary first-page totals", async () => {
+    const response = esSearchHits([{ id: "first-page-image" }]);
+    response.hits.total.value = 12_345;
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(response));
+
+    const result = await ds.searchAfter(
+      { nonFree: "true", trackTotalHits: true },
+      null,
+    );
+
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(body.track_total_hits).toBe(true);
+    expect(result.total).toBe(12_345);
+    expect(result.hits).toHaveLength(1);
   });
 });
 

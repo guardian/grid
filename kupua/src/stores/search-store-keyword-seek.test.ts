@@ -12,7 +12,7 @@
  * enough to need refinement.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import type { SortValues } from "@/dal/types";
@@ -91,8 +91,8 @@ describe("T1 — keyword seek lands within tolerance inside a large bucket", () 
   });
 });
 
-describe("T2 — keyword seek fast path issues ≤5 DAL calls (was ~54)", () => {
-  it("issues at most 5 requests once the distribution is cached", async () => {
+describe("T2 — keyword seek fast path issues ≤4 DAL calls (was ~54)", () => {
+  it("uses only the scoped uploadTime estimate and at most 4 requests", async () => {
     await actions().search();
     await actions().fetchSortDistribution();
     await flush();
@@ -100,18 +100,36 @@ describe("T2 — keyword seek fast path issues ≤5 DAL calls (was ~54)", () => 
     const bucket = await largestBucket(mock);
     const target = bucket.startPosition + Math.floor(bucket.count / 2);
 
+    const estimate = vi.spyOn(mock, "estimateSortValue");
     mock.requestCount = 0;
     await actions().seek(target);
     await flush();
 
     expect(state().error).toBeNull();
-    // 5, not 4: seek() always tries estimateSortValue on the raw primary
-    // field first (a pre-existing, out-of-scope "type probe" — ES 400s on
-    // percentiles-over-keyword, the mock now faithfully returns null too),
-    // THEN this fix's scoped estimateSortValue + searchAfter + countBefore
-    // (3) + the bidirectional backward-fetch searchAfter (1) = 5. Still an
-    // order of magnitude below today's ~54-call bisection.
-    expect(mock.requestCount).toBeLessThanOrEqual(5);
+    expect(estimate.mock.calls.map(([, field]) => field)).toEqual(["uploadTime"]);
+    expect(estimate).toHaveBeenCalledWith(
+      expect.any(Object), "uploadTime", expect.any(Number), expect.any(AbortSignal),
+      [{ field: "metadata.credit", value: bucket.key }],
+    );
+    expect(mock.requestCount).toBeLessThanOrEqual(4);
+  });
+});
+
+describe("Q2 — non-keyword deep seeks retain primary estimation", () => {
+  it.each(["-uploadTime", "width", "-height"])("estimates the primary for %s", async (orderBy) => {
+    useSearchStore.setState({ params: { ...state().params, orderBy } });
+    await actions().search();
+    await flush();
+    const estimate = vi.spyOn(mock, "estimateSortValue");
+
+    await actions().seek(TOTAL / 2);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(estimate).toHaveBeenCalledTimes(1);
+    expect(estimate).toHaveBeenCalledWith(
+      expect.any(Object), expect.any(String), expect.any(Number), expect.any(AbortSignal),
+    );
   });
 });
 
@@ -163,11 +181,13 @@ describe("T3 — cached distribution vs composite-walk fallback branching", () =
       return original(...args);
     }) as typeof mock.findKeywordSortValue;
 
+    const estimate = vi.spyOn(mock, "estimateSortValue");
     await actions().seek(20_000);
     await flush();
 
     expect(state().error).toBeNull();
     expect(called).toBe(true);
+    expect(estimate.mock.calls.some(([, field]) => field === "credit" || field === "metadata.credit")).toBe(false);
   });
 
   it("uses the fallback beyond a truncated distribution without entering the null zone", async () => {
