@@ -269,11 +269,6 @@ Feature: Uploading images to the Grid
     And there should be a message indicating that I do not have permission to undelete
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  # Blocked by an app bug: gr-delete-image emits 'image-delete-failure' with (err, image),
-  # but the upload-jobs listener is `(err, image) => ...` and $rootScope.$on passes the event
-  # first, so `image` is really the error object and `image.data.id` throws before the alert
-  # runs. The alert never fires, so there is nothing to assert.
-  @todo
   Scenario: A failed deletion is reported
     Given an uploaded image is shown in my current uploads
     When deleting the image fails

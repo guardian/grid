@@ -194,7 +194,7 @@ jobs.controller('UploadJobsCtrl', [
           });
       });
 
-      const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (err, image) => {
+      const freeImageDeleteFailListener = $rootScope.$on('image-delete-failure', (event, err, image) => {
           if (err.body && err.body.errorMessage) {
               $window.alert(err.body.errorMessage);
           } else {

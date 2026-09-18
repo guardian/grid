@@ -1,5 +1,6 @@
 import { Given, Then, When, expect } from '../setup.ts';
 import {
+  failDelete,
   failIngest,
   filesToUpload,
   holdIngest,
@@ -119,4 +120,15 @@ Then('I should be able to undelete it', async ({ page }) => {
   await expect(undelete).toBeVisible();
   await undelete.click();
   await expect(undelete).toBeHidden();
+});
+
+When('deleting the image fails', async ({ page }) => {
+  await failDelete(page);
+  const remove = uploadPage(page).deleteJobButton;
+  await remove.click(); // arms the confirm
+  await remove.click(); // confirms
+});
+
+Then('I should see an alert explaining the deletion failed', async ({ testContext }) => {
+  await expect.poll(() => testContext.dialogs.join('\n')).toContain('Failed to delete image');
 });
