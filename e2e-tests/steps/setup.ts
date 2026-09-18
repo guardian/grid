@@ -23,6 +23,8 @@ interface TestContext {
   editedByline?: string;
   /** Embedded metadata values expected to appear in the editor, keyed by field name. */
   expectedMetadata?: Record<string, string>;
+  /** Field values batch-applied across current uploads, keyed by the feature-table label. */
+  batchApplied?: Record<string, string>;
 }
 
 export interface TestImage {
