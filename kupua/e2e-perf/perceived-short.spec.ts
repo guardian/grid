@@ -571,8 +571,11 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const deadline = performance.now() + timeoutMs;
+    let lastReadiness = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       const state = (window as any).__kupua_store__?.getState();
       const url = new URL(location.href);
@@ -589,6 +592,19 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
       const homeStore = state?.params?.nonFree === "true"
         && state.params.query == null
         && state.params.until == null;
+      lastReadiness = {
+        loading: Boolean(state?.loading),
+        error: Boolean(state?.error),
+        sorting: Boolean(state?.sortAroundFocusStatus),
+        homeUrl,
+        homeStore,
+        bufferOffset: state?.bufferOffset ?? null,
+        scrollTop: container?.scrollTop ?? null,
+        firstResultRendered: Boolean(item),
+        firstResultVisible: false,
+        scrubberPresent: Boolean(scrubber),
+        scrubberPosition,
+      };
       if (
         !state || state.loading || state.error || state.sortAroundFocusStatus
         || !homeUrl || !homeStore || state.bufferOffset !== 0
@@ -604,6 +620,7 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
         first = null;
         continue;
       }
+      lastReadiness.firstResultVisible = true;
       const current = { container: readRect(container), item: readRect(item), t: performance.now() };
       if (!first) {
         first = current;
@@ -620,7 +637,7 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
       }
       first = current;
     }
-    throw new Error("PP1 unpinned home did not become visibly stable at absolute position zero within 120 frames");
+    throw new Error(`PP1 unpinned home did not become visibly stable at absolute position zero within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
   }, interactionId);
 }
 

@@ -48,7 +48,7 @@ Never persist credentials, signed URLs, real user data or request/response bodie
    especially D-6, and [the final implementation review](../../zz%20Archive/media-api-work/phase-3-d3-searchafter-code-review-final.md).
    Read the May/June D3 and August review changelog entries when needed to distinguish fixes,
    refutations and accepted limitations. Do not restart those reviews from scratch.
-4. Only the D3-relevant findings in [the consolidation audit](../../performance-first-dry-consolidation-audit-2026-09-13.md),
+4. Only the D3-relevant findings in [the consolidation audit](../../zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md),
    [production-impact assessment](../../zz%20Archive/media-api-work/2026-09-migration-assessments/production-impact-01-findings.md),
    and [API-only assessment](../../zz%20Archive/media-api-work/2026-09-migration-assessments/api-only-assessment-01-workplan.md).
    Their architecture recommendations and acceptance checklists are not requirements for this task.

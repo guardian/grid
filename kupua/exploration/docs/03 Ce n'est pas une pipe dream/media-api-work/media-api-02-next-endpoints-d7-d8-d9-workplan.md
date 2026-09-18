@@ -19,7 +19,7 @@
 > The detailed endpoint sketches below are research input, not build instructions, until
 > these reviews amend them. See the authoritative banner in
 > `media-api-01-capability-inventory.md` and the migration addendum in
-> `../../performance-first-dry-consolidation-audit-2026-09-13.md`.
+> `../../zz Archive/performance-first-dry-consolidation-audit-2026-09-13.md`.
 
 > **Historical D9 review amendment — 7 September 2026 (D7/D8 readiness superseded
 > by the 13 September amendment above):** Before implementing D9, perform a focused plan review;
@@ -359,9 +359,16 @@ requested hidden ID exists. Add a mixed visible/hidden Scala regression.
 | `strangler-adapter.ts` | Override `getByIds` → `apiGetByIds`; keep `getById` delegating to `getByIds([id]).then(r => r[0])`. |
 | `vite.config.ts` | Whitelist `POST /api/images/mget`. |
 
-Call sites unaffected: `selection-store.ts:635` (`ensureMetadata`), `:673` (`hydrate` — note it
-drops `missingIds` and toasts, so silent-absence of missing ids must be preserved),
-`ImageDetail.tsx:235` (`getById`).
+Route or inject the selection store's datasource so `ensureMetadata` and `hydrate`
+actually use D9; a Strangler override alone does not migrate that owner. Retain the
+detail `getById` path and the existing missing-ID handling. A failed or aborted read
+must not be treated as a successful response that omitted every selected ID.
+
+Preserve the current client lifecycle documented in the
+[selection guide](../../00%20Architecture%20and%20philosophy/05-selections.md).
+Reuse the [selection-store regressions](../../../../src/stores/selection-store.test.ts)
+and [selection panel journeys](../../../../e2e/local/selections.spec.ts) when changing
+transport. These are existing client guarantees, not additional server responsibilities.
 
 ### Test plan
 - Scala: `getByIds` returns found docs in request order; missing and unauthorized
@@ -381,6 +388,11 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
 - TS: `apiGetByIds` chunks requests at the agreed cap with abort propagation;
   maps missing/hidden IDs safely; `StranglerAdapter` routes `getByIds` and
   `getById`; cover whichever enrichment ownership model the review selects.
+- Client regressions: late off-buffer metadata publishes to Details/Usages through
+  the cache revision; panels retain a coherent completed presentation while fetching
+  and reconciling. Successful missing/hidden-ID omissions repair the selection anchor
+  and retained cursor ownership. Failed reads preserve membership, and clear/navigation
+  prevents late responses from resurrecting the old panel presentation.
 
 ### Done when
 - [ ] `POST /images/mget` returns enriched images, missing ids absent (curl).
@@ -388,6 +400,8 @@ drops `missingIds` and toasts, so silent-absence of missing ids must be preserve
 - [ ] Running migration batches prefer the migration copy and fall back to current without duplicates.
 - [ ] Client chunking and server request cap agree and are tested above the cap.
 - [ ] Enrichment writes have one documented owner.
+- [ ] Selection-owner routing and the existing metadata-publication, panel-coherence
+  and hydration-anchor regressions pass through the media-api path.
 - [ ] Multiple usage/collection dates survive projection and synthesize the
   canonical maximum-date cursor.
 - [ ] `--use-media-api` multi-selection load + session reload (`hydrate`) work; missing-id toast

@@ -1,13 +1,18 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** First shakedown session complete (2026-07-30). Core loop verified working.
+> **Status:** Maintained operating reference; latest live technique check 2026-09-18.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
 >
 > This is about *how to operate the app*, not *what is wrong with it*. Technique
 > goes here; bug findings belong in their own docs.
+>
+> **Operator clarification, 18 September 2026:** these browsers are for agents only;
+> the operator never uses them. Agents do not need to save or restore app preferences
+> for the operator. Preserve or reset state only as required for a valid experiment.
+> This does not authorize clearing authentication data or changing server lifecycle.
 
 ## How to use this file
 
@@ -69,14 +74,15 @@ object `{}` in the scroll tier — don't rely on it to name the tier; infer tier
 `page.waitForFunction(() => window.__kupua_store__.getState().loading === false)`
 returned promptly once the corpus had settled after a reload. No fixed sleep needed.
 
-**[V] The embedded browser is a persistent user session — confirmed.**
-`localStorage.clear(); sessionStorage.clear()` followed by a reload produced a
-clean `ui-prefs` (read back as `null`). **Do this before EVERY reload you're
-treating as "a fresh page load" — not just once per mission.** A `page.goto()`
-to a URL already visited in this tab does NOT reset storage; a per-search
-`kupua:histSnap:*` sessionStorage entry survives it and silently restores the
-prior scroll/anchor position, which produced a false "confirmed bug" in the M7
-session (see §3, "Reused-page storage confound").
+**[V] The embedded browser persists state, but is agent-only.**
+`page.goto()` and reload do not reset storage. Per-entry `kupua:histSnap:*`
+snapshots can restore a previous position, while same-origin tabs share
+`localStorage` preferences. **No operator-preference backup or restoration is
+required.** Agents may set panel, column, density and other app preferences for
+their work. A new tab does not isolate those preferences, so establish the actual
+baseline when it affects a test. Reset only the relevant app state deliberately;
+do not erase authentication data wholesale. For history or cache-invalidation
+checks, resetting the state under investigation can hide the behavior.
 
 **[V] `selectionStore.clear()` does not clear its metadata LRU, and a reload can
 restore a deep viewport.** A panel-open selection profile warmed 200 metadata
@@ -435,34 +441,20 @@ but is a test-timing artifact, not a bug. **Wait for `_seekGeneration` to bump**
 a session chasing what looked like a real scrubber desync bug before the
 real cause (own test script's insufficient wait) was found.
 
-**[!] Always do a truly fresh `kupua.goto()` before each independent scrubber
-test point — do not reuse the same page/mouse state across successive seeks
-within one ad-hoc script.** Reusing a page across several manual click-simulated
-seeks (rather than one `goto()` per test point) makes it hard to tell a stale
-carried-over position from a genuine new-click result — this confound is what
-ultimately capped the confidence of the M10 tier-agreement finding at "low" for
-its open question. If cross-tier position comparison is needed again, prefer
-separate fresh page loads per test point over a chain of clicks on one page.
+**[!] Choose an independent baseline or a continuous journey explicitly.**
+For independent scrubber test points, verify initial position, thumb geometry,
+history state and pending work before each action. `kupua.goto()` alone does not
+clear persisted state. For Back/Forward, traversal or cache-invalidation checks,
+preserve the same mounted app and relevant history instead of resetting between
+actions. State which kind of experiment the result describes.
 
-**[V] Reused-page storage confound retracted a "confirmed" bug — clear
-`sessionStorage`/`localStorage` before EVERY reload used as a "fresh" test
-point, not just between missions.** In the M7 session I reported a "confirmed"
-bug (first scrubber click after a fresh load lands ~5% off target) after
-reproducing it 3x with geometry explicitly ruled out. It was still wrong: kupua
-persists a per-search history-restore snapshot in `sessionStorage`
-(`kupua:histSnap:<uuid>` → `{anchorImageId, anchorOffset, viewportRatio}`),
-which **survives `page.reload()` and repeat `page.goto()` to the same URL in
-the same tab** (only cleared on tab/window close). The whole session reused one
-page across many missions/test points on the same query without ever clearing
-storage, so every "fresh" reload silently restored a prior test point's
-position. A same-session A/B (`localStorage.clear(); sessionStorage.clear()`
-before reload, vs. not) reproduced the "biased" result only when storage was
-left dirty, and the "accurate" result every time storage was cleared — timing
-(0ms vs 4000ms wait before the first click) made no difference in either
-condition. **Practical rule: `localStorage.clear(); sessionStorage.clear();`
-then `page.reload()` before every test point you're treating as "a fresh page
-load", not just once per session** — `page.goto()` to a URL you've already
-visited in this tab does NOT give you a clean slate.
+**[V] Reused-page storage confound retracted a "confirmed" bug.** The M7
+session's apparent first-click displacement was restored history state, not
+scrubber geometry. A historical storage-cleared control distinguished it. In
+agent-only tabs, establish app preferences deliberately, but retain history/cache
+state when testing restoration. Treat reload as a restoration workflow unless a
+clean baseline was explicitly established. Verify the starting anchor and offset,
+not just the URL.
 
 **[?] Same target pixel via click vs. drag-from-above vs. drag-from-below can
 disagree by ~1–3% in the seek tier — medium confidence, not fully
@@ -922,12 +914,12 @@ the wide control with the identical lightweight frame/LoAF/mutation probe
 confirmed the result. CPU profiles are attribution evidence; they are not a
 matched benchmark unless both variants carry the same profiler overhead.
 
-**[V] Save and restore persisted UI stores around diagnostics.** Column and
-panel stores write to shared `localStorage`, so changing visibility in one tab
-changes subsequent fresh tabs too. Before a diagnostic, `structuredClone()` the
-exact store config into browser memory; restore it in a `finally`-equivalent
-cleanup and verify the original visible-count/state afterward. Never assume
-closing the tab rolls a preference back.
+**[V] Make persisted UI baselines explicit when they affect diagnostics.** Column
+and panel stores write to shared `localStorage`, so changing visibility in one tab
+changes subsequent fresh tabs too. These are agent-only preferences: saving and
+restoring them is optional, not an operator-protection requirement. For an A/B
+comparison, hold the relevant config fixed or restore it between measurements.
+Closing a tab does not roll preferences back.
 
 **[V] Do not include timestamps in geometry-equality signatures.** A two-frame
 stability oracle compared every property of `{ geometry..., t }`; the timestamp
@@ -1005,12 +997,15 @@ a real cluster**, i.e. started with `./kupua/scripts/start.sh --use-TEST` (or
 `--use-TEST --use-media-api`). In default local mode the "cluster" is Docker ES
 with ~10k synthetic docs, where every interesting question (large keyword buckets,
 skewed distributions, deep seek, tdigest error) is unanswerable by construction —
-you will get confident, precise, *meaningless* numbers. Check what you are pointed
-at before drawing any conclusion: `store.getState().total` in the tens of thousands
-means local, ~1.3M means TEST. Also note `--use-media-api` changes `dataSource` to
-the `StranglerAdapter`, which delegates most methods to ES but routes `searchAfter`
-through the Scala server — so method-level timings are not comparable across the
-two modes.
+you will get confident, precise, *meaningless* numbers. **Do not infer the target
+from result count:** a filtered TEST query can contain only a handful of images.
+Confirm the target with the operator, read only `IS_LOCAL_ES` from the served
+`/src/dal/es-config.ts` module, and check adapter identity plus observed coarse
+request routes. `IS_LOCAL_ES === false` confirms the adapter's non-local write
+guard, not which remote stage it reaches. Do not return the module's index or
+environment values. `StranglerAdapter` still delegates most methods to ES while
+routing qualifying `searchAfter` calls through media-api; timings across these
+modes are not interchangeable.
 
 **[!] BE KIND TO THE CLUSTER. TEST is not PROD, but it is shared, real
 infrastructure serving other people's work.** Everything in this section issues
@@ -1030,28 +1025,18 @@ deep range chain scans a lot. Rules of thumb:
 - **Stop as soon as the question is answered.** These probes are for settling a
   specific design question, not for open-ended browsing of the corpus.
 
-**[V] `store.getState().dataSource` is the live `ElasticsearchDataSource` and every
-method is callable from `page.evaluate`.** This turns the embedded browser into a
-read-only ES console against whatever cluster the app is pointed at — no SSH tunnel,
-no curl, no auth juggling, and the query is built by the app's own code so you are
-testing the real path, not an approximation. Confirmed present (2026-08-28):
-`search`, `searchRange`, `count`, `countWithTickers`, `getById`, `getAggregation`,
-`getAggregations`, `openPit`, `closePit`, `searchAfter`, `searchByAi`, `countBefore`,
-`estimateSortValue`, `findKeywordSortValue`, `getKeywordDistribution`,
-`getDateDistribution`, `fetchPositionIndex`, `getByIds`, `getIdRange`.
-Enumerate with `Object.getOwnPropertyNames(Object.getPrototypeOf(ds))`.
+**[V] `store.getState().dataSource` exposes the running adapter's read methods.**
+In direct mode this is `ElasticsearchDataSource`; media-api mode uses the strangler.
+Inspect the current interface and method before calling it, then use a bounded
+read through the app's existing guarded transport. No new tunnel or credentials
+are needed. A direct method call is a controlled DAL probe, not a reproduction
+of the UI's orchestration or request count.
 
-Invaluable for answering "would this fix actually work?" *before* writing code —
-you can execute a proposed algorithm end-to-end against 1.3M real docs in one
-tool call and measure it. Keep to read-only methods on non-local ES.
-
-**[F] Do NOT trust `total` from a direct `ds.search(...)` call — it comes back `0`.**
-Cost a wasted turn and produced a completely false conclusion ("CQL scoping returns
-zero results for every key") before the unscoped control also returned 0 and gave
-the game away. `hits` is populated correctly; only `total` is wrong in this call
-shape. **Always include an unscoped control probe in the same batch** so an
-artifact of your own call shape can't masquerade as a finding. Use `ds.count(params)`
-when you need an actual count.
+**[!] The old `dataSource.search()` wrapper has been removed.** Historical advice
+about its zero `total` does not describe a current API. First pages use
+`searchAfter`; check explicit count intent when interpreting its result. For an
+actual count question, use the current `count`/`countWithTickers` contract. Do not
+recreate removed methods or add an unscoped query without a discriminating reason.
 
 **[V] `store.getState().sortDistribution` is a cached position map for keyword
 and scalar-date sorts, but special multi-valued dates are explicitly approximate.**
@@ -1100,11 +1085,13 @@ to `countBefore` gives `400 failed to parse date field … with format [epoch_mi
 while `searchAfter` swallows it happily. If you are probing a sort-value cursor by
 hand, `Math.round()` it first or you will misattribute the 400 to your query shape.
 
-**[V] Reproducing a suspected bug at the DAL level is much stronger evidence than
-reproducing it through the UI**, and much faster — no scrubber geometry, no
-virtualiser settling, no seek cooldowns. If a finding can be stated as "this ES
-call returns the wrong number", prove it there first, then only go to the UI to
-confirm the user-visible consequence.
+**[V] Prove the behavior at its owning layer, then check the visible consequence.**
+A bounded DAL call can isolate a wrong count or cursor without virtualizer noise.
+It cannot prove that a panel reacts to cache completion, a history entry has the
+right identity, or a resolved focus target is visible. A healthy cache alongside
+an unchanged empty panel is meaningful evidence; forcing a rerender before
+observing the panel can erase it. Label direct store/DAL probes separately from
+ordinary mouse and keyboard workflows.
 
 **[V] D3 contract checks can be run without retaining TEST data.** In
 `--use-media-api` mode, verify `StranglerAdapter` and a `/api/images/search-after`
@@ -1143,3 +1130,111 @@ Capture its cursor/PIT in memory, observe and await the existing `closePit` call
 with that retired ID verified a cleared returned PIT, public cursor arity, API enrichment and
 no overlay publication. A one-request browser route abort separately verified live ES fallback;
 label that as fault injection, not a naturally observed API outage. Remove the route in `finally`.
+
+---
+
+## 7. Bounded correctness checks (17 September 2026)
+
+**[V] Use the actual app preference keys when establishing a test baseline.**
+Current keys are `kupua-panel-config` and `kupua-ui-prefs`, not `ui-prefs`. Agents
+may change these without saving/restoring the previous values. Restore exact
+values and original absence only when the experiment itself requires it. Never
+use `storageState()` or enumerate credentials for preference cleanup. Server
+start/stop coordination still requires the operator's agreement.
+
+**[V] Observe app-owned requests without replacing their results.** Install an
+init-script observer before a cold load when the question concerns startup work.
+For position-index chunks, classify the existing request by `_source === false`,
+positive `size`, and `pit`, then record only count/size/`track_total_hits` flags.
+For one seek, wrap `estimateSortValue` to record field kind, scope presence and
+whether it returned a value; observe HTTP status separately if needed. Do not
+retain request bodies, index paths, headers, tuples or image identities. Restore
+`fetch` and methods in `finally`, including deleting temporary own-method overrides
+when the original method lived on the prototype.
+
+**[V] Ordinary scrubber hover can initiate and supersede distribution work.**
+Bound the pointer sequence to a few movements; observe adapter starts and their
+AbortSignals, not just completed Resource Timing entries. A final successful
+distribution does not prove only one request was started. Preload a distribution
+before a separate seek experiment when you need to distinguish the two costs;
+choose a target inside represented coverage to avoid an unnecessary long walk.
+
+**[V] History probes should use real typing, Home and Back.** Compare entry-key
+equality and history-length change before typing and after debounce settlement.
+To inspect departure attribution, temporarily observe `snapshotStore.set` and
+compare its key with the departing and destination keys inside the page. Move the
+viewport anchor before Back if the existing phantom-snapshot guard would otherwise
+legitimately skip capture. Restore the method afterward. Return only booleans,
+not snapshots or live keys; do not rewrite history state to manufacture a result.
+
+**[V] Keep cached-batch, cold-metadata and ordinary-selection controls separate.**
+A normal range gesture may be corrected by a later full reconciliation. To isolate
+duplicate-input handling, use already cached live images and compare the unique
+selection size with reconciled counts through the store's normal actions. This is
+a controlled store probe, not a natural gesture reproduction. For cache publication,
+retain an unselected identity before a real seek, verify it is outside the new
+buffer and uncached, then select it and await metadata completion. Check visible
+panel content before using hide/show as a remount control. Do not force unrelated
+store changes first: they can hide a missing subscription.
+
+**[V] Equal-size tick checks must keep the component mounted and use actual inputs.**
+Two small ID-filtered searches can supply different real date spans without bulk
+queries or synthetic images. Record matched total, buffer length and cohort
+membership separately: one such navigation had 20 matches but 21 buffered images
+after focus preservation. Compare expected ticks from `computeTrackTicksWithNullZone`
+using the settled inputs with the supplied `trackTicks` and rendered tick markup.
+DEV React-fiber inspection worked for this diagnostic, but requires distinguishing
+current/alternate props and must not become a permanent test dependency. A full
+reload would reset the cache under examination and invalidate the experiment.
+
+**[V] Check visible neighbours in both coordinate regimes.** Wait for the
+position map before an indexed-scroll control and for a changed `_seekGeneration`
+after a real seek. Count viewport-intersecting cells/rows, not all overscan nodes,
+and compare that with the app's visible-neighbour helper. For detail traversal,
+track the URL image identity and verify the last-viewed image is visible after
+exit; `focusedImageId` alone is insufficient. Missing-anchor hydration and unusual
+per-image restoration transitions are better covered by deterministic fixtures
+when no bounded natural workflow reaches them. Never mutate live images to create
+a missing-ID case.
+
+**[F] Closing a page inside `run_playwright_code` can discard its final result.**
+The cleanup-plus-`page.close()` call ended with `Page ... not found`; a subsequent
+page read confirmed closure, but the cleanup readback was not delivered. Verify
+and return probe cleanup results in one call, then close the assessment tab in a
+separate call. Do not report an undelivered readback as independently confirmed.
+
+**[V] Track all search-store field changes during a cache-publication probe
+(18 September 2026).** Keeping only results/selection/cache identities fixed does
+not rule out an unrelated parent rerender. Subscribe before selecting, retain only
+the names of changed fields, and inspect the panel after cache completion and React
+paint without forcing another state update. Perform hide/show only afterward as a
+remount control. Keep candidate identities and metadata comparisons in browser memory,
+return booleans/counts, then unsubscribe and remove the probe before closing. App
+preferences need not be restored in these agent-only browsers.
+
+**[V] Pair reconciliation-state samples with actual placeholder DOM (18 September
+2026).** For a bounded selection transition, record only pending/dirty field counts
+and counts of rendered placeholder spans on animation frames. The component named
+`Dash` currently renders the literal text `Empty`, not a dash character; guessing
+its output gave a false zero-placeholder count. Keep DOM-text signatures in browser
+memory and return only anonymous signature numbers/counts. A foreground frame with
+placeholders followed by completed values distinguishes a rendered intermediate
+state from store-only publication; stretched/backgrounded samples are not latency
+evidence. Cancel the frame recorder and remove probe state afterward.
+
+**[V] Legacy live usages need not have `usage.title` (18 September 2026).** A cold
+off-buffer panel check can use the count of displayable usage rows instead of
+requiring a title populated by synthetic fixtures. Scope `li` counts to the Usages
+button's section, found with `getByRole('button', { name: /usage/i })`; page-wide
+lists include unrelated metadata. In selector strings, `[exact=true]` is not a
+supported role attribute; use the `getByRole` option when exact matching is needed.
+
+**[V] Verify coherent presentation separately from immediate selection feedback
+(18 September 2026).** Locate the Details/Usages accordion headers with accessible
+roles, then sample their current `[aria-busy]` content wrappers on animation frames.
+Keep text signatures in browser memory and classify returned samples only as before,
+after or intermediate. Record pending/dirty field counts and selected checkbox counts
+alongside those classifications. This distinguishes legitimate background work from
+an intermediate rendered panel, and proves membership feedback can update while the
+old coherent content remains visible. Exclude live counters outside the content
+wrapper from equality checks; remove the recorder and subscription after the action.

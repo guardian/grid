@@ -3,6 +3,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 import {
   assertBalancedLongRuns,
@@ -27,6 +29,218 @@ import {
   pruneAuditHistory,
 } from "./history-files.mjs";
 import { computeCorrelatedMetrics } from "./perceived-metrics.mjs";
+import TeardownReporter from "./teardown-reporter.mjs";
+
+test("perf campaigns and direct configs retain teardown diagnostics", () => {
+  const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const overrides = [...runner.matchAll(/"--reporter=([^"]+)"/g)];
+  assert.equal(overrides.length, 2);
+  for (const [, reporters] of overrides) {
+    assert.ok(reporters.split(",").includes("./e2e-perf/teardown-reporter.mjs"));
+  }
+  for (const config of ["playwright.perf.config.ts", "playwright.perceived-short.config.ts", "playwright.perceived-long.config.ts"]) {
+    const source = readFileSync(join(import.meta.dirname, config), "utf8");
+    assert.ok(source.includes('["./teardown-reporter.mjs"]'), config);
+  }
+  const { scripts } = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"));
+  for (const [name, command] of Object.entries(scripts)) {
+    if (name.startsWith("test:perf:")) assert.doesNotMatch(command, /--reporter=list(?:\s|$)/, name);
+  }
+});
+
+test("teardown diagnostics report cleanup stages but ignore setup and measured actions", () => {
+  const lines = [];
+  const reporter = new TeardownReporter({ write: (line) => lines.push(line) });
+  const scenario = { title: "P1: initial load" };
+  const result = Object.freeze({ status: "passed" });
+  const cleanup = { category: "hook", title: "After Hooks", duration: 75 };
+  const setup = { category: "hook", title: "Before Hooks" };
+  const contextSetup = { category: "fixture", title: 'Fixture "context"', parent: setup };
+  reporter.onStepBegin(scenario, result, contextSetup);
+  reporter.onStepEnd(scenario, result, contextSetup);
+  reporter.onStepBegin(scenario, result, { category: "test.step", title: "Stop perf probes" });
+  assert.deepEqual(lines, []);
+
+  reporter.onStepBegin(scenario, result, cleanup);
+  for (const [category, title, duration] of [
+    ["test.step", "Stop perf probes", 5],
+    ["fixture", 'Fixture "perfEnvironment"', 24],
+    ["fixture", 'Fixture "context"', 46],
+  ]) {
+    const step = { category, title, duration, parent: cleanup };
+    reporter.onStepBegin(scenario, result, step);
+    reporter.onStepEnd(scenario, result, step);
+  }
+  reporter.onStepEnd(scenario, result, cleanup);
+  assert.deepEqual(lines, [
+    "[perf cleanup] P1 | Cleanup: started",
+    "[perf cleanup] P1 | Stopping probes: started",
+    "[perf cleanup] P1 | Stopping probes: completed in 5ms",
+    "[perf cleanup] P1 | Capturing environment: started",
+    "[perf cleanup] P1 | Capturing environment: completed in 24ms",
+    "[perf cleanup] P1 | Closing browser context: started",
+    "[perf cleanup] P1 | Closing browser context: completed in 46ms",
+    "[perf cleanup] P1 | Cleanup: completed in 75ms",
+  ]);
+});
+
+test("teardown diagnostics preserve failures without printing private details", () => {
+  const lines = [];
+  const reporter = new TeardownReporter({ write: (line) => lines.push(line) });
+  const scenario = { title: "PP1: private-test-detail" };
+  const result = Object.freeze({ status: "failed" });
+  const step = Object.freeze({
+    category: "fixture",
+    title: 'Fixture "perfEnvironment"',
+    parent: { category: "hook", title: "After Hooks" },
+    duration: 10.6,
+    error: { message: "private-test-detail", stack: "private-test-detail" },
+  });
+  reporter.onStepBegin(scenario, result, step);
+  reporter.onStepEnd(scenario, result, step);
+  reporter.onStepEnd(scenario, result, step);
+  assert.deepEqual(lines, [
+    "[perf cleanup] PP1 | Capturing environment: started",
+    "[perf cleanup] PP1 | Capturing environment: failed in 11ms",
+  ]);
+  assert.equal(result.status, "failed");
+});
+
+test("unfinished cleanup has a start record without a false completion", () => {
+  const lines = [];
+  const reporter = new TeardownReporter({ write: (line) => lines.push(line) });
+  reporter.onStepBegin({ title: "P1: initial load" }, {}, {
+    category: "fixture",
+    title: 'Fixture "context"',
+    parent: { category: "hook", title: "After Hooks" },
+  });
+  assert.deepEqual(lines, ["[perf cleanup] P1 | Closing browser context: started"]);
+});
+
+test("cleanup records stay scoped to their step and sanitize unknown scenario titles", () => {
+  const lines = [];
+  const reporter = new TeardownReporter({ write: (line) => lines.push(line) });
+  const parent = { category: "hook", title: "After Hooks" };
+  const first = { category: "fixture", title: 'Fixture "context"', parent, duration: 20 };
+  const second = { ...first, duration: 40 };
+  const scenario = { title: "private-test-detail" };
+  reporter.onStepBegin(scenario, {}, first);
+  reporter.onStepBegin({ title: "JA: journey" }, {}, second);
+  reporter.onStepBegin(scenario, {}, { category: "pw:api", title: "private-test-detail", parent });
+  reporter.onStepEnd(scenario, {}, second);
+  reporter.onStepEnd(scenario, {}, first);
+  assert.deepEqual(lines, [
+    "[perf cleanup] perf | Closing browser context: started",
+    "[perf cleanup] JA | Closing browser context: started",
+    "[perf cleanup] JA | Closing browser context: completed in 40ms",
+    "[perf cleanup] perf | Closing browser context: completed in 20ms",
+  ]);
+});
+
+function createHomeVisualHarness({
+  refreshRate = 120,
+  readyAt = 1_500,
+  stateOverrides = {},
+  scrollTop = 0,
+  scrubberPosition = "0",
+  href = "http://localhost/search?nonFree=true",
+  moving = false,
+  visible = true,
+} = {}) {
+  const source = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
+  const helper = source.slice(
+    source.indexOf("async function appendHomeVisualPhases("),
+    source.indexOf("async function captureChipRemovalAnchor("),
+  );
+  const { outputText } = ts.transpileModule(helper, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let now = 0;
+  const entries = [];
+  const rect = { top: 0, left: 0, width: 600, height: 400, bottom: 400 };
+  const item = {
+    getBoundingClientRect: () => {
+      const top = !visible ? 500 : moving ? Math.round(now * refreshRate / 1_000) % 2 * 4 : 0;
+      return { ...rect, top, height: 100, bottom: top + 100 };
+    },
+  };
+  const container = {
+    scrollTop,
+    getBoundingClientRect: () => rect,
+    querySelector: () => item,
+  };
+  const appendHomeVisualPhases = runInNewContext(`${outputText}\nappendHomeVisualPhases`, {
+    URL,
+    location: { href },
+    CSS: { escape: (value) => value },
+    performance: { now: () => now },
+    requestAnimationFrame: (callback) => {
+      now += 1_000 / refreshRate;
+      queueMicrotask(() => callback(now));
+    },
+    document: {
+      querySelector: (selector) => selector.includes("slider")
+        ? { getAttribute: () => scrubberPosition }
+        : container,
+    },
+    window: {
+      __perceivedTrace__: entries,
+      __kupua_store__: {
+        getState: () => ({
+          params: { nonFree: "true" },
+          loading: now < readyAt,
+          results: [{ id: "home-first-result" }],
+          bufferOffset: 0,
+          total: 70_000,
+          ...stateOverrides,
+        }),
+      },
+    },
+  });
+
+  return {
+    wait: () => appendHomeVisualPhases({ page: { evaluate: (callback, value) => callback(value) } }, "home-test"),
+    entries,
+    elapsed: () => now,
+  };
+}
+
+for (const refreshRate of [30, 120]) {
+  test(`PP1 waits for delayed Home data at ${refreshRate} Hz`, async () => {
+    const harness = createHomeVisualHarness({ refreshRate });
+    const result = await harness.wait();
+
+    assert.equal(result.settledTotal, 70_000);
+    assert.equal(result.resultRegime, "seek");
+    assert.deepEqual(harness.entries.map((entry) => entry.phase), ["t_first_visible_frame", "t_visual_settled"]);
+    assert.ok(harness.entries[0].t >= 1_500);
+    assert.ok(harness.entries[1].t > harness.entries[0].t);
+    assert.ok(harness.entries.every((entry) => entry.interactionId === "home-test"));
+  });
+}
+
+for (const [label, options, diagnostic] of [
+  ["unfinished loading", { readyAt: Infinity }, /"loading":true/],
+  ["wrong buffer offset", { stateOverrides: { bufferOffset: 1 } }, /"bufferOffset":1/],
+  ["nonzero scroll", { scrollTop: 10 }, /"scrollTop":10/],
+  ["nonzero scrubber", { scrubberPosition: "1" }, /"scrubberPosition":1/],
+  ["pinned URL", { href: "http://localhost/search?nonFree=true&until=2026-02-15" }, /"homeUrl":false/],
+  ["filtered store", { stateOverrides: { params: { nonFree: "true", query: "city:Example" } } }, /"homeStore":false/],
+  ["invisible first result", { visible: false }, /"firstResultVisible":false/],
+  ["moving geometry", { moving: true }, /"firstResultVisible":true/],
+]) {
+  test(`PP1 still rejects ${label} at its elapsed-time deadline`, async () => {
+    const harness = createHomeVisualHarness(options);
+
+    await assert.rejects(harness.wait(), (error) => {
+      assert.match(error.message, /within 30000ms/);
+      assert.match(error.message, diagnostic);
+      return true;
+    });
+    assert.deepEqual(harness.entries, []);
+    assert.ok(harness.elapsed() >= 30_000 && harness.elapsed() < 30_010);
+  });
+}
 
 test("dashboards compare checked data modes as separate series", () => {
   for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {

@@ -1144,8 +1144,10 @@ test.describe("Rendering Performance Smoke", () => {
 
   test.afterEach(async ({ kupua }) => {
     // Stop probes to prevent rAF leak
-    await kupua.page.evaluate(() => {
-      (window as any).__perfProbes?.stop();
+    await test.step("Stop perf probes", async () => {
+      await kupua.page.evaluate(() => {
+        (window as any).__perfProbes?.stop();
+      });
     });
   });
 

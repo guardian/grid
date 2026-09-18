@@ -91,36 +91,38 @@ archived migration programme need separate justification and approval; none is a
 Authorization, validation, ordinary paging correctness and production load remain real concerns.
 Independent fixes must be worthwhile without API migration and help or remain neutral toward
 future migration; assess only the affected boundary, not a global plan. The consolidation
-audit's "Two filters for independent work" section owns this selection rule.
+[audit is archived](exploration/docs/zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md):
+its selected queue and both follow-ups are complete. Its two filters and deferred evidence
+remain reference material, not an active implementation plan; V1 stays refuted.
 
 ### System Summary
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional). `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
-| Store | `stores/search-store.ts` | Centre of gravity (~3,900 lines). Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, position map, two-tier coordination, aggregation cache. Committed response tuples are retained in `lib/image-offset-cache.ts` for alias-safe navigation. |
-| Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Viewport anchor tracking for density-focus and sort-around-focus. |
-| Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional). `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Position-map chunks omit exact totals in both paging phases; ordinary first-page totals are unchanged. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Keyword seeks skip invalid primary percentiles while numeric/date estimation remains. Primary/null-zone distribution requests coalesce by scope, including the null-zone missing field, with cancellation and stale-result guards. Committed response tuples are retained in `lib/image-offset-cache.ts` for alias-safe navigation. |
+| Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
+| Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from ES agg. Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
 | Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (33 static + config aliases). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
-| URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore. Detail entries carry immutable entry-image identity so traversal centring survives reload. |
+| URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore; consumed dedupe transitions also refresh the departing key. Detail entries carry immutable entry-image identity so traversal centring survives reload. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Typeahead from agg cache. Registered and dotted-field aggregation resolvers propagate supersession cancellation. Structured queries (`is:`, `fileType:`). `is:` enriches suggestions from ticker, category and cold aggregation counts. |
-| Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, LRU metadata cache, lazy reconciliation, sessionStorage persist. `interpretClick` pure function owns click policy. Range selection (in-buffer fast path + server walk). |
+| Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Multi-image selection: Set-based state, unique batch deltas, revision-tracked mutable LRU, synchronous cached deltas plus coalesced idle full reconciliation, sessionStorage persist. Hydration re-elects a removed anchor and aligns retained cursor ownership. Panels retain completed presentations across pending changes while membership stays immediate. `interpretClick` owns click policy; range selection uses an in-buffer fast path or server walk. |
 | Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | `deriveImage()` merges ES baseline ⊕ TS-computed cost/validity/syndication ⊕ optional Grid API overlay. Direct-ES mode: overlay stays `undefined`. `--use-media-api` mode: `apiSearchAfter` extracts server-authoritative enrichment (cost, validity, rights, actions) per hit; `search-store` writes it to `enrichment-store` at commit-to-view points only. |
 | AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs` | KNN semantic search via Bedrock embeddings. Vite middleware proxy (dev-only). Store AI branch: all ≤200 results in-memory, no PIT/pagination. `?aiQuery=` URL param. Gated by `/bedrock/health`. |
-| Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
+| Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, shared CQL/AI typing-entry creation with predecessor capture and fresh keys, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
 > Full component inventory (views, gesture hooks, panels, toast, etc.): `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
-- **1342 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **1384 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **210 Playwright E2E** tests (~4.5min median, 2 workers) -- `npm --prefix kupua run test:e2e`
+- **226 Playwright E2E** tests (~5min, 2 workers) -- `npm --prefix kupua run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **22 jank perf tests / 32 metric IDs** + experiment infrastructure — `npm run test:perf`
-- **39 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
+- **54 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser)
 - **Retired smoke surface** — 57 direct-config/29 menu cases removed after elected evidence moved or was explicitly dropped
 - **15 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 perceived-perf long tests (journeys JA + JB, 8 steps total)** against TEST cluster — `node e2e-perf/run-audit.mjs --long-perceived-only --label "..."` (manual, real ES required)
@@ -147,7 +149,7 @@ audit's "Two filters for independent work" section owns this selection rule.
 | API-first architecture | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | HATEOAS/API-first integration plan: endpoints, phased rollout, elastic4s specs |
 | Enrichment strategy | `exploration/docs/00 Architecture and philosophy/enrichment-strategy.md` | ES-baseline + Grid API optional enrichment |
 | AI search | `exploration/docs/00 Architecture and philosophy/08-ai-search.md` | KNN semantic search: Bedrock proxy, store branch, UI widget, sort handling, aggregation scoping |
-| Embedded browser playbook | `exploration/docs/embedded-browser-playbook.md` | Accumulated technique notes for driving kupua in the embedded browser. Read before, append after, any browser session |
+| Embedded browser playbook | `exploration/docs/embedded-browser-playbook.md` | Mode checks, shared-preference preservation, bounded live probes and cleanup. Read before, append after, any browser session |
 | Changelog | `exploration/docs/changelog.md` | Full development history |
 
 > Archived workplans, audits, and handoffs: `exploration/docs/zz Archive/`. Docs inventory: `exploration/docs/docs-inventory-2026-05-07.md`.
@@ -198,7 +200,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 
 6. **Field Definition Registry** — `field-registry.tsx`: single source of truth for identity, data access, search, sort, display, detail hints, type metadata. Config-driven aliases. Drives all UI surfaces.
 
-7. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved underneath.
+7. **Image detail is an overlay** — renders within search route (`opacity-0 pointer-events-none`). Scroll/virtualizer state preserved underneath. Cached-cursor restoration is guarded per image, not for the mounted overlay's lifetime.
 
 8. **One semantic sort** — ordinary search accepts one recognised `orderBy` token plus automatic `uploadTime` and unique `id` suffixes. Comma URLs retain only a valid first token. AI allows Relevance/Uploaded only; collection filters exclude AI. Special-date null boundaries, maps, ranks, ranges and restore are exact; populated histogram evidence is explicitly approximate presentation only. Bounded keyword distributions separate exact valued-document coverage from represented bucket coverage, so truncation never implies a null zone.
 
@@ -212,6 +214,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 
 ## Known Issues
 
+- **Intermittent P1 post-report hang** — unresolved. The operator closed the tab to release one stalled run; Playwright's subsequent green status does not establish unattended completion. Campaign reports now include automatic cleanup-stage diagnostics via `e2e-perf/teardown-reporter.mjs`; capture the next hung stage before changing app behavior. The separate PP1 refresh-rate-dependent deadline is fixed.
 - **Restore rank after sorted metadata changes (source-only finding)** — `restoreAroundCursor` counts from the saved tuple but loads neighbours using a refreshed tuple; changed values can give inconsistent coordinates. This predates C1 and was not changed by it. Assess separately under the accepted live-consistency scope; runtime reproduction is pending.
 - **Width/Height sort mismatch** — the UI displays oriented dimensions with raw fallback, but sorting uses raw dimensions. A request-time coalescing field was about 2.2× slower at the median on TEST and would need duplication across every positional query path. Prefer canonical backend `effectiveWidth`/`effectiveHeight` fields; see `exploration/docs/materialized-scalars-for-lastUsed-lastAddedToCollection.md` §5.
 - **P8 table fast-scroll jank** — the four-run TEST baseline measured 207ms max frame, 59ms p95, 91 severe frames/1k, 121,576 DOM mutations and 1,877ms LoAF blocking. It is the clearest rendering-perf target, but much churn is structural and prior broad scroll fixes regressed behavior. Investigate narrowly from the maintained P8 metric.
@@ -219,3 +222,4 @@ The two-tier and seek totals below were observed on 17 September 2026.
 ## Backlog (architectural)
 
 - **SearchContext abstraction** — required before adding a second alternative-ranking algorithm. See `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md`.
+- **Deferred audit candidates** — F1 prefetch/inactive-preview work and S4 large-selection cache reads need profiling; R1 is optional display-only cleanup. See the [archived dispositions](exploration/docs/zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md#independent-candidates). No new batch is selected.

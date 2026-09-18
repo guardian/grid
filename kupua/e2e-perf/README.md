@@ -27,6 +27,12 @@ PP11 is the browser-owned deep Back restoration action: it reports readiness,
 exact-anchor paint, stable geometry and aggregate drift without letting image
 identity leave the page. It has no target until its first reviewed baseline.
 
+PP1 waits up to 30 seconds of elapsed time for unpinned Home data and two matching
+visible frames at absolute position zero. The deadline is independent of refresh
+rate; it is not a performance target. URL, store, buffer, scrubber and geometry
+checks remain mandatory. Timeout diagnostics contain readiness flags and numeric
+positions only, not image identities or metadata.
+
 ## Flag matrix
 
 | Flag | Jank | Perceived (short) | Perceived (long) |
@@ -112,6 +118,45 @@ prints the resolved path and writes that path only to the ignored
 different terminal's TMPDIR without putting TEST output in the public repo.
 Later diagnostics never overwrite an earlier campaign report.
 Metric JSONL files under `results/` remain structured per-suite evidence.
+
+Cleanup diagnostics are enabled by default in all perf configs, campaign launches
+and convenience scripts. `teardown-reporter.mjs` observes Playwright's cleanup
+steps without taking over teardown. After the test body it logs `[perf cleanup]`
+records for overall cleanup, probe shutdown where applicable, environment capture
+and browser-context closure. Each stage has a start record and a completed/failed
+record with elapsed milliseconds. A hung stage retains its start record in the
+campaign report even if no completion arrives. Context closure includes Playwright's
+own artifact finalization; the reporter does not split or reorder that operation.
+Only fixed stage labels and scenario IDs are printed, not raw test titles, error
+payloads, image data or credentials. Cleanup completion is not proof of unattended
+test success when the operator intervened.
+
+History writes are deferred until every requested suite and repetition succeeds.
+A later failure therefore leaves both canonical histories unchanged, even when
+the jank repetitions completed. The unique report survives; it is not a resumable
+campaign checkpoint. This all-or-nothing policy is deliberate: no checkpoints,
+partial history, automatic retries or failure suppression.
+
+For a strictly isolated diagnostic, use an exact title filter and preview it with
+`--list` through the direct Playwright config. Runner filters differ: jank's `P1`
+also matches P11-P18, while the perceived selector does not accept `PP1:`. An
+unrecognized perceived selection currently constructs an empty alternation that
+runs the full suite before metric validation rejects it. Do not use that path for
+bounded diagnostics. From repo root:
+
+```bash
+PERF_STABLE_UNTIL=2026-02-15T00:00:00.000Z npm --prefix kupua run test:e2e -- \
+  --config=e2e-perf/playwright.perf.config.ts --grep=' P1:' --list
+```
+
+After confirming one test, omit `--list`. Cleanup records need no extra flag;
+`DEBUG=pw:test` adds verbose fixture diagnostics when required. Do not override
+reporters with `--reporter=list` alone, which disables the cleanup reporter.
+`--trace=on --output=test-results/perf-p1-diagnostic`
+retains traces even when operator intervention releases a hang and Playwright
+reports a pass. Such a result is not unattended success. Diagnostic timings are
+not benchmark comparisons. Freeze all Vite-watched files while a campaign runs,
+including root-level `AGENTS.md`; a documentation save can reload the app.
 
 Run `node e2e-perf/run-audit.mjs --prune-history` only after the replacement
 manifest and its pure tests are reviewed. It does not connect to TEST or launch

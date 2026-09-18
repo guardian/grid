@@ -17,6 +17,24 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 18 September 2026 - Record performance cleanup stages in campaign reports
+
+  Performance campaigns and direct perf scripts now log cleanup-stage starts,
+  outcomes and durations after the test body, so a post-measurement hang leaves
+  its last unfinished operation in the existing report. The reporter observes
+  probe shutdown, environment capture and Playwright-owned context closure without
+  taking over cleanup or exposing raw titles and error payloads. Measurement,
+  retries and the all-or-nothing history policy are unchanged; no checkpoints or
+  partial-result recovery were added.
+
+  ### 18 September 2026 - Decouple Home performance settlement from refresh rate
+
+  PP1's Home check uses a bounded elapsed-time deadline instead of 120 animation
+  frames, which could expire before an ordinary data response on high-refresh
+  displays. Exact Home state, absolute position zero, first-result visibility and
+  two matching geometry frames remain required. Failures report sanitized readiness
+  conditions; phase timestamps still measure the actual visible transition.
+
   ### 18 September 2026 - Coalesce pending distribution reads (Q1)
 
   Primary and null-zone distribution loaders share pending work for the same request

@@ -69,7 +69,7 @@ Read in full:
 - `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-03-sort-options.md`
 - `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
 - `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-91-instructions-for-agents.md`
-- `kupua/exploration/docs/performance-first-dry-consolidation-audit-2026-09-13.md`, migration
+- `kupua/exploration/docs/zz Archive/performance-first-dry-consolidation-audit-2026-09-13.md`, migration
   assessment only; its PIT discovery is a question, not an answer.
 
 ### Tier 1 — code that owns membership and snapshot behavior

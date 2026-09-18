@@ -25,6 +25,7 @@ export default defineConfig({
 
   reporter: [
     ["list"],
+    ["./teardown-reporter.mjs"],
   ],
 
   use: {

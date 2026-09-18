@@ -356,7 +356,7 @@ function runPerceivedPlaywright(kind, runIndex) {
     const pwArgs = [
       "playwright", "test",
       `--config=${config}`,
-      "--reporter=list",
+      "--reporter=list,./e2e-perf/teardown-reporter.mjs",
     ];
     if (grepArg) pwArgs.push(`--grep=(?:${expectedIds.join("|")}):`);
     if (headed) pwArgs.push("--headed");
@@ -695,7 +695,7 @@ function runPlaywright(grepPattern) {
     const pwArgs = [
       "playwright", "test",
       "--config=e2e-perf/playwright.perf.config.ts",
-      "--reporter=list",
+      "--reporter=list,./e2e-perf/teardown-reporter.mjs",
     ];
 
     if (grepPattern) {

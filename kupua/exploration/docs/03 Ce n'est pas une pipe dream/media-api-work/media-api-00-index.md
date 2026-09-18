@@ -47,7 +47,7 @@ not replaced by assumptions or repeated without a specific question.
 | Existing D3 measurements | [Performance](d3-search-after-04-performance.md) | Dated evidence; distinguish local, deployed TEST and inferred PROD costs. |
 | Scala conventions | [Conventions](media-api-90-conventions.md) | Implementation reference. |
 | Implementing-agent rules | [Instructions](media-api-91-instructions-for-agents.md) | Safety and repository mechanics; mirrored to the automatic instruction file. |
-| App-wide independent candidates | [Consolidation audit](../../performance-first-dry-consolidation-audit-2026-09-13.md) | Findings, not authorization for a broad refactor. |
+| Archived audit and deferred evidence | [Completed consolidation audit](../../zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md) | Selected queue complete; remaining findings are deferred or endpoint-routed, not build instructions. |
 
 **Amendment status: DONE (17 September).** E2/C1 and E1/N4/C2/C3 are implemented and committed.
 Independent written-code reviews, 305 Scala tests, 1,342 client units, 210 habitual E2Es, the
