@@ -309,24 +309,22 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 87-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 67-71
 
-  # How to verify writes?
-  @todo
   Scenario: Metadata only shows when it was already present for some fields
-    Given an uploaded image that already has metadata values for the following fields:
-      | byline |
-      | credit |
-      | copyright |
-      | specialInstructions |
-      | description |
-      | domainMetadata |
-      | usageInstructions |
-      | imageType |
+    Given an uploaded image with the following embedded metadata:
+      | field               | value                                    |
+      | description         | An embedded caption describing the scene |
+      | byline              | Embedded Byline                          |
+      | credit              | Embedded Credit Agency                   |
+      | copyright           | Embedded Copyright 2020                  |
+      | specialInstructions | Embedded special instructions            |
     When I view the metadata editor
     Then I should see the metadata values in the appropriate fields
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 114-134
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 36
 
-  # This also applies to any textual fields — we should pull them from img meta
+  # usageInstructions is not read from embedded file metadata: media-api derives it from the
+  # image's usageRights category via the `usageInstructions` config map (customSpecialInstructions).
+  # Needs that config plus an image with a matching category, so it can't be driven by exiftool.
   @todo
   Scenario: Existing usage instructions are shown with room for more
     Given an uploaded image that already has usage instructions
