@@ -191,7 +191,6 @@ Feature: Uploading images to the Grid
   # Current uploads list (jobs/upload-jobs.html + upload-jobs.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Current uploads show how many remain
     Given I have several uploads in progress
     When I view my current uploads
@@ -199,7 +198,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 2
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 45, 79, 88
 
-  @todo
   Scenario: An uploading job shows a preview with its name and size
     Given a file is uploading
     When I view my current uploads
@@ -209,7 +207,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 61-72
   # Evidence: kahuna/public/js/upload/manager.js lines 16-21
 
-  @todo
   Scenario: A failed upload shows the error and can be removed
     Given an upload has failed
     When I view my current uploads
@@ -218,13 +215,16 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 24-38
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 77-78, 179-185
 
+  # Unreachable in this stack's straight-to-bucket mode: the file uploads to S3 fine, then
+  # processing fails and the status carries a raw UnsupportedMimeTypeException. The friendly
+  # "only supports JPG, PNG and TIFF" copy is keyed off errorKey 'unsupported-type', which is
+  # only returned on the direct-load path.
   @todo
   Scenario: An unsupported file type gives a helpful error
     When I upload a file that is not a JPG, PNG or TIFF
     Then the job should show an error explaining only JPG, PNG and TIFF are supported
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 155-163
 
-  @todo
   Scenario: A completed upload becomes an editable image
     Given an upload has completed
     When I view my current uploads
@@ -232,21 +232,18 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-48
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 84-92
 
-  @todo
   Scenario: A missing description defaults to the file name
     Given an uploaded image has no description
     When the upload completes
     Then the description should default to the file name without its extension
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 105-110
 
-  @todo
   Scenario: Deleting an image removes it from current uploads
     Given an uploaded image is shown in my current uploads
     When the image is deleted using the delete button at the bottom of the job form
     Then it should be removed from my current uploads
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  @todo
   Scenario: Uploading a previously deleted image displays it for undeletion
     Given an image is uploaded
     And then deleted using the delete button at the bottom of the job form
@@ -269,7 +266,6 @@ Feature: Uploading images to the Grid
     And there should be a message indicating that I do not have permission to undelete
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  @todo
   Scenario: A failed deletion is reported
     Given an uploaded image is shown in my current uploads
     When deleting the image fails
