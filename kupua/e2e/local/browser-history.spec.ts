@@ -783,6 +783,194 @@ test.describe("kupuaKey — per-entry identity", () => {
 
     expect(snapshot).toBeUndefined();
   });
+
+  test("typed CQL sessions keep distinct keys and predecessor snapshots", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.focusNthItem(2);
+    const initialAnchor = await kupua.getFocusedImageId();
+    const initialKey = await getKupuaKey(kupua.page);
+    const initialLength = await kupua.page.evaluate(() => history.length);
+    expect(initialAnchor).not.toBeNull();
+    expect(initialKey).toBeDefined();
+
+    const searchArea = kupua.page.locator('[role="search"]');
+    await searchArea.click();
+    let generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.type("credit:PA", { delay: 20 });
+    await waitForNewSearchSettled(kupua.page, generation);
+    const typedKey = await getKupuaKey(kupua.page);
+    expect(typedKey).toBeDefined();
+    expect(typedKey).not.toBe(initialKey);
+    expect(await kupua.page.evaluate(() => history.length)).toBe(initialLength + 1);
+    const predecessor = await kupua.page.evaluate(
+      (key) => (window as any).__kupua_inspectSnapshot__(key), initialKey!,
+    );
+    expect(predecessor.anchorImageId).toBe(initialAnchor);
+    expect(predecessor.searchKey).not.toContain("credit:PA");
+
+    await kupua.focusNthItem(3);
+    const typedAnchor = await kupua.getFocusedImageId();
+    expect(typedAnchor).not.toBeNull();
+    await searchArea.click();
+    generation = await getSearchGeneration(kupua.page);
+    await kupua.page.keyboard.press("Meta+a");
+    await kupua.page.keyboard.type("credit:Reuters", { delay: 20 });
+    await waitForNewSearchSettled(kupua.page, generation);
+    expect(await getKupuaKey(kupua.page)).not.toBe(typedKey);
+    expect(await kupua.page.evaluate(() => history.length)).toBe(initialLength + 2);
+
+    await goBackSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(typedKey);
+    expect(await getUrlQuery(kupua.page)).toBe("credit:PA");
+    expect(await kupua.getFocusedImageId()).toBe(typedAnchor);
+    await goBackSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(initialKey);
+    expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+  });
+
+  test.describe("AI typing sessions", () => {
+    test.beforeEach(async ({ kupua, page }) => {
+      await page.route("**/bedrock/**", (route) => route.fulfill({
+        json: route.request().url().endsWith("/health")
+          ? { available: true } : { embedding: Array(256).fill(0) },
+      }));
+      await kupua.goto();
+      await page.evaluate(async () => {
+        const mockPath = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(mockPath);
+        const source = new MockDataSource(20);
+        source.searchByAi = async () => {
+          const hits = await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`));
+          return {
+            hits,
+            total: hits.length,
+            sortValues: hits.map((image: any) => [Date.parse(image.uploadTime), image.id]),
+          };
+        };
+        const store = (window as any).__kupua_store__;
+        store.setState({ dataSource: source, focusedImageId: null });
+        await store.getState().search();
+      });
+      await kupua.waitForResults();
+    });
+
+    test("settled AI edits own distinct keys and restore their predecessor", async ({ kupua, page }) => {
+      await kupua.focusNthItem(2);
+      const initialAnchor = await kupua.getFocusedImageId();
+      const initialKey = await getKupuaKey(page);
+      const initialLength = await page.evaluate(() => history.length);
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+      const input = page.getByRole("searchbox", { name: "AI image search query" });
+      let generation = await getSearchGeneration(page);
+      await input.fill("fixture sea");
+      await waitForNewSearchSettled(page, generation);
+      const typedKey = await getKupuaKey(page);
+      expect(typedKey).toBeDefined();
+      expect(typedKey).not.toBe(initialKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+
+      await kupua.focusNthItem(3);
+      const typedAnchor = await kupua.getFocusedImageId();
+      generation = await getSearchGeneration(page);
+      await input.fill("fixture city");
+      await waitForNewSearchSettled(page, generation);
+      expect(await getKupuaKey(page)).not.toBe(typedKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 2);
+
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(typedKey);
+      expect(await input.inputValue()).toBe("fixture sea");
+      expect(await kupua.getFocusedImageId()).toBe(typedAnchor);
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(initialKey);
+      expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+    });
+
+    test("overlapping AI and CQL edits share one fresh typing entry", async ({ kupua, page }) => {
+      await kupua.focusNthItem(2);
+      const initialAnchor = await kupua.getFocusedImageId();
+      const initialKey = await getKupuaKey(page);
+      const initialLength = await page.evaluate(() => history.length);
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+      const input = page.getByRole("searchbox", { name: "AI image search query" });
+      await expect(input).toBeVisible();
+      const now = new Date();
+      await page.clock.install({ time: now });
+      await page.clock.pauseAt(new Date(now.getTime() + 1_000));
+      const generation = await getSearchGeneration(page);
+
+      await input.fill("fixture overlapping");
+      await page.clock.runFor(20);
+      const typingKey = await getKupuaKey(page);
+      expect(typingKey).toBeDefined();
+      expect(typingKey).not.toBe(initialKey);
+      await page.locator("cql-input").evaluate((element: HTMLElement) => element.focus());
+      await page.keyboard.insertText("Test");
+      await page.clock.runFor(20);
+      expect(await getKupuaKey(page)).toBe(typingKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+
+      await page.clock.runFor(700);
+      await page.clock.resume();
+      await waitForNewSearchSettled(page, generation);
+      await expect.poll(() => page.evaluate(() => {
+        const params = new URL(location.href).searchParams;
+        return { query: params.get("query"), aiQuery: params.get("aiQuery") };
+      })).toEqual({ query: "Test", aiQuery: "fixture overlapping" });
+      expect(await getKupuaKey(page)).toBe(typingKey);
+      expect(await page.evaluate(() => history.length)).toBe(initialLength + 1);
+      const predecessor = await page.evaluate(
+        (key) => (window as any).__kupua_inspectSnapshot__(key), initialKey!,
+      );
+      expect(predecessor.anchorImageId).toBe(initialAnchor);
+      await goBackSearchAndWait(page);
+      expect(await getKupuaKey(page)).toBe(initialKey);
+      expect(await kupua.getFocusedImageId()).toBe(initialAnchor);
+    });
+  });
+
+  test("Home departure keeps its own key when Back restores an existing snapshot", async ({ kupua }) => {
+    await kupua.goto();
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&query=credit%3APA");
+    await kupua.focusNthItem(2);
+    const previousAnchor = await kupua.getFocusedImageId();
+    const previousKey = await getKupuaKey(kupua.page);
+    expect(previousKey).toBeDefined();
+    expect(previousAnchor).not.toBeNull();
+
+    await spaNavigateAndWait(kupua.page, "/search?nonFree=true&query=credit%3AReuters");
+    await goBackSearchAndWait(kupua.page);
+    expect(await kupua.getFocusedImageId()).toBe(previousAnchor);
+    const previousSnapshot = await kupua.page.evaluate(
+      (key) => (window as any).__kupua_inspectSnapshot__(key), previousKey!,
+    );
+    expect(previousSnapshot.anchorImageId).toBe(previousAnchor);
+
+    await runSearchAction(
+      kupua.page,
+      () => kupua.page.locator('header[role="toolbar"] a[title*="Grid"]').click(),
+    );
+    await expect.poll(() => getKupuaKey(kupua.page)).not.toBe(previousKey);
+    const homeKey = await getKupuaKey(kupua.page);
+    expect(homeKey).toBeDefined();
+    expect(await getUrlQuery(kupua.page)).toBeNull();
+    await kupua.focusNthItem(3);
+    const homeAnchor = await kupua.getFocusedImageId();
+    expect(homeAnchor).not.toBeNull();
+
+    await goBackSearchAndWait(kupua.page);
+    const snapshots = await kupua.page.evaluate(({ previousKey, homeKey }) => ({
+      previous: (window as any).__kupua_inspectSnapshot__(previousKey),
+      home: (window as any).__kupua_inspectSnapshot__(homeKey),
+    }), { previousKey: previousKey!, homeKey: homeKey! });
+    expect(snapshots.home?.anchorImageId).toBe(homeAnchor);
+    expect(snapshots.previous).toEqual(previousSnapshot);
+    expect(await kupua.getFocusedImageId()).toBe(previousAnchor);
+
+    await goForwardSearchAndWait(kupua.page);
+    expect(await getKupuaKey(kupua.page)).toBe(homeKey);
+    expect(await kupua.getFocusedImageId()).toBe(homeAnchor);
+  });
 });
 
 // ===========================================================================

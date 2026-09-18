@@ -377,6 +377,10 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   navigate({ ...opts, state: withFreshKupuaKey(opts.state) });
 }
 
+export function pushTypingSearchEntry(navigate: NavigateFn, search: Record<string, unknown>): void {
+  pushNavigate(navigate, { to: "/search", search, replace: false });
+}
+
 /**
  * Push-navigate with popstate semantics (deliberately skips marking).
  *

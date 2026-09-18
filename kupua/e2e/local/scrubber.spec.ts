@@ -2502,37 +2502,48 @@ test.describe("Scroll mode — buffer fill", () => {
 
   // ---------------------------------------------------------------------
   // Regression: repeated sort toggles must preserve the focused cell's row.
-  // The exact count and buffer fetch now run concurrently and publish one
-  // final aligned buffer, so there is no post-publication correction to wait
-  // for. Sweep targets that exercise different column alignments.
+  // Exact count and buffer fetch publish one aligned buffer; small-set
+  // top-up then fills the remainder. Check placement after both complete,
+  // including a first-page edge that temporarily clamps the scroll range.
   // ---------------------------------------------------------------------
   // Indices 5 and 9 are known (empirically, on this seed corpus) to hit a
   // non-column-aligned correction offset; 2 is a control that doesn't — kept
   // deliberately narrow rather than a wider "chosen by hope" sweep. If the
   // seed data ever changes, a control silently starting to trigger the bug
   // just means more real coverage, not a broken test.
-  for (const nth of [2, 5, 9]) {
-    test(`sort toggle preserves focused cell row position (focus index ${nth})`, async ({ kupua }) => {
+  for (const { nth, firstPageEdge } of [
+    { nth: 2, firstPageEdge: false },
+    { nth: 5, firstPageEdge: false },
+    { nth: 9, firstPageEdge: false },
+    { nth: 2, firstPageEdge: true },
+  ]) {
+    const scenario = firstPageEdge ? "first-page edge" : `focus index ${nth}`;
+    test(`sort toggle preserves focused cell row position (${scenario})`, async ({ kupua }) => {
       await kupua.ensureExplicitMode();
       await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
       const { total } = await kupua.getStoreState();
       test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
       test.skip(total < 50, `Total ${total} too small to be meaningful`);
 
+      await kupua.waitForScrollMode();
       await kupua.seekTo(0.5);
+      if (firstPageEdge) await kupua.scrollBy(-GRID_ROW_HEIGHT);
       await kupua.focusNthItem(nth);
       const focusedId = await kupua.getFocusedImageId();
       test.skip(focusedId === null, `No item at index ${nth} for this result set`);
+      if (firstPageEdge) expect(await kupua.getFocusedGlobalPosition()).toBe(198);
 
       const cellTopBefore = await kupua.getFocusedCellTop();
       const cellLeftBefore = await kupua.getFocusedCellLeft();
       expect(cellTopBefore).not.toBeNull();
+      expect(cellLeftBefore).not.toBeNull();
 
       // Toggle direction, then back — the focused cell must return to
       // (approximately) the same row on each leg, not drift by a row.
       for (let leg = 0; leg < 2; leg++) {
         await kupua.toggleSortDirection();
         await kupua.waitForSortAroundFocus(15_000);
+        await kupua.waitForScrollMode();
         await kupua.page.evaluate(() => new Promise<void>((resolve) => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
         }));
@@ -2556,11 +2567,72 @@ test.describe("Scroll mode — buffer fill", () => {
           // genuinely different sort order, where column isn't expected to
           // match by design (only the viewport ratio/row is preserved).
           const cellLeftAfter = await kupua.getFocusedCellLeft();
+          expect(cellLeftAfter, `leg ${leg + 1}: focused cell not found`).not.toBeNull();
           expect(
             Math.abs(cellLeftAfter! - cellLeftBefore!),
             `leg ${leg + 1}: focused cell column shifted (before=${cellLeftBefore}, after=${cellLeftAfter})`,
           ).toBeLessThan(20);
         }
+      }
+    });
+  }
+
+  for (const interaction of ["scroll", "focus"] as const) {
+    test(`first-page sort restoration yields to later ${interaction}`, async ({ kupua }) => {
+      await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+      await kupua.waitForScrollMode();
+      await kupua.seekTo(0.5);
+      await kupua.scrollBy(-GRID_ROW_HEIGHT);
+      await kupua.focusNthItem(2);
+      expect(await kupua.getFocusedGlobalPosition()).toBe(198);
+      const originalFocus = await kupua.getFocusedImageId();
+      const originalTop = await kupua.getFocusedCellTop();
+      expect(originalTop).not.toBeNull();
+
+      await kupua.toggleSortDirection();
+      await kupua.waitForScrollMode();
+
+      let fillBlocked = false;
+      let releaseFill = () => {};
+      const fillGate = new Promise<void>((resolve) => { releaseFill = resolve; });
+      await kupua.page.route("**/es/**", async (route) => {
+        const request = route.request();
+        if (!fillBlocked && request.method() === "POST" && new URL(request.url()).pathname.endsWith("/_search")) {
+          const body = request.postDataJSON();
+          if (body.size === 200 && body.search_after !== undefined) {
+            fillBlocked = true;
+            await fillGate;
+          }
+        }
+        await route.continue();
+      });
+
+      try {
+        await kupua.toggleSortDirection();
+        await expect.poll(() => fillBlocked).toBe(true);
+        await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }));
+        expect((await kupua.getStoreState()).resultsLength).toBe(200);
+        const clampedTop = await kupua.getFocusedCellTop();
+        expect(clampedTop).not.toBeNull();
+        expect(clampedTop! - originalTop!).toBeGreaterThan(20);
+
+        if (interaction === "scroll") await kupua.scrollBy(-GRID_ROW_HEIGHT);
+        else await kupua.focusNthItem(0);
+        const intendedScrollTop = await kupua.getScrollTop();
+        const intendedFocus = await kupua.getFocusedImageId();
+        if (interaction === "focus") expect(intendedFocus).not.toBe(originalFocus);
+
+        releaseFill();
+        await kupua.waitForScrollMode();
+        await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }));
+        expect(await kupua.getFocusedImageId()).toBe(intendedFocus);
+        expect(Math.abs((await kupua.getScrollTop()) - intendedScrollTop)).toBeLessThan(1);
+      } finally {
+        releaseFill();
       }
     });
   }

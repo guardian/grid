@@ -209,7 +209,6 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // navigating prev/next), use search_after to load a page centered on
   // the image. With a cursor this is exact at any depth. Without one
   // (old cache format) falls back to approximate seek.
-  const offsetRestoreAttempted = useRef(false);
   // Track which imageId the restore was attempted for — guards against
   // re-triggering restore for the same image when the buffer briefly
   // contains it then loses it (e.g. scroll-seek in two-tier mode).
@@ -223,17 +222,15 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // a subsequent buffer shift triggers a wasteful second
       // restoreAroundCursor call with a potentially-stale cursor.
       // (Audit bug #7)
-      offsetRestoreAttempted.current = true;
       restoreAttemptedForRef.current = imageId;
       return;
     }
     // Don't attempt restore until the initial search has returned —
     // restoreAroundCursor needs total > 0 for countBefore to clamp correctly.
     if (total === 0) return;
-    if (offsetRestoreAttempted.current) return; // already tried
+    if (restoreAttemptedForRef.current === imageId) return; // already tried
     const cached = getImageOffset(imageId, searchKey);
     if (cached == null) return; // no cached position — standalone mode
-    offsetRestoreAttempted.current = true;
     restoreAttemptedForRef.current = imageId;
     restoreAroundCursor(imageId, cached.cursor, cached.offset, getEffectiveFocusMode() !== "phantom");
   }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);

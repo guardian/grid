@@ -963,6 +963,80 @@ test.describe("Image detail — buffer boundary traversal", () => {
 // ===========================================================================
 
 test.describe("Stability — image detail reload", () => {
+  test("restores distinct cached detail images without repeating a handled image", async ({ kupua }) => {
+    await kupua.goto();
+    await kupua.page.waitForFunction(() => (window as any).__kupua_store__.getState().positionMap !== null);
+    await kupua.page.evaluate(async () => {
+      const mockPath = "/src/dal/mock-data-source.ts";
+      const cachePath = "/src/lib/image-offset-cache.ts";
+      const [{ MockDataSource }, { buildSearchKey, storeImageOffset }] = await Promise.all([
+        import(mockPath), import(cachePath),
+      ]);
+      const source = new MockDataSource(3);
+      const images = await source.getByIds(["img-0", "img-1", "img-2"]);
+      const searchKey = buildSearchKey(Object.fromEntries(new URL(location.href).searchParams));
+      storeImageOffset("img-1", 1_001, searchKey, [123, "img-1"]);
+      storeImageOffset("img-2", 2_002, searchKey, [456, "img-2"]);
+      const restores: unknown[] = [];
+      (window as any).__f4_restores__ = restores;
+      (window as any).__f4_images__ = images;
+      const store = (window as any).__kupua_store__;
+      store.getState().abortExtends();
+      store.setState({
+        dataSource: source,
+        results: [images[0]],
+        bufferOffset: 0,
+        total: 100_000,
+        positionMap: null,
+        imagePositions: new Map([["img-0", 0]]),
+        focusedImageId: null,
+        loading: false,
+        extendForward: async () => {},
+        extendBackward: async () => {},
+        seek: async () => {},
+        restoreAroundCursor: async (...args: unknown[]) => { restores.push(args); },
+      });
+    });
+    await expect(kupua.page.locator('[data-image-id="img-0"]').first()).toBeVisible();
+    await kupua.openDetailForNthItem(0);
+    expect(await kupua.getRenderedDetailImageId()).toBe("img-0");
+
+    const navigateDetail = (image: string) => kupua.page.evaluate((image) => {
+      const router = (window as any).__kupua_router__;
+      return router.navigate({
+        to: "/search",
+        search: { ...router.state.location.search, image },
+        replace: true,
+        state: { ...history.state },
+      });
+    }, image);
+    const readRestores = () => kupua.page.evaluate(() => (window as any).__f4_restores__);
+
+    await navigateDetail("img-1");
+    await expect.poll(readRestores).toEqual([["img-1", [123, "img-1"], 1_001, true]]);
+    await expect.poll(() => kupua.getRenderedDetailImageId()).toBe("img-1");
+
+    for (const imageIndex of [1, 0]) {
+      await kupua.page.evaluate((imageIndex) => {
+        const image = (window as any).__f4_images__[imageIndex];
+        const offset = imageIndex === 1 ? 1_001 : 0;
+        (window as any).__kupua_store__.setState({
+          results: [image],
+          bufferOffset: offset,
+          imagePositions: new Map([[image.id, offset]]),
+        });
+      }, imageIndex);
+      await expect(kupua.page.locator(`[data-image-id="img-${imageIndex}"]`).first()).toBeAttached();
+    }
+
+    await navigateDetail("img-2");
+    await expect.poll(readRestores).toEqual([
+      ["img-1", [123, "img-1"], 1_001, true],
+      ["img-2", [456, "img-2"], 2_002, true],
+    ]);
+    await expect.poll(() => kupua.getRenderedDetailImageId()).toBe("img-2");
+  });
+
   test("reload in image detail does not cause restoreAroundCursor flood", async ({ kupua }) => {
     await kupua.goto();
 

@@ -29,7 +29,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
-import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
+import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -735,15 +735,44 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const snapBackHandledGenRef = useRef(0);
   // Guard against unrelated rerenders if a dependency identity ever changes.
   const handledSortFocusGenRef = useRef(0);
+  const pendingSortFocusRef = useRef<{
+    imageId: string;
+    focusedImageId: string | null;
+    ratio: number;
+    scrollTop: number;
+    resultsLength: number;
+    pitGeneration: number;
+    seekGeneration: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
-    if (handledSortFocusGenRef.current === sortAroundFocusGeneration) return;
     const store = useSearchStore.getState();
-    handledSortFocusGenRef.current = sortAroundFocusGeneration;
-    const savedRatio = consumeSortFocusRatio();
-    const id = store._phantomFocusImageId ?? store.focusedImageId;
+    const el = parentRef.current;
+    let pending = pendingSortFocusRef.current;
+    if (handledSortFocusGenRef.current === sortAroundFocusGeneration) {
+      if (!pending) return;
+      if (
+        !el || store.loading || bufferOffset !== 0 ||
+        store._pitGeneration !== pending.pitGeneration ||
+        store._seekGeneration !== pending.seekGeneration ||
+        store.focusedImageId !== pending.focusedImageId ||
+        store._pendingFocusDelta != null ||
+        resultsLength < pending.resultsLength ||
+        Math.abs(el.scrollTop - pending.scrollTop) > 1
+      ) {
+        pendingSortFocusRef.current = null;
+        return;
+      }
+      if (resultsLength === pending.resultsLength) return;
+    } else {
+      handledSortFocusGenRef.current = sortAroundFocusGeneration;
+      pending = null;
+    }
+    pendingSortFocusRef.current = null;
+    const savedRatio = pending ? pending.ratio : consumeSortFocusRatio();
+    const id = pending?.imageId ?? store._phantomFocusImageId ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;
@@ -753,7 +782,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       useSearchStore.setState({ _phantomFocusImageId: null });
     }
 
-    const el = parentRef.current;
     const geo = geometryRef.current;
 
     // -------------------------------------------------------------------
@@ -802,12 +830,26 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         target = rowTop - el.clientHeight + geo.rowHeight;
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
       virtualizer.scrollToOffset(clamped);
+      if (
+        !twoTier && bufferOffset === 0 && total <= SCROLL_MODE_THRESHOLD &&
+        resultsLength < total && target - clamped > 1
+      ) {
+        pendingSortFocusRef.current = {
+          imageId: id,
+          focusedImageId: store.focusedImageId,
+          ratio: savedRatio,
+          scrollTop: el.scrollTop,
+          resultsLength,
+          pitGeneration: store._pitGeneration,
+          seekGeneration: store._seekGeneration,
+        };
+      }
     } else {
       const rowIdx = localIndexToRowIndex(idx, geo);
       virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
 
-  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef]);
+  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef, resultsLength, bufferOffset, total, twoTier, focusedImageId]);
 
   // -------------------------------------------------------------------------
   // 10. Density-focus: mount restore + unmount save

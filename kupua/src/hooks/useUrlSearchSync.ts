@@ -160,6 +160,7 @@ export function useUrlSearchSync() {
       // this, the stale flag is consumed by the NEXT real param change
       // (e.g. browser Back), making it look user-initiated when it's not.
       consumeUserInitiatedFlag();
+      _lastKupuaKey = getCurrentKupuaKey();
       return;
     }
 

@@ -170,6 +170,32 @@ describe("viewport anchor skeleton-zone clearing (Bug #4)", () => {
     container.remove();
   });
 
+  it.each([
+    { mode: "deep normal", total: 100_000, bufferOffset: 80_000, twoTier: false },
+    { mode: "small normal", total: 1_000, bufferOffset: 100, twoTier: false },
+    { mode: "two-tier without a position map", total: 5_000, bufferOffset: 1_000, twoTier: true },
+  ])("returns visible neighbours in centre-distance order in $mode mode", ({ total, bufferOffset, twoTier }) => {
+    useSearchStore.setState({
+      results: Array.from({ length: 500 }, (_, index) => makeImage(`img-${bufferOffset + index}`)),
+      bufferOffset,
+      total,
+      positionMap: null,
+    });
+    const { result, unmount } = renderHook(() => useDataWindow());
+    const visibleStart = twoTier ? bufferOffset + 250 : 250;
+
+    try {
+      expect(result.current.twoTier).toBe(twoTier);
+      result.current.reportVisibleRange(visibleStart, visibleStart + 4);
+
+      expect(getVisibleImageIds()).toEqual(
+        [252, 253, 251, 254, 250].map((index) => `img-${bufferOffset + index}`),
+      );
+    } finally {
+      unmount();
+    }
+  });
+
   it("does not read DOM geometry during ordinary visible-range reporting", () => {
     setupTwoTier({ bufferOffset: 1000, bufferSize: 200, total: 5000 });
     const container = document.createElement("div");

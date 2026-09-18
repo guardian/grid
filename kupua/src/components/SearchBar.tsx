@@ -14,6 +14,7 @@ import {
   resetCqlInputComponents,
   getCqlInputGeneration,
   pushNavigateAsPopstate,
+  pushTypingSearchEntry,
 } from "@/lib/orchestration/search";
 import { resetToHome } from "@/lib/reset-to-home";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
@@ -76,14 +77,17 @@ export function SearchBar() {
   // --- AI query lives in its own URL param (searchParams.aiQuery) ---
   const urlAiText = searchParams.aiQuery ?? null;
   const urlQuery = searchParams.query ?? "";
+  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const beginTypingSession = useCallback(() => {
+    if (_debounceTimerId || aiDebounceRef.current) return;
+    pushTypingSearchEntry(navigate, searchParams);
+  }, [navigate, searchParams]);
 
   const handleQueryChange = useCallback(
     (queryStr: string) => {
       // First keystroke of a new typing session: commit the current URL
       // as a history entry so the pre-edit context is reachable via back.
-      if (!_debounceTimerId) {
-        history.pushState(history.state, "", window.location.href);
-      }
+      beginTypingSession();
 
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
       setDebounceTimer(setTimeout(() => {
@@ -103,17 +107,14 @@ export function SearchBar() {
         updateSearch({ query: cqlPart || undefined }, { replace: true });
       }, 300));
     },
-    [updateSearch]
+    [beginTypingSession, updateSearch]
   );
 
   // AI text change handler — debounced like CQL changes.
-  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleAiTextChange = useCallback(
     (text: string | null) => {
       // Push history entry on first edit of a session (same as CQL).
-      if (!aiDebounceRef.current && !_debounceTimerId) {
-        history.pushState(history.state, "", window.location.href);
-      }
+      beginTypingSession();
 
       if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
       aiDebounceRef.current = setTimeout(() => {
@@ -121,7 +122,7 @@ export function SearchBar() {
         updateSearch({ aiQuery: text || undefined }, { replace: true });
       }, 600);
     },
-    [updateSearch],
+    [beginTypingSession, updateSearch],
   );
 
   const handleClear = useCallback(() => {

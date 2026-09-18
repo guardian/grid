@@ -171,7 +171,8 @@ export function getViewportAnchorId(): string | null {
  * images the user actually saw.
  */
 export function getVisibleImageIds(): string[] {
-  const { results, bufferOffset } = useSearchStore.getState();
+  const { results, bufferOffset, total } = useSearchStore.getState();
+  const twoTier = isTwoTierFromTotal(total);
   const ids: string[] = [];
   const anchorId = getViewportAnchorId();
   const centre = Math.round((_visibleStart + _visibleEnd) / 2);
@@ -184,7 +185,7 @@ export function getVisibleImageIds(): string[] {
     for (const i of indices) {
       if (i < _visibleStart || i > _visibleEnd) continue;
       // In two-tier mode indices are global; in normal mode buffer-local.
-      const localIdx = i - bufferOffset;
+      const localIdx = twoTier ? i - bufferOffset : i;
       if (localIdx < 0 || localIdx >= results.length) continue;
       const img = results[localIdx];
       if (img?.id && img.id !== anchorId) ids.push(img.id);

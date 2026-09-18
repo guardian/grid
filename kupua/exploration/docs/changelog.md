@@ -57,6 +57,16 @@
   rendering and resolved single-image transitions remain immediate, clear discards stale
   presentation, and failed metadata fetches settle as data absence.
 
+  ### 18 September 2026 - Restore sort placement after first-page fill
+
+  Sort restoration could clamp against the temporary 200-hit buffer and never retry
+  when the remaining small result set arrived. useScrollEffects now retains the
+  intended ratio for that incomplete, offset-zero, small-result bottom clamp.
+  Buffer growth retries placement; newer search/seek generations, focus changes,
+  pending arrow navigation or changed scroll position discard it. Actual result-set
+  edges, indexed mode and deep buffers retain their existing behavior. No extra
+  requests, page-size changes, timers or general scroll scheduler were added.
+
   ### 18 September 2026 - Publish selection metadata revisions to panels (S3/G3)
 
   Changed LRU cache writes publish one runtime metadataRevision per fetch or hydration
@@ -76,6 +86,28 @@
   obsolete chunk-size setting is removed. Cached incremental deltas remain synchronous;
   full reconciliation remains an unchunked scan.
 
+  ### 18 September 2026 - Coordinate CQL and AI typing history (H1)
+
+  Both SearchBar editors start a session through pushTypingSearchEntry, reusing the
+  existing predecessor-capture and fresh-kupuaKey push boundary instead of cloning
+  an entry's key. A shared pending-timer check prevents overlapping AI/CQL edits from
+  creating another entry. Existing 300ms CQL and 600ms AI callbacks still replace the
+  session entry with settled values. Home and fullscreen phantom history are unchanged.
+
+  ### 18 September 2026 - Scope detail restoration suppression per image (F4)
+
+  ImageDetail reads its existing handled-image ref instead of a lifetime-wide boolean.
+  A later distinct missing cached image can restore without remounting the overlay.
+  Finding or attempting the same image still suppresses repeated restoration if the
+  buffer loads it and then moves away. Cached cursor/offset use is unchanged.
+
+  ### 18 September 2026 - Track history keys across URL-sync dedupe (H2)
+
+  URL sync refreshes the departing kupuaKey before returning from a consumed deduplicated
+  transition. Home's preloaded search state no longer leaves the previous entry's key
+  active for the next Back snapshot. Home's awaited direct search, fresh push, no-capture
+  policy and density-switch ordering are unchanged.
+
   ### 18 September 2026 - Invalidate scrubber ticks by consumed inputs (T1)
 
   The search route replaces count-based tick cache keys with referential memoization.
@@ -84,6 +116,14 @@
   including distributions shorter than two buckets; distribution-only paths exclude them.
   Sort-context computation, coverage provenance and the availability gate are unchanged.
   No bucket hashing, new registry or adapter coupling was introduced.
+
+  ### 18 September 2026 - Preserve visible-neighbour coordinate space (W1)
+
+  getVisibleImageIds snapshots total with the buffer and applies isTwoTierFromTotal
+  before subtracting bufferOffset. Normal-mode ranges remain buffer-local, including
+  deep seek windows; indexed ranges remain global before the position map arrives.
+  This fixes empty or incorrectly shifted neighbours without changing their ordering,
+  geometric anchor exclusion or scroll behavior.
 
   ### 18 September 2026 - Deduplicate selection batch deltas (S2)
 

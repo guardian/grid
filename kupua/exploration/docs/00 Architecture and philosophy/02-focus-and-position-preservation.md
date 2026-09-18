@@ -123,6 +123,23 @@ Under phantom focus: seek simply resets the phantom anchor to whatever is now
 in the viewport centre. No memory of the previous position. This is correct —
 phantom focus tracks "where you are," and a seek is "take me somewhere else."
 
+### 2.5 First-Page Sort Placement During Fill
+
+When a preserved image is already in the first page, search publishes that page
+before filling the rest of a small result set. A near-bottom image can therefore
+hit a temporary scroll-height limit even though the complete result set has room
+for its saved viewport position.
+
+`useScrollEffects` keeps that intended ratio only for an offset-zero, incomplete
+small-result bottom clamp. It retries on buffer growth and clears the pending
+placement once reachable or fully filled. Changed search/seek generations, focus,
+pending arrow navigation, buffer replacement or scroll position discard it so
+later user intent wins. The image ID is retained for this local retry even when
+the normal one-shot phantom positioning ID has already been consumed.
+
+This does not increase page size, add requests or timers, or change actual
+result-set edge clamping. Indexed mode and deep windowed buffers are unaffected.
+
 ---
 
 ## 3. Two UI Modes, One Engine

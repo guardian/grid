@@ -450,9 +450,18 @@ Normal scrolling (extend forward/backward) is always 1 round-trip, 10–50ms.
 Sort-around-focus is 2–4 round-trips (getById + countBefore + optional
 bidirectional search_after). When the position map is loaded, sort-around-focus
 skips `countBefore` (the map already knows the image's global offset).
-First scrubber interaction pays 2 round-trips
-for the sort distribution (stats + histogram, ~15–50ms for dates, ~200–500ms
-for keywords); cached after that.
+Scrubber interactions request the relevant sort distribution. Calls for the same
+query/sort share pending work and reuse the completed cache. A different request
+scope or new search cancels the old request; superseded results cannot publish or
+clear newer work. Null-zone requests have their own pending slot and include the
+missing primary field and uploadTime direction in their identity. Rejected or
+aborted work can be retried; existing primary-null caching and retryable null-zone
+absence behavior are unchanged.
+
+Deep keyword seeks bypass raw-primary percentile estimation. A cached keyword
+bucket still uses a valid uploadTime percentile scoped to that bucket; absent or
+incomplete bucket coverage uses the composite fallback. Width and height also have
+distribution descriptors, but remain numeric primary-estimation paths, as do dates.
 
 ### When this architecture breaks
 
@@ -580,14 +589,14 @@ seek(globalOffset)
   │         4. countBefore → exact landed offset
   │
   └─ Sort field is keyword?
-      └── YES: Composite aggregation walk
-            1. findKeywordSortValue: walk composite agg pages
-               to find the keyword bucket containing the target offset
-            2. search_after([keyword_value, ""])
-            3. countBefore → exact landed offset
-            4. If drift > PAGE_SIZE (large bucket, e.g. 400k "PA" credits):
-               Binary search on id tiebreaker (SHA-1 hex interpolation,
-               ~11 countBefore queries, ~200ms total)
+      └── YES: Cached bucket or composite lookup, without a raw keyword percentile
+            1. If the cached distribution covers the target, estimate uploadTime
+               within that bucket and construct the full keyword/uploadTime/id cursor
+            2. Otherwise findKeywordSortValue walks composite pages to locate the
+               bucket, then constructs a direction-aware full seek cursor
+            3. search_after + countBefore → exact landed offset
+            4. The composite fallback may refine large-bucket drift using the
+               existing id-tiebreaker binary search
 ```
 
 The first three paths (End key, position map, shallow) give exact offsets

@@ -245,6 +245,11 @@ Responsive columns (`floor(width/280)`), 303px row height, S3 thumbnails, focus 
 
 Overlay within search route (search page stays mounted with `opacity-0 pointer-events-none`). Counter, prev/next (`NavStrip` + `useImageTraversal`), cadence-aware prefetch pipeline (shared `image-prefetch.ts` session model). Desktop zoom/pan via `usePinchZoom` (click/wheel/drag/keyboard). Touch swipe via `useSwipeCarousel` (velocity-aware prev/next) + `useSwipeDismiss` (pull-down dismiss). Fullscreen survives between images. Position cache in sessionStorage (`image-offset-cache.ts`: offset + sort cursor + search fingerprint) for reload restoration at any depth via `restoreAroundCursor`. Full-size images via imgproxy (AVIF, DPR-aware sizing). Stacked layout on mobile (flex-col, image top, metadata below). Middle-click exits fullscreen. Bug note: auxclick effect deps include `image` — prevents null-ref on reload when placeholder renders before `containerRef` div.
 
+Restoration tracks the last handled image ID. Finding that image in the buffer or
+attempting its cached-cursor restore suppresses repeat restoration when it later
+leaves the buffer. A distinct missing cached image can still restore during the same
+mounted overlay lifetime; the cached cursor and offset are passed through unchanged.
+
 ## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
 Lightweight fullscreen peek — press `f` or middle-click to view focused image edge-to-edge via Fullscreen API (`useFullscreen` hook). No route change, no metadata. Arrow keys traverse images via `useImageTraversal`, updating `focusedImageId`; exit (Esc/Backspace/f/middle-click) scrolls list to centered focused image. Shares prefetch pipeline and `usePinchZoom` (desktop zoom) with ImageDetail. Phantom pulse animation fires on exit when in phantom focus mode. Another density of the same ordered list.

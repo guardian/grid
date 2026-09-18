@@ -53,7 +53,7 @@ useful, don't push. Relieved → useful, push.
 | Action | Push/Replace | Marks user-initiated? | Goes through `useUpdateSearchParams`? | Why |
 |---|---|---|---|---|
 | Filter toggle, sort change, date range | **Push** | Yes | Yes | Discrete committed action — back undoes it |
-| Debounced query keystrokes | **Push** (first keystroke) then **Replace** (subsequent) | Yes | Yes (`{ replace: true }`) | First keystroke of a new typing session pushes the pre-edit URL via `history.pushState`, committing the previous context as a back target. Subsequent keystrokes within the debounce window replace. |
+| Debounced CQL/AI edits | **Push** (session start) then **Replace** (settlement) | Yes | Settled edits use `{ replace: true }` | `pushTypingSearchEntry` captures the predecessor and pushes its URL with a fresh key. Overlapping CQL/AI edits share that entry; settled values replace it. |
 | Density toggle (grid ↔ table) | **Push** | Yes | Yes | Display-only key; URL_DISPLAY_KEYS skips re-search but history still grows. Deliberate — density is a useful view. |
 | Open image detail (click / double-click) | **Push** | Yes (via `pushNavigate`) | No — `pushNavigate()` from `ImageGrid` / `ImageTable` | Display-only `image` key; effect bails on dedup, but marking is belt-and-braces. |
 | Close image detail (all affordances) | **history.back()** | Yes (inline `markUserInitiatedNavigation`) | No — `history.back()` in `ImageDetail.closeDetail` | Pops the detail entry; forward re-opens detail. On cold loads (paste/bookmark/reload), deep-link synthesis on mount inserts a bare-list entry so `history.back()` stays inside kupua. Skipped for SPA-entered detail (flag guard). |
@@ -63,22 +63,16 @@ useful, don't push. Relieved → useful, push.
 
 The mechanism: `useUpdateSearchParams()` in `useUrlSearchSync.ts` accepts
 `options?: { replace?: boolean }` defaulting to `false` (push). Only SearchBar's
-debounced `handleQueryChange` passes `{ replace: true }`.
+debounced CQL/AI handlers pass `{ replace: true }`.
 
 ### Debounced query — history session grouping
 
-The "push on first keystroke" logic uses the search debounce timer
-(`_debounceTimerId`) as the typing-session boundary: when the timer is null
-(i.e. the previous 300ms debounce has elapsed or this is the first keystroke),
-we treat it as the start of a new typing session and push the pre-edit URL.
-
-The **history session timer and the search debounce timer are the same 300ms
-value**. A two-timer approach (300ms search / ~1500ms history) was considered
-and rejected: every pushed entry is a query that actually fired and produced
-results; slow typers (>300ms between keystrokes) get extra entries, but each
-is a valid settled query. Kahuna uses the same "push every settled query"
-granularity at 500ms with no user complaints. If slow-typer granularity
-becomes a real issue, a second `_historySessionTimerId` is a clean upgrade.
+SearchBar starts a typing session only when neither the CQL debounce nor the AI
+debounce is pending. `pushTypingSearchEntry` uses the existing push-navigation
+boundary to capture the predecessor snapshot before minting the new entry's key.
+The CQL (300ms) and AI (600ms) delays are unchanged. Their settled updates replace
+the shared entry and retain its key; a later edit after both timers clear starts
+a new entry. There is no independent history timer or generic history state machine.
 
 ### Push-navigate helpers
 
@@ -86,6 +80,8 @@ All push-navigate sites explicitly declare their intent:
 
 - `pushNavigate()` — the default. Calls `markUserInitiatedNavigation()` +
   `markPushSnapshot()` then `navigate()`. Used by: enterDetail (grid + table).
+- `pushTypingSearchEntry()` wraps that same push boundary for the pre-edit search
+  URL; SearchBar owns the shared CQL/AI pending-session check.
 - `pushNavigateAsPopstate()` — the exception. Calls `navigate()` without marking
   or capturing. Used only by: logo-reset (SearchBar + ImageDetail).
 - `closeDetail` — uses inline `markUserInitiatedNavigation()` + `history.back()`.
@@ -208,6 +204,12 @@ Snapshots are captured at two points:
 
 `pushNavigateAsPopstate` (logo-reset) deliberately skips capture — its whole point
 is to land fresh at offset 0.
+
+Every consumed URL-sync transition refreshes `_lastKupuaKey`, including the dedupe
+return for display-only changes and Home's preloaded search state. Dedupe suppresses
+the search, not entry bookkeeping: later Back must capture Home under Home's key,
+without overwriting an existing predecessor snapshot. Home still awaits its direct
+search before navigation, preserving the density-switch ordering.
 
 ### Restore
 
