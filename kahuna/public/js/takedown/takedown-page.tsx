@@ -22,7 +22,7 @@ import {
 type Step = {
   id: TakedownStepId;
   title: string;
-  Component: React.FC;
+  Component: React.FC<{ image: GridImage | null }>;
 };
 
 const STEPS: Step[] = [
@@ -44,7 +44,7 @@ export type TakedownPageProps = {
   mediaApiRoot: MediaApiRoot;
 };
 
-const TakedownSteps: React.FC = () => {
+const TakedownSteps: React.FC<{ image: GridImage | null }> = ({ image }) => {
   const { getStepStatus } = useTakedownContext();
 
   return (
@@ -57,7 +57,7 @@ const TakedownSteps: React.FC = () => {
           status={getStepStatus(step.id)}
           isLastStep={index === STEPS.length - 1}
         >
-          <step.Component />
+          <step.Component image={image} />
         </TakedownStep>
       ))}
     </>
@@ -108,7 +108,7 @@ export const TakedownPage: React.FC<TakedownPageProps> = ({
             mediaApiRoot={mediaApiRoot}
             stepIds={STEPS.map((step) => step.id)}
           >
-            <TakedownSteps />
+            <TakedownSteps image={image} />
           </TakedownContextProvider>
         </Layout.Main>
       </Layout>

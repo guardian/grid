@@ -7,12 +7,13 @@ import { type TypographyTheme } from "@guardian/stand/Typography";
 import { DeepPartial } from "@guardian/stand/dist/util/types";
 
 const typographyThemeOverrides: Record<
-  "default" | "secondary" | "disabled",
+  "default" | "secondary" | "disabled" | "error",
   TypographyTheme
 > = {
   default: { color: semanticColors.text.strongInverse },
   secondary: { color: semanticColors.text.weakInverse },
-  disabled: { color: semanticColors.text.disabled }
+  disabled: { color: semanticColors.text.disabled },
+  error: { color: semanticColors.text.error }
 };
 
 const linkTheme: LinkTheme = {
