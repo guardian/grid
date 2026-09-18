@@ -19,6 +19,12 @@ interface TestContext {
   previousSearchQuery?: string;
 }
 
+export interface TestImage {
+  fileName: string;
+  path: string;
+  bytes: number;
+}
+
 /**
  * Browser steps should navigate to `KAHUNA_APP_URL` so the page origin is a real Grid
  * domain (required for the services' CORS origins to match). API-level `request` tests
@@ -32,3 +38,4 @@ export const test = base.extend<{ testContext: TestContext }>({
 
 export const { Given, When, Then, Before, After } = createBdd(test);
 export { expect };
+

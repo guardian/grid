@@ -2,6 +2,7 @@ import { statSync } from 'node:fs';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
+import { TestImage } from '../setup.ts';
 
 declare global {
   interface Window {
@@ -13,12 +14,6 @@ declare global {
 }
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
-
-export interface TestImage {
-  fileName: string;
-  path: string;
-  bytes: number;
-}
 
 const testImage = (fileName: string): TestImage => {
   const filePath = path.join(FIXTURE_IMAGES, fileName);

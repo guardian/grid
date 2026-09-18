@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import type { TestImage } from './setup.ts';
+import type { TestImage } from '../setup.ts';
 
 /**
  * `dnd-uploader` binds its handlers to `window` and decides what to do from

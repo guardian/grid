@@ -1,5 +1,5 @@
-import { Given, Then, When, expect } from '../fixtures.ts';
-import { GRID_IMAGE_MIME_TYPE, dragAway, dragOver, drop } from './drag-and-drop.ts';
+import { Given, Then, When, expect } from '../setup.ts';
+import { GRID_IMAGE_MIME_TYPE, dragAway, dragOver, drop } from '../utils/drag-and-drop.ts';
 import { filesToUpload, gridHostedImageUrl, uploadPage } from './setup.ts';
 
 /** From kahuna/public/js/strings.json. */

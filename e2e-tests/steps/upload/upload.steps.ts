@@ -1,5 +1,5 @@
 import type { DataTable } from 'playwright-bdd';
-import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
+import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { filesToUpload, testImages, uploadPage } from './setup.ts';
 
 /**
