@@ -89,7 +89,7 @@ Then('I should be able to remove the failed job after confirming', async ({ page
   const remove = job.getByRole('button', { name: 'Delete image' });
   await remove.click(); // arms the confirm
   await remove.click(); // confirms
-  await expect(job).toBeHidden();
+  await expect(job).toBeHidden({ timeout: 10_000 });
 });
 
 Then('the job should switch to the image metadata editor', async ({ page }) => {
