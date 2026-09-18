@@ -30,6 +30,41 @@ const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 type StackProps = Record<string, string>;
 
 /**
+ * Image types and a metadata template baked into the e2e Kahuna server so the
+ * metadata-editor scenarios exercise real server config end-to-end rather than a
+ * client-side stub. Applied at stack boot, so they are present for every scenario.
+ */
+export const E2E_IMAGE_TYPES = ['Photograph', 'Illustration', 'Composite'];
+
+export const E2E_METADATA_TEMPLATE = {
+  templateName: 'E2E Agency',
+  fields: [
+    { name: 'byline', value: 'E2E Byline' },
+    { name: 'credit', value: 'E2E Agency' },
+  ],
+};
+
+/** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
+function kahunaE2eConfig(): string {
+  const metadataFields = E2E_METADATA_TEMPLATE.fields
+    .map((f) => `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`)
+    .join('\n');
+
+  return [
+    `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
+    'metadata.templates = [',
+    '  {',
+    `    templateName = "${E2E_METADATA_TEMPLATE.templateName}"`,
+    '    metadataFields = [',
+    metadataFields,
+    '    ]',
+    '  }',
+    ']',
+    '',
+  ].join('\n');
+}
+
+/**
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
  * app container reaches the infrastructure containers over the shared network.
  */
@@ -101,6 +136,8 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
 
-    fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
+    const rewritten = rewriteEndpoints(conf);
+    const withExtras = service === 'kahuna' ? `${rewritten}\n${kahunaE2eConfig()}` : rewritten;
+    fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
   }
 }
