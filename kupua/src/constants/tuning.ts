@@ -313,13 +313,6 @@ export const SELECTION_PERSIST_DEBOUNCE_MS = 250;
  */
 export const SELECTION_METADATA_LRU_CAP = 5_000;
 
-/**
- * Number of images processed per idle frame during lazy reconciliation.
- * Lower = smoother but slower; higher = faster but may cause jank on
- * slow devices. 500 ≈ 5–10 ms per chunk at ~25 fields/image.
- */
-export const SELECTION_RECONCILE_CHUNK_SIZE = 500;
-
 // ---------------------------------------------------------------------------
 // Selections -- lifecycle (Phase S6)
 // ---------------------------------------------------------------------------

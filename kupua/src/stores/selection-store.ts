@@ -36,7 +36,6 @@ import type { ReconciledView, FieldReconciliation } from "@/lib/reconcile";
 import {
   SELECTION_PERSIST_DEBOUNCE_MS,
   SELECTION_METADATA_LRU_CAP,
-  SELECTION_RECONCILE_CHUNK_SIZE,
 } from "@/constants/tuning";
 import { addToast } from "@/stores/toast-store";
 import { setRetainedCursorAnchor } from "@/lib/image-offset-cache";
@@ -68,8 +67,10 @@ class LruMap<K, V> {
     return value;
   }
 
-  set(key: K, value: V): void {
-    if (this.map.has(key)) {
+  set(key: K, value: V): boolean {
+    const hadKey = this.map.has(key);
+    const changed = !hadKey || this.map.get(key) !== value;
+    if (hadKey) {
       this.map.delete(key);
     } else if (this.map.size >= this.cap) {
       // Evict the oldest entry (first key in insertion order).
@@ -77,6 +78,7 @@ class LruMap<K, V> {
       this.map.delete(oldest);
     }
     this.map.set(key, value);
+    return changed;
   }
 
   has(key: K): boolean {
@@ -111,9 +113,10 @@ export function _resetHydrationToastShown(): void {
 
 /** Exported for tests only — replace the metadataCache with a fresh LruMap. */
 export function _resetMetadataCache(): void {
-  useSelectionStore.setState({
+  useSelectionStore.setState((state) => ({
     metadataCache: new LruMap<string, Image>(SELECTION_METADATA_LRU_CAP),
-  });
+    metadataRevision: state.metadataRevision + 1,
+  }));
 }
 
 /** Exported for tests only — reset debounce timer between tests. */
@@ -175,28 +178,14 @@ const selectionStorage = createJSONStorage<PersistedSelectionState>(() => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Chunked reconcile scheduler
+// Full reconciliation scheduler
 // ---------------------------------------------------------------------------
 
-/**
- * IDs waiting for reconciliation after a metadata fetch completes.
- * Processed in idle-frame chunks to avoid blocking the main thread.
- */
-let _reconcileQueueSet: Set<string> = new Set();
-let _reconcileQueueArr: string[] = [];
-let _reconcileFrameScheduled = false;
-/**
- * Set when a `reconcileRemove` has left dirty fields — the next recompute
- * cycle will use `recomputeAll` instead of incremental `reconcileAdd`.
- */
-let _reconcileNeedsFullRecompute = false;
+let _pendingFullReconcile: object | null = null;
 
-/** Exported for tests — reset queue between tests. */
+/** Exported for tests — invalidate pending reconciliation between tests. */
 export function _resetReconcileQueue(): void {
-  _reconcileQueueSet = new Set();
-  _reconcileQueueArr = [];
-  _reconcileFrameScheduled = false;
-  _reconcileNeedsFullRecompute = false;
+  _pendingFullReconcile = null;
 }
 
 function scheduleIdle(fn: () => void): void {
@@ -207,93 +196,27 @@ function scheduleIdle(fn: () => void): void {
   }
 }
 
-/**
- * Enqueue IDs for lazy reconciliation and schedule an idle-frame processor
- * if not already scheduled. Call after `ensureMetadata` resolves.
- */
-function enqueueReconcile(ids: string[], fullRecompute = false): void {
-  for (const id of ids) {
-    if (!_reconcileQueueSet.has(id)) {
-      _reconcileQueueSet.add(id);
-      _reconcileQueueArr.push(id);
-    }
-  }
-  if (fullRecompute) _reconcileNeedsFullRecompute = true;
-  if (!_reconcileFrameScheduled) {
-    _reconcileFrameScheduled = true;
-    useSelectionStore.setState({ isReconciling: true });
-    scheduleIdle(processReconcileChunk);
-  }
-}
-
-/**
- * Process one chunk of reconciliation work in an idle frame.
- * Self-schedules for the next chunk if more work remains.
- */
-function processReconcileChunk(): void {
-  const chunk = _reconcileQueueArr.splice(0, SELECTION_RECONCILE_CHUNK_SIZE);
-  for (const id of chunk) _reconcileQueueSet.delete(id);
-
-  if (chunk.length === 0) {
-    _reconcileFrameScheduled = false;
-    useSelectionStore.setState({ isReconciling: false });
-    return;
-  }
-
-  const state = useSelectionStore.getState();
-  const { metadataCache, selectedIds, reconciledView } = state;
-
-  let nextView: ReconciledView;
-
-  if (_reconcileNeedsFullRecompute || reconciledView === null) {
-    // Full recompute: use all currently cached selected images.
+function requestFullReconcile(): void {
+  if (_pendingFullReconcile) return;
+  const request = {};
+  _pendingFullReconcile = request;
+  useSelectionStore.setState({ isReconciling: true });
+  scheduleIdle(() => {
+    if (_pendingFullReconcile !== request) return;
+    const { metadataCache, selectedIds } = useSelectionStore.getState();
     const allCached: Image[] = [];
     for (const id of selectedIds) {
       const img = metadataCache.get(id);
       if (img !== undefined) allCached.push(img);
     }
-    nextView = recomputeAll(allCached, RECONCILE_FIELDS);
-    _reconcileNeedsFullRecompute = false;
-    // Drain remaining queue — recomputeAll already processed every selectedId.
-    // Without this, leftover queue items would be processed incrementally,
-    // double-counting images via applyChipArrayAdd (total += 1 per item).
-    _reconcileQueueArr.length = 0;
-    _reconcileQueueSet.clear();
-  } else {
-    // Incremental: fold the chunk into the existing view.
-    nextView = reconciledView;
-    for (const id of chunk) {
-      const img = metadataCache.get(id);
-      if (img !== undefined) {
-        nextView = reconcileAdd(img, nextView, RECONCILE_FIELDS);
-      }
-      // If image not in cache yet, skip — still marked pending.
-    }
-    // If any dirty fields remain (from prior removes), escalate to full.
-    if (hasDirtyFields(nextView)) {
-      const allCached: Image[] = [];
-      for (const id of selectedIds) {
-        const img2 = metadataCache.get(id);
-        if (img2 !== undefined) allCached.push(img2);
-      }
-      nextView = recomputeAll(allCached, RECONCILE_FIELDS);
-      // Drain queue — same rationale as the fullRecompute branch above.
-      _reconcileQueueArr.length = 0;
-      _reconcileQueueSet.clear();
-    }
-  }
-
-  useSelectionStore.setState((s) => ({
-    reconciledView: nextView,
-    generationCounter: s.generationCounter + 1,
-  }));
-
-  if (_reconcileQueueArr.length > 0) {
-    scheduleIdle(processReconcileChunk);
-  } else {
-    _reconcileFrameScheduled = false;
-    useSelectionStore.setState({ isReconciling: false });
-  }
+    const nextView = recomputeAll(allCached, RECONCILE_FIELDS);
+    _pendingFullReconcile = null;
+    useSelectionStore.setState((state) => ({
+      reconciledView: nextView,
+      generationCounter: state.generationCounter + 1,
+      isReconciling: false,
+    }));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +271,7 @@ export interface SelectionState {
 
   // --- Reconciliation (runtime only) ---
   /** Monotonic counter bumped on every selectedIds mutation and on each
-   * reconcile chunk completion. Use as memoisation key for selectors. */
+    * full reconciliation completion. Use as memoisation key for selectors. */
   generationCounter: number;
   /** Null until first reconcile cycle completes. */
   reconciledView: ReconciledView | null;
@@ -356,6 +279,7 @@ export interface SelectionState {
   // --- Internal (runtime only) ---
   /** LRU cache of Image metadata, cap SELECTION_METADATA_LRU_CAP. */
   metadataCache: LruMap<string, Image>;
+  metadataRevision: number;
   /** IDs for which a `getByIds` fetch is currently in flight. */
   pendingFetchIds: Set<string>;
   /** True while idle-frame reconciliation chunks are being processed. */
@@ -426,6 +350,7 @@ export const useSelectionStore = create<SelectionState>()(
       generationCounter: 0,
       reconciledView: null,
       metadataCache: new LruMap<string, Image>(SELECTION_METADATA_LRU_CAP),
+      metadataRevision: 0,
       pendingFetchIds: new Set<string>(),
       isReconciling: false,
       isRangeWalking: false,
@@ -449,7 +374,7 @@ export const useSelectionStore = create<SelectionState>()(
             newView = reconcileRemove(cachedImg, reconciledView, RECONCILE_FIELDS);
             if (hasDirtyFields(newView)) {
               // Schedule a full recompute on next idle frame.
-              enqueueReconcile(Array.from(newIds), /* fullRecompute */ true);
+              requestFullReconcile();
             }
           }
 
@@ -488,7 +413,7 @@ export const useSelectionStore = create<SelectionState>()(
 
           // Fetch metadata (cohesion rule: toggle MUST call ensureMetadata).
           // Reconciliation is triggered by ensureMetadata itself once the
-          // fetch completes — do NOT chain .then(enqueueReconcile) here
+          // fetch completes — do NOT chain .then(requestFullReconcile) here
           // because setAnchor's concurrent ensureMetadata call dedup-skips
           // toggle's call, causing .then() to fire before data arrives.
           void get().ensureMetadata([id]);
@@ -497,20 +422,21 @@ export const useSelectionStore = create<SelectionState>()(
 
       add(ids: string[]): void {
         const { selectedIds, metadataCache, reconciledView } = get();
-        // Deduplicate against existing selection.
-        const newIds = ids.filter((id) => !selectedIds.has(id));
-        if (newIds.length === 0) return;
-
-        // Atomic add — one state update, one sessionStorage write.
         const nextIds = new Set(selectedIds);
-        for (const id of newIds) nextIds.add(id);
+        const newIds: string[] = [];
+        for (const id of ids) {
+          if (nextIds.has(id)) continue;
+          nextIds.add(id);
+          newIds.push(id);
+        }
+        if (newIds.length === 0) return;
 
         // Split into cached vs uncached to avoid flicker for already-cached
         // items. All-cached: fold synchronously (view immediately correct).
         // Any-uncached: mark all pending, then full recompute after fetch.
         // Note: markPending sets every field to pending which makes the
         // incremental reconcileAdd path a no-op (pending is sticky), so we
-        // must use a full recompute (fullRecompute=true) after all uncached
+        // must request a full recompute after all uncached
         // metadata arrives.
         const cachedIds: string[] = [];
         const uncachedIds: string[] = [];
@@ -546,11 +472,12 @@ export const useSelectionStore = create<SelectionState>()(
 
       remove(ids: string[]): void {
         const { selectedIds, metadataCache, reconciledView } = get();
-        const toRemove = ids.filter((id) => selectedIds.has(id));
-        if (toRemove.length === 0) return;
-
         const nextIds = new Set(selectedIds);
-        for (const id of toRemove) nextIds.delete(id);
+        const toRemove: string[] = [];
+        for (const id of ids) {
+          if (nextIds.delete(id)) toRemove.push(id);
+        }
+        if (toRemove.length === 0) return;
 
         let newView = reconciledView;
         let needsFullRecompute = false;
@@ -563,7 +490,7 @@ export const useSelectionStore = create<SelectionState>()(
         }
 
         if (needsFullRecompute) {
-          enqueueReconcile(Array.from(nextIds), /* fullRecompute */ true);
+          requestFullReconcile();
         }
 
         // Re-elect anchor if the current anchor was among the removed IDs.
@@ -633,26 +560,30 @@ export const useSelectionStore = create<SelectionState>()(
 
         // Populate cache and clear in-flight markers.
         const { metadataCache: cache } = get();
+        let metadataChanged = false;
         for (const img of images) {
-          cache.set(img.id, img);
+          if (cache.set(img.id, img)) metadataChanged = true;
         }
 
         set((s) => {
           const newPending = new Set(s.pendingFetchIds);
           for (const id of needed) newPending.delete(id);
-          // Touch generationCounter so selectors know cache changed.
-          return { pendingFetchIds: newPending, generationCounter: s.generationCounter + 1 };
+          return {
+            pendingFetchIds: newPending,
+            generationCounter: s.generationCounter + 1,
+            metadataRevision: s.metadataRevision + (metadataChanged ? 1 : 0),
+          };
         });
 
         // Auto-reconcile: if any fetched ID is currently selected, trigger
         // a full recompute so chip counts reflect the newly-available metadata.
         // This is the authoritative reconcile trigger — callers should NOT
-        // chain .then(() => enqueueReconcile) on ensureMetadata because the
+        // chain .then(requestFullReconcile) on ensureMetadata because the
         // dedup short-circuit (needed=[]) causes .then() to fire before the
         // actual fetch completes, producing stale counts.
         const { selectedIds: currentSelected } = get();
         if (needed.some((id) => currentSelected.has(id))) {
-          enqueueReconcile(Array.from(currentSelected), /* fullRecompute */ true);
+          requestFullReconcile();
         }
       },
 
@@ -674,17 +605,25 @@ export const useSelectionStore = create<SelectionState>()(
 
         // Populate cache.
         const { metadataCache: cache } = get();
+        let metadataChanged = false;
         for (const img of images) {
-          cache.set(img.id, img);
+          if (cache.set(img.id, img)) metadataChanged = true;
         }
 
         if (missingIds.length > 0) {
           // Drop IDs that no longer exist in ES and notify the user once.
           const nextIds = new Set(selectedIds);
           for (const id of missingIds) nextIds.delete(id);
+          const currentAnchor = get().anchorId;
+          const nextAnchor = currentAnchor !== null && !nextIds.has(currentAnchor)
+            ? electFallbackAnchor(nextIds)
+            : currentAnchor;
+          setRetainedCursorAnchor(nextAnchor);
           set((s) => ({
             selectedIds: nextIds,
+            anchorId: nextAnchor,
             generationCounter: s.generationCounter + 1,
+            metadataRevision: s.metadataRevision + (metadataChanged ? 1 : 0),
           }));
 
           // Fire hydration drop toast (deduped — at most once per session).
@@ -698,14 +637,13 @@ export const useSelectionStore = create<SelectionState>()(
             });
           }
         } else {
-          set((s) => ({ generationCounter: s.generationCounter + 1 }));
+          set((s) => ({
+            generationCounter: s.generationCounter + 1,
+            metadataRevision: s.metadataRevision + (metadataChanged ? 1 : 0),
+          }));
         }
 
-        // Schedule reconciliation for all retained IDs.
-        const retainedIds = ids.filter((id) => !missingIds.includes(id));
-        if (retainedIds.length > 0) {
-          enqueueReconcile(retainedIds, /* fullRecompute */ true);
-        }
+        requestFullReconcile();
       },
 
       addGroup(ids: string[]): void {
@@ -740,6 +678,10 @@ export const useSelectionStore = create<SelectionState>()(
     },
   ),
 );
+
+export function useSelectionMetadataRevision(): number {
+  return useSelectionStore((state) => state.metadataRevision);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

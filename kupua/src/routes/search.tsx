@@ -35,17 +35,18 @@ import { MultiImageMetadata } from "@/components/MultiImageMetadata";
 import { UsagesSection, MultiUsagesSummary } from "@/components/UsagesSection";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
-import { useSelectionStore } from "@/stores/selection-store";
+import { useSelectionStore, useSelectionMetadataRevision } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { initGridApi } from "@/lib/grid-api-instance";
+import type { Image } from "@/types/image";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -296,12 +297,11 @@ function SearchPage() {
 }
 
 // ---------------------------------------------------------------------------
-// FocusedImageMetadata — right panel content showing metadata for the
-// focused image in grid/table views. Reads focusedImageId from the search
-// store and resolves it to an Image via imagePositions + results.
+// Panel-local image resolution and completed selection presentation. Buffer
+// data wins for single images/usages; metadata summaries use cached images.
 // ---------------------------------------------------------------------------
 
-function FocusedImageMetadata() {
+function useFocusedOrSelectedImage() {
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
   const imagePositions = useSearchStore((s) => s.imagePositions);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
@@ -309,57 +309,70 @@ function FocusedImageMetadata() {
   const effectiveMode = useEffectiveFocusMode();
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const metadataCache = useSelectionStore((s) => s.metadataCache);
+  const reconciledView = useSelectionStore((s) => s.reconciledView);
+  const pendingFetchIds = useSelectionStore((s) => s.pendingFetchIds);
+  const isReconciling = useSelectionStore((s) => s.isReconciling);
+  const metadataRevision = useSelectionMetadataRevision();
   const selectedCount = selectedIds.size;
-  // Multi-selection mode: 2+ items selected. Show combined metadata placeholder
-  // until S4 implements MultiImageMetadata.
-  const isMultiSelection = selectedCount > 1;
-  // Single selection: treat the one selected item as if it were focused.
-  const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
-
-  const image = (() => {
-    // Multi-selection: combined metadata panel (S4). Return null for now.
-    if (isMultiSelection) return null;
-    // Resolve: single-selected item takes priority over focused item.
-    // In phantom mode, focusedImageId is only a position anchor — don't
-    // show metadata for it — but a single selection still wins.
-    const resolvedId =
-      singleSelectedId ??
-      (effectiveMode === "phantom" ? null : focusedImageId);
-    if (!resolvedId) return null;
-    const globalIdx = imagePositions.get(resolvedId);
-    if (globalIdx != null) {
-      const localIdx = globalIdx - bufferOffset;
-      if (localIdx >= 0 && localIdx < results.length) {
-        return results[localIdx] ?? null;
+  const presentation = useMemo(() => {
+    const bufferedImage = (id: string): Image | null => {
+      const globalIdx = imagePositions.get(id);
+      if (globalIdx != null) {
+        const localIdx = globalIdx - bufferOffset;
+        if (localIdx >= 0 && localIdx < results.length) return results[localIdx] ?? null;
+      }
+      return null;
+    };
+    const metadataImages: Image[] = [];
+    const usageImages: Image[] = [];
+    let image: Image | null = null;
+    if (selectedCount > 1) {
+      for (const id of selectedIds) {
+        const cached = metadataCache.get(id);
+        if (cached) metadataImages.push(cached);
+        const resolved = bufferedImage(id) ?? cached;
+        if (resolved) usageImages.push(resolved);
+      }
+    } else {
+      const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
+      const resolvedId = singleSelectedId ?? (effectiveMode === "phantom" ? null : focusedImageId);
+      if (resolvedId) {
+        image = bufferedImage(resolvedId) ?? (singleSelectedId ? metadataCache.get(singleSelectedId) ?? null : null);
       }
     }
-    // Image has scrolled out of the buffer. If it's the single-selected item,
-    // its metadata is already in metadataCache (populated by ensureMetadata on
-    // selection). Fall back to that so the panel doesn't go blank on scroll.
-    if (resolvedId === singleSelectedId) {
-      return metadataCache.get(resolvedId) ?? null;
-    }
-    return null;
-  })();
+    return { image, isMultiSelection: selectedCount > 1, metadataImages, usageImages, reconciledView, total: selectedCount };
+  }, [selectedIds, selectedCount, metadataCache, metadataRevision, reconciledView, results, imagePositions, bufferOffset, effectiveMode, focusedImageId]);
+
+  const incomplete = isReconciling || [...pendingFetchIds].some(id => selectedIds.has(id)) ||
+    reconciledView === null || [...reconciledView.values()].some(field => field.kind === "pending" || field.kind === "dirty");
+  const isPending = selectedCount > 1 ? incomplete : selectedCount === 1 && !presentation.image && incomplete;
+  const [completed, setCompleted] = useState<typeof presentation | null>(null);
+  const nextCompleted = isPending ? completed : selectedCount === 0 && !presentation.image ? null : presentation;
+  if (nextCompleted !== completed) setCompleted(nextCompleted);
+  return { ...(isPending && completed ? completed : presentation), isPending };
+}
+
+function FocusedImageMetadata() {
+  const { image, isMultiSelection, metadataImages, reconciledView, total, isPending } = useFocusedOrSelectedImage();
 
   if (isMultiSelection) {
     return (
-      <div className="p-3">
-        <MultiImageMetadata />
+      <div className="p-3" aria-busy={isPending}>
+        <MultiImageMetadata images={metadataImages} reconciledView={reconciledView} total={total} />
       </div>
     );
   }
 
   if (!image) {
     return (
-      <div className="px-3 py-4 text-xs text-grid-text-dim">
+      <div className="px-3 py-4 text-xs text-grid-text-dim" aria-busy={isPending}>
         Focus an image to see its metadata.
       </div>
     );
   }
 
   return (
-    <div className="p-3">
+    <div className="p-3" aria-busy={isPending}>
       <ImageMetadata image={image} />
     </div>
   );
@@ -367,53 +380,25 @@ function FocusedImageMetadata() {
 
 // ---------------------------------------------------------------------------
 // FocusedUsages — right panel usages section for the focused/selected image.
-// Mirrors the image-resolution logic in FocusedImageMetadata.
+// Uses the same panel-local image resolver as FocusedImageMetadata.
 // Multi-selection: shows aggregate summary. Single/focused: shows UsagesSection.
 // ---------------------------------------------------------------------------
 
 function FocusedUsages() {
-  const focusedImageId = useSearchStore((s) => s.focusedImageId);
-  const imagePositions = useSearchStore((s) => s.imagePositions);
-  const bufferOffset = useSearchStore((s) => s.bufferOffset);
-  const results = useSearchStore((s) => s.results);
-  const effectiveMode = useEffectiveFocusMode();
-  const selectedIds = useSelectionStore((s) => s.selectedIds);
-  const metadataCache = useSelectionStore((s) => s.metadataCache);
-  const selectedCount = selectedIds.size;
-  const isMultiSelection = selectedCount > 1;
-  const singleSelectedId = selectedCount === 1 ? [...selectedIds][0] : null;
-
-  const image = (() => {
-    if (isMultiSelection) return null;
-    const resolvedId =
-      singleSelectedId ??
-      (effectiveMode === "phantom" ? null : focusedImageId);
-    if (!resolvedId) return null;
-    const globalIdx = imagePositions.get(resolvedId);
-    if (globalIdx != null) {
-      const localIdx = globalIdx - bufferOffset;
-      if (localIdx >= 0 && localIdx < results.length) {
-        return results[localIdx] ?? null;
-      }
-    }
-    if (resolvedId === singleSelectedId) {
-      return metadataCache.get(resolvedId) ?? null;
-    }
-    return null;
-  })();
+  const { image, isMultiSelection, usageImages, isPending } = useFocusedOrSelectedImage();
 
   if (isMultiSelection) {
-    return <MultiUsagesSummary />;
+    return <div aria-busy={isPending}><MultiUsagesSummary images={usageImages} /></div>;
   }
 
   if (!image) {
     return (
-      <div className="px-3 py-4 text-xs text-grid-text-dim">
+      <div className="px-3 py-4 text-xs text-grid-text-dim" aria-busy={isPending}>
         Focus an image to see its usages.
       </div>
     );
   }
 
-  return <UsagesSection usages={image.usages} />;
+  return <div aria-busy={isPending}><UsagesSection usages={image.usages} /></div>;
 }
 

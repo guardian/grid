@@ -12,7 +12,7 @@
  * ImageMetadata verbatim). This component only renders when selectionCount >= 2.
  */
 
-import { useSelectionStore } from "@/stores/selection-store";
+import type { Image } from "@/types/image";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import type { FieldDefinition } from "@/lib/field-registry";
 import type { FieldReconciliation, ReconciledView } from "@/lib/reconcile";
@@ -302,19 +302,21 @@ const COST_COLOR: Record<Cost | "no-rights", string> = {
 // free is always solid green; no-rights is always solid red (lease doesn't fix missing rights).
 const LEASE_GRADIENT_BUCKETS = new Set<Cost | "no-rights">(["pay", "overquota", "conditional"]);
 
-function CostSummarySection() {
-  const selectedIds = useSelectionStore((s) => s.selectedIds);
-  const metadataCache = useSelectionStore((s) => s.metadataCache);
+interface MultiImageMetadataProps {
+  images: readonly Image[];
+  reconciledView: ReconciledView | null;
+  total: number;
+}
+
+function CostSummarySection({ images }: Pick<MultiImageMetadataProps, "images">) {
   const enrichmentData = useEnrichmentStore((s) => s.data);
 
   // Aggregate: count per cost bucket
   const counts = new Map<Cost | "no-rights", number>();
   const leasedCounts = new Map<Cost | "no-rights", number>();
 
-  for (const id of selectedIds) {
-    const img = metadataCache.get(id);
-    if (!img) continue;
-    const enriched = deriveImage(img, enrichmentData.get(id));
+  for (const img of images) {
+    const enriched = deriveImage(img, enrichmentData.get(img.id));
     const bucket: Cost | "no-rights" = enriched.noRights
       ? "no-rights"
       : enriched.cost;
@@ -393,10 +395,7 @@ function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: 
 // Rights & leases section
 // ---------------------------------------------------------------------------
 
-function RightsAndLeasesSection() {
-  const reconciledView = useSelectionStore((s) => s.reconciledView);
-  const selectedIds = useSelectionStore((s) => s.selectedIds);
-  const metadataCache = useSelectionStore((s) => s.metadataCache);
+function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
 
   // Reconciled category from the reconciliation engine
@@ -405,7 +404,7 @@ function RightsAndLeasesSection() {
 
   // Aggregate active + pending lease counts per access type across selection.
   // Uses isLeaseActive() (date-based) — does not trust the stale ES `active` snapshot.
-  // Total is counted from cached images (not selectedIds.size) to avoid
+  // Total is counted from cached images (not selection size) to avoid
   // twitch when a newly-added image hasn't loaded into cache yet.
   const nowMs = Date.now();
   const activeCounts: Record<string, number> = {
@@ -416,9 +415,7 @@ function RightsAndLeasesSection() {
   };
   let imagesWithAnyExpired = 0;
   let cachedTotal = 0;
-  for (const id of selectedIds) {
-    const img = metadataCache.get(id);
-    if (!img) continue;
+  for (const img of images) {
     cachedTotal++;
     const leases = img.leases?.leases ?? [];
     const seenActive = new Set<string>();
@@ -451,7 +448,7 @@ function RightsAndLeasesSection() {
       <MetadataSection>
         {categoryField && categoryRec && (
           <MetadataBlock label="Rights & restrictions">
-            {renderField(categoryField, categoryRec, onSearch, selectedIds.size) === null ? (
+            {renderField(categoryField, categoryRec, onSearch, total) === null ? (
               <Dash />
             ) : categoryRec.kind === "all-same" ? (() => {
               const raw = String((categoryRec as { value: unknown }).value);
@@ -465,7 +462,7 @@ function RightsAndLeasesSection() {
               );
             })()
             : categoryRec.kind === "mixed" ? (
-              <MultiValue field={categoryField} topValues={(categoryRec as { topValues: Array<{ value: unknown; count: number }> }).topValues} total={selectedIds.size} />
+              <MultiValue field={categoryField} topValues={(categoryRec as { topValues: Array<{ value: unknown; count: number }> }).topValues} total={total} />
             ) : categoryRec.kind === "all-empty" ? (
               <span className="text-xs text-grid-text-dim">None</span>
             ) : (
@@ -507,16 +504,14 @@ function RightsAndLeasesSection() {
 // Component
 // ---------------------------------------------------------------------------
 
-export function MultiImageMetadata() {
-  const reconciledView = useSelectionStore((s) => s.reconciledView);
-  const total = useSelectionStore((s) => s.selectedIds.size);
+export function MultiImageMetadata({ images, reconciledView, total }: MultiImageMetadataProps) {
   const onSearch = useMetadataSearch();
 
   return (
     <>
-      <CostSummarySection />
+      <CostSummarySection images={images} />
       <dl>
-        <RightsAndLeasesSection />
+        <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} />
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si}>
           {sectionFields.map((field) =>

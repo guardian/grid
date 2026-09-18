@@ -34,6 +34,48 @@
   estimation remains intact. Width and height share the distribution descriptor but
   retain numeric primary estimation, as do date sorts. No new sort registry was added.
 
+  ### 18 September 2026 - Repair selection anchors after hydration omissions (S6)
+
+  When hydration drops the current anchor, it elects the last remaining selected ID
+  in insertion order, or null for an empty selection, and moves retained cursor
+  ownership to the same anchor. Surviving and unset anchors are preserved. Failed
+  metadata retrieval still leaves the selection intact, and no extra metadata request
+  or change to the public toggle/remove actions is introduced.
+
+  ### 18 September 2026 - Keep selection panels coherent during reconciliation
+
+  Selection changes no longer replace existing metadata with Empty fields while
+  reconciliation is pending or dirty. The panel-local resolver retains its completed
+  presentation until replacement inputs are ready, including the single/multi-image
+  mode, reconciled fields, image references and matching totals. Cost, rights, lease
+  and usage summaries consume those inputs instead of independently reading a newer
+  selection. Panels expose aria-busy while retaining content.
+
+  Selection membership and toolbar/grid feedback remain immediate. Idle reconciliation,
+  persistence, datasource ownership and the mutable LRU are unchanged; no payload/cache
+  clone or synchronous full-reconciliation workaround was added. Initial available-data
+  rendering and resolved single-image transitions remain immediate, clear discards stale
+  presentation, and failed metadata fetches settle as data absence.
+
+  ### 18 September 2026 - Publish selection metadata revisions to panels (S3/G3)
+
+  Changed LRU cache writes publish one runtime metadataRevision per fetch or hydration
+  batch without replacing the cache. Empty/failed batches and identical stored object
+  references do not advance it. Off-buffer Details and Usages now update when metadata
+  arrives, rather than relying on an unrelated rerender. Consumers subscribe locally;
+  the two single-image panels share their buffer-first/cache-fallback resolver.
+  SearchPage does not subscribe. Persistence and datasource ownership are unchanged.
+
+  ### 18 September 2026 - Coalesce private full selection reconciliation (S1)
+
+  Replaced the unused incremental ID queue with one identity-guarded private full
+  request. Idle work reads the latest selected metadata once, including empty selections,
+  and publishes completion coherently. Clear invalidates queued work so an older callback
+  cannot consume a newer request. This also clears stale dirty fields after the final
+  selection is removed. Hydration no longer builds redundant retained-ID arrays, and the
+  obsolete chunk-size setting is removed. Cached incremental deltas remain synchronous;
+  full reconciliation remains an unchunked scan.
+
   ### 18 September 2026 - Invalidate scrubber ticks by consumed inputs (T1)
 
   The search route replaces count-based tick cache keys with referential memoization.
@@ -42,6 +84,13 @@
   including distributions shorter than two buckets; distribution-only paths exclude them.
   Sort-context computation, coverage provenance and the availability gate are unchanged.
   No bucket hashing, new registry or adapter coupling was introduced.
+
+  ### 18 September 2026 - Deduplicate selection batch deltas (S2)
+
+  Add/remove build their next Set and unique changed-ID delta together, so repeated
+  range targets cannot overcount or double-decrement reconciled metadata. Uncached added
+  IDs reach metadata fetching once each. Synchronous cached deltas, anchor re-election,
+  atomic membership publication and debounced persistence retain their existing behavior.
 
   ### 18 September 2026 - Omit unused position-map exact totals (Q3)
 

@@ -21,7 +21,9 @@ import { useSelectionStore, _resetReconcileQueue, _resetDebounceState, _resetMet
 import { useToastStore } from "./toast-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { buildSearchKey, getRetainedSortValues, retainSortValues, setRetainedCursorAnchor } from "@/lib/image-offset-cache";
-import { BUFFER_CAPACITY } from "@/constants/tuning";
+import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuning";
+import { RECONCILE_FIELDS } from "@/lib/field-registry";
+import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
 
 // ---------------------------------------------------------------------------
@@ -161,6 +163,48 @@ describe("toggle", () => {
 // ---------------------------------------------------------------------------
 
 describe("add", () => {
+  it("reconciles duplicate batch IDs once with one atomic persisted selection", async () => {
+    await useSelectionStore.getState().ensureMetadata(["img-0", "img-1"]);
+    useSelectionStore.getState().add(["img-0"]);
+    const initial = useSelectionStore.getState();
+    initial.add(["img-1"]);
+    const expectedView = useSelectionStore.getState().reconciledView;
+    useSelectionStore.setState(initial);
+    _resetDebounceState();
+    vi.useFakeTimers();
+    const writes = vi.spyOn(sessionStorageMock, "setItem");
+    const changes = vi.fn();
+    const unsubscribe = useSelectionStore.subscribe(changes);
+
+    try {
+      useSelectionStore.getState().add(["img-0", "img-1", "img-1"]);
+
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1"]));
+      expect(useSelectionStore.getState().reconciledView).toEqual(expectedView);
+      expect(useSelectionStore.getState().generationCounter).toBe(initial.generationCounter + 1);
+      expect(changes).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(SELECTION_PERSIST_DEBOUNCE_MS);
+      expect(writes).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(mockSessionStorage["kupua-selection"]).state.selectedIds).toEqual(["img-0", "img-1"]);
+    } finally {
+      unsubscribe();
+      _resetDebounceState();
+      vi.useRealTimers();
+    }
+  });
+
+  it("fetches each uncached duplicate batch ID once", async () => {
+    await useSelectionStore.getState().ensureMetadata(["img-0"]);
+    useSelectionStore.getState().add(["img-0"]);
+    const fetchMetadata = vi.spyOn(mock, "getByIds");
+
+    useSelectionStore.getState().add(["img-0", "img-1", "img-1", "img-2", "img-2"]);
+    await vi.waitFor(() => expect(useSelectionStore.getState().pendingFetchIds.size).toBe(0));
+
+    expect(fetchMetadata).toHaveBeenCalledExactlyOnceWith(["img-1", "img-2"]);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+  });
+
   it("adds multiple IDs atomically", () => {
     useSelectionStore.getState().add(["img-0", "img-1", "img-2"]);
     const { selectedIds } = useSelectionStore.getState();
@@ -204,6 +248,46 @@ describe("add", () => {
 // ---------------------------------------------------------------------------
 
 describe("remove", () => {
+  it("reconciles duplicate batch IDs once with one atomic persisted selection", async () => {
+    vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
+    const [image] = await mock.getByIds(["img-0"]);
+    const { metadataCache } = useSelectionStore.getState();
+    metadataCache.set("img-0", image);
+    metadataCache.set("img-1", { ...image, id: "img-1" });
+    useSelectionStore.getState().add(["img-0", "img-1"]);
+    const initial = useSelectionStore.getState();
+    initial.remove(["img-1"]);
+    const expectedView = useSelectionStore.getState().reconciledView;
+    _resetReconcileQueue();
+    useSelectionStore.setState(initial);
+    _resetDebounceState();
+    vi.useFakeTimers();
+    const reads = vi.spyOn(metadataCache, "get");
+    const writes = vi.spyOn(sessionStorageMock, "setItem");
+    const changes = vi.fn();
+    const unsubscribe = useSelectionStore.subscribe((state, previous) => {
+      if (state.selectedIds !== previous.selectedIds) changes(state);
+    });
+
+    try {
+      useSelectionStore.getState().remove(["img-1", "img-1", "img-99"]);
+
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+      expect(useSelectionStore.getState().reconciledView).toEqual(expectedView);
+      expect(reads).toHaveBeenCalledExactlyOnceWith("img-1");
+      expect(useSelectionStore.getState().generationCounter).toBe(initial.generationCounter + 1);
+      expect(changes).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(SELECTION_PERSIST_DEBOUNCE_MS);
+      expect(writes).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(mockSessionStorage["kupua-selection"]).state.selectedIds).toEqual(["img-0"]);
+    } finally {
+      unsubscribe();
+      _resetReconcileQueue();
+      _resetDebounceState();
+      vi.useRealTimers();
+    }
+  });
+
   it("removes specified IDs", () => {
     useSelectionStore.setState({
       selectedIds: new Set(["img-0", "img-1", "img-2"]),
@@ -347,6 +431,32 @@ describe("setAnchor", () => {
 // ---------------------------------------------------------------------------
 
 describe("ensureMetadata", () => {
+  it("publishes one metadata revision per changed batch without replacing the cache", async () => {
+    const before = useSelectionStore.getState();
+    await before.ensureMetadata(["img-0", "img-1"]);
+    expect(useSelectionStore.getState().metadataCache).toBe(before.metadataCache);
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision + 1);
+
+    await useSelectionStore.getState().ensureMetadata(["img-0", "img-1"]);
+    useSelectionStore.getState().add(["img-0", "img-1"]);
+    useSelectionStore.getState().remove(["img-1"]);
+    useSelectionStore.getState().clear();
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision + 1);
+  });
+
+  it.each(["empty", "rejected"] as const)("does not publish a metadata revision for an %s fetch", async (result) => {
+    const fetchMetadata = vi.spyOn(mock, "getByIds");
+    if (result === "empty") fetchMetadata.mockResolvedValue([]);
+    else fetchMetadata.mockRejectedValue(new Error("fixture unavailable"));
+    const before = useSelectionStore.getState();
+
+    await before.ensureMetadata(["img-0"]);
+
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision);
+    expect(useSelectionStore.getState().metadataCache).toBe(before.metadataCache);
+    expect(useSelectionStore.getState().pendingFetchIds.size).toBe(0);
+  });
+
   it("fetches metadata for uncached IDs and populates the cache", async () => {
     await useSelectionStore.getState().ensureMetadata(["img-0"]);
     const { metadataCache } = useSelectionStore.getState();
@@ -387,6 +497,56 @@ describe("ensureMetadata", () => {
 // ---------------------------------------------------------------------------
 
 describe("hydrate", () => {
+  it.each([
+    { label: "removed anchor", anchorId: "img-3", retainedIds: ["img-1", "img-0"], expectedAnchor: "img-0" },
+    { label: "surviving anchor", anchorId: "img-1", retainedIds: ["img-1", "img-0"], expectedAnchor: "img-1" },
+    { label: "empty selection", anchorId: "img-3", retainedIds: [], expectedAnchor: null },
+    { label: "unset anchor", anchorId: null, retainedIds: ["img-1", "img-0"], expectedAnchor: null },
+  ])("keeps selection and retained cursor anchors aligned after hydration ($label)", async ({ anchorId, retainedIds, expectedAnchor }) => {
+    const initialIds = ["img-1", "img-0", "img-3"];
+    const retainedImages = await mock.getByIds(retainedIds);
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockResolvedValue(retainedImages);
+    const searchKey = buildSearchKey({ query: "hydration-anchor", orderBy: "editStatus" });
+    const initialImages = initialIds.map(id => ({ id } as Image));
+    const cursors = initialImages.map(image => ["fixture-alias", 1234567890, image.id]);
+    retainSortValues(searchKey, initialImages, cursors, true);
+    useSelectionStore.setState({ selectedIds: new Set(initialIds), anchorId });
+
+    await useSelectionStore.getState().hydrate();
+
+    expect([...useSelectionStore.getState().selectedIds]).toEqual(retainedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(expectedAnchor);
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+    expect(fetchMetadata).toHaveBeenCalledWith(initialIds);
+
+    const laterImages = Array.from({ length: BUFFER_CAPACITY * 2 + 1 }, (_, index) => ({
+      id: `later-${index}`,
+    } as Image));
+    retainSortValues(searchKey, laterImages, laterImages.map(image => ["fixture-alias", 1234567890, image.id]));
+    for (const [index, id] of initialIds.entries()) {
+      expect(getRetainedSortValues(id, searchKey)).toEqual(id === expectedAnchor ? cursors[index] : null);
+    }
+  });
+
+  it("publishes metadata revisions for changed images but not repeated references", async () => {
+    const image = (await mock.getById("img-0"))!;
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockResolvedValue([image]);
+    useSelectionStore.setState({ selectedIds: new Set([image.id]) });
+    const before = useSelectionStore.getState();
+
+    await before.hydrate();
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision + 1);
+    await useSelectionStore.getState().hydrate();
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision + 1);
+
+    const changed = { ...image, metadata: { ...image.metadata, description: "changed fixture" } };
+    fetchMetadata.mockResolvedValue([changed]);
+    await useSelectionStore.getState().hydrate();
+    expect(useSelectionStore.getState().metadataRevision).toBe(before.metadataRevision + 2);
+    expect(useSelectionStore.getState().metadataCache).toBe(before.metadataCache);
+    expect(before.metadataCache.get(image.id)).toBe(changed);
+  });
+
   it("does nothing when selectedIds is empty", async () => {
     const spy = vi.spyOn(mock, "getByIds");
     await useSelectionStore.getState().hydrate();
@@ -462,6 +622,7 @@ describe("persist partialize / merge", () => {
       const full = useSelectionStore.getState();
       const partial = partialize(full) as Record<string, unknown>;
       expect("metadataCache" in partial).toBe(false);
+      expect("metadataRevision" in partial).toBe(false);
       expect("pendingFetchIds" in partial).toBe(false);
       expect("reconciledView" in partial).toBe(false);
     }
@@ -473,8 +634,99 @@ describe("persist partialize / merge", () => {
 // ---------------------------------------------------------------------------
 
 describe("reconcile scheduling", () => {
+  function deferReconcile() {
+    const callbacks: Array<() => void> = [];
+    vi.stubGlobal("requestIdleCallback", vi.fn((callback: () => void) => {
+      callbacks.push(callback);
+      return callbacks.length;
+    }));
+    return callbacks;
+  }
+
+  it.each(["remove", "toggle", "hydrate"] as const)("publishes the canonical empty full reconciliation after final %s", async (operation) => {
+    await useSelectionStore.getState().ensureMetadata(["img-0"]);
+    if (operation === "hydrate") vi.spyOn(mock, "getByIds").mockResolvedValue([]);
+    const callbacks = deferReconcile();
+    useSelectionStore.getState().add(["img-0"]);
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+      if (operation === "remove") useSelectionStore.getState().remove(["img-0"]);
+      else if (operation === "toggle") useSelectionStore.getState().toggle("img-0");
+      else await useSelectionStore.getState().hydrate();
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+      expect(useSelectionStore.getState().isReconciling).toBe(true);
+      expect(callbacks).toHaveLength(cycle + 1);
+      callbacks[cycle]();
+      expect(useSelectionStore.getState().reconciledView).toEqual(recomputeAll([], RECONCILE_FIELDS));
+      expect(useSelectionStore.getState().isReconciling).toBe(false);
+      if (cycle === 0) useSelectionStore.getState().add(["img-0"]);
+    }
+  });
+
+  it("coalesces full reconciliation requests using the latest selection", async () => {
+    await useSelectionStore.getState().ensureMetadata(["img-0", "img-1", "img-2"]);
+    const callbacks = deferReconcile();
+    useSelectionStore.getState().add(["img-0", "img-1", "img-2"]);
+    useSelectionStore.getState().remove(["img-0"]);
+    useSelectionStore.getState().remove(["img-1"]);
+    const { metadataCache, generationCounter } = useSelectionStore.getState();
+    const expected = recomputeAll([metadataCache.get("img-2")!], RECONCILE_FIELDS);
+    const reads = vi.spyOn(metadataCache, "get");
+
+    expect(callbacks).toHaveLength(1);
+    callbacks[0]();
+
+    expect(reads).toHaveBeenCalledExactlyOnceWith("img-2");
+    expect(useSelectionStore.getState().reconciledView).toEqual(expected);
+    expect(useSelectionStore.getState().generationCounter).toBe(generationCounter + 1);
+    expect(useSelectionStore.getState().isReconciling).toBe(false);
+  });
+
+  it("coalesces metadata completions into one deferred full reconciliation scan", async () => {
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]) });
+    const callbacks = deferReconcile();
+    const reads = vi.spyOn(useSelectionStore.getState().metadataCache, "get");
+
+    await useSelectionStore.getState().ensureMetadata(["img-0"]);
+    await useSelectionStore.getState().ensureMetadata(["img-1"]);
+
+    expect(callbacks).toHaveLength(1);
+    expect(reads).not.toHaveBeenCalled();
+    callbacks[0]();
+    expect(reads.mock.calls).toEqual([["img-0"], ["img-1"]]);
+    expect(useSelectionStore.getState().reconciledView?.get("keywords")).toMatchObject({
+      kind: "chip-array", total: 2,
+    });
+    expect(useSelectionStore.getState().isReconciling).toBe(false);
+  });
+
+  it("does not let a cleared full reconciliation callback consume newer work", async () => {
+    await useSelectionStore.getState().ensureMetadata(["img-0", "img-1", "img-2"]);
+    const callbacks = deferReconcile();
+    useSelectionStore.getState().add(["img-0", "img-1"]);
+    useSelectionStore.getState().remove(["img-0"]);
+    useSelectionStore.getState().clear();
+    expect(useSelectionStore.getState().reconciledView).toBeNull();
+    expect(useSelectionStore.getState().isReconciling).toBe(false);
+    useSelectionStore.getState().add(["img-1", "img-2"]);
+    useSelectionStore.getState().remove(["img-1"]);
+    const pending = useSelectionStore.getState();
+    expect(callbacks).toHaveLength(2);
+
+    callbacks[0]();
+
+    expect(useSelectionStore.getState().reconciledView).toBe(pending.reconciledView);
+    expect(useSelectionStore.getState().generationCounter).toBe(pending.generationCounter);
+    expect(useSelectionStore.getState().isReconciling).toBe(true);
+    callbacks[1]();
+    expect(useSelectionStore.getState().reconciledView).toEqual(
+      recomputeAll([pending.metadataCache.get("img-2")!], RECONCILE_FIELDS),
+    );
+    expect(useSelectionStore.getState().isReconciling).toBe(false);
+  });
+
   it("reconciledView is eventually populated after toggle + metadata fetch", async () => {
-    // Toggle adds img-0 -> ensureMetadata -> enqueueReconcile -> processChunk (sync in test)
+    // Toggle adds img-0 -> ensureMetadata -> requestFullReconcile (sync in test)
     useSelectionStore.getState().toggle("img-0");
     // Wait for ensureMetadata async to complete.
     await vi.waitFor(() => {
@@ -482,7 +734,7 @@ describe("reconcile scheduling", () => {
       return metadataCache.has("img-0");
     });
     // requestIdleCallback mock fires synchronously; reconciledView should be set.
-    // Note: the reconcile queue is drained by enqueueReconcile -> scheduleIdle -> cb().
+    // The full reconciliation runs through scheduleIdle -> cb().
     await vi.waitFor(() => {
       return useSelectionStore.getState().reconciledView !== null;
     });

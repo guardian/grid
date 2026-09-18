@@ -432,6 +432,259 @@ async function waitForReconcile(page: Parameters<typeof test>[1]["page"], timeou
 }
 
 test.describe("S4 -- multi-image Details panel", () => {
+  for (const initialCount of [1, 2]) {
+    test(`keeps a coherent panel while changing ${initialCount} selected images`, async ({ kupua }) => {
+      await kupua.goto();
+      await kupua.waitForPositionMap();
+      await clearSelection(kupua.page);
+      await kupua.page.locator('button[aria-label*="Details panel"]').click();
+      await kupua.page.getByRole("button", { name: "Usages", exact: true }).click();
+
+      await kupua.page.evaluate(async (initialCount) => {
+        const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
+        const template = await new MockDataSource(1).getById("img-0");
+        const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
+          ...template,
+          id: `panel-snapshot-${index}`,
+          metadata: {
+            ...template.metadata,
+            description: "Stable selection description",
+            credit: index < initialCount ? "Shared selection credit" : "Different selection credit",
+          },
+          usages: index < initialCount ? [{
+            id: `panel-usage-${index}`, platform: "digital", status: "published",
+            title: "Selection panel usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
+          }] : [],
+          leases: { leases: index < initialCount ? [{
+            id: `panel-lease-${index}`, access: "allow-use",
+            startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
+          }] : [] },
+        }));
+        const addedId = images[initialCount].id;
+        let releaseMetadata = () => {};
+        let settleLateFetch = () => {};
+        const metadataGate = new Promise<void>((resolve) => { releaseMetadata = resolve; });
+        const callbacks: IdleRequestCallback[] = [];
+        const originalIdle = window.requestIdleCallback;
+        const flush = () => {
+          for (const callback of callbacks.splice(0)) callback({ didTimeout: false, timeRemaining: () => 50 });
+        };
+        const selection = (window as any).__kupua_selection_store__;
+        selection.setState({ dataSource: {
+          ...selection.getState().dataSource,
+          getByIds: async (ids: string[]) => {
+            if (ids.includes(addedId)) await metadataGate;
+            return images.filter(image => ids.includes(image.id));
+          },
+        } });
+        (window as any).__selection_panel_fixture__ = {
+          addedId,
+          releaseMetadata,
+          flush,
+          hold: () => {
+            window.requestIdleCallback = (callback) => {
+              callbacks.push(callback);
+              return callbacks.length;
+            };
+          },
+          beginLateFetch: () => {
+            const fixture = (window as any).__selection_panel_fixture__;
+            const lateId = "panel-late-selection";
+            const request = new Promise<typeof images>((resolve, reject) => {
+              fixture.resolveLate = () => resolve([{ ...images[0], id: lateId }]);
+              fixture.rejectLate = () => reject(new Error("Expected metadata absence"));
+              settleLateFetch = () => resolve([]);
+            });
+            selection.setState({ dataSource: {
+              ...selection.getState().dataSource,
+              getByIds: () => request,
+            } });
+            selection.getState().add([lateId]);
+          },
+          cleanup: () => {
+            window.requestIdleCallback = originalIdle;
+            releaseMetadata();
+            settleLateFetch();
+            flush();
+            delete (window as any).__selection_panel_fixture__;
+          },
+        };
+        selection.getState().add(images.slice(0, initialCount).map(image => image.id));
+      }, initialCount);
+
+      try {
+        await kupua.page.waitForFunction(() => {
+          const state = (window as any).__kupua_selection_store__.getState();
+          return state.pendingFetchIds.size === 0 && !state.isReconciling && state.reconciledView !== null;
+        });
+        await expect(kupua.page.getByText("Shared selection credit", { exact: true })).toBeVisible();
+        const beforeText = await kupua.page.locator("dl").allTextContents();
+        await kupua.page.evaluate(() => {
+          const fixture = (window as any).__selection_panel_fixture__;
+          fixture.hold();
+          (window as any).__kupua_selection_store__.getState().add([fixture.addedId]);
+        });
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount + 1);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        if (initialCount === 2) {
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        } else {
+          await expect(kupua.page.getByText("Selection panel usage", { exact: true })).toBeVisible();
+        }
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.releaseMetadata());
+        await kupua.page.waitForFunction(() => (window as any).__kupua_selection_store__.getState().pendingFetchIds.size === 0);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        if (initialCount === 2) {
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        }
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+        await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText(`${initialCount}/${initialCount + 1}`);
+        await expect(kupua.page.getByText("Allow use", { exact: true }).locator("..")).toContainText(`${initialCount} of ${initialCount + 1}`);
+        const expandedText = await kupua.page.locator("dl").allTextContents();
+        await kupua.page.evaluate(() => {
+          const fixture = (window as any).__selection_panel_fixture__;
+          (window as any).__kupua_selection_store__.getState().remove([fixture.addedId]);
+        });
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount);
+        if (initialCount === 2) {
+          await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(expandedText);
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/3");
+        }
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.beginLateFetch());
+        expect(await getSelectionCount(kupua.page)).toBe(initialCount + 1);
+        await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
+        const busyMetadata = kupua.page.locator('[aria-busy="true"]').filter({ has: kupua.page.locator("dl") });
+        await expect(busyMetadata).toHaveCount(1);
+        if (initialCount === 1) {
+          await clearSelection(kupua.page);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.resolveLate());
+          await kupua.page.waitForFunction(() => (window as any).__kupua_selection_store__.getState().pendingFetchIds.size === 0);
+          expect(await getSelectionCount(kupua.page)).toBe(0);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        } else {
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.rejectLate());
+          await kupua.page.waitForFunction(() => {
+            const state = (window as any).__kupua_selection_store__.getState();
+            return state.pendingFetchIds.size === 0 && state.isReconciling;
+          });
+          await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__.flush());
+          expect(await getSelectionCount(kupua.page)).toBe(3);
+          await expect(busyMetadata).toHaveCount(0);
+          await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+          await clearSelection(kupua.page);
+          await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        }
+      } finally {
+        await kupua.page.evaluate(() => (window as any).__selection_panel_fixture__?.cleanup());
+      }
+    });
+  }
+
+  for (const count of [1, 2]) {
+    test(`publishes late off-buffer metadata to Details and Usages for ${count} selected images`, async ({ kupua }) => {
+      await kupua.goto();
+      await kupua.waitForPositionMap();
+      await clearSelection(kupua.page);
+      await kupua.page.locator('button[aria-label*="Details panel"]').click();
+      await kupua.page.getByRole("button", { name: "Usages", exact: true }).click();
+
+      await kupua.page.evaluate(async (count) => {
+        const mockPath = "/src/dal/mock-data-source.ts";
+        const { MockDataSource } = await import(mockPath);
+        const source = new MockDataSource(1);
+        const template = await source.getById("img-0");
+        const images = Array.from({ length: count }, (_, index) => ({
+          ...template,
+          id: `s3-off-buffer-${index}`,
+          metadata: { ...template.metadata, description: "S3 late metadata" },
+          usages: [{
+            id: `s3-usage-${index}`, platform: "digital", status: "published",
+            title: "S3 late usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
+          }],
+          leases: { leases: [{
+            id: `s3-lease-${index}`, access: "allow-use",
+            startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
+          }] },
+        }));
+        const selection = (window as any).__kupua_selection_store__;
+        const search = (window as any).__kupua_store__;
+        const searchChanges = new Set<string>();
+        (window as any).__s3_unsubscribe__ = search.subscribe((next: any, previous: any) => {
+          for (const key of Object.keys(next)) {
+            if (next[key] !== previous[key]) searchChanges.add(key);
+          }
+        });
+        (window as any).__s3_search_changes__ = searchChanges;
+        selection.setState({
+          dataSource: {
+            ...selection.getState().dataSource,
+            getByIds: () => new Promise((resolve) => {
+              (window as any).__s3_release__ = () => resolve(images);
+            }),
+          },
+        });
+        if (count === 2) {
+          const callbacks: IdleRequestCallback[] = [];
+          const originalIdle = window.requestIdleCallback;
+          window.requestIdleCallback = (callback) => {
+            callbacks.push(callback);
+            return callbacks.length;
+          };
+          (window as any).__s3_finish_reconcile__ = () => {
+            window.requestIdleCallback = originalIdle;
+            for (const callback of callbacks) callback({ didTimeout: false, timeRemaining: () => 50 });
+          };
+        }
+        selection.getState().add(images.map((image) => image.id));
+        (window as any).__s3_before__ = {
+          cache: selection.getState().metadataCache,
+          ids: selection.getState().selectedIds,
+          results: search.getState().results,
+        };
+      }, count);
+      await expect(kupua.page.locator('[role="status"]', { hasText: "selected" })).toContainText(String(count));
+      if (count === 1) {
+        await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("Focus an image to see its usages.", { exact: true })).toBeVisible();
+      } else {
+        await expect(kupua.page.getByText("No leases", { exact: true })).toBeVisible();
+      }
+      await kupua.page.evaluate(() => (window as any).__s3_release__());
+      await expect.poll(() => kupua.page.evaluate(() => {
+        const selection = (window as any).__kupua_selection_store__.getState();
+        const before = (window as any).__s3_before__;
+        return {
+          cached: [...selection.selectedIds].every((id) => selection.metadataCache.has(id)),
+          cacheUnchanged: selection.metadataCache === before.cache,
+          selectionUnchanged: selection.selectedIds === before.ids,
+          bufferUnchanged: (window as any).__kupua_store__.getState().results === before.results,
+          searchFieldsChanged: Array.from((window as any).__s3_search_changes__),
+        };
+      })).toEqual({ cached: true, cacheUnchanged: true, selectionUnchanged: true, bufferUnchanged: true, searchFieldsChanged: [] });
+      await kupua.page.evaluate(() => (window as any).__s3_unsubscribe__());
+
+      if (count === 1) {
+        await expect(kupua.page.getByText("S3 late metadata", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("S3 late usage", { exact: true })).toBeVisible();
+      } else {
+        expect(await kupua.page.evaluate(() => (window as any).__kupua_selection_store__.getState().isReconciling)).toBe(true);
+        await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+        await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
+        await expect(kupua.page.getByText("No leases", { exact: true })).not.toBeVisible();
+        await expect(kupua.page.getByText("Allow use", { exact: true }).locator("..")).toContainText("All images");
+        await kupua.page.evaluate(() => (window as any).__s3_finish_reconcile__());
+      }
+    });
+  }
+
   test("selecting 2+ images renders MultiImageMetadata (not the focus placeholder)", async ({ kupua }) => {
     await kupua.goto();
     await clearSelection(kupua.page);

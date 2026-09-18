@@ -5,8 +5,8 @@
  * Syndicated → Downloads → Front). Per-row: platform icon, title, relative
  * date, reference links (Guardian globe, Composer C).
  *
- * Multi-image: aggregated stats across the selection read directly from the
- * selection-store metadataCache (same data source as MultiImageMetadata).
+ * Multi-image: aggregated stats for the supplied selection presentation,
+ * resolved from the buffer and metadata cache by the panel-local caller.
  *
  * Data is already present in image.usages[] from ES (SOURCE_INCLUDES).
  * No additional network call is needed.
@@ -15,8 +15,6 @@
  */
 
 import type { Image } from "@/types/image";
-import { useSelectionStore } from "@/stores/selection-store";
-import { useSearchStore } from "@/stores/search-store";
 
 type Usage = NonNullable<Image["usages"]>[number];
 
@@ -302,28 +300,7 @@ export function UsagesSection({ usages }: { usages: Image["usages"] }) {
 // MultiUsagesSummary — aggregate stats for 2+ selected images
 // ---------------------------------------------------------------------------
 
-export function MultiUsagesSummary() {
-  const selectedIds = useSelectionStore((s) => s.selectedIds);
-  const metadataCache = useSelectionStore((s) => s.metadataCache);
-  const results = useSearchStore((s) => s.results);
-  const imagePositions = useSearchStore((s) => s.imagePositions);
-  const bufferOffset = useSearchStore((s) => s.bufferOffset);
-
-  // Resolve images: buffer first, then metadataCache for out-of-buffer.
-  const images: Image[] = [];
-  for (const id of selectedIds) {
-    const globalIdx = imagePositions.get(id);
-    if (globalIdx != null) {
-      const localIdx = globalIdx - bufferOffset;
-      if (localIdx >= 0 && localIdx < results.length && results[localIdx]) {
-        images.push(results[localIdx]!);
-        continue;
-      }
-    }
-    const cached = metadataCache.get(id);
-    if (cached) images.push(cached);
-  }
-
+export function MultiUsagesSummary({ images }: { images: readonly Image[] }) {
   // Denominator is images.length — only resolved images are checked.
   // (Some selected-but-out-of-buffer images may still be loading into metadataCache.)
   const now = Date.now();

@@ -52,6 +52,7 @@ interface SelectionState {
 
   // --- reconciliation accelerator ---
   metadataCache: Map<string, Image>;       // LRU, cap ~5000.
+  metadataRevision: number;
   pendingFetchIds: Set<string>;            // dedupe in-flight mget batches.
 
   // --- derived (memoised) ---
@@ -88,17 +89,41 @@ type FieldReconciliation =
 - `Set<string>` for `selectedIds`: O(1) membership, O(1) toggle, well-suited to persist as `Array.from(set)`. Avoids `Immutable.OrderedSet` (Kahuna's choice) — we don't need insertion-order preservation; the anchor is explicit.
 - IDs only, no payloads in the set. Payloads live in the `metadataCache` LRU and the regular search-store buffer — the set is the source of truth for *what is selected*, never *what the data looks like*.
 - `Map<string, Image>` LRU for metadata: cap 5000. Most reconciliation work happens against the in-buffer items + cache; only a tail of items needs network fetch.
+- `metadataRevision`: runtime invalidation for mutable-cache readers. Fetch/hydration completion advances it once per batch that inserts a new key or replaces an image object. Empty/failed batches and identical references do not advance it. `useSelectionMetadataRevision()` is consumed by the panel-local resolver, which supplies matching inputs to the metadata, cost, lease and usage summaries. The LRU stays mutable; the parent search page does not subscribe to its revision. Reconciliation completion remains a separate notification.
 - `pendingFetchIds`: prevents thundering-herd when reconciliation is requested twice in quick succession (e.g. add 500 items via shift-click then user pans the details panel).
 
 **Cohesion rules** (load-bearing — picked up via S3a rehearsal):
 - `setAnchor(id)` MUST call `ensureMetadata([id])`. Range-select's server-walk path needs the anchor's sort values; without this, every server-walk eats an extra round trip.
 - `add(ids[])` MUST call `ensureMetadata(ids)`. Reconciliation cannot run on uncached items; we want range-add to surface the metadata fetch as part of the action, not as a downstream surprise.
+- `add(ids[])` and `remove(ids[])` form unique deltas against the evolving selection Set before reconciliation or metadata work. Repeated targets in a range batch affect counts once. Selection membership is published atomically; persistence remains debounced.
+
+### Completed Panel Presentation
+
+Selection membership is immediate, but an already-populated Details/Usages panel
+keeps its completed presentation while selected metadata is fetching or reconciled
+fields are pending/dirty. That presentation includes the single/multi-image mode,
+reconciled view, image references and matching totals, so old fields cannot be mixed
+with a new selection denominator or cost/lease/usage cohort. `aria-busy` indicates
+the pending replacement without blanking the displayed data.
+
+The existing route-local resolver owns this state in the mounted panel consumers,
+not the parent search page or selection store. Metadata summaries remain cache-based;
+single-image and usage resolution remain buffer-first with cache fallback. Image
+reference arrays are memoized from those inputs; neither payloads nor the LRU are
+cloned. Full reconciliation stays on its existing idle path.
+
+With no completed presentation yet, initial available-data/absence rendering remains
+unchanged. A resolved single-image transition can display immediately without waiting
+for multi-field reconciliation. Clear/navigation discards the previous selection's
+display, and a late response cannot resurrect it. Failed metadata fetches settle
+through the existing absent-data reconciliation rather than holding old content busy
+forever. This display state is runtime-only and is never persisted.
 
 ## 4. Persistence — survival matrix and hydration
 
 Wired via `zustand/middleware` `persist`, matching the established pattern (`column-store`, `panel-store`, `ui-prefs-store`).
 
-- `partialize`: persist only `selectedIds` and `anchorId`. The metadata cache is rebuilt on demand; `pendingFetchIds` and `reconciledView` are runtime-only.
+- `partialize`: persist only `selectedIds` and `anchorId`. The metadata cache is rebuilt on demand; `metadataRevision`, `pendingFetchIds` and `reconciledView` are runtime-only.
 - Storage: `sessionStorage`. Survives reload within a tab. Does not leak across tabs (matches selection mental model — selection is "what I'm working on right now").
 
 ### Survival matrix (default behaviour: `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false`)
@@ -149,6 +174,7 @@ Lives in `constants/tuning.ts`. Default `false`. When `true`, the four "NO" rows
 
 - `useSelectionStore.getState().hydrate()` called once from the `/search` route's mount effect. (The persist middleware repopulates `selectedIds` synchronously before mount; `hydrate()` is what kicks the metadata fetch so the multi-image panel renders reconciled values rather than dashes.)
 - `hydrate()` calls `getByIds(selectedIds)`. IDs ES no longer returns are silently dropped from the set.
+- If hydration removes the current anchor, `electFallbackAnchor` chooses the last remaining ID in insertion order, or null when empty; retained cursor ownership follows that same ID. Surviving and unset anchors are preserved, and failed metadata retrieval does not change selection membership or the anchor.
 - A one-time **information toast** — *"N items from your previous selection are no longer available."* — fires when drift is detected. Deduped via a module-level flag, reset on `clear()`.
 - **Cap:** if persisted set exceeds 5,000 items on hydration, log a warning and truncate to the most-recently-added 5,000 (defensive guard, not an expected path).
 
@@ -249,27 +275,30 @@ The reconciled view is a `Map<fieldId, FieldReconciliation>`. For each field, th
 
 1. If image's metadata is in the cache, compute the per-field delta immediately:
    - On add: if currently "all-empty" and value is non-empty → "all-same" with this value. If currently "all-same" and the new value differs → "mixed". If currently "mixed" → bump counts.
-   - On remove: requires more care — we don't know if the removed value was unique without re-scanning. **Decision: on remove, mark the field's reconciliation as "dirty" and recompute lazily on next read.** Recompute is O(N × F') where F' is dirty fields. Removals that don't change the reconciliation outcome (the common case) cost nothing visible.
-2. If image's metadata is NOT in the cache, mark all reconcile fields as "pending" for this id, queue an `ensureMetadata` call; when it resolves, run the per-field delta. The panel keeps rendering its previous reconciled state with placeholders only on fields where it would otherwise lie.
+  - On remove: scalar deltas stay synchronous where possible; dirty fields request a full recompute on the next idle callback.
+2. If metadata is not cached, mark fields pending and call `ensureMetadata`. Metadata completion requests a full recompute rather than an incremental scheduled delta.
 
-**`add(ids[])` (range adds, bulk hydration) is LAZY:** does NOT block on reconciliation.
+**Batch add:** unique all-cached deltas are folded synchronously. If any changed ID is
+uncached, fields become pending until metadata completion requests full reconciliation.
+The Details panel retains field labels and uses per-field placeholders, not a panel-wide
+loading state.
 
-1. The store flips reconciled fields' status to "pending" immediately (cheap state mutation).
-2. The Details panel renders the per-field placeholder in the value slot for any pending field. Label stays. No panel-wide loading state.
-3. In a `requestIdleCallback` (or `setTimeout 0` fallback) chunk, the reconciler processes the new IDs in batches (e.g. 500 per chunk), folding into the existing `FieldReconciliation` state. After each chunk, the store generation counter bumps; the panel renders incrementally.
-4. Subsequent `add()` calls that arrive mid-recompute extend the work queue; the reconciler picks them up at the next chunk boundary. No invalidate-and-restart.
+**Private full reconciliation:** `requestFullReconcile()` coalesces pending requests into
+one `requestIdleCallback` (or `setTimeout 0` fallback). It scans the current cached selected
+images once, publishes the full view and clears `isReconciling` together. Empty selections,
+including hydration that drops every ID, publish the canonical empty view. No ID queue or
+incremental scheduling API is involved. `clear()` invalidates the request identity, so an
+already-queued callback cannot consume newer work or replace the cleared view.
 
-`clear()` is O(1) — just resets the map. Cheap.
-
-**Why lazy:** a synchronous full recompute on a 5k range add is 50–150ms of main-thread block (3–9 dropped frames at 60Hz) right after the toast confirms the action. Lazy spreads the work across frames; the placeholder dashes are momentary on a fast machine and informative on a slow one. The panel never blocks the click handler.
+This defers full-scan work but does not split it across frames. The full scan already ran
+as one operation before coalescing; no new latency or frame-blocking guarantee is claimed.
 
 **Why per-field placeholders, not a panel-wide loading state:** a panel-wide overlay flashes on every range add and is jarring. Per-field dashes are unobtrusive; the visible label list stays stable. Exact placeholder visual is TBD on first sight — leave it tweakable.
 
-**Cost envelope (revised):**
-- Single toggle (add, cached): O(F) synchronous — ~25 fields, ~25 accessor calls. Sub-millisecond.
-- Single toggle (remove, no dirty fields): O(F) marking, no recompute. Sub-millisecond.
-- Range add of 2,000 items: chunked across ~4 idle frames at 500 per chunk. Each chunk ~5–10ms. Panel updates incrementally; no main-thread block.
-- Worst case 5,000 items: ~10 chunks, ~50–100ms total wall-clock, zero frames blocked. User sees placeholders briefly on slow devices.
+**Cost envelope:** cached single-image deltas are O(F), cached batch deltas are O(changed IDs
+times F), and full recomputation remains O(selected cached images times F). Coalescing
+removes redundant scheduling/ID-queue construction, not the full scan's cost. Large-selection
+timing remains measurement-gated; the obsolete chunk-size setting has been removed.
 
 **Buffer images are metadata-complete.** `SOURCE_INCLUDES` in `es-config.ts` covers all three field tiers — Tier 1 (grid density), Tier 2 (table density), Tier 3 (detail panel) — including every field the reconciler reads: keywords, location sub-fields, mimeType, colour model, usageRights.category, and all fileMetadata sub-fields. Images in the search `results[]` buffer therefore carry complete panel metadata. The `ensureMetadata` / `getByIds` path is only *strictly necessary* for:
 - Images rehydrated from sessionStorage (buffer is gone after reload).
