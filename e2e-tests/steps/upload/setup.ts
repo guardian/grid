@@ -87,6 +87,7 @@ export const failDelete = (page: Page) =>
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
+  const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
 
   return {
     prompt,
@@ -107,7 +108,23 @@ export const uploadPage = (page: Page) => {
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
     /** A finished upload that has become an editable image, scoped to current uploads. */
-    editableJob: currentUploads.getByRole('region', { name: 'Image metadata' }),
+    editableJob: metadataEditor,
+    /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
+    metadataEditor,
+    /** Fields inside the required-metadata editor. The credit input has no name, so key on data-cy. */
+    metadataField: {
+      description: metadataEditor.locator('textarea[name="description"]'),
+      byline: metadataEditor.locator('input[name="byline"]'),
+      credit: metadataEditor.locator('[data-cy="image-metadata-credit"]'),
+      imageType: metadataEditor.locator('select[name="imageType"]'),
+      specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
+    },
+    /* Credit suggestions rendered by gr-datalist as the user types. */
+    creditSuggestions: metadataEditor.locator('.datalist__option'),
+    /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
+       "Image metadata" form but still within the current-uploads region. */
+    metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
+    applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /* The per-item undelete control, an <a role="button">. The batch action bar renders a

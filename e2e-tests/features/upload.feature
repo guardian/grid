@@ -276,7 +276,6 @@ Feature: Uploading images to the Grid
   # Required metadata editor (jobs/required-metadata-editor.html + .js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Editing required metadata for an uploaded image
     Given an uploaded image is shown in the metadata editor
     When I fill in the description, byline and credit
@@ -284,14 +283,12 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 1, 30-56, 61-72, 85-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 33, 40-65
 
-  @todo
   Scenario: Description and credit are required
     Given an uploaded image is shown in the metadata editor
     When I leave the description or credit empty
     Then those fields should be marked as required
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 36, 96
 
-  @todo
   Scenario: The description placeholder gives guidance
     Given an uploaded image with no description
     When I view the description field
@@ -299,8 +296,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 34-40
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 157-161
 
-  # How to verify writes?
-  @todo
   Scenario: Choosing an image type when image types are configured
     Given image types are configured
     When I view the metadata editor
@@ -308,7 +303,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 5-27
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 38
 
-  @todo
   Scenario: The credit field suggests existing values
     Given an uploaded image is shown in the metadata editor
     When I type into the credit field
@@ -369,8 +363,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 14, 44, 71, 101, 124, 152, 173
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 27-29
 
-  # This requires configuration, which is already present in CODE
-  @todo
   Scenario: Applying a metadata template makes fields read-only
     Given an uploaded image is shown in the metadata editor
     When a metadata template is selected
@@ -378,7 +370,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 15, 45, 72, 102, 125, 153, 175
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 84-98
 
-  @todo
   Scenario: Removing a metadata template restores previously edited fields
     Given an uploaded image is shown in the metadata editor
     And a field is edited
