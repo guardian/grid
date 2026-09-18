@@ -5,6 +5,7 @@ import { Link } from "@guardian/stand/Link";
 import { semanticSpacing, semanticColors } from "@guardian/stand";
 import { standThemeOverride } from "../util/constants/standThemeOverride";
 import { useTakedownContext } from "./takedown-context";
+import { GridImage } from "../types/image";
 import frontendIconSvg from "../components/gr-icon/icons/frontend.svg";
 import composerIconSvg from "../components/gr-icon/icons/composer.svg";
 
@@ -52,7 +53,9 @@ const UsageReferenceIcon: React.FC<{ type: string }> = ({ type }) => {
   );
 };
 
-export const DeleteFromContentStep: React.FC = () => {
+export const DeleteFromContentStep: React.FC<{
+  image: GridImage | null;
+}> = () => {
   const { activeContent, activeContentLoading: loading } = useTakedownContext();
 
   return (
