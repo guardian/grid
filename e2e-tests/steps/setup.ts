@@ -21,6 +21,8 @@ interface TestContext {
   uploadedImagePath?: string;
   /** A field value edited before applying a metadata template, to assert its restoration. */
   editedByline?: string;
+  /** Embedded metadata values expected to appear in the editor, keyed by field name. */
+  expectedMetadata?: Record<string, string>;
 }
 
 export interface TestImage {

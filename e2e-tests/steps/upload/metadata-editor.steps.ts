@@ -1,6 +1,8 @@
 import { Given, Then, When, expect } from '../setup.ts';
+import type { DataTable } from 'playwright-bdd';
+import type { Locator } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE } from '../../setup/config.ts';
-import { uniqueImage, uploadPage } from './setup.ts';
+import { testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
 async function uploadAndOpenEditor(page: import('@playwright/test').Page): Promise<void> {
@@ -16,6 +18,19 @@ Given('an uploaded image with no description', async ({ page }) => {
   await uploadAndOpenEditor(page);
 });
 
+Given(
+  'an uploaded image with the following embedded metadata:',
+  async ({ page, testContext }, table: DataTable) => {
+    testContext.expectedMetadata = Object.fromEntries(
+      table.hashes().map((row) => [row.field, row.value]),
+    );
+    // A unique copy of the fixture that carries the embedded IPTC (metadata lives up front,
+    // so the random trailing bytes that dodge dedupe don't disturb it).
+    await uploadPage(page).fileInput.setInputFiles(uniqueImage(testImages.withMetadata).path);
+    await expect(uploadPage(page).metadataEditor).toBeVisible();
+  },
+);
+
 // Precondition satisfied by the e2e stack config (see E2E_IMAGE_TYPES in setup/config.ts).
 Given('image types are configured', async () => {});
 
@@ -24,7 +39,12 @@ When('I view the description field', async ({ page }) => {
 });
 
 When('I view the metadata editor', async ({ page }) => {
-  await uploadAndOpenEditor(page);
+  // Idempotent: some scenarios upload in a prior Given; only upload if no editor is present yet.
+  const editor = uploadPage(page);
+  if (!(await editor.metadataEditor.isVisible())) {
+    await editor.fileInput.setInputFiles(uniqueImage().path);
+  }
+  await expect(editor.metadataEditor).toBeVisible();
 });
 
 Then(
@@ -36,6 +56,20 @@ Then(
     );
   },
 );
+
+Then('I should see the metadata values in the appropriate fields', async ({ page, testContext }) => {
+  const fields = uploadPage(page).metadataField;
+  const byName: Record<string, Locator> = {
+    description: fields.description,
+    byline: fields.byline,
+    credit: fields.credit,
+    copyright: fields.copyright,
+    specialInstructions: fields.specialInstructions,
+  };
+  for (const [field, value] of Object.entries(testContext.expectedMetadata!)) {
+    await expect(byName[field], `field "${field}"`).toHaveValue(value);
+  }
+});
 
 When('I fill in the description, byline and credit', async ({ page, testContext }) => {
   const editor = uploadPage(page);
