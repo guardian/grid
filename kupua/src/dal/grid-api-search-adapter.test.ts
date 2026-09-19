@@ -18,10 +18,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { extractEnrichment, apiSearchAfter } from "./grid-api-search-adapter";
 import { deriveImage } from "@/lib/derive-enriched-image";
+import { getFieldRawValue } from "@/lib/field-registry";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
-import type { Action, Usage } from "@/dal/grid-api/types";
+import type { Action, ImageData, Usage } from "@/dal/grid-api/types";
 import type { SearchAfterResult } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,65 @@ function makeBaselineImage(overrides: Partial<Image> = {}): Image {
     source: { mimeType: "image/jpeg", dimensions: { width: 800, height: 600 } },
     metadata: { credit: "Photographer", description: "A photo" },
     usageRights: { category: "staff-photographer" },
+    ...overrides,
+  };
+}
+
+function makeCanonicalImage(overrides: Partial<ImageData> = {}): ImageData {
+  const id = overrides.id ?? "abc123";
+  return {
+    id,
+    uploadTime: "2024-01-15T10:00:00Z",
+    uploadedBy: "fixture-uploader",
+    uploadInfo: { filename: "fixture.jpg" },
+    identifiers: {},
+    source: {
+      file: "https://example.com/fixture.jpg",
+      secureUrl: "https://example.com/preview.jpg",
+      mimeType: "image/jpeg",
+      dimensions: { width: 800, height: 600 },
+    },
+    metadata: { credit: "Effective credit", description: "Effective description" },
+    originalMetadata: { credit: "Original credit" },
+    usageRights: { category: "staff-photographer" },
+    originalUsageRights: {},
+    exports: [],
+    usages: { uri: `/usages/media/${id}`, data: [] },
+    leases: { uri: `/leases/media/${id}`, data: { leases: [] } },
+    collections: [],
+    userMetadata: {
+      uri: `/metadata/${id}`,
+      data: {
+        archived: { uri: `/metadata/${id}/archived`, data: false },
+        labels: {
+          uri: `/metadata/${id}/labels`,
+          data: [
+            { uri: `/metadata/${id}/labels/Priority`, data: "Priority" },
+            { uri: `/metadata/${id}/labels/Photo%20desk`, data: "Photo desk" },
+          ],
+        },
+        metadata: {
+          uri: `/metadata/${id}/metadata`,
+          data: { description: "User edit", keywords: [] },
+        },
+        usageRights: {
+          uri: `/metadata/${id}/usage-rights`,
+          data: { category: "agency", restrictions: "" },
+        },
+        photoshoot: {
+          uri: `/metadata/${id}/photoshoot`,
+          data: { title: "Synthetic shoot" },
+        },
+        lastModified: "2026-09-17T10:00:00Z",
+      },
+    },
+    cost: "free",
+    valid: true,
+    invalidReasons: {},
+    persisted: { value: false, reasons: [] },
+    syndicationStatus: "unsuitable",
+    fromIndex: "fixture-index",
+    embedding: null,
     ...overrides,
   };
 }
@@ -300,6 +360,225 @@ const probeParams = {
   length: 1,
   orderBy: "-uploadTime" as const,
 };
+
+describe("apiSearchAfter canonical image normalization", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("flattens canonical nested edits into consumable Image fields", async () => {
+    const data = makeCanonicalImage();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
+    }));
+
+    const result = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const image = result.hits[0];
+
+    expect(image.userMetadata).toEqual({
+      archived: false,
+      labels: ["Priority", "Photo desk"],
+      metadata: { description: "User edit", keywords: [] },
+      usageRights: { category: "agency", restrictions: "" },
+      photoshoot: { title: "Synthetic shoot" },
+      lastModified: "2026-09-17T10:00:00Z",
+    });
+    expect(getFieldRawValue("labels", image)).toBe("Priority, Photo desk");
+    expect(image.metadata).toBe(data.metadata);
+    expect(image.usageRights).toBe(data.usageRights);
+  });
+
+  it.each([{ labels: [] }, { labels: [""] }])("preserves empty edits and labels $labels with unset overrides", async ({ labels }) => {
+    const data = makeCanonicalImage();
+    data.userMetadata.data = {
+      archived: { uri: "/metadata/abc123/archived", data: false },
+      labels: {
+        uri: "/metadata/abc123/labels",
+        data: labels.map((label) => ({ uri: `/metadata/abc123/labels/${label}`, data: label })),
+      },
+      metadata: { uri: "/metadata/abc123/metadata", data: {} },
+      usageRights: { uri: "/metadata/abc123/usage-rights" },
+      photoshoot: { uri: "/metadata/abc123/photoshoot" },
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
+    }));
+
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    expect(image.userMetadata).toEqual({
+      archived: false, labels, metadata: {},
+      usageRights: undefined, photoshoot: undefined, lastModified: undefined,
+    });
+    expect(getFieldRawValue("labels", image)).toBe(labels.join(", "));
+    expect(image.usages).toEqual([]);
+    expect(image.leases).toEqual({ leases: [] });
+    expect(image.collections).toEqual([]);
+  });
+
+  const fileMetadata = {
+    iptc: { Caption: "" },
+    exif: { "Exposure Time": "0" },
+    xmp: { enabled: false, count: 0, keywords: [], layers: [["nested"]] },
+    colourModel: "RGB",
+  };
+
+  it.each([
+    { shape: "expanded", entity: { uri: "/images/abc123/fileMetadata", data: fileMetadata }, expected: fileMetadata },
+    { shape: "empty expanded", entity: { uri: "/images/abc123/fileMetadata", data: {} }, expected: {} },
+    { shape: "link-only", entity: { uri: "/images/abc123/fileMetadata" }, expected: undefined },
+    { shape: "absent", entity: undefined, expected: undefined },
+  ])("normalizes $shape file metadata without inventing data", async ({ entity, expected }) => {
+    const data = makeCanonicalImage({ fileMetadata: entity });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
+    }));
+
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    expect(image.fileMetadata).toEqual(expected);
+  });
+
+  it("preserves alias JSON values without converting them to display strings", async () => {
+    const aliases = {
+      colourModel: "RGB", adultContentWarning: false, enabled: true, count: 0,
+      empty: "", missing: null, list: [], values: ["", "value"], nested: { flag: false },
+    };
+    const data = makeCanonicalImage({ aliases });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...makeApiResponse(data.id), data: [{ data }] }),
+    }));
+
+    const { hits: [image] } = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+
+    expect(image.aliases).toBe(aliases);
+    expect(image.aliases).toEqual(aliases);
+  });
+
+  it("preserves complete relationships, assets and root metadata without mutating the response", async () => {
+    const usages: Usage[] = [
+      {
+        id: "usage-digital", platform: "digital", media: "image", status: "published",
+        dateAdded: "2026-01-02T10:00:00Z", lastModified: "2026-01-03T10:00:00Z",
+        title: "Synthetic article", references: [{ type: "content", uri: "https://example.com/article" }],
+        digitalUsageMetadata: { webUrl: "https://example.com/article", webTitle: "Article", sectionId: "news" },
+      },
+      {
+        id: "usage-print", platform: "print", media: "image", status: "removed",
+        dateAdded: "2026-02-02T10:00:00Z", dateRemoved: "2026-02-04T10:00:00Z",
+        lastModified: "2026-02-05T10:00:00Z", references: [],
+        printUsageMetadata: { issueDate: "2026-02-03", pageNumber: 0, edition: 0, notes: "" },
+      },
+    ];
+    const base = makeCanonicalImage();
+    const data = makeCanonicalImage({
+      lastModified: "2026-09-18T10:00:00Z",
+      userMetadataLastModified: "2026-09-17T10:00:00Z",
+      softDeletedMetadata: { deleteTime: "2026-09-19T10:00:00Z", deletedBy: "fixture-user" },
+      identifiers: { fixture: "original-identifier" },
+      source: {
+        ...base.source, size: 0, orientation: "portrait",
+        orientedDimensions: { width: 600, height: 800 }, orientationMetadata: { exifOrientation: 6 },
+      },
+      thumbnail: {
+        file: "https://example.com/thumb.jpg", secureUrl: "https://example.com/thumb-preview.jpg",
+        mimeType: "image/jpeg", dimensions: { width: 120, height: 160 },
+      },
+      optimisedPng: { ...base.source, file: "https://example.com/optimised.png", mimeType: "image/png" },
+      exports: [{
+        id: "export-1", author: "fixture-user", date: "2026-01-02T10:00:00Z",
+        specification: { uri: "/images/abc123", type: "crop", bounds: { x: 0, y: 0, width: 800, height: 600 }, rotation: 0 },
+        master: base.source, assets: [base.source],
+      }],
+      usages: {
+        uri: "/usages/media/abc123",
+        data: usages.map((usage) => ({ uri: `/usages/${usage.id}`, data: usage })),
+      },
+      leases: {
+        uri: "/leases/media/abc123",
+        data: {
+          lastModified: "2026-03-04T10:00:00Z",
+          leases: [
+            {
+              id: "lease-1", access: "allow-use", mediaId: "abc123", leasedBy: "fixture-user",
+              createdAt: "2026-03-01T10:00:00Z", startDate: "2026-03-02T10:00:00Z",
+              endDate: "2026-03-03T10:00:00Z", active: false, notes: "",
+            },
+            {
+              id: "lease-2", access: "deny-syndication", mediaId: "abc123",
+              createdAt: "2026-03-04T10:00:00Z", active: true,
+            },
+          ],
+        },
+      },
+      collections: [
+        {
+          uri: "/collections/images/abc123/news",
+          data: { path: ["News"], pathId: "news", description: "", cssColour: "#123456",
+            actionData: { author: "fixture-user", date: "2026-04-01T10:00:00+01:00" } },
+        },
+        {
+          uri: "/collections/images/abc123/news/selection",
+          data: { path: ["News", "Selection"], pathId: "news~selection", description: "Synthetic selection",
+            actionData: { author: "fixture-user", date: "2026-05-01T10:00:00+01:00" } },
+        },
+      ],
+      syndicationRights: { published: "2026-01-01T10:00:00Z", suppliers: [], rights: [], isInferred: false },
+    });
+    const actions: Action[] = [{ name: "edit", href: "/metadata/abc123", method: "PUT" }];
+    const response = { ...makeApiResponse(data.id), data: [{ data, actions }] };
+    const before = structuredClone(response);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
+
+    const result = await apiSearchAfter(probeParams, null, null, undefined, false, false);
+    const image = result.hits[0];
+
+    expect(image).toMatchObject({
+      id: data.id, uploadTime: data.uploadTime, uploadedBy: data.uploadedBy,
+      lastModified: data.lastModified, uploadInfo: data.uploadInfo,
+      softDeletedMetadata: data.softDeletedMetadata, identifiers: data.identifiers,
+      source: data.source, thumbnail: data.thumbnail, optimisedPng: data.optimisedPng, exports: data.exports,
+      metadata: data.metadata, originalMetadata: data.originalMetadata,
+      usageRights: data.usageRights, originalUsageRights: data.originalUsageRights,
+      syndicationRights: data.syndicationRights,
+    });
+    expect(image.usages).toEqual(usages);
+    expect(image.leases).toEqual(data.leases.data);
+    expect(image.collections).toEqual(data.collections.map((collection) => collection.data));
+    expect(result.enrichment?.get(data.id)).toEqual({
+      cost: data.cost, valid: data.valid, invalidReasons: data.invalidReasons,
+      persisted: data.persisted, usageRights: data.usageRights, actions,
+      syndicationStatus: data.syndicationStatus, usages,
+    });
+    expect(response).toEqual(before);
+  });
+
+  it.each([false, true])("preserves image order, cardinality and authoritative tuples with reverse=%s", async (reverse) => {
+    const images = ["image-z", "image-a", "image-m"].map((id) => makeCanonicalImage({ id }));
+    const sortValues: SearchAfterResult["sortValues"] = [[30, 1000, "image-z"], [0, 2000, "image-a"], [null, 3000, "image-m"]];
+    const response = {
+      data: (reverse ? [...images].reverse() : images).map((data) => ({ data })),
+      sortValues: reverse ? [...sortValues].reverse() : sortValues,
+      total: 23000,
+      pitId: "response-pit",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => response }));
+
+    const result = await apiSearchAfter(
+      { ...probeParams, orderBy: "-lastModified", length: 3 }, [40, 500, "cursor-id"], "request-pit", undefined, reverse, false,
+    );
+
+    expect(result.hits.map((image) => image.id)).toEqual(response.data.map(({ data }) => data.id));
+    expect(result.hits.map((image) => image.userMetadata?.labels)).toEqual(images.map(() => ["Priority", "Photo desk"]));
+    expect(result.sortValues).toBe(response.sortValues);
+    expect(result.sortValues).toEqual(response.sortValues);
+    expect(result.total).toBe(response.total);
+    expect(result.pitId).toBe(response.pitId);
+    expect([...result.enrichment!.keys()]).toEqual(result.hits.map((image) => image.id));
+  });
+});
 
 describe("F-1 regression: apiSearchAfter must not write enrichment store", () => {
   beforeEach(() => {

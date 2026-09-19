@@ -203,7 +203,7 @@ export interface Image {
   // File metadata (EXIF, IPTC, XMP, etc.)
   fileMetadata?: Record<string, unknown>;
   /** Config-driven alias values populated by media-api (`aliases.*` in response). Absent in direct-ES mode. */
-  aliases?: Record<string, string>;
+  aliases?: Record<string, unknown>;
 
   // Relationships
   exports?: Export[];

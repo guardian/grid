@@ -155,6 +155,26 @@ describe("accessors", () => {
     expect(getFieldRawValue("alias_colourModel", FIXTURE)).toBe("RGB");
   });
 
+  it.each([
+    { value: "CMYK", display: "CMYK" },
+    { value: false, display: "false" },
+    { value: true, display: "true" },
+    { value: 0, display: "0" },
+    { value: "", display: "" },
+  ])("converts API alias $value to text only at the field boundary", ({ value, display }) => {
+    const image: Image = { ...FIXTURE, aliases: { colourModel: value } };
+
+    expect(getFieldRawValue("alias_colourModel", image)).toBe(display);
+    expect(getFieldDisplayValue("alias_colourModel", image)).toBe(display);
+    expect(image.aliases?.colourModel).toBe(value);
+  });
+
+  it.each([undefined, null])("retains the ES path fallback for an absent API alias (%s)", (value) => {
+    const image: Image = { ...FIXTURE, aliases: { colourModel: value } };
+
+    expect(getFieldRawValue("alias_colourModel", image)).toBe("RGB");
+  });
+
   it("returns raw ISO string for date fields (not formatted)", () => {
     expect(getFieldRawValue("uploadTime", FIXTURE)).toBe("2026-03-20T14:30:00.000Z");
   });

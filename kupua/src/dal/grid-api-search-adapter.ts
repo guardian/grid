@@ -13,6 +13,8 @@ import type { Image } from "@/types/image";
 import type { SearchAfterResult, SearchParams, SortValues } from "./types";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
+import { unwrapEntity } from "./grid-api/argo";
+import type { ImageData } from "./grid-api/types";
 
 type SearchAfterApiResponse = {
   data: Array<{ data?: unknown; actions?: unknown }>;
@@ -31,7 +33,17 @@ type SearchAfterApiResponse = {
  *   API collections: EmbeddedEntity<CollectionResponse>[] → Image collections: Collection[]
  */
 function mapApiImageToImage(raw: unknown): Image {
-  const d = raw as Record<string, unknown>;
+  const d = raw as ImageData;
+  const edits = d.userMetadata && unwrapEntity(d.userMetadata);
+  const userMetadata = edits ? {
+    archived: unwrapEntity(edits.archived) ?? undefined,
+    labels: unwrapEntity(edits.labels)?.map((label) => unwrapEntity(label)) ?? undefined,
+    metadata: unwrapEntity(edits.metadata) ?? undefined,
+    usageRights: unwrapEntity(edits.usageRights) ?? undefined,
+    photoshoot: unwrapEntity(edits.photoshoot) ?? undefined,
+    lastModified: edits.lastModified,
+  } : undefined;
+  const fileMetadata = d.fileMetadata ? unwrapEntity(d.fileMetadata) ?? undefined : undefined;
 
   // usages: unwrap doubly-nested Argo entity
   const usagesEntity = d.usages as { data?: Array<{ data?: unknown }> } | undefined;
@@ -45,7 +57,7 @@ function mapApiImageToImage(raw: unknown): Image {
   const collectionsRaw = d.collections as Array<{ data?: unknown }> | undefined;
   const collections = collectionsRaw?.map((c) => c.data).filter(Boolean) ?? [];
 
-  return { ...d, usages, leases, collections } as unknown as Image;
+  return { ...d, userMetadata, fileMetadata, usages, leases, collections } as unknown as Image;
 }
 
 /**

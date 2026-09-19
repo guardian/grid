@@ -17,6 +17,16 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 19 September 2026 - Normalize canonical media-api images
+
+  Search images now unwrap user edits, individual labels and expanded file metadata
+  into Kupua's flat Image shape. This restores API-supplied labels without rebuilding
+  effective metadata or rights from user overrides. Absent or link-only file metadata
+  stays absent, and aliases retain their JSON values with text conversion confined to
+  the field display accessor. Complete relationships, assets, image order and
+  authoritative tuples are preserved. Requests, recovery and caller-owned enrichment
+  publication are unchanged.
+
   ### 18 September 2026 - Preserve selection anchors during grid reflow
 
   Panel and window resizing now prefer the active selection anchor over an older

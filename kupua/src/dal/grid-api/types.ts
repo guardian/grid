@@ -400,7 +400,7 @@ export interface ImageData {
   userMetadataLastModified?: string;
   /** data absent unless ?include=fileMetadata is appended to the request */
   fileMetadata?: EmbeddedEntity<FileMetadata>;
-  aliases?: Record<string, string>; // config-driven fileMetadata projections; keyset varies per image
+  aliases?: Record<string, unknown>; // config-driven fileMetadata projections; keyset varies per image
 }
 
 /**
