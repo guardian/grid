@@ -199,6 +199,14 @@ to ~2.6M while scrollTop stayed put, permanently deadlocking the viewport
 on skeletons. By basing on total, the coordinate space is stable from
 frame 1.
 
+**Explicitly incomplete collection:** either phase reporting `timed_out: true` or a
+positive failed-shard count discards the entire map, including earlier pages, and returns
+`null`. The latest refreshed dedicated PIT is closed on that exit and on abort. This check
+precedes hit consumption and empty/short-page exhaustion; absent execution metadata alone
+is not newly rejected. There is no automatic retry, per-page total or live continuation.
+Existing no-map navigation remains available with the same total-based coordinates. It
+can be more expensive than exact map lookup; no fallback performance parity is promised.
+
 **Consequence for transitions:** `search()` invalidates the position map
 (`positionMap: null`), but `twoTier` stays true as long as the new result
 set's total is in range (1k < total ≤ 65k). The virtualizer count, scroll

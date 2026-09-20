@@ -12,6 +12,8 @@ import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { useSearchStore } from "@/stores/search-store";
 import type { Image } from "@/types/image";
 import { buildTypeaheadFields } from "@/lib/typeahead-fields";
+import { MAX_RESULT_WINDOW } from "@/constants/tuning";
+import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 
 // ---------------------------------------------------------------------------
 // Minimal fetch-response factory helpers
@@ -720,6 +722,84 @@ describe("fetchPositionIndex request shape", () => {
       null,
       ...missingHits[0].sort.slice(0, 2),
     ]);
+  });
+});
+
+describe("KUP-009 position map execution completeness", () => {
+  const chunkSize = Math.min(POSITION_MAP_CHUNK_SIZE, MAX_RESULT_WINDOW);
+  function hits(phase: "valued" | "null", size: number, prefix: string) {
+    return Array.from({ length: size }, (_, index) => {
+      const id = `${prefix}-${index}`;
+      return { _id: id, sort: phase === "valued" ? [200_000 - index, 100_000 - index, id, index] : [100_000 - index, id, index] };
+    });
+  }
+  const cases = (["timeout", "shards"] as const).flatMap(failure =>
+    (["valued", "null"] as const).flatMap(phase =>
+      (["first", "later"] as const).flatMap(stage =>
+        [0, 1, chunkSize].map(size => ({ failure, phase, stage, size })),
+      ),
+    ),
+  );
+
+  it.each(cases)("discards $failure on $phase $stage page with $size hits and closes the refreshed PIT", async ({ failure, phase, stage, size }) => {
+    const prefix = [
+      ...(phase === "null" ? [{ pit_id: "pit-valued", hits: { hits: hits("valued", 1, "valued") } }] : []),
+      ...(stage === "later" ? [{ pit_id: "pit-full", hits: { hits: hits(phase, chunkSize, "prior") } }] : []),
+    ];
+    const pageCount = prefix.length + 1;
+    const pages: unknown[] = [...prefix, {
+      pit_id: "pit-incomplete",
+      timed_out: failure === "timeout",
+      _shards: { total: 2, successful: failure === "shards" ? 1 : 2, failed: failure === "shards" ? 1 : 0 },
+      hits: { hits: hits(phase, size, "incomplete") },
+    }];
+    vi.mocked(global.fetch).mockImplementation(async (_url, init) => {
+      if (init?.method === "DELETE") return okResponse({ succeeded: true });
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      if (body.sort) return okResponse(pages.shift() ?? { hits: { hits: [] } });
+      return okResponse({ id: "pit-open" });
+    });
+    const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await ds.fetchPositionIndex({ orderBy: "-lastModified" }, new AbortController().signal);
+    expect.soft(result === null, "incomplete collection must be absent").toBe(true);
+    const bodies = vi.mocked(global.fetch).mock.calls.map(([, init]) => ({ method: init?.method, body: JSON.parse(String(init?.body ?? "{}")) }));
+    const searches = bodies.filter(({ body }) => body.sort);
+    expect(searches).toHaveLength(pageCount);
+    for (const { body } of searches) {
+      expect(body).toMatchObject({ size: chunkSize, _source: false, track_total_hits: false });
+    }
+    expect(bodies.filter(({ method }) => method === "DELETE").map(({ body }) => body)).toEqual([{ id: "pit-incomplete" }]);
+    expect(warnings).not.toHaveBeenCalled();
+  });
+
+  it.each(["explicit", "omitted"] as const)("accepts complete pages with %s execution metadata", async (kind) => {
+    const execution = kind === "explicit" ? { timed_out: false, _shards: { total: 2, successful: 2, failed: 0 } } : {};
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({ id: "pit-open" }))
+      .mockResolvedValueOnce(okResponse({ ...execution, pit_id: "pit-valued", hits: { hits: hits("valued", 1, "valued") } }))
+      .mockResolvedValueOnce(okResponse({ ...execution, pit_id: "pit-null", hits: { hits: hits("null", 1, "null") } }))
+      .mockResolvedValueOnce(okResponse({ succeeded: true }));
+    expect(await ds.fetchPositionIndex({ orderBy: "-lastModified" }, new AbortController().signal)).toEqual({
+      length: 2, ids: ["valued-0", "null-0"], sortValues: [[200_000, 100_000, "valued-0"], [null, 100_000, "null-0"]],
+    });
+    expect(JSON.parse(String(vi.mocked(global.fetch).mock.calls.at(-1)?.[1]?.body))).toEqual({ id: "pit-null" });
+  });
+
+  it.each(["abort", "error"] as const)("discards collected pages on %s and closes the latest known PIT", async (kind) => {
+    const controller = new AbortController();
+    const warnings = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce(okResponse({ id: "pit-open" }))
+      .mockResolvedValueOnce(okResponse({ pit_id: "pit-valued", hits: { hits: hits("valued", 1, "valued") } }))
+      .mockImplementationOnce(async () => {
+        if (kind === "error") throw new Error("synthetic transport failure");
+        controller.abort();
+        return okResponse({ pit_id: "pit-refreshed-before-abort", hits: { hits: hits("null", 1, "null") } });
+      })
+      .mockResolvedValueOnce(okResponse({ succeeded: true }));
+    expect(await ds.fetchPositionIndex({ orderBy: "-lastModified" }, controller.signal)).toBeNull();
+    expect(JSON.parse(String(vi.mocked(global.fetch).mock.calls.at(-1)?.[1]?.body))).toEqual({ id: kind === "abort" ? "pit-refreshed-before-abort" : "pit-valued" });
+    expect(warnings).toHaveBeenCalledTimes(kind === "error" ? 1 : 0);
   });
 });
 

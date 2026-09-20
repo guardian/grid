@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Discard explicitly incomplete position maps
+
+  Both position-map phases reject timeout or failed-shard evidence before consuming
+  hits or treating a short/empty page as exhaustion. The whole accumulated map is
+  discarded, and cleanup closes the latest refreshed PIT even when abort arrives
+  with a response. Existing absent-map navigation and total-based indexed coordinates
+  remain; no retry, per-page count, universal snapshot or Grid execution-policy change.
+
   ### 20 September 2026 - Account for cumulative arrivals once
 
   Each polling lifetime retains the browse baseline and combines it with the latest

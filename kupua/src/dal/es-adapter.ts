@@ -2122,17 +2122,20 @@ export class ElasticsearchDataSource implements ImageDataSource {
         const result = (await this.esRequestRaw("_search", body, signal)) as {
           took?: number;
           pit_id?: string;
+          timed_out?: boolean;
+          _shards?: { failed?: number };
           hits: {
             hits: Array<{ _id: string; sort: SortValues }>;
           };
         };
 
-        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-
         // Update PIT ID if ES refreshed it
         if (result.pit_id) {
           pitId = result.pit_id;
         }
+
+        if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+        if (result.timed_out === true || (result._shards?.failed ?? 0) > 0) return false;
 
         const hits = result.hits.hits;
         if (hits.length === 0) break;
@@ -2160,17 +2163,18 @@ export class ElasticsearchDataSource implements ImageDataSource {
         // Yield to main thread between chunks to avoid long-task jank
         await (scheduler?.yield?.() ?? new Promise<void>((r) => setTimeout(r, 0)));
       }
+      return true;
     };
 
     try {
       // Non-null docs first, null-zone docs last — matching ES default
       // `missing: "_last"` used by the main search (which omits explicit
       // `missing`, relying on the ES default for all directions).
-      await fetchChunks(phase1Query, phase1Sort, sortLen);
+      if (!await fetchChunks(phase1Query, phase1Sort, sortLen)) return null;
       if (phase2Query) {
-        await fetchChunks(
+        if (!await fetchChunks(
           phase2Query, phase2Sort, phase2SortLen, injectNullPrimary,
-        );
+        )) return null;
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;

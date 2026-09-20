@@ -10,6 +10,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
 
 const traceMocks = vi.hoisted(() => ({
@@ -95,6 +97,58 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("position map — background fetch lifecycle", () => {
+  it.each(["timeout", "shards"] as const)("KUP-009 discards an explicitly incomplete %s map and keeps deep no-map navigation usable", async (kind) => {
+    resetStore(30_000);
+    vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });
+    const realSource = new ElasticsearchDataSource();
+    const collect = vi.spyOn(mock, "fetchPositionIndex").mockImplementation(realSource.fetchPositionIndex.bind(realSource));
+    const pages = [
+      { pit_id: "map-refreshed", timed_out: kind === "timeout", _shards: { failed: kind === "shards" ? 1 : 0 }, hits: { hits: [{ _id: "partial-only", sort: [900, "partial-only", 1] }] } },
+      { hits: { hits: [] } },
+    ];
+    const transport = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      const response = init?.method === "DELETE" ? { succeeded: true } : body.sort ? pages.shift() : { id: "map-open" };
+      return { ok: true, json: async () => response } as Response;
+    });
+    let complete!: () => void;
+    const collectionComplete = new Promise<void>(resolve => { complete = resolve; });
+    const publications: unknown[] = [];
+    const unsubscribe = useSearchStore.subscribe((next, previous) => {
+      if (next.positionMap !== previous.positionMap) publications.push(next.positionMap);
+      if (previous.positionMapLoading && !next.positionMapLoading) complete();
+    });
+    try {
+      await actions().search();
+      await collectionComplete;
+      expect.soft(state().positionMap).toBeNull();
+      expect.soft(publications.filter(map => map !== null)).toEqual([]);
+      expect(state().positionMapLoading).toBe(false);
+      expect(state().total).toBe(30_000);
+      expect(isTwoTierFromTotal(state().total)).toBe(true);
+      expect(traceMocks.traceInteraction).not.toHaveBeenCalledWith("position-map", "t_store_ready", expect.anything(), expect.anything());
+      const reads = vi.spyOn(mock, "searchAfter");
+      await actions().seek(15_000);
+      expect(state().error).toBeNull();
+      expect(state().results.length).toBeGreaterThan(0);
+      expect(state().results.some(image => image?.id === "partial-only")).toBe(false);
+      expect(state().bufferOffset).toBeGreaterThan(10_000);
+      expect(state().imagePositions.get(state().results[0]!.id)).toBe(state().bufferOffset);
+      expect(state()._seekTargetGlobalIndex).toBeGreaterThan(10_000);
+      expect(state().total).toBe(30_000);
+      expect(isTwoTierFromTotal(state().total)).toBe(true);
+      expect(reads).toHaveBeenCalled();
+      expect(collect).toHaveBeenCalledTimes(1);
+      const cleanup = transport.mock.calls.filter(([, init]) => init?.method === "DELETE");
+      expect(cleanup).toHaveLength(1);
+      expect(JSON.parse(String(cleanup[0][1]?.body))).toEqual({ id: "map-refreshed" });
+    } finally {
+      unsubscribe();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("does NOT fetch position map when total ≤ SCROLL_MODE_THRESHOLD", async () => {
     // Use a dataset small enough for scroll mode
     resetStore(500);
