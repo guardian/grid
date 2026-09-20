@@ -70,9 +70,12 @@ engine itself, not for "where is the agent right now". `dataSource` was an empty
 object `{}` in the scroll tier — don't rely on it to name the tier; infer tier from
 `total` against the documented thresholds instead.
 
-**[V] `loading: false` is a valid poll condition.**
-`page.waitForFunction(() => window.__kupua_store__.getState().loading === false)`
-returned promptly once the corpus had settled after a reload. No fixed sleep needed.
+**[V] Wait for the intended search, not just `loading: false`.**
+Check the intended URL/store query after canonicalization, loading and visible results together;
+recheck after an intervening await. On 20 September a redundant leading `+` was normalized away,
+and loading changed after the initial idle wait. Neither alone established a query failure.
+For an out-of-buffer seek, capture and await `_seekGeneration` as the shared helpers do.
+No arbitrary fixed sleep is needed.
 
 **[V] The embedded browser persists state, but is agent-only.**
 `page.goto()` and reload do not reset storage. Per-entry `kupua:histSnap:*`
@@ -141,6 +144,13 @@ running aggregate-only probes. This prevented a stale pre-G tab from being
 mistaken for post-G behavior on 8 September 2026.
 
 ---
+
+**[V] 18 September 2026, API-boundary stage 01:** a direct-TEST Credit seek
+probe recorded only request classifications, statuses, header timings and store
+counts, with a 20-request fetch cap. The fetch wrapper was restored inside the
+successful action call. The subsequent close call returned page-not-found;
+explicit PIT-close acknowledgement was unavailable. This was a bounded observation,
+not a paired API benchmark or high-cardinality validation.
 
 ## 2. Selectors
 
@@ -1006,6 +1016,10 @@ guard, not which remote stage it reaches. Do not return the module's index or
 environment values. `StranglerAdapter` still delegates most methods to ES while
 routing qualifying `searchAfter` calls through media-api; timings across these
 modes are not interchangeable.
+Record frontend, request path and backend stage separately: for example,
+**Kupua UI -> direct Elasticsearch -> TEST**, versus **Kahuna UI -> media-api GET -> TEST**.
+Grid also has a `--use-TEST` mode; that flag alone cannot identify the app/path.
+A Kupua comparison control is not a live reproduction of a Kahuna/Grid defect.
 
 **[!] BE KIND TO THE CLUSTER. TEST is not PROD, but it is shared, real
 infrastructure serving other people's work.** Everything in this section issues
@@ -1092,6 +1106,13 @@ right identity, or a resolved focus target is visible. A healthy cache alongside
 an unchanged empty panel is meaningful evidence; forcing a rerender before
 observing the panel can erase it. Label direct store/DAL probes separately from
 ordinary mouse and keyboard workflows.
+
+**[V] Restore-path distinction, 20 September:** a normal detail reload can use snapshot search
+without calling `restoreAroundCursor`; `_seekGeneration === 0` with global target -1 was compatible
+with a correct visible return. For a controlled cached-cursor probe, move a real cached target out
+of the buffer, call the existing restore action with its in-page cached tuple, and compare published
+ordinals with settled target visibility. Keep actual responses unchanged. For standalone identity,
+use SPA navigation to keep the component mounted; a full reload resets the state under examination.
 
 **[V] D3 contract checks can be run without retaining TEST data.** In
 `--use-media-api` mode, verify `StranglerAdapter` and a `/api/images/search-after`
@@ -1261,3 +1282,78 @@ images, repeat after ticking another image so the check proves the latest anchor
 is used. Distinguish initially partial visibility from a fully visible baseline;
 preserving the former position is not evidence that it became fully visible.
 Check scroll position once more after Clear selection, then remove the probe.
+
+**[V] Check action signatures and the real transport before installing a probe
+(20 September 2026).** `search()` takes an optional focus ID, not SearchParams;
+use the actual `setParams()` action followed by `search()`, or navigate with the
+router when URL/store ownership is under test. Current `count()` delegates to
+`countWithTickers()` and a size-zero `_search`, not `_count`. An interceptor on
+the wrong route can silently allow a live request and capture nothing. Discard
+that attempt rather than treating an empty capture as evidence.
+
+**[V] Timing gates must preserve cancellation and native receivers (20 September
+2026).** Track each targeted timeout/rAF separately, including legitimate
+rescheduling and Strict Mode cancellation. Return native IDs, forward clear/cancel,
+and release only active callbacks. Do not throw merely because a second timer is
+scheduled. Native functions saved as object properties need `.call(window, ...)`
+or a bound receiver; `probe.originalClear(id)` raised Illegal invocation during
+cleanup. Restore native methods in a nested finally even if cancellation fails.
+For read-delivery gates, preserve AbortSignal and the producer's observed abort
+outcome; never release an impossible success after cancellation. These are
+controlled interleavings, not natural incidence or performance evidence.
+
+**[V] Static suggestion controls can bypass the cache being tested (20 September
+2026).** Typing `+credit:` makes the own-chip resolver fetch a self-excluding
+aggregation. Seeing fresh credit suggestions after remount therefore does not
+establish that the first registered resolver's cache refs remain current. Pair
+that non-failing path with a ticker-backed `is:` suggestion when testing remount
+ownership. Keep cold sensitive-filter fallback local/synthetic unless separately
+authorized; compare only aggregate counts and rendered suggestion state.
+
+**[V] Bound repeated media fallback before releasing the first failure (20
+September 2026).** Locally intercept both full and thumbnail paths, count only
+the main detail image's error events, and stop a later event at document capture
+before React can retry indefinitely. Keep all media requests local until detail
+is closed, then remove routes/listeners in finally. A successful local 1x1 image
+is a useful fallback control. Synthetic IDs can change generated media paths:
+do not expect copied source metadata to preserve a live asset URL, or count an
+error callback as successful decoding. Native Image event gates can test tracking,
+but establish no bandwidth or visible regression by themselves.
+
+**[!] Synthetic read responses do not isolate media.** Operator terminal evidence
+on 20 September confirmed that synthetic restore IDs reached the real thumbnail
+proxy, even though the DAL responses were mocked. Before any synthetic ID can
+enter a rendered buffer, selection panel, detail view or prefetch pipeline, install
+local interception for every generated media path it can reach. Keep interception
+until synthetic state is unmounted/discarded. Do not label the whole probe "no
+backend" merely because its data boundary is synthetic. Record only sanitized
+failure categories, never account identifiers, resource names or credential material.
+
+**[F] Native fullscreen can stall the integrated tool sequence (20 September
+2026).** One sequence entered fullscreen but did not reach probe installation;
+even a native exit request did not release it. Read only boolean fullscreen/probe
+state, discard the unfinished case, verify no wrappers are installed, then close
+the agent-owned tab and confirm page-not-found separately. This is a setup blocker,
+not evidence of an application exit bug. Do not resume probes in that stalled tab.
+
+**[V] Kahuna query probes need canonical syntax and response completion (20
+September 2026).** Production debug scopes may be unavailable while Angular's
+injector and `$state` remain usable. `$state.go()` resolves before all search reads;
+observe the relevant GET `/images` response, not just router completion. Kahuna's
+initial search requests one newest hit for its summary before loading viewport
+pages. A one-hit response is not evidence about all visible results. Scope a known
+positive witness with `ids` and compare positive/negative queries, retaining the
+identity in page memory. The widget removes a leading `+`, whereas imperative
+service/router calls may preserve it; use canonical `has:crops`, not `+has:crops`,
+for those calls. Discard a contrast whose positive control fails. Restore original
+XHR functions/listeners in finally; the original send function may already be
+wrapped by the app, so stringifying it as native is not a valid cleanup oracle.
+
+**[V] Require query identity as well as a successful D3 response (20 September
+2026).** A quoted-code router probe received HTTP 200 but did not retain its intended
+query; it was not credited. Canonical unquoted syntax for an actual alphanumeric
+code, with pending editor debounce cancelled by the existing action, produced a
+settled single-witness contrast. Capture only method/status, counts and in-page
+identity comparisons. Hybrid tickers/counts still use ES: verify the actual D3
+hit request before attributing a result to the server query path. Close the first
+app's agent tab before exercising the second when sequential operation is requested.

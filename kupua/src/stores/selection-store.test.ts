@@ -497,6 +497,144 @@ describe("ensureMetadata", () => {
 // ---------------------------------------------------------------------------
 
 describe("hydrate", () => {
+  it.each(["Error", "AbortError"])("does not repair membership, anchors or revisions after %s", async (name) => {
+    vi.spyOn(mock, "getByIds").mockRejectedValue(Object.assign(new Error("fixture failure"), { name }));
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-1" });
+    const current = useSelectionStore.getState();
+    await current.hydrate();
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(useSelectionStore.getState().metadataRevision).toBe(current.metadataRevision);
+    expect(useSelectionStore.getState().reconciledView).toBe(current.reconciledView);
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it("reuses late metadata and coalesces reconciliation for the current selection", async () => {
+    const images = await mock.getByIds(["img-0", "img-1"]);
+    const callbacks: Array<() => void> = [];
+    vi.stubGlobal("requestIdleCallback", vi.fn((callback: () => void) => { callbacks.push(callback); return callbacks.length; }));
+    let resolve!: (images: Image[]) => void;
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockReturnValueOnce(new Promise<Image[]>(done => { resolve = done; }));
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-0" });
+    const pending = useSelectionStore.getState().hydrate();
+    useSelectionStore.getState().remove(["img-1"]);
+    const current = useSelectionStore.getState();
+    const reads = vi.spyOn(current.metadataCache, "get");
+    resolve(images);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().metadataCache).toBe(current.metadataCache);
+    expect(useSelectionStore.getState().metadataRevision).toBe(current.metadataRevision + 1);
+    expect(reads).not.toHaveBeenCalled();
+    expect(callbacks).toHaveLength(1);
+    callbacks[0]();
+    expect(reads).toHaveBeenCalledExactlyOnceWith("img-0");
+    expect(useSelectionStore.getState().reconciledView).toEqual(recomputeAll([images[0]], RECONCILE_FIELDS));
+    useSelectionStore.getState().add(["img-1"]);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1"]));
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let an obsolete hydration consume the newer session's toast or cursor anchor", async () => {
+    const images = await mock.getByIds(["img-0", "img-1", "img-2"]);
+    const searchKey = buildSearchKey({ query: "ownership-cursors" });
+    retainSortValues(searchKey, images, images.map(image => [100, image.id]), true);
+    let resolve!: (images: Image[]) => void;
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockReturnValueOnce(new Promise<Image[]>(done => { resolve = done; }));
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-0" });
+    const obsolete = useSelectionStore.getState().hydrate();
+    useSelectionStore.getState().clear();
+    useSelectionStore.getState().metadataCache.set("img-2", images[2]);
+    useSelectionStore.getState().add(["img-2"]);
+    useSelectionStore.getState().setAnchor("img-2");
+    resolve([images[0]]);
+    await obsolete;
+    expect(useToastStore.getState().queue).toEqual([]);
+    const later = Array.from({ length: BUFFER_CAPACITY * 2 + 1 }, (_, index) => ({ id: `cursor-later-${index}` } as Image));
+    retainSortValues(searchKey, later, later.map(image => [200, image.id]));
+    expect(getRetainedSortValues("img-2", searchKey)).toEqual([100, "img-2"]);
+    expect(getRetainedSortValues("img-0", searchKey)).toBeNull();
+
+    fetchMetadata.mockResolvedValue([]);
+    await useSelectionStore.getState().hydrate();
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect(useSelectionStore.getState().anchorId).toBeNull();
+    expect(useToastStore.getState().queue).toHaveLength(1);
+    expect(getRetainedSortValues("img-2", searchKey)).toBeNull();
+  });
+
+  it.each(["success", "failure"] as const)("keeps the first completed omission repair owned when overlapping hydration ends with %s", async (outcome) => {
+    const images = await mock.getByIds(["img-0", "img-1"]);
+    let resolve!: (images: Image[]) => void;
+    let reject!: (error: Error) => void;
+    vi.spyOn(mock, "getByIds")
+      .mockReturnValueOnce(new Promise<Image[]>((done, fail) => { resolve = done; reject = fail; }))
+      .mockResolvedValueOnce([images[1]]);
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-0" });
+    const obsolete = useSelectionStore.getState().hydrate();
+    await useSelectionStore.getState().hydrate();
+    const current = useSelectionStore.getState();
+    expect(current.selectedIds).toEqual(new Set(["img-1"]));
+    expect(current.anchorId).toBe("img-1");
+    if (outcome === "success") resolve([images[0]]);
+    else reject(new Error("late hydration failure"));
+    await obsolete;
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(useToastStore.getState().queue).toHaveLength(1);
+  });
+
+  it("retains current omission ownership through metadata generation changes and no-op actions", async () => {
+    const images = await mock.getByIds(["img-0"]);
+    let resolve!: (images: Image[]) => void;
+    vi.spyOn(mock, "getByIds").mockReturnValueOnce(new Promise<Image[]>(done => { resolve = done; }));
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-0" });
+    const pending = useSelectionStore.getState().hydrate();
+    const initial = useSelectionStore.getState();
+    initial.add(["img-0"]);
+    initial.remove(["absent"]);
+    await initial.ensureMetadata(["img-2"]);
+    expect(useSelectionStore.getState().generationCounter).toBeGreaterThan(initial.generationCounter);
+    resolve(images);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(useToastStore.getState().queue).toHaveLength(1);
+  });
+
+  it.each(["clear", "newer selection", "newer anchor"] as const)("does not publish obsolete omission repair after %s", async (change) => {
+    await useSelectionStore.getState().ensureMetadata(["img-1", "img-2"]);
+    const returned = await mock.getByIds(["img-0"]);
+    let resolve!: (images: Image[]) => void;
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockReturnValueOnce(
+      new Promise<Image[]>(done => { resolve = done; }),
+    );
+    useSelectionStore.setState({ selectedIds: new Set(["img-0", "img-1"]), anchorId: "img-0" });
+    const pending = useSelectionStore.getState().hydrate();
+    expect(fetchMetadata).toHaveBeenCalledExactlyOnceWith(["img-0", "img-1"]);
+
+    if (change === "newer anchor") {
+      useSelectionStore.getState().setAnchor("img-1");
+    } else {
+      useSelectionStore.getState().clear();
+      if (change === "newer selection") {
+        useSelectionStore.getState().add(["img-2"]);
+        useSelectionStore.getState().setAnchor("img-2");
+      }
+    }
+    const current = useSelectionStore.getState();
+    resolve(returned);
+    await pending;
+
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(useToastStore.getState().queue).toEqual([]);
+    expect(useSelectionStore.getState().metadataCache).toBe(current.metadataCache);
+    expect(current.metadataCache.get("img-0")).toBe(returned[0]);
+    expect(useSelectionStore.getState().metadataRevision).toBe(current.metadataRevision + 1);
+    if (change === "clear") expect(useSelectionStore.getState().reconciledView).toBeNull();
+  });
+
   it.each([
     { label: "removed anchor", anchorId: "img-3", retainedIds: ["img-1", "img-0"], expectedAnchor: "img-0" },
     { label: "surviving anchor", anchorId: "img-1", retainedIds: ["img-1", "img-0"], expectedAnchor: "img-1" },

@@ -610,7 +610,8 @@ export const useSelectionStore = create<SelectionState>()(
           if (cache.set(img.id, img)) metadataChanged = true;
         }
 
-        if (missingIds.length > 0) {
+        const ownsSelection = get().selectedIds === selectedIds && get().anchorId === anchorId;
+        if (ownsSelection && missingIds.length > 0) {
           // Drop IDs that no longer exist in ES and notify the user once.
           const nextIds = new Set(selectedIds);
           for (const id of missingIds) nextIds.delete(id);
@@ -643,7 +644,7 @@ export const useSelectionStore = create<SelectionState>()(
           }));
         }
 
-        requestFullReconcile();
+        if (ownsSelection || get().selectedIds.size > 0) requestFullReconcile();
       },
 
       addGroup(ids: string[]): void {

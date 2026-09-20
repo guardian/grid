@@ -24,12 +24,11 @@
  * excluded by the exclusive lower-bound contract).
  *
  * Cancellation:
- * Each shift-click increments a generation counter. In-flight walks from
- * prior generations are aborted via `AbortController` and their results
- * are discarded.
+ * A pending walk owns its selection membership/anchor, query/order and busy
+ * state. New intent or unmount aborts it; metadata/display changes do not.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Image } from "@/types/image";
 import type { SortValues } from "@/dal/types";
 import { useSearchStore } from "@/stores/search-store";
@@ -83,16 +82,14 @@ export function resolveInBufferRange(
 // ---------------------------------------------------------------------------
 
 export function useRangeSelection() {
-  const abortRef = useRef<AbortController | null>(null);
-  const genRef = useRef(0);
+  const cancelRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => cancelRef.current?.(), []);
 
   const handleRangeEffect = useCallback(
     async (effect: AddRangeEffect): Promise<void> => {
       // Cancel any previous in-flight server walk.
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      const generation = ++genRef.current;
+      cancelRef.current?.();
 
       // Read stores imperatively -- values may have advanced since click ctx.
       const searchState = useSearchStore.getState();
@@ -142,7 +139,6 @@ export function useRangeSelection() {
           searchState.results,
         );
         if (ids !== null) {
-          if (generation !== genRef.current) return;
           if (polarity === "remove") {
             selStore.remove(ids);
           } else {
@@ -219,6 +215,26 @@ export function useRangeSelection() {
       // ------------------------------------------------------------------
       // 5. Execute getIdRange.
       // ------------------------------------------------------------------
+      const controller = new AbortController();
+      const searchKey = buildSearchKey(searchState.params);
+      const finish = (rangeWalkTime: number | null) => {
+        if (cancelRef.current !== cancel) return;
+        cancelRef.current = null;
+        unsubscribeSelection();
+        unsubscribeSearch();
+        useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime });
+      };
+      const cancel = () => {
+        controller.abort();
+        finish(null);
+      };
+      const unsubscribeSelection = useSelectionStore.subscribe((state, previous) => {
+        if (state.selectedIds !== previous.selectedIds || state.anchorId !== previous.anchorId) cancel();
+      });
+      const unsubscribeSearch = useSearchStore.subscribe((state, previous) => {
+        if (state.params !== previous.params && buildSearchKey(state.params) !== searchKey) cancel();
+      });
+      cancelRef.current = cancel;
       const rangeWalkStart = Date.now();
       useSelectionStore.setState({ isRangeWalking: true, rangeWalkTime: null });
       let result;
@@ -230,8 +246,8 @@ export function useRangeSelection() {
           controller.signal,
         );
       } catch (e) {
-        useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: null });
-        if (generation !== genRef.current) return;
+        if (cancelRef.current !== cancel) return;
+        finish(null);
         if (e instanceof Error && e.name === "AbortError") return;
         addToast({
           category: "error",
@@ -240,7 +256,7 @@ export function useRangeSelection() {
         return;
       }
 
-      if (generation !== genRef.current) return;
+      if (cancelRef.current !== cancel) return;
 
       // ------------------------------------------------------------------
       // 6. Swap-and-retry for unknown direction.
@@ -257,8 +273,8 @@ export function useRangeSelection() {
             controller.signal,
           );
         } catch (e) {
-          useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: null });
-          if (generation !== genRef.current) return;
+          if (cancelRef.current !== cancel) return;
+          finish(null);
           if (e instanceof Error && e.name === "AbortError") return;
           addToast({
             category: "error",
@@ -266,10 +282,10 @@ export function useRangeSelection() {
           });
           return;
         }
-        if (generation !== genRef.current) return;
+        if (cancelRef.current !== cancel) return;
       }
 
-      useSelectionStore.setState({ isRangeWalking: false, rangeWalkTime: Date.now() - rangeWalkStart });
+      finish(Date.now() - rangeWalkStart);
 
       // ------------------------------------------------------------------
       // 7. Commit.

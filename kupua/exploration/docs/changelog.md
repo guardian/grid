@@ -17,6 +17,24 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Bind range results and busy state to current intent
+
+  Pending selection ranges now cancel on membership/anchor intent, query/order change,
+  takeover or unmount. Request-local cleanup replaces the range-only generation guard,
+  so obsolete success or rejection cannot alter selection or finalize a successor's
+  busy state. Subscriptions exist only during server walks; cached in-buffer selection,
+  metadata-only updates, polarity, endpoints and existing retries remain unchanged.
+  Cancelling an ordered walk does not clear selections that survive a sort change.
+
+  ### 20 September 2026 - Preserve newer selection ownership during hydration
+
+  Hydration omission repair now requires the captured membership Set and anchor to
+  remain current. Old responses cannot restore cleared IDs, discard newer picks or
+  consume the newer selection's anchor/toast state. Late metadata still populates the
+  mutable cache and reconciles current selection without changing request counts or
+  treating display-generation updates as new intent. API logical omission policy is
+  unchanged and remains separate from this client ownership correction.
+
   ### 19 September 2026 - Normalize canonical media-api images
 
   Search images now unwrap user edits, individual labels and expanded file metadata
