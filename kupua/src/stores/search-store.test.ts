@@ -3051,6 +3051,154 @@ describe("KUP-025 restore tuple ownership", () => {
   });
 });
 
+describe("KUP-007 expanded aggregation ownership", () => {
+  const field = "metadata.credit";
+  const otherField = "metadata.source";
+  const buckets = (value: string) => ({ buckets: [{ key: value, count: 1 }], total: 1 });
+
+  function deferredAgg() {
+    let resolve!: (value: AggregationsResult) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<AggregationsResult>((accept, decline) => { resolve = accept; reject = decline; });
+    return { promise, resolve, reject };
+  }
+
+  beforeEach(() => {
+    useSearchStore.setState({
+      expandedAggs: {}, expandedAggsLoading: new Set(),
+      aggregations: { fields: { [field]: buckets("ordinary-retained") } },
+      params: { ...state().params, until: "2026-02-01T00:00:00Z" },
+    });
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each(["collapse", "search", "base-reset"] as const)("%s prevents obsolete success from resurrecting cache", async (invalidation) => {
+    const old = deferredAgg();
+    const fetch = vi.spyOn(mock, "getAggregations").mockReturnValueOnce(old.promise);
+    const operation = actions().fetchExpandedAgg(field);
+    const signal = fetch.mock.calls[0][2];
+    const ordinary = state().aggregations;
+    try {
+      if (invalidation === "collapse") actions().collapseExpandedAgg(field);
+      if (invalidation === "search") {
+        vi.spyOn(mock, "searchAfter").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+        await actions().search();
+      }
+      if (invalidation === "base-reset") {
+        fetch.mockResolvedValueOnce({ fields: { [field]: buckets("new-base") } });
+        await actions().fetchAggregations("force");
+      } else {
+        expect(state().aggregations).toBe(ordinary);
+      }
+      expect(signal?.aborted).toBe(true);
+      expect(state().expandedAggsLoading.size).toBe(0);
+    } finally {
+      old.resolve({ fields: { [field]: buckets("obsolete") } });
+      await operation;
+    }
+    expect(state().expandedAggs[field]).toBeUndefined();
+    expect(state().expandedAggsLoading.size).toBe(0);
+  });
+
+  it.each(["success", "reject", "abort"] as const)("obsolete %s cannot publish or finalize a same-field successor", async (outcome) => {
+    const old = deferredAgg();
+    const current = deferredAgg();
+    const fetch = vi.spyOn(mock, "getAggregations").mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise);
+    const first = actions().fetchExpandedAgg(field);
+    actions().collapseExpandedAgg(field);
+    const second = actions().fetchExpandedAgg(field);
+    try {
+      expect(fetch).toHaveBeenCalledTimes(2);
+      if (outcome === "success") old.resolve({ fields: { [field]: buckets("obsolete") } });
+      else old.reject(outcome === "abort" ? new DOMException("obsolete", "AbortError") : new Error("obsolete"));
+      await first;
+      expect(state().expandedAggs[field]).toBeUndefined();
+      expect(state().expandedAggsLoading).toEqual(new Set([field]));
+    } finally {
+      old.resolve({ fields: {} });
+      current.resolve({ fields: { [field]: buckets("current") } });
+      await Promise.all([first, second]);
+    }
+    expect(state().expandedAggs[field]).toEqual(buckets("current"));
+    expect(state().expandedAggsLoading.size).toBe(0);
+  });
+
+  it.each(["success", "reject"] as const)("cross-field cancellation keeps only the successor busy after late %s", async (outcome) => {
+    const old = deferredAgg();
+    const current = deferredAgg();
+    const fetch = vi.spyOn(mock, "getAggregations").mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise);
+    const first = actions().fetchExpandedAgg(field);
+    const second = actions().fetchExpandedAgg(otherField);
+    try {
+      expect(fetch.mock.calls[0][2]?.aborted).toBe(true);
+      expect(state().expandedAggsLoading).toEqual(new Set([otherField]));
+      if (outcome === "success") old.resolve({ fields: { [field]: buckets("obsolete") } });
+      else old.reject(new Error("obsolete"));
+      await first;
+      expect(state().expandedAggs[field]).toBeUndefined();
+      expect(state().expandedAggsLoading).toEqual(new Set([otherField]));
+      actions().collapseExpandedAgg(field);
+      expect(fetch.mock.calls[1][2]?.aborted).toBe(false);
+    } finally {
+      old.resolve({ fields: {} });
+      current.resolve({ fields: { [otherField]: buckets("current") } });
+      await Promise.all([first, second]);
+    }
+    expect(state().expandedAggs[otherField]).toEqual(buckets("current"));
+    expect(state().expandedAggsLoading.size).toBe(0);
+  });
+
+  it.each(["search", "base-reset"] as const)("late rejection after %s leaves the successor loading", async (invalidation) => {
+    const old = deferredAgg();
+    const current = deferredAgg();
+    const fetch = vi.spyOn(mock, "getAggregations").mockReturnValueOnce(old.promise);
+    const first = actions().fetchExpandedAgg(field);
+    if (invalidation === "search") {
+      vi.spyOn(mock, "searchAfter").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+      await actions().search();
+    } else {
+      fetch.mockResolvedValueOnce({ fields: {} });
+      await actions().fetchAggregations("force");
+    }
+    fetch.mockReturnValueOnce(current.promise);
+    const second = actions().fetchExpandedAgg(field);
+    old.reject(new Error("late old producer"));
+    await first;
+    const loadingBeforeCurrent = new Set(state().expandedAggsLoading);
+    current.resolve({ fields: { [field]: buckets("current") } });
+    await second;
+    expect(loadingBeforeCurrent).toEqual(new Set([field]));
+    expect(state().expandedAggs[field]).toEqual(buckets("current"));
+    expect(state().expandedAggsLoading.size).toBe(0);
+  });
+
+  it("a current missing-field success finishes and permits retry", async () => {
+    const fetch = vi.spyOn(mock, "getAggregations").mockResolvedValueOnce({ fields: {} })
+      .mockResolvedValueOnce({ fields: { [field]: buckets("retry") } });
+    await actions().fetchExpandedAgg(field);
+    expect(state().expandedAggsLoading.size).toBe(0);
+    expect(state().expandedAggs[field]).toBeUndefined();
+    await actions().fetchExpandedAgg(field);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(state().expandedAggs[field]).toEqual(buckets("retry"));
+  });
+
+  it("ordinary completion reuses cache, collapse permits refetch, and current failure finishes", async () => {
+    const fetch = vi.spyOn(mock, "getAggregations").mockResolvedValue({ fields: { [field]: buckets("current") } });
+    await actions().fetchExpandedAgg(field);
+    await actions().fetchExpandedAgg(field);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(state().expandedAggsLoading.size).toBe(0);
+    actions().collapseExpandedAgg(field);
+    fetch.mockRejectedValueOnce(new Error("current failure"));
+    await actions().fetchExpandedAgg(field);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(state().expandedAggs[field]).toBeUndefined();
+    expect(state().expandedAggsLoading.size).toBe(0);
+  });
+});
+
 describe("fetchAggregations", () => {
   it("immediate skips only the debounce and still honours the circuit breaker and cache", async () => {
     mock = new MockDataSource(500);

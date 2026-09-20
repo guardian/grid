@@ -637,7 +637,7 @@ let _aggAbortController: AbortController | null = null;
 let _aggRequestGeneration = 0;
 
 /** Abort controller for in-flight expanded aggregation requests. */
-let _expandedAggAbortController: AbortController | null = null;
+let _expandedAggRequest: { field: string; key: string; controller: AbortController } | null = null;
 
 interface PendingDistributionRequest {
   key: string;
@@ -697,6 +697,11 @@ function emptyAggregationState(): Partial<SearchState> {
     aggFetchDuration: null,
     _aggCacheKey: aggCacheKey(null),
   };
+}
+
+function cancelExpandedAggregation(): void {
+  _expandedAggRequest?.controller.abort();
+  _expandedAggRequest = null;
 }
 
 function cancelAggregationFetch(): number {
@@ -2141,7 +2146,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _nullZoneDistRequest?.controller.abort();
     _sortDistRequest = null;
     _nullZoneDistRequest = null;
-    if (_expandedAggAbortController) _expandedAggAbortController.abort();
+    cancelExpandedAggregation();
     if (_positionMapAbortController) _positionMapAbortController.abort();
     cancelAggregationFetch();
 
@@ -2152,6 +2157,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({
       _extendForwardInFlight: false, _extendBackwardInFlight: false,
       aggLoading: false,
+      expandedAggs: {}, expandedAggsLoading: new Set(),
       sortDistribution: null, _sortDistCacheKey: null,
       nullZoneDistribution: null, _nullZoneDistCacheKey: null,
       positionMap: null, positionMapLoading: false,
@@ -4048,6 +4054,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     callParams = aggregationParams(get);
     key = aggCacheKey(callParams);
     if (callParams === null) {
+      cancelExpandedAggregation();
       set(emptyAggregationState());
       return;
     }
@@ -4108,6 +4115,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       if (requestGeneration !== _aggRequestGeneration || controller.signal.aborted) return;
 
+      cancelExpandedAggregation();
       set({
         aggregations: result,
         dynamicFacetBuckets,
@@ -4142,50 +4150,46 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     // Abort any previous expanded agg request and create a fresh controller.
     // Aborted by search() when a new search starts. See es-audit.md Issue #4.
-    if (_expandedAggAbortController) _expandedAggAbortController.abort();
-    _expandedAggAbortController = new AbortController();
-    const signal = _expandedAggAbortController.signal;
+    cancelExpandedAggregation();
+    const params = aggregationParams(get);
+    const request = { field, key: aggCacheKey(params), controller: new AbortController() };
+    _expandedAggRequest = request;
+    const signal = request.controller.signal;
+    set({ expandedAggsLoading: new Set([field]) });
 
-    set({ expandedAggsLoading: new Set([...expandedAggsLoading, field]) });
-
+    let fieldResult: AggregationResult | undefined;
     try {
-      const params = aggregationParams(get);
       const result = params === null
         ? { fields: { [field]: { buckets: [], total: 0 } } }
         : await dataSource.getAggregations(params, [{ field, size: AGG_EXPANDED_SIZE }], signal);
-
-      const fieldResult = result.fields[field];
-      if (fieldResult) {
+      fieldResult = result.fields[field];
+    } catch {
+      return;
+    } finally {
+      if (_expandedAggRequest === request) {
+        _expandedAggRequest = null;
+        const publish = !signal.aborted && request.key === aggCacheKey(aggregationParams(get));
         set((state) => {
           const newLoading = new Set(state.expandedAggsLoading);
           newLoading.delete(field);
           return {
-            expandedAggs: { ...state.expandedAggs, [field]: fieldResult },
+            expandedAggs: publish && fieldResult
+              ? { ...state.expandedAggs, [field]: fieldResult }
+              : state.expandedAggs,
             expandedAggsLoading: newLoading,
           };
         });
       }
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") {
-        set((state) => {
-          const newLoading = new Set(state.expandedAggsLoading);
-          newLoading.delete(field);
-          return { expandedAggsLoading: newLoading };
-        });
-        return;
-      }
-      set((state) => {
-        const newLoading = new Set(state.expandedAggsLoading);
-        newLoading.delete(field);
-        return { expandedAggsLoading: newLoading };
-      });
     }
   },
 
   collapseExpandedAgg: (field: string) => {
+    if (_expandedAggRequest?.field === field) cancelExpandedAggregation();
     set((state) => {
       const { [field]: _, ...rest } = state.expandedAggs;
-      return { expandedAggs: rest };
+      const loading = new Set(state.expandedAggsLoading);
+      loading.delete(field);
+      return { expandedAggs: rest, expandedAggsLoading: loading };
     });
   },
 

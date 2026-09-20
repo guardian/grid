@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Own expanded facet publication and completion
+
+  The single expanded-facet request now owns its field, scope and cancellation token.
+  Collapse, search invalidation and base-aggregation reset invalidate obsolete work;
+  late success or failure cannot resurrect a cache or clear a successor's loading.
+  A missing-field response finishes cleanly. Cross-field cancellation, ordinary-facet
+  presentation and completed cache reuse retain their existing policy.
+
   ### 20 September 2026 - Keep known-empty AI membership empty
 
   Aggregation decoration now represents known-empty AI membership explicitly. The

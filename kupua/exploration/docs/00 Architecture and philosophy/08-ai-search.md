@@ -404,6 +404,10 @@ calling the DAL:
 - `fetchExpandedAgg` decorates before fetching the larger top-N for an
    individual aggregation, or publishes an empty field result without a request.
 
+Expanded facets retain one active request. Its field/scope/controller owns both
+publication and loading finalization; collapse, search and base reset invalidate it.
+Ordinary facet presentation and completed expanded-cache reuse are unchanged.
+
 Every other caller of an aggregation method on the DAL is either
 already-correct for AI (e.g. typeahead, which is intentionally
 world-scoped) or unreachable in AI mode (extend/seek/poll, blocked by
