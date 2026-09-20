@@ -261,10 +261,10 @@ export function useRangeSelection() {
       // ------------------------------------------------------------------
       // 6. Swap-and-retry for unknown direction.
       //
-      // If walked===0 and ids.length===0 with direction unknown, the guess
-      // was wrong -- swap cursors and try once more.
+      // An empty unknown-order walk may have examined an overshooting hit.
+      // Swap cursors and try once more, independently of progress accounting.
       // ------------------------------------------------------------------
-      if (!directionKnown && result.walked === 0 && result.ids.length === 0) {
+      if (!directionKnown && result.ids.length === 0) {
         try {
           result = await selStore.dataSource.getIdRange(
             searchState.params,

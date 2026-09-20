@@ -10,6 +10,8 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Image } from "@/types/image";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
+import type { SortValues } from "@/dal/types";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, _resetMetadataCache, _resetDebounceState, _resetReconcileQueue } from "@/stores/selection-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -155,6 +157,13 @@ function deferred<Value>() {
   return { promise, resolve, reject };
 }
 
+function rangePage(tuples: SortValues[]): Response {
+  return {
+    ok: true,
+    json: async () => ({ hits: { total: { value: tuples.length }, hits: tuples.map(sort => ({ _id: sort.at(-1), sort })) } }),
+  } as Response;
+}
+
 describe("mounted range ownership", () => {
   let source: MockDataSource;
   let images: Image[];
@@ -171,6 +180,7 @@ describe("mounted range ownership", () => {
 
   beforeEach(async () => {
     vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
+    vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });
     source = new MockDataSource(10);
     images = await source.getByIds(["img-0", "img-1", "img-2", "img-3", "img-4"]);
     useSearchStore.setState(useSearchStore.getInitialState());
@@ -360,17 +370,106 @@ describe("mounted range ownership", () => {
     expect(walk).toHaveBeenCalledTimes(1);
   });
 
+  it.each((["add", "remove"] as const).flatMap(polarity =>
+    (["upload", "tied", "null"] as const).map(tupleKind => ({ polarity, tupleKind })),
+  ))("includes the interior after real collector overshoot during unknown-direction $polarity with $tupleKind tuples", async ({ polarity, tupleKind }) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: tupleKind === "upload" ? "-uploadTime" : "-lastModified" } });
+    if (polarity === "remove") {
+      useSelectionStore.getState().add(["img-1", "img-2", "img-3"]);
+      useSelectionStore.getState().remove(["img-0"]);
+      useSelectionStore.getState().setAnchor("img-0");
+    }
+    const tuple = (time: number, id: string): SortValues => tupleKind === "upload" ? [time, id] : [tupleKind === "null" ? null : 900, time, id];
+    const rawTuple = (time: number, id: string): SortValues => tupleKind === "null" ? [time, id] : tuple(time, id);
+    const transport = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(rangePage([rawTuple(50, "img-4")]))
+      .mockResolvedValueOnce(rangePage([rawTuple(200, "img-1"), rawTuple(100, "img-0"), rawTuple(50, "img-4")]));
+    const walk = vi.spyOn(realSource, "getIdRange");
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: tuple(100, "img-0"), targetSortValues: tuple(300, "img-2") });
+
+    expect(await walk.mock.results[0].value).toEqual({ ids: [], walked: 1, truncated: false });
+    expect.soft(useSelectionStore.getState().selectedIds).toEqual(new Set(polarity === "add" ? ["img-0", "img-1", "img-2"] : ["img-3"]));
+    expect(walk).toHaveBeenCalledTimes(2);
+    expect(walk.mock.calls[1].slice(1, 3)).toEqual([tuple(300, "img-2"), tuple(100, "img-0")]);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+  });
+
+  it.each(["correct", "empty"] as const)("preserves real collector %s range behavior", async (outcome) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime" } });
+    const tuples: SortValues[] = outcome === "correct" ? [[200, "img-1"], [100, "img-2"]] : [];
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(rangePage(tuples));
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: [300, "img-0"], targetSortValues: [100, "img-2"] });
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(outcome === "correct" ? ["img-0", "img-1", "img-2"] : ["img-0", "img-2"]));
+    expect(transport).toHaveBeenCalledTimes(outcome === "correct" ? 1 : 2);
+    expect(useSelectionStore.getState().anchorId).toBe("img-0");
+  });
+
+  it.each((["clear", "successor"] as const).flatMap(context =>
+    (["success", "failure"] as const).map(outcome => ({ context, outcome })),
+  ))("retires a real reverse attempt on $context before obsolete $outcome", async ({ context, outcome }) => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime" } });
+    const reverseStarted = deferred<void>();
+    const reversePage = deferred<Response>();
+    const successorResult = deferred<typeof completed>();
+    const transport = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(rangePage([[50, "img-4"]]))
+      .mockImplementationOnce(() => { reverseStarted.resolve(); return reversePage.promise; });
+    const walk = vi.spyOn(realSource, "getIdRange");
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: [100, "img-0"], targetSortValues: [300, "img-2"] });
+    await reverseStarted.promise;
+    let successor: Promise<void> | undefined;
+    if (context === "clear") useSelectionStore.getState().clear();
+    else {
+      vi.spyOn(source, "getIdRange").mockReturnValue(successorResult.promise);
+      useSelectionStore.setState({ dataSource: source });
+      successor = result.current(effect);
+    }
+    const current = useSelectionStore.getState();
+    if (outcome === "failure") reversePage.reject(new Error("obsolete transport failure"));
+    else reversePage.resolve(rangePage([[200, "img-1"], [100, "img-0"]]));
+    await obsolete;
+    expect(walk.mock.calls[1][3]?.aborted).toBe(true);
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(context === "successor");
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useToastStore.getState().queue).toEqual([]);
+    if (successor) {
+      successorResult.resolve(completed);
+      await successor;
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+      expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    }
+  });
+
+  it("does not retry an empty known-direction collector result", async () => {
+    const realSource = new ElasticsearchDataSource();
+    useSelectionStore.setState({ dataSource: realSource });
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(rangePage([]));
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current(effect);
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
+  });
+
   it.each([0, 1])("preserves unknown-direction retry for walked=%s", async (walked) => {
     const walk = vi.spyOn(source, "getIdRange").mockResolvedValueOnce({ ids: [], walked, truncated: false }).mockResolvedValueOnce(completed);
     const { result } = renderHook(() => useRangeSelection());
     await result.current({ ...effect, anchorGlobalIndex: null });
-    expect(walk).toHaveBeenCalledTimes(walked === 0 ? 2 : 1);
-    if (walked === 0) {
-      expect(walk.mock.calls[1].slice(1, 3)).toEqual([effect.targetSortValues, effect.anchorSortValues]);
-      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
-    } else {
-      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
-    }
+    expect(walk).toHaveBeenCalledTimes(2);
+    expect(walk.mock.calls[1].slice(1, 3)).toEqual([effect.targetSortValues, effect.anchorSortValues]);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
   });
 
   it("guards cancellation while the existing reverse retry is pending", async () => {

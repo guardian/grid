@@ -250,8 +250,8 @@ export interface IdRangeResult {
    */
   truncated: boolean;
   /**
-   * Number of documents examined by the walk (= ids.length unless the walk
-   * errored mid-way). Useful for telemetry.
+   * Number of documents examined, including overshoot and cap lookahead.
+   * Progress telemetry, not a statement about endpoint order.
    */
   walked: number;
 }
@@ -513,7 +513,8 @@ export interface ImageDataSource {
    * **Caller contract:** `fromCursor` MUST sort earlier than `toCursor` in
    * the direction implied by `params.orderBy`. The DAL does not swap or
    * auto-detect order. If ordering is unknown (seek mode), call once; if
-   * `walked === 0`, swap cursors and retry.
+   * `ids.length === 0`, swap cursors and retry once. `walked` can include
+   * an overshooting hit and does not determine whether reversal is needed.
    *
    * @param params — search params (query, filters, orderBy — same as current search).
    * @param fromCursor — exclusive lower bound (the doc AT this cursor is not included).

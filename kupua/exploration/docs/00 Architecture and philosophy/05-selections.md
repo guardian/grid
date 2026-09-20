@@ -265,6 +265,12 @@ Kahuna's bug was that range expansion was bounded by *loaded-and-rendered images
 
 **Server-walk path.** When either end is outside the buffer (or both are), call new DAL method `getIdRange(params, fromCursor, toCursor, signal?)` which walks `search_after` between two cursors with `_source: false`. Returns the full ID list with a `truncated: boolean` flag.
 
+**Unknown endpoint order:** an empty first result permits exactly one swapped attempt.
+`walked` counts examined hits, including overshoot and cap lookahead, so positive progress
+does not rule out a wrong initial guess. The existing full-tuple comparator owns order,
+including ties and nulls; the hook does not reconstruct it. Correct-direction successful
+walks add no retry/read. Both attempts share the same cancellation and publication owner.
+
 - **Hard cap:** 5,000 IDs per `getIdRange` walk. Beyond that, the call returns truncated and the UI shows: `"Range too large — selecting first 5,000 items. Use a narrower search to refine."` (no silent truncation).
 - **Soft cap:** at 2,000 IDs the action proceeds without prompting, but an informational toast announces the size: `"Added 2,400 items to your selection."` No Yes/No — adding to a selection is non-destructive and trivially reversible (Clear, or single-tick toggle). Avoids interrupting the user with a modal in v1. Numbers come from the position-map delta when available; otherwise from the post-fetch result. (Confirm dialogs are deferred to Phase 3+ when actually destructive operations exist.)
 - **Cancellation and ownership:** a server walk owns its result, failure feedback and busy/timing finalization. A newer range (including synchronous in-buffer or unavailable-anchor takeover), clear, actual add/remove/toggle or anchor change, query/order change, or unmount aborts it and releases busy state. Invalidating a walk never clears selected IDs itself; sort/detail/density survival remains as in section 4.

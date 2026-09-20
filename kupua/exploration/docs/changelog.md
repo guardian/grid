@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Retry empty unknown-order selection walks
+
+  An unknown-order range with no collected IDs now permits the intended single swapped
+  attempt even when an overshooting hit was examined. `walked` remains truthful progress,
+  not an ordering signal. Full tuple semantics, range ownership, polarity, endpoints,
+  retained anchor, caps and the in-buffer path are unchanged; successful ranges add no reads.
+
   ### 20 September 2026 - Honor current sort when pending AI results arrive
 
   AI completion keeps its captured query and bounded result set but uses the latest
