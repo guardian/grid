@@ -3582,6 +3582,56 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     expect(state().total).toBe(20);
   });
 
+  it.each(["explicit", "phantom", "none"] as const)("KUP-008 pending sort preserves %s completion focus and relevance", async (mode) => {
+    const source = makeAiMock(3, [3000, 1000, 2000]);
+    const result = await source.searchByAi({});
+    let release!: (value: typeof result) => void;
+    const pending = new Promise<typeof result>((resolve) => { release = resolve; });
+    const ai = vi.spyOn(source, "searchByAi").mockReturnValueOnce(pending);
+    useSearchStore.setState({ dataSource: source, params: { ...state().params, orderBy: "-relevance" } });
+    const anchor = mode === "none" ? null : "ai-img-1";
+    const operation = actions().search(anchor, { phantomOnly: mode === "phantom" });
+    for (const orderBy of ["-uploadTime", "-relevance", "-uploadTime"]) {
+      actions().setParams({ orderBy });
+      actions().resortAiBuffer(orderBy, anchor, mode === "phantom");
+    }
+    release(result);
+    await operation;
+    expect(state().params.orderBy).toBe("-uploadTime");
+    expect(state().results.map((image) => image?.id)).toEqual(["ai-img-1", "ai-img-2", "ai-img-0"]);
+    expect(state().focusedImageId).toBe(mode === "explicit" ? anchor : null);
+    expect(state()._phantomFocusImageId).toBe(mode === "phantom" ? anchor : null);
+    expect(state().loading).toBe(false);
+    assertPositionsConsistent();
+    actions().setParams({ orderBy: "-relevance" });
+    actions().resortAiBuffer("-relevance", anchor, mode === "phantom");
+    expect(state().results.map((image) => image?.id)).toEqual(["ai-img-0", "ai-img-1", "ai-img-2"]);
+    expect(ai).toHaveBeenCalledTimes(1);
+    assertPositionsConsistent();
+  });
+
+  it("KUP-008 an abort-ignoring old query cannot publish over a newer query or its params", async () => {
+    const source = makeAiMock(3, [3000, 1000, 2000]);
+    const result = await source.searchByAi({});
+    let release!: (value: typeof result) => void;
+    const pending = new Promise<typeof result>((resolve) => { release = resolve; });
+    const ai = vi.spyOn(source, "searchByAi").mockReturnValueOnce(pending);
+    useSearchStore.setState({ dataSource: source, params: { ...state().params, orderBy: "-relevance" } });
+    const old = actions().search();
+    actions().setParams({ aiQuery: "different-query", query: "credit:fixture", orderBy: "-uploadTime" });
+    await actions().search();
+    const currentResults = state().results;
+    const currentParams = state().params;
+    release({ ...result, hits: [], total: 0, sortValues: [] });
+    await old;
+    expect(ai).toHaveBeenCalledTimes(2);
+    expect(state().results).toBe(currentResults);
+    expect(state().params).toBe(currentParams);
+    expect(state().params).toMatchObject({ aiQuery: "different-query", query: "credit:fixture", orderBy: "-uploadTime" });
+    expect(state().loading).toBe(false);
+    assertPositionsConsistent();
+  });
+
   it("scrolls to top (no focus) when sortAroundFocusId is absent from AI results", async () => {
     const resetGenBefore = state()._scrollReset.gen;
 

@@ -2188,9 +2188,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         const aiResult = await dataSource.searchByAi(params, signal);
         if (_searchGeneration !== myGeneration) return;
 
+        const currentParams = get().params;
+        const completionParams = aggCacheKey(currentParams) === aggCacheKey(params)
+          ? { ...params, orderBy: currentParams.orderBy }
+          : params;
         const aiHits = sortAiResults(
           aiResult.hits,
-          params.orderBy ?? "-relevance",
+          completionParams.orderBy ?? "-relevance",
         );
 
         const startCursor = aiResult.sortValues.length > 0 ? aiResult.sortValues[0] : null;
@@ -2206,6 +2210,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           ? aiHits.some((img) => img.id === sortAroundFocusId)
           : false;
 
+        if (import.meta.env.DEV) {
+          _searchLifecycle = { ..._searchLifecycle, orderBy: completionParams.orderBy ?? null };
+        }
         if (aiHits.length === 0) cancelAggregationFetch();
         set({
           results: aiHits,
@@ -2216,7 +2223,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           loading: false,
           took: aiResult.took ?? null,
           seekTime: null,
-          params: { ...params, offset: 0 },
+          params: { ...completionParams, offset: 0 },
           imagePositions: buildPositions(aiHits, 0),
           startCursor,
           endCursor,

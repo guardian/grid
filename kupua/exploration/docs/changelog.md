@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Honor current sort when pending AI results arrive
+
+  AI completion keeps its captured query and bounded result set but uses the latest
+  supported sort when the current query scope still matches. Relevance scores remain
+  available for subsequent local reordering. The development completion signal follows
+  that sort; superseded queries still fail the existing generation guard. No additional
+  AI or ES request, secondary sort or focus/selection algorithm is introduced.
+
   ### 20 September 2026 - Own expanded facet publication and completion
 
   The single expanded-facet request now owns its field, scope and cancellation token.

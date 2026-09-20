@@ -123,6 +123,161 @@ async function reloadSearchAndWait(page: import("@playwright/test").Page) {
   );
 }
 
+test.describe("KUP-008 pending AI sort ownership", () => {
+  const relevance = ["img-0", "img-1", "img-2"];
+  const uploaded = ["img-1", "img-2", "img-0"];
+  const path = (orderBy: string, query = "bounded-sort") =>
+    `/search?nonFree=true&aiQuery=${query}&orderBy=${orderBy}`;
+
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/*", (route) => {
+      if (route.request().resourceType() === "image") {
+        return route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") });
+      }
+      return route.continue();
+    });
+    await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
+    await kupua.goto();
+    await page.evaluate(async () => {
+      const mockPath = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(mockPath);
+      const store = (window as any).__kupua_store__;
+      const originalSource = store.getState().dataSource;
+      const source = new MockDataSource(3);
+      const images = await source.getByIds(["img-0", "img-1", "img-2"]);
+      const days = [1, 3, 2];
+      const hits = images.map((image: any, index: number) => ({
+        ...image, __aiScore: 3 - index, uploadTime: `2026-01-0${days[index]}T00:00:00Z`,
+      }));
+      const pending: { release: () => void; signal?: AbortSignal }[] = [];
+      let countCalls = 0;
+      source.countWithTickers = async () => { countCalls++; return { count: hits.length, tickerCounts: {} }; };
+      source.searchByAi = (params: any, signal?: AbortSignal) => new Promise((resolve, reject) => {
+        pending.push({ signal, release: () => {
+          if (signal?.aborted) { reject(new DOMException("superseded", "AbortError")); return; }
+          const selected = params.aiQuery === "successor" ? hits.slice(0, 2) : hits;
+          resolve({ hits: selected, total: selected.length, sortValues: selected.map((image: any) => [image.__aiScore, image.id]), took: 1 });
+        } });
+      });
+      (window as any).__kupua_pendingAiTest__ = { pending, originalSource, counts: () => countCalls };
+      store.setState({ dataSource: source, focusedImageId: null });
+      await store.getState().search();
+    });
+    await kupua.waitForResults();
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__kupua_pendingAiTest__;
+      if (!fixture) return;
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: fixture.originalSource, results: [], total: 0, imagePositions: new Map() });
+      delete (window as any).__kupua_pendingAiTest__;
+    });
+  });
+
+  async function pendingSort(page: import("@playwright/test").Page, orderBy: string) {
+    await spaNavigate(page, path(orderBy));
+    await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.orderBy)).toBe(orderBy);
+  }
+
+  async function begin(page: import("@playwright/test").Page) {
+    await spaNavigate(page, path("-relevance"));
+    await page.waitForFunction(() => (window as any).__kupua_pendingAiTest__.pending.length === 1);
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().loading)).toBe(true);
+  }
+
+  async function release(page: import("@playwright/test").Page, index = 0) {
+    await page.evaluate((requestIndex) => (window as any).__kupua_pendingAiTest__.pending[requestIndex].release(), index);
+  }
+
+  async function assertOrder(page: import("@playwright/test").Page, orderBy: string, expected: string[]) {
+    await expect.poll(() => page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const lifecycle = (window as any).__kupua_getSearchLifecycle__();
+      return {
+        url: new URL(location.href).searchParams.get("orderBy"), store: state.params.orderBy,
+        ids: state.results.map((image: any) => image.id), loading: state.loading,
+        complete: lifecycle.started === lifecycle.settled,
+        total: state.total, bufferOffset: state.bufferOffset,
+      };
+    })).toEqual({ url: orderBy, store: orderBy, ids: expected, loading: false, complete: true, total: expected.length, bufferOffset: 0 });
+    await expect.poll(() => page.locator('[aria-label="Image results grid"] [data-image-id], [aria-label="Image results table"] [data-image-id]')
+      .evaluateAll((elements) => [...new Set(elements.map((element) => element.getAttribute("data-image-id")))])).toEqual(expected);
+  }
+
+  test("pending completion honors Uploaded and settled reorders make no requests", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await release(page);
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => (window as any).__kupua_getSearchLifecycle__().orderBy)).toBe("-uploadTime");
+    const counts = await page.evaluate(() => (window as any).__kupua_pendingAiTest__.counts());
+    await pendingSort(page, "-relevance");
+    await assertOrder(page, "-relevance", relevance);
+    await pendingSort(page, "-uploadTime");
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => ({
+      requests: (window as any).__kupua_pendingAiTest__.pending.length,
+      counts: (window as any).__kupua_pendingAiTest__.counts(),
+    }))).toEqual({ requests: 1, counts });
+  });
+
+  test("repeated pending sorts and Back/Forward retain the last URL intent", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await pendingSort(page, "-relevance");
+    await page.goBack();
+    await expect.poll(() => getUrlOrderBy(page)).toBe("-uploadTime");
+    await page.goForward();
+    await expect.poll(() => getUrlOrderBy(page)).toBe("-relevance");
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.orderBy)).toBe("-uploadTime");
+    await release(page);
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => (window as any).__kupua_pendingAiTest__.pending.length)).toBe(1);
+  });
+
+  test("a genuinely superseding query owns completion and membership", async ({ kupua, page }) => {
+    await begin(page);
+    await pendingSort(page, "-uploadTime");
+    await spaNavigate(page, path("-uploadTime", "successor"));
+    await page.waitForFunction(() => (window as any).__kupua_pendingAiTest__.pending.length === 2);
+    await release(page, 1);
+    await assertOrder(page, "-uploadTime", ["img-1", "img-0"]);
+    await release(page, 0);
+    await assertOrder(page, "-uploadTime", ["img-1", "img-0"]);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => ({
+      query: (window as any).__kupua_store__.getState().params.aiQuery,
+      aborted: (window as any).__kupua_pendingAiTest__.pending[0].signal.aborted,
+    }))).toEqual({ query: "successor", aborted: true });
+  });
+
+  test("settled sort retains the current selection anchor without promoting phantom focus", async ({ kupua, page }) => {
+    await begin(page);
+    await release(page);
+    await assertOrder(page, "-relevance", relevance);
+    const selectionCell = page.locator('[data-image-id="img-1"]');
+    await selectionCell.hover();
+    await selectionCell.locator('[aria-label="Select image"]').click();
+    const positioning = await page.evaluate(() => (window as any).__kupua_store__.getState().sortAroundFocusGeneration);
+    await pendingSort(page, "-uploadTime");
+    await assertOrder(page, "-uploadTime", uploaded);
+    await kupua.assertPositionsConsistent();
+    expect(await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const selection = (window as any).__kupua_selection_store__.getState();
+      return { focused: state.focusedImageId, selected: [...selection.selectedIds], anchor: selection.anchorId };
+    })).toEqual({ focused: null, selected: ["img-1"], anchor: "img-1" });
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().sortAroundFocusGeneration)).toBeGreaterThan(positioning);
+    await expect(selectionCell).toBeInViewport();
+  });
+});
+
 /** Get the current query param from the URL. */
 async function getUrlQuery(page: import("@playwright/test").Page): Promise<string | null> {
   return page.evaluate(() => new URL(window.location.href).searchParams.get("query"));

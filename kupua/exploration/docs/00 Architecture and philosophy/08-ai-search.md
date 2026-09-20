@@ -302,6 +302,11 @@ if (isSortOnly && !!searchOnly.aiQuery) {
 no ES call. The virtualizer re-renders the same images, preserving an available
 focus/selection anchor or resetting to top when no anchor applies.
 
+If the AI producer is still pending, its eventual completion retains the captured
+query scope and relevance scores but adopts the current supported sort when that
+scope still matches. The existing generation guard rejects a genuinely superseded
+query. Sort changes neither discard the only pending result nor request it again.
+
 ---
 
 ## §5 UI Surface — A Separate Widget, Not a CQL Chip
