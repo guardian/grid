@@ -9,6 +9,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ElasticsearchDataSource } from "./es-adapter";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
+import { useSearchStore } from "@/stores/search-store";
+import type { Image } from "@/types/image";
+import { buildTypeaheadFields } from "@/lib/typeahead-fields";
 
 // ---------------------------------------------------------------------------
 // Minimal fetch-response factory helpers
@@ -89,6 +92,205 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("KUP-005 result-scoped AI transport", () => {
+  const originalState = useSearchStore.getState();
+  const field = "metadata.credit";
+  const stale = { buckets: [{ key: "outside-membership", count: 99 }], total: 99 };
+  const hits = ["img-1", "img-0"].map((id) => ({
+    id, uploadTime: "2026-01-01T00:00:00Z", _score: 1,
+  }) as unknown as Image);
+
+  beforeEach(() => {
+    useSearchStore.setState({
+      ...originalState,
+      dataSource: ds,
+      params: { aiQuery: "synthetic membership", nonFree: "true", until: "2026-02-01T00:00:00Z" },
+      results: [], total: 0, pitId: null, loading: false,
+      aggregations: { fields: { [field]: stale } },
+      dynamicFacetBuckets: { "metadata.city": stale.buckets },
+      expandedAggs: {}, expandedAggsLoading: new Set(),
+      tickerCounts: { synthetic: { value: 99, subCounts: { stale: 99 } } },
+      isFilterCounts: { deleted: 99 }, usageFilterCounts: { digital: 99 },
+      _aggCacheKey: null, aggCircuitOpen: false,
+    }, true);
+    vi.mocked(global.fetch).mockImplementation(async (_input, options) => {
+      const body = JSON.parse(options?.body as string);
+      return okResponse({
+        hits: { total: { value: 99 }, hits: [] },
+        aggregations: Object.fromEntries(Object.keys(body.aggs ?? {}).map((key) => [key, {
+          doc_count: 99, buckets: [{ key: "outside-membership", doc_count: 99 }],
+        }])),
+      });
+    });
+  });
+
+  afterEach(() => useSearchStore.setState(originalState, true));
+
+  it("empty AI completion publishes no pool ticker counts and issues no count transport", async () => {
+    vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+    await useSearchStore.getState().search();
+    await Promise.resolve();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(useSearchStore.getState()).toMatchObject({ total: 0, tickerCounts: {}, loading: false });
+    expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+    expect(useSearchStore.getState().dynamicFacetBuckets).toEqual({});
+    expect(useSearchStore.getState().isFilterCounts).toEqual({});
+    expect(useSearchStore.getState().usageFilterCounts).toEqual({});
+    expect(useSearchStore.getState().tickerCounts).toEqual({});
+  });
+
+  it.each(["immediate", "force"] as const)("known-empty %s facets clear stale data without static or dynamic transport", async (mode) => {
+    useSearchStore.setState({ params: { ...useSearchStore.getState().params, query: 'has:"metadata.city"' } });
+    await useSearchStore.getState().fetchAggregations(mode);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+    expect(useSearchStore.getState().dynamicFacetBuckets).toEqual({});
+    expect(useSearchStore.getState().isFilterCounts).toEqual({});
+    expect(useSearchStore.getState().usageFilterCounts).toEqual({});
+    expect(useSearchStore.getState().aggLoading).toBe(false);
+  });
+
+  it("clears known-empty facets even when the network circuit is open", async () => {
+    useSearchStore.setState({ aggCircuitOpen: true });
+    await useSearchStore.getState().fetchAggregations("immediate");
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+    expect(useSearchStore.getState().isFilterCounts).toEqual({});
+  });
+
+  it("known-empty expanded facets cannot request or publish unrestricted buckets", async () => {
+    await useSearchStore.getState().fetchExpandedAgg(field);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().expandedAggs[field]).toEqual({ buckets: [], total: 0 });
+    expect(useSearchStore.getState().expandedAggsLoading.size).toBe(0);
+  });
+
+  it("preserves membership through count, ordinary and expanded transports and reuses sorted-set cache", async () => {
+    vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits, total: hits.length, sortValues: [] });
+    await useSearchStore.getState().search();
+    await useSearchStore.getState().fetchAggregations("immediate");
+    await useSearchStore.getState().fetchExpandedAgg(field);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+    for (const [, options] of vi.mocked(global.fetch).mock.calls) {
+      const body = JSON.parse(options?.body as string);
+      expect(JSON.stringify(body.query)).toContain('"img-0","img-1"');
+    }
+    useSearchStore.setState({ results: [...useSearchStore.getState().results].reverse() });
+    await useSearchStore.getState().fetchAggregations("immediate");
+    await useSearchStore.getState().fetchExpandedAgg(field);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("transitions nonempty to empty to non-AI without reusing stale scope or redefining ordinary empty ids", async () => {
+    const ai = vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits, total: hits.length, sortValues: [] });
+    await useSearchStore.getState().search();
+    await useSearchStore.getState().fetchAggregations("immediate");
+    expect(useSearchStore.getState().aggregations?.fields[field]).toEqual(stale);
+    const priorCalls = vi.mocked(global.fetch).mock.calls.length;
+    ai.mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+    await useSearchStore.getState().search();
+    await useSearchStore.getState().fetchAggregations("immediate");
+    expect(global.fetch).toHaveBeenCalledTimes(priorCalls);
+    expect(useSearchStore.getState().tickerCounts).toEqual({});
+    expect(useSearchStore.getState().aggregations?.fields).toEqual({});
+    useSearchStore.getState().setParams({ aiQuery: undefined, ids: "" });
+    await useSearchStore.getState().fetchAggregations("immediate");
+    await useSearchStore.getState().fetchExpandedAgg(field);
+    expect(global.fetch).toHaveBeenCalledTimes(priorCalls + 2);
+    expect(useSearchStore.getState().aggregations?.fields[field]).toEqual(stale);
+    expect(useSearchStore.getState().expandedAggs[field]).toEqual(stale);
+    const lastBody = JSON.parse(vi.mocked(global.fetch).mock.calls.at(-1)?.[1]?.body as string);
+    expect(JSON.stringify(lastBody.query)).not.toContain('"img-0"');
+  });
+
+  it("empty to nonempty membership resumes bounded counts and facets", async () => {
+    const ai = vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+    await useSearchStore.getState().search();
+    await useSearchStore.getState().fetchAggregations("immediate");
+    expect(global.fetch).not.toHaveBeenCalled();
+    ai.mockResolvedValue({ hits, total: 2, sortValues: [] });
+    await useSearchStore.getState().search();
+    await useSearchStore.getState().fetchAggregations("immediate");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(useSearchStore.getState().aggregations?.fields[field]).toEqual(stale);
+    expect(useSearchStore.getState().tickerCounts?.["GNM-owned"].value).toBe(99);
+  });
+
+  it("a late previous membership count cannot overwrite the empty completion", async () => {
+    let release!: (response: Response) => void;
+    const pending = new Promise<Response>((resolve) => { release = resolve; });
+    vi.mocked(global.fetch).mockReturnValueOnce(pending);
+    const counts = vi.spyOn(ds, "countWithTickers");
+    const ai = vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits, total: 2, sortValues: [] });
+    await useSearchStore.getState().search();
+    const oldCount = counts.mock.results[0].value;
+    ai.mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+    await useSearchStore.getState().search();
+    release(okResponse({ hits: { total: { value: 99 } }, aggregations: { "GNM-owned": { doc_count: 99 } } }));
+    await oldCount;
+    expect(counts).toHaveBeenCalledTimes(1);
+    expect(useSearchStore.getState().tickerCounts).toEqual({});
+  });
+
+  it("a forced facet request started during pending AI cannot overwrite empty completion", async () => {
+    let releaseAi!: (value: { hits: Image[]; total: number; sortValues: [] }) => void;
+    const pendingAi = new Promise<{ hits: Image[]; total: number; sortValues: [] }>((resolve) => { releaseAi = resolve; });
+    let releaseFacets!: (value: Response) => void;
+    const pendingFacets = new Promise<Response>((resolve) => { releaseFacets = resolve; });
+    vi.spyOn(ds, "searchByAi").mockReturnValueOnce(pendingAi);
+    vi.mocked(global.fetch).mockReturnValue(pendingFacets);
+    useSearchStore.setState({
+      results: hits, total: hits.length, aggCircuitOpen: true,
+      params: { ...useSearchStore.getState().params, query: 'has:"metadata.city"' },
+    });
+    const search = useSearchStore.getState().search();
+    const refresh = useSearchStore.getState().fetchAggregations("force");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    releaseAi({ hits: [], total: 0, sortValues: [] });
+    await search;
+    expect(useSearchStore.getState().aggregations?.fields).toEqual({});
+    releaseFacets(okResponse({
+      hits: { total: { value: 99 } },
+      aggregations: {
+        [field]: { buckets: [{ key: "stale-credit", doc_count: 99 }] },
+        "metadata.city": { buckets: [{ key: "stale-city", doc_count: 99 }] },
+        deleted: { doc_count: 99 },
+      },
+    }));
+    await refresh;
+    expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+    expect(useSearchStore.getState().dynamicFacetBuckets).toEqual({});
+    expect(useSearchStore.getState().tickerCounts).toEqual({});
+    expect(useSearchStore.getState().isFilterCounts).toEqual({});
+    expect(useSearchStore.getState().usageFilterCounts).toEqual({});
+    expect(useSearchStore.getState().aggLoading).toBe(false);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("non-AI search retains its ordinary count transport", async () => {
+    useSearchStore.getState().setParams({ aiQuery: undefined });
+    vi.spyOn(ds, "openPit").mockResolvedValue("synthetic-pit");
+    vi.spyOn(ds, "searchAfter").mockResolvedValue({ hits, total: 2, sortValues: [] });
+    await useSearchStore.getState().search();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(useSearchStore.getState().tickerCounts?.["GNM-owned"].value).toBe(99);
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(JSON.stringify(body.query)).not.toContain('"img-0"');
+  });
+
+  it("exploratory credit suggestions keep querying beyond known-empty AI membership", async () => {
+    useSearchStore.getState().setParams({ query: "credit:current" });
+    const definitions = buildTypeaheadFields(ds, () => null, () => useSearchStore.getState().params);
+    const credit = definitions.find((definition) => definition.fieldName === "credit");
+    if (typeof credit?.resolver !== "function") throw new Error("Expected credit resolver");
+    const suggestions = await credit.resolver("");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(suggestions).toEqual([{ value: "outside-membership", count: 99 }]);
+    const body = JSON.parse(vi.mocked(global.fetch).mock.calls[0][1]?.body as string);
+    expect(JSON.stringify(body.query)).not.toContain("current");
+  });
 });
 
 describe.each([

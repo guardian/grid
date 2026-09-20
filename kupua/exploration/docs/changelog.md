@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Keep known-empty AI membership empty
+
+  Aggregation decoration now represents known-empty AI membership explicitly. The
+  store publishes empty ticker counts and static, dynamic and expanded facets without
+  querying the underlying pool. Empty completion also cancels forced aggregation work
+  started while the AI request was pending, preventing stale buckets from returning.
+  Nonempty membership keys remain stable across local sorts; ordinary empty IDs and
+  exploratory self-excluding suggestions keep their existing meaning.
+
   ### 20 September 2026 - Bind standalone detail to the requested image
 
   Standalone image data, absence and delayed loading are keyed to the requested ID

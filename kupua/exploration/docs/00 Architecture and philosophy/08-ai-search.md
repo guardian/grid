@@ -374,9 +374,10 @@ exports a single helper:
 export function decorateParamsForAggregations(
   params: SearchParams,
   resultIds: readonly string[],
-): SearchParams {
+): SearchParams | null {
   if (!params.aiQuery) return params;
-  return { ...params, ids: resultIds.join(",") };
+   if (resultIds.length === 0) return null;
+   return { ...params, ids: [...resultIds].sort().join(",") };
 }
 ```
 
@@ -384,7 +385,10 @@ The decorator is a no-op when `aiQuery` isn't set. When it is, it sets
 `params.ids`, which `buildQuery` already translates into a
 `{ terms: { id: [...] } }` clause — a mechanism that existed for
 collection-scoped searches and other "give me exactly these IDs" cases.
-ES then aggregates over exactly those documents.
+ES then aggregates over exactly those documents. Sorting IDs keeps the membership
+cache key stable across in-memory reorder. `null` means a known-empty AI result set,
+not absent membership: callers publish empty data without invoking the DAL. Ordinary
+empty `ids` parameters retain their existing meaning.
 
 ### 6.2 Where it is wired
 
@@ -392,12 +396,13 @@ Three callsites in the store
 ([`search-store.ts`](../../src/stores/search-store.ts)) decorate before
 calling the DAL:
 
-- The AI branch fires `countWithTickers(decorated)` after results land,
-  asynchronously, so tickers refresh once.
-- `fetchAggregations` decorates its `callParams` before
-  `getAggregations` + `getFilterAggregations`.
+- The AI branch fires `countWithTickers(decorated)` after nonempty results land,
+   asynchronously, so tickers refresh once. Empty completion publishes empty ticker
+   and facet data and cancels forced base work started while AI was pending.
+- `fetchAggregations` decorates its `callParams` before static/named-filter/usage
+   aggregations and isolated dynamic fields; known-empty scope clears them locally.
 - `fetchExpandedAgg` decorates before fetching the larger top-N for an
-  individual aggregation.
+   individual aggregation, or publishes an empty field result without a request.
 
 Every other caller of an aggregation method on the DAL is either
 already-correct for AI (e.g. typeahead, which is intentionally

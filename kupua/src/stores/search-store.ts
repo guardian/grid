@@ -663,7 +663,8 @@ let _positionMapAbortController: AbortController | null = null;
  * Only includes fields that change what documents match — not pagination
  * or display params. This way, scrolling doesn't invalidate the agg cache.
  */
-function aggCacheKey(params: SearchParams): string {
+function aggCacheKey(params: SearchParams | null): string {
+  if (params === null) return "empty-ai-membership";
   const { query, aiQuery, useAISearch, vecWeight, nonFree, payType,
     since, until, dateField, takenSince, takenUntil,
     modifiedSince, modifiedUntil, uploadedBy, ids, hasCrops,
@@ -676,11 +677,26 @@ function aggCacheKey(params: SearchParams): string {
   });
 }
 
-function aggregationParams(get: () => SearchState): SearchParams {
+function aggregationParams(get: () => SearchState): SearchParams | null {
   return decorateParamsForAggregations(
     frozenParams(get().params, get),
     get().results.map((image) => image?.id).filter(Boolean) as string[],
   );
+}
+
+function emptyAggregationState(): Partial<SearchState> {
+  return {
+    aggregations: { fields: {}, filters: {}, usageFilters: {} },
+    dynamicFacetBuckets: {},
+    expandedAggs: {},
+    expandedAggsLoading: new Set(),
+    isFilterCounts: {},
+    usageFilterCounts: {},
+    aggLoading: false,
+    aggTook: null,
+    aggFetchDuration: null,
+    _aggCacheKey: aggCacheKey(null),
+  };
 }
 
 function cancelAggregationFetch(): number {
@@ -2184,8 +2200,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           ? aiHits.some((img) => img.id === sortAroundFocusId)
           : false;
 
+        if (aiHits.length === 0) cancelAggregationFetch();
         set({
           results: aiHits,
+          ...(aiHits.length === 0 ? emptyAggregationState() : {}),
           bufferOffset: 0,
           _bufferSelfCorrecting: false,
           total: aiHits.length, // KEY invariant: total === buffer size → no pagination
@@ -2229,10 +2247,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           params,
           aiHits.map((h) => h.id),
         );
-        dataSource.countWithTickers(decorated).then((result) => {
-          if (_searchGeneration !== myGeneration) return;
-          set({ tickerCounts: result.tickerCounts, tickersLastUpdated: new Date().toISOString() });
-        }).catch(() => { /* AbortError or network — tickers are non-critical */ });
+        if (decorated) {
+          dataSource.countWithTickers(decorated).then((result) => {
+            if (_searchGeneration !== myGeneration) return;
+            set({ tickerCounts: result.tickerCounts, tickersLastUpdated: new Date().toISOString() });
+          }).catch(() => { /* AbortError or network — tickers are non-critical */ });
+        } else {
+          set({ tickerCounts: {}, tickersLastUpdated: now });
+        }
 
         // Do NOT start new-images poll — AI results are ranked by relevance;
         // new uploads don't change the semantic ranking.
@@ -4006,9 +4028,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     let callParams = aggregationParams(get);
     let key = aggCacheKey(callParams);
     if (!force && key === get()._aggCacheKey) return;
-    if (!force && get().aggCircuitOpen) return;
+    if (callParams !== null && !force && get().aggCircuitOpen) return;
 
-    if (mode === "debounced") {
+    if (mode === "debounced" && callParams !== null) {
       const shouldRun = await new Promise<boolean>((resolve) => {
         _aggDebouncedResolve = resolve;
         _aggDebounceTimer = setTimeout(() => {
@@ -4025,6 +4047,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // Recompute after debounce — params/results may have changed while waiting.
     callParams = aggregationParams(get);
     key = aggCacheKey(callParams);
+    if (callParams === null) {
+      set(emptyAggregationState());
+      return;
+    }
     if (!force && key === get()._aggCacheKey) return;
     if (!force && get().aggCircuitOpen) return;
 
@@ -4123,14 +4149,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({ expandedAggsLoading: new Set([...expandedAggsLoading, field]) });
 
     try {
-      const result = await dataSource.getAggregations(
-        decorateParamsForAggregations(
-          frozenParams(get().params, get),
-          get().results.map((img) => img?.id).filter(Boolean) as string[],
-        ),
-        [{ field, size: AGG_EXPANDED_SIZE }],
-        signal,
-      );
+      const params = aggregationParams(get);
+      const result = params === null
+        ? { fields: { [field]: { buckets: [], total: 0 } } }
+        : await dataSource.getAggregations(params, [{ field, size: AGG_EXPANDED_SIZE }], signal);
 
       const fieldResult = result.fields[field];
       if (fieldResult) {
