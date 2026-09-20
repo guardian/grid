@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Bind standalone detail to the requested image
+
+  Standalone image data, absence and delayed loading are keyed to the requested ID
+  before rendering, so loaded A cannot appear under pending or absent B. Resident
+  results still take precedence and obsolete callbacks remain cancelled. The detail
+  shell stays mounted across identity changes, retaining its fullscreen container
+  and Back navigation instead of remounting the experience. Media fallback is unchanged.
+
   ### 20 September 2026 - Restore the selected image in coherent coordinates
 
   Cursor restore now chooses global versus local coordinates from the retained

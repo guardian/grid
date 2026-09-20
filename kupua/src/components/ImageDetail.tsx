@@ -239,30 +239,30 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // (e.g. direct URL navigation, bookmark, /images/:id redirect),
   // fetch it by ID from ES directly.  This eliminates the "Image not
   // found" dead end — if the image exists in the index, we show it.
-  const [standaloneImage, setStandaloneImage] = useState<Image | null>(null);
-  const [standaloneFetchFailed, setStandaloneFetchFailed] = useState(false);
+  const [standalone, setStandalone] = useState<{
+    imageId: string;
+    image: Image | null;
+    failed: boolean;
+  } | null>(null);
+  const standaloneImage = standalone?.imageId === imageId ? standalone.image : null;
+  const standaloneFetchFailed = standalone?.imageId === imageId && standalone.failed;
 
   useEffect(() => {
     // If the image is already in search results, no need to fetch
     if (imageFromResults) {
-      setStandaloneImage(null);
-      setStandaloneFetchFailed(false);
+      setStandalone(null);
       return;
     }
     // Fetch by ID
     let cancelled = false;
-    setStandaloneFetchFailed(false);
+    setStandalone({ imageId, image: null, failed: false });
     dataSource.getById(imageId).then(
       (img) => {
         if (cancelled) return;
-        if (img) {
-          setStandaloneImage(img);
-        } else {
-          setStandaloneFetchFailed(true);
-        }
+        setStandalone({ imageId, image: img ?? null, failed: !img });
       },
       () => {
-        if (!cancelled) setStandaloneFetchFailed(true);
+        if (!cancelled) setStandalone({ imageId, image: null, failed: true });
       },
     );
     return () => { cancelled = true; };
@@ -630,53 +630,18 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
   // (tab reload, cached ES responses).  Only appears after 500ms of waiting.
-  const [showLoading, setShowLoading] = useState(false);
+  const [loadingImageId, setLoadingImageId] = useState<string | null>(null);
   useEffect(() => {
-    if (image) { setShowLoading(false); return; }
-    const timer = setTimeout(() => setShowLoading(true), 500);
+    setLoadingImageId(null);
+    if (image) return;
+    const timer = setTimeout(() => setLoadingImageId(imageId), 500);
     return () => clearTimeout(timer);
-  }, [image]);
+  }, [imageId, image]);
 
-  // Loading / not-found states.
-  // When image is null: either still fetching (standalone) or truly absent.
-  if (!image) {
-    // Standalone fetch in progress — show loading after a delay, or
-    // nothing at all if ES responds quickly (avoids flash).
-    if (!imageFromResults && !standaloneFetchFailed) {
-      if (!showLoading) return <div className="flex-1" />;
-      return (
-        <div className="flex-1 flex items-center justify-center text-grid-text-muted">
-          <p className="text-sm animate-pulse">Loading image…</p>
-        </div>
-      );
-    }
-    // Standalone fetch failed — image doesn't exist in the index
-    if (standaloneFetchFailed) {
-      return (
-        <div className="flex-1 flex items-center justify-center text-grid-text-muted">
-          <div className="text-center">
-            <p className="text-lg mb-2">Image not found</p>
-            <p className="text-sm mb-4">
-              This image does not exist in the index.
-            </p>
-            <button
-              onClick={closeDetail}
-              className="text-grid-accent hover:underline text-sm cursor-pointer"
-            >
-              ← Back to search
-            </button>
-          </div>
-        </div>
-      );
-    }
-  }
-
-  // At this point `image` is guaranteed non-null (either from results
-  // or standalone fetch).  The `!` assertions below are safe.
-  const displayImage = image!;
+  const displayImage = image;
 
   return (
-    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage.id}>
+    <div ref={detailWrapperRef} className="flex flex-col flex-1 min-h-0 bg-grid-bg" data-detail-image-id={displayImage?.id}>
       {/* Top bar — hidden in fullscreen */}
       {!isFullscreen && (
         <header className="flex items-center px-3 py-1.5 bg-grid-bg border-b border-grid-separator h-11 shrink-0">
@@ -794,7 +759,15 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
             {/* Current image — full-res via imageUrl */}
             <div className="absolute inset-0 flex items-center justify-center">
-              {imageUrl ? (
+              {!displayImage ? (
+                <div className="text-grid-text-muted text-center">
+                  {standaloneFetchFailed ? (
+                    <p className="text-lg">Image not found</p>
+                  ) : loadingImageId === imageId ? (
+                    <p className="text-sm animate-pulse">Loading image…</p>
+                  ) : null}
+                </div>
+              ) : imageUrl ? (
                 <StableImg
                   imgRef={imageRef}
                   src={imageUrl}
@@ -875,7 +848,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         {/* Metadata — hidden in fullscreen.
             Desktop: fixed-width right column, scrolls independently.
             Mobile: flows below the image in the single scroll container. */}
-        {!isFullscreen && (
+        {!isFullscreen && displayImage && (
           <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip">
             <AccordionSection sectionId="detail-metadata" title="Details">
               <div className="p-3">
