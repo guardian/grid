@@ -17,6 +17,28 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Restore the selected image in coherent coordinates
+
+  Cursor restore now chooses global versus local coordinates from the retained
+  session total, independently of continuation totals and position-map readiness.
+  Its scroll target and explicit-focus offset name the image's actual inserted
+  ordinal. This coordinate correction adds no requests and leaves alignment,
+  density geometry and small-result filling unchanged.
+
+  Saved-tuple rank and target lookup still start together. Restore compares the
+  complete returned tuple, including suffixes and nulls, and makes one extra rank
+  request only when it changed. Rank and both parallel neighbour pages then use
+  the same tuple, with one final landing. Obsolete speculative failures are inert;
+  superseded work cannot publish or recover over a newer search or restore.
+
+  The operator accepted the conditional request's observed trade-off for correct
+  placement: four direct-TEST samples per case measured changed-path median
+  completion at 530.5 ms before and 598.2 ms after, about 68 ms higher. The unchanged
+  path retained four primary calls; changed tuples now take five. These are not
+  fixed latency costs: ranges overlap, backend caches were uncontrolled, corpus
+  membership drifted and media was served locally. No broader performance concession
+  or geometry optimization follows. [Measurement details and limits](bug-reproduction-evidence.md#restore-repair-kup-024-and-kup-025).
+
   ### 20 September 2026 - Bind range results and busy state to current intent
 
   Pending selection ranges now cancel on membership/anchor intent, query/order change,

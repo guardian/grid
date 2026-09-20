@@ -86,6 +86,63 @@ beforeEach(() => {
 });
 
 describe("PIT expiry recovery", () => {
+  it.each(["forward", "backward", "both"].flatMap(expired => [false, true].map(siblingFails => ({ expired, siblingFails }))))(
+    "keeps corrected restore PIT null after $expired expiry (siblingFails=$siblingFails)",
+    async ({ expired, siblingFails }) => {
+      await actions().search();
+      const originalPage = mock.searchAfter.bind(mock);
+      const target = await originalPage({ ...state().params, ids: "img-5000", length: 1 }, null);
+      const effective = target.sortValues[0];
+      const saved = [Number(effective[0]) + 1_000, ...effective.slice(1)];
+      const ranks = vi.spyOn(mock, "countBefore").mockImplementation(async (_params, tuple) => tuple[0] === saved[0] ? 4_200 : 5_000);
+      const forward = deferredPage();
+      const backward = deferredPage();
+      let signalPagesStarted!: () => void;
+      const pagesStarted = new Promise<void>(resolve => { signalPagesStarted = resolve; });
+      let pageCount = 0;
+      const pages = vi.spyOn(mock, "searchAfter").mockImplementation((...args) => {
+        if (!args[1]) return originalPage(...args);
+        if (++pageCount === 2) signalPagesStarted();
+        return args[4] ? backward.promise : forward.promise;
+      });
+      const seek = state().seek;
+      const recovery = vi.fn<typeof seek>().mockResolvedValue();
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+      useSearchStore.setState({ seek: recovery });
+      const operation = actions().restoreAroundCursor("img-5000", saved, 123, true);
+      try {
+        await pagesStarted;
+        expect(ranks.mock.calls.map(call => call[1])).toEqual([saved, effective]);
+        expect(pages.mock.calls.slice(1).map(call => call[1])).toEqual([effective, effective]);
+        expect(pages.mock.calls.slice(1).map(call => call[2])).toEqual(["mock-pit-id", "mock-pit-id"]);
+        const forwardResult = await originalPage(...pages.mock.calls[1]);
+        const backwardResult = await originalPage(...pages.mock.calls[2]);
+        const first = expired === "backward" ? backward : forward;
+        const last = expired === "backward" ? forward : backward;
+        first.resolve({ ...(expired === "backward" ? backwardResult : forwardResult), pitId: null });
+        for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+        expect(state().pitId).toBeNull();
+        if (siblingFails) last.reject(new Error("late sibling failure"));
+        else last.resolve({ ...(expired === "backward" ? forwardResult : backwardResult), pitId: expired === "both" ? null : "mock-pit-id" });
+        await operation;
+        expect(state().pitId).toBeNull();
+        expect(ranks).toHaveBeenCalledTimes(2);
+        expect(pages).toHaveBeenCalledTimes(3);
+        expect(recovery).toHaveBeenCalledTimes(siblingFails ? 1 : 0);
+        if (!siblingFails) {
+          expect(state().imagePositions.get("img-5000")).toBe(5_000);
+          expect(state().results[state()._seekTargetLocalIndex]?.id).toBe("img-5000");
+        }
+      } finally {
+        forward.resolve({ hits: [], sortValues: [], total: 0, took: 0, pitId: null });
+        backward.resolve({ hits: [], sortValues: [], total: 0, took: 0, pitId: null });
+        await operation;
+        useSearchStore.setState({ seek });
+        warning.mockRestore();
+      }
+    },
+  );
+
   it("does not resurrect a PIT when focus waits for rank after its pages arrive", async () => {
     mock = new MockDataSource(70_000);
     resetStore(mock);

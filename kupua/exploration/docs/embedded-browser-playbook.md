@@ -1099,6 +1099,18 @@ to `countBefore` gives `400 failed to parse date field … with format [epoch_mi
 while `searchAfter` swallows it happily. If you are probing a sort-value cursor by
 hand, `Math.round()` it first or you will misattribute the 400 to your query shape.
 
+**[V] Bounded restore timing, 20 September 2026:** the opt-in `Restore diagnostic:`
+cases in `e2e-perf/perceived-short.spec.ts` invoke `restoreAroundCursor` explicitly,
+using real direct-TEST rank/lookup/neighbour reads and a deliberately stale saved
+tuple without changing server metadata. Media routes are fulfilled locally before
+navigation; this measures data/layout settlement, not real thumbnail delivery.
+Only aggregate counts, timings, ordinals and booleans leave the page. Method wrappers
+and subscriptions are restored in `finally`, and Playwright closes its own contexts.
+The same cutoff did not freeze corpus membership: five records disappeared between
+the before/after runs. PP11 Back and P13 detail controls are separate evidence, not
+proof that the restore function ran. The runner's default RTT probe hit local 9220,
+so it must not be interpreted as TEST backend latency.
+
 **[V] Prove the behavior at its owning layer, then check the visible consequence.**
 A bounded DAL call can isolate a wrong count or cursor without virtualizer noise.
 It cannot prove that a panel reacts to cache completion, a history entry has the

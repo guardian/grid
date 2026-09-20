@@ -15,11 +15,13 @@
  * - Sort-around-focus hanging forever
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { useEnrichmentStore } from "./enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
+import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
+import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import type { SortDistribution } from "@/dal/types";
 import type {
   SearchParams,
@@ -28,6 +30,7 @@ import type {
   FilterAggRequest,
   UsageFilterAggRequest,
   SearchAfterResult,
+  SortValues,
 } from "@/dal";
 
 // ---------------------------------------------------------------------------
@@ -2422,6 +2425,105 @@ describe("seekToFocused (arrow snap-back)", () => {
 // ---------------------------------------------------------------------------
 
 describe("restoreAroundCursor", () => {
+  it.each([0, 2, 9_999].flatMap(ordinal => [3, 4, 7].map(columns => ({ ordinal, columns }))))(
+    "preserves edge target $ordinal and tuple alignment with $columns columns",
+    async ({ ordinal, columns }) => {
+      const geometry = getScrollGeometry();
+      registerScrollGeometry({ ...geometry, columns });
+      try {
+        await actions().search();
+        const targetId = `img-${ordinal}`;
+        const target = await mock.searchAfter({ ...state().params, ids: targetId, length: 1 }, null);
+        const pages = vi.spyOn(mock, "searchAfter");
+        await actions().restoreAroundCursor(targetId, target.sortValues[0], 123, true);
+        const restored = state();
+        expect(pages).toHaveBeenCalledTimes(3);
+        expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe(targetId);
+        expect(restored.bufferOffset % columns).toBe(0);
+        expect(restored._seekTargetLocalIndex % columns).toBe(ordinal % columns);
+        expect(restored._seekTargetGlobalIndex).toBe(ordinal);
+        expect(restored._focusedImageKnownOffset).toBe(ordinal);
+        expect(restored.bufferOffset + restored._seekTargetLocalIndex).toBe(ordinal);
+        const searchKey = buildSearchKey(restored.params);
+        expect(getRetainedSortValues(targetId, searchKey)).toEqual(target.sortValues[0]);
+        expect(getRetainedSortValues(restored.results[0]!.id, searchKey)).toEqual(restored.startCursor);
+        expect(getRetainedSortValues(restored.results.at(-1)!.id, searchKey)).toEqual(restored.endCursor);
+        assertPositionsConsistent("restore edge alignment");
+      } finally {
+        registerScrollGeometry(geometry);
+      }
+    },
+  );
+
+  it.each([
+    { total: 30_000, pageTotal: 0, mapReady: false },
+    { total: 30_000, pageTotal: 0, mapReady: true },
+    { total: 30_000, pageTotal: 75, mapReady: false },
+    { total: 30_000, pageTotal: 75, mapReady: true },
+    { total: 30_000, pageTotal: 70_000, mapReady: false },
+    { total: 70_000, pageTotal: 0, mapReady: false },
+    { total: 70_000, pageTotal: 75, mapReady: true },
+    { total: 70_000, pageTotal: 30_000, mapReady: false },
+    { total: 700, pageTotal: 0, mapReady: false },
+    { total: 700, pageTotal: 75, mapReady: true },
+    { total: 700, pageTotal: 30_000, mapReady: false },
+  ])("KUP-024 uses retained $total with page total $pageTotal and map=$mapReady", async ({ total, pageTotal, mapReady }) => {
+    mock = new MockDataSource(total === 700 ? 700 : 10_000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    const ordinal = total === 700 ? 350 : 4_200;
+    const targetId = `img-${ordinal}`;
+    const target = await mock.searchAfter({ ...state().params, ids: targetId, length: 1 }, null, null);
+    const cursor = target.sortValues[0];
+    const originalPage = mock.searchAfter.bind(mock);
+    const pages = vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await originalPage(...args);
+      return args[1] ? { ...result, total: pageTotal } : result;
+    });
+    const ranks = vi.spyOn(mock, "countBefore");
+    const { extendForward, extendBackward } = state();
+    const forwardFill = vi.spyOn(state(), "extendForward").mockResolvedValue();
+    const backwardFill = vi.spyOn(state(), "extendBackward").mockResolvedValue();
+    useSearchStore.setState({
+      total,
+      positionMap: mapReady ? { length: 1, ids: [targetId], sortValues: [cursor] } : null,
+    });
+    try {
+      await actions().restoreAroundCursor(targetId, cursor, 123, true);
+      const restored = state();
+      expect(restored.total).toBe(total);
+      expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe(targetId);
+      expect(restored.bufferOffset + restored._seekTargetLocalIndex).toBe(ordinal);
+      expect(restored.imagePositions.get(targetId)).toBe(ordinal);
+      expect(restored._focusedImageKnownOffset).toBe(ordinal);
+      expect(restored._seekTargetGlobalIndex).toBe(total === 30_000 ? ordinal : -1);
+      expect(ranks).toHaveBeenCalledTimes(1);
+      expect(pages).toHaveBeenCalledTimes(3);
+      assertPositionsConsistent("KUP-024 retained total");
+    } finally {
+      forwardFill.mockRestore();
+      backwardFill.mockRestore();
+      useSearchStore.setState({ extendForward, extendBackward });
+    }
+  });
+
+  it("KUP-024 names the inserted target when the helper clamps its origin", async () => {
+    await actions().search();
+    const target = await mock.searchAfter({ ...state().params, ids: "img-500", length: 1 }, null, null);
+    vi.spyOn(mock, "countBefore").mockResolvedValue(5);
+    useSearchStore.setState({ total: 30_000, positionMap: null });
+
+    await actions().restoreAroundCursor("img-500", target.sortValues[0], 999, true);
+
+    const restored = state();
+    const actualOrdinal = restored.bufferOffset + restored._seekTargetLocalIndex;
+    expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe("img-500");
+    expect(actualOrdinal).toBe(100);
+    expect(restored._seekTargetGlobalIndex).toBe(actualOrdinal);
+    expect(restored._focusedImageKnownOffset).toBe(actualOrdinal);
+    expect(restored.imagePositions.get("img-500")).toBe(actualOrdinal);
+  });
+
   it.each([
     "-usagesDateAdded",
     "usagesDateAdded",
@@ -2437,6 +2539,11 @@ describe("restoreAroundCursor", () => {
     const countBeforeSpy = vi
       .spyOn(mock, "countBefore")
       .mockResolvedValue(500);
+    const originalPage = mock.searchAfter.bind(mock);
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await originalPage(...args);
+      return args[0].ids === "img-500" ? { ...result, sortValues: [specialCursor] } : result;
+    });
     useSearchStore.setState({
       dataSource: mock,
       params: { orderBy, offset: 0, length: 200 },
@@ -2450,6 +2557,7 @@ describe("restoreAroundCursor", () => {
       specialCursor,
       expect.any(AbortSignal),
     );
+    expect(countBeforeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("restores a centered buffer around a known image", async () => {
@@ -2576,6 +2684,372 @@ describe("restoreAroundCursor", () => {
 // ---------------------------------------------------------------------------
 // Tests: fetchAggregations debounce
 // ---------------------------------------------------------------------------
+
+describe("KUP-025 restore tuple ownership", () => {
+  function deferred<Value>() {
+    let resolve!: (value: Value) => void;
+    let reject!: (error: Error) => void;
+    const promise = new Promise<Value>((resolveValue, rejectValue) => {
+      resolve = resolveValue;
+      reject = rejectValue;
+    });
+    return { promise, resolve, reject };
+  }
+
+  async function drain() {
+    for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+  }
+
+  const equalTuple = (first: SortValues, second: SortValues) =>
+    first.length === second.length && first.every((value, index) => value === second[index]);
+  let originalSeek: ReturnType<typeof state>["seek"];
+  let recovery = vi.fn<ReturnType<typeof state>["seek"]>();
+  let warning: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    originalSeek = state().seek;
+    recovery = vi.fn<ReturnType<typeof state>["seek"]>().mockResolvedValue();
+    useSearchStore.setState({ seek: recovery });
+    warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    useSearchStore.setState({ seek: originalSeek });
+    warning.mockRestore();
+  });
+
+  async function fixture(
+    saved: SortValues = [1_700_000_000_000, 1_600_000_000_000, "img-6100"],
+    effective: SortValues = [...saved],
+  ) {
+    await actions().search();
+    const target = await mock.searchAfter({ ...state().params, ids: "img-6100", length: 1 }, null, null);
+    const forward = await mock.searchAfter({ ...state().params, length: 100 }, target.sortValues[0], null);
+    const backward = await mock.searchAfter({ ...state().params, length: 100 }, target.sortValues[0], null, undefined, true);
+    const targetResult: SearchAfterResult = {
+      ...target, sortValues: [[...effective]], enrichment: new Map([["img-6100", { valid: false }]]),
+    };
+    const forwardResult = { ...forward, total: 0, enrichment: new Map([[forward.hits[0].id, { valid: true }]]) };
+    const backwardResult = { ...backward, total: 75, enrichment: new Map([[backward.hits[0].id, { valid: false }]]) };
+    const savedOffset = equalTuple(saved, effective) ? 6_100 : 4_200;
+    const savedRank = deferred<number>();
+    const effectiveRank = deferred<number>();
+    const lookup = deferred<SearchAfterResult>();
+    const forwardPage = deferred<SearchAfterResult>();
+    const backwardPage = deferred<SearchAfterResult>();
+    const ranks = vi.spyOn(mock, "countBefore").mockImplementation((_params, tuple) => {
+      if (equalTuple(tuple, saved)) return savedRank.promise;
+      if (equalTuple(tuple, effective)) return effectiveRank.promise;
+      throw new Error("Unexpected rank tuple");
+    });
+    const pages = vi.spyOn(mock, "searchAfter").mockImplementation((params, tuple, _pit, _signal, reverse) => {
+      if (params.ids === "img-6100") return lookup.promise;
+      if (!tuple || !equalTuple(tuple, effective)) throw new Error("Unexpected neighbour tuple");
+      return reverse ? backwardPage.promise : forwardPage.promise;
+    });
+    useSearchStore.setState({ total: 30_000, positionMap: null, _focusedImageKnownOffset: null });
+    const searchKey = buildSearchKey(state().params);
+    const generation = state()._seekGeneration;
+    const release = () => {
+      savedRank.resolve(savedOffset);
+      effectiveRank.resolve(6_100);
+      lookup.resolve(targetResult);
+      forwardPage.resolve(forwardResult);
+      backwardPage.resolve(backwardResult);
+    };
+    return {
+      saved, effective, savedOffset, savedRank, effectiveRank, lookup, forwardPage, backwardPage,
+      targetResult, forwardResult, backwardResult, ranks, pages, searchKey, generation, release,
+    };
+  }
+
+  function assertLanding(test: Awaited<ReturnType<typeof fixture>>, rankCalls: number) {
+    const restored = state();
+    expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe("img-6100");
+    expect(restored.bufferOffset + restored._seekTargetLocalIndex).toBe(6_100);
+    expect(restored._seekTargetGlobalIndex).toBe(6_100);
+    expect(restored._focusedImageKnownOffset).toBe(6_100);
+    expect(restored._seekGeneration).toBe(test.generation + 1);
+    expect(test.ranks).toHaveBeenCalledTimes(rankCalls);
+    expect(test.pages).toHaveBeenCalledTimes(3);
+    expect(test.pages.mock.calls.slice(1).map(call => call[1])).toEqual([test.effective, test.effective]);
+    expect(test.pages.mock.calls.slice(1).map(call => !!call[4])).toEqual([false, true]);
+    const expectedTuples = new Map([
+      ...test.backwardResult.hits.map((image, index) => [image.id, test.backwardResult.sortValues[index]] as const),
+      ["img-6100", test.effective] as const,
+      ...test.forwardResult.hits.map((image, index) => [image.id, test.forwardResult.sortValues[index]] as const),
+    ]);
+    for (const image of restored.results) {
+      expect(getRetainedSortValues(image!.id, test.searchKey)).toEqual(expectedTuples.get(image!.id));
+    }
+    expect(restored.startCursor).toEqual(expectedTuples.get(restored.results[0]!.id));
+    expect(restored.endCursor).toEqual(expectedTuples.get(restored.results.at(-1)!.id));
+    expect(useEnrichmentStore.getState().data.get("img-6100")).toEqual({ valid: false });
+    expect(useEnrichmentStore.getState().data.get(test.forwardResult.hits[0].id)).toEqual({ valid: true });
+    expect(useEnrichmentStore.getState().data.get(test.backwardResult.hits[0].id)).toEqual({ valid: false });
+    expect(recovery).not.toHaveBeenCalled();
+    assertPositionsConsistent("KUP-025 selected tuple");
+  }
+
+  it.each(["lookup", "rank"] as const)("starts unchanged work concurrently with %s finishing first", async (first) => {
+    const test = await fixture();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      expect(test.ranks).toHaveBeenCalledTimes(1);
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      expect(test.pages.mock.calls[0].slice(1, 3)).toEqual([null, null]);
+      expect(test.ranks.mock.calls[0][2]).toBe(test.pages.mock.calls[0][3]);
+      if (first === "lookup") test.lookup.resolve(test.targetResult);
+      else test.savedRank.resolve(6_100);
+      await drain();
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      expect(state()._seekGeneration).toBe(test.generation);
+      test.lookup.resolve(test.targetResult);
+      test.savedRank.resolve(6_100);
+      await drain();
+      expect(test.pages).toHaveBeenCalledTimes(3);
+      test.forwardPage.resolve(test.forwardResult);
+      await drain();
+      expect(state()._seekGeneration).toBe(test.generation);
+      test.backwardPage.resolve(test.backwardResult);
+      await operation;
+      assertLanding(test, 1);
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it.each(["pending", "resolved", "reject before lookup", "reject before landing", "reject after landing"])("corrects a changed tuple with obsolete rank %s", async (obsolete) => {
+    const test = await fixture([1_700_000_000_000, 1_600_000_000_000, "img-6100"], [1_700_000_000_000, 1_500_000_000_000, "img-6100"]);
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      if (obsolete === "resolved") test.savedRank.resolve(4_200);
+      if (obsolete === "reject before lookup") test.savedRank.reject(new Error("obsolete rank"));
+      await drain();
+      expect(recovery).not.toHaveBeenCalled();
+      test.lookup.resolve(test.targetResult);
+      await drain();
+      expect(test.ranks.mock.calls.map(call => call[1])).toEqual([test.saved, test.effective]);
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      if (obsolete === "reject before landing") test.savedRank.reject(new Error("obsolete rank"));
+      test.effectiveRank.resolve(6_100);
+      await drain();
+      expect(test.pages).toHaveBeenCalledTimes(3);
+      test.forwardPage.resolve(test.forwardResult);
+      test.backwardPage.resolve(test.backwardResult);
+      await operation;
+      assertLanding(test, 2);
+      const landed = state();
+      if (obsolete === "reject after landing") test.savedRank.reject(new Error("obsolete rank"));
+      else test.savedRank.resolve(4_200);
+      await drain();
+      expect(state()).toBe(landed);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it.each([
+    { label: "equal null primary", saved: [null, 100, "img-6100"], effective: [null, 100, "img-6100"] },
+    { label: "null to value", saved: [null, 100, "img-6100"], effective: [200, 100, "img-6100"] },
+    { label: "value to null", saved: [200, 100, "img-6100"], effective: [null, 100, "img-6100"] },
+    { label: "upload suffix", saved: [200, 100, "img-6100"], effective: [200, 101, "img-6100"] },
+    { label: "id suffix", saved: [200, 100, "previous-id"], effective: [200, 100, "img-6100"] },
+    { label: "added null suffix", saved: [200, 100, "img-6100"], effective: [200, 100, "img-6100", null] },
+    { label: "removed suffix", saved: [200, 100, "img-6100", null], effective: [200, 100, "img-6100"] },
+  ].flatMap(tuple => ["-usagesDateAdded", "usagesDateAdded", "-dateAddedToCollection", "dateAddedToCollection"].map(orderBy => ({ ...tuple, orderBy }))))("compares the whole tuple: $label under $orderBy", async ({ saved, effective, orderBy }) => {
+    const test = await fixture(saved, effective);
+    useSearchStore.setState({ params: { ...state().params, orderBy } });
+    test.searchKey = buildSearchKey(state().params);
+    test.release();
+    await actions().restoreAroundCursor("img-6100", saved, 123, true);
+    assertLanding(test, equalTuple(saved, effective) ? 1 : 2);
+    expect(test.ranks.mock.calls.every(call => call[0].orderBy === orderBy)).toBe(true);
+  });
+
+  it("keeps the saved tuple fallback when the lookup omits its tuple", async () => {
+    const test = await fixture([null, 100, "img-6100"]);
+    test.targetResult.sortValues = [];
+    test.release();
+    await actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    assertLanding(test, 1);
+  });
+
+  it("keeps retained-total coordinates when the map arrives during lookup", async () => {
+    const test = await fixture();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      test.savedRank.resolve(6_100);
+      await drain();
+      useSearchStore.setState({ positionMap: { length: 1, ids: ["img-6100"], sortValues: [test.effective] } });
+      test.release();
+      await operation;
+      assertLanding(test, 1);
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it.each([3, 4, 7])("aligns a corrected target with %s columns", async (columns) => {
+    const geometry = getScrollGeometry();
+    registerScrollGeometry({ ...geometry, columns });
+    try {
+      const test = await fixture([100, "img-6100"], [200, "img-6100"]);
+      test.release();
+      await actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+      assertLanding(test, 2);
+      expect(state().bufferOffset % columns).toBe(0);
+      expect(state()._seekTargetLocalIndex % columns).toBe(6_100 % columns);
+    } finally {
+      registerScrollGeometry(geometry);
+    }
+  });
+
+  it.each([false, true])("discards superseded unchanged-rank completion (reject=%s)", async (reject) => {
+    const test = await fixture();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      test.lookup.resolve(test.targetResult);
+      await drain();
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      useSearchStore.setState({ dataSource: new MockDataSource(10_000) });
+      await actions().search(null);
+      await drain();
+      useSearchStore.setState({ loading: true });
+      const current = state();
+      if (reject) test.savedRank.reject(new Error("stale saved rank"));
+      else test.savedRank.resolve(6_100);
+      await operation;
+      expect(state()).toBe(current);
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it("finishes a missing target before saved rank settles and ignores its late rejection", async () => {
+    const test = await fixture();
+    const initial = state();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    let completed = false;
+    void operation.then(() => { completed = true; });
+    try {
+      test.lookup.resolve({ ...test.targetResult, hits: [], sortValues: [] });
+      await drain();
+      expect(completed).toBe(true);
+      expect(state().loading).toBe(false);
+      expect(state().results).toBe(initial.results);
+      expect(state().total).toBe(initial.total);
+      expect(state()._seekGeneration).toBe(test.generation);
+      expect(test.pages).toHaveBeenCalledTimes(1);
+      expect(getRetainedSortValues("img-6100", test.searchKey)).toBeNull();
+      const missingState = state();
+      const warningsBefore = warning.mock.calls.length;
+      test.savedRank.reject(new Error("obsolete missing-target rank"));
+      await drain();
+      expect(state()).toBe(missingState);
+      expect(warning).toHaveBeenCalledTimes(warningsBefore);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(useEnrichmentStore.getState().data.has("img-6100")).toBe(false);
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it.each(["lookup", "saved rank", "effective rank", "forward", "backward"])("preserves current recovery for selected %s failure without partial publication", async (failed) => {
+    const changed = failed === "effective rank";
+    const test = await fixture([100, "img-6100"], [changed ? 200 : 100, "img-6100"]);
+    const initial = state();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      if (failed === "lookup") test.lookup.reject(new Error("selected lookup"));
+      else test.lookup.resolve(test.targetResult);
+      if (failed === "saved rank") test.savedRank.reject(new Error("selected saved rank"));
+      else test.savedRank.resolve(test.savedOffset);
+      if (failed === "effective rank") {
+        await drain();
+        expect(test.ranks).toHaveBeenCalledTimes(2);
+        test.effectiveRank.reject(new Error("selected effective rank"));
+      }
+      if (failed === "forward") test.forwardPage.reject(new Error("selected forward page"));
+      else test.forwardPage.resolve(test.forwardResult);
+      if (failed === "backward") test.backwardPage.reject(new Error("selected backward page"));
+      else test.backwardPage.resolve(test.backwardResult);
+      await operation;
+      expect(recovery).toHaveBeenCalledExactlyOnceWith(123);
+      expect(state().results).toBe(initial.results);
+      expect(state()._seekGeneration).toBe(test.generation);
+      expect(state().focusedImageId).toBeNull();
+      expect(getRetainedSortValues("img-6100", test.searchKey)).toBeNull();
+      expect(useEnrichmentStore.getState().data.has("img-6100")).toBe(false);
+      expect(test.pages).toHaveBeenCalledTimes(failed === "forward" || failed === "backward" ? 3 : 1);
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
+  it.each(["lookup", "rank", "pages"].flatMap(boundary =>
+    ["search", "restore", "sort"].flatMap(owner => [false, true].map(reject => ({ boundary, owner, reject }))),
+  ))("ignores superseded $boundary after $owner (reject=$reject)", async ({ boundary, owner, reject }) => {
+    const test = await fixture([100, "img-6100"], [200, "img-6100"]);
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    test.savedRank.resolve(4_200);
+    try {
+      if (boundary !== "lookup") test.lookup.resolve(test.targetResult);
+      if (boundary === "pages") test.effectiveRank.resolve(6_100);
+      await drain();
+      if (boundary !== "lookup") expect(test.ranks).toHaveBeenCalledTimes(2);
+      expect(test.pages).toHaveBeenCalledTimes(boundary === "pages" ? 3 : 1);
+      const priorSignal = test.pages.mock.calls[0][3]!;
+      const nextSource = new MockDataSource(10_000);
+      useSearchStore.setState({ dataSource: nextSource });
+      if (owner === "restore") {
+        const target = await nextSource.searchAfter({ ...state().params, ids: "img-2500", length: 1 }, null);
+        await actions().restoreAroundCursor("img-2500", target.sortValues[0], 2_500, true);
+      } else {
+        if (owner === "sort") actions().setParams({ orderBy: "uploadTime" });
+        await actions().search(null);
+      }
+      await drain();
+      expect(priorSignal.aborted).toBe(true);
+      useSearchStore.setState({ loading: true });
+      const current = state();
+      const enrichment = new Map(useEnrichmentStore.getState().data);
+      const tuple = getRetainedSortValues("img-6100", test.searchKey);
+      const rankCount = test.ranks.mock.calls.length;
+      const pageCount = test.pages.mock.calls.length;
+      if (reject) {
+        const failure = new Error("late non-abort failure");
+        if (boundary === "lookup") test.lookup.reject(failure);
+        else if (boundary === "rank") test.effectiveRank.reject(failure);
+        else test.backwardPage.reject(failure);
+      }
+      test.release();
+      await operation;
+      await drain();
+      expect(state()).toEqual(current);
+      expect(useEnrichmentStore.getState().data).toEqual(enrichment);
+      expect(getRetainedSortValues("img-6100", test.searchKey)).toEqual(tuple);
+      expect(test.ranks).toHaveBeenCalledTimes(rankCount);
+      expect(test.pages).toHaveBeenCalledTimes(pageCount);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+});
 
 describe("fetchAggregations", () => {
   it("immediate skips only the debounce and still honours the circuit breaker and cache", async () => {

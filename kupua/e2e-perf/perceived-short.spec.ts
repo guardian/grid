@@ -46,6 +46,119 @@ const METRICS_FILE = resolve(__dirname, "results/.perceived-short-tmp.jsonl");
 
 const STABLE_UNTIL = process.env["PERF_STABLE_UNTIL"] ?? "";
 
+for (const changedTuple of [false, true]) {
+  test(`Restore diagnostic: ${changedTuple ? "changed" : "unchanged"} tuple`, async ({ kupua }) => {
+    test.skip(process.env.KUPUA_RESTORE_DIAGNOSTIC !== "1", "Explicit bounded diagnostic only");
+    expect(STABLE_UNTIL).toBe("2026-02-15T00:00:00.000Z");
+    const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+    await kupua.page.route(/\/(?:imgproxy|s3)\//, route => route.fulfill({ contentType: "image/png", body: pixel }));
+    await kupua.page.addInitScript(() => {
+      localStorage.setItem("kupua_perceived_perf", "0");
+    });
+    await gotoPerfSearch(kupua);
+    await kupua.page.bringToFront();
+    await kupua.page.evaluate(async () => {
+      const store = (window as any).__kupua_store__;
+      await store.getState().seek(800, "restore-diagnostic-setup");
+    });
+    await kupua.page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state && !state.loading && !state._extendForwardInFlight && !state._extendBackwardInFlight
+        && state.bufferOffset > 500 && state.results.length > 120;
+    });
+    const metrics = await kupua.page.evaluate(async (changed) => {
+      const store = (window as any).__kupua_store__;
+      const configPath = "/src/dal/es-config.ts";
+      const cachePath = "/src/lib/image-offset-cache.ts";
+      const { IS_LOCAL_ES } = await import(configPath);
+      const { buildSearchKey, getRetainedSortValues } = await import(cachePath);
+      const initial = store.getState();
+      if (IS_LOCAL_ES || initial.dataSource.constructor.name !== "ElasticsearchDataSource"
+        || initial.total <= 65_000 || initial.params.until !== "2026-02-15T00:00:00.000Z") {
+        throw new Error("Restore diagnostic requires the approved direct non-local seek-tier setup");
+      }
+      const target = initial.results[100];
+      const prior = initial.results[80];
+      const searchKey = buildSearchKey(initial.params);
+      const effectiveTuple = getRetainedSortValues(target.id, searchKey);
+      const savedTuple = changed ? getRetainedSortValues(prior.id, searchKey) : [...effectiveTuple];
+      if (!effectiveTuple || !savedTuple) throw new Error("Restore diagnostic tuples unavailable");
+      if (changed) savedTuple[savedTuple.length - 1] = target.id;
+      const source = initial.dataSource;
+      const originalRank = source.countBefore;
+      const originalPage = source.searchAfter;
+      const expectedOrdinal = await originalRank.call(source, initial.params, effectiveTuple);
+      let rankCalls = 0;
+      let lookupCalls = 0;
+      let neighbourCalls = 0;
+      let publishedOrdinal: number | null = null;
+      let landingCount = 0;
+      const rankDurations: number[] = [];
+      const started = performance.now();
+      source.countBefore = async (...args: any[]) => {
+        rankCalls++;
+        const at = performance.now();
+        try { return await originalRank.apply(source, args); }
+        finally { rankDurations.push(performance.now() - at); }
+      };
+      source.searchAfter = async (...args: any[]) => {
+        if (args[0].ids === target.id) lookupCalls++;
+        else neighbourCalls++;
+        return originalPage.apply(source, args);
+      };
+      const unsubscribe = store.subscribe((state: any, previous: any) => {
+        if (state._seekGeneration !== previous._seekGeneration) {
+          landingCount++;
+          publishedOrdinal = state.imagePositions.get(target.id) ?? null;
+        }
+      });
+      try {
+        await store.getState().restoreAroundCursor(target.id, savedTuple, expectedOrdinal, true);
+        const completionMs = performance.now() - started;
+        const primaryCalls = { rankCalls, lookupCalls, neighbourCalls };
+        let previousRect: { top: number; left: number } | null = null;
+        let visibleSettlementMs: number | null = null;
+        const deadline = performance.now() + 5_000;
+        while (performance.now() < deadline) {
+          await new Promise<void>(resolveFrame => requestAnimationFrame(() => resolveFrame()));
+          const container = document.querySelector('[aria-label="Image results grid"]');
+          const cell = container?.querySelector(`[data-image-id="${CSS.escape(target.id)}"]`);
+          const bounds = container?.getBoundingClientRect();
+          const rect = cell?.getBoundingClientRect();
+          if (!bounds || !rect || rect.bottom <= bounds.top || rect.top >= bounds.bottom) {
+            previousRect = null;
+            continue;
+          }
+          const current = { top: rect.top - bounds.top, left: rect.left - bounds.left };
+          if (previousRect && Math.abs(current.top - previousRect.top) <= 1
+            && Math.abs(current.left - previousRect.left) <= 1) {
+            visibleSettlementMs = performance.now() - started;
+            break;
+          }
+          previousRect = current;
+        }
+        return {
+          changedTuple: changed, total: initial.total, expectedOrdinal, publishedOrdinal,
+          correctOrdinal: publishedOrdinal === expectedOrdinal, landingCount,
+          completionMs, visibleSettlementMs, ...primaryCalls, rankDurations,
+          targetRetained: store.getState().results.some((image: any) => image?.id === target.id),
+          viewport: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio },
+        };
+      } finally {
+        source.countBefore = originalRank;
+        source.searchAfter = originalPage;
+        unsubscribe();
+      }
+    }, changedTuple);
+    console.log(`RESTORE_DIAGNOSTIC ${JSON.stringify(metrics)}`);
+    expect(metrics.lookupCalls).toBe(1);
+    expect(metrics.neighbourCalls).toBe(2);
+    expect(metrics.landingCount).toBe(1);
+    expect(metrics.targetRetained).toBe(true);
+    expect(metrics.visibleSettlementMs).not.toBeNull();
+  });
+}
+
 async function gotoPerfSearch(kupua: any, extraParams?: string) {
   const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   const extra = extraParams ? `&${extraParams}` : "";

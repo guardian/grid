@@ -50,6 +50,7 @@ import { devLog } from "@/lib/dev-log";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { alignBufferStart } from "@/lib/buffer-column-align";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { addToast } from "@/stores/toast-store";
 import {
   BUFFER_CAPACITY,
@@ -3860,6 +3861,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
 
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
+    const searchGeneration = _searchGeneration;
     const params = frozenParams(rawParams, get);
 
     // Abort in-flight extends and previous restores
@@ -3877,14 +3879,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Steps 1 + 2 are independent — run in parallel.
       // Step 1: countBefore for exact global offset.
       // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
-      const [exactOffset, targetResult] = await Promise.all([
-        dataSource.countBefore(params, cursor, signal),
-        dataSource.searchAfter(
-          { ...params, ids: imageId, length: 1 },
-          null, null, signal,
-        ),
-      ]);
-      if (signal.aborted) return;
+      const savedRank = dataSource.countBefore(params, cursor, signal).then(
+        (offset) => ({ ok: true as const, offset }),
+        (error: unknown) => ({ ok: false as const, error }),
+      );
+      const targetResult = await dataSource.searchAfter(
+        { ...params, ids: imageId, length: 1 },
+        null, null, signal,
+      );
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
 
       const targetHit = targetResult.hits[0];
       if (!targetHit) {
@@ -3896,6 +3899,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       // Use fresh sort values if available, fall back to cached cursor
       const targetSortValues = targetResult.sortValues[0] ?? cursor;
+      const tupleUnchanged = targetSortValues.length === cursor.length
+        && targetSortValues.every((value, index) => value === cursor[index]);
+      const selectedRank = tupleUnchanged
+        ? await savedRank
+        : { ok: true as const, offset: await dataSource.countBefore(params, targetSortValues, signal) };
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
+      if (!selectedRank.ok) throw selectedRank.error;
+      const exactOffset = selectedRank.offset;
 
       // Step 3: Load a buffer centered on the target image
       const buf = await _loadBufferAroundImage(
@@ -3903,30 +3914,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         params, effectivePitId, signal, createExpiryAwareSearchAfter(dataSource, get, set),
         targetResult.enrichment?.get(targetHit.id),
       );
-      if (!buf) return; // aborted
+      if (!buf || signal.aborted || _searchGeneration !== searchGeneration) return;
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-      // In two-tier mode, effect #6 needs the global index to compute the
-      // correct pixel position (virtualizer row 0 = global 0). Without this,
-      // effect6 falls back to the buffer-local targetLocalIndex — which maps
-      // to a pixel position near the top of the full scroll range instead of
-      // the image's actual global position. That wrong scrollTop triggers a
-      // scroll-seek that relocates the buffer away from the image, and the
-      // restore effect fires again — infinite loop.
-      // exactOffset is known-exact (from countBefore) — same as the seek()
-      // exact-offset path.
-      const seekTargetGlobalIndex = (() => {
-        const inTwoTier =
-          POSITION_MAP_THRESHOLD > 0 &&
-          buf.total > SCROLL_MODE_THRESHOLD &&
-          buf.total <= POSITION_MAP_THRESHOLD;
-        // In scroll mode (total ≤ SCROLL_MODE_THRESHOLD) the virtualizer is
-        // 1:1 with the buffer, so -1 (buffer-local) is correct. In three-tier
-        // (total > POSITION_MAP_THRESHOLD) the seek pipeline handles its own
-        // scrollTop computation. Only two-tier needs the explicit global index.
-        return inTwoTier ? exactOffset : -1;
-      })();
+      const publishedTotal = get().total;
+      const publishedTargetOrdinal = buf.bufferStart + buf.targetLocalIndex;
+      const seekTargetGlobalIndex = isTwoTierFromTotal(publishedTotal) ? publishedTargetOrdinal : -1;
 
       retainSortValues(buildSearchKey(rawParams), buf.combinedHits, buf.sortValues);
       // Commit-to-view (restoreAroundCursor buffer-around): merge enrichment.
@@ -3934,9 +3928,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
-        // get().total is correct here: search() set it before restoreAroundCursor
-        // fires, and the query is frozen so it hasn't changed (audit F-01).
-        total: get().total,
+        total: publishedTotal,
         loading: false,
         imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
         startCursor: buf.startCursor,
@@ -3952,7 +3944,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // (phantom invariant: focusedImageId is always null). Without this,
         // useReturnFromDetail's `previousFocus === null` guard fires and
         // detail-close skips centring on the restored image (audit #16).
-        ...(setFocus && { focusedImageId: imageId, _focusedImageKnownOffset: exactOffset }),
+        ...(setFocus && { focusedImageId: imageId, _focusedImageKnownOffset: publishedTargetOrdinal }),
       });
 
       devLog(
@@ -3966,6 +3958,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // (see function doc above _fillBufferForScrollMode/_topUpScrollModeBuffer).
       void _topUpScrollModeBuffer(get);
     } catch (e) {
+      if (signal.aborted || _searchGeneration !== searchGeneration) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
       console.warn("[restoreAroundCursor] Failed, falling back to seek:", e);
       // Fall back to approximate seek on any error
