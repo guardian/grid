@@ -739,33 +739,33 @@ function nullZoneDistCacheKey(params: SearchParams): string {
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
   const gen = ++_newImagesPollGeneration;
+  const baselineTickerCounts = get().tickerCounts;
+  let requestSequence = 0;
+  let acceptedSequence = 0;
   const tick = async () => {
     if (gen !== _newImagesPollGeneration) return; // stale poll
     const { dataSource, params, newCountSince } = get();
     if (!newCountSince) return;
+    const sequence = ++requestSequence;
     try {
       const since =
         params.since && params.since > newCountSince
           ? params.since
           : newCountSince;
 
-      const { count, tickerCounts: deltaTickerCounts } = await dataSource.countWithTickers({
+      const { count, tickerCounts: arrivalTickerCounts } = await dataSource.countWithTickers({
         ...params,
         since,
         offset: 0,
         length: 0,
       });
-      if (gen !== _newImagesPollGeneration) return; // stale after await
+      if (gen !== _newImagesPollGeneration || sequence < acceptedSequence) return;
+      acceptedSequence = sequence;
 
-      // Additive merge of ticker deltas into existing counts.
-      // Mirrors Kahuna's results.js checkForNewImages merge logic.
-      // Drift is not a risk — uploadTime is immutable, so any image can
-      // only cross the `since` threshold once.
-      const prevTickerCounts = get().tickerCounts;
-      let mergedTickerCounts: Record<string, TickerCountResult> | null = prevTickerCounts;
-      if (Object.keys(deltaTickerCounts).length > 0) {
-        mergedTickerCounts = { ...(prevTickerCounts ?? {}) };
-        for (const [name, delta] of Object.entries(deltaTickerCounts)) {
+      let mergedTickerCounts: Record<string, TickerCountResult> | null = baselineTickerCounts;
+      if (baselineTickerCounts !== null) {
+        mergedTickerCounts = { ...baselineTickerCounts };
+        for (const [name, delta] of Object.entries(arrivalTickerCounts)) {
           const prev = mergedTickerCounts[name];
           if (!prev) {
             mergedTickerCounts[name] = delta;
@@ -783,7 +783,7 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
 
       set({
         newCount: count,
-        ...(mergedTickerCounts !== prevTickerCounts ? { tickerCounts: mergedTickerCounts, tickersLastUpdated: new Date().toISOString() } : {}),
+        ...(mergedTickerCounts !== null ? { tickerCounts: mergedTickerCounts, tickersLastUpdated: new Date().toISOString() } : {}),
       });
     } catch {
       // Silently ignore — ticker is non-critical
@@ -811,8 +811,7 @@ function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState
 }
 
 /**
- * Merge subCounts from a poll delta into existing subCounts.
- * Unknown keys accumulate into "other" (same behaviour as Kahuna).
+ * Merge cumulative arrival subcounts with browse-baseline subcounts.
  */
 function mergeSubCounts(
   prev: Record<string, number> | undefined,

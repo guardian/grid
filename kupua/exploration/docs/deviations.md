@@ -8,11 +8,21 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-05-22
+Last updated: 2026-09-20
 
 ---
 
 ## From Grid / Kahuna
+
+### Cumulative Poll Accounting (20 September 2026)
+
+Kupua's fixed browse boundary requires baseline-plus-latest cumulative ticker accounting,
+not the running-total additive merge copied from Kahuna's polling pattern. Otherwise an
+unchanged interval is counted again on every poll. The boundary, request schedule and browse
+membership remain unchanged; a failed baseline remains absent rather than presenting arrivals
+as the whole count. This costs one retained baseline map per poll lifetime and local response
+sequencing, without extra reads. It does not guarantee immutable metadata or alter Kahuna.
+See [the current ticker contract](00%20Architecture%20and%20philosophy/ticker-system-reference.md).
 
 ### 1. `nonFree` default is "show all" (unchecked)
 

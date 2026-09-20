@@ -107,7 +107,7 @@ tickers work in all setups (standalone, dev, prod) with no Grid API dependency.
 | Ticker filter aggs in `_doSearch` | ✅ Implemented | `es-adapter.ts` — injected on initial search only (`includeTickers=true`), not on `searchRange` page-fills |
 | `countWithTickers` for polling | ✅ Implemented | `es-adapter.ts` — `size:0` + ticker filter aggs; replaces `count()` |
 | `getFilterAggregations` in `ImageDataSource` | ✅ Implemented | `es-adapter.ts` — fires named `filter` aggs for composite queries (not simple terms fields); used by `fetchAggregations` (parallel with main agg) and typeahead cold path |
-| `tickerCounts` / `tickersLastUpdated` in store | ✅ Implemented | `search-store.ts` — reset on new search; additive merge on each poll tick |
+| `tickerCounts` / `tickersLastUpdated` in store | ✅ Implemented | `search-store.ts` — reset on new search; browse baseline plus latest accepted cumulative poll contribution |
 | `isFilterCounts` in store | ✅ Implemented | `search-store.ts` — deleted/under-quota counts from `fetchAggregations`; read by `FacetFilters` `Is` section and typeahead warm path |
 | `getImageBorderColour(image)` | ✅ Implemented | `image-borders.ts` — wraps all border logic; `isAgencyPick` checks case-insensitively |
 | StatusBar ticker badges | ✅ Implemented | `StatusBar.tsx` — hides when 0 or equals total; native tooltip with "last updated X ago" + subCounts table |
@@ -124,7 +124,17 @@ Adding a new ticker = one array entry. ES query builder, store, and UI all itera
 
 **`_doSearch` ticker injection**: `buildTickerAggs()` (`es-adapter.ts`) compiles each definition's `searchClause` via `parseCql` and builds named `filter` agg objects. Definitions with `subAggField` get a nested `byAgency` terms agg (size 9), mirroring Scala. Only injected when `includeTickers=true`; `searchRange` passes `false`.
 
-**Polling**: `countWithTickers` fires `_search` with `size:0`, `track_total_hits:true`, and ticker filter aggs. Returns `{ count, tickerCounts }`. The store performs additive merge: each new ticker delta is added to the running total, and `subCounts` entries are merged by key. `uploadTime` is immutable so an image crosses the `since` threshold at most once — no drift.
+**Polling**: `countWithTickers` fires `_search` with `size:0`, `track_total_hits:true`, and ticker filter aggs. Returns `{ count, tickerCounts }` for the requested interval. The store retains the browse baseline and combines it with the latest accepted cumulative arrival contribution, including subcounts. It does not add the same fixed interval repeatedly or advance `newCountSince`; result membership stays frozen. Immutable upload time does not make repeated intervals disjoint.
+
+Ordinary search/refresh awaits its ticker baseline before starting a new poll lifetime and
+invalidates the previous lifetime before replacement. A local accepted-response sequence
+prevents older overlapping completions from replacing newer accepted counts; failures preserve
+accepted data. A failed baseline stays `null`, distinct from a successful zero baseline.
+Optional subcounts retain the DAL's no-sub-aggregation/no-returned-buckets meaning. Each
+successful response supplies the current contribution, so omitted categories/buckets cannot
+retain earlier poll additions; baseline-only categories remain baseline-only, without inferring
+stronger backend completeness. Ordinary/hidden-tab schedules and AI no-poll remain unchanged.
+This is bounded accounting, not an immutable metadata or exact historical snapshot contract.
 
 **`is:agency-pick` query**: bool/should of `match_phrase` clauses across `gridConfig.agencyPicksIngredients` fields (`metadata.description`, `metadata.keywords`, `metadata.title`). These are editorial metadata fields, not `usageRights.*` — wire agencies embed selection keywords (e.g. "topshot", "epaselect") in image metadata. `minimum_should_match: 1`.
 

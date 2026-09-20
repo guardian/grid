@@ -115,8 +115,8 @@ export interface TickerCountResult {
 }
 
 /**
- * Result of a countWithTickers() call — new-images count plus ticker deltas
- * for additive merging in the poll.
+ * Counts for the requested interval. Poll responses are cumulative since the
+ * frozen browse boundary, not incremental deltas between polls.
  */
 export interface CountWithTickersResult {
   count: number;

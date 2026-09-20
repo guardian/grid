@@ -20,9 +20,10 @@ import { useSearchStore } from "./search-store";
 import { useEnrichmentStore } from "./enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { TABLE_ROW_HEIGHT } from "@/constants/layout";
+import { NEW_IMAGES_POLL_INTERVAL, NEW_IMAGES_POLL_INTERVAL_BG } from "@/constants/tuning";
 import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
-import type { SortDistribution } from "@/dal/types";
+import type { CountWithTickersResult, ImageDataSource, SortDistribution } from "@/dal/types";
 import type {
   SearchParams,
   AggregationRequest,
@@ -134,6 +135,204 @@ beforeEach(() => {
       orderBy: "-uploadTime",
       nonFree: "true",
     },
+  });
+});
+
+describe("KUP-006 cumulative poll accounting", () => {
+  const baseline: CountWithTickersResult = {
+    count: 100,
+    tickerCounts: { agency: { value: 100, subCounts: { alpha: 70, beta: 20, other: 10 } }, staff: { value: 5 } },
+  };
+  const arrival = (value: number): CountWithTickersResult => ({
+    count: value,
+    tickerCounts: { agency: { value, subCounts: { alpha: value } }, staff: { value: 0 } },
+  });
+  function deferred<Value>() {
+    let resolve!: (value: Value) => void;
+    let reject!: (reason: Error) => void;
+    const promise = new Promise<Value>((done, fail) => { resolve = done; reject = fail; });
+    return { promise, resolve, reject };
+  }
+  let visibility: "visible" | "hidden";
+  let documentEvents: EventTarget;
+  const tick = () => vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
+  const settle = () => vi.advanceTimersByTimeAsync(0);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-20T12:00:00Z"));
+    visibility = "visible";
+    documentEvents = new EventTarget();
+    vi.stubGlobal("document", {
+      get visibilityState() { return visibility; },
+      addEventListener: documentEvents.addEventListener.bind(documentEvents),
+      removeEventListener: documentEvents.removeEventListener.bind(documentEvents),
+    });
+    vi.spyOn(mock, "searchAfter").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+    vi.spyOn(mock, "countWithTickers").mockResolvedValue(baseline);
+  });
+
+  afterEach(async () => {
+    useSearchStore.setState({ dataSource: Object.assign(mock, { searchByAi: undefined }), params: { aiQuery: "poll-cleanup" } });
+    await actions().search();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("adds an identical cumulative interval only once and preserves browse membership/boundary", async () => {
+    await actions().search();
+    const frozen = state();
+    vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(2));
+    await tick();
+    const first = state().tickerCounts;
+    await tick();
+    expect(state().tickerCounts).toEqual(first);
+    expect(state().tickerCounts).toEqual({ agency: { value: 102, subCounts: { alpha: 72, beta: 20, other: 10 } }, staff: { value: 5 } });
+    expect(state().newCount).toBe(2);
+    expect(state().newCountSince).toBe(frozen.newCountSince);
+    expect(state().results).toBe(frozen.results);
+    expect(state().total).toBe(frozen.total);
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(mock as ImageDataSource).countWithTickers.mock.calls.slice(1).map(([params]) => params.since)).toEqual([frozen.newCountSince, frozen.newCountSince]);
+    expect(baseline.tickerCounts.agency.value).toBe(100);
+  });
+
+  it("replaces increased, decreased, zero and changed category/subcount contributions", async () => {
+    await actions().search();
+    for (const value of [4, 7, 1, 0]) {
+      vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(value));
+      await tick();
+      expect.soft(state().tickerCounts).toEqual({ agency: { value: 100 + value, subCounts: { alpha: 70 + value, beta: 20, other: 10 } }, staff: { value: 5 } });
+      expect(state().newCount).toBe(value);
+    }
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 3, tickerCounts: { agency: { value: 1, subCounts: { gamma: 1 } }, staff: { value: 2 } } });
+    await tick();
+    expect(state().tickerCounts).toEqual({ agency: { value: 101, subCounts: { alpha: 70, beta: 20, other: 10, gamma: 1 } }, staff: { value: 7 } });
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 0, tickerCounts: { agency: { value: 0 } } });
+    await tick();
+    expect(state().tickerCounts).toEqual(baseline.tickerCounts);
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 0, tickerCounts: {} });
+    await tick();
+    expect(state().tickerCounts).toEqual(baseline.tickerCounts);
+  });
+
+  it("does not let an older completion overwrite a newer accepted response", async () => {
+    await actions().search();
+    const older = deferred<CountWithTickersResult>();
+    const newer = deferred<CountWithTickersResult>();
+    vi.mocked(mock.countWithTickers).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    await tick();
+    await tick();
+    newer.resolve(arrival(5));
+    await settle();
+    const accepted = state();
+    older.resolve(arrival(2));
+    await settle();
+    expect(state().newCount).toBe(5);
+    expect(state().tickerCounts).toBe(accepted.tickerCounts);
+    expect(state().tickersLastUpdated).toBe(accepted.tickersLastUpdated);
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps accepted data on failure and can accept older work when newer work failed", async () => {
+    await actions().search();
+    const older = deferred<CountWithTickersResult>();
+    vi.mocked(mock.countWithTickers).mockReturnValueOnce(older.promise).mockRejectedValueOnce(new Error("unavailable"));
+    await tick();
+    await tick();
+    expect(state().tickerCounts).toEqual(baseline.tickerCounts);
+    older.resolve(arrival(2));
+    await settle();
+    const accepted = state();
+    vi.mocked(mock.countWithTickers).mockRejectedValue(new Error("unavailable"));
+    await tick();
+    expect(state().tickerCounts).toBe(accepted.tickerCounts);
+    expect(state().tickersLastUpdated).toBe(accepted.tickersLastUpdated);
+    expect(state().newCount).toBe(2);
+    expect(state().error).toBeNull();
+  });
+
+  it.each(["refresh", "new search", "history"] as const)("replaces the baseline on %s and invalidates the previous poll", async (context) => {
+    await actions().search();
+    vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(2));
+    await tick();
+    const stale = deferred<CountWithTickersResult>();
+    const replacement = deferred<CountWithTickersResult>();
+    vi.mocked(mock.countWithTickers).mockReturnValueOnce(stale.promise).mockReturnValueOnce(replacement.promise);
+    await tick();
+    const oldBoundary = state().newCountSince!;
+    if (context === "new search") actions().setParams({ query: "replacement" });
+    const searching = actions().search(undefined, context === "history" ? { frozenUntil: oldBoundary } : undefined);
+    const callsAtStop = vi.mocked(mock.countWithTickers).mock.calls.length;
+    await tick();
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(callsAtStop);
+    replacement.resolve({ count: 200, tickerCounts: { agency: { value: 200 } } });
+    await searching;
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 3, tickerCounts: { agency: { value: 3 } } });
+    await tick();
+    stale.resolve(arrival(90));
+    await settle();
+    expect(state().tickerCounts).toEqual({ agency: { value: 203 } });
+    expect(state().newCount).toBe(3);
+    expect(state().newCountSince === oldBoundary).toBe(context === "history");
+  });
+
+  it("waits for late baseline publication before starting any poll", async () => {
+    const pendingBaseline = deferred<CountWithTickersResult>();
+    vi.mocked(mock.countWithTickers).mockReturnValueOnce(pendingBaseline.promise);
+    const searching = actions().search();
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL * 3);
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(1);
+    expect(state().loading).toBe(true);
+    pendingBaseline.resolve(baseline);
+    await searching;
+    vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(2));
+    await tick();
+    expect(state().tickerCounts?.agency.value).toBe(102);
+  });
+
+  it.each(["unavailable", "zero"] as const)("preserves a %s baseline instead of conflating absence with zero", async (kind) => {
+    if (kind === "unavailable") vi.mocked(mock.countWithTickers).mockRejectedValueOnce(new Error("no baseline"));
+    else vi.mocked(mock.countWithTickers).mockResolvedValueOnce({ count: 0, tickerCounts: { agency: { value: 0 } } });
+    await actions().search();
+    vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 2, tickerCounts: { agency: { value: 2 } } });
+    await tick();
+    expect(state().newCount).toBe(2);
+    expect(state().tickerCounts).toEqual(kind === "unavailable" ? null : { agency: { value: 2 } });
+  });
+
+  it("preserves hidden scheduling and visible immediate reads without adding requests", async () => {
+    await actions().search();
+    vi.mocked(mock.countWithTickers).mockResolvedValue(arrival(2));
+    visibility = "hidden";
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL_BG - 1);
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(2);
+    visibility = "visible";
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(3);
+    expect(state().tickerCounts?.agency.value).toBe(102);
+    await tick();
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(4);
+    expect(state().tickerCounts?.agency.value).toBe(102);
+  });
+
+  it("does not poll AI results or retain a preceding ordinary poll", async () => {
+    await actions().search();
+    Object.assign(mock, { searchByAi: vi.fn().mockResolvedValue({ hits: [], total: 0, sortValues: [] }) });
+    actions().setParams({ aiQuery: "synthetic" });
+    await actions().search();
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL_BG * 2);
+    documentEvents.dispatchEvent(new Event("visibilitychange"));
+    await settle();
+    expect(mock.countWithTickers).toHaveBeenCalledTimes(1);
+    expect(state().tickerCounts).toEqual({});
+    expect(state().newCount).toBe(0);
   });
 });
 

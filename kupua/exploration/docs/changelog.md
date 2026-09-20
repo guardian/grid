@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 20 September 2026 - Account for cumulative arrivals once
+
+  Each polling lifetime retains the browse baseline and combines it with the latest
+  accepted cumulative category/subcount response. Repeated windows no longer compound;
+  decreases, zero and changed buckets replace previous contributions. Local response
+  sequencing and the existing lifetime guard reject stale completion without adding
+  requests. Unavailable baseline data stays absent; browse freeze and scheduling remain.
+
   ### 20 September 2026 - Retry empty unknown-order selection walks
 
   An unknown-order range with no collected IDs now permits the intended single swapped
