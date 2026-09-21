@@ -144,7 +144,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
       val queryWithNestedAndNormal = listOfNestedToQueries(nested).foldLeft(queryWithNormal) { case (q, nestedQ) => q.withMust(nestedQ) }
 
-      listOfNestedToQueries(negationNested).foldLeft(queryWithNestedAndNormal) { case (q, negNestedQ) => q.withNot(negNestedQ) }
+      val negativeQueries = negationNested.flatMap(condition => listOfNestedToQueries(List(condition)))
+      negativeQueries.foldLeft(queryWithNestedAndNormal) { (query, negativeQuery) =>
+        query.withNot(negativeQuery)
+      }
     }
   }
 

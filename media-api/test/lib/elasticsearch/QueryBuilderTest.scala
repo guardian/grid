@@ -5,7 +5,7 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import lib.querysyntax.{Match, Negation, Phrase, SingleField}
+import lib.querysyntax.{Match, Negation, Parser, Phrase, SingleField}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -180,6 +180,85 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       val query = queryBuilder.makeQuery(List(nestedCondition, anotherNestedCondition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
+    }
+  }
+
+  describe("usage exclusions") {
+    def usageClause(field: String, value: String): NestedQuery =
+      ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery(s"usages.$field", value)
+      ))
+
+    it("keeps positive usage conditions in the same nested query") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@platform:print usages@status:published"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery("usages.platform", "print"),
+        ElasticDsl.matchPhraseQuery("usages.status", "published")
+      )))
+      query.not shouldBe empty
+    }
+
+    it("applies a single negative usage condition outside the nested query") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@status:replaced -usages@platform:print"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(usageClause("status", "replaced"))
+      query.not shouldBe Seq(usageClause("platform", "print"))
+    }
+
+    it("excludes each negative usage condition independently in either order") {
+      Seq(
+        "-usages@platform:print -usages@status:replaced",
+        "-usages@status:replaced -usages@platform:print"
+      ).foreach { queryText =>
+        val query = queryBuilder.makeQuery(Parser.parse(queryText)).asInstanceOf[BoolQuery]
+
+        withClue(queryText) {
+          query.not should contain theSameElementsAs Seq(
+            usageClause("platform", "print"),
+            usageClause("status", "replaced")
+          )
+          query.must shouldBe empty
+        }
+      }
+    }
+
+    it("keeps automatic replaced suppression separate from a usage exclusion") {
+      val query = queryBuilder.makeQuery(Parser.run("-usages@platform:print")).asInstanceOf[BoolQuery]
+
+      query.not.collect { case clause: NestedQuery => clause } should contain theSameElementsAs Seq(
+        usageClause("platform", "print"),
+        usageClause("status", "replaced")
+      )
+    }
+
+    it("keeps each exclusion image-wide when positive usage conditions are present") {
+      val query = queryBuilder.makeQuery(Parser.parse(
+        "usages@platform:print -usages@status:published -usages@status:replaced"
+      )).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(usageClause("platform", "print"))
+      query.not should contain theSameElementsAs Seq(
+        usageClause("status", "published"),
+        usageClause("status", "replaced")
+      )
+    }
+
+    it("preserves independent ordinary exclusions") {
+      val query = queryBuilder.makeQuery(List(
+        Negation(fieldPhraseMatchCondition),
+        Negation(anotherFieldPhraseMatchCondition)
+      )).asInstanceOf[BoolQuery]
+
+      query.not shouldBe Seq(
+        ElasticDsl.matchPhraseQuery("afield", "avalue"),
+        ElasticDsl.matchPhraseQuery("anotherfield", anotherFieldPhraseMatchCondition.value.asInstanceOf[Phrase].string)
+      )
+      query.must shouldBe empty
     }
   }
 

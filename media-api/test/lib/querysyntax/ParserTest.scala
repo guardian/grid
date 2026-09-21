@@ -17,6 +17,54 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     NegationNested(Nested(SingleField("usages"), SingleField("usages.status"), Phrase("replaced")))
   )
 
+  describe("default exclusions") {
+    val replacedUsage = Nested(SingleField("usages"), SingleField("usages.status"), Phrase("replaced"))
+
+    Seq("replaced", "\"replaced\"", "'replaced'").foreach { value =>
+      it(s"does not exclude replaced usages when explicitly requested as $value") {
+        Parser.run(s"usages@status:$value") shouldBe List(replacedUsage, standardNegations.head)
+      }
+
+      it(s"does not duplicate an explicit replaced exclusion written as $value") {
+        Parser.run(s"-usages@status:$value") shouldBe List(NegationNested(replacedUsage), standardNegations.head)
+      }
+    }
+
+    Seq(
+      "description:\"usages@status:replaced\"",
+      "-description:\"usages@status:replaced\"",
+      "usages@reference:\"usages@status:replaced\"",
+      "-usages@status:replacedx"
+    ).foreach { queryText =>
+      it(s"retains replaced suppression for literal text or a different value: $queryText") {
+        Parser.run(queryText) shouldBe Parser.parse(queryText) ++ standardNegations
+      }
+    }
+
+    it("preserves the case-sensitive replaced status value") {
+      Parser.run("usages@status:Replaced") shouldBe List(
+        Nested(SingleField("usages"), SingleField("usages.status"), Phrase("Replaced"))
+      ) ++ standardNegations
+    }
+
+    it("adds both defaults to empty and whitespace-only queries") {
+      Parser.run("") shouldBe standardNegations
+      Parser.run("   ") shouldBe standardNegations
+    }
+
+    it("preserves explicit deleted inclusion and exclusion") {
+      Seq("is:deleted", "-is:deleted").foreach { queryText =>
+        Parser.run(queryText) shouldBe Parser.parse(queryText) ++ List(standardNegations(1))
+      }
+    }
+
+    it("preserves the empty-condition fallback for an unparseable query") {
+      Parser.parse("first\tsecond") shouldBe Nil
+      Parser.run("first\tsecond") shouldBe Nil
+      Parser.run("-is:deleted\t") shouldBe Nil
+    }
+  }
+
   describe("text") {
     it("should match single terms") {
       Parser.run("cats") should be (List(Match(AnyField, Words("cats"))) ++ standardNegations)
