@@ -35,7 +35,7 @@ When you add a mapping e.g. You add a new field to the [image mapping](https://g
 you should add the mapping with this script as we are using [`strict`](http://www.elasticsearch.org/guide/en/elasticsearch/guide/current/dynamic-mapping.html)
 mappings (you cannot just add things willy nilly). Updating mappings is done in 2 steps:
 
-1. Set up a SSH tunnel to the AWS elasticsearch instance: `ssh -L 9200:localhost:9200 <ES_URL>`
+1. Set up a tunnel to the AWS elasticsearch instance using [`es-ssh-ssm-tunnel.sh`](../dev/script/es-ssh-ssm-tunnel.sh)
 
 2. Run the script:
 ```
