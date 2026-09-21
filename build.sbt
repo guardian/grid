@@ -152,7 +152,10 @@ lazy val imageLoader = playProject("image-loader", 9003).settings {
 }
 
 lazy val imageCachePurger = project("image-cache-purger").settings(
-  libraryDependencies += "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+  libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+    "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
+  ),
   assembly / assemblyJarName := "image-cache-purger.jar",
   assembly / test := {},
 )

@@ -11,13 +11,13 @@ com.gu.mediaservice.ImageCachePurger::handleRequest
 ## Test
 
 ```bash
-sbt imageCachePurger/test
+sbt 'image-cache-purger/test'
 ```
 
 ## Build the deployment artifact
 
 ```bash
-sbt imageCachePurger/assembly
+sbt 'image-cache-purger/assembly'
 ```
 
 This creates `image-cache-purger/target/scala-2.13/image-cache-purger.jar`.
