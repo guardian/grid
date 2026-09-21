@@ -5,8 +5,8 @@ import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 
 class ImageCachePurger extends RequestHandler[SQSEvent, String] {
   override def handleRequest(input: SQSEvent, context: Context): String = {
+    input.getRecords.foreach(record => context.getLogger.log(s"Received SQS message: ${record.getBody}").mkString("\n"))
 
-    context.getLogger.log("Image cache purge requested")
     "Image cache purge requested"
   }
 }
