@@ -15,12 +15,14 @@ new ImageEmbedder(app, 'ImageEmbedderLambda-euwest-1-TEST', {
 	env: { region: 'eu-west-1' },
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
-	stack: 'media-service',
+  queueArn: "test",
+  stack: 'media-service',
 	stage: 'PROD',
-	env: { region: 'eu-west-1' },
+	env: { region: 'eu-west-1' }
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-TEST', {
-	stack: 'media-service',
+  queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy`,
+  stack: 'media-service',
 	stage: 'TEST',
-	env: { region: 'eu-west-1' },
+	env: { region: 'eu-west-1' }
 });
