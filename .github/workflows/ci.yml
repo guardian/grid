@@ -67,7 +67,7 @@ jobs:
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
-        run: sbt clean compile scripts/compile Test/compile test Debian/packageBin imageCachePurger/assembly
+        run: sbt clean compile scripts/compile Test/compile test Debian/packageBin  "project image-cache-purger" assembly
       - name: Image Counter Lambda
         working-directory: ./image-counter-lambda
         run: |
