@@ -108,7 +108,7 @@ openTunnelToElasticsearchTest() {
     --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
     --target "$(getNewestElasticSearchInstanceOnTest)" \
     --region eu-west-1 \
-    --profile media-service > /tmp/grid-es-tunnel.log 2>&1 &
+    --profile media-service &
 
   # Give the tunnel a moment to establish before docker/sbt try to use it
   for i in {1..10}; do
@@ -118,7 +118,7 @@ openTunnelToElasticsearchTest() {
     sleep 1
   done
 
-  echo -e "${red}TUNNEL DID NOT ESTABLISH TO TEST ELASTICSEARCH (on port 9200) within 10s - check /tmp/grid-es-tunnel.log${plain}"
+  echo -e "${red}TUNNEL DID NOT ESTABLISH TO TEST ELASTICSEARCH (on port 9200) within 10s - see AWS CLI output above${plain}"
   return 1
 }
 
