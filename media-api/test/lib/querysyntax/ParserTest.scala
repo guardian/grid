@@ -300,6 +300,30 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     }
 
     describe("nested usage") {
+      Seq(
+        "section" -> List("usages.printUsageMetadata.sectionCode", "usages.printUsageMetadata.sectionName"),
+        "publication" -> List("usages.printUsageMetadata.publicationName", "usages.printUsageMetadata.publicationCode")
+      ).foreach { case (field, paths) =>
+        it(s"resolves usages@$field to its print metadata fields") {
+          Parser.parse(s"usages@$field:\"Morning Name\"") shouldBe List(
+            Nested(SingleField("usages"), MultipleField(paths), Phrase("Morning Name"))
+          )
+        }
+
+        it(s"resolves negative usages@$field to the same print metadata fields") {
+          Parser.parse(s"-usages@$field:\"Morning Name\"") shouldBe List(
+            NegationNested(Nested(SingleField("usages"), MultipleField(paths), Phrase("Morning Name")))
+          )
+        }
+      }
+
+      it("leaves ordinary section and publication fields unchanged") {
+        Parser.parse("section:SEC1 publication:PUB1") shouldBe List(
+          Match(MultipleField(List("sectionId", "sectionCode")), Words("SEC1")),
+          Match(MultipleField(List("publicationName", "publicationCode")), Words("PUB1"))
+        )
+      }
+
       it("should match nested usage status query") {
         Parser.run("usages@status:pending") should be (List(
           Nested(

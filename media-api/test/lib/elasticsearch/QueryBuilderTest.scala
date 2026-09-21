@@ -262,6 +262,53 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
     }
   }
 
+  describe("usage orderedBy field resolution") {
+    def orderedByClause(path: String): NestedQuery =
+      ElasticDsl.nestedQuery("usages", ElasticDsl.boolQuery().must(
+        ElasticDsl.matchPhraseQuery(path, "DESK1")
+      ))
+
+    Seq("", "-").foreach { prefix =>
+      it(s"resolves ${prefix}usages@orderedBy to print metadata without an alias") {
+        val query = queryBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+        val clauses = if (prefix.isEmpty) query.must else query.not
+
+        clauses shouldBe Seq(orderedByClause("usages.printUsageMetadata.orderedBy"))
+      }
+    }
+
+    Seq("usages.printUsageMetadata.orderedBy", "usages.digitalUsageMetadata.sectionId").foreach { path =>
+      val aliasConfig = new MediaApiConfig(GridConfigResources(
+        Configuration.from(commonConfigurations ++ Map("field.aliases" -> Seq(Map(
+          "alias" -> "orderedBy",
+          "elasticsearchPath" -> path,
+          "label" -> "Ordered by"
+        )))),
+        null,
+        new ApplicationLifecycle {
+          override def addStopHook(hook: () => Future[_]): Unit = {}
+          override def stop(): Future[_] = Future.successful(())
+        }
+      ))
+      val aliasedBuilder = new QueryBuilder(matchFields, () => Nil, aliasConfig)
+
+      Seq("", "-").foreach { prefix =>
+        it(s"preserves the configured $path redirect for ${prefix}usages@orderedBy") {
+          val query = aliasedBuilder.makeQuery(Parser.parse(s"${prefix}usages@orderedBy:DESK1")).asInstanceOf[BoolQuery]
+          val clauses = if (prefix.isEmpty) query.must else query.not
+
+          clauses shouldBe Seq(orderedByClause(path))
+        }
+      }
+    }
+
+    it("does not change ordinary orderedBy field resolution") {
+      val query = queryBuilder.makeQuery(Parser.parse("orderedBy:DESK1")).asInstanceOf[BoolQuery]
+
+      query.must shouldBe Seq(ElasticDsl.matchQuery("orderedBy", "DESK1").operator(Operator.AND))
+    }
+  }
+
   describe("field alias matchViaExistence queries") {
     // e.g. `fileMetadata.c2pa.isAvailable` is only ever indexed as `true`, so `:true`/`:false` are
     // translated into exists/not-exists queries rather than literal term matches (see FieldAlias.matchViaExistence).
