@@ -192,6 +192,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             'hasCrops',
             'syndicationStatus',
             'persisted',
+            'aiSearchVariant', // prototype: selects the visual treatment of the "try AI search" prompt
             ...extraQueryParamsNotUsedByGridDirectly // otherwise router will drop them
         ].join('&'),
         // Non-URL parameters

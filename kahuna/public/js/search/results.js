@@ -205,6 +205,37 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
+        // Prototype: visual treatments of the "try AI search instead" prompt shown
+        // when a plain search returns nothing. Flip between them with ?aiSearchVariant=a|b|c|d|e
+        const AI_SEARCH_VARIANTS = ['a', 'b', 'c', 'd', 'e'];
+        ctrl.aiSearchVariant = AI_SEARCH_VARIANTS.includes($stateParams.aiSearchVariant)
+          ? $stateParams.aiSearchVariant
+          : 'a';
+        ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
+          !$stateParams.useAISearch &&
+          !!($stateParams.query && $stateParams.query.trim());
+        ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
+
+        // Variant (e) only: a row's worth of what the AI search would return.
+        ctrl.aiSearchPreviewSize = 6;
+        ctrl.aiSearchPreviewImages = [];
+        ctrl.aiSearchPreviewLoading = false;
+
+        function loadAiSearchPreview() {
+          ctrl.aiSearchPreviewLoading = true;
+          // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
+          return search({offset: 0, length: ctrl.aiSearchPreviewSize, useAISearch: 'true', countAll: false})
+            .then(images => {
+              ctrl.aiSearchPreviewImages = images.data;
+            })
+            .catch(() => {
+              ctrl.aiSearchPreviewImages = [];
+            })
+            .finally(() => {
+              ctrl.aiSearchPreviewLoading = false;
+            });
+        }
+
         // Map to track image->position and help remove duplicates
         let imagesPositions;
 
@@ -318,9 +349,14 @@ results.controller('SearchResultsCtrl', [
             ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
             : {length: 1, orderBy: 'newest'};
 
-          ctrl.searched = search(initialSearchParams).then(images =>
-            initialiseResults(images, { isAiSearch })
-          ).catch(error => {
+          ctrl.searched = search(initialSearchParams).then(images => {
+            const result = initialiseResults(images, { isAiSearch });
+            if (ctrl.aiSearchVariant === 'e' && ctrl.canOfferAiSearch &&
+                !ctrl.filtersOnlyAiSearch && ctrl.totalResults === 0) {
+              loadAiSearchPreview();
+            }
+            return result;
+          }).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
@@ -536,7 +572,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
+        function search({query, until, since, offset, length, orderBy, countAll, useAISearch} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -569,6 +605,9 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(countAll)) {
               countAll = true;
             }
+            if (angular.isUndefined(useAISearch)) {
+              useAISearch = $stateParams.useAISearch;
+            }
 
 
             return mediaApi.search(query, angular.extend({
@@ -587,7 +626,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
-                useAISearch: $stateParams.useAISearch,
+                useAISearch: useAISearch,
                 vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,

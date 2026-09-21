@@ -1576,6 +1576,116 @@ textarea.ng-invalid {
     color: #999;
 }
 
+/* "No matches — try AI search instead" prompt (prototype variants a–d) */
+.ai-search-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    max-width: 100%;
+}
+
+.ai-search-prompt__heading {
+    font-size: 3rem;
+}
+
+.ai-search-prompt__note {
+    font-size: 1.4rem;
+    color: #999;
+}
+
+.ai-search-prompt__link {
+    font-size: 2rem;
+    color: #00adee;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.ai-search-prompt__link:hover {
+    color: #4fc9f5;
+}
+
+.ai-search-prompt__button-primary {
+    font-size: 1.8rem;
+    padding: 10px 20px;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ai-search-prompt__pill {
+    font-size: 1.4rem;
+    padding: 4px 10px;
+    border-radius: 2px;
+    background-color: #222;
+    color: #aaa;
+    border: 1px solid #555;
+    cursor: pointer;
+}
+.ai-search-prompt__pill:hover {
+    background-color: white;
+    color: #717171;
+}
+
+.ai-search-prompt__action {
+    font-size: 1.6rem;
+    display: inline-flex;
+    padding: 8px 12px;
+    border-radius: 2px;
+    background-color: #333;
+    color: #ccc;
+    cursor: pointer;
+}
+.ai-search-prompt__action:hover {
+    background-color: #666666;
+    color: white;
+}
+
+.ai-search-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 12px;
+    border: 1px solid #555;
+    border-radius: 2px;
+    cursor: pointer;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.ai-search-preview:hover {
+    border-color: #00adee;
+}
+
+.ai-search-preview__loading {
+    font-size: 1.6rem;
+    color: #999;
+}
+
+.ai-search-preview__row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.ai-search-preview__thumb {
+    height: 140px;
+    width: auto;
+    min-width: 0;
+    flex: 0 1 auto;
+    object-fit: cover;
+}
+
+.ai-search-preview__cta {
+    font-size: 1.8rem;
+    color: #00adee;
+}
+.ai-search-preview:hover .ai-search-preview__cta {
+    color: #4fc9f5;
+}
+
 
 /* ==========================================================================
    Preview
