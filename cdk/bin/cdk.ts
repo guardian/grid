@@ -15,7 +15,7 @@ new ImageEmbedder(app, 'ImageEmbedderLambda-euwest-1-TEST', {
 	env: { region: 'eu-west-1' },
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
-  queueArn: "test",
+  queueArn: "arn:aws:sqs:eu-west-1:563563610310:test",
   stack: 'media-service',
 	stage: 'PROD',
 	env: { region: 'eu-west-1' }
