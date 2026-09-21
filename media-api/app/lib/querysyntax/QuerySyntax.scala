@@ -100,7 +100,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   )}
 
   def ParentField = rule { capture(AllowedParentFieldName)  ~> resolveNamedField _ }
-  def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNamedField _ }
+  def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNestedField _ }
   def MatchField = rule { (capture(AllowedFieldName) | QuotedString | StringWithoutColon) ~> resolveNamedField _ }
 
   def AllowedParentFieldName = rule { "usages" }
@@ -137,6 +137,12 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "leasedBy" |
     "person" |
     "imageType"
+  }
+
+  def resolveNestedField(name: String): Field = name match {
+    case "section" => MultipleField(List("printUsageMetadata.sectionCode", "printUsageMetadata.sectionName").map(usagesField))
+    case "publication" => MultipleField(List("printUsageMetadata.publicationName", "printUsageMetadata.publicationCode").map(usagesField))
+    case field => resolveNamedField(field)
   }
 
   def resolveNamedField(name: String): Field = (name match {

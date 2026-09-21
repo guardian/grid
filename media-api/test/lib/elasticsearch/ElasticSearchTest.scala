@@ -349,6 +349,121 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       }
     }
 
+    describe("print fields") {
+      val otherMetadata = PrintUsageMetadata(
+        sectionName = "Other Section",
+        issueDate = usageDate,
+        pageNumber = 1,
+        storyName = "Fixture story",
+        publicationCode = "OTHER",
+        publicationName = "Other Publication",
+        edition = None,
+        orderedBy = Some("OTHER"),
+        sectionCode = "OTHER"
+      )
+
+      Seq(
+        "usages@section:SEC1" -> otherMetadata.copy(sectionCode = "SEC1"),
+        "usages@section:\"Morning Section\"" -> otherMetadata.copy(sectionName = "Morning Section"),
+        "usages@publication:PUB1" -> otherMetadata.copy(publicationCode = "PUB1"),
+        "usages@publication:\"Morning Publication\"" -> otherMetadata.copy(publicationName = "Morning Publication"),
+        "usages@orderedBy:DESK1" -> otherMetadata.copy(orderedBy = Some("DESK1"))
+      ).foreach { case (queryText, matchingMetadata) =>
+        it(s"matches and excludes $queryText through its own mapped field") {
+          val matchingUsage = printPublished.copy(printUsageMetadata = Some(matchingMetadata))
+          val otherUsage = printPublished.copy(printUsageMetadata = Some(otherMetadata))
+          val fieldImages = Seq(
+            "field-none" -> List.empty[Usage],
+            "field-match" -> List(matchingUsage),
+            "field-other" -> List(otherUsage),
+            "field-replaced-match" -> List(matchingUsage.copy(status = ReplacedUsageStatus)),
+            "field-replaced-other" -> List(otherUsage.copy(status = ReplacedUsageStatus)),
+            "field-split" -> List(matchingUsage, otherUsage.copy(status = ReplacedUsageStatus))
+          ).map { case (suffix, usages) =>
+            createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+          }
+
+          withQuotaImages(fieldImages) {
+            expectMatches(queryText, Set("field-match"), fieldImages)
+            expectMatches(s"-$queryText", Set("field-none", "field-other"), fieldImages)
+            expectMatches(s"usages@status:replaced -$queryText", Set("field-replaced-other"), fieldImages)
+          }
+        }
+      }
+
+      it("keeps code and name conditions on one print usage without adding digital section IDs") {
+        val together = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(
+          sectionCode = "SEC1", sectionName = "Morning Section", publicationCode = "PUB1"
+        )))
+        val sectionOnly = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(sectionCode = "SEC1")))
+        val nameAndPublication = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(
+          sectionName = "Morning Section", publicationCode = "PUB1"
+        )))
+        val digitalSection = digitalPublished.copy(digitalUsageMetadata = Some(DigitalUsageMetadata(
+          URI.create("https://example.test/article"), "Fixture article", "SEC1"
+        )))
+        val fieldImages = Seq(
+          "fields-together" -> List(together),
+          "fields-split" -> List(sectionOnly, nameAndPublication),
+          "fields-digital" -> List(digitalSection)
+        ).map { case (suffix, usages) =>
+          createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+        }
+
+        withQuotaImages(fieldImages) {
+          expectMatches("usages@section:SEC1", Set("fields-together", "fields-split"), fieldImages)
+          expectMatches("usages@section:SEC1 usages@section:\"Morning Section\"", Set("fields-together"), fieldImages)
+          expectMatches("usages@section:SEC1 usages@publication:PUB1", Set("fields-together"), fieldImages)
+          expectMatches("-usages@section:SEC1 -usages@publication:PUB1", Set("fields-digital"), fieldImages)
+          expectMatches("usages@section:\"morning section\"", Set.empty, fieldImages)
+        }
+      }
+
+      Seq(
+        ("no alias", None, "alias-print", Set("alias-none", "alias-digital")),
+        ("canonical alias", Some("usages.printUsageMetadata.orderedBy"), "alias-print", Set("alias-none", "alias-digital")),
+        ("redirected alias", Some("usages.digitalUsageMetadata.sectionId"), "alias-digital", Set("alias-none", "alias-print"))
+      ).foreach { case (description, aliasPath, positiveMatch, negativeMatches) =>
+        it(s"uses the orderedBy field selected by $description") {
+          val aliases = aliasPath.toSeq.map { path =>
+            Map("alias" -> "orderedBy", "elasticsearchPath" -> path, "label" -> "Ordered by")
+          }
+          val aliasConfig = new MediaApiConfig(GridConfigResources(
+            Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++
+              Map("field.aliases" -> aliases)),
+            null,
+            applicationLifecycle
+          ))
+          val aliasedSearch = new ElasticSearch(aliasConfig, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+          val orderedPrint = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(orderedBy = Some("DESK1"))))
+          val digitalSection = digitalPublished.copy(digitalUsageMetadata = Some(DigitalUsageMetadata(
+            URI.create("https://example.test/article"), "Fixture article", "DESK1"
+          )))
+          val aliasImages = Seq(
+            "alias-none" -> List.empty[Usage],
+            "alias-print" -> List(orderedPrint),
+            "alias-digital" -> List(digitalSection)
+          ).map { case (suffix, usages) =>
+            createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+          }
+
+          withQuotaImages(aliasImages) {
+            try {
+              Seq(
+                "usages@orderedBy:DESK1" -> Set(positiveMatch),
+                "-usages@orderedBy:DESK1" -> negativeMatches
+              ).foreach { case (queryText, expected) =>
+                whenReady(aliasedSearch.search(searchParams(Some(queryText), aliasImages)), timeout, interval) { result =>
+                  result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"usage-search-$suffix")
+                  result.total shouldBe expected.size.toLong
+                }
+              }
+            } finally aliasedSearch.client.close()
+          }
+        }
+      }
+    }
+
     it("filters metadata and date aggregations with the same usage exclusions") {
       implicit val logMarker: LogMarker = MarkerMap()
       val queryText = "uploader:usage-search@example.test -usages@platform:print"
