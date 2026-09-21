@@ -87,30 +87,12 @@ checkRequirements() {
   checkRequirement aws
 }
 
-getNewestElasticSearchInstanceOnTest() {
-  aws ec2 describe-instances \
-    --filters \
-        "Name=tag:App,Values=elasticsearch-data" \
-        "Name=tag:Stack,Values=media-service" \
-        "Name=tag:Stage,Values=TEST" \
-        "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[] | sort_by(@, &LaunchTime)[-1].InstanceId" \
-    --output text \
-    --region eu-west-1 \
-    --profile media-service
-}
-
 openTunnelToElasticsearchTest() {
-  # Backgrounded (&) as this command blocks in the foreground for the
+  # Backgrounded (&) as this script blocks in the foreground for the
   # lifetime of the tunnel and would otherwise hang the rest of the script.
-  aws ssm start-session \
-    --document-name AWS-StartPortForwardingSessionToRemoteHost \
-    --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
-    --target "$(getNewestElasticSearchInstanceOnTest)" \
-    --region eu-west-1 \
-    --profile media-service &
+  "${DIR}/es-ssh-ssm-tunnel.sh" -s TEST &
 
-  # Give the tunnel a moment to establish before docker/sbt try to use it
+  # Check every second for 10 seconds to see if the tunnel is established
   for i in {1..10}; do
     if nc -z localhost 9200 2>/dev/null; then
       return 0
