@@ -228,7 +228,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
                 "sqs:GetQueueAttributes",
               ],
               "Effect": "Allow",
-              "Resource": "arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy",
+              "Resource": "arn:aws:sqs:eu-west-1:563563610310:test",
             },
           ],
           "Version": "2012-10-17",
@@ -244,7 +244,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
     },
     "ImageCachePurgerHandlerSqsEventSourceImageCachePurgerLambdaImageCachePurgerQueue7CA6614D95200C65": {
       "Properties": {
-        "EventSourceArn": "arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy",
+        "EventSourceArn": "arn:aws:sqs:eu-west-1:563563610310:test",
         "FunctionName": {
           "Ref": "ImageCachePurgerHandlerB25627D9",
         },
