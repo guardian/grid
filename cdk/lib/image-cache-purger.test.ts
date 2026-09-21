@@ -8,6 +8,7 @@ describe('The ImageCachePurger stack', () => {
 		const stack = new ImageCachePurger(app, 'ImageCachePurgerLambda', {
 			stack: 'media-service',
 			stage: 'TEST',
+      queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy`
 		});
 		const template = Template.fromStack(stack);
 		expect(template.toJSON()).toMatchSnapshot();
