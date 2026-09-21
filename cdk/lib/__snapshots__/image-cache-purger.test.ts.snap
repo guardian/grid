@@ -30,7 +30,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
           "S3Bucket": {
             "Ref": "DistributionBucketName",
           },
-          "S3Key": "media-service/TEST/image-cache-purger-lambda/image-cache-purger.zip",
+          "S3Key": "media-service/TEST/image-cache-purger-lambda/image-cache-purger.jar",
         },
         "Environment": {
           "Variables": {
@@ -40,18 +40,18 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
           },
         },
         "FunctionName": "image-cache-purger-TEST",
-        "Handler": "image-cache-purger.handler",
+        "Handler": "com.gu.mediaservice.ImageCachePurger::handleRequest",
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
-        "MemorySize": 512,
+        "MemorySize": 1024,
         "Role": {
           "Fn::GetAtt": [
             "ImageCachePurgerHandlerServiceRoleBF588395",
             "Arn",
           ],
         },
-        "Runtime": "nodejs24.x",
+        "Runtime": "java25",
         "Tags": [
           {
             "Key": "App",
@@ -170,7 +170,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
                       {
                         "Ref": "DistributionBucketName",
                       },
-                      "/media-service/TEST/image-cache-purger-lambda/image-cache-purger.zip",
+                      "/media-service/TEST/image-cache-purger-lambda/image-cache-purger.jar",
                     ],
                   ],
                 },
