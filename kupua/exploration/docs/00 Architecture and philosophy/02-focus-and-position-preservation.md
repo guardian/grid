@@ -168,6 +168,13 @@ For a still-valid return, index, row mapping and the centering callback are read
 again at execution. Columns, header measurements, buffer origin, callback identity
 and ordinary rerenders are geometry changes, not automatic cancellation.
 
+Preview exit has a separate lifetime. Each preview entry owns its delayed
+centering, so reentry (including the same image) or disposal makes an older frame
+inert. Valid same-exit settlement still resolves the latest focus and current
+geometry. Non-traversed exits keep native placement. The existing native
+promise/event finalization, rejected-exit recovery, resize quiet period and safety
+cap remain separate from this centering guard; it is not a global exit manager.
+
 ---
 
 ## 3. Two UI Modes, One Engine

@@ -88,6 +88,7 @@ export function FullscreenPreview() {
   // if the user traversed — otherwise the grid's scrollTop is already
   // correct (the grid stays in the DOM behind the fullscreen layer).
   const entryImageIdRef = useRef<string | null>(null);
+  const previewOwnerRef = useRef<symbol | null>(null);
   const exitInteractionRef = useRef<string | undefined>(undefined);
 
   // Bug #2: Track whether we pushed a phantom history entry (the "back
@@ -137,6 +138,7 @@ export function FullscreenPreview() {
     const el = containerRef.current;
     if (!el) return;
 
+    previewOwnerRef.current = Symbol();
     setCurrentImage(image);
     setImageUrl(getImageUrl(image));
     setIsActive(true);
@@ -189,11 +191,12 @@ export function FullscreenPreview() {
   // Register enterPreview for imperative access (middle-click from grid/table).
   useEffect(() => {
     registerEnterPreview(enterPreview);
-    return () => registerEnterPreview(null);
+    return () => { registerEnterPreview(null); previewOwnerRef.current = null; };
   }, [enterPreview]);
 
   /** Common exit cleanup: phantom pulse + conditional scroll. */
   const cleanupAfterExit = useCallback(() => {
+    const owner = previewOwnerRef.current;
     const fid = useSearchStore.getState().focusedImageId;
     // Phantom pulse — in click-to-open mode, pulse the image so the user
     // knows which image they landed on (same animation as return-from-detail).
@@ -208,7 +211,7 @@ export function FullscreenPreview() {
     if (traversed) {
       const doScroll = () => {
         requestAnimationFrame(() => {
-          scrollFocusedIntoView();
+          if (previewOwnerRef.current === owner) scrollFocusedIntoView();
         });
       };
 

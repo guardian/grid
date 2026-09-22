@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep preview exit centering with its preview session
+
+  KUP-027: each preview entry owns its delayed centering frame. Reentry or disposal
+  makes an older frame inert, preserving the newer preview's retained list position.
+  Valid same-exit latest-focus and fresh-geometry resolution remain, as do native
+  promise/event finalization, rejected-exit recovery and resize settling delays.
+
   ### 22 September 2026 - Resolve valid detail returns with current geometry
 
   KUP-018: a queued traversal return retains its original image, search, history

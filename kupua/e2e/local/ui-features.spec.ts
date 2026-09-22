@@ -1113,6 +1113,181 @@ test.describe("KUP-019 mounted traversal consumers", () => {
   }
 });
 
+test.describe("KUP-027 native preview exit settlement", () => {
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        export const getThumbnailUrl = image => "/__preview_exit_media/" + image.id + ".gif";
+        export const getFullImageUrl = getThumbnailUrl;
+        export const getZoomImageUrl = getThumbnailUrl;`,
+    }));
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+      : route.fallback());
+    await kupua.goto();
+    await kupua.switchToTable();
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(async () => {
+      const gate = (window as any).__previewExitGate;
+      if (gate) {
+        gate.cleanup();
+        delete (window as any).__previewExitGate;
+      }
+      if (document.fullscreenElement) await document.exitFullscreen();
+    });
+  });
+
+  for (const scenario of ["ordinary", "new-focus", "new-preview", "same-image-preview", "resize", "native-exit"] as const) {
+    test(`${scenario}: native completion and queued centering have separate lifetimes`, async ({ kupua, page }) => {
+      await kupua.focusNthItem(5);
+      await page.keyboard.press("f");
+      await page.waitForFunction(() => document.fullscreenElement !== null);
+      await expect(page.locator('[data-fullscreen-preview="active"] [aria-label="Next image"]')).toBeVisible();
+      await page.waitForFunction(() => {
+        const image = document.querySelector('[data-fullscreen-preview="active"] img') as HTMLImageElement;
+        return image?.complete && image.naturalWidth > 0;
+      });
+      for (let step = 0; step < 24; step++) {
+        const previous = await kupua.getFocusedImageId();
+        await page.keyboard.press("ArrowRight");
+        await expect.poll(() => kupua.getFocusedImageId()).not.toBe(previous);
+      }
+      await page.evaluate(() => {
+        const originalRequest = window.requestAnimationFrame;
+        const originalCancel = window.cancelAnimationFrame;
+        const originalExit = document.exitFullscreen;
+        const ownExit = Object.getOwnPropertyDescriptor(document, "exitFullscreen");
+        const pending = new Map<number, { callback: FrameRequestCallback; timestamp?: number }>();
+        const gate = (window as any).__previewExitGate = {
+          pending, originalRequest, originalCancel, captured: 0, executed: 0,
+          releaseExit: null as null | (() => void), exitDelivered: false,
+          nativeExit: () => originalExit.call(document),
+          container: document.querySelector('[aria-label="Image results table"]'),
+          releaseFrames() {
+            for (const [handle, entry] of pending) {
+              if (entry.timestamp === undefined) continue;
+              pending.delete(handle);
+              gate.executed += 1;
+              entry.callback(entry.timestamp);
+            }
+          },
+          cleanup() {
+            gate.releaseExit?.();
+            for (const handle of pending.keys()) originalCancel.call(window, handle);
+            pending.clear();
+            window.requestAnimationFrame = originalRequest;
+            window.cancelAnimationFrame = originalCancel;
+            if (ownExit) Object.defineProperty(document, "exitFullscreen", ownExit);
+            else Reflect.deleteProperty(document, "exitFullscreen");
+          },
+        };
+        document.exitFullscreen = async () => {
+          await originalExit.call(document);
+          await new Promise<void>((resolve) => { gate.releaseExit = resolve; });
+          gate.exitDelivered = true;
+        };
+        window.requestAnimationFrame = (callback) => {
+          const body = String(callback);
+          if (!body.includes("scrollFocusedIntoView(") || body.includes("requestAnimationFrame(")) return originalRequest.call(window, callback);
+          gate.captured += 1;
+          const handle = originalRequest.call(window, (timestamp) => {
+            const entry = pending.get(handle);
+            if (entry) entry.timestamp = timestamp;
+          });
+          pending.set(handle, { callback });
+          return handle;
+        };
+        window.cancelAnimationFrame = (handle) => {
+          pending.delete(handle);
+          originalCancel.call(window, handle);
+        };
+      });
+      if (scenario === "native-exit") await page.evaluate(() => (window as any).__previewExitGate.nativeExit());
+      else await page.keyboard.press("Backspace");
+      await page.waitForFunction((nativeExit) => document.fullscreenElement === null &&
+        document.querySelector('[data-fullscreen-preview="active"]') === null &&
+        (nativeExit || (window as any).__previewExitGate.releaseExit !== null) &&
+        [...(window as any).__previewExitGate.pending.values()].some((entry: any) => entry.timestamp !== undefined), scenario === "native-exit");
+      if (scenario === "new-focus" || scenario === "new-preview") await kupua.focusNthItem(12);
+      if (scenario === "resize") await page.setViewportSize({ width: 1000, height: 650 });
+      const expectedFocus = await kupua.getFocusedImageId();
+      if (scenario === "new-preview" || scenario === "same-image-preview") {
+        await page.keyboard.press("f");
+        await page.waitForFunction(() => document.fullscreenElement !== null);
+        await expect(page.locator('[data-fullscreen-preview="active"] [aria-label="Next image"]')).toBeVisible();
+      }
+      const outcome = await page.evaluate(async () => {
+        const gate = (window as any).__previewExitGate;
+        const container = document.querySelector('[aria-label="Image results table"]')!;
+        const before = container.scrollTop;
+        const historyBefore = history.state;
+        gate.releaseExit?.();
+        await new Promise<void>((resolve) => gate.originalRequest.call(window, resolve));
+        const promiseKeptHistory = history.state.kupuaKey === historyBefore.kupuaKey &&
+          history.state._kupuaFullscreenPreview === historyBefore._kupuaFullscreenPreview;
+        gate.releaseFrames();
+        await new Promise<void>((resolve) => gate.originalRequest.call(window, () => gate.originalRequest.call(window, resolve)));
+        return { before, after: container.scrollTop, captured: gate.captured, executed: gate.executed,
+          exitDelivered: gate.exitDelivered, promiseKeptHistory, sameContainer: container === gate.container,
+          nativeActive: document.fullscreenElement !== null,
+          previewActive: document.querySelector('[data-fullscreen-preview="active"]') !== null };
+      });
+      expect(outcome.captured).toBe(1);
+      expect(outcome.exitDelivered).toBe(scenario !== "native-exit");
+      expect(outcome.promiseKeptHistory).toBe(true);
+      expect(outcome.sameContainer).toBe(true);
+      expect(await kupua.getFocusedImageId()).toBe(expectedFocus);
+      if (scenario === "new-preview" || scenario === "same-image-preview") {
+        expect(outcome.nativeActive).toBe(true);
+        expect(outcome.previewActive).toBe(true);
+        expect(outcome.after).toBe(outcome.before);
+      } else {
+        expect(outcome.executed).toBe(1);
+        const placement = await kupua.waitForUsableViewportPlacement(expectedFocus!);
+        expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
+      }
+    });
+  }
+
+  for (const rejectFirst of [false, true]) {
+    test(`${rejectFirst ? "rejected then retried" : "ordinary"} non-traversed exit preserves native placement`, async ({ kupua, page }) => {
+      await kupua.focusNthItem(12);
+      const focus = await kupua.getFocusedImageId();
+      const before = await kupua.getScrollTop();
+      await page.keyboard.press("f");
+      await page.waitForFunction(() => document.fullscreenElement !== null);
+      await expect(page.locator('[data-fullscreen-preview="active"] [aria-label="Next image"]')).toBeVisible();
+      if (rejectFirst) {
+        await page.evaluate(() => {
+          const original = document.exitFullscreen;
+          const descriptor = Object.getOwnPropertyDescriptor(document, "exitFullscreen");
+          const probe = (window as any).__rejectedPreviewExit = { attempts: 0, restore() {
+            if (descriptor) Object.defineProperty(document, "exitFullscreen", descriptor);
+            else Reflect.deleteProperty(document, "exitFullscreen");
+            return original;
+          } };
+          document.exitFullscreen = async () => { probe.attempts += 1; throw new Error("local rejected exit"); };
+        });
+        try {
+          await page.keyboard.press("Backspace");
+          await page.waitForFunction(() => (window as any).__rejectedPreviewExit.attempts === 1);
+          expect(await page.evaluate(() => document.fullscreenElement !== null && history.state?._kupuaFullscreenPreview === true)).toBe(true);
+          await expect(page.locator('[data-fullscreen-preview="active"] img')).toBeVisible();
+        } finally {
+          await page.evaluate(() => { (window as any).__rejectedPreviewExit.restore(); delete (window as any).__rejectedPreviewExit; });
+        }
+      }
+      await page.keyboard.press("Backspace");
+      await page.waitForFunction(() => document.fullscreenElement === null && document.querySelector('[data-fullscreen-preview="active"]') === null);
+      expect(await kupua.getFocusedImageId()).toBe(focus);
+      expect(await kupua.getScrollTop()).toBe(before);
+    });
+  }
+});
+
 test.describe("Fullscreen preview — navigation", () => {
   test("ArrowLeft in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
     await kupua.goto();
