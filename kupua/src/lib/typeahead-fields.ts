@@ -112,26 +112,12 @@ function bucketFilter(
  *   → "cats dogs"
  */
 export function stripFieldFromQuery(cqlKey: string, query: string): string {
-  // Matches: optional +/- prefix, the field key, colon, then either a
-  // quoted value or a (possibly empty) non-whitespace run — `\S*`, not
-  // `\S+`: a chip with no value yet (e.g. "credit:" right after selecting
-  // the key suggestion, nothing typed after the colon) must still match,
-  // or it's never stripped and ends up used as a literal free-text filter.
-  const pattern = new RegExp(
-    `[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:(?:"[^"]*"|\\S*)`,
-    "gi",
-  );
-  return query.replace(pattern, "").replace(/\s{2,}/g, " ").trim();
+  return removeAllFieldTerms(query, cqlKey);
 }
 
 /** Returns true if the query string contains a filter for the given CQL key. */
 export function queryContainsField(cqlKey: string, query: string | undefined): boolean {
-  if (!query) return false;
-  const pattern = new RegExp(
-    `(?:^|\\s)[+\\-]?${cqlKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:`,
-    "i",
-  );
-  return pattern.test(query);
+  return query ? removeAllFieldTerms(query, cqlKey) !== query : false;
 }
 
 /** Merge a static value list with optional store-cached agg counts.
@@ -209,9 +195,9 @@ export function buildTypeaheadFields(
     return isolateAggregationFailure(async () => {
       if (params) {
         let adjustedParams = params;
-        if (cqlKey && params.query && queryContainsField(cqlKey, params.query)) {
+        if (cqlKey && params.query) {
           const stripped = stripFieldFromQuery(cqlKey, params.query);
-          adjustedParams = { ...params, query: stripped || undefined };
+          if (stripped !== params.query) adjustedParams = { ...params, query: stripped || undefined };
         }
         const result = await dataSource.getAggregations(adjustedParams, [{ field, size }], signal);
         return result.fields[field] ?? { buckets: [], total: 0 };
@@ -573,9 +559,8 @@ export function buildDynamicFieldFallback(
     // field, and the aggregation ends up self-referentially scoped to
     // whatever's currently typed instead of the field's full distribution
     // (confirmed live: typing "London" then editing it kept showing only
-    // matches for the in-progress partial value). Same fix scopedAgg already
-    // applies for static fields, via the parser-based helper (regex-based
-    // stripFieldFromQuery doesn't handle quoted keys like this one can be).
+    // matches for the in-progress partial value). Uses the same parser-based
+    // removal as registered fields, including quoted keys and empty values.
     const scopedQuery = params.query ? removeAllFieldTerms(params.query, fieldId) : params.query;
     const adjustedParams = scopedQuery !== params.query ? { ...params, query: scopedQuery || undefined } : params;
     const buckets = await isolateAggregationFailure(

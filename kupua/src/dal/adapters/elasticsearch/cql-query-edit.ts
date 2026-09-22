@@ -215,9 +215,11 @@ export function removeAllFieldTerms(query: string, key: string): string {
 
   let q = query;
   for (const term of found) {
-    q = (q.slice(0, term.start) + q.slice(term.end)).replace(/\s{2,}/g, " ").trim();
+    const before = q.slice(0, term.start).trimEnd();
+    const after = q.slice(term.end).trimStart();
+    q = before && after ? `${before} ${after}` : before + after;
   }
-  return q;
+  return q.trim();
 }
 
 function collectByKey(

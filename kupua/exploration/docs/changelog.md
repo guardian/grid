@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Preserve literals during typeahead self-exclusion
+
+  KUP-023: registered and arbitrary-field suggestions share existing AST source-span
+  editing. Matching chips are removed without rewriting quoted literal contents,
+  deep keys or unrelated incomplete input. Boundary-only whitespace joining preserves
+  offsets and literal spacing; literal-only queries retain the warm-cache fast path.
+
   ### 22 September 2026 - Resolve configured aliases in direct has queries
 
   KUP-022: direct-client has predicates and dynamic facet targets share configured
