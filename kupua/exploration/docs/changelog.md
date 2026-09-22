@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Resolve configured aliases in direct has queries
+
+  KUP-022: direct-client has predicates and dynamic facet targets share configured
+  alias resolution before static shorthand and raw-path fallback. Alias and quoted
+  raw-leaf spellings identify the same indexed field, including colourProfile.
+  Named-field expansion, query defaults and false-versus-absent semantics are unchanged.
+
   ### 22 September 2026 - Keep pending traversal with its originating image and context
 
   KUP-019: detail and fullscreen pending navigation retain the originating image,

@@ -110,17 +110,22 @@ function translateMimeType(expr: string): string | undefined {
   }
 }
 
+function resolveConfiguredField(name: string): string | undefined {
+  return gridConfig.fieldAliases.find((alias) => alias.alias === name)?.elasticsearchPath;
+}
+
+export function getHasFieldPath(name: string): string {
+  return resolveConfiguredField(name) ?? getFieldPath(name);
+}
+
 /**
  * Resolve a CQL field alias to ES field path(s).
  * Mirrors Scala's QuerySyntax.resolveNamedField.
  */
 function resolveNamedField(name: string): string | string[] {
-  // Check config field aliases first (mirrors Scala's QueryBuilder.resolveFieldPath)
-  const configAlias = gridConfig.fieldAliases.find(
-    (a) => a.alias === name
-  );
-  if (configAlias) {
-    return configAlias.elasticsearchPath;
+  const configuredPath = resolveConfiguredField(name);
+  if (configuredPath !== undefined) {
+    return configuredPath;
   }
 
   // Aliases from QuerySyntax
@@ -304,7 +309,7 @@ function fieldToClause(field: CqlField, negated: boolean): QueryClause {
   // Special field handlers
   if (key === "has") {
     return {
-      query: { exists: { field: getFieldPath(value) } },
+      query: { exists: { field: getHasFieldPath(value) } },
       negated,
     };
   }

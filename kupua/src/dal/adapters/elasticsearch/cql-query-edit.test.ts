@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { findFieldTerm, upsertFieldTerm, findHasFieldTargets, removeAllFieldTerms } from "./cql-query-edit";
+import { gridConfig } from "@/lib/grid-config";
 
 // ---------------------------------------------------------------------------
 // findFieldTerm
@@ -211,6 +212,21 @@ describe("upsertFieldTerm", () => {
 // findHasFieldTargets
 // ---------------------------------------------------------------------------
 describe("findHasFieldTargets", () => {
+  it("resolves and deduplicates configured aliases against the same raw has leaf", () => {
+    const originalAliases = [...gridConfig.fieldAliases];
+    gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, {
+      alias: "colourProfile", elasticsearchPath: "fileMetadata.icc.Synthetic Profile",
+      label: "Synthetic profile", displaySearchHint: false, displayInAdditionalMetadata: false,
+    });
+    try {
+      expect(findHasFieldTargets('+has:colourProfile has:"fileMetadata.icc.Synthetic Profile" -has:colourProfile')).toEqual([
+        { raw: "colourProfile", esPath: "fileMetadata.icc.Synthetic Profile" },
+      ]);
+    } finally {
+      gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...originalAliases);
+    }
+  });
+
   it("returns empty for empty query", () => {
     expect(findHasFieldTargets("")).toEqual([]);
   });

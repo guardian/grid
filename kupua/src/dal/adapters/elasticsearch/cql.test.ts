@@ -6,9 +6,53 @@
  * in grid-config.ts (staffPhotographerOrganisation: "GNM", hasAgencyPicks: true).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { parseCql } from "./cql";
 import { gridConfig } from "@/lib/grid-config";
+
+describe("configured has-field aliases", () => {
+  const originalAliases = [...gridConfig.fieldAliases];
+  const aliases = [
+    { alias: "colourProfile", elasticsearchPath: "fileMetadata.icc.Synthetic Profile" },
+    { alias: "credit", elasticsearchPath: "fileMetadata.synthetic.credit" },
+    { alias: "syntheticNested", elasticsearchPath: "usages.platform" },
+    { alias: "syntheticFlag", elasticsearchPath: "fileMetadata.synthetic.flag" },
+  ];
+
+  beforeEach(() => {
+    gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...aliases.map((alias) => ({
+      ...alias, label: alias.alias, displaySearchHint: false, displayInAdditionalMetadata: false,
+    })));
+  });
+  afterEach(() => { gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...originalAliases); });
+
+  it.each(aliases.flatMap((alias) => ["+", "-"].map((sign) => ({ ...alias, sign }))))(
+    "$sign has:$alias resolves exactly like its quoted raw leaf",
+    ({ alias, elasticsearchPath, sign }) => {
+      const expected = { exists: { field: elasticsearchPath } };
+      const result = parseCql(`${sign}has:${alias}`);
+      expect(result).toEqual(parseCql(`${sign}has:${JSON.stringify(elasticsearchPath)}`));
+      expect(result).toEqual({ must: sign === "+" ? [expected] : [], mustNot: sign === "-" ? [expected] : [] });
+    },
+  );
+
+  it.each([
+    ["crops", "exports"], ["city", "metadata.city"],
+    ["photographer", "usageRights.photographer"], ["in", "in"],
+    ["unknownSyntheticName", "unknownSyntheticName"],
+    ["fileMetadata.xmp.synthetic:deep/leaf[1]", "fileMetadata.xmp.synthetic:deep/leaf[1]"],
+  ])("preserves existing has:%s resolution", (name, path) => {
+    expect(parseCql(`has:${JSON.stringify(name)}`)).toEqual({
+      must: [{ exists: { field: path } }], mustNot: [],
+    });
+  });
+
+  it("does not change scalar, multi-field or nested named-field translation", () => {
+    const before = ["in:London", "photographer:Synthetic", "usages@platform:print"].map(parseCql);
+    gridConfig.fieldAliases.splice(0);
+    expect(["in:London", "photographer:Synthetic", "usages@platform:print"].map(parseCql)).toEqual(before);
+  });
+});
 
 describe("parseCql — is: queries", () => {
   it("is:deleted → exists on softDeletedMetadata", () => {

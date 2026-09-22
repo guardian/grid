@@ -14,6 +14,7 @@ import type { Image } from "@/types/image";
 import { buildTypeaheadFields } from "@/lib/typeahead-fields";
 import { MAX_RESULT_WINDOW } from "@/constants/tuning";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
+import { gridConfig } from "@/lib/grid-config";
 
 // ---------------------------------------------------------------------------
 // Minimal fetch-response factory helpers
@@ -94,6 +95,33 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe("configured has-field count queries", () => {
+  const originalAliases = [...gridConfig.fieldAliases];
+
+  beforeEach(() => {
+    gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, {
+      alias: "colourProfile", elasticsearchPath: "fileMetadata.icc.Synthetic Profile",
+      label: "Synthetic profile", displaySearchHint: false, displayInAdditionalMetadata: false,
+    });
+    vi.mocked(global.fetch).mockResolvedValue(okResponse(esSearchHits()));
+  });
+  afterEach(() => { gridConfig.fieldAliases.splice(0, gridConfig.fieldAliases.length, ...originalAliases); });
+
+  it.each(["+", "-"])("preserves caller filters and resolves %shas:colourProfile", async (sign) => {
+    const params = { nonFree: "true" as const, until: "2026-01-01", ids: "synthetic-image" };
+    await ds.count({ ...params, query: `${sign}has:colourProfile` });
+    await ds.count({ ...params, query: `${sign}has:"fileMetadata.icc.Synthetic Profile"` });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const bodies = vi.mocked(global.fetch).mock.calls.map(([, options]) => JSON.parse(options?.body as string));
+    expect(bodies[0].query).toEqual(bodies[1].query);
+    expect(bodies[0].query.bool[sign === "+" ? "must" : "must_not"]).toContainEqual({
+      exists: { field: "fileMetadata.icc.Synthetic Profile" },
+    });
+    expect(bodies[0].query.bool.filter).toContainEqual({ terms: { id: ["synthetic-image"] } });
+    expect(bodies[0].query.bool.filter).toContainEqual({ range: { uploadTime: { lt: "2026-01-01T00:00:00.000Z" } } });
+  });
 });
 
 describe("KUP-005 result-scoped AI transport", () => {

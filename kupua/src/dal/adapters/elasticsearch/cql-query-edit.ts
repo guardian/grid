@@ -14,7 +14,7 @@ import {
   type CqlExpr,
   type CqlField,
 } from "@guardian/cql";
-import { getFieldPath } from "./cql";
+import { getHasFieldPath } from "./cql";
 
 // Reuse the same parser settings as the main CQL module (operators/groups
 // disabled, matching the widget in CqlSearchInput.tsx) — without this, this
@@ -262,7 +262,7 @@ function collectInBinary(
  * like "croppedBy" — needed for building click-to-filter CQL chip text,
  * which must round-trip through the same alias) and the resolved ES path
  * (e.g. "exports.author" — needed for the actual aggregation request,
- * since `has:` itself filters on `getFieldPath(value)`, not the raw
+ * since `has:` itself filters on `getHasFieldPath(value)`, not the raw
  * literal — review finding F3: without this resolution, an aliased has:
  * target's facet aggregated on the wrong, unmapped path and never
  * appeared).
@@ -299,7 +299,10 @@ function collectHasTargetsInExpr(expr: CqlExpr, out: Map<string, string>): void 
         const value = field.value?.literal ?? field.value?.lexeme;
         // Keep the first raw form seen for a given resolved path — stable
         // regardless of which alias/full-path spelling appears later.
-        if (value && !out.has(getFieldPath(value))) out.set(getFieldPath(value), value);
+        if (value) {
+          const esPath = getHasFieldPath(value);
+          if (!out.has(esPath)) out.set(esPath, value);
+        }
       }
       break;
     }
