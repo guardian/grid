@@ -362,7 +362,11 @@ interface SearchState {
    * useScrollEffects can apply it after the seek completes.
    * "first" = focus first image in new buffer, "last" = focus last.
    */
-  _pendingFocusAfterSeek: "first" | "last" | null;
+  _pendingFocusAfterSeek: {
+    edge: "first" | "last";
+    focusedImageId: string | null;
+    signal?: AbortSignal;
+  } | null;
 
   /**
    * Pending focus delta for arrow snap-back.
@@ -2875,6 +2879,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const params = frozenParams(rawParams, get);
     const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
+    const pendingFocus = get()._pendingFocusAfterSeek;
 
     // Clamp to valid range
     const { total } = get();
@@ -2889,6 +2894,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // read the module-level _rangeAbortController (which may have been
     // replaced by a newer seek), allowing stale seeks to complete uncancelled.
     const signal = _rangeAbortController.signal;
+
+    const reuseResidentStart = pendingFocus?.signal !== undefined && clampedOffset === 0 &&
+      get().bufferOffset === 0 && get().results.length > 0;
+    if (reuseResidentStart) {
+      set({ loading: false, _pendingFocusAfterSeek: null, _pendingFocusDelta: null,
+        _extendForwardInFlight: false, _extendBackwardInFlight: false });
+      return;
+    }
 
     // If search() opened a new PIT since we captured ours, skip the
     // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
@@ -2905,6 +2918,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       loading: true,
       error: null,
       _pendingFocusDelta: null,
+      _pendingFocusAfterSeek: pendingFocus && !pendingFocus.signal ? { ...pendingFocus, signal } : null,
       _extendForwardInFlight: false,
       _extendBackwardInFlight: false,
     });
@@ -2923,6 +2937,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
     performance.mark('seek-start');
 
+    let committed = false;
     try {
       // Center the buffer around the target offset
       const halfBuffer = Math.floor(PAGE_SIZE / 2);
@@ -3762,6 +3777,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
       // Commit-to-view (seek): merge enrichment from the committed pages.
       if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      committed = true;
       set({
         results: result.hits,
         bufferOffset: actualOffset,
@@ -3867,6 +3883,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         error: e instanceof Error ? e.message : "Seek failed",
         loading: false,
       });
+    } finally {
+      if (!committed && get()._pendingFocusAfterSeek?.signal === signal) {
+        set({ _pendingFocusAfterSeek: null });
+      }
     }
   },
 

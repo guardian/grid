@@ -500,7 +500,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // seeks which already have zero flash.
             if (c.bufferOffset && c.bufferOffset > 0 && c.seek) {
               if (hasFocus) {
-                useSearchStore.setState({ _pendingFocusAfterSeek: "first" });
+                useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "first", focusedImageId: c.focusedImageId } });
               }
               c.seek(0);
               // After seek, focus first image only if something was focused
@@ -508,6 +508,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
               // post-seek effect will handle scroll position)
             } else {
               // Already at the start — just scroll to top
+              if (useSearchStore.getState()._pendingFocusAfterSeek) void c.seek?.(0);
               const el = c.scrollRef.current;
               if (el) {
                 el.scrollTop = 0;
@@ -529,8 +530,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
             const bufOff = c.bufferOffset ?? 0;
             if (c.seek && bufOff + c.resultsLength < c.total) {
               // Always signal "last" so effect #6 scrolls to the end.
-              // Focus is only set if focusedImageId was already set.
-              useSearchStore.setState({ _pendingFocusAfterSeek: "last" });
+              // Focus permission belongs to the initiating keyboard action.
+              useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });
               c.seek(Math.max(0, c.total - 1));
             } else {
               // Use virtualizer.scrollToIndex — raw el.scrollHeight includes

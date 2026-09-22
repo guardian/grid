@@ -5,20 +5,19 @@
 
 ## The Two Modes
 
-Keyboard navigation has two modes, determined by whether an image is focused:
+Keyboard navigation has two modes, determined by effective focus:
 
-```
-┌─────────────────────────────────────────────────────┐
-│  focusedImageId === null  →  SCROLL-ONLY MODE       │
-│  focusedImageId !== null  →  FOCUS MODE             │
-└─────────────────────────────────────────────────────┘
+```text
+Explicit mode + focused image + empty selection -> FOCUS MODE
+Otherwise                                      -> SCROLL-ONLY MODE
 ```
 
-**Nothing focused → scroll only.** Keys scroll the viewport. No image
-gets highlighted. This is the default state when you load the page.
+**No effective focus: scroll only.** This includes no stored focus, phantom mode,
+and active selection hiding an older explicit focus. Navigation does not create
+or move that hidden focus. Phantom position follows the viewport normally.
 
-**Something focused → move focus.** Keys move the blue highlight between
-images. The viewport follows the focused image.
+**Effective explicit focus: move focus.** Keys move the highlight between images;
+the viewport follows the focused image.
 
 Focus is established by clicking an image. It's cleared by clicking the
 grid background (the gaps between cells, or any area not occupied by a
@@ -26,17 +25,32 @@ cell). In table view, focus clearing is not yet implemented.
 
 ## Key Matrix
 
-| Key | No Focus (scroll only) | Has Focus |
+| Key | No Effective Focus (scroll only) | Effective Explicit Focus |
 |---|---|---|
 | **↑** | Scroll up 1 row | Move focus up 1 row |
 | **↓** | Scroll down 1 row | Move focus down 1 row |
-| **←** | *(nothing)* | Move focus left 1 cell (grid only) |
-| **→** | *(nothing)* | Move focus right 1 cell (grid only) |
+| **←** | No-op in grid; horizontal scroll in table | Move focus left 1 cell in grid; horizontal scroll in table |
+| **→** | No-op in grid; horizontal scroll in table | Move focus right 1 cell in grid; horizontal scroll in table |
 | **PgUp** | Scroll up 1 page | Move focus up 1 page of rows |
 | **PgDown** | Scroll down 1 page | Move focus down 1 page of rows |
 | **Home** | Scroll to top (seek if windowed) | Scroll to top + focus first image |
 | **End** | Scroll to bottom (seek if windowed) | Scroll to bottom + focus last image |
 | **Enter** | *(nothing)* | Open focused image detail |
+
+### Deferred End
+
+An End that needs data always retains its tail-scroll obligation, independently
+of whether it may change focus. The pending intent captures the initiating focus
+permission and image, then belongs to the existing seek request. Clearing selection
+or enabling explicit mode during the wait cannot grant permission retroactively.
+Completion only moves focus when the originating image is still current and
+effective explicit focus remains enabled without selection.
+
+A newer seek does not inherit End's edge intent. Home can cancel a pending End and
+reuse an already-loaded first page without fetching it again. An uncommitted
+failed/aborted request releases only its own intent; successful publication leaves
+one-shot consumption to the scroll hook. This is not a general symmetric Home/End
+cancellation guarantee; remaining boundaries are recorded in the bug backlog.
 
 ## Key Propagation from the Search Box
 

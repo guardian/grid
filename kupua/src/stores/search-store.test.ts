@@ -3634,7 +3634,9 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
   it("search() clears _pendingFocusAfterSeek (audit #1)", async () => {
     // Set the stale intent — simulates Home/End seek in flight when a new
     // query fires before the seek resolves.
-    useSearchStore.setState({ _pendingFocusAfterSeek: "first" });
+    useSearchStore.setState({ _pendingFocusAfterSeek: {
+      edge: "first", focusedImageId: "img-0", signal: new AbortController().signal,
+    } });
 
     await actions().search();
 

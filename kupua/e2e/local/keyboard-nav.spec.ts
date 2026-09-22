@@ -23,6 +23,53 @@ test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
 
+test.describe("KUP-013 End with retained hidden focus", () => {
+  for (const density of ["grid", "table"] as const) {
+    test(`${density}: windowed End preserves selected IDs and hidden focus after Clear`, async ({ kupua, page }) => {
+      await kupua.goto();
+      if (density === "table") await kupua.switchToTable();
+      await kupua.focusNthItem(1);
+      const origin = await kupua.getFocusedImageId();
+      expect(origin).not.toBeNull();
+      const cell = page.locator(`[data-image-id="${origin}"]`);
+      await cell.hover();
+      await cell.locator('[aria-label="Select image"]').click({ force: true });
+      const before = await page.evaluate(() => {
+        const selection = (window as any).__kupua_selection_store__.getState();
+        const state = (window as any).__kupua_store__.getState();
+        return { ids: [...selection.selectedIds], anchor: selection.anchorId, focus: state.focusedImageId,
+          generation: state._seekGeneration, windowed: state.results.length < state.total };
+      });
+      expect(before).toMatchObject({ ids: [origin], anchor: origin, focus: origin, windowed: true });
+
+      await page.keyboard.press("End");
+      await kupua.waitForSeekGenerationBump(before.generation);
+      await expect.poll(() => page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]');
+        const tail = state.results.at(-1);
+        const cell = tail && container?.querySelector(`[data-image-id="${tail.id}"]`);
+        if (!container || !cell) return false;
+        const bounds = container.getBoundingClientRect();
+        const rectangle = cell.getBoundingClientRect();
+        const header = container.querySelector("[data-table-header]")?.getBoundingClientRect();
+        return state.bufferOffset + state.results.length === state.total &&
+          rectangle.bottom > (header?.bottom ?? bounds.top) && rectangle.top < bounds.bottom;
+      })).toBe(true);
+      expect(await kupua.getFocusedImageId()).toBe(origin);
+      const selection = await page.evaluate(() => {
+        const state = (window as any).__kupua_selection_store__.getState();
+        return { ids: [...state.selectedIds], anchor: state.anchorId };
+      });
+      expect(selection).toEqual({ ids: before.ids, anchor: before.anchor });
+      const scrollTop = await kupua.getScrollTop();
+      await page.evaluate(() => (window as any).__kupua_selection_store__.getState().clear());
+      expect(await kupua.getFocusedImageId()).toBe(origin);
+      expect(await kupua.getScrollTop()).toBe(scrollTop);
+    });
+  }
+});
+
 // ===========================================================================
 // No-focus mode — scrolling only, never focusing
 // ===========================================================================

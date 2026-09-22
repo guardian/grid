@@ -35,6 +35,7 @@ import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-sche
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { devLog } from "@/lib/dev-log";
 
 /**
@@ -532,15 +533,17 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const pendingFocus = useSearchStore.getState()._pendingFocusAfterSeek;
     if (pendingFocus) {
       const store = useSearchStore.getState();
-      if (pendingFocus === "first") {
-        if (store.focusedImageId) {
+      const mayMoveFocus = pendingFocus.focusedImageId !== null &&
+        store.focusedImageId === pendingFocus.focusedImageId &&
+        getEffectiveFocusMode() === "explicit" && useSelectionStore.getState().selectedIds.size === 0;
+      if (pendingFocus.edge === "first") {
+        if (mayMoveFocus) {
           const firstImg = store.results[0];
           if (firstImg) useSearchStore.setState({ focusedImageId: firstImg.id });
         }
         virtualizerRef.current.scrollToIndex(0, { align: "start" });
       } else {
-        // Focus last image only if something was already focused
-        if (store.focusedImageId) {
+        if (mayMoveFocus) {
           for (let i = store.results.length - 1; i >= Math.max(0, store.results.length - 50); i--) {
             const img = store.results[i];
             if (img) {

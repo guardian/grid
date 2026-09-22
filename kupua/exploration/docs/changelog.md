@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Separate End scrolling from permission to move focus
+
+  KUP-013: pending End carries its initiating focus eligibility and existing seek
+  signal. Hidden focus stays retained without preventing tail scrolling; clearing
+  selection during the wait cannot grant focus permission. Newer seeks and failed
+  or aborted uncommitted reads discard their own stale intent. Home can cancel an
+  in-flight End and reuse the already-resident head without another data read.
+
   ### 22 September 2026 - Terminate failed detail media fallback
 
   KUP-021: resolve thumbnail URLs before comparing them with the browser's absolute
