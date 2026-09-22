@@ -7,6 +7,8 @@ private[mediaservice] trait FastlyApiKeyProvider {
   def apiKey: String
 }
 
+private[mediaservice] final case class DummyFastlyApiKeyProvider(apiKey: String) extends FastlyApiKeyProvider
+
 private[mediaservice] class SecretsManagerFastlyApiKeyProvider(
   client: SecretsManagerClient,
   secretId: String

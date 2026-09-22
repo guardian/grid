@@ -11,6 +11,10 @@ import software.amazon.awssdk.services.secretsmanager.model.{GetSecretValueReque
 
 class FastlyApiKeyProviderTest extends AnyFunSpec with Matchers with MockitoSugar {
   describe("FastlyApiKeyProvider") {
+    it("provides a dummy API key for tests") {
+      DummyFastlyApiKeyProvider("dummy-api-key").apiKey shouldBe "dummy-api-key"
+    }
+
     it("loads the configured secret once and caches it") {
       val client = mock[SecretsManagerClient]
       when(client.getSecretValue(any[GetSecretValueRequest]))

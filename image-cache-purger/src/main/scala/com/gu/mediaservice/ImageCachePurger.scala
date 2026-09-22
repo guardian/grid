@@ -10,22 +10,20 @@ import scala.jdk.CollectionConverters._
 
 class ImageCachePurgerHandler extends RequestHandler[SQSEvent, String] {
 
-  val imageCachePurger = new ImageCachePurger(FastlyApiKeyProvider.default,
-    new FastlyPurger(FastlyApiKeyProvider.default, sys.env.getOrElse("STAGE", "DEV")))
+  val imageCachePurger = new ImageCachePurger(new FastlyPurger(FastlyApiKeyProvider.default, sys.env.getOrElse("STAGE", "DEV")))
 
   override def handleRequest(input: SQSEvent, context: Context): String = {
-    imageCachePurger.handleRecord(input, context)
+    imageCachePurger.handleRecord(input)
 
     "Image cache purge requested"
   }
 }
 
-class ImageCachePurger(apiKeyProvider: FastlyApiKeyProvider, fastlyPurger: FastlyPurger) {
-  def handleRecord(input: SQSEvent, context: Context): Unit = {
+class ImageCachePurger(fastlyPurger: FastlyPurger) {
+  def handleRecord(input: SQSEvent): Unit = {
     input.getRecords.asScala.foreach { record =>
       ImageCachePurger.extractKeys(record.getBody).foreach { key =>
         fastlyPurger.purge(key)
-        context.getLogger.log(s"Purged S3 object key from Fastly: $key")
       }
     }
   }
