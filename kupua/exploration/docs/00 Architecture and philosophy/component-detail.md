@@ -136,6 +136,11 @@ Restores focus and scroll position when the image detail overlay closes (the oth
 
 Cadence-aware prefetch shared by ImageDetail, FullscreenPreview, and the swipe carousel. Organised around a **TraversalSession** — a module-level singleton that tracks the user's navigation burst (held arrow key, chain-swipe). EMA-smoothed cadence determines prefetch radius: fast bursts → narrow (i±1 + far lookahead); stable cadence → full radius. Post-burst debounce fires a full-radius fill around the resting position. Stale in-flight requests are cancelled via `img.src = ""`, except the newly visible image whose prefetch may be coalesced with the centre `<img>` request. `fetchPriority` hints keep the most-likely-next image at the front of the browser's connection queue. On mobile, thumbnails are issued before full-res within each batch. All thresholds tunable at runtime via `localStorage` keys (`kupua.prefetch.<key>`) — no rebuild needed.
 
+Each full-image loader captures its issuing in-flight map. Load/error/decode completion removes
+tracking only when that map still holds the same loader for the ID, including cancellation/reissue
+within a session. Late successful decode can still warm the bounded cache; cache usefulness does
+not grant ownership of a newer loader's tracking.
+
 ## Prepend Transform — DEAD CODE
 
 > **`lib/prepend-transform.ts` is dead code** (~140 lines, zero importers). Created for

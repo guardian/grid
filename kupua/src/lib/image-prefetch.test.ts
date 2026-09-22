@@ -104,6 +104,91 @@ function makeResults(n: number): Image[] {
   return Array.from({ length: n }, (_, i) => makeImage(`img-${i}`));
 }
 
+describe("prefetch completion ownership", () => {
+  type Completion = "load" | "error" | "decode" | "decode-error";
+  let pipeline: typeof import("./image-prefetch");
+  let now: number;
+  const decoders = new Map<MockImage, { resolve: () => void; reject: (error: Error) => void }>();
+
+  beforeEach(() => {
+    __resetPrefetchForTests();
+    vi.useFakeTimers();
+    now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    mockImages.length = 0;
+    decoders.clear();
+    vi.spyOn(MockImage.prototype, "decode").mockImplementation(function (this: MockImage) {
+      return new Promise<void>((resolve, reject) => { decoders.set(this, { resolve, reject }); });
+    });
+  });
+
+  afterEach(() => {
+    pipeline?.__resetPrefetchForTests();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  async function setup(completion: Completion) {
+    vi.stubGlobal("window", { screen: { width: 1200, height: 900 }, matchMedia: () => ({ matches: completion.startsWith("decode") }) });
+    vi.resetModules();
+    pipeline = await import("./image-prefetch");
+  }
+
+  async function complete(loader: MockImage, completion: Completion) {
+    if (completion === "load") loader.onload?.();
+    else if (completion === "error") loader.onerror?.();
+    else if (completion === "decode") decoders.get(loader)!.resolve();
+    else decoders.get(loader)!.reject(new Error("synthetic decode failure"));
+    await Promise.resolve();
+  }
+
+  const cases = (["load", "error", "decode", "decode-error"] as const)
+    .flatMap(completion => (["new-session", "same-session"] as const).map(replacement => ({ completion, replacement })));
+
+  it.each(cases)("late $completion preserves the $replacement same-ID loader and cancellation", async ({ completion, replacement }) => {
+    await setup(completion);
+    const results = makeResults(2);
+    const decoded = vi.fn();
+    const unsubscribe = pipeline.onFullResDecoded(decoded);
+    pipeline.prefetchNearbyImages(0, results, "forward");
+    const older = mockImages.find(image => image.src === "https://test/full/img-1")!;
+    expect(pipeline.getPrefetchStats().inFlightCount).toBe(1);
+    if (replacement === "new-session") {
+      now += 2100;
+      vi.advanceTimersByTime(2100);
+      expect(pipeline.getPrefetchStats().sessionOpen).toBe(false);
+      expect(older.src).toBe("https://test/full/img-1");
+    } else {
+      pipeline.prefetchNearbyImages(0, [results[0]], "forward");
+      expect(older.src).toBe("");
+    }
+    pipeline.prefetchNearbyImages(0, results, "forward");
+    const newer = mockImages.findLast(image => image.src === "https://test/full/img-1")!;
+    expect(newer).not.toBe(older);
+    await complete(older, completion);
+    expect(pipeline.getPrefetchStats().inFlightCount).toBe(1);
+    expect(pipeline.isFullResLoaded("img-1")).toBe(completion === "decode");
+    expect(decoded).toHaveBeenCalledTimes(completion === "decode" ? 1 : 0);
+    pipeline.prefetchNearbyImages(0, [results[0]], "forward");
+    expect(newer.src).toBe("");
+    expect(pipeline.getPrefetchStats()).toMatchObject({ inFlightCount: 0, lastCancelledCount: 1 });
+    await complete(newer, completion);
+    expect(pipeline.getPrefetchStats().inFlightCount).toBe(0);
+    unsubscribe();
+  });
+
+  it.each(["load", "error", "decode", "decode-error"] as const)("ordinary current-loader %s completes its tracking", async (completion) => {
+    await setup(completion);
+    pipeline.prefetchNearbyImages(0, makeResults(2), "forward");
+    const loader = mockImages.find(image => image.src === "https://test/full/img-1")!;
+    await complete(loader, completion);
+    expect(pipeline.getPrefetchStats().inFlightCount).toBe(0);
+    expect(loader.src).toBe("https://test/full/img-1");
+    expect(pipeline.isFullResLoaded("img-1")).toBe(completion === "decode");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Traversal session — open/close, inFlight tracking, cancellation
 // ---------------------------------------------------------------------------

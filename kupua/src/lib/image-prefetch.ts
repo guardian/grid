@@ -397,6 +397,7 @@ function _issueMissing(
   desired: Map<string, DesiredEntry>,
 ): void {
   if (!_currentSession) return;
+  const inFlight = _currentSession.inFlight;
 
   // Sort entries by distance from current index (nearest first)
   const entries = [...desired.entries()].sort(
@@ -421,7 +422,7 @@ function _issueMissing(
   // 2. Full-res — skip already-loaded or already-in-flight
   for (const [id, { idx, priority }] of entries) {
     if (_loadedFullRes.has(id)) continue;
-    if (_currentSession.inFlight.has(id)) continue;
+    if (inFlight.has(id)) continue;
 
     const image = results[idx];
     if (!image) continue;
@@ -433,7 +434,10 @@ function _issueMissing(
     img.src = url;
 
     // Track in-flight
-    _currentSession.inFlight.set(id, img);
+    inFlight.set(id, img);
+    const complete = () => {
+      if (inFlight.get(id) === img) inFlight.delete(id);
+    };
 
     // On mobile: decode() to populate _loadedFullRes for side-panel URL selection
     if (isTouchDevice) {
@@ -444,18 +448,17 @@ function _issueMissing(
           _evictOldest();
           _notifyListeners(capturedId);
           // Remove from in-flight — it's done
-          _currentSession?.inFlight.delete(capturedId);
+          complete();
         },
         () => {
           // Decode failed (404, broken image) — remove from in-flight but don't mark
-          _currentSession?.inFlight.delete(capturedId);
+          complete();
         },
       );
     } else {
       // Desktop: no decode(), just cache-warming. Track load completion.
-      const capturedId = id;
-      img.onload = () => { _currentSession?.inFlight.delete(capturedId); };
-      img.onerror = () => { _currentSession?.inFlight.delete(capturedId); };
+      img.onload = complete;
+      img.onerror = complete;
     }
   }
 

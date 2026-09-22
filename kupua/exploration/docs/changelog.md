@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep prefetch completion with its loader
+
+  KUP-020: load, error and decode completion capture the issuing map and remove an
+  entry only when it still holds that loader. A newer same-ID request remains tracked
+  and cancellable across session replacement or cancellation/reissue. Late successful
+  decode remains cache-useful; cadence, radius, priorities and cache policy are unchanged.
+
   ### 22 September 2026 - Retain empty members in incremental selection accounting
 
   KUP-012: adding a populated scalar to a nonzero all-empty cohort produces mixed
