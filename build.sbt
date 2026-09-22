@@ -150,12 +150,18 @@ lazy val collections = playProject("collections", 9010)
 
 lazy val cropper = playProject("cropper", 9006)
 
-lazy val imageLoader = playProject("image-loader", 9003).settings {
+lazy val imageLoader = playProject("image-loader", 9003).settings(
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "3.2.3",
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
+  ),
+  Universal / mappings ++= Seq(
+    file("image-loader/cmyk.icc") -> "cmyk.icc",
+    file("image-loader/facebook-TINYsRGB_c2.icc") -> "facebook-TINYsRGB_c2.icc",
+    file("image-loader/grayscale.icc") -> "grayscale.icc",
+    file("image-loader/srgb.icc") -> "srgb.icc"
   )
-}
+)
 
 lazy val kahuna = playProject("kahuna", 9005).settings(
   pipelineStages := Seq(digest, gzip)
