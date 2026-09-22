@@ -9,6 +9,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 type ImageCachePurgerProps = GuStackProps & {
+	imageBaseUrl: string;
   queueArn: string;
 };
 export class ImageCachePurger extends GuStack {
@@ -32,6 +33,7 @@ export class ImageCachePurger extends GuStack {
 			environment: {
 				STAGE: props.stage,
 				FASTLY_API_KEY_SECRET_ID: fastlyApiKeySecret.secretArn,
+				FASTLY_IMAGE_BASE_URL: props.imageBaseUrl,
 			},
 		});
 		fastlyApiKeySecret.grantRead(imagePurgerHandler);

@@ -15,12 +15,14 @@ new ImageEmbedder(app, 'ImageEmbedderLambda-euwest-1-TEST', {
 	env: { region: 'eu-west-1' },
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
+	imageBaseUrl: 'https://media.guim.co.uk',
   queueArn: "arn:aws:sqs:eu-west-1:563563610310:test",
   stack: 'media-service',
 	stage: 'PROD',
 	env: { region: 'eu-west-1' }
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-TEST', {
+	imageBaseUrl: 'https://media.test.dev-guim.co.uk',
   queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy`,
   stack: 'media-service',
 	stage: 'TEST',

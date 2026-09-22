@@ -20,6 +20,10 @@ Store the raw Fastly API key as the secret's `SecretString`. The CDK stack grant
 this secret and passes its ARN through `FASTLY_API_KEY_SECRET_ID`; the secret value is loaded and cached at runtime.
 Do not put the key itself in Lambda environment variables, source control, or CDK configuration.
 
+For each S3 object key received through SQS, the Lambda sends an authenticated `POST` to Fastly's URL purge API for
+the corresponding URL under `FASTLY_IMAGE_BASE_URL`. Any transport error or non-2xx response fails the invocation so
+that SQS can retry it. The request has a five-second connection timeout and a ten-second response timeout.
+
 ## Test
 
 ```bash

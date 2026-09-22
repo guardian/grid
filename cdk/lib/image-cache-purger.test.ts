@@ -8,6 +8,7 @@ describe('The ImageCachePurger stack', () => {
 		const stack = new ImageCachePurger(app, 'ImageCachePurgerLambda', {
 			stack: 'media-service',
 			stage: 'TEST',
+			imageBaseUrl: 'https://media.test.dev-guim.co.uk',
 			queueArn: 'arn:aws:sqs:eu-west-1:563563610310:test',
 		});
 		return Template.fromStack(stack);
@@ -20,6 +21,7 @@ describe('The ImageCachePurger stack', () => {
 			Environment: {
 				Variables: {
 					FASTLY_API_KEY_SECRET_ID: Match.anyValue(),
+					FASTLY_IMAGE_BASE_URL: 'https://media.test.dev-guim.co.uk',
 				},
 			},
 		});
