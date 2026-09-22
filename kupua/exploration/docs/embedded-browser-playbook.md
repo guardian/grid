@@ -1369,3 +1369,33 @@ settled single-witness contrast. Capture only method/status, counts and in-page
 identity comparisons. Hybrid tickers/counts still use ES: verify the actual D3
 hit request before attributing a result to the server query path. Close the first
 app's agent tab before exercising the second when sequential operation is requested.
+
+**[V] A mounted CQL/Back race can be gated without rewriting history (22 September
+2026).** Target only the 300ms callback containing `debounced-input`, retain native
+timer IDs and forward `clearTimeout`, then release only uncancelled due callbacks.
+Real typing created a fresh key and one entry; Back restored the predecessor while
+the same editor stayed mounted. Releasing the old callback changed URL/store/editor
+but retained the destination key. Restore both timer methods in `finally` and delete
+probe state. An ungated settled-typing control passed. After Back, a new push can
+replace the forward branch without increasing `history.length`; compare entry keys
+as well as length. This controlled direct-ES browser witness is not a timing or
+performance measurement, nor coverage of the AI/header producers.
+
+**[V] Bounded navigation after-checks (22 September 2026).** Revalidate served
+module markers after the local-E2E/live service handoff. Real CQL inner
+`.ProseMirror.Cql__ContentEditable` supports locator `fill()` even though the
+custom-element host does not. Preserve native cancellation in gates and compare
+URL/store/rendered identity separately; restore method ownership as well as values.
+An unmatched query is an intentional cheap cancellation witness, not a data outage.
+Use populated corpora for seek/traversal controls. Direct-route replacement sequences
+do not substitute for an ordinary UI detail-return control: one supplementary return
+probe timed out, while a normal enter/traverse/close and density round trip passed.
+Keep that limitation explicit. Cleanup readback preceded closing the agent-owned tab.
+
+**[V] Layered Playwright routes need `fallback()` for unmatched traffic (22
+September 2026).** A catch-all media route using `continue()` bypassed an earlier
+fixture-module route and shared API blockers. Returning `fallback()` for non-image
+traffic made the media stub and isolation compose. Native-fullscreen consumer tests
+then verified identity-bearing local fixture media without enabling live proxies or
+changing runner environment variables. This is fixture rendering, not production
+media-pipeline acceptance.

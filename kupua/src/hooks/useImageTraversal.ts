@@ -41,9 +41,11 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { prefetchNearbyImages } from "@/lib/image-prefetch";
+import { buildSearchKey } from "@/lib/image-offset-cache";
 import type { Image } from "@/types/image";
+import type { RouterHistory } from "@tanstack/react-router";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -104,8 +106,16 @@ function globalIndexOf(imageId: string): number {
 export function useImageTraversal(
   currentImageId: string | null,
   onNavigate: (image: Image, globalIndex: number) => void,
+  history?: RouterHistory,
 ): ImageTraversalResult {
-  const pendingRef = useRef<"forward" | "backward" | null>(null);
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const pendingRef = useRef<{
+    imageId: string;
+    direction: "forward" | "backward";
+    isCurrent: () => boolean;
+    cancel: () => void;
+  } | null>(null);
   // Track whether the user has navigated at least once. Proactive extend
   // only fires after a navigation — not on mount, which would cause infinite
   // loops when ImageDetail opens deep in the result set and restoreAroundCursor
@@ -115,6 +125,7 @@ export function useImageTraversal(
   onNavigateRef.current = onNavigate;
   const currentImageIdRef = useRef(currentImageId);
   currentImageIdRef.current = currentImageId;
+  useEffect(() => () => { pendingRef.current?.cancel(); }, []);
 
   // FullscreenPreview keeps this hook mounted while inactive and passes null
   // between sessions. Pending navigation and proactive-extension eligibility
@@ -122,8 +133,12 @@ export function useImageTraversal(
   // store request may still complete, but cannot navigate or extend a later
   // preview session.
   useEffect(() => {
+    if (pendingRef.current && pendingRef.current.imageId !== currentImageId) {
+      pendingRef.current.cancel();
+      hasNavigatedRef.current = false;
+    }
     if (currentImageId !== null) return;
-    pendingRef.current = null;
+    pendingRef.current?.cancel();
     hasNavigatedRef.current = false;
   }, [currentImageId]);
 
@@ -187,21 +202,22 @@ export function useImageTraversal(
   // watch for buffer changes (results/bufferOffset) and complete the
   // navigation when the target appears.
   useEffect(() => {
-    const dir = pendingRef.current;
-    if (!dir) return;
+    const pending = pendingRef.current;
+    if (!pending) return;
+    if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; return; }
+    const dir = pending.direction;
 
-    const imgId = currentImageIdRef.current;
-    if (!imgId) { pendingRef.current = null; return; }
+    const imgId = pending.imageId;
 
     const gIdx = globalIndexOf(imgId);
-    if (gIdx < 0) { pendingRef.current = null; return; }
+    if (gIdx < 0) { pending.cancel(); return; }
 
     const targetGlobalIdx = dir === "forward" ? gIdx + 1 : gIdx - 1;
     const targetImage = getImageAtGlobal(targetGlobalIdx);
 
     if (targetImage) {
       // Target is now in the buffer — complete the navigation.
-      pendingRef.current = null;
+      pending.cancel();
       onNavigateRef.current(targetImage, targetGlobalIdx);
 
       // Prefetch around the new position
@@ -233,7 +249,7 @@ export function useImageTraversal(
 
     if (targetImage) {
       // Immediate navigation — target is in the buffer.
-      pendingRef.current = null;
+      pendingRef.current?.cancel();
       onNavigateRef.current(targetImage, targetGlobalIdx);
 
       // Prefetch around the new position
@@ -244,7 +260,39 @@ export function useImageTraversal(
       }
     } else {
       // Target is outside the buffer — request a buffer slide and pend.
-      pendingRef.current = direction;
+      pendingRef.current?.cancel();
+      const generation = getSearchGeneration();
+      let params = useSearchStore.getState().params;
+      const scope = buildSearchKey(params);
+      let currentScope = scope;
+      let unsubscribe = () => {};
+      let unsubscribeHistory = () => {};
+      const pending = {
+        imageId: imgId,
+        direction,
+        isCurrent: () => {
+          if (currentImageIdRef.current !== imgId || generation !== getSearchGeneration()) return false;
+          const currentParams = useSearchStore.getState().params;
+          if (params !== currentParams) {
+            params = currentParams;
+            currentScope = buildSearchKey(params);
+          }
+          return currentScope === scope;
+        },
+        cancel: () => {
+          unsubscribe();
+          unsubscribeHistory();
+          if (pendingRef.current === pending) pendingRef.current = null;
+        },
+      };
+      pendingRef.current = pending;
+      unsubscribe = useSearchStore.subscribe(() => {
+        if (!pending.isCurrent()) { pending.cancel(); hasNavigatedRef.current = false; }
+      });
+      unsubscribeHistory = historyRef.current?.subscribe(() => {
+        pending.cancel();
+        hasNavigatedRef.current = false;
+      }) ?? (() => {});
 
       const { extendForward, extendBackward, seek, bufferOffset: bo, results: res } = useSearchStore.getState();
       const bufferEnd = bo + res.length;

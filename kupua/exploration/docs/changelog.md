@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep pending traversal with its originating image and context
+
+  KUP-019: detail and fullscreen pending navigation retain the originating image,
+  search lifetime and history context. Supersession discards only the local intent;
+  shared extend/seek work remains useful. Completion resolves the neighbor from the
+  origin's current global position, preserving prepends and buffer movement. Resident
+  traversal remains synchronous, repeated arrows do not form a queue, and prefetch
+  and proactive extension retain their existing policy.
+
   ### 22 September 2026 - Keep indexed scroll seeks with their reporting view
 
   KUP-016: a distant-range timer belongs to its reporting hook and search lifetime.

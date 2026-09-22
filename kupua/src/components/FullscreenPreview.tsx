@@ -34,6 +34,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
@@ -70,6 +71,7 @@ function getImageUrl(image: Image): string | undefined {
 }
 
 export function FullscreenPreview() {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const scaleRef = useRef(1);
@@ -118,6 +120,7 @@ export function FullscreenPreview() {
   const { prevImage, nextImage, goToPrev, goToNext } = useImageTraversal(
     isActive ? focusedImageId : null,
     onNavigate,
+    router.history,
   );
 
   /** Resolve the local index of an image in the buffer (for initial prefetch). */

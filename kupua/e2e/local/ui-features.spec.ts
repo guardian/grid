@@ -863,6 +863,129 @@ test.describe("URL state", () => {
 // Fullscreen preview — arrow navigation (Bug: skip-one-image)
 // ===========================================================================
 
+test.describe("KUP-019 mounted traversal consumers", () => {
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        export const getThumbnailUrl = image => "/__traversal_media/" + image.id + ".gif";
+        export const getFullImageUrl = getThumbnailUrl;
+        export const getZoomImageUrl = getThumbnailUrl;`,
+    }));
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+      : route.fallback());
+    await kupua.goto();
+    await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+    await page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const state = store.getState();
+      const source = state.dataSource;
+      const original = source.searchAfter;
+      const fixture = {
+        source, original, hold: true, release: null as null | (() => void),
+        origin: state.results.at(-1).id, previous: state.results.at(-2).id,
+        destination: state.results[10].id, size: state.results.length, next: null as string | null,
+      };
+      (window as any).__traversalWindow = fixture;
+      source.searchAfter = async function(...args: any[]) {
+        const result = await original.apply(this, args);
+        if (!fixture.hold) return result;
+        fixture.hold = false;
+        fixture.next = result.hits[0]?.id ?? null;
+        await new Promise<void>((resolve) => { fixture.release = resolve; });
+        const signal = args.find((value) => value instanceof AbortSignal);
+        if (signal?.aborted) throw new DOMException("superseded", "AbortError");
+        return result;
+      };
+    });
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(async () => {
+      const fixture = (window as any).__traversalWindow;
+      if (fixture) {
+        fixture.release?.();
+        fixture.source.searchAfter = fixture.original;
+        delete (window as any).__traversalWindow;
+      }
+      if (document.fullscreenElement) await document.exitFullscreen();
+    });
+  });
+
+  async function openConsumer(page: import("@playwright/test").Page, consumer: "detail" | "fullscreen") {
+    await page.evaluate(async (kind) => {
+      const fixture = (window as any).__traversalWindow;
+      const store = (window as any).__kupua_store__;
+      store.getState().setFocusedImageId(fixture.origin);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      if (kind === "detail") {
+        const modulePath = "/src/lib/orchestration/search.ts";
+        const { pushNavigate } = await import(modulePath);
+        const router = (window as any).__kupua_router__;
+        pushNavigate(router.navigate, { to: "/search", search: { nonFree: "true", image: fixture.origin } });
+      }
+    }, consumer);
+    if (consumer === "detail") {
+      await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", await page.evaluate(() => (window as any).__traversalWindow.origin));
+    } else {
+      await page.keyboard.press("f");
+      await page.waitForFunction(() => document.fullscreenElement !== null);
+      await expect(page.locator('[data-fullscreen-preview="active"] [aria-label="Previous image"]')).toBeVisible();
+    }
+    await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => (window as any).__traversalWindow.release !== null);
+  }
+
+  async function releaseWindow(page: import("@playwright/test").Page) {
+    await page.evaluate(() => (window as any).__traversalWindow.release());
+    await page.waitForFunction(() => (window as any).__kupua_store__.getState().results.length > (window as any).__traversalWindow.size);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+
+  for (const consumer of ["detail", "fullscreen"] as const) {
+    test(`${consumer}: newer resident intent survives a held extension`, async ({ page }) => {
+      await openConsumer(page, consumer);
+      if (consumer === "detail") {
+        await page.evaluate(() => {
+          const router = (window as any).__kupua_router__;
+          router.navigate({ to: "/search", search: { nonFree: "true", image: (window as any).__traversalWindow.destination }, replace: true });
+        });
+        await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", await page.evaluate(() => (window as any).__traversalWindow.destination));
+      } else {
+        await page.keyboard.press("ArrowLeft");
+        await page.waitForFunction(() => (window as any).__kupua_store__.getState().focusedImageId === (window as any).__traversalWindow.previous);
+      }
+      const rendered = consumer === "fullscreen" ? await page.locator('[data-fullscreen-preview="active"] img').getAttribute("src") : null;
+      await releaseWindow(page);
+      if (consumer === "detail") {
+        const expected = await page.evaluate(() => (window as any).__traversalWindow.destination);
+        expect(new URL(page.url()).searchParams.get("image")).toBe(expected);
+        await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", expected);
+      } else {
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().focusedImageId === (window as any).__traversalWindow.previous)).toBe(true);
+        expect(await page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+        await expect(page.locator('[data-fullscreen-preview="active"] img')).toHaveAttribute("src", rendered!);
+      }
+    });
+
+    test(`${consumer}: ordinary held extension advances exactly once`, async ({ page }) => {
+      await openConsumer(page, consumer);
+      await releaseWindow(page);
+      const next = await page.evaluate(() => (window as any).__traversalWindow.next);
+      expect(next).not.toBeNull();
+      if (consumer === "detail") {
+        expect(new URL(page.url()).searchParams.get("image")).toBe(next);
+        await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", next);
+      } else {
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().focusedImageId)).toBe(next);
+        expect(await page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
+        await expect(page.locator('[data-fullscreen-preview="active"] img')).toBeVisible();
+      }
+    });
+  }
+});
+
 test.describe("Fullscreen preview — navigation", () => {
   test("ArrowLeft in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
     await kupua.goto();

@@ -145,6 +145,19 @@ the normal one-shot phantom positioning ID has already been consumed.
 This does not increase page size, add requests or timers, or change actual
 result-set edge clamping. Indexed mode and deep windowed buffers are unaffected.
 
+### 2.6 Pending Image Traversal
+
+Detail and fullscreen share global-index traversal. Resident neighbors navigate
+synchronously. Off-buffer intent retains its originating image, search generation,
+query/order scope and caller history until a committed window supplies the neighbor.
+Completion resolves the origin's current global position, so prepend/origin movement,
+new result arrays and callback replacement do not invalidate legitimate progress.
+
+Changing the current image or context, becoming inactive, leaving the navigation or
+unmounting discards only the consumer's pending direction. Shared extend/seek work is
+not aborted. Repeated arrows retain the existing single-pending-direction policy,
+not a queue; ordinary proactive extension and prefetch remain independent fast paths.
+
 ---
 
 ## 3. Two UI Modes, One Engine

@@ -312,7 +312,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   const {
     prevImage, nextImage, goToPrev, goToNext, currentGlobalIndex,
-  } = useImageTraversal(imageId, onNavigate);
+  } = useImageTraversal(imageId, onNavigate, router.history);
 
   // Close image detail via history.back(). All four close affordances
   // (← Back button, double-click, Backspace, swipe-to-dismiss) share this
