@@ -155,8 +155,13 @@ lazy val imageCachePurger = project("image-cache-purger").settings(
   libraryDependencies ++= Seq(
     "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
     "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
+    "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
   ),
   assembly / assemblyJarName := "image-cache-purger.jar",
+  assembly / assemblyMergeStrategy := {
+    case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+    case path => (assembly / assemblyMergeStrategy).value(path)
+  },
   assembly / test := {},
 )
 
