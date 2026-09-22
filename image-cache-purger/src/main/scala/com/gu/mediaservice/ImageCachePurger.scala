@@ -8,8 +8,12 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import scala.jdk.CollectionConverters._
 
-class ImageCachePurger extends RequestHandler[SQSEvent, String] {
+class ImageCachePurger private[mediaservice] (apiKeyProvider: FastlyApiKeyProvider) extends RequestHandler[SQSEvent, String] {
+  def this() = this(FastlyApiKeyProvider.default)
+
   override def handleRequest(input: SQSEvent, context: Context): String = {
+    require(apiKeyProvider.apiKey.trim.nonEmpty, "Fastly API key cannot be empty")
+
     input.getRecords.asScala.foreach { record =>
       ImageCachePurger.extractKeys(record.getBody).foreach { key =>
         context.getLogger.log(s"Received S3 object key: $key")
