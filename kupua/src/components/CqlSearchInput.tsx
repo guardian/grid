@@ -144,22 +144,6 @@ export function CqlSearchInput({
 
   const dataSource = useSearchStore((s) => s.dataSource);
 
-  // Keep a ref to the store's aggregation cache so typeahead resolvers can
-  // read it at resolution time without forcing the typeahead to rebuild.
-  const aggregations = useSearchStore((s) => s.aggregations);
-  const aggregationsRef = useRef(aggregations);
-  aggregationsRef.current = aggregations;
-
-  // Refs for is: resolver callbacks — avoids typeahead rebuild on state changes
-  const tickerCountsRef = useRef(useSearchStore.getState().tickerCounts);
-  const isFilterCountsRef = useRef(useSearchStore.getState().isFilterCounts);
-  useEffect(() => {
-    return useSearchStore.subscribe((s) => {
-      tickerCountsRef.current = s.tickerCounts;
-      isFilterCountsRef.current = s.isFilterCounts;
-    });
-  }, []);
-
   // Build typeahead from DAL — memoised so we don't rebuild on every render
   //
   // liveQueryRef: written by LazyTypeahead on every getSuggestions call with
@@ -174,15 +158,15 @@ export function CqlSearchInput({
   // aggregation meant to inspect that field. See deviations.md.
   const liveQueryRef = useRef<string | undefined>(undefined);
   const typeahead = useMemo(() => {
-    const getAggs = () => aggregationsRef.current;
+    const getAggs = () => useSearchStore.getState().aggregations;
     const getParams = () => {
       const params = useSearchStore.getState().params;
       return liveQueryRef.current !== undefined
         ? { ...params, query: liveQueryRef.current || undefined }
         : params;
     };
-    const getTickerCounts = () => tickerCountsRef.current;
-    const getIsFilterCounts = () => isFilterCountsRef.current;
+    const getTickerCounts = () => useSearchStore.getState().tickerCounts;
+    const getIsFilterCounts = () => useSearchStore.getState().isFilterCounts;
     const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams, getTickerCounts, getIsFilterCounts);
     const hiddenFieldIds = new Set(
       fieldDefs

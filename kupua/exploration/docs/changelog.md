@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep registered CQL callbacks current across remounts
+
+  KUP-026: aggregation, ticker and filter callbacks read current store state directly
+  instead of refs owned by the first wrapper. One-time element registration and the
+  live-AST query reference remain intact; obsolete subscriptions are removed. This
+  repairs current-client remounts, not datasource hot-swapping or API-only bootstrap.
+
   ### 22 September 2026 - Preserve literals during typeahead self-exclusion
 
   KUP-023: registered and arbitrary-field suggestions share existing AST source-span
