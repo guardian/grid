@@ -175,6 +175,37 @@ describe("recomputeAll", () => {
 // ---------------------------------------------------------------------------
 
 describe("reconcileAdd", () => {
+  it.each([
+    [undefined, undefined, "Populated"], ["", "", "Populated"],
+    [undefined, "Populated", undefined], ["Populated", undefined, undefined],
+    [], [undefined, undefined], ["Same", "Same"], ["First", "Second"],
+    [undefined, undefined, false], [undefined, undefined, 0],
+    [null, [], "Populated"], [undefined, ["Same"], ["Same"]],
+  ])("agrees with full recomputation for scalar cohort %j", (...values: unknown[]) => {
+    const field = { ...CREDIT_FIELD, accessor: (image: Image) => (image as unknown as { syntheticValue: unknown }).syntheticValue } as unknown as FieldDefinition;
+    const images = values.map((syntheticValue, index) => ({ ...img(`synthetic-${index}`), syntheticValue }));
+    let view = recomputeAll([], [field]);
+    for (const [index, image] of images.entries()) {
+      view = reconcileAdd(image, view, [field]);
+      expect(view).toEqual(recomputeAll(images.slice(0, index + 1), [field]));
+    }
+    expect(view).toEqual(recomputeAll(images, [field]));
+  });
+
+  it("retains the two empty members when adding a populated scalar", () => {
+    const empty = [img("empty-one"), img("empty-two")];
+    const valued = img("valued", "Populated");
+    const previous = recomputeAll(empty, TEST_FIELDS);
+    const next = reconcileAdd(valued, previous, TEST_FIELDS);
+    expect(next.get("metadata_credit")).toEqual({
+      kind: "mixed", topValues: [{ value: "Populated", count: 1 }], valueCount: 1, emptyCount: 2,
+    });
+    expect(next).toEqual(recomputeAll([...empty, valued], TEST_FIELDS));
+    expect(previous.get("metadata_credit")).toEqual({ kind: "all-empty", count: 2 });
+    expect(reconcileRemove(valued, next, TEST_FIELDS).get("metadata_credit")).toEqual({ kind: "dirty" });
+    expect(recomputeAll(empty, TEST_FIELDS)).toEqual(previous);
+  });
+
   it("all-empty (count 0) + image with value → all-same (count 1)", () => {
     const prevView = recomputeAll([], TEST_FIELDS);
     const next = reconcileAdd(img("a", "Getty"), prevView, TEST_FIELDS);

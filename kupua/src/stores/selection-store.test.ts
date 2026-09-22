@@ -163,6 +163,29 @@ describe("toggle", () => {
 // ---------------------------------------------------------------------------
 
 describe("add", () => {
+  it.each(["add", "toggle"] as const)("cached %s publishes empty-member accounting without later hydration", async (operation) => {
+    const ids = ["img-0", "img-1", "img-2"];
+    const images = (await mock.getByIds(ids)).map((image, index) => ({
+      ...image, metadata: { ...image.metadata, credit: index === 2 ? "Synthetic credit" : undefined },
+    }));
+    const fetchMetadata = vi.spyOn(mock, "getByIds").mockResolvedValue(images);
+    await useSelectionStore.getState().ensureMetadata(ids);
+    useSelectionStore.getState().add(ids.slice(0, 2));
+    expect(useSelectionStore.getState().reconciledView?.get("metadata_credit")).toEqual({ kind: "all-empty", count: 2 });
+    fetchMetadata.mockClear();
+    requestIdleCallbackMock.mockClear();
+    if (operation === "add") useSelectionStore.getState().add([ids[2]]);
+    else useSelectionStore.getState().toggle(ids[2]);
+    const published = useSelectionStore.getState();
+    expect(published.selectedIds).toEqual(new Set(ids));
+    expect(published.reconciledView?.get("metadata_credit")).toEqual(recomputeAll(images, RECONCILE_FIELDS).get("metadata_credit"));
+    expect(published.reconciledView?.get("metadata_credit")).toMatchObject({ kind: "mixed", valueCount: 1, emptyCount: 2 });
+    await Promise.resolve();
+    expect(useSelectionStore.getState().reconciledView).toBe(published.reconciledView);
+    expect(fetchMetadata).not.toHaveBeenCalled();
+    expect(requestIdleCallbackMock).not.toHaveBeenCalled();
+  });
+
   it("reconciles duplicate batch IDs once with one atomic persisted selection", async () => {
     await useSelectionStore.getState().ensureMetadata(["img-0", "img-1"]);
     useSelectionStore.getState().add(["img-0"]);

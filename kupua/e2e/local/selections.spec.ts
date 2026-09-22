@@ -432,6 +432,53 @@ async function waitForReconcile(page: Parameters<typeof test>[1]["page"], timeou
 }
 
 test.describe("S4 -- multi-image Details panel", () => {
+  test("cached scalar add retains empty members in the published panel", async ({ kupua, page }) => {
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN2kAAAAASUVORK5CYII=", "base64") })
+      : route.fallback());
+    await kupua.goto();
+    await clearSelection(page);
+    await page.locator('button[aria-label*="Details panel"]').click();
+    try {
+      await page.evaluate(async () => {
+        const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
+        const template = await new MockDataSource(1).getById("img-0");
+        const images = [0, 1, 2].map(index => ({
+          ...template, id: `cached-scalar-${index}`,
+          metadata: { ...template.metadata, credit: index === 2 ? "Synthetic cached credit" : undefined },
+        }));
+        const selection = (window as any).__kupua_selection_store__;
+        const previousSource = selection.getState().dataSource;
+        const probe = { reads: 0, previousSource };
+        (window as any).__cachedScalarProbe = probe;
+        selection.setState({ dataSource: { getByIds: async () => { probe.reads++; return images; } } });
+        await selection.getState().ensureMetadata(images.map(image => image.id));
+        selection.getState().add(images.slice(0, 2).map(image => image.id));
+      });
+      expect(await getReconciledField(page, "metadata_credit")).toEqual({ kind: "all-empty", count: 2 });
+      await page.evaluate(() => (window as any).__kupua_selection_store__.getState().add(["cached-scalar-2"]));
+      const mixed = page.getByText("Multiple credits", { exact: true });
+      await expect(mixed).toBeVisible();
+      await expect(mixed).toHaveAttribute("title", "Synthetic cached credit (1/3)");
+      expect(await getReconciledField(page, "metadata_credit")).toEqual({
+        kind: "mixed", topValues: [{ value: "Synthetic cached credit", count: 1 }], valueCount: 1, emptyCount: 2,
+      });
+      expect(await page.evaluate(() => ({
+        reads: (window as any).__cachedScalarProbe.reads,
+        selected: (window as any).__kupua_selection_store__.getState().selectedIds.size,
+      }))).toEqual({ reads: 1, selected: 3 });
+    } finally {
+      await page.evaluate(async () => {
+        const selection = (window as any).__kupua_selection_store__;
+        selection.getState().clear();
+        if ((window as any).__cachedScalarProbe) selection.setState({ dataSource: (window as any).__cachedScalarProbe.previousSource });
+        const { _resetMetadataCache } = await import("/src/stores/selection-store.ts");
+        _resetMetadataCache();
+        delete (window as any).__cachedScalarProbe;
+      });
+    }
+  });
+
   for (const initialCount of [1, 2]) {
     test(`keeps a coherent panel while changing ${initialCount} selected images`, async ({ kupua }) => {
       await kupua.goto();

@@ -286,14 +286,14 @@ The naive approach (Kahuna's) is O(N² × F) per toggle. We need O(F) per toggle
 
 The reconciled view is a `Map<fieldId, FieldReconciliation>`. For each field, the reconciliation state holds:
 - `kind: "all-same" | "all-empty" | "mixed" | "pending"`
-- For "all-same": the agreed value.
+- For "all-same": the agreed value and cohort count. "all-empty" also retains its cohort count, distinguishing zero-member initialization from selected images whose values are empty.
 - For "mixed": three numbers — `valueCount` (items with non-empty value), `emptyCount` (items with empty value), and a small `sampleValues` array (cap 3, for tooltip "e.g. Reuters, AP, Getty").
 - For "pending": the field's reconciled value isn't computed yet (range add not yet processed, or metadata still loading). The panel renders a per-field placeholder (subtle dash) in the value slot, label intact — NO panel-wide "Loading reconciled view…" overlay.
 
 **Incremental update on `toggle(id)`:** synchronous, O(F).
 
 1. If image's metadata is in the cache, compute the per-field delta immediately:
-   - On add: if currently "all-empty" and value is non-empty → "all-same" with this value. If currently "all-same" and the new value differs → "mixed". If currently "mixed" → bump counts.
+  - On add: a populated value starts "all-same" only from an "all-empty" count of zero. A nonzero empty cohort becomes "mixed" with one populated member and its previous empty count retained. If currently "all-same" and the new value differs → "mixed". If currently "mixed" → bump counts.
   - On remove: scalar deltas stay synchronous where possible; dirty fields request a full recompute on the next idle callback.
 2. If metadata is not cached, mark fields pending and call `ensureMetadata`. Metadata completion requests a full recompute rather than an incremental scheduled delta.
 

@@ -217,7 +217,9 @@ function applyAdd(
   // Image has a non-empty value.
   switch (current.kind) {
     case "all-empty":
-      return { kind: "all-same", value, count: 1 };
+      return current.count === 0
+        ? { kind: "all-same", value, count: 1 }
+        : { kind: "mixed", topValues: [{ value, count: 1 }], valueCount: 1, emptyCount: current.count };
     case "all-same": {
       if (valuesEqual(current.value, value)) {
         return { kind: "all-same", value: current.value, count: current.count + 1 };

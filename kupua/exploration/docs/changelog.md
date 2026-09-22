@@ -17,6 +17,13 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Retain empty members in incremental selection accounting
+
+  KUP-012: adding a populated scalar to a nonzero all-empty cohort produces mixed
+  state with the previous empty count retained. Zero-member initialization still
+  produces all-same. Cached selection publication stays synchronous and incremental,
+  without a selection scan, additional hydration or scheduling change.
+
   ### 22 September 2026 - Keep registered CQL callbacks current across remounts
 
   KUP-026: aggregation, ticker and filter callbacks read current store state directly
