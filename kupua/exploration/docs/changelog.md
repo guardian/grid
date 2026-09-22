@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Scope saved density restoration without freezing geometry
+
+  KUP-017: saved restoration checks search and saved-record ownership and observes
+  scroll-input intent only while its two frames are pending. Listener phases and
+  horizontal-arrow eligibility match actual list navigation, so consumed or no-op
+  keys retain valid placement. Fresh geometry/origin, extrema, Strict Mode peeking,
+  cooldown and coordinate regimes remain. Native-input classification is shared
+  through pure DOM utilities without eagerly installing global shortcut listeners.
+
   ### 22 September 2026 - Separate End scrolling from permission to move focus
 
   KUP-013: pending End carries its initiating focus eligibility and existing seek

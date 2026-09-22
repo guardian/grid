@@ -337,6 +337,19 @@ When switching from table to grid (or vice versa):
    the restore, preventing `extendBackward` → prepend compensation →
    browser scroll clamping → pixel loss on each cycle.
 
+Saved restoration belongs to its captured search generation and saved record.
+While its two frames are pending, short-lived input listeners observe actual list
+scroll/navigation intent. Home/End follow capture-phase handling; other navigation
+keys must reach the document in bubble phase. No-op grid Left/Right, table
+Left/Right and keys consumed by another control do not cancel vertical placement.
+New search or superseding input discards only the owned saved state.
+
+Fresh columns, header/viewport measurements and buffer-origin changes still use
+the original global anchor with current geometry. Unmount cancels frames and input
+listeners without prematurely consuming the saved record, preserving Strict Mode
+peek-until-applied behavior. Initial mounting without saved density state retains
+its separate fallback path; it is not covered by this saved-record ownership rule.
+
 ---
 
 ## §4 Swimming, Timing, and Limits

@@ -1037,6 +1037,141 @@ test.describe("Density switch — strict", () => {
   });
 });
 
+test.describe("KUP-017 queued density restoration", () => {
+  for (const scenario of ["ordinary", "query", "order", "wheel", "inert-left", "inert-right", "focused-left"] as const) {
+    test(`${scenario}: queued frame respects current density intent`, async ({ kupua, page }) => {
+      await kupua.goto();
+      const toGrid = scenario === "inert-left" || scenario === "inert-right" || scenario === "focused-left";
+      if (toGrid) await kupua.switchToTable();
+      const firstIds = await page.evaluate(() => (window as any).__kupua_store__.getState().results.slice(0, 100).map((image: { id: string }) => image.id));
+      await kupua.seekTo(0.5);
+      if (scenario === "focused-left") await page.evaluate(() => {
+        const anchor = (window as any).__kupua_getViewportAnchorId__();
+        if (!anchor) throw new Error("Focused-arrow control needs a visible anchor");
+        (window as any).__kupua_store__.getState().setFocusedImageId(anchor);
+      });
+      const origin = await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const anchor = state.focusedImageId ?? (window as any).__kupua_getViewportAnchorId__();
+        const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+        const cell = container.querySelector(`[data-image-id="${anchor}"]`)!;
+        return { anchor, position: state.imagePositions.get(anchor), scrollTop: container.scrollTop,
+          ratio: (cell.getBoundingClientRect().top - container.getBoundingClientRect().top) / container.clientHeight };
+      });
+      expect(origin.position).toBeGreaterThan(2000);
+      expect(origin.scrollTop).toBeGreaterThan(0);
+      await page.evaluate(() => {
+        const originalRequest = window.requestAnimationFrame;
+        const originalCancel = window.cancelAnimationFrame;
+        const pending = new Map<number, { callback: FrameRequestCallback; timestamp?: number }>();
+        const gate = (window as any).__densityFrameGate = {
+          originalRequest, originalCancel, pending, captured: 0, executed: 0, container: null as Element | null,
+          release() {
+            for (const [handle, entry] of pending) {
+              if (entry.timestamp === undefined) continue;
+              pending.delete(handle);
+              gate.executed += 1;
+              entry.callback(entry.timestamp);
+            }
+          },
+          cleanup() {
+            for (const handle of pending.keys()) originalCancel.call(window, handle);
+            pending.clear();
+            window.requestAnimationFrame = originalRequest;
+            window.cancelAnimationFrame = originalCancel;
+          },
+        };
+        window.requestAnimationFrame = (callback) => {
+          const body = String(callback);
+          if (!body.includes("saved.sourceScrollTop") || body.includes("requestAnimationFrame(")) {
+            return originalRequest.call(window, callback);
+          }
+          gate.captured += 1;
+          gate.container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]');
+          const handle = originalRequest.call(window, (timestamp) => {
+            const entry = pending.get(handle);
+            if (entry) entry.timestamp = timestamp;
+          });
+          pending.set(handle, { callback });
+          return handle;
+        };
+        window.cancelAnimationFrame = (handle) => {
+          pending.delete(handle);
+          originalCancel.call(window, handle);
+        };
+      });
+      try {
+        await page.getByRole("button", { name: toGrid ? "Switch to grid view" : "Switch to table view", exact: true }).click();
+        await page.waitForFunction(() => [...(window as any).__densityFrameGate.pending.values()].some((entry: any) => entry.timestamp !== undefined));
+        if (toGrid) {
+          const previousFocus = await kupua.getFocusedImageId();
+          if (scenario !== "focused-left") expect(previousFocus).toBeNull();
+          await page.keyboard.press(scenario === "inert-right" ? "ArrowRight" : "ArrowLeft");
+          if (scenario === "focused-left") {
+            await expect.poll(() => kupua.getFocusedImageId()).not.toBe(previousFocus);
+            await expect.poll(() => kupua.isFocusedCellVisible()).toBe(true);
+          } else {
+            expect(await kupua.getFocusedImageId()).toBeNull();
+          }
+        }
+        if (scenario === "query") {
+          await page.evaluate((ids) => (window as any).__kupua_router__.navigate({ to: "/search",
+            search: (previous: Record<string, unknown>) => ({ ...previous, ids: ids.join(",") }) }), firstIds);
+          await page.waitForFunction(() => {
+            const state = (window as any).__kupua_store__.getState();
+            const container = document.querySelector('[aria-label="Image results table"]');
+            return !state.loading && state.total === 100 && state.results.length === 100 && container?.scrollTop === 0;
+          });
+        }
+        if (scenario === "wheel") {
+          await page.locator('[aria-label="Image results table"]').hover();
+          await page.mouse.wheel(0, 320);
+          await page.waitForFunction(() => document.querySelector('[aria-label="Image results table"]')!.scrollTop > 0);
+        }
+        if (scenario === "order") {
+          await kupua.toggleSortDirection();
+          await page.waitForFunction(() => {
+            const state = (window as any).__kupua_store__.getState();
+            return !state.loading && state.params.orderBy === "uploadTime" &&
+              document.querySelector('[aria-label="Image results table"]')!.scrollTop === 0;
+          });
+        }
+        const placement = await page.evaluate(async (anchor) => {
+          const gate = (window as any).__densityFrameGate;
+          const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+          const before = container.scrollTop;
+          const sameContainer = gate.container === container;
+          gate.release();
+          await new Promise<void>((resolve) => gate.originalRequest.call(window, () => gate.originalRequest.call(window, resolve)));
+          const cell = container.querySelector(`[data-image-id="${anchor}"]`);
+          const bounds = container.getBoundingClientRect();
+          const rectangle = cell?.getBoundingClientRect();
+          const header = container.querySelector("[data-table-header]")?.getBoundingClientRect();
+          return { before, after: container.scrollTop, sameContainer, executed: gate.executed,
+            visible: !!rectangle && rectangle.bottom > (header?.bottom ?? bounds.top) && rectangle.top < bounds.bottom,
+            ratio: rectangle ? (rectangle.top - bounds.top) / container.clientHeight : null,
+            total: (window as any).__kupua_store__.getState().total };
+        }, origin.anchor);
+        expect(placement.sameContainer).toBe(true);
+        expect(placement.executed).toBe(1);
+        if (scenario === "query" || scenario === "order") {
+          if (scenario === "query") expect(placement.total).toBe(100);
+          expect(placement.before).toBe(0);
+          expect(placement.after).toBe(0);
+        } else if (scenario === "wheel" || scenario === "focused-left") {
+          expect(placement.before).toBeGreaterThan(0);
+          expect(placement.after).toBe(placement.before);
+        } else {
+          expect(placement.visible).toBe(true);
+          expect(Math.abs(placement.ratio! - origin.ratio)).toBeLessThan(0.06);
+        }
+      } finally {
+        await page.evaluate(() => { (window as any).__densityFrameGate?.cleanup(); delete (window as any).__densityFrameGate; });
+      }
+    });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Sort change
 // ---------------------------------------------------------------------------

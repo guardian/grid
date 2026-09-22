@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
@@ -36,6 +36,7 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { isNativeInputTarget } from "@/lib/dom-utils";
 import { devLog } from "@/lib/dev-log";
 
 /**
@@ -894,8 +895,37 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (saved != null) {
       // saved branch: globalIndex is the anchor, no id/idx needed
       const store = useSearchStore.getState();
+      const restoreGeneration = getSearchGeneration();
       const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
       if (idx < 0) return;
+
+      let interrupted = false;
+      const onWheel = (event: WheelEvent) => {
+        if (!event.ctrlKey && event.deltaY !== 0) interrupted = true;
+      };
+      const onTouchMove = () => { interrupted = true; };
+      const onKey = (event: KeyboardEvent) => {
+        if (isNativeInputTarget(event)) return;
+        if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+            (geometryRef.current.columns <= 1 || getEffectiveFocusMode() !== "explicit" ||
+              useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) {
+          interrupted = true;
+        }
+      };
+      const onBoundaryKey = (event: KeyboardEvent) => {
+        if (event.key === "Home" || event.key === "End") onKey(event);
+      };
+      const stopWatchingInput = () => {
+        el.removeEventListener("wheel", onWheel);
+        el.removeEventListener("touchmove", onTouchMove);
+        document.removeEventListener("keydown", onKey);
+        document.removeEventListener("keydown", onBoundaryKey, true);
+      };
+      el.addEventListener("wheel", onWheel, { passive: true });
+      el.addEventListener("touchmove", onTouchMove, { passive: true });
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("keydown", onBoundaryKey, true);
 
       // Abort in-flight extends and set a 2-second cooldown BEFORE the
       // rAF restore chain. This prevents extends (and their subsequent
@@ -919,6 +949,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       let raf2 = 0;
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => {
+          stopWatchingInput();
+          if (interrupted || getSearchGeneration() !== restoreGeneration || peekDensityFocusRatio() !== saved) {
+            if (peekDensityFocusRatio() === saved) clearDensityFocusRatio();
+            return;
+          }
           // Extremum snapping: if the source density was at the very top
           // (scrollTop=0), snap the target to 0 instead of computing from
           // the ratio. The ratio math maps viewport-centre positions between
@@ -1004,7 +1039,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           clearDensityFocusRatio();
         });
       });
-      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); stopWatchingInput(); };
     }
 
     // No saved density-focus state — scroll the viewport anchor into view.

@@ -1419,3 +1419,29 @@ from cache. Observe the detail's high-priority image, require two main-image err
 terminal unavailable presentation, and cap delivery of a third error before releasing failures.
 Exact URL-category order plus main-image events distinguishes a valid fallback from a retry loop;
 total network request count alone does not. Keep routes installed through fixture teardown.
+
+**[V] Verify keyboard preconditions at the actual key event (22 September 2026).**
+Chat typing can reach the integrated browser: the operator confirmed this after a query changed
+between tool calls. Discard that interleaving rather than attributing lost focus/selection to the app.
+Keep setup, immediate assertions, `page.keyboard.press()` and outcome collection in one call.
+A temporary window-capture `keydown` listener can record `isTrusted`, focus equality and selection
+count before the document-level navigation handler runs; keep identities in-page and return only
+booleans/counts. Remove the listener in `finally`, including timeout paths. This established a
+valid resident/windowed End contrast after the contaminated attempts; it is not timing evidence.
+
+**[V] A nested-rAF gate must distinguish the leaf callback (22 September 2026).**
+The outer function's string also contains its nested callback's source. Matching only
+`saved.sourceScrollTop` held the scheduling frame, not the density restore; releasing it counted
+one execution while merely scheduling another held callback. Excluding functions containing
+`requestAnimationFrame(` isolated the leaf in the current served development source. Preserve
+native IDs/cancellation, assert the same mounted container, and pair the suspected stale action
+with a successful ordinary restore. A callback count alone is not proof that the consumer ran.
+
+**[V] A newer resident command need not issue another read (22 September 2026).**
+When testing competing keyboard commands, observe the trusted key events, current placement,
+pending edge intent and original AbortSignal as well as datasource call counts. A resident
+command can leave the read count unchanged despite representing newer user intent; lack of a
+second request is not by itself evidence that the key was ignored. Gate one successful real
+response at the datasource boundary, preserve its signal on release, and retain ordinary
+no-competition controls. Restore the original own-property descriptor, or remove the temporary
+override when the method originally lived on the prototype; return only aggregate outcomes.
