@@ -317,7 +317,7 @@ search.run(['$rootScope', '$state', '$stateParams', '$timeout', function($rootSc
   $rootScope.$on('$viewContentLoaded', (_, view) => {
     // eslint-disable-next-line no-console
     console.log('[LOOP-DIAG][index.js] viewContentLoaded', {view, stateParamsNonFree: $stateParams.nonFree});
-    if (view === 'results@search') {
+    if (view === 'results@search' && $stateParams.isDeepStateRedirect) {
       // using a timeout of 0 to schedule the task for execution ASAP, but outside the ongoing transition
       $timeout(() => {
         // eslint-disable-next-line no-console
