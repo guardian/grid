@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup } from "@testing-library/react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 
 // ---------------------------------------------------------------------------
@@ -19,8 +19,10 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 // ---------------------------------------------------------------------------
 
 // vi.mock factories are hoisted; variables they reference must also be hoisted.
-const { mockStoreSetState } = vi.hoisted(() => ({
+const { mockStoreSetState, mockSearchGeneration, mockStoreState } = vi.hoisted(() => ({
   mockStoreSetState: vi.fn(),
+  mockSearchGeneration: vi.fn(() => 0),
+  mockStoreState: { focusedImageId: null as string | null },
 }));
 
 let mockFocusMode: "explicit" | "phantom" = "explicit";
@@ -31,10 +33,11 @@ vi.mock("@/stores/ui-prefs-store", () => ({
 
 // Stub useSearchStore.setState to capture phantom-pulse calls.
 vi.mock("@/stores/search-store", () => ({
+  getSearchGeneration: mockSearchGeneration,
   useSearchStore: Object.assign(
     () => ({ focusedImageId: null }),
     {
-      getState: () => ({ focusedImageId: null }),
+      getState: () => mockStoreState,
       setState: mockStoreSetState,
     },
   ),
@@ -64,6 +67,7 @@ interface Props {
   findImageIndex: (id: string) => number;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   flatIndexToRow: (flatIndex: number) => number;
+  scrollRowToCenter?: (rowIndex: number) => void;
 }
 
 function makeProps(overrides: Partial<Props> = {}): Props {
@@ -85,6 +89,8 @@ function makeProps(overrides: Partial<Props> = {}): Props {
 beforeEach(() => {
   mockFocusMode = "explicit";
   mockStoreSetState.mockClear();
+  mockSearchGeneration.mockReturnValue(0);
+  mockStoreState.focusedImageId = null;
   history.replaceState({}, "");
   // Make requestAnimationFrame fire synchronously so scroll-centering
   // assertions don't need timer management.
@@ -95,6 +101,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -387,5 +394,101 @@ describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () =>
 
     expect(setFocusedImageId).toHaveBeenCalledOnce();
     expect(setFocusedImageId).toHaveBeenCalledWith("img-K");
+  });
+});
+
+describe("KUP-018 queued return ownership and geometry", () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+
+  beforeEach(() => {
+    frames.clear();
+    nextFrame = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const handle = ++nextFrame;
+      frames.set(handle, callback);
+      return handle;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (handle: number) => { frames.delete(handle); });
+  });
+
+  function frame() {
+    act(() => {
+      const pending = [...frames];
+      frames.clear();
+      for (const [, callback] of pending) callback(0);
+    });
+  }
+
+  function closeAfterTraversal() {
+    const scrollToIndex = vi.fn();
+    const props = makeProps({ imageParam: "img-1", focusedImageId: "img-1",
+      setFocusedImageId: vi.fn((imageId) => { mockStoreState.focusedImageId = imageId; }),
+      virtualizer: { scrollToIndex } as unknown as Virtualizer<HTMLDivElement, Element>,
+      findImageIndex: vi.fn(() => 12), flatIndexToRow: (index) => Math.floor(index / 2) });
+    const view = renderHook((current: Props) => useReturnFromDetail(current), { initialProps: props });
+    act(() => view.rerender({ ...props, imageParam: "img-2" }));
+    const closed = { ...props, imageParam: undefined };
+    act(() => view.rerender(closed));
+    expect(frames.size).toBe(1);
+    expect(props.setFocusedImageId).toHaveBeenCalledExactlyOnceWith("img-2");
+    return { view, props, closed, scrollToIndex };
+  }
+
+  it("centers the original valid return exactly once", () => {
+    const fixture = closeAfterTraversal();
+    expect(fixture.scrollToIndex).not.toHaveBeenCalled();
+    frame();
+    frame();
+    expect(fixture.scrollToIndex).toHaveBeenCalledExactlyOnceWith(6, { align: "center" });
+  });
+
+  for (const change of ["reopen", "dispose", "query", "history", "focus", "clear-focus"] as const) {
+    it(`does not apply a return after ${change}`, () => {
+      const fixture = closeAfterTraversal();
+      act(() => {
+        if (change === "reopen") fixture.view.rerender({ ...fixture.props, imageParam: "img-3" });
+        if (change === "dispose") fixture.view.unmount();
+        if (change === "query") mockSearchGeneration.mockReturnValue(1);
+        if (change === "history") history.replaceState({ ...history.state, kupuaKey: "new-entry" }, "");
+        if (change === "focus") mockStoreState.focusedImageId = "img-3";
+        if (change === "clear-focus") mockStoreState.focusedImageId = null;
+      });
+      frame();
+      expect(fixture.scrollToIndex).not.toHaveBeenCalled();
+    });
+  }
+
+  for (const change of ["columns", "buffer-origin", "header"] as const) {
+    it(`recalculates a valid return using current ${change}`, () => {
+      const fixture = closeAfterTraversal();
+      const scrollRowToCenter = vi.fn();
+      act(() => fixture.view.rerender({ ...fixture.closed,
+        findImageIndex: change === "buffer-origin" ? vi.fn(() => 32) : fixture.props.findImageIndex,
+        flatIndexToRow: change === "columns" ? (index) => Math.floor(index / 4) : fixture.props.flatIndexToRow,
+        scrollRowToCenter: change === "header" ? scrollRowToCenter : undefined }));
+      frame();
+      if (change === "header") {
+        expect(scrollRowToCenter).toHaveBeenCalledExactlyOnceWith(6);
+        expect(fixture.scrollToIndex).not.toHaveBeenCalled();
+      } else {
+        expect(fixture.scrollToIndex).toHaveBeenCalledExactlyOnceWith(change === "columns" ? 3 : 16, { align: "center" });
+      }
+    });
+  }
+
+  it("does not redirect a missing original target to another focus", () => {
+    const fixture = closeAfterTraversal();
+    act(() => fixture.view.rerender({ ...fixture.closed, findImageIndex: vi.fn(() => -1) }));
+    frame();
+    expect(fixture.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("keeps ordinary rerenders and callback replacement from cancelling a valid return", () => {
+    const fixture = closeAfterTraversal();
+    act(() => fixture.view.rerender({ ...fixture.closed, focusedImageId: "img-2",
+      findImageIndex: vi.fn(() => 12), flatIndexToRow: (index) => Math.floor(index / 2) }));
+    frame();
+    expect(fixture.scrollToIndex).toHaveBeenCalledExactlyOnceWith(6, { align: "center" });
   });
 });

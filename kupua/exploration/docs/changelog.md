@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Resolve valid detail returns with current geometry
+
+  KUP-018: a queued traversal return retains its original image, search, history
+  entry and post-close focus. Reopen/disposal cancels it; superseded intent cannot
+  move the current list. Valid returns resolve current index, row and centering
+  callback without treating geometry or ordinary rerenders as new intent. Original
+  entry placement, phantom pulse, immutable entry identity and Home suppression remain.
+
   ### 22 September 2026 - Scope saved density restoration without freezing geometry
 
   KUP-017: saved restoration checks search and saved-record ownership and observes

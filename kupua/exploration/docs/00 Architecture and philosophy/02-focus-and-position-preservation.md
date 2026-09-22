@@ -158,6 +158,16 @@ unmounting discards only the consumer's pending direction. Shared extend/seek wo
 not aborted. Repeated arrows retain the existing single-pending-direction policy,
 not a queue; ordinary proactive extension and prefetch remain independent fast paths.
 
+### 2.7 Deferred Return and Preview Centering
+
+Closing the original detail-entry image preserves the retained list's native
+placement. After traversal, the queued return keeps that specific closing image,
+search generation, returned history entry and post-close focus. Reopening or
+unmounting cancels it; changed search/history/focus prevents obsolete application.
+For a still-valid return, index, row mapping and the centering callback are read
+again at execution. Columns, header measurements, buffer origin, callback identity
+and ordinary rerenders are geometry changes, not automatic cancellation.
+
 ---
 
 ## 3. Two UI Modes, One Engine

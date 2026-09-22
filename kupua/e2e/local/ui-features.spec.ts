@@ -1225,6 +1225,105 @@ test.describe("Table image detail — return placement", () => {
   });
 });
 
+test.describe("KUP-018 queued detail return", () => {
+  for (const scenario of ["ordinary", "reopen", "query", "resize"] as const) {
+    test(`${scenario}: queued return respects ownership and current geometry`, async ({ kupua, page }) => {
+      await kupua.goto();
+      await kupua.switchToTable();
+      const alternateIds = await page.evaluate(() => (window as any).__kupua_store__.getState().results.slice(100, 200).map((image: { id: string }) => image.id));
+      await kupua.openDetailForNthItem(5);
+      for (let step = 0; step < 24; step++) await kupua.detailNextAndWait();
+      const lastViewed = await kupua.getDetailImageId();
+      expect(lastViewed).not.toBeNull();
+      await page.evaluate(() => {
+        const originalRequest = window.requestAnimationFrame;
+        const originalCancel = window.cancelAnimationFrame;
+        const pending = new Map<number, { callback: FrameRequestCallback; timestamp?: number }>();
+        const gate = (window as any).__detailReturnGate = {
+          pending, originalRequest, originalCancel, captured: 0, executed: 0,
+          container: document.querySelector('[aria-label="Image results table"]'),
+          release() {
+            for (const [handle, entry] of pending) {
+              if (entry.timestamp === undefined) continue;
+              pending.delete(handle);
+              gate.executed += 1;
+              entry.callback(entry.timestamp);
+            }
+          },
+          cleanup() {
+            for (const handle of pending.keys()) originalCancel.call(window, handle);
+            pending.clear();
+            window.requestAnimationFrame = originalRequest;
+            window.cancelAnimationFrame = originalCancel;
+          },
+        };
+        window.requestAnimationFrame = (callback) => {
+          const body = String(callback);
+          if (!body.includes("scrollRowToCenter(") || body.includes("requestAnimationFrame(")) return originalRequest.call(window, callback);
+          gate.captured += 1;
+          const handle = originalRequest.call(window, (timestamp) => {
+            const entry = pending.get(handle);
+            if (entry) entry.timestamp = timestamp;
+          });
+          pending.set(handle, { callback });
+          return handle;
+        };
+        window.cancelAnimationFrame = (handle) => {
+          pending.delete(handle);
+          originalCancel.call(window, handle);
+        };
+      });
+      try {
+        await kupua.closeDetailViaBackspace();
+        await page.waitForFunction(() => [...(window as any).__detailReturnGate.pending.values()].some((entry: any) => entry.timestamp !== undefined));
+        let newEntry: string | null = null;
+        if (scenario === "reopen") newEntry = await kupua.openDetailForNthItem(2);
+        if (scenario === "resize") await page.setViewportSize({ width: 1000, height: 650 });
+        if (scenario === "query") {
+          expect(alternateIds).toHaveLength(100);
+          await page.evaluate((ids) => (window as any).__kupua_router__.navigate({ to: "/search",
+            search: (previous: Record<string, unknown>) => ({ ...previous, ids: ids.join(",") }) }), alternateIds);
+          await page.waitForFunction(() => {
+            const state = (window as any).__kupua_store__.getState();
+            return !state.loading && state.total === 100 &&
+              document.querySelector('[aria-label="Image results table"]')!.scrollTop === 0;
+          });
+        }
+        const placement = await page.evaluate(async () => {
+          const gate = (window as any).__detailReturnGate;
+          const container = document.querySelector('[aria-label="Image results table"]')!;
+          const before = container.scrollTop;
+          gate.release();
+          await new Promise<void>((resolve) => gate.originalRequest.call(window, () => gate.originalRequest.call(window, resolve)));
+          return { before, after: container.scrollTop, captured: gate.captured, executed: gate.executed,
+            sameContainer: container === gate.container };
+        });
+        expect(placement.captured).toBe(1);
+        expect(placement.sameContainer).toBe(true);
+        if (scenario === "reopen") {
+          expect(await kupua.getDetailImageId()).toBe(newEntry);
+          expect(placement.after).toBe(placement.before);
+          await kupua.closeDetailViaBackspace();
+          expect(await kupua.getScrollTop()).toBe(placement.before);
+          expect(await kupua.getFocusedImageId()).toBe(newEntry);
+          expect(await kupua.isFocusedCellVisible()).toBe(true);
+        } else if (scenario === "query") {
+          expect(placement.executed).toBe(1);
+          expect(placement.before).toBe(0);
+          expect(placement.after).toBe(0);
+          expect((await kupua.getStoreState()).total).toBe(100);
+        } else {
+          expect(placement.executed).toBe(1);
+          const target = await kupua.waitForUsableViewportPlacement(lastViewed!);
+          expect(Math.abs(target.signedCenterDistance)).toBeLessThan(50);
+        }
+      } finally {
+        await page.evaluate(() => { (window as any).__detailReturnGate?.cleanup(); delete (window as any).__detailReturnGate; });
+      }
+    });
+  }
+});
+
 // ===========================================================================
 // Image detail — traversal past buffer boundary
 // ===========================================================================

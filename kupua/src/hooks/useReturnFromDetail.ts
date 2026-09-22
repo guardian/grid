@@ -18,8 +18,9 @@
 
 import { useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 // ---------------------------------------------------------------------------
 // One-shot suppress flag — set by resetToHome() so useReturnFromDetail
@@ -94,6 +95,8 @@ export function useReturnFromDetail({
   // changes (we only want to fire on imageParam transitions).
   const focusedImageIdRef = useRef(focusedImageId);
   focusedImageIdRef.current = focusedImageId;
+  const callbacksRef = useRef({ findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId });
+  callbacksRef.current = { findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId };
 
   useEffect(() => {
     const wasViewing = prevImageParam.current;
@@ -146,7 +149,7 @@ export function useReturnFromDetail({
     const previousFocus = focusedImageIdRef.current;
     if (previousFocus === null && getEffectiveFocusMode() !== "phantom") return;
 
-    setFocusedImageId(wasViewing);
+    callbacksRef.current.setFocusedImageId(wasViewing);
 
     // In phantom mode the focus ring is invisible — pulse the image so
     // the user understands why they're looking at this scroll position.
@@ -160,18 +163,28 @@ export function useReturnFromDetail({
     // "auto" because the user has never seen this row's position in the
     // list, so placing it in the middle gives equal context above and below.
     if (wasViewing !== detailEntryImageIdRef.current) {
-      const idx = findImageIndex(wasViewing);
+      const idx = callbacksRef.current.findImageIndex(wasViewing);
       if (idx >= 0) {
-        const rowIdx = flatIndexToRow(idx);
-        requestAnimationFrame(() => {
-          if (scrollRowToCenter) {
-            scrollRowToCenter(rowIdx);
+        const generation = getSearchGeneration();
+        const historyKey = getCurrentKupuaKey();
+        const returnFocus = useSearchStore.getState().focusedImageId;
+        let cancelled = false;
+        const frame = requestAnimationFrame(() => {
+          if (cancelled || getSearchGeneration() !== generation || getCurrentKupuaKey() !== historyKey ||
+              useSearchStore.getState().focusedImageId !== returnFocus) return;
+          const current = callbacksRef.current;
+          const currentIndex = current.findImageIndex(wasViewing);
+          if (currentIndex < 0) return;
+          const rowIdx = current.flatIndexToRow(currentIndex);
+          if (current.scrollRowToCenter) {
+            current.scrollRowToCenter(rowIdx);
           } else {
-            virtualizer.scrollToIndex(rowIdx, { align: "center" });
+            current.virtualizer.scrollToIndex(rowIdx, { align: "center" });
           }
         });
+        return () => { cancelled = true; cancelAnimationFrame(frame); };
       }
     }
-  }, [imageParam, findImageIndex, virtualizer, flatIndexToRow, setFocusedImageId]);
+  }, [imageParam]);
 }
 
