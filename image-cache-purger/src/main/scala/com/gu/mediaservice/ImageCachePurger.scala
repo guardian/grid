@@ -8,25 +8,29 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import scala.jdk.CollectionConverters._
 
-class ImageCachePurger private[mediaservice] (
-  apiKeyProvider: FastlyApiKeyProvider,
-  fastlyPurger: FastlyPurger
-) extends RequestHandler[SQSEvent, String] {
-  def this() = this(FastlyApiKeyProvider.default, FastlyPurger.default)
+class ImageCachePurgerHandler extends RequestHandler[SQSEvent, String] {
+
+  val imageCachePurger = new ImageCachePurger(FastlyApiKeyProvider.default,
+    new FastlyPurger(FastlyApiKeyProvider.default, sys.env.getOrElse("STAGE", "DEV")))
 
   override def handleRequest(input: SQSEvent, context: Context): String = {
-    val apiKey = apiKeyProvider.apiKey
-
-    input.getRecords.asScala.foreach { record =>
-      ImageCachePurger.extractKeys(record.getBody).foreach { key =>
-        fastlyPurger.purge(key, apiKey)
-        context.getLogger.log(s"Purged S3 object key from Fastly: $key")
-      }
-    }
+    imageCachePurger.handleRecord(input, context)
 
     "Image cache purge requested"
   }
 }
+
+class ImageCachePurger(apiKeyProvider: FastlyApiKeyProvider, fastlyPurger: FastlyPurger) {
+  def handleRecord(input: SQSEvent, context: Context): Unit = {
+    input.getRecords.asScala.foreach { record =>
+      ImageCachePurger.extractKeys(record.getBody).foreach { key =>
+        fastlyPurger.purge(key)
+        context.getLogger.log(s"Purged S3 object key from Fastly: $key")
+      }
+    }
+  }
+}
+
 
 object ImageCachePurger {
   private val objectMapper = new ObjectMapper()

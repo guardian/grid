@@ -33,10 +33,9 @@ class ImageCachePurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
 	  val event = new SQSEvent()
 	  event.setRecords(List(record).asJava)
 
-	  val result = new ImageCachePurger(apiKeyProvider, fastlyPurger).handleRequest(event, context)
+    new ImageCachePurger(apiKeyProvider, fastlyPurger).handleRecord(event, context)
 
-	  result shouldBe "Image cache purge requested"
-	  verify(fastlyPurger).purge(expectedKey, "the-api-key")
+	  verify(fastlyPurger).purge(expectedKey)
 	  verify(logger).log(s"Purged S3 object key from Fastly: $expectedKey")
 	}
   }
