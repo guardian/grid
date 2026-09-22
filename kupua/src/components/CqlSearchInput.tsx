@@ -104,6 +104,7 @@ function ensureRegistered(typeahead: LazyTypeahead) {
 
 interface CqlSearchInputProps {
   value: string;
+  externalRevision?: number;
   onChange: (queryStr: string) => void;
   /** Called whenever the editor content changes — true if there's any content */
   onHasContentChange?: (hasContent: boolean) => void;
@@ -112,6 +113,7 @@ interface CqlSearchInputProps {
 
 export function CqlSearchInput({
   value,
+  externalRevision = 0,
   onChange,
   onHasContentChange,
   placeholder = "Search for images… (type + for advanced search)",
@@ -138,6 +140,7 @@ export function CqlSearchInput({
   // Kahuna avoids this entirely because gr-cql-input never syncs the value
   // attribute back from the URL.
   const selfCausedChangeRef = useRef(false);
+  const externalRevisionRef = useRef(externalRevision);
 
   const dataSource = useSearchStore((s) => s.dataSource);
 
@@ -531,14 +534,17 @@ export function CqlSearchInput({
   // the stripped value back would destroy the chip.
   useEffect(() => {
     if (cqlInputRef.current) {
+      const external = externalRevisionRef.current !== externalRevision;
+      externalRevisionRef.current = externalRevision;
       lastEffectiveQueryRef.current = value;
-      if (selfCausedChangeRef.current) {
+      if (selfCausedChangeRef.current && !external) {
         selfCausedChangeRef.current = false;
       } else {
+        selfCausedChangeRef.current = false;
         cqlInputRef.current.setAttribute("value", value);
       }
     }
-  }, [value]);
+  }, [value, externalRevision]);
 
   return (
     <div

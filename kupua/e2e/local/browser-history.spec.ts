@@ -19,6 +19,235 @@ import { test, expect } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
+test.describe("KUP-014 deferred producer ownership", () => {
+  type Producer = "cql" | "ai" | "header";
+
+  async function getKupuaKey(page: import("@playwright/test").Page): Promise<string> {
+    return page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+  }
+
+  test.beforeEach(async ({ kupua, page }) => {
+    await page.route("**/*", (route) => route.request().resourceType() === "image"
+      ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+      : route.fallback());
+    await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
+    await kupua.goto();
+    await page.evaluate(async () => {
+      const mockPath = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(mockPath);
+      const source = new MockDataSource(20);
+      let aiCalls = 0;
+      source.searchByAi = async () => {
+        aiCalls++;
+        const hits = await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`));
+        return { hits, total: hits.length, sortValues: hits.map((image: any) => [1, image.id]) };
+      };
+      const store = (window as any).__kupua_store__;
+      (window as any).__deferredProducer = { originalSource: store.getState().dataSource, aiCalls: () => aiCalls };
+      store.setState({ dataSource: source, focusedImageId: null });
+      await store.getState().search();
+    });
+    await kupua.waitForResults();
+  });
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__deferredProducer;
+      if (!fixture) return;
+      if (fixture.originalSet) {
+        for (const record of fixture.records) fixture.originalClear.call(window, record.timer);
+        window.setTimeout = fixture.originalSet;
+        window.clearTimeout = fixture.originalClear;
+      }
+      (window as any).__kupua_store__.setState({ dataSource: fixture.originalSource, results: [], total: 0, imagePositions: new Map() });
+      delete (window as any).__deferredProducer;
+    });
+  });
+
+  async function prepare(page: import("@playwright/test").Page, producer: Producer) {
+    if (producer === "header") {
+      await spaNavigate(page, "/search?nonFree=true&density=table");
+      await expect(page.getByRole("columnheader", { name: /Uploaded/ }).first()).toBeVisible();
+    } else if (producer === "ai") {
+      await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+    }
+    await page.evaluate((kind) => {
+      const fixture = (window as any).__deferredProducer;
+      fixture.originalSet = window.setTimeout;
+      fixture.originalClear = window.clearTimeout;
+      fixture.records = [];
+      fixture.editor = document.querySelector("cql-input");
+      fixture.header = document.querySelector("header[role=toolbar]");
+      fixture.initialKey = (window as any).__kupua_getKupuaKey__();
+      fixture.initialLength = history.length;
+      const delay = kind === "cql" ? 300 : kind === "ai" ? 600 : 250;
+      const marker = kind === "cql" ? "debounced-input" : kind === "ai" ? "aiQuery" : "handleSort";
+      window.setTimeout = ((callback: TimerHandler, milliseconds?: number, ...args: any[]) => {
+        if (milliseconds !== delay || typeof callback !== "function" || !String(callback).includes(marker)) {
+          return fixture.originalSet.call(window, callback, milliseconds, ...args);
+        }
+        const record = { callback, args, cancelled: false, released: false, due: false, timer: 0 };
+        record.timer = fixture.originalSet.call(window, () => { record.due = true; }, milliseconds);
+        fixture.records.push(record);
+        return record.timer;
+      }) as typeof window.setTimeout;
+      window.clearTimeout = ((timer: number) => {
+        const record = fixture.records.find((candidate: any) => candidate.timer === timer);
+        if (record) record.cancelled = true;
+        fixture.originalClear.call(window, timer);
+      }) as typeof window.clearTimeout;
+    }, producer);
+  }
+
+  async function edit(page: import("@playwright/test").Page, producer: Producer, text = "obsolete") {
+    if (producer === "header") await page.getByRole("columnheader", { name: /Uploaded/ }).first().click();
+    else if (producer === "ai") await page.getByRole("searchbox", { name: "AI image search query" }).fill(text);
+    else {
+      await page.locator(".ProseMirror.Cql__ContentEditable").fill(text);
+    }
+    await page.waitForFunction(() => (window as any).__deferredProducer.records.length > 0);
+  }
+
+  async function release(page: import("@playwright/test").Page, obsolete = false, index?: number) {
+    await page.waitForFunction(() => (window as any).__deferredProducer.records.every((record: any) => record.cancelled || record.due));
+    await page.evaluate(({ force, index }) => {
+      const records = (window as any).__deferredProducer.records;
+      for (const record of index === undefined ? records : [records[index]]) {
+        if (record.released || (record.cancelled && !force)) continue;
+        record.released = true;
+        record.callback(...record.args);
+      }
+    }, { force: obsolete, index });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+
+  async function intent(page: import("@playwright/test").Page) {
+    return page.evaluate(() => {
+      const params = new URL(location.href).searchParams;
+      const store = (window as any).__kupua_store__.getState();
+      return { query: params.get("query"), aiQuery: params.get("aiQuery"), orderBy: params.get("orderBy"),
+        storeQuery: store.params.query ?? null, storeAi: store.params.aiQuery ?? null, storeSort: store.params.orderBy ?? null,
+        key: (window as any).__kupua_getKupuaKey__(), length: history.length };
+    });
+  }
+
+  for (const producer of ["cql", "ai", "header"] as const) {
+    test(`${producer}: departed entry cannot revive a pending action on return`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer);
+      const pendingKey = await getKupuaKey(page);
+      await spaNavigate(page, `/search?nonFree=true&query=Test${producer === "header" ? "&density=table" : ""}`);
+      await expect.poll(() => getUrlQuery(page)).toBe("Test");
+      await page.goBack();
+      await expect.poll(() => getKupuaKey(page)).toBe(pendingKey);
+      const destination = await intent(page);
+      await release(page, true);
+      expect(await intent(page)).toEqual(destination);
+    });
+
+    test(`${producer}: obsolete callback cannot consume the successor timer`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer, "first");
+      await edit(page, producer, "Test");
+      const pending = await intent(page);
+      await release(page, true, 0);
+      expect(await intent(page)).toEqual(pending);
+      const generation = await getSearchGeneration(page);
+      await release(page);
+      await waitForNewSearchSettled(page, generation);
+      const current = await intent(page);
+      expect(producer === "cql" ? current.query : producer === "ai" ? current.aiQuery : current.orderBy)
+        .toBe(producer === "header" ? "uploadTime" : "Test");
+    });
+
+    test(`${producer}: owner unmount clears its pending timer`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer);
+      await spaNavigate(page, "/missing-producer-test-route");
+      await expect(page.locator("header[role=toolbar]")).toHaveCount(0);
+      expect(await page.evaluate(() => (window as any).__deferredProducer.records.every((record: any) => record.cancelled))).toBe(true);
+      const destination = page.url();
+      await release(page, true);
+      expect(page.url()).toBe(destination);
+      expect(await page.evaluate(() => (window as any).__deferredProducer.aiCalls())).toBe(0);
+    });
+
+    for (const destination of ["back", "home", "newer"] as const) {
+      test(`${producer}: ${destination} supersedes a mounted pending producer`, async ({ page }) => {
+        if (producer === "header" && destination === "back") await spaNavigate(page, "/search?nonFree=true&query=Test&density=table");
+        await prepare(page, producer);
+        await edit(page, producer);
+        const initialKey = await page.evaluate(() => (window as any).__deferredProducer.initialKey);
+        if (producer !== "header") await expect.poll(() => getKupuaKey(page)).not.toBe(initialKey);
+        const pendingKey = await getKupuaKey(page);
+        if (destination === "back") {
+          await page.goBack();
+          await expect.poll(() => getKupuaKey(page)).not.toBe(pendingKey);
+          if (producer !== "header") expect(await getKupuaKey(page)).toBe(initialKey);
+        } else if (destination === "home") {
+          await page.locator('header[role="toolbar"] a[title*="Grid"]').click();
+          await expect.poll(() => getKupuaKey(page)).not.toBe(pendingKey);
+        } else {
+          await spaNavigate(page, `/search?nonFree=true&query=Test${producer === "header" ? "&density=table" : ""}`);
+          await expect.poll(() => getUrlQuery(page)).toBe("Test");
+        }
+        const destinationIntent = await intent(page);
+        expect(await page.evaluate(() => document.querySelector("header[role=toolbar]") === (window as any).__deferredProducer.header)).toBe(true);
+        await release(page);
+        expect(await intent(page)).toEqual(destinationIntent);
+        if (destination !== "home") expect(await page.evaluate(() => document.querySelector("cql-input") === (window as any).__deferredProducer.editor)).toBe(true);
+        await expect(page.locator(".ProseMirror.Cql__ContentEditable")).not.toContainText("obsolete");
+        expect(await page.evaluate(() => (window as any).__deferredProducer.aiCalls())).toBe(0);
+      });
+    }
+
+    test(`${producer}: ordinary latest edit completes within its typing entry`, async ({ page }) => {
+      await prepare(page, producer);
+      await edit(page, producer, "first");
+      const typingKey = await getKupuaKey(page);
+      await edit(page, producer, "Test");
+      const generation = await getSearchGeneration(page);
+      await release(page);
+      await waitForNewSearchSettled(page, generation);
+      const state = await intent(page);
+      if (producer === "header") expect(state.orderBy).toBe("uploadTime");
+      else {
+        expect(producer === "cql" ? state.query : state.aiQuery).toBe("Test");
+        expect(state.key).toBe(typingKey);
+        expect(state.length).toBe(await page.evaluate(() => (window as any).__deferredProducer.initialLength + 1));
+      }
+      if (producer === "cql") await expect(page.locator(".ProseMirror.Cql__ContentEditable")).toContainText("Test");
+      if (producer === "ai") await expect(page.getByRole("searchbox", { name: "AI image search query" })).toHaveValue("Test");
+    });
+  }
+
+  test("Clear invalidates both children and subsequent CQL editing works", async ({ page }) => {
+    await prepare(page, "ai");
+    await edit(page, "ai");
+    await page.locator(".ProseMirror.Cql__ContentEditable").click();
+    await page.keyboard.insertText("Test");
+    await page.getByRole("button", { name: "Clear search", exact: true }).click();
+    const cleared = await intent(page);
+    await release(page, true);
+    expect(await intent(page)).toEqual(cleared);
+    expect(cleared.query).toBeNull();
+    expect(cleared.aiQuery).toBeNull();
+    const generation = await getSearchGeneration(page);
+    await page.locator(".ProseMirror.Cql__ContentEditable").click();
+    await page.keyboard.insertText("Test");
+    await waitForNewSearchSettled(page, generation);
+    expect(await getUrlQuery(page)).toBe("Test");
+  });
+
+  test("header double-click fits without committing a semantic sort", async ({ page }) => {
+    await prepare(page, "header");
+    const before = await intent(page);
+    await page.getByRole("columnheader", { name: /Uploaded/ }).first().dblclick();
+    await release(page, true);
+    expect(await intent(page)).toEqual(before);
+  });
+});
+
 // Register exactly one focus-mode writer for each test context.
 test.beforeEach(async ({ kupua }, testInfo) => {
   if (testInfo.titlePath.includes(PHANTOM_HISTORY_DESCRIBE)) {

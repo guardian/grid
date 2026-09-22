@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep deferred editor and header actions with their navigation
+
+  KUP-014: CQL, AI and delayed header sorting retain their originating entry and
+  reset lifetime. Departure cancels pending work; stale callbacks cannot consume a
+  successor timer. Typing captures its freshly minted entry key, preserving shared
+  CQL/AI sessions and replace-based edits. Superseded mounted inputs synchronize to
+  the destination without remounting the view. Debounce delays, header double-click
+  fitting and settled AI reordering remain unchanged; no additional requests are added.
+
   ### 20 September 2026 - Discard explicitly incomplete position maps
 
   Both position-map phases reject timeout or failed-shard evidence before consuming

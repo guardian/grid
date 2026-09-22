@@ -5,7 +5,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import {
   createColumnHelper,
   flexRender,
@@ -30,7 +30,8 @@ import { ColumnContextMenu, type ColumnContextMenuHandle } from "./ColumnContext
 import { TableTickbox } from "./Tickbox";
 import type { Image } from "@/types/image";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
-import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview } from "@/lib/orchestration/search";
+import { cancelSearchDebounce, pushNavigate, enterFullscreenPreview, getCqlInputGeneration } from "@/lib/orchestration/search";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { getThumbnailUrl, thumbnailsEnabled } from "@/lib/image-urls";
 import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
@@ -976,6 +977,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   useEffect(() => {
     return () => {
       if (sortTimerRef.current) clearTimeout(sortTimerRef.current);
+      sortTimerRef.current = null;
     };
   }, []);
 
@@ -1100,6 +1102,13 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // when the user is actually double-clicking.
   // ---------------------------------------------------------------------------
   const sortTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sortEntryRef = useRef<string | undefined>(undefined);
+  const router = useRouter();
+  useEffect(() => router.history.subscribe(({ location }) => {
+    if (!sortTimerRef.current || (location.state as { kupuaKey?: string }).kupuaKey === sortEntryRef.current) return;
+    clearTimeout(sortTimerRef.current);
+    sortTimerRef.current = null;
+  }), [router]);
 
   /** Handle double-click on a column header: fit ↔ restore. */
   const handleHeaderDoubleClick = useCallback(
@@ -1153,10 +1162,16 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         clearTimeout(sortTimerRef.current);
         sortTimerRef.current = null;
       }
-      sortTimerRef.current = setTimeout(() => {
+      const key = getCurrentKupuaKey();
+      sortEntryRef.current = key;
+      const generation = getCqlInputGeneration();
+      const timer = setTimeout(() => {
+        if (sortTimerRef.current !== timer) return;
         sortTimerRef.current = null;
+        if (key !== getCurrentKupuaKey() || generation !== getCqlInputGeneration()) return;
         handleSort(field);
       }, 250);
+      sortTimerRef.current = timer;
     },
     [handleSort]
   );

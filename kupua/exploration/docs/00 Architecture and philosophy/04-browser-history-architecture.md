@@ -67,12 +67,19 @@ debounced CQL/AI handlers pass `{ replace: true }`.
 
 ### Debounced query — history session grouping
 
-SearchBar starts a typing session only when neither the CQL debounce nor the AI
-debounce is pending. `pushTypingSearchEntry` uses the existing push-navigation
-boundary to capture the predecessor snapshot before minting the new entry's key.
+SearchBar shares pending CQL/AI edits only while their entry and input-reset lifetime
+remain current. `pushTypingSearchEntry` captures the predecessor snapshot, mints the
+new entry's key and returns that key to the producer; capturing the predecessor key
+would incorrectly cancel the typing session's own completion.
 The CQL (300ms) and AI (600ms) delays are unchanged. Their settled updates replace
 the shared entry and retain its key; a later edit after both timers clear starts
 a new entry. There is no independent history timer or generic history state machine.
+
+Departure cancels pending input even if Back/Forward later returns to the same entry.
+Mounted editors synchronize to the destination through a local external-update revision,
+without remounting the results view. Each callback checks its own timer identity before
+clearing state. The header's 250ms single-click sort has a separate timer with entry/reset
+ownership; double-click cancels it and retains the existing fit/restore interaction.
 
 ### Push-navigate helpers
 

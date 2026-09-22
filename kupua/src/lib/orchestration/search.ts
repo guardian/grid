@@ -366,7 +366,7 @@ export function consumeDetailEnteredViaSpaFlag(): boolean {
  * a search-affecting key would silently trigger popstate (reset-to-top)
  * semantics without the mark.
  */
-export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
+export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): string {
   // Capture snapshot for the predecessor entry BEFORE navigate fires.
   // The store is still showing pre-navigate state at this point.
   markPushSnapshot();
@@ -374,11 +374,13 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   markDetailEnteredViaSpa();
   // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
   // any caller-supplied state so both survive.
-  navigate({ ...opts, state: withFreshKupuaKey(opts.state) });
+  const state = withFreshKupuaKey(opts.state);
+  navigate({ ...opts, state });
+  return state.kupuaKey as string;
 }
 
-export function pushTypingSearchEntry(navigate: NavigateFn, search: Record<string, unknown>): void {
-  pushNavigate(navigate, { to: "/search", search, replace: false });
+export function pushTypingSearchEntry(navigate: NavigateFn, search: Record<string, unknown>): string {
+  return pushNavigate(navigate, { to: "/search", search, replace: false });
 }
 
 /**

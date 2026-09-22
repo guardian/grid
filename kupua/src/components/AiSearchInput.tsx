@@ -21,6 +21,7 @@ let _stashedAiText: string | null = null;
 interface AiSearchInputProps {
   /** Current AI text from URL (null = no AI chip in URL). */
   aiText: string | null;
+  externalRevision?: number;
   /** Called with non-empty text to write to URL, or null to remove from URL. */
   onAiTextChange: (text: string | null) => void;
   /** AI and collection searches are mutually exclusive. */
@@ -29,6 +30,7 @@ interface AiSearchInputProps {
 
 export function AiSearchInput({
   aiText,
+  externalRevision = 0,
   onAiTextChange,
   collectionDisabled = false,
 }: AiSearchInputProps) {
@@ -49,11 +51,15 @@ export function AiSearchInput({
 
   // Sync from URL prop on external changes (back/forward, clear, page load).
   const selfCausedRef = useRef(false);
+  const externalRevisionRef = useRef(externalRevision);
   useEffect(() => {
-    if (selfCausedRef.current) {
+    const external = externalRevisionRef.current !== externalRevision;
+    externalRevisionRef.current = externalRevision;
+    if (selfCausedRef.current && !external) {
       selfCausedRef.current = false;
       return;
     }
+    selfCausedRef.current = false;
     // External change: sync local state.
     if (aiText !== null) {
       setIsActive(true);
@@ -62,7 +68,7 @@ export function AiSearchInput({
       setIsActive(false);
       setLocalText("");
     }
-  }, [aiText]);
+  }, [aiText, externalRevision]);
 
   useEffect(() => {
     if (!collectionDisabled) return;

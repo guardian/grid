@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
@@ -22,11 +22,14 @@ import { SettingsMenu } from "./SettingsMenu";
 import { useSelectionStore } from "@/stores/selection-store";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { hasCollectionFilter } from "@/lib/search-params-schema";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const navigate = useNavigate();
+  const router = useRouter();
+  const [externalInputRevision, setExternalInputRevision] = useState(0);
   const took = useSearchStore((s) => s.took);
   const fetchDuration = useSearchStore((s) => s.fetchDuration);
   const seekTime = useSearchStore((s) => s.seekTime);
@@ -67,31 +70,62 @@ export function SearchBar() {
   // bouncing the user back to the search page.
   useEffect(() => {
     return () => {
-      if (_debounceTimerId) {
-        clearTimeout(_debounceTimerId);
+      if (cqlDebounceRef.current && _debounceTimerId === cqlDebounceRef.current) {
+        clearTimeout(cqlDebounceRef.current);
         setDebounceTimer(null);
       }
+      cqlDebounceRef.current = null;
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+      aiDebounceRef.current = null;
     };
   }, []);
 
   // --- AI query lives in its own URL param (searchParams.aiQuery) ---
   const urlAiText = searchParams.aiQuery ?? null;
   const urlQuery = searchParams.query ?? "";
+  const cqlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingEntryRef = useRef<{ key: string; generation: number } | null>(null);
+  useEffect(() => router.history.subscribe(({ location }) => {
+    const owner = typingEntryRef.current;
+    if (!owner || (location.state as { kupuaKey?: string }).kupuaKey === owner.key) return;
+    typingEntryRef.current = null;
+    if (!cqlDebounceRef.current && !aiDebounceRef.current) return;
+    if (cqlDebounceRef.current && _debounceTimerId === cqlDebounceRef.current) {
+      clearTimeout(cqlDebounceRef.current);
+      setDebounceTimer(null);
+    }
+    cqlDebounceRef.current = null;
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = null;
+    setExternalInputRevision((revision) => revision + 1);
+  }), [router]);
   const beginTypingSession = useCallback(() => {
-    if (_debounceTimerId || aiDebounceRef.current) return;
-    pushTypingSearchEntry(navigate, searchParams);
+    const owner = typingEntryRef.current;
+    if (owner && (_debounceTimerId || aiDebounceRef.current) && owner.key === getCurrentKupuaKey()
+      && owner.generation === getCqlInputGeneration()) return owner;
+    if (_debounceTimerId) clearTimeout(_debounceTimerId);
+    setDebounceTimer(null);
+    cqlDebounceRef.current = null;
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = null;
+    const nextOwner = { key: pushTypingSearchEntry(navigate, searchParams), generation: getCqlInputGeneration() };
+    typingEntryRef.current = nextOwner;
+    return nextOwner;
   }, [navigate, searchParams]);
 
   const handleQueryChange = useCallback(
     (queryStr: string) => {
       // First keystroke of a new typing session: commit the current URL
       // as a history entry so the pre-edit context is reachable via back.
-      beginTypingSession();
+      const owner = beginTypingSession();
 
       if (_debounceTimerId) clearTimeout(_debounceTimerId);
-      setDebounceTimer(setTimeout(() => {
+      const timer = setTimeout(() => {
+        if (_debounceTimerId !== timer || cqlDebounceRef.current !== timer) return;
+        cqlDebounceRef.current = null;
         setDebounceTimer(null);
+        if (owner.key !== getCurrentKupuaKey() || owner.generation !== getCqlInputGeneration()) return;
 
         // If an external update (e.g. cell click) set a different query
         // after this timer was scheduled, this debounce is stale — skip.
@@ -105,7 +139,9 @@ export function SearchBar() {
         const cqlPart = meaningful ? queryStr : "";
         beginTraceInteraction("search", { source: "debounced-input" });
         updateSearch({ query: cqlPart || undefined }, { replace: true });
-      }, 300));
+      }, 300);
+      cqlDebounceRef.current = timer;
+      setDebounceTimer(timer);
     },
     [beginTypingSession, updateSearch]
   );
@@ -114,13 +150,16 @@ export function SearchBar() {
   const handleAiTextChange = useCallback(
     (text: string | null) => {
       // Push history entry on first edit of a session (same as CQL).
-      beginTypingSession();
+      const owner = beginTypingSession();
 
       if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
-      aiDebounceRef.current = setTimeout(() => {
+      const timer = setTimeout(() => {
+        if (aiDebounceRef.current !== timer) return;
         aiDebounceRef.current = null;
+        if (owner.key !== getCurrentKupuaKey() || owner.generation !== getCqlInputGeneration()) return;
         updateSearch({ aiQuery: text || undefined }, { replace: true });
       }, 600);
+      aiDebounceRef.current = timer;
     },
     [beginTypingSession, updateSearch],
   );
@@ -197,6 +236,7 @@ export function SearchBar() {
           <CqlSearchInput
             key={getCqlInputGeneration()}
             value={urlQuery}
+            externalRevision={externalInputRevision}
             onChange={handleQueryChange}
             onHasContentChange={setHasEditorContent}
           />
@@ -204,6 +244,7 @@ export function SearchBar() {
         <AiSearchInput
           key={getCqlInputGeneration()}
           aiText={urlAiText}
+          externalRevision={externalInputRevision}
           onAiTextChange={handleAiTextChange}
           collectionDisabled={hasCollectionFilter(urlQuery)}
         />
