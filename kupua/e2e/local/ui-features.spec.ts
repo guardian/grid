@@ -863,6 +863,133 @@ test.describe("URL state", () => {
 // Fullscreen preview — arrow navigation (Bug: skip-one-image)
 // ===========================================================================
 
+test.describe("KUP-021 media fallback", () => {
+  const pixel = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+  async function setupMedia(kupua: import("../shared/helpers").KupuaHelpers, outcome: "full" | "thumbnail" | "failed" | "held") {
+    const page = kupua.page;
+    const requests: string[] = [];
+    let held: import("@playwright/test").Route | undefined;
+    await page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        const pixel = "data:image/gif;base64,${pixel}";
+        export const getThumbnailUrl = image => window.__mediaFallback?.targets.has(image.id) ? "/__fallback_media/thumbnail/" + image.id + ".gif" : pixel;
+        export const getFullImageUrl = image => window.__mediaFallback?.targets.has(image.id) ? "/__fallback_media/full/" + image.id + ".gif" : pixel;
+        export const getZoomImageUrl = getFullImageUrl;`,
+    }));
+    await page.route("**/*", async (route) => {
+      if (route.request().resourceType() !== "image") return route.fallback();
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname.startsWith("/__fallback_media/")) {
+        requests.push(pathname);
+        const isOriginal = await page.evaluate(path => path.includes((window as any).__mediaFallback.first), pathname);
+        if (isOriginal && outcome === "held" && pathname.includes("/full/")) { held = route; return; }
+        if (isOriginal && outcome !== "full" && (outcome !== "thumbnail" || pathname.includes("/full/"))) {
+          await route.fulfill({ status: 404, body: "local unavailable fixture" });
+          return;
+        }
+      }
+      await route.fulfill({ contentType: "image/gif", body: Buffer.from(pixel, "base64") });
+    });
+    await kupua.goto();
+    await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+    await page.evaluate(() => {
+      const results = (window as any).__kupua_store__.getState().results;
+      const first = results[5].id;
+      const second = results[6].id;
+      const probe = {
+        first, second, targets: new Set([first]), errors: 0, rawRelative: false, resolvedAbsolute: false,
+        wrapper: null as Element | null,
+        onError: (event: Event) => {
+          const image = event.target;
+          if (!(image instanceof HTMLImageElement) || image.getAttribute("fetchpriority") !== "high") return;
+          if (!image.closest("[data-detail-image-id]")) return;
+          probe.wrapper ??= image.closest("[data-detail-image-id]");
+          probe.errors++;
+          probe.rawRelative = (image.getAttribute("src") ?? "").startsWith("/");
+          probe.resolvedAbsolute = image.src.startsWith(location.origin + "/");
+          if (probe.errors >= 3) event.stopImmediatePropagation();
+        },
+      };
+      (window as any).__mediaFallback = probe;
+      document.addEventListener("error", probe.onError, true);
+    });
+    await page.evaluate(async () => {
+      const { pushNavigate } = await import("/src/lib/orchestration/search.ts");
+      pushNavigate((window as any).__kupua_router__.navigate, {
+        to: "/search", search: { nonFree: "true", image: (window as any).__mediaFallback.first },
+      });
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    return { requests, release: async () => { if (held) await held.fulfill({ status: 404, body: "obsolete local failure" }); }, isHeld: () => Boolean(held) };
+  }
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(async () => {
+      const probe = (window as any).__mediaFallback;
+      if (!probe) return;
+      await (window as any).__kupua_router__.navigate({ to: "/search", search: { nonFree: "true" }, replace: true });
+      document.removeEventListener("error", probe.onError, true);
+      delete (window as any).__mediaFallback;
+    });
+  });
+
+  for (const outcome of ["full", "thumbnail"] as const) {
+    test(`${outcome} success remains decoded and usable`, async ({ kupua, page }) => {
+      const fixture = await setupMedia(kupua, outcome);
+      await page.waitForFunction(() => {
+        const image = document.querySelector('[data-detail-image-id] img[fetchpriority="high"]') as HTMLImageElement;
+        return image?.complete && image.naturalWidth > 0;
+      });
+      const image = page.locator('[data-detail-image-id] img[fetchpriority="high"]');
+      await expect(image).toHaveAttribute("src", new RegExp(`/__fallback_media/${outcome === "full" ? "full" : "thumbnail"}/`));
+      expect(await page.evaluate(() => (window as any).__mediaFallback.errors)).toBe(outcome === "full" ? 0 : 1);
+      expect(fixture.requests.filter(path => path.includes("/full/"))).toHaveLength(1);
+      expect(fixture.requests.filter(path => path.includes("/thumbnail/"))).toHaveLength(1);
+      await expect(page.getByText("Image preview not available", { exact: true })).toHaveCount(0);
+    });
+  }
+
+  test("relative thumbnail failure terminates once and a new image starts clean", async ({ kupua, page }) => {
+    const fixture = await setupMedia(kupua, "failed");
+    await page.waitForFunction(() => (window as any).__mediaFallback.errors >= 3 || document.body.textContent?.includes("Image preview not available"));
+    expect(await page.evaluate(() => ({
+      errors: (window as any).__mediaFallback.errors,
+      relative: (window as any).__mediaFallback.rawRelative,
+      absolute: (window as any).__mediaFallback.resolvedAbsolute,
+    }))).toEqual({ errors: 2, relative: true, absolute: true });
+    expect(fixture.requests.map(path => path.split("/")[2])).toEqual(["thumbnail", "full", "thumbnail"]);
+    await expect(page.getByText("Image preview not available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Back to search" })).toBeVisible();
+    await page.evaluate(() => (window as any).__mediaFallback.targets.add((window as any).__mediaFallback.second));
+    await page.getByRole("button", { name: "Next image", exact: true }).click();
+    await page.waitForFunction(() => {
+      const probe = (window as any).__mediaFallback;
+      const wrapper = document.querySelector(`[data-detail-image-id="${probe.second}"]`);
+      const image = wrapper?.querySelector('img[fetchpriority="high"]') as HTMLImageElement;
+      return wrapper === probe.wrapper && image?.complete && image.naturalWidth > 0;
+    });
+    await expect(page.getByText("Image preview not available", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to search" }).click();
+    await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+  });
+
+  test("an obsolete full-image response cannot fail the newer displayed image", async ({ kupua, page }) => {
+    const fixture = await setupMedia(kupua, "held");
+    await expect.poll(fixture.isHeld).toBe(true);
+    await page.evaluate(() => (window as any).__mediaFallback.targets.add((window as any).__mediaFallback.second));
+    await page.getByRole("button", { name: "Next image", exact: true }).click();
+    await page.waitForFunction(() => {
+      const image = document.querySelector('[data-detail-image-id] img[fetchpriority="high"]') as HTMLImageElement;
+      return image?.src.includes((window as any).__mediaFallback.second) && image.complete && image.naturalWidth > 0;
+    });
+    await fixture.release();
+    await expect(page.getByText("Image preview not available", { exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__mediaFallback.errors)).toBe(0);
+  });
+});
+
 test.describe("KUP-019 mounted traversal consumers", () => {
   test.beforeEach(async ({ kupua, page }) => {
     await page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({

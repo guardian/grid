@@ -20,6 +20,8 @@ const fixture = vi.hoisted(() => ({
   navigate: vi.fn(),
   cached: vi.fn(() => null as { cursor: [number, string]; offset: number } | null),
   markNavigation: vi.fn(),
+  relativeMedia: false,
+  mediaProps: [] as ComponentProps<"img">[],
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -43,15 +45,18 @@ vi.mock("@/hooks/useSwipeCarousel", () => ({ useSwipeCarousel: () => ({ swipedRe
 vi.mock("@/hooks/useSwipeDismiss", () => ({ useSwipeDismiss: vi.fn() }));
 vi.mock("@/hooks/usePinchZoom", () => ({ usePinchZoom: vi.fn() }));
 vi.mock("@/lib/image-urls", () => ({
-  getFullImageUrl: (image: Image) => `data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7#${image.id}`,
-  getThumbnailUrl: () => undefined,
+  getFullImageUrl: (image: Image) => fixture.relativeMedia ? `/__detail_media/full/${image.id}.gif` : `data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7#${image.id}`,
+  getThumbnailUrl: (image: Image) => fixture.relativeMedia ? `/__detail_media/thumb/${image.id}.gif` : undefined,
   getZoomImageUrl: () => undefined,
 }));
 vi.mock("@/lib/image-prefetch", () => ({
   isFullResLoaded: () => false, markFullResLoaded: vi.fn(),
   onFullResDecoded: () => () => {}, getCarouselImageUrl: () => undefined,
 }));
-vi.mock("@/components/StableImg", () => ({ StableImg: ({ imgRef, ...props }: ComponentProps<"img"> & { imgRef?: React.Ref<HTMLImageElement> }) => <img ref={imgRef} {...props} /> }));
+vi.mock("@/components/StableImg", () => ({ StableImg: ({ imgRef, ...props }: ComponentProps<"img"> & { imgRef?: React.Ref<HTMLImageElement> }) => {
+  fixture.mediaProps.push(props);
+  return <img ref={imgRef} {...props} />;
+} }));
 vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image }: { image: Image }) => <span data-testid="metadata">{image.id}: {image.metadata.title}</span> }));
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
 vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section> }));
@@ -96,6 +101,8 @@ describe("KUP-004 standalone detail identity", () => {
     dataSource = new MockDataSource();
     useSearchStore.setState({ ...initialState, dataSource });
     fixture.resident = [];
+    fixture.relativeMedia = false;
+    fixture.mediaProps = [];
     fixture.cached.mockReset().mockReturnValue(null);
     fixture.markNavigation.mockClear();
     transitions = [];
@@ -107,6 +114,51 @@ describe("KUP-004 standalone detail identity", () => {
     useSearchStore.setState(initialState, true);
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it("terminates a relative thumbnail fallback after two media errors", () => {
+    fixture.relativeMedia = true;
+    fixture.resident = [makeImage("A")];
+    render(<Detail imageId="A" />);
+    const image = screen.getByAltText("Title A") as HTMLImageElement;
+    fireEvent.error(image);
+    expect(image.getAttribute("src")).toBe("/__detail_media/thumb/A.gif");
+    expect(image.src).not.toBe(image.getAttribute("src"));
+    fireEvent.error(image);
+    expect(screen.getByText("Image preview not available")).toBeTruthy();
+    expect(screen.queryByAltText("Title A")).toBeNull();
+  });
+
+  it("never publishes a previous image's failure in the next identity's layout commit", () => {
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const mounted = render(<Detail imageId="A" />);
+    fireEvent.error(screen.getByAltText("Title A"));
+    expect(screen.getByText("Image preview not available")).toBeTruthy();
+    mounted.rerender(<Detail imageId="B" />);
+    expect(transitions.at(-1)?.text).not.toContain("Image preview not available");
+    expect(screen.getByAltText("Title B").getAttribute("src")).toContain("#B");
+  });
+
+  it("ignores captured obsolete media callbacks after a newer image takes over the stable element", async () => {
+    fixture.relativeMedia = true;
+    fixture.resident = [makeImage("A"), makeImage("B")];
+    const mounted = render(<Detail imageId="A" />);
+    const image = screen.getByAltText("Title A") as HTMLImageElement;
+    const obsolete = fixture.mediaProps.at(-1)!;
+    mounted.rerender(<Detail imageId="B" />);
+    expect(screen.getByAltText("Title B")).toBe(image);
+    const { markFullResLoaded } = await import("@/lib/image-prefetch");
+    vi.mocked(markFullResLoaded).mockClear();
+    act(() => {
+      const event = { target: image, currentTarget: image } as unknown as React.SyntheticEvent<HTMLImageElement>;
+      obsolete.onError?.(event);
+      obsolete.onLoad?.(event);
+    });
+    expect(image.getAttribute("src")).toBe("/__detail_media/full/B.gif");
+    expect(screen.queryByText("Image preview not available")).toBeNull();
+    expect(markFullResLoaded).not.toHaveBeenCalled();
+    fireEvent.load(image);
+    expect(markFullResLoaded).toHaveBeenCalledExactlyOnceWith("B");
   });
 
   it.each(["null", "undefined", "reject", "success"])("never renders loaded A as pending B, then handles %s", async (outcome) => {

@@ -1,7 +1,7 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** Maintained operating reference; latest live technique check 2026-09-18.
+> **Status:** Maintained operating reference; latest live technique check 2026-09-22.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
@@ -1399,3 +1399,23 @@ traffic made the media stub and isolation compose. Native-fullscreen consumer te
 then verified identity-bearing local fixture media without enabling live proxies or
 changing runner environment variables. This is fixture rendering, not production
 media-pipeline acceptance.
+
+**[V] Separate resolver-scope evidence from visible quoted-input evidence (22 September
+2026).** Calling a served resolver with a capturing synthetic aggregation boundary proves its
+request scope, not editor behavior. Follow through in the visible CQL editor: enter a double-quoted
+literal containing field-like text plus a genuine empty chip, inspect the menu, select a synthetic
+value containing spaces, and compare the editor, effective store query and URL. Clear/remount and
+repeat with a quoted XMP key containing a colon. Keep the one-time registered class alive and verify
+visible count freshness separately from own-chip requests. The installed parser recognizes double
+quotes, not apostrophes, as literal delimiters. Restore the aggregation method's original ownership
+and remove the probe after checking. The local mounted jsdom attempt lacked native selection support
+(`document.execCommand`); real Chromium exercised this path without dependency patches or registration resets.
+
+**[V] Count main-image errors separately from retained-grid media reads (22 September
+2026).** A mounted detail can retain a grid thumbnail request for the same image before its full
+image loads. With locally intercepted failures, the observed sequence was grid thumbnail, detail
+full image, then one detail thumbnail fallback. A successful grid thumbnail can instead be reused
+from cache. Observe the detail's high-priority image, require two main-image errors followed by
+terminal unavailable presentation, and cap delivery of a third error before releasing failures.
+Exact URL-category order plus main-image events distinguishes a valid fallback from a retry loop;
+total network request count alone does not. Keep routes installed through fixture teardown.

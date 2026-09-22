@@ -95,6 +95,11 @@ leaf, not boolean truthiness or named-field multi-field expansion.
 
 URL builders for thumbnails and full-size images. Thumbnails served from S3 via local proxy (`/s3/thumb/<id>`). Full-size images served via imgproxy: AVIF format by default, DPR-aware sizing (two-tier: 1× for standard displays, 1.5× for HiDPI > 1.3), EXIF orientation → explicit `rotate:N` (auto_rotate disabled), native-resolution cap to prevent upscale. `getFullImageUrl()` builds imgproxy processing URLs; `getThumbnailUrl()` returns proxied S3 paths. Both return `undefined` when the respective service is unavailable (local mode).
 
+ImageDetail compares resolved absolute URLs before attempting its single thumbnail fallback.
+Failure and load/error callbacks belong to the current image lifetime and current DOM element;
+traversal starts with fresh media state while retaining the detail/fullscreen containers. Terminal
+failure leaves metadata, Back and traversal available. This does not provide rendition URL renewal.
+
 ## Grid Config (`lib/grid-config.ts`)
 
 Hardcoded mock of Grid's runtime config (image types, usage rights categories, CQL typeahead field lists). Derived from `exploration/mock/grid-config.conf`. CQL parser and typeahead resolvers depend on this. **Known tech debt:** will be replaced by a real config endpoint in Phase 3 (Grid API integration).

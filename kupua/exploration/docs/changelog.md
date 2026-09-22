@@ -17,6 +17,14 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Terminate failed detail media fallback
+
+  KUP-021: resolve thumbnail URLs before comparing them with the browser's absolute
+  image source, allowing one fallback before unavailable-media presentation. Failure
+  and callbacks belong to the current image lifetime and DOM element, so traversal
+  neither inherits failure nor accepts obsolete events. Stable containers, decoded
+  success and Back/traversal remain; the TEST setup hint is reserved for absent URLs.
+
   ### 22 September 2026 - Keep prefetch completion with its loader
 
   KUP-020: load, error and decode completion capture the issuing map and remove an

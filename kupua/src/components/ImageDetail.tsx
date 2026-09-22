@@ -620,13 +620,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     return getThumbnailUrl(nextImage);
   }, [nextImage?.id, prefetchGen]);
 
-  // Track whether the image failed to load (imgproxy down, S3 404, etc.)
-  // so we can show a graceful fallback instead of browser's broken-image
-  // alt text. Reset when imageId changes.
-  const [imgLoadFailed, setImgLoadFailed] = useState(false);
-  useEffect(() => setImgLoadFailed(false), [imageId]);
+  // Failed media and callbacks belong to this rendered image lifetime.
+  const mediaOwner = useMemo(() => ({ imageId }), [imageId]);
+  const currentMediaOwnerRef = useRef(mediaOwner);
+  currentMediaOwnerRef.current = mediaOwner;
+  const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
 
-  const imageUrl = imgLoadFailed ? undefined : (fullUrl ?? thumbUrl);
+  const imageUrl = failedMediaOwner === mediaOwner ? undefined : (fullUrl ?? thumbUrl);
 
 
   // Delay showing the loading indicator so it doesn't flash on fast loads
@@ -783,7 +783,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   }
                   draggable={false}
                   onClick={handleImageClick}
-                  onLoad={() => {
+                  onLoad={(event) => {
+                    if (currentMediaOwnerRef.current !== mediaOwner || event.currentTarget !== imageRef.current) return;
                     // Mark this image as loaded so side-panel probes can use
                     // full-res instead of thumbnail on future swipes.
                     if (imageId) markFullResLoaded(imageId);
@@ -800,22 +801,25 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                         }
                   }
                   onError={(e) => {
+                    if (currentMediaOwnerRef.current !== mediaOwner || e.currentTarget !== imageRef.current) return;
                     // imgproxy failed — try thumbnail as fallback
-                    const target = e.target as HTMLImageElement;
-                    if (thumbUrl && target.src !== thumbUrl) {
+                    const target = e.currentTarget;
+                    if (thumbUrl && target.src !== new URL(thumbUrl, window.location.href).href) {
                       target.src = thumbUrl;
                     } else {
                       // Both imgproxy and thumbnail failed — show text fallback
-                      setImgLoadFailed(true);
+                      setFailedMediaOwner(mediaOwner);
                     }
                   }}
                 />
               ) : (
                 <div className="text-grid-text-muted text-sm text-center p-4">
                   <p>Image preview not available</p>
-                  <p className="mt-1 text-grid-text-dim">
-                    Run with <code>--use-TEST</code> to enable image viewing
-                  </p>
+                  {!fullUrl && !thumbUrl && (
+                    <p className="mt-1 text-grid-text-dim">
+                      Run with <code>--use-TEST</code> to enable image viewing
+                    </p>
+                  )}
                 </div>
               )}
             </div>
