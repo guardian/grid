@@ -18,13 +18,16 @@
  */
 
 import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, resetCqlInputComponents } from "@/lib/orchestration/search";
-import { useSearchStore, suppressNextRestore, clearSuppressRestore } from "@/stores/search-store";
+import { useSearchStore, suppressNextRestore, getSearchGeneration } from "@/stores/search-store";
 import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { isMobile } from "@/lib/is-mobile";
 import { useSelectionStore } from "@/stores/selection-store";
+import type { RouterHistory } from "@tanstack/react-router";
+
+let cancelHome: (() => void) | null = null;
 
 /**
  * Reset all search/scroll/sync state, await fresh first-page data,
@@ -43,7 +46,35 @@ import { useSelectionStore } from "@/stores/selection-store";
  *   correct data. If search() throws, navigation still fires (graceful
  *   degradation — the user gets to the home state, possibly with an error).
  */
-export async function resetToHome(navigate: () => void, traceInteractionId?: string) {
+export async function resetToHome(navigate: () => void | string, traceInteractionId?: string, history?: RouterHistory) {
+  cancelHome?.();
+  let active = true;
+  let committing = false;
+  let observedCommit = false;
+  let pendingCommitKey: string | undefined;
+  let generation = getSearchGeneration();
+  let unsubscribeSearch = () => {};
+  let unsubscribeHistory = () => {};
+  let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+  const releases: (() => void)[] = [];
+  const isCurrent = () => active && generation === getSearchGeneration();
+  const cancel = () => {
+    active = false;
+    unsubscribeSearch();
+    unsubscribeHistory();
+    if (cleanupTimer !== undefined) clearTimeout(cleanupTimer);
+    releases.forEach((release) => release());
+    if (cancelHome === cancel) cancelHome = null;
+  };
+  cancelHome = cancel;
+  unsubscribeHistory = history?.subscribe(({ location }) => {
+    if (committing) { observedCommit = true; return; }
+    if (pendingCommitKey && (location.state as { kupuaKey?: string }).kupuaKey === pendingCommitKey) {
+      pendingCommitKey = undefined;
+      return;
+    }
+    cancel();
+  }) ?? (() => {});
   // Pre-compute the home URL dedup key BEFORE clearing state. This is set
   // on _prevParamsSerialized immediately to prevent useUrlSearchSync from
   // firing a rogue search() during the await below. Without this, the race
@@ -66,14 +97,14 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // navigate() hasn't been processed yet) sees its deep image vanish and
   // fires restoreAroundCursor, overwriting bufferOffset with the deep
   // offset. This one-shot flag prevents that.
-  suppressNextRestore();
+  releases.push(suppressNextRestore());
 
   // Suppress the next useReturnFromDetail scroll restoration. In phantom
   // mode (mobile default), focusedImageId is always null, so the
   // "intentional clear" guard in useReturnFromDetail can't distinguish
   // resetToHome from normal phantom state — it re-sets focus to the old
   // image and scrolls to it instead of staying at the top.
-  suppressReturnFromDetail();
+  releases.push(suppressReturnFromDetail());
 
   // Clear focus BEFORE the density switch — the table unmount saves the
   // focused image's viewport ratio, and the grid mount restores it —
@@ -98,7 +129,7 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // When already in grid view (no density switch), the scroll container
   // SURVIVES the navigation — the eager reset IS needed to scroll to top.
   const willSwitchDensity = new URL(window.location.href).searchParams.get("density") === "table";
-  resetScrollAndFocusSearch({ skipEagerScroll: willSwitchDensity });
+  resetScrollAndFocusSearch({ skipEagerScroll: willSwitchDensity, isCurrent });
 
   // Set params and fire the search. We AWAIT completion so the buffer
   // has fresh page-1 data (bufferOffset=0) before the caller navigates.
@@ -128,13 +159,17 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // Single source of truth: if the home URL defaults change, this follows.
   store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });
   try {
-    await store.search(undefined, traceInteractionId
+    const search = store.search(undefined, traceInteractionId
       ? { traceAction: "home-logo", traceInteractionId }
       : undefined);
+    generation = getSearchGeneration();
+    unsubscribeSearch = useSearchStore.subscribe(() => { if (!isCurrent()) cancel(); });
+    await search;
   } catch {
     // If search fails, navigate anyway — graceful degradation.
     // The error state will be displayed on the home page.
   }
+  if (!isCurrent()) { cancel(); return; }
 
   // The dedup state was already set to match the home URL at the top of
   // this function (preventing useUrlSearchSync races during the await).
@@ -163,17 +198,20 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // is suppressed, so the table mount finds no saved state and falls back
   // to scrollToIndex which lands at the wrong position).
   if (willSwitchDensity) {
-    suppressDensityFocusSave();
+    releases.push(suppressDensityFocusSave());
   }
 
   // Navigate AFTER data is ready. The density switch (table→grid) now
   // sees bufferOffset=0 and fresh results — no flash.
-  navigate();
+  committing = true;
+  const destinationKey = navigate();
+  committing = false;
+  if (!observedCommit && destinationKey) pendingCommitKey = destinationKey;
 
   // Safety cleanup: if restoreAroundCursor never fires (e.g. ImageDetail
   // unmounts before its effect runs), clear the suppress flag so it doesn't
   // block a legitimate restore on a future back-navigation.
-  setTimeout(clearSuppressRestore, 2000);
+  cleanupTimer = setTimeout(cancel, 2000);
 
   // Focus the CQL search input AFTER navigation. resetScrollAndFocusSearch
   // already attempts focus, but skips it when the URL still has ?image=
@@ -182,6 +220,8 @@ export async function resetToHome(navigate: () => void, traceInteractionId?: str
   // Skip on touch devices: focus would pop the on-screen keyboard and
   // obscure most of the app on phones/tablets.
   requestAnimationFrame(() => {
+    if (!isCurrent()) return;
+    if (new URL(window.location.href).searchParams.has("image")) return;
     if (isMobile()) return;
     const cqlInput = document.querySelector("cql-input");
     if (cqlInput instanceof HTMLElement) cqlInput.focus();

@@ -35,10 +35,14 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 // suppress the wrong close (see regression test "stale flag from Home-on-
 // grid must not suppress a later, unrelated detail close").
 // ---------------------------------------------------------------------------
-let _suppressReturnFromDetail = false;
+let _suppressReturnFromDetail: symbol | null = null;
 
 /** Suppress the next useReturnFromDetail scroll restoration. */
-export function suppressReturnFromDetail(): void { _suppressReturnFromDetail = true; }
+export function suppressReturnFromDetail(): () => void {
+  const owner = Symbol();
+  _suppressReturnFromDetail = owner;
+  return () => { if (_suppressReturnFromDetail === owner) _suppressReturnFromDetail = null; };
+}
 
 interface ReturnFromDetailConfig {
   /** Current `image` URL search param (undefined when detail is closed). */
@@ -105,7 +109,7 @@ export function useReturnFromDetail({
     // before this fresh open can never legitimately apply to this session's
     // eventual close.
     if (!wasViewing && imageParam) {
-      _suppressReturnFromDetail = false;
+      _suppressReturnFromDetail = null;
       // This hook remains mounted behind the detail overlay. An absent→present
       // transition therefore starts a new detail session (including Forward),
       // unlike a full-page reload where the hook mounts already present.
@@ -126,7 +130,7 @@ export function useReturnFromDetail({
     // phantom mode focusedImageId is always null and can't signal an
     // intentional clear.
     if (_suppressReturnFromDetail) {
-      _suppressReturnFromDetail = false;
+      _suppressReturnFromDetail = null;
       return;
     }
 

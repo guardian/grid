@@ -205,6 +205,7 @@ export function SearchBar() {
           resetToHome(
             () => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
             interactionId,
+            router.history,
           );
         }}
       >

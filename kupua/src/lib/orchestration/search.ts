@@ -182,7 +182,7 @@ export function enterFullscreenPreview(): void {
  *   before the grid replaces it). Skip the eager reset entirely — the grid
  *   mounts at scrollTop=0 naturally.
  */
-export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }): void {
+export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; isCurrent?: () => boolean }): void {
   // Abort in-flight extends and set cooldown — prevents stale
   // extendBackward from corrupting the buffer during the transition.
   useSearchStore.getState().abortExtends();
@@ -223,6 +223,7 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean }):
   // requires Alt, while bare 'f' types into the hidden search box).
   // Also skip on touch devices: focus would pop the on-screen keyboard.
   requestAnimationFrame(() => {
+    if (opts?.isCurrent && !opts.isCurrent()) return;
     const url = new URL(window.location.href);
     if (url.searchParams.has("image")) return;
     if (isMobile()) return;
@@ -392,10 +393,12 @@ export function pushTypingSearchEntry(navigate: NavigateFn, search: Record<strin
  *
  * Only logo-reset should use this. All other push sites use `pushNavigate`.
  */
-export function pushNavigateAsPopstate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): void {
+export function pushNavigateAsPopstate(navigate: NavigateFn, opts: Parameters<NavigateFn>[0]): string {
   // Mint a fresh kupuaKey even though logo-reset skips snapshot capture.
   // The *next* push from this entry needs a predecessor key to capture
   // a snapshot against.
-  navigate({ ...opts, state: withFreshKupuaKey(opts.state) });
+  const state = withFreshKupuaKey(opts.state);
+  navigate({ ...opts, state });
+  return state.kupuaKey as string;
 }
 

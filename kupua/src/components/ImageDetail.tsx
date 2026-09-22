@@ -41,7 +41,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
@@ -81,6 +81,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const dataSource = useSearchStore((s) => s.dataSource);
   const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
   const navigate = useNavigate();
+  const router = useRouter();
   const searchParams = useSearch({ from: "/search" });
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
@@ -664,6 +665,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                 // carry. See SearchBar logo for the identical pattern.
                 resetToHome(() =>
                   pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
+                  undefined,
+                  router.history,
                 );
               }}
             >

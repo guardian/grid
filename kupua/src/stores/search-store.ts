@@ -570,6 +570,8 @@ let _findFocusAbortController = new AbortController();
  */
 let _searchGeneration = 0;
 
+export function getSearchGeneration(): number { return _searchGeneration; }
+
 interface SearchLifecycleSnapshot {
   started: number;
   settled: number;
@@ -616,13 +618,17 @@ let _topUpInFlight = false;
  * Consumed (set back to false) by `restoreAroundCursor` itself, or cleared
  * by a safety timeout in resetToHome if restoreAroundCursor never fires.
  */
-let _suppressRestore = false;
+let _suppressRestore: symbol | null = null;
 
 /** Set the suppress flag. Called by resetToHome before search(). */
-export function suppressNextRestore(): void { _suppressRestore = true; }
+export function suppressNextRestore(): () => void {
+  const owner = Symbol();
+  _suppressRestore = owner;
+  return () => { if (_suppressRestore === owner) _suppressRestore = null; };
+}
 
 /** Clear the suppress flag. Safety cleanup for resetToHome's timeout. */
-export function clearSuppressRestore(): void { _suppressRestore = false; }
+export function clearSuppressRestore(): void { _suppressRestore = null; }
 
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -3883,7 +3889,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // ImageDetail fires restoreAroundCursor after search() replaces the
     // deep buffer with first-page data. See _suppressRestore declaration.
     if (_suppressRestore) {
-      _suppressRestore = false;
+      _suppressRestore = null;
       return;
     }
 

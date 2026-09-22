@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep Home completion and cleanup with its initiating action
+
+  KUP-015: both logo callers give Home its history lifetime. A newer navigation,
+  search or Home cancels the old continuation, including scheduled input focus.
+  Restore, return and density suppression expose owner-scoped cleanup so an old
+  timeout cannot clear a newer flag or leave its own suppression behind. Home still
+  awaits first-page data before switching density, and current failures still navigate
+  gracefully. The existing search, defaults, mobile focus rule and delays are retained.
+
   ### 22 September 2026 - Keep deferred editor and header actions with their navigation
 
   KUP-014: CQL, AI and delayed header sorting retain their originating entry and

@@ -19,6 +19,105 @@ import { test, expect } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
+test.describe("KUP-015 Home completion ownership", () => {
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(() => {
+      const fixture = (window as any).__homeCompletion;
+      if (!fixture) return;
+      fixture.pending.forEach((pending: any) => pending.resolve());
+      (window as any).__kupua_store__.setState({ search: fixture.search });
+      delete (window as any).__homeCompletion;
+    });
+  });
+
+  async function setup(kupua: import("../shared/helpers").KupuaHelpers, caller: "search" | "detail") {
+    const page = kupua.page;
+    await kupua.gotoWithParams("density=table");
+    if (caller === "detail") {
+      const image = await page.evaluate(() => (window as any).__kupua_store__.getState().results[5].id);
+      await spaNavigate(page, `/search?nonFree=true&density=table&image=${image}`);
+      await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", image);
+    }
+    await page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const search = store.getState().search;
+      const fixture = { search, pending: [] as any[], calls: 0, holdNext: true };
+      (window as any).__homeCompletion = fixture;
+      store.setState({ search: async (...args: any[]) => {
+        fixture.calls++;
+        const hold = fixture.holdNext;
+        fixture.holdNext = false;
+        const result = search(...args);
+        if (!hold) return result;
+        await result;
+        await new Promise<void>((resolve, reject) => fixture.pending.push({ resolve, reject }));
+      } });
+    });
+  }
+
+  async function clickHome(page: import("@playwright/test").Page, caller: "search" | "detail") {
+    const logos = page.locator('a[title="Grid — clear all filters"]');
+    await (caller === "search" ? logos.first() : logos.last()).click();
+    await page.waitForFunction(() => (window as any).__homeCompletion.pending.length > 0);
+  }
+
+  async function releaseHome(page: import("@playwright/test").Page, outcome: "resolve" | "abort" | "reject", index = 0) {
+    await page.evaluate(({ outcome, index }) => {
+      const pending = (window as any).__homeCompletion.pending[index];
+      if (outcome === "resolve") pending.resolve();
+      else pending.reject(outcome === "abort" ? new DOMException("superseded", "AbortError") : new Error("controlled completion failure"));
+    }, { outcome, index });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  }
+
+  for (const caller of ["search", "detail"] as const) {
+    for (const outcome of ["resolve", "abort", "reject"] as const) {
+      test(`${caller} logo: newer navigation survives obsolete ${outcome}`, async ({ kupua, page }) => {
+        await setup(kupua, caller);
+        await clickHome(page, caller);
+        await spaNavigateAndWait(page, "/search?nonFree=true&query=credit%3APA");
+        const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+        await releaseHome(page, outcome);
+        expect(await getUrlQuery(page)).toBe("credit:PA");
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.query)).toBe("credit:PA");
+        expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+        await expect(page.locator(".ProseMirror.Cql__ContentEditable")).toContainText("PA");
+      });
+    }
+
+    for (const outcome of ["resolve", "reject"] as const) {
+      test(`${caller} logo: current ${outcome} waits before the density switch`, async ({ kupua, page }) => {
+        await setup(kupua, caller);
+        const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+        await clickHome(page, caller);
+        expect(new URL(page.url()).searchParams.get("density")).toBe("table");
+        expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+        await releaseHome(page, outcome);
+        await expect.poll(() => new URL(page.url()).searchParams.get("density")).toBeNull();
+        expect(new URL(page.url()).searchParams.get("image")).toBeNull();
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().bufferOffset)).toBe(0);
+        expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(1);
+        await kupua.waitForResults();
+      });
+    }
+  }
+
+  test("overlapping logo requests only commit the latest Home", async ({ kupua, page }) => {
+    await setup(kupua, "search");
+    await clickHome(page, "search");
+    await page.evaluate(() => { (window as any).__homeCompletion.holdNext = true; });
+    await clickHome(page, "search");
+    await page.waitForFunction(() => (window as any).__homeCompletion.pending.length === 2);
+    const key = await page.evaluate(() => (window as any).__kupua_getKupuaKey__());
+    await releaseHome(page, "resolve", 0);
+    expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).toBe(key);
+    expect(new URL(page.url()).searchParams.get("density")).toBe("table");
+    await releaseHome(page, "resolve", 1);
+    await expect.poll(() => new URL(page.url()).searchParams.get("density")).toBeNull();
+    expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(2);
+  });
+});
+
 test.describe("KUP-014 deferred producer ownership", () => {
   type Producer = "cql" | "ai" | "header";
 

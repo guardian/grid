@@ -79,7 +79,7 @@ let _densityFocusSaved: DensityFocusState | null = null;
  * place. Cleared automatically after the grid mount reads (or skips)
  * the density-focus state.
  */
-let _suppressDensityFocusSave = false;
+let _suppressDensityFocusSave: symbol | null = null;
 
 function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number): void {
   if (_suppressDensityFocusSave) {
@@ -105,8 +105,10 @@ export function clearDensityFocusRatio(): void {
  * stale scroll position (see resetToHome). The suppress is automatically
  * cleared after the next grid mount reads the density-focus state.
  */
-export function suppressDensityFocusSave(): void {
-  _suppressDensityFocusSave = true;
+export function suppressDensityFocusSave(): () => void {
+  const owner = Symbol();
+  _suppressDensityFocusSave = owner;
+  return () => { if (_suppressDensityFocusSave === owner) _suppressDensityFocusSave = null; };
 }
 
 // ---------------------------------------------------------------------------
@@ -867,7 +869,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // Clear the suppress flag — it only needs to survive one navigate()
     // cycle (resetToHome sets it before navigate, table unmount is
     // suppressed, grid mount clears it here).
-    _suppressDensityFocusSave = false;
+    _suppressDensityFocusSave = null;
 
     const el = parentRef.current;
     if (!el) return;

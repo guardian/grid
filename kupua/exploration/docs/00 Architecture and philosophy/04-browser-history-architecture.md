@@ -81,6 +81,16 @@ without remounting the results view. Each callback checks its own timer identity
 clearing state. The header's 250ms single-click sort has a separate timer with entry/reset
 ownership; double-click cancels it and retains the existing fit/restore interaction.
 
+### Home completion ownership
+
+Home owns its post-await continuation independently of the search request. Both logos
+provide caller history; departure, a newer search generation or another Home invalidates
+the old action. The owned search still finishes before navigation switches table to grid.
+A genuine current failure still navigates. Initial/post-navigation focus and suppression
+cleanup share this local lifetime; restore, return and density suppressions provide
+token-scoped release functions so obsolete cleanup cannot consume a successor's state.
+Neither buffer publication nor ordinary rendering is a new navigation intent.
+
 ### Push-navigate helpers
 
 All push-navigate sites explicitly declare their intent:

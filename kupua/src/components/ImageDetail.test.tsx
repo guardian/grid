@@ -24,6 +24,7 @@ const fixture = vi.hoisted(() => ({
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => fixture.navigate,
+  useRouter: () => ({ history: { subscribe: () => () => {} } }),
   useSearch: () => fixture.search,
 }));
 vi.mock("@/hooks/useDataWindow", () => ({ useDataWindow: () => ({
