@@ -70,17 +70,8 @@ COPY --exclude=e2e-tests/images . .
 # Drop in the pre-built frontend so `kahuna/stage` packages the bundled assets.
 COPY --from=frontend /build/kahuna/public/dist ./kahuna/public/dist
 
-# Stage every requested service in a single sbt invocation to share compilation.
-RUN sbt \
-      "auth/stage" \
-      "collections/stage" \
-      "cropper/stage" \
-      "image-loader/stage" \
-      "kahuna/stage" \
-      "leases/stage" \
-      "media-api/stage" \
-      "metadata-editor/stage" \
-      "thrall/stage"
+# Stage all services as one parallel sbt task graph.
+RUN sbt e2eStage
 
 # Stage: slim ci image with native image tooling and all services (grid-e2e-ci).
 FROM eclipse-temurin:11-jre-jammy AS ci
@@ -107,7 +98,7 @@ COPY --from=backend /build/thrall/target/universal/stage          /usr/share/thr
 
 RUN set -eux; \
     for service in auth collections cropper image-loader kahuna leases media-api metadata-editor thrall; do \
-      mkdir -p "/var/log/$service"; \
+    mkdir -p "/var/log/$service"; \
     done
 
 COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
@@ -142,9 +133,9 @@ RUN set -eux; \
 # tarball so `npm run watch` matches local development.
 RUN set -eux; \
     case "${TARGETARCH:-amd64}" in \
-      amd64) node_arch=x64 ;; \
-      arm64) node_arch=arm64 ;; \
-      *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    amd64) node_arch=x64 ;; \
+    arm64) node_arch=arm64 ;; \
+    *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     curl -fLo /tmp/node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz"; \
     tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
