@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 22 September 2026 - Keep indexed scroll seeks with their reporting view
+
+  KUP-016: a distant-range timer belongs to its reporting hook and search lifetime.
+  Reset, query/order changes, tier exit and owner disposal cancel it; an unrelated
+  consumer unmount or ordinary buffer update does not. Late callbacks cannot dispatch
+  an old coordinate or clear a successor. Scope fingerprints are cached by params
+  identity, avoiding per-frame serialization. The 200ms debounce, total-based indexed
+  coordinates, map-independent access and velocity-aware extensions are unchanged.
+
   ### 22 September 2026 - Keep Home completion and cleanup with its initiating action
 
   KUP-015: both logo callers give Home its history lifetime. A newer navigation,

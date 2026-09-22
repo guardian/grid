@@ -37,8 +37,9 @@
  * The scrubber drag directly scrolls the container (like a real scrollbar).
  */
 
-import { useCallback, useRef, useSyncExternalStore } from "react";
-import { useSearchStore } from "@/stores/search-store";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
+import { buildSearchKey } from "@/lib/image-offset-cache";
 import { getScrollContainer } from "@/lib/scroll-container-ref";
 import { electViewportAnchor } from "@/lib/viewport-anchor-geometry";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -126,7 +127,7 @@ export function _resetForwardVelocity(): void {
 const SCROLL_SEEK_DEBOUNCE_MS = 200;
 
 /** Module-level debounce timer for scroll-triggered seek. */
-let _scrollSeekTimer: ReturnType<typeof setTimeout> | null = null;
+let _scrollSeek: { owner: object; cancel: () => void } | null = null;
 
 // ---------------------------------------------------------------------------
 // Viewport anchor — image nearest the usable viewport centre.
@@ -237,6 +238,7 @@ export function useVisibleRange(): { start: number; end: number } {
  * for a scroll event.
  */
 export function resetVisibleRange(): void {
+  _scrollSeek?.cancel();
   if (_visibleStart !== 0 || _visibleEnd !== 0) {
     _visibleStart = 0;
     _visibleEnd = 0;
@@ -304,6 +306,16 @@ interface DataWindow {
  * ```
  */
 export function useDataWindow(): DataWindow {
+  const ownerRef = useRef({ mounted: true });
+  const scopeRef = useRef<{ params: object; key: string } | null>(null);
+  useEffect(() => {
+    const owner = ownerRef.current;
+    owner.mounted = true;
+    return () => {
+      owner.mounted = false;
+      if (_scrollSeek?.owner === owner) _scrollSeek.cancel();
+    };
+  }, []);
   const results = useSearchStore((s) => s.results);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const total = useSearchStore((s) => s.total);
@@ -360,6 +372,7 @@ export function useDataWindow(): DataWindow {
 
   const reportVisibleRange = useCallback(
     (startIndex: number, endIndex: number) => {
+      if (!ownerRef.current.mounted) return;
       const offset = bufferOffsetRef.current;
       const len = resultsLenRef.current;
       const t = totalRef.current;
@@ -402,10 +415,7 @@ export function useDataWindow(): DataWindow {
         if (viewportOverlapsOrNearBuffer) {
           // Cancel any pending scroll-triggered seek — the viewport is
           // back near the buffer, extends can handle it.
-          if (_scrollSeekTimer) {
-            clearTimeout(_scrollSeekTimer);
-            _scrollSeekTimer = null;
-          }
+          _scrollSeek?.cancel();
           // Near the end of the buffer → extend forward
           if (globalEnd > offset + len - fwdThreshold && offset + len < t) {
             extendForward();
@@ -418,14 +428,38 @@ export function useDataWindow(): DataWindow {
           // Viewport entirely outside buffer — debounced seek to reposition.
           // Skip extends — they work in PAGE_SIZE increments from buffer
           // edges and can't bridge a gap of thousands of positions.
-          if (_scrollSeekTimer) clearTimeout(_scrollSeekTimer);
-          _scrollSeekTimer = setTimeout(() => {
-            _scrollSeekTimer = null;
+          _scrollSeek?.cancel();
+          const params = useSearchStore.getState().params;
+          if (scopeRef.current?.params !== params) scopeRef.current = { params, key: buildSearchKey(params) };
+          const scope = scopeRef.current.key;
+          const generation = getSearchGeneration();
+          let unsubscribe = () => {};
+          const pending = {
+            owner: ownerRef.current,
+            cancel: () => {
+              clearTimeout(timer);
+              unsubscribe();
+              if (_scrollSeek === pending) _scrollSeek = null;
+            },
+          };
+          const isCurrent = () => {
+            const state = useSearchStore.getState();
+            if (!pending.owner.mounted || generation !== getSearchGeneration() || !isTwoTierFromTotal(state.total)) return false;
+            if (scopeRef.current?.params !== state.params) scopeRef.current = { params: state.params, key: buildSearchKey(state.params) };
+            return scopeRef.current.key === scope;
+          };
+          const timer = setTimeout(() => {
+            if (_scrollSeek !== pending) return;
+            pending.cancel();
+            if (!isCurrent()) return;
             seekRef.current(globalStart);
           }, SCROLL_SEEK_DEBOUNCE_MS);
+          _scrollSeek = pending;
+          unsubscribe = useSearchStore.subscribe(() => { if (!isCurrent()) pending.cancel(); });
           return;
         }
       } else {
+        _scrollSeek?.cancel();
         // --- Normal mode: indices are buffer-local ---
         // Near the end of the buffer → extend forward (velocity-widened)
         if (endIndex >= len - fwdThreshold && offset + len < t) {

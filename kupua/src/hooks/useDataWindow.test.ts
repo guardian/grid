@@ -1,9 +1,155 @@
-import { describe, it, expect } from "vitest";
+// @vitest-environment jsdom
+
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import {
   _updateForwardVelocity,
+  _resetForwardVelocity,
   forwardExtendThreshold,
+  useDataWindow,
+  useVisibleRange,
+  resetVisibleRange,
 } from "@/hooks/useDataWindow";
 import { PAGE_SIZE } from "@/constants/tuning";
+import { useSearchStore } from "@/stores/search-store";
+import type { Image } from "@/types/image";
+import { MockDataSource } from "@/dal/mock-data-source";
+import type { SearchAfterResult } from "@/dal/types";
+
+describe("KUP-016 indexed seek ownership", () => {
+  const initial = useSearchStore.getState();
+  const seek = vi.fn().mockResolvedValue(undefined);
+  const extendForward = vi.fn().mockResolvedValue(undefined);
+  const extendBackward = vi.fn().mockResolvedValue(undefined);
+  const images = Array.from({ length: 200 }, (_, index) => ({ id: `image-${index}` }) as Image);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    resetVisibleRange();
+    _resetForwardVelocity();
+    useSearchStore.setState({ ...initial, params: { query: "first", orderBy: "-uploadTime" }, results: images,
+      total: 5000, bufferOffset: 1000, positionMap: null, seek, extendForward, extendBackward }, true);
+  });
+
+  afterEach(() => {
+    cleanup();
+    resetVisibleRange();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    useSearchStore.setState(initial, true);
+  });
+
+  for (const change of ["query", "order", "reset", "small-tier", "seek-tier", "unmount"] as const) {
+    it(`does not dispatch an old global coordinate after ${change}`, () => {
+      const view = renderHook(() => useDataWindow());
+      act(() => view.result.current.reportVisibleRange(3000, 3020));
+      act(() => {
+        if (change === "query") useSearchStore.getState().setParams({ query: "newer" });
+        if (change === "order") useSearchStore.getState().setParams({ orderBy: "uploadTime" });
+        if (change === "reset") resetVisibleRange();
+        if (change === "small-tier") useSearchStore.setState({ total: 800 });
+        if (change === "seek-tier") useSearchStore.setState({ total: 100000 });
+        if (change === "unmount") view.unmount();
+      });
+      act(() => vi.advanceTimersByTime(200));
+      expect(seek).not.toHaveBeenCalled();
+    });
+  }
+
+  it("seeks exactly once after 200ms without requiring a position map", () => {
+    const view = renderHook(() => ({ data: useDataWindow(), visible: useVisibleRange() }));
+    act(() => view.result.current.data.reportVisibleRange(3000, 3020));
+    expect(view.result.current.visible).toEqual({ start: 3000, end: 3020 });
+    expect(view.result.current.data.twoTier).toBe(true);
+    expect(view.result.current.data.virtualizerCount).toBe(5000);
+    act(() => vi.advanceTimersByTime(199));
+    expect(seek).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+  });
+
+  it("ordinary buffer publication and an unrelated consumer unmount preserve valid work", () => {
+    const view = renderHook(() => useDataWindow());
+    const detail = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    detail.unmount();
+    act(() => useSearchStore.setState({ results: [...images], bufferOffset: 1100, loading: false }));
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+  });
+
+  it("a new same-query search invalidates the old coordinate before its response", async () => {
+    const source = new MockDataSource(0);
+    let release!: (result: SearchAfterResult) => void;
+    vi.spyOn(source, "searchAfter").mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+    useSearchStore.setState({ dataSource: source });
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    let searching!: Promise<void>;
+    await act(async () => { searching = useSearchStore.getState().search(); });
+    expect(source.searchAfter).toHaveBeenCalled();
+    expect(useSearchStore.getState().total).toBe(5000);
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).not.toHaveBeenCalled();
+    await act(async () => {
+      release({ hits: [], total: 0, sortValues: [] });
+      await searching;
+    });
+  });
+
+  it("pagination-only params changes preserve a valid indexed timer", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    act(() => useSearchStore.getState().setParams({ length: 400 }));
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+  });
+
+  it("retains global indexed and buffer-local normal coordinate access", () => {
+    const view = renderHook(() => useDataWindow());
+    expect(view.result.current.getImage(1005)).toBe(images[5]);
+    expect(view.result.current.getImage(5)).toBeUndefined();
+    act(() => useSearchStore.setState({ total: 100000 }));
+    expect(view.result.current.virtualizerCount).toBe(200);
+    expect(view.result.current.getImage(5)).toBe(images[5]);
+    expect(view.result.current.getImage(1005)).toBeUndefined();
+  });
+
+  it("a newer reporting view retains its timer when the earlier view unmounts", () => {
+    const previous = renderHook(() => useDataWindow());
+    const current = renderHook(() => useDataWindow());
+    act(() => previous.result.current.reportVisibleRange(3000, 3020));
+    act(() => current.result.current.reportVisibleRange(4000, 4020));
+    previous.unmount();
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(4000);
+  });
+
+  it("returning near the buffer cancels seek but retains forward/backward extension", () => {
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    act(() => view.result.current.reportVisibleRange(1150, 1190));
+    act(() => view.result.current.reportVisibleRange(1000, 1020));
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).not.toHaveBeenCalled();
+    expect(extendForward).toHaveBeenCalled();
+    expect(extendBackward).toHaveBeenCalled();
+  });
+
+  it("an already-queued obsolete callback cannot dispatch or consume a newer range", () => {
+    const timers = vi.spyOn(globalThis, "setTimeout");
+    const view = renderHook(() => useDataWindow());
+    act(() => view.result.current.reportVisibleRange(3000, 3020));
+    const obsolete = timers.mock.calls.find((call) => call[1] === 200)![0] as () => void;
+    act(() => view.result.current.reportVisibleRange(4000, 4020));
+    act(() => obsolete());
+    expect(seek).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(200));
+    expect(seek).toHaveBeenCalledExactlyOnceWith(4000);
+    timers.mockRestore();
+  });
+});
 
 describe("forwardExtendThreshold (velocity-aware)", () => {
   it("returns base threshold (50) at zero velocity", () => {

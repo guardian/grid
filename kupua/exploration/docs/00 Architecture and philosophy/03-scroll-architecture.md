@@ -258,6 +258,14 @@ viewport's current position. Skeletons fill in within ~200–450ms (PROD).
 Extends can't bridge the gap between the viewport and a distant buffer —
 only seek can reposition across thousands of items.
 
+The pending timer belongs to the hook instance that reported the distant range, not
+every consumer of `useDataWindow`. Reset, changed search generation/query/order, leaving
+the indexed tier or disposal of that reporter cancels it. An unrelated detail consumer's
+unmount and ordinary buffer publication do not. A newer reported range replaces the old
+timer; obsolete callbacks cannot dispatch or clear its successor. Query fingerprints are
+cached by params identity, avoiding serialization on each scroll report. Position-map
+readiness remains independent of this lifetime and of the coordinate regime.
+
 ### Deep seek (scrubber click at 50% of 1.3M results, seek mode)
 
 1. User clicks the scrubber track at 50% → `seek(650000)`.
