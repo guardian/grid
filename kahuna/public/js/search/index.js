@@ -30,6 +30,7 @@ import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
+import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
@@ -111,11 +112,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
           ctrl.onLogoClick = () => {
             mediaApi.getSession().then(session => {
               const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-              const defaultNonFreeFilter = {
-                isDefault: true,
-                isNonFree: toNonFreeString(showPaid)
-              };
-              storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+              const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
+              storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
               $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree}).then(() => {
                 window.dispatchEvent(new CustomEvent("logoClick", {
                   detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
