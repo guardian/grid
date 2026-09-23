@@ -260,6 +260,34 @@ function imgopsContainer(image: GenericContainer, network: StartedNetwork): Gene
 }
 
 /**
+ * Reuse the host's sbt dependency caches so the container does not re-download the
+ * whole tree from Maven Central on every run (slow, and it trips Central's 429
+ * rate limiting). The devenv exposes persistent cache dirs via these env vars;
+ * we also accept the standard user locations. Mounts are skipped when the host
+ * dir is absent (e.g. real CI), so this is a no-op there.
+ */
+function cacheBindMounts(): { source: string; target: string; mode: 'rw' }[] {
+  const candidates: { host: string | undefined; target: string }[] = [
+    {
+      host: process.env.DEVENV_COURSIER_CACHE_MOUNT_DIR ?? path.join(os.homedir(), '.cache', 'coursier', 'v1'),
+      target: '/root/.cache/coursier/v1',
+    },
+    {
+      host: process.env.DEVENV_IVY_CACHE_MOUNT_DIR ?? path.join(os.homedir(), '.ivy2', 'cache'),
+      target: '/root/.ivy2/cache',
+    },
+  ];
+
+  return candidates.flatMap(({ host, target }) => {
+    if (!host) {
+      return [];
+    }
+    const source = fs.realpathSync.native(host);
+    return fs.existsSync(source) ? [{ source, target, mode: 'rw' as const }] : [];
+  });
+}
+
+/**
  * All Grid services under test run inside this single container and talk to each
  * other over its localhost. Each is published on the fixed host port its
  * dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
@@ -285,6 +313,8 @@ function gridContainer(
       // Both images run the services from source with sbt, so mount the repo over
       // /build. CI compiles once and runs; dev recompiles live on host edits.
       { source: REPO_ROOT, target: '/build', mode: 'rw' as const },
+      // Reuse the host sbt caches when present, so runs avoid re-downloading deps.
+      ...cacheBindMounts(),
     ])
     .withEnvironment({
       AWS_ACCESS_KEY_ID: 'test',

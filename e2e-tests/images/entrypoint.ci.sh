@@ -51,6 +51,14 @@ for svc in $SERVICES; do
     continue
   fi
 
+  # The staged apps bake in production paths (see Universal / javaOptions in
+  # build.sbt): config/logback under /usr/share/<svc>/conf and GC logs under
+  # /var/log/<svc>. Those are provisioned by the Debian package in production;
+  # recreate them here so the JVM starts and loads its bundled config.
+  mkdir -p "/var/log/$svc"
+  mkdir -p "$(dirname "/usr/share/$svc")"
+  ln -sfn "$REPO/$svc/target/universal/stage" "/usr/share/$svc"
+
   echo "Starting $svc on port $port"
   "$bin" -Dhttp.port="$port" &
   pids+=("$!")

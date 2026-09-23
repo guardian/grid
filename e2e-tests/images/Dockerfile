@@ -67,19 +67,6 @@ RUN set -eux; \
 
 WORKDIR /build
 
-# Warm the sbt dependency cache (~/.ivy2, ~/.sbt, ~/.cache/coursier) and Kahuna's
-# node_modules so the first runtime build only has to compile/bundle sources, not
-# re-resolve dependencies. The sbt caches live under $HOME, so a runtime
-# bind-mount over /build does not shadow them. Only the build definition and
-# package manifests are copied here — no application source or Kahuna output — so
-# these layers stay cached across source edits.
-COPY build.sbt ./
-COPY project/ ./project/
-RUN sbt update
-
-COPY kahuna/package.json kahuna/package-lock.json ./kahuna/
-RUN cd kahuna && npm ci
-
 # The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
 ENV AWS_CBOR_DISABLE=true
 
