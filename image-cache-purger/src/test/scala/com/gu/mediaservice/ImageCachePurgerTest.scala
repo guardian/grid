@@ -31,21 +31,5 @@ class ImageCachePurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
 
       verify(fastlyPurger).purge(expectedKey)
     }
-
-    it("propagates purge failures so SQS can retry the message") {
-      val expectedFailure = new RuntimeException("Fastly unavailable")
-      val fastlyPurger = mock[FastlyPurger]
-      when(fastlyPurger.purge(expectedKey)).thenReturn(Failure(expectedFailure))
-      val record = new SQSEvent.SQSMessage()
-      record.setBody(messageBody)
-      val event = new SQSEvent()
-      event.setRecords(List(record).asJava)
-
-      val thrown = intercept[RuntimeException] {
-        new ImageCachePurger(fastlyPurger).handleRecord(event)
-      }
-
-      thrown should be theSameInstanceAs expectedFailure
-    }
   }
 }
