@@ -6,21 +6,27 @@ import com.fasterxml.jackson.databind.ObjectMapper
 
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.logging.Logger
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class ImageCachePurgerHandler extends RequestHandler[SQSEvent, String] {
 
   val imageCachePurger = new ImageCachePurger(new FastlyPurger(FastlyApiKeyProvider.default, sys.env.getOrElse("STAGE", "DEV")))
-
+  private val logger = Logger.getLogger(classOf[ImageCachePurger].getName)
   override def handleRequest(input: SQSEvent, context: Context): String = {
-    imageCachePurger.handleRecord(input)
+    imageCachePurger.handleRecord(input).fold(
+      exception => {
+        logger.severe(s"Failed to purge keys from Fastly: ${exception.getMessage}")
+        throw exception
+      },
+      _ =>  "Image cache purge requested")
 
-    "Image cache purge requested"
   }
 }
 
 class ImageCachePurger(fastlyPurger: FastlyPurger) {
+  private val logger = Logger.getLogger(classOf[ImageCachePurger].getName)
   def handleRecord(input: SQSEvent): Try[Unit] = {
     val keys = input.getRecords.asScala.toList.flatMap { record =>
       ImageCachePurger.extractKeys(record.getBody)
