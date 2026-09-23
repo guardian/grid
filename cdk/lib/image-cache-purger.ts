@@ -32,7 +32,7 @@ export class ImageCachePurger extends GuStack {
 			architecture: Architecture.ARM_64,
 			environment: {
 				STAGE: props.stage,
-				FASTLY_API_KEY_SECRET_ID: fastlyApiKeySecret.secretArn,
+				FASTLY_API_KEY_SECRET_ID: fastlyApiKeySecret.secretFullArn || fastlyApiKeySecret.secretArn,
 				FASTLY_IMAGE_BASE_URL: props.imageBaseUrl,
 			},
 		});
