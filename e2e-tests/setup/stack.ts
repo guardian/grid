@@ -112,7 +112,6 @@ interface StoppableStack {
 interface GridLogCapture {
   lines: string[];
   exited: boolean;
-  streamed: boolean;
 }
 
 /** How many trailing lines of grid container output to retain for the failure dump. */
@@ -355,24 +354,23 @@ function gridContainer(
     .withStartupTimeout(10_000);
 
   // Always consume the logs: keep a rolling tail for the failure dump and flip `exited` when
-  // the stream ends (the container has stopped) so the readiness waits can fail fast. In CI,
-  // stream output live; under GRID_DEBUG, also mirror it to a file for local inspection.
+  // the stream ends (the container has stopped) so the readiness waits can fail fast. Under
+  // GRID_DEBUG, also mirror the full stream to a file for post-mortem inspection.
   const logStream = process.env.GRID_DEBUG
     ? fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'))
     : undefined;
 
-  const record = (line: string | Buffer, output?: NodeJS.WriteStream) => {
+  const record = (line: string | Buffer) => {
     capture.lines.push(line.toString());
     if (capture.lines.length > GRID_LOG_TAIL) {
       capture.lines.shift();
     }
     logStream?.write(line);
-    output?.write(line);
   };
 
   return container.withLogConsumer((stream) => {
-    stream.on('data', (line) => record(line, process.env.CI ? process.stdout : undefined));
-    stream.on('err', (line) => record(line, process.env.CI ? process.stderr : undefined));
+    stream.on('data', record);
+    stream.on('err', record);
     stream.on('end', () => { capture.exited = true; });
     stream.on('close', () => { capture.exited = true; });
   });
@@ -477,7 +475,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
-  const gridLogs: GridLogCapture = { lines: [], exited: false, streamed: !!process.env.CI };
+  const gridLogs: GridLogCapture = { lines: [], exited: false };
   const abortIfGridExited = (): string | undefined => (gridLogs.exited ? GRID_EXITED_MESSAGE : undefined);
 
   const tasks: ListrTask<BootContext>[] = [
@@ -615,9 +613,9 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   }
 }
 
-/** Print the captured tail when the grid container's output was not already streamed live. */
+/** Print the captured tail of the grid container's output so CI shows the real boot failure. */
 function dumpGridLogs(capture: GridLogCapture): void {
-  if (capture.streamed || capture.lines.length === 0) {
+  if (capture.lines.length === 0) {
     return;
   }
   process.stderr.write(`\n===== grid-e2e-ci container logs (last ${GRID_LOG_TAIL} lines) =====\n`);
