@@ -161,6 +161,7 @@ lazy val imageCachePurger = project("image-cache-purger").settings(
   assembly / assemblyJarName := "image-cache-purger.jar",
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.concat
     case path => (assembly / assemblyMergeStrategy).value(path)
   },
   assembly / test := {},
