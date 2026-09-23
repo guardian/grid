@@ -1576,6 +1576,51 @@ textarea.ng-invalid {
     color: #999;
 }
 
+.image-no-results--normal-search {
+    max-width: 720px;
+    margin: 10rem auto 0;
+    font-size: 2.4rem;
+}
+
+.image-no-results__heading {
+    font-size: 3rem;
+}
+
+.image-no-results__instructions {
+    margin-top: 1rem;
+    color: #bdbdbd;
+    font-size: 2rem;
+}
+
+.image-no-results__ai-suggestion {
+    margin: 2.5rem auto 0;
+    max-width: 640px;
+    padding: 1.6rem 2rem;
+    border: 1px solid #565656;
+    background: #2f2f2f;
+    text-align: left;
+}
+
+.image-no-results__ai-title {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.image-no-results__ai-copy {
+    margin-top: 0.8rem;
+    font-size: 1.6rem;
+    line-height: 1.5;
+    color: #ccc;
+}
+
+.image-no-results__ai-link {
+    display: inline-block;
+    margin-top: 1.2rem;
+    font-size: 1.6rem;
+    font-weight: bold;
+}
+
 
 /* ==========================================================================
    Preview
