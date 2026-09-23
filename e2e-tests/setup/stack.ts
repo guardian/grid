@@ -279,11 +279,11 @@ function cacheBindMounts(): { source: string; target: string; mode: 'rw' }[] {
   ];
 
   return candidates.flatMap(({ host, target }) => {
-    if (!host) {
+    if (!host || !fs.existsSync(host)) {
       return [];
     }
     const source = fs.realpathSync.native(host);
-    return fs.existsSync(source) ? [{ source, target, mode: 'rw' as const }] : [];
+    return [{ source, target, mode: 'rw' as const }];
   });
 }
 
