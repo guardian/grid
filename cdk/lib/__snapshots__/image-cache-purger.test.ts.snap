@@ -61,7 +61,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
           },
         },
         "FunctionName": "image-cache-purger-TEST",
-        "Handler": "com.gu.mediaservice.ImageCachePurger::handleRequest",
+        "Handler": "com.gu.mediaservice.ImageCachePurgerHandler::handleRequest",
         "LoggingConfig": {
           "LogFormat": "JSON",
         },
