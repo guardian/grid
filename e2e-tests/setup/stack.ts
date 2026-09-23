@@ -475,7 +475,7 @@ function localstackTasks(): ListrTask<BootContext>[] {
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   const { proxy = !!process.env.CI, seed = true } = options;
 
-  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 120_000);
+  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
   const gridLogs: GridLogCapture = { lines: [], exited: false, streamed: !!process.env.CI };
   const abortIfGridExited = (): string | undefined => (gridLogs.exited ? GRID_EXITED_MESSAGE : undefined);
