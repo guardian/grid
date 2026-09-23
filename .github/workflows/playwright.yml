@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: 8core-ubuntu-latest-frontend
     defaults:
       run:
         working-directory: e2e-tests
