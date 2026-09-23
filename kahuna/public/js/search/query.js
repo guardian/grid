@@ -723,14 +723,17 @@ query.controller('SearchQueryCtrl', [
       const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
       storage.setJs("defaultIsNonFree", toNonFreeString(defNonFree), true);
 
-      // If nonFree is provided in URL params, use that; otherwise use stored value
+      // If nonFree is provided in URL params use that, otherwise the stored
+      // preference, falling back to the user's showPaid permission on first login.
       if ($stateParams.nonFree !== undefined) {
         ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
         storage.setJs("isNonFree", ctrl.filter.nonFree, true);
       } else {
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
-          ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
+          ctrl.filter.nonFree = ctrl.usePermissionsFilter
+            ? toNonFreeString(defNonFree)
+            : toNonFreeString($stateParams.nonFree);
           storage.setJs("isNonFree", ctrl.filter.nonFree, true);
         } else {
           ctrl.filter.nonFree = isNonFreeString(isNonFree) ? 'true' : 'false';
