@@ -5,6 +5,32 @@ Kupua prototype deployable through incremental, additive media-api capabilities.
 existing workflows and their explicitly accepted compromises. A finding about stronger
 correctness is information for a decision, not automatic authorization to implement it.
 
+## Authority and Reading Order
+
+**Active build, 23 September:** executing agents work from the
+[API build plan](../api-build/api-build-00-plan.md) and start each session with its
+[session prompt](../api-build/api-build-01-session-prompt.md). The operator decided to build locally
+first and split into PRs late, not to wait for PR #4957, to build without PIT (added later only
+after measurement), and to reshape D3 freely. The build plan owns sequencing; candidate 11 remains
+the contracts/invariants reference. Where older text below says implementation is paused or gated
+on #4957/section 15, the build plan supersedes it.
+
+This index routes current work. [Candidate 11](api-boundary-11-candidate-plan.md) owns the current
+provisional migration direction under explicit operator decisions. [Inventory 01](media-api-01-capability-inventory.md)
+is capability reference; [workplan 02](media-api-02-next-endpoints-d7-d8-d9-workplan.md) is historical
+design input, not an active work queue. Neither legacy sequencing nor dated reports authorize
+implementation. The [backlog overview](../../bug-backlog.md#at-a-glance) owns current issue status;
+candidate sections 12-14 qualify earlier reports. Protocol/registers govern commissioned review
+administration, not product execution.
+
+**Core-first priority, 23 September:** get API-backed search, scrolling, position preservation and
+traversal working. KUP-029/030 display/enrichment corrections are deferred until after a working
+API-backed app, not gates on alignment or the initial API path. Authorization, data protection,
+existing workflows and performance safeguards still apply. The next bounded unit is
+[post-merge prototype query alignment](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan).
+Migration implementation remains paused until PR #4957 acceptance/merge and separate operator
+authorization; independently authorized fixes or characterization can continue meanwhile.
+
 ## Current reality
 
 - `--use-TEST` accesses TEST Elasticsearch through an SSH tunnel.
@@ -16,6 +42,9 @@ correctness is information for a decision, not automatic authorization to implem
   Recorded Copilot review comments and local-media-api performance campaigns are different evidence.
 - B1/B2 and D3 are implemented. The remaining endpoints are not implemented merely because a
   research document specifies them. Read current source before implementing a capability.
+- Grid-only usage-search [PR #4957](https://github.com/guardian/grid/pull/4957) is locally validated
+  and awaiting human review/merge. It has not been integrated into this prototype; new D3-specific
+  work waits for acceptance/merge and separate approval. This is not S2 or API-only completion.
 
 ## Boundaries
 
@@ -34,15 +63,67 @@ is allowed before that point. Do not describe a hybrid fallback as proof of API-
 Production resource/load acceptance remains necessary; existing measurements should be reused,
 not replaced by assumptions or repeated without a specific question.
 
+## Capability-preserving boundary research
+
+For an explicitly commissioned review, use the
+[coverage-driven review protocol](api-boundary-05-review-protocol.md). The 00-04 sequence remains
+preliminary evidence, not comprehensive coverage or an instruction to repeat those assessments.
+The process inventories source, documents and recorded measurements, assigns bounded reviews,
+and separates mechanical bookkeeping from semantic verification. Use the
+[packet handoff prompt](api-boundary-08-review-prompt.md) only with the coordinator's assigned ID.
+
+The resulting current planning baseline is candidate 11, not a future missing document. Its
+recommendations and research acceptance do not grant blanket implementation authority, feature
+reductions or another D3 readiness programme. Older capability/endpoint material remains reference.
+
+**Current handoff, reconciled 23 September:** preserve S1 and the earlier client reconciliation;
+Batch A's six and Batch B's four additional repairs are DONE only at the scopes recorded in the
+[canonical backlog](../../bug-backlog.md) and [completion evidence](../../bug-reproduction-evidence.md).
+Registers [06](api-boundary-06-coverage.json)/[07](api-boundary-07-evidence.json) and
+[candidate 11](api-boundary-11-candidate-plan.md) now distinguish those completions from future
+API composition, logical omission/failure, construction and deployment gates. These remain independent
+client improvements, not new migration prerequisites. **Reverse keyboard Home -> resident End is
+controlled-live-data reproduced and UNFIXED under KUP-013**, distinct from repaired End-initiated
+ownership and logo/resetToHome; its remote stage was not independently reidentified. CQL remount
+cache callbacks are repaired, but first-registration datasource/API-only initialization remains open.
+Saved-density, original-return and cross-preview-centering repairs do not certify no-saved density
+fallback, pre-native-entry fullscreen timing, physical Esc/macOS animation or broader availability.
+KUP-010 and future API/deployment acceptance remain. Historical reports, S1 and receipts are preserved.
+
+The [single usage investigation](../../grid-usage-search-investigation.md) records PR #4957 as
+implemented/locally validated in a separate main-based checkout, awaiting human review/merge as
+documented on 22 September, not freshly checked remotely. Independent usage negatives, positive
+same-record matching, print code/name support and alias-preserving orderedBy fallback supersede
+P30's older direction. The prototype has not imported it: KUP-011, GRID-001/008 and S2 stay open.
+After merge and separate authority, inspect inherited D3 behavior before proposing more code.
+The permission-sensitive deleted-intent concern remains separate and awaits human assessment.
+
+The specifically accepted roughly 68 ms changed-tuple restore median increase retains its
+four-sample direct-TEST limits. The later operator-run four-repeat direct-ES campaign is also
+recorded: PP6c is a slowdown candidate and P8 a watchpoint, not attribution solely to the UX fixes
+or blanket performance acceptance. Neither Batch A nor B ran a new campaign or explains/resolves those
+measurements. This documentation pass ran no tests/campaigns, queried no live
+system/remote PR and made no Git mutation. Whole-corpus readiness remains false; no next task follows.
+
 ## What to read next
+
+**P32/P33 integration, 23 September:** [candidate section 14](api-boundary-11-candidate-plan.md#14-p32p33-characterization-integration)
+accepts the externally commissioned [interaction/display/measurement report](api-boundary-09-p32-kupua-interaction-and-measurement-contracts.md)
+and [Grid edit/delete/collection report](api-boundary-09-p33-grid-edit-delete-collection-lifecycles.md)
+with explicit source, receipt and attribution corrections. Ten new source-only canonical bugs are
+independently parked; original IDs/repairs and measurements remain. Future-editing knowledge is routed,
+not scheduled. Kupua stays read-only; no new write API, metric rewrite, campaign or follow-on task.
 
 | Purpose | Document | Authority |
 |---|---|---|
+| Current migration direction | [Candidate 11](api-boundary-11-candidate-plan.md) | Current provisional planning baseline; individual execution still needs authorization. |
+| Next bounded unit | [Post-merge query alignment](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan) | Short workplan; blocked on accepted upstream merge and separate integration authority, not S2 completion. |
 | Completed D3 amendments | [Findings and amendment workplan](d3-search-after-01-readiness-findings.md) | Agreed scope complete; Section 6 records the executed plan and Section 7 the verification. |
 | Assessment background | [Readiness prompt](d3-search-after-00-readiness-prompt.md) | Background for the completed assessment, not an instruction to restart it. |
-| Remaining capabilities and known gaps | [Capability inventory](media-api-01-capability-inventory.md) | Current summary; historical derivation is evidence only. |
-| D7/D8/D9 preparation after D3 | [Next endpoints](media-api-02-next-endpoints-d7-d8-d9-workplan.md) | Bounded choices and per-capability preparation, not one approved implementation batch. |
+| Capability reference | [Capability inventory](media-api-01-capability-inventory.md) | Dated capability reference; not sequencing authority. |
+| Earlier endpoint sketches | [D7/D8/D9 workplan](media-api-02-next-endpoints-d7-d8-d9-workplan.md) | Historical design input; not an active work queue. |
 | Current D3 draft | [PR draft](d3-search-after-02-pr.md) | Implementation/evidence description; not declared ready by this docs pass. |
+| Usage-search upstream repair and follow-up | [Investigation and handoff](../../grid-usage-search-investigation.md) | PR #4957 pending review/merge; no prototype integration or migration-gate closure. |
 | D3 sort alternatives | [Sort options](d3-search-after-03-sort-options.md) | Trade-offs; no automatic requirement to switch ownership. |
 | Existing D3 measurements | [Performance](d3-search-after-04-performance.md) | Dated evidence; distinguish local, deployed TEST and inferred PROD costs. |
 | Scala conventions | [Conventions](media-api-90-conventions.md) | Implementation reference. |
@@ -60,6 +141,22 @@ client/docs amendments remain on the prototype. No known amendments in the agree
 remain pending; human review, merge and deployment are separate. Do not restart a general
 assessment or equate these checks with production
 capacity, whole-hybrid permission consistency or API-only readiness.
+
+## Research Tools and Checkpoints
+
+The two review scripts in [package.json](../../../../package.json) support this research record,
+not Kupua's runtime or a mandatory step before each product fix:
+
+| Script | Purpose | When useful |
+| --- | --- | --- |
+| `review:api-boundary` | Runs the review CLI. `summary`, `packet` and `check` inspect records; `inventory` updates coverage metadata and staleness while preserving prior receipts. | Coordinating new characterization or checking an existing research checkpoint. Follow protocol 05 for exact commands and write ownership. |
+| `test:api-boundary` | Runs local Node tests of the review tool's rules and bookkeeping. It does not test the app, Grid or benchmark performance. | Changing or repairing the review tool itself; not automatically after a prose edit. |
+
+Keep these tools available while the records are maintained. Further bounded characterization may
+be commissioned before or after any documentation commit. A commit is a recoverable checkpoint,
+not final acceptance, a freeze or the end of the review process. Do not remove scripts/dependencies,
+archive reports or commit active worklog contents merely to make a checkpoint. No such operation
+is authorized by this explanation.
 
 ## Historical research
 

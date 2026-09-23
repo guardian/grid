@@ -1,7 +1,11 @@
 # Media-api capability inventory
 
 **Date:** 2026-05-31
-**Current summary updated:** 17 September 2026. Scope and reading order: [media-api-00-index.md](media-api-00-index.md).
+**Capability reference, not an execution plan.** Last capability-summary update: 17 September 2026.
+The [index](media-api-00-index.md) routes current work and [candidate 11](api-boundary-11-candidate-plan.md)
+owns the current provisional direction under operator decisions. Its completed-work dispositions
+and sequencing supersede conflicting ownership, snapshot and acceptance prescriptions here.
+The dated material below remains useful reference, not implementation authority.
 **Historical derivation:** Sections 1-9 are the May assessment with later corrections, not current
 build instructions. The summary below supersedes their readiness, sizing, endpoint and migration
 policy claims. Current source decides what exists; the operator decides new guarantees.
@@ -47,10 +51,10 @@ There are no known pending amendments within the agreed batch. Human review, mer
 deployment are separate from this code-completion status; deferred questions below are not
 an instruction to keep the PR in draft.
 
-For separately authorized API work, the provisional preparation order is D7, then D9;
-resolve D8 before implementing dependent positional capabilities. These are not unfinished
-D3 amendments or one approved batch. The [next-endpoints workplan](media-api-02-next-endpoints-d7-d8-d9-workplan.md)
-owns those bounded choices.
+The earlier D7-then-D9 preparation order is superseded. Use candidate 11 and its
+[post-merge alignment workplan](api-boundary-11-candidate-plan.md#15-post-merge-prototype-query-alignment-workplan)
+for current sequencing. The [D7/D8/D9 sketches](media-api-02-next-endpoints-d7-d8-d9-workplan.md)
+retain bounded technical questions as historical input; they do not own the active work queue.
 
 ### Evidence retained from the completed D3 amendments
 

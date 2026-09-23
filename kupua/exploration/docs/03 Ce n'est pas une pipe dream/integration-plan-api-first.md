@@ -1,5 +1,10 @@
 # Kupua–Grid API-First Integration Plan
 
+> **Historical planning reference.** The [media-api index](media-api-work/media-api-00-index.md)
+> routes current work and [candidate 11](media-api-work/api-boundary-11-candidate-plan.md) owns
+> current provisional direction. The dated phases, preflights, infrastructure proposals and write
+> workflows below are not active instructions or implementation authority.
+
 *For engineer review — produced April 2026*
 
 > **Alternative to:** `integration-plan.md` (direct-ES plan, zero media-api changes).

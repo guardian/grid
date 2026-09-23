@@ -15,9 +15,13 @@ Authorization and existing Grid behavior stay protected.
 See `kupua/exploration/docs/03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md`
 for full detail and file:line cites.
 
-1. **Class declaration.** Extend `BaseController` with `ArgoHelpers`. Constructor
-   injection only — no `@Inject`. Wire the new class in `MediaApiComponents.scala`.
-   Cite: `MediaApi.scala:37`, `MediaApiComponents.scala:34`.
+The reference draws heavily on Tom's and Andrew's code and reviews. Lindsey's work
+supplements that foundation; section 16 records the evidence and its limits.
+
+1. **Class declaration.** Image/resource controllers use `BaseController` with
+    `ArgoHelpers`. Constructor injection only — no `@Inject`; wire the class in
+    `MediaApiComponents.scala`. An existing public static-configuration exception
+    is not permission to weaken image API auth/response contracts. See §16.
 
 2. **Route ordering.** Specific paths before generic. `POST /images/search-after`
    must appear *before* `GET /images/:id` in `conf/routes`. Cite: §2 of conventions.
@@ -51,8 +55,9 @@ for full detail and file:line cites.
 9. **Search results: wrap each hit in `EmbeddedEntity`.** Mirror `hitToImageEntity`
    in `imageSearch()`. Cite: `MediaApi.scala:556-565`.
 
-10. **New result/param case classes go in `ElasticSearchModel.scala`.** Suffix
-    convention: `*Params`, `*Results`. Cite: `ElasticSearchModel.scala:16,55`.
+10. **ES operation result/param case classes go in `ElasticSearchModel.scala`.**
+    Keep `*Params`/`*Results` naming there. Other domain/response models belong with
+    their owning feature, not automatically in the ES model file. See §12/§16.
 
 11. **Preserve existing live-query routing.** Existing live search uses `prepareSearch(query)`;
     do not change its migration-aware behavior for Kupua. D3's PIT branch bypasses it (item 24).
@@ -77,12 +82,16 @@ for full detail and file:line cites.
     `ElasticSearchDockerBase`. Mocking via `MockitoSugar`. File naming `XyzTest.scala`.
     New ES query logic needs an integration test. Cite: `ElasticSearchTestBase.scala:16`.
 
-18. **Comments: ~2 per 100 LOC.** Only for non-obvious *why*. No Scaladoc on private
-    methods. Cite: §9 of conventions.
+18. **Comments explain non-obvious reasons, not obvious steps.** The old ~2-per-100
+    measurement is not a quota. Prefer clear names/control flow; explain invariants,
+    ordering dependencies and intentional exceptions briefly. See §9/§16.
 
 19. **Never use `Await.result`.** All Future composition via `.map`/`.flatMap`. No `EitherT`. Cite: §5 of conventions.
 
-20. **Play JSON for new result case classes.** Companion object, `OWrites` only (never `Reads` unless the endpoint parses a JSON request body — see item 22 / §15.1). Pattern:
+20. **Play JSON for new result case classes.** Derive the directions the consumers
+    need in the companion object: `OWrites` for response-only types, `Reads` when
+    parsing is required. Follow established `Json.format` patterns where appropriate;
+    do not add unused codecs or rewrite existing ones by rote. Response-only pattern:
     ```scala
     case class MyResults(hits: Seq[...], total: Long)
     object MyResults {
@@ -93,7 +102,7 @@ for full detail and file:line cites.
 
 21. **`resolveHit` turns a raw `SearchHit` into `Option[SourceWrapper[Image]]`.** Never parse `hit.sourceAsString` manually. Use `resolveHit` (private to `ElasticSearch`) or mirror its pattern exactly. Cite: `ElasticSearch.scala:153`.
 
-22. **Before writing any code,** read §14-15 of `media-api-90-conventions.md`. **§15.1 (GET vs POST)
+22. **Before writing any code,** read §14-16 of `media-api-90-conventions.md`. **§15.1 (GET vs POST)
     is RESOLVED** — D3 adopted POST + `auth.async(parse.json)` (pending team sign-off, N-3). Argo
     format (§15.4) and PIT availability (§15.5) are also resolved. Remaining open questions for
     team input: testing bar (§15.2), sort-value serialisation (§15.3), cluster PIT overhead (§15.6),
@@ -103,8 +112,12 @@ for full detail and file:line cites.
 
 ## D3 standing constraints (Scala mechanics for cursor/image endpoints)
 
-> The inventory and active index own current scope;
-> historical architecture mandates do not override these instructions.
+> The index routes current work; candidate 11 owns provisional migration direction under explicit
+> operator decisions. The active build sequence is `kupua/exploration/docs/03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md`
+> (local-first, PIT-less with PIT-ready choices, shared admission helper); it wins where candidate 11 conflicts. Inventory 01 is capability reference and workplan 02 is historical design input.
+> These instructions govern implementation mechanics and safeguards, not authorization. Prioritize
+> the working API-backed search/scroll/position/traversal path; KUP-029/030 corrections are deferred
+> until afterward, not initial-path gates. Authorization and performance safeguards remain mandatory.
 
 23. **Preserve existing sort ownership unless a change is explicitly approved.**
     Any new server-side semantic builder must be separate from legacy
@@ -146,3 +159,30 @@ for full detail and file:line cites.
     against that main and inspect the complete diff. Never blindly copy shared files containing
     unrelated changes. `../../zz Archive/media-api-work/media-api-worknotes.md` preserves the historical recipe, not permission
     to run its commit/push commands. Do not perform PR extraction during a read-only assessment.
+
+---
+
+## Reviewable Scala (evidence and limits in conventions §16)
+
+28. **Expose decisions and fallback.** Use meaningful predicates, pattern guards,
+    Option/Future composition or for-comprehensions where they make prerequisites
+    and transformation order clearer. Keep one clear fallback when appropriate;
+    do not minimize line count or require one syntax everywhere.
+
+29. **Give helpers and types a real job.** Name domain operations and use cohesive
+    existing models rather than argument bags. Prefer established parser/client
+    libraries to ad hoc parsing or control loops. Preserve missingness and the
+    owning failure contract; do not create a framework for a narrow change.
+
+30. **Tests must discriminate.** Vary the property named by the test; cover each
+    alternative independently, with nonmatching/preservation controls. A fixture
+    that also passes a plausible wrong implementation does not prove the claim.
+
+31. **Refactoring does not prove equivalence.** Check transformation order, fallback,
+    accepted inputs and boundaries. Keep intentional behavior changes explicit;
+    verify them rather than inferring safety from a refactor title or library use.
+
+32. **Use evidence, not a reviewer persona.** §16 distinguishes Lindsey-authored
+    changes, inherited code and accepted reviewer requests. #4893/#4930 were open
+    when inspected, not merged policy. Preserve API/security/logging contracts;
+    examples do not authorize weaker safeguards or guarantee reviewer approval.

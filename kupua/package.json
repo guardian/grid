@@ -35,7 +35,9 @@
     "test:perf:ja": "playwright test --config=e2e-perf/playwright.perceived-long.config.ts --grep='JA:'",
     "test:perf:jb": "playwright test --config=e2e-perf/playwright.perceived-long.config.ts --grep='JB:'",
     "test:experiment": "npx playwright test --config playwright.experiments.config.ts",
-    "test:diag": "npx playwright test --config=playwright.debug.config.ts --headed"
+    "test:diag": "npx playwright test --config=playwright.debug.config.ts --headed",
+    "review:api-boundary": "node exploration/experiments/api-boundary/api-boundary-review.mjs",
+    "test:api-boundary": "node --test exploration/experiments/api-boundary/api-boundary-review.test.mjs"
   },
   "dependencies": {
     "@guardian/cql": "^1.8.6",

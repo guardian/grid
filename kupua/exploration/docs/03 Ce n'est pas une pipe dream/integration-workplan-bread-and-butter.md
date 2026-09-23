@@ -1,5 +1,10 @@
 # Bread-and-Butter Workplan: Phase 0 + Read-Only API-First Hybrid
 
+> **Historical planning reference.** The [media-api index](media-api-work/media-api-00-index.md)
+> routes current work and [candidate 11](media-api-work/api-boundary-11-candidate-plan.md) owns
+> current provisional direction. The dated phases, preflights, infrastructure proposals and write
+> workflows below are not active instructions or implementation authority.
+
 *Written April 2026, after a long Copilot session reasoning through the inflection point.*
 
 > **What this is:** A concrete, sequenced workplan for the next phase of kupua,

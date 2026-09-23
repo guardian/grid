@@ -34,7 +34,20 @@ and detailed findings in their existing research document; do not create a plann
 and explicitly accepted compromises, not silently demand universal exactness. Separate observed
 defects from proposed stronger guarantees. Index-migration support, durable session storage and
 production migration changes require explicit justification and approval. The active media-api
-index owns current scope; archived prompts and their execution gates are not active instructions.
+index routes current work; `api-boundary-11-candidate-plan.md` owns the current provisional migration
+direction under explicit operator decisions, and `api-build/api-build-00-plan.md` owns the active
+build sequence (where they conflict, the build plan wins). Inventory 01 is capability reference and workplan 02
+is historical design input, not an active sequence. Archived prompts and their execution gates
+are not active instructions; a planning baseline is not blanket implementation approval.
+
+**Directive: Core API migration first.** Prioritize a working API-backed search, arbitrary-position
+scrolling, position preservation and traversal experience. Independently useful display/metadata
+corrections must not become new gates merely because research found them. The operator explicitly
+defers KUP-029/030 effective-rights/overlay corrections until after a working API-backed app; retain
+them as known follow-ups, not prerequisites for query alignment or the initial API path. This does
+not relax server authorization, data protection, existing workflow preservation or performance
+safeguards. Further characterization may be separately commissioned; committing research is a
+checkpoint, not a freeze or authorization to implement its findings.
 
 **Directive:** Performance is crucial. If any requested change is likely to seriously impact
 performance, do not proceed without checking with the user first — explain the potential
@@ -127,6 +140,20 @@ anything beyond the scaffold. When a task ends, a new task starts or a commit is
 only durable decisions in the owning docs and code-change history in `changelog.md`;
 do not transfer the session log wholesale. Reset the worklog to its scaffold before staging.
 Never delete the file, and never discard another active session's notes without checking.
+
+**Temporary directive: Protocol-05 delegated review (19 September 2026).** Applies only
+to the operator-authorized API-boundary review through candidate-plan challenge. An explicit
+coordinator assignment within that mandate supplies task confirmation for a delegated reviewer;
+the reviewer still reads applicable instructions, AGENTS, the worklog and protocol 05, but need
+not ask the operator again or write its own worklog check-in. Missing authority, scope ambiguity
+or safety blockers go back to the coordinator, who stops for operator decisions when needed.
+The coordinator alone owns registers, the shared worklog and research-routing documentation.
+Delegates write only their assigned reports and return precise integration requests; they do
+not update or reset the worklog, AGENTS or changelog. This narrowly overrides those ordinary
+fresh-agent and documentation duties for delegates, not for the coordinator. F1-F3 validator
+repairs remain coordinator-owned. No product implementation, live-system work, Git mutations
+or wider write permissions follow. All other safeguards remain. These temporary amendments
+may be removed together after the review with operator approval; keep both directive copies synced.
 
 **Directive: Graceful API absence.** All code that fetches from Grid services —
 whether via the `/api` proxy (media-api) or satellite proxies (`/grid-leases`,

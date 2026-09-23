@@ -1,17 +1,30 @@
 # media-api Conventions Reference
 
 **Produced:** 2026-05-30
-**Method:** Codebase read (media-api + common-lib), PRs #4122 #4145 #4201 #4334,
-Guardian org guides (scala.md, pull-requests.md).
-**Ground truth priority:** code > recent andrew-nowak/twrichards paired PRs > org guides.
+**Method:** Codebase read (media-api + common-lib), drawing heavily on Tom's and
+Andrew's code and PR discussions (#4122 #4145 #4201 #4334), plus Guardian org
+guides (scala.md, pull-requests.md).
+**Ground truth priority:** the target revision's code and explicit review decisions >
+relevant reviewed PR examples > org guides. Section 16 supplements that foundation
+with bounded evidence from Lindsey's work; open proposals are not merged team policy.
+
+**Scope:** the original survey is a dated snapshot, not a set of universal bans.
+Check the branch being changed. D3-specific provisions describe the prototype's
+adopted contract and do not establish that every choice has merged into Grid main.
+Keep authorization, data safety and the owning API contract intact when applying
+style guidance. The detailed reference is this file; the short operational summary
+is [media-api-91-instructions-for-agents.md](media-api-91-instructions-for-agents.md),
+whose local auto-loaded mirror is maintained separately.
 
 ---
 
 ## 1. Controller Anatomy
 
-A new `media-api` controller is a class that extends `BaseController` with `ArgoHelpers`
+For protected image/resource endpoints, the usual `media-api` controller extends `BaseController` with `ArgoHelpers`
 (and any response-helper traits like `AggregateResponses`), wired in
 `MediaApiComponents.scala` via compile-time constructor injection.
+Deliberately public static configuration has a different existing contract; see
+section 16. That exception is not permission to omit authentication on image APIs.
 
 ### Canonical example — `getImage`
 
@@ -77,15 +90,14 @@ The existing ordering is:
 New routes must respect this. A route like `GET /images/search-after` must appear
 **before** `GET /images/:id` to avoid Play routing it to `getImage("search-after")`.
 
-**GET vs POST for read-only endpoints:**  
-- `GET /images` — search with query-string params. This is the team's consistent
-  pattern for **all** read endpoints, including complex multi-param searches.
+**GET vs POST for read-only endpoints:**
+- `GET /images` uses query-string params, the established ordinary-search pattern.
 - All new AI search params (`useAISearch`, `similar:` embedded in `q`, `vecWeight`
   added in PR #4738) are URL query params parsed via `request.getQueryString()`.
-  The team has not used POST + body for any read endpoint in MediaApi.
-- **POST for body-carrying reads is untested territory.** If you genuinely need a
-  request body (e.g. a very large list of IDs), check with the team first —
-  there is no existing pattern to follow.
+- D3 adopted POST with `auth.async(parse.json)` for body-heavy cursor reads in the
+  prototype. Sections 14-15 record that decision and its team-sign-off limit.
+  Do not treat the earlier absence of POST reads as a ban, or prototype adoption
+  as automatic approval for a new endpoint. Preserve each existing wire contract.
 
 **Path naming:** kebab-case path segments (`/images/search-after`, not `searchAfter`).
 Cite: existing routes file — all multi-word paths are kebab.
@@ -256,8 +268,10 @@ The timeout is `10 seconds`; there is also a cluster-level 15s timeout.
 
 ### Async
 
-All ES methods return `Future[...]`. No `Await`, no `EitherT` in this codebase
-(confirmed by inspection). Pattern-match the `Option` inside `.map { r => ... }`.
+ES I/O methods compose `Future[...]`; pure query-building helpers need not be async.
+Do not block production request paths with `Await`. Existing historical tests use
+blocking harness code, which is not a production-handler pattern. Use the existing
+Future/Option style rather than introducing a new effect stack for a small change.
 
 ### `resolveHit`
 
@@ -279,9 +293,10 @@ Used in all search result mappings.
 ```scala
 def myEndpoint = auth.async { request => ... }
 ```
-All authenticated endpoints use `auth.async`. There is no `auth.async(parse.json)` in
-MediaApi (POST body parsing done manually with `request.body.asJson`). Cite:
-`MediaApi.scala:157,170,...`.
+Authenticated async endpoints use `auth.async`; D3 explicitly selects its JSON
+body parser with `auth.async(parse.json)`. Choose the form required by the owning
+route, not an obsolete assumption that all bodies are parsed manually. Preserve
+authentication and principal-derived authorization regardless of body format.
 
 ### Tier visibility
 
@@ -337,10 +352,11 @@ Cite: `MediaApi.scala:134-138`. New endpoints should follow this pattern.
 
 ### From ES layer
 
-ES layer returns `Future[Option[...]]` or `Future[SearchResults]`. No custom
-exception types bubble up from ES to controllers — failures surface as `Future`
-failures, caught with `.recover { case error => respondError(InternalServerError, ...) }`
-when recovery is needed. Cite: `MediaApi.scala:295`.
+The owning method defines its result and failure contract, commonly
+`Future[Option[...]]` or `Future[SearchResults]`. Known failures can have explicit
+types and controller mappings; D3's expiry/invalid-parameter handling is one such
+prototype contract. Do not turn every failed Future into `None`, an empty result
+or a generic 500 merely to simplify control flow. Inspect the actual caller.
 
 ---
 
@@ -370,8 +386,9 @@ Cite: `build.sbt:53`, `ElasticSearchTest.scala:24`.
 - `media-api/test/lib/` — unit tests for lib classes
 - `media-api/test/lib/elasticsearch/` — ES layer tests
 - File naming: `XyzTest.scala` (not `XyzSpec.scala`)
-- There are no controller-level tests in `media-api`. Coverage is at the ES
-  layer (`ElasticSearchTest`) and model/response layer (`ImageResponseTest`).
+- The original survey emphasized ES/model tests. The current prototype also has
+  controller policy tests and controller-to-ES contract fixtures. Check the
+  selected main revision before assuming those exact helpers are available.
 
 ### Test method style
 
@@ -383,13 +400,19 @@ Cite: `ElasticSearchTest.scala:83`, `ImageResponseTest.scala:31`.
 
 ### Coverage expectation
 
-New read-only ES methods should have an `ElasticSearchTest`-style integration test
-if they contain non-trivial query logic. Simple pass-through controller methods
-(parse params → call ES method → respond) do not require a separate controller test.
+Non-trivial ES query logic needs real-ES membership coverage in the established
+integration-test home. Decoder, authorization and response contracts may also need
+controller coverage; a pure builder test cannot prove them. Avoid duplicating tests
+for a genuinely trivial pass-through, but do not mistake admission/policy work for
+mere forwarding. Section 16 explains how to make fixtures discriminate the claimed
+behavior; test quantity and passing CI alone are not that evidence.
 
 ---
 
 ## 9. Comment Density
+
+The measurements below describe the original snapshot, not a target or maximum.
+Do not turn a comment count into a review rule.
 
 Measured across four key files (comments counted with `grep -c '^\s*//'`):
 
@@ -413,8 +436,10 @@ What is absent:
 - No Scaladoc on controller action methods.
 - No "this method does X" comments above methods whose names already say it.
 
-New endpoints: write zero comments unless there is a non-obvious algorithmic choice.
-When in doubt, leave it out.
+Prefer clear names and control flow over narration of obvious steps. Add a short
+reason where an invariant, ordering dependency or intentional exception would
+otherwise look like a mistake. The reviewed examples in section 16 contain such
+comments; inherited comments are not proof of an author's preferred density.
 
 ---
 
@@ -461,7 +486,7 @@ Additional entity ids (`imageId`, `exportId`, etc.) for tracing.
 `loggablePrincipal` adds tier and identity. This marker is declared `implicit`
 and used throughout the action's scope. Cite: `MediaApi.scala:160-163`.
 
-andrew-nowak's review note (PR #4145): log markers threading through a request
+Andrew's review note (PR #4145): log markers threading through a request
 makes backlog debugging and log filtering significantly easier.
 
 ### No metric calls in new endpoints
@@ -533,8 +558,10 @@ should follow `getImage` / `imageSearch` convention; either is acceptable.
 - `AggregateSearchParams` — aggregation query (cite: `ElasticSearchModel.scala:39`)
 - `AggregateSearchResults` — aggregation result (cite: `ElasticSearchModel.scala:17`)
 
-New param/result types for new endpoints: same suffix convention (`*Params`, `*Results`).
-Place in `ElasticSearchModel.scala` alongside existing types.
+For ES operation params/results, retain the `*Params`/`*Results` convention and
+their existing home in `ElasticSearchModel.scala`. This is not a rule to put every
+domain or response type there: recent examples put content-usage models in
+`models` and crop configuration in its owning `lib.crops` package (section 16).
 
 ### Error key strings
 
@@ -556,7 +583,7 @@ existing file's case when adding to it; for new files use PascalCase.
 
 2. **Logging without a logMarker** — `logger.info(s"...")` without structured
    markers. Always pass `logMarker` to every logger call in controller scope.
-   Raised in PR #4145 review (andrew-nowak).
+  Raised in PR #4145 review (Andrew).
 
 3. **Using `var`** — `var` should not appear in controllers. Raised in PR #4201
    review: "factor out mutable Map".
@@ -621,9 +648,10 @@ existing file's case when adding to it; for new files use PascalCase.
    **Still open: team sign-off (N-3)** — confirm this as the standing convention before the `main`
    PR; it was a unilateral implementation choice the team had reserved.
 
-2. **Testing bar for new read-only endpoints** — Are controller-level tests expected
-   (none exist currently in media-api), or is integration coverage at the ES layer
-   + manual TEST verification sufficient for a read-only endpoint?
+2. **Testing bar for new read-only endpoints** — Agree the relevant admission,
+  authorization, query and response coverage. Controller tests now exist in the
+  prototype; their presence does not by itself settle the testing bar on main.
+  Use section 8 and the actual target-revision test homes.
 
 3. **`SearchResponse.nextSortValues` return shape** — Should `search_after` endpoints
    return `nextSortValues` as a raw `List[Any]`? What is the agreed serialisation
@@ -644,6 +672,141 @@ existing file's case when adding to it; for new files use PascalCase.
 7. **`_source` filtering** — Is there precedent for `fetchSourceInclude` on search
    results (as opposed to single-document `get`), or does the team prefer always
    returning full `_source` and filtering at the serialisation layer?
+
+---
+
+## 16. Reviewable Scala: Recent PR Evidence
+
+**Evidence scope, 21 September 2026:** these are observable coding practices, not a
+profile of a reviewer or a guarantee of approval. The Getty rewrite
+[#4893](https://github.com/guardian/grid/pull/4893) and its date-parser follow-up
+[#4930](https://github.com/guardian/grid/pull/4930) are open. The original
+[#4663](https://github.com/guardian/grid/pull/4663) is also open. Distinguish their
+proposed changes from merged examples, and Lindsey-authored changes from inherited
+code or other reviewers' requests. No code or tests were executed for this reading.
+This is a bounded sample, not a review of every PR in the author search.
+
+| Evidence | Status when read | What was inspected and what it supports |
+| --- | --- | --- |
+| #4663 to #4893 | Both open | Both complete changed-file diffs and ten Lindsey-authored refactor/test commits, separated from inherited work and main merges. Explicit readability intent; concrete helper, guard, fallback and fixture changes. |
+| [#4930](https://github.com/guardian/grid/pull/4930/files/7c57db7d323e0c3f220884aa60538cd4bc57afd8) | Open, targeting the #4893 branch | Both authored commits and all three changed-file diffs: library parsing, a small domain value, and added unit assertions. The test request came from Junyuan; it is not evidence of a universal author test-first practice. |
+| [#4940](https://github.com/guardian/grid/pull/4940/files/1656e4017daba4c4599fbee6871c1fc652f16223) | Merged | Complete changed Scala/test diff and both new Scala files: short orchestration, optional response fields, existing pagination/retry machinery and domain naming. Test fixture configuration changed, not behavioral assertions. |
+| [#4857](https://github.com/guardian/grid/pull/4857/files) | Merged | Complete diff and changed S3 file: client construction moved behind an owning helper with explicit local-environment handling. No test changes; SDK builder internals are not a pure-immutability example. |
+| [#4743](https://github.com/guardian/grid/pull/4743/files/b09475af35473b6cd9b0594f9a00310b1e08091a) | Merged | Complete diff and new Scala files: a small response model and deliberately simple static-configuration action. The comment explaining its public nature followed Andrew's request. No test changes. |
+
+### Make Control Flow Reviewable
+
+The [Getty rewrite](https://github.com/guardian/grid/pull/4893/files/d5199357424dce6c23cf0a7dbd10f091ad975deb)
+explicitly aims to make control flow easier to read. `cleanDescription` uses named
+matching predicates and a guarded successful case, with the unchanged description
+as the fallback. `fixMisplacedBylineCredit` composes optional prerequisites and
+guards, then falls back once to the original values. The entry point names an
+ordered description-cleaning pipeline instead of expanding every detail inline.
+
+**Guidance:** make prerequisites, transformation order and fallback visible. Use
+named domain predicates, pattern guards, Option composition or a for-comprehension
+when they reduce branching and repeated fallbacks. Do not minimize line count at
+the expense of readability, require a for-comprehension for every condition, or
+copy incidental wrappers and one-use helpers mechanically.
+
+The authored changes are particularly clear in
+[predicate extraction](https://github.com/guardian/grid/commit/14abf7efbb844a39d21778c839364fcd4bf5ac77),
+[pipeline composition](https://github.com/guardian/grid/commit/a567ae0e7bf068c13d6b21d30d65f1956a74702d)
+and [optional prerequisites with one fallback](https://github.com/guardian/grid/commit/3f25d868516a3586359b5db7132655792e9fe0b4).
+These are strong evidence of the direction of this rewrite, not a ban on ordinary
+`if` statements or pattern matching.
+
+### Give Helpers and Types a Real Job
+
+The [location/date refactor](https://github.com/guardian/grid/commit/55e97881b663acb976f16c9f00bcbb8f94b4344e)
+replaces numeric regex-group access with named extractor bindings, separates
+location matching, date matching and prefix preservation, and passes the existing
+`ImageMetadata` value instead of a long list of related optional fields. In merged
+#4940, the controller delegates response mapping to `UsagesInContent.fromSearchResponse`;
+#4857 puts presigner construction in its existing S3 owner.
+
+**Guidance:** extract a helper when its name exposes a meaningful decision or
+operation, not just to move lines elsewhere. Use a coherent existing domain value
+when it clarifies the inputs; do not pass an entire request/application object to
+a tiny helper merely to shorten the signature. Keep simple forwarding simple.
+New types should capture domain meaning, optionality or a useful boundary, not
+create a framework for a one-off transformation.
+
+### Parse with Established Libraries, Preserve Meaning
+
+In [#4930's authored change](https://github.com/guardian/grid/commit/e514b6e6b4f5c5313658b1c3f8beeeb2f14e65f5),
+Joda formatters replace a manual month-name table and ad hoc conversion at the
+caller. `PartialDate` represents the parsed value, including an actually absent
+year, and names its domain matching operation. In merged #4940,
+`findContentUsingImage` delegates pagination to `paginateAccum` and uses the
+client library's retry mechanism rather than hand-building those loops.
+
+**Guidance:** use an established compatible parser/client for its actual task,
+then keep domain-specific rules explicit. Preserve missing information as `Option`
+rather than inventing a value to make the pipeline fit. Evaluate accepted input
+forms, boundaries, fallback and failure behavior before claiming equivalence;
+library reuse is not permission to change them silently. Do not collapse service
+failures into missing data unless the owning contract explicitly calls for it.
+
+### Make Tests Discriminate
+
+The rewrite's [case-insensitivity correction](https://github.com/guardian/grid/commit/5dc43772db61ecd64b54637d929b23b4d4622191)
+changes inputs that previously shared the same case. Its
+[separate city/country cases](https://github.com/guardian/grid/commit/4df9ef78a04b91313e446e14963d394a8ac30d0d)
+exercise each successful alternative without the other masking it.
+
+**Guidance:** ask what plausible wrong implementation would still pass each test.
+Vary the decisive property, include nonmatching/preservation controls, and test
+alternatives independently as well as in combination. This is concrete evidence
+about these changes, not proof that every PR by this author uses test-first work.
+
+The [PartialDate tests](https://github.com/guardian/grid/commit/7c57db7d323e0c3f220884aa60538cd4bc57afd8)
+separately exercise parsing, invalid dates, missing years and matching boundaries.
+They were added after a reviewer request. The three merged examples above added
+no behavioral tests, so the appropriate lesson is the quality of discriminators,
+not a claimed universal testing habit or permission to omit required coverage.
+
+### A Refactor Still Needs Behavior Checks
+
+The Getty rewrite states a functionality-preservation goal. Nevertheless, an
+[intermediate helper extraction](https://github.com/guardian/grid/commit/0a017ffc86769055a4fe4eca7c3f091070d6176b)
+reversed the operands of suffix matching; the
+[subsequent correction](https://github.com/guardian/grid/commit/e2932831c6a57d104a03a5670fb59ad0495197f7)
+restored their direction. The date-library follow-up also changes parsing and
+validation machinery. These source observations are not a claim that either PR
+has been independently runtime-verified here.
+
+**Guidance:** distinguish structural cleanup from changed behavior. Preserve
+transformation order and test the unchanged/fallback path as well as the intended
+successful change. Neither a refactor title nor a passing test whose fixture
+cannot discriminate is proof of equivalence. Avoid opportunistic semantic changes
+inside a readability refactor.
+
+### Respect Domain and API Boundaries
+
+In #4940, the requests to use a domain-specific model name and a namespaced feature
+flag came from Junyuan and were adopted by Lindsey. The resulting
+`UsagesInContent` is distinct from Grid usage records. #4743's explanatory public-route
+comment was an accepted request from Andrew. Attribute those as reviewed decisions,
+not private preferences inferred from authorship alone.
+
+The [public crop-configuration action](https://github.com/guardian/grid/blob/b09475af35473b6cd9b0594f9a00310b1e08091a/media-api/app/controllers/ConfigurationController.scala)
+uses plain JSON and a synchronous Action for static, non-sensitive data. That does
+not authorize removing auth, Argo enrichment or logging from image/resource paths.
+The [content-usage response model](https://github.com/guardian/grid/blob/1656e4017daba4c4599fbee6871c1fc652f16223/media-api/app/models/UsagesInContent.scala)
+derives both JSON directions, while CropOption uses `Json.format`; neither supports
+a claim that this reviewer universally requires one serialization style.
+
+**Guidance:** name models for their actual domain, place them with their owning
+feature, and preserve the established API/security/failure contract. Derive the
+JSON directions required by consumers and follow local patterns; do not add
+unused codecs or mechanically remove existing formats. Explain intentional
+exceptions briefly rather than filling code with comments that repeat its steps.
+
+For the usage-search repair, these conventions favor named operations with clear
+Boolean meaning, existing query/parser facilities and discriminating fixtures.
+They do not decide the search semantics, authorize an abstraction rewrite, or
+change any of the task's safety and scope limits.
 
 ---
 

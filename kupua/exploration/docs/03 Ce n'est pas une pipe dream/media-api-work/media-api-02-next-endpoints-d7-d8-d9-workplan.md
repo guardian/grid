@@ -1,6 +1,13 @@
 # Next endpoints: D7 counts, D8 PIT lifecycle, D9 image reads
 
-> **Current scope, 17 September 2026:** use [media-api-00-index.md](media-api-00-index.md).
+> **Historical design input, not an active work queue.** The [index](media-api-00-index.md)
+> routes current work and [candidate 11](api-boundary-11-candidate-plan.md) owns provisional direction.
+> D7-first ordering, D8-before-live-range dependency, migration-aware bulk acceptance, alternative
+> adapter-side overlay writes and the combined commit/test programme below are superseded
+> prescriptions, not current requirements. Preserve the technical sketches as evidence; no endpoint,
+> experiment, commit or PR is authorized here.
+>
+> **Historical scope note, 17 September 2026:** use [media-api-00-index.md](media-api-00-index.md).
 > The [agreed D3 amendment batch](d3-search-after-01-readiness-findings.md) is complete.
 > Prepare one separately authorized additive capability at a time; these are not unfinished
 > D3 amendments or one approved implementation batch.
@@ -16,10 +23,9 @@
 >   a directly constructed `ElasticsearchDataSource`, so a `StranglerAdapter` override
 >   alone will not migrate `getByIds`. The same issue affects D2 `getIdRange`.
 >
-> The detailed endpoint sketches below are research input, not build instructions, until
-> these reviews amend them. See the authoritative banner in
-> `media-api-01-capability-inventory.md` and the migration addendum in
-> `../../zz Archive/performance-first-dry-consolidation-audit-2026-09-13.md`.
+> The detailed endpoint sketches below remain research input, not build instructions. Later
+> decisions and the next bounded unit are in candidate 11; inventory 01 and the earlier
+> consolidation-audit addendum are references, not competing sequencing authority.
 
 > **Historical D9 review amendment — 7 September 2026 (D7/D8 readiness superseded
 > by the 13 September amendment above):** Before implementing D9, perform a focused plan review;
@@ -31,7 +37,7 @@
 > commit-to-view writes and adapter-side `upsertEnrichment`. The review must also
 > retain the special-date projection regression added below.
 
-**Status:** D7 needs a count-ownership decision; D8 needs an ordinary PIT contract;
+**Status of this historical sketch:** D7 needs a count-ownership decision; D8 needs an ordinary PIT contract;
 D9 needs focused contract review and datasource wiring. None is approved merely by this document.
 If implemented, keep separate
 Scala commits (one per gap) for per-gap PR extraction and reuse D3's POST plumbing.
