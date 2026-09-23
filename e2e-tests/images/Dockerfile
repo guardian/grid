@@ -48,6 +48,7 @@ ENV MISE_DATA_DIR=/mise \
     MISE_CONFIG_DIR=/mise \
     MISE_CACHE_DIR=/mise/cache \
     MISE_TRUSTED_CONFIG_PATHS=/build \
+    JAVA_HOME=/opt/java \
     PATH=/mise/shims:/usr/local/bin:$PATH
 
 # The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
@@ -70,9 +71,11 @@ WORKDIR /build
 # .tool-versions changes, so the tools are effectively baked into the image: a
 # later `mise install` (build- or run-time) against the same versions is a no-op
 # because they already live under MISE_DATA_DIR. Java stays pinned to the
-# Corretto build named in .tool-versions.
+# Corretto build named in .tool-versions. The download cache is a BuildKit cache
+# mount, so tarballs are reused across rebuilds and kept out of the image layer.
 COPY .tool-versions ./.tool-versions
-RUN set -eux; \
+RUN --mount=type=cache,target=/mise/cache \
+    set -eux; \
     mise install java nodejs sbt; \
     mise reshim; \
     ln -sfn "$(mise where java)" /opt/java; \
@@ -80,9 +83,6 @@ RUN set -eux; \
     node --version; \
     npm --version; \
     command -v sbt
-
-# Give tooling that reads JAVA_HOME (rather than PATH) a stable location.
-ENV JAVA_HOME=/opt/java
 
 # Shared entrypoint helpers (service list, ports, graceful-shutdown trap).
 COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh

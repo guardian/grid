@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # Required to read/write the buildx layer cache stored as a GHCR package.
+  packages: write
 jobs:
   test:
     timeout-minutes: 60
@@ -44,6 +46,15 @@ jobs:
         fi
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+    # Authenticate so buildx can pull (and, on main, push) the registry layer
+    # cache. GITHUB_TOKEN is read-only on fork PRs, which is fine: those runs
+    # only read the cache (see cache-to condition below).
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build CI image
       uses: docker/build-push-action@v6
       with:
@@ -53,6 +64,13 @@ jobs:
         tags: grid-e2e-ci
         push: false
         load: true
+        # Share layers across branches via a single stable cache ref. Every run
+        # reads from :main; only pushes to main write it back (mode=max caches
+        # intermediate layers too, so the mise toolchain layer is reused).
+        cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
+        # TEMPORARY: also write the cache from this test branch so the :main cache
+        # is populated before merge. Revert to `github.event_name == 'push'` only.
+        cache-to: ${{ (github.event_name == 'push' || github.head_ref == 'dk-impove-test-ci-running-time') && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
