@@ -18,7 +18,7 @@ set -euo pipefail
 REPO=/build
 cd "$REPO"
 
-source "$REPO/e2e-tests/images/entrypoint.common.sh"
+source "$(dirname "$0")/entrypoint.common.sh"
 
 # Default to the full production service list; GRID_SERVICES can narrow it.
 SERVICES="${GRID_SERVICES:-$SERVICES}"
@@ -69,4 +69,14 @@ echo "Running: sbt $SBT_OPTS \"$SBT_COMMAND\""
 # container; shutdown is driven by the SIGTERM/SIGINT trap above.
 tail -f /dev/null | sbt $SBT_OPTS "$SBT_COMMAND" &
 sbt_pid=$!
-wait "$sbt_pid"
+
+# Stop the container if either the webpack watcher or sbt exits, rather than
+# leaving half a stack running (e.g. services up but the frontend no longer
+# rebuilding). `wait -n` returns on the first child to exit.
+wait -n ${watch_pid:+"$watch_pid"} "$sbt_pid" 2>/dev/null || true
+echo "A dev process (webpack watcher or sbt) exited; shutting down." >&2
+for pid in "$watch_pid" "$sbt_pid"; do
+  [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+done
+wait 2>/dev/null || true
+exit 1

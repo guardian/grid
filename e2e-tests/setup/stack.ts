@@ -279,12 +279,12 @@ function gridContainer(
       ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
     )
     .withBindMounts([
-      // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
+      // Services read config from ~/.grid; /etc/grid is honoured too. Mount both.
       { source: configDir, target: '/root/.grid', mode: 'ro' },
       { source: configDir, target: '/etc/grid', mode: 'ro' },
-      // Outside CI the grid-e2e-dev image runs services under sbt; mount the repo
-      // over /build so host edits recompile live.
-      ...(process.env.CI ? [] : [{ source: REPO_ROOT, target: '/build', mode: 'rw' as const }]),
+      // Both images run the services from source with sbt, so mount the repo over
+      // /build. CI compiles once and runs; dev recompiles live on host edits.
+      { source: REPO_ROOT, target: '/build', mode: 'rw' as const },
     ])
     .withEnvironment({
       AWS_ACCESS_KEY_ID: 'test',
