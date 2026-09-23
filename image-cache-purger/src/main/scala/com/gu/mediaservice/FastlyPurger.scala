@@ -34,47 +34,13 @@ class FastlyPurger private[mediaservice] (
 
     val response = send(builder)
     response.statusCode() match {
-      case 200 => logger.info(s"Successfully purged img/media/$key from Fastly")
+      case 200 =>
+        logger.info(s"Successfully purged img/media/$key from Fastly")
       case statusCode =>
         logger.severe(s"Failed to purge img/media/$key from Fastly: HTTP $statusCode")
         throw new RuntimeException(s"Failed to purge $key from Fastly: ${response.body()}")
     }
   }
-
-  def verifyPurge(key: String): Try[Unit] = Try {
-    val request = HttpRequest.newBuilder(imageUri(key))
-      .timeout(Duration.ofSeconds(10))
-      .header("Fastly-Debug", "1")
-      .GET()
-      .build()
-    val response = send(request)
-    val xCache = headerTokens(response, "X-Cache")
-    val xCacheHits = headerTokens(response, "X-Cache-Hits")
-    val age = headerTokens(response, "Age")
-
-    val isCacheMiss = xCache.nonEmpty && xCache.forall(_.equalsIgnoreCase("MISS"))
-    val hasNoCacheHits = xCacheHits.nonEmpty && xCacheHits.forall(_ == "0")
-    val hasNoAge = age.isEmpty || age.forall(_ == "0")
-
-    if (!isCacheMiss || !hasNoCacheHits || !hasNoAge) {
-      throw new RuntimeException(
-        s"Fastly purge verification failed for img/media/$key: " +
-          s"X-Cache=${xCache.mkString(",")}, X-Cache-Hits=${xCacheHits.mkString(",")}, Age=${age.mkString(",")}"
-      )
-    }
-
-    logger.info(s"Verified img/media/$key was not served from the previous Fastly cache")
-  }
-
-  private def imageUri(key: String): URI = {
-    val encodedKey = key.split("/", -1).map(segment =>
-      java.net.URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20")
-    ).mkString("/")
-    URI.create(s"https://$imageHost/img/media/$encodedKey")
-  }
-
-  private def headerTokens(response: HttpResponse[_], name: String): List[String] =
-    response.headers().allValues(name).asScala.toList.flatMap(_.split(",")).map(_.trim).filter(_.nonEmpty)
 }
 
 private object FastlyPurger {

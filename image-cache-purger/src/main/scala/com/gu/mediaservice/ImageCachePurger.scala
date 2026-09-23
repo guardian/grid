@@ -36,14 +36,13 @@ class ImageCachePurger(fastlyPurger: FastlyPurger) {
       for {
         _ <- result
         _ <- fastlyPurger.purge(key)
-        _ <- fastlyPurger.verifyPurge(key)
       } yield ()
     } match {
       case Success(_) =>
         logger.info(s"Successfully purged ${keys.size} keys from Fastly")
         Success(())
       case Failure(exception) =>
-        println(s"Failed to purge keys from Fastly: ${exception.getMessage}")
+        logger.severe(s"Failed to purge keys from Fastly: ${exception.getMessage}")
         Failure(exception)
     }
   }
