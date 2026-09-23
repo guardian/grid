@@ -62,4 +62,8 @@ object ImageCachePurger {
       URLDecoder.decode(key, StandardCharsets.UTF_8)
     }.toList
   }
+
+  private[mediaservice] def extractSecret(secretString: String): String = {
+    objectMapper.readTree(secretString).path("FASTLY_API_KEY_SECRET_ID").asText()
+  }
 }

@@ -17,7 +17,6 @@ private[mediaservice] class SecretsManagerFastlyApiKeyProvider(
 ) extends FastlyApiKeyProvider {
   private val logger = Logger.getLogger(classOf[SecretsManagerFastlyApiKeyProvider].getName)
   override lazy val apiKey: String = {
-
     logger.info(s"Loading Fastly API key from Secrets Manager secret $secretId...")
     val request = GetSecretValueRequest.builder().secretId(secretId).build()
 
@@ -25,8 +24,7 @@ private[mediaservice] class SecretsManagerFastlyApiKeyProvider(
       .filter(_.trim.nonEmpty)
       .getOrElse(throw new IllegalStateException(s"Secret $secretId has no SecretString value"))
 
-    logger.info(secret)
-    secret
+    ImageCachePurger.extractSecret(secret)
   }
 }
 
