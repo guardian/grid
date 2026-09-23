@@ -22,7 +22,7 @@ object LocalRun extends App {
           |    {
           |      "s3": {
           |        "object": {
-          |          "key": "a160358957624201fade81079a905b6a7600ad24/0_0_7243_4831/master/3538.jpg"
+          |          "key": "002c764d33119c7fd2893adec33ed41db35ca2ae/4_0_3492_2097/2000.jpg"
           |        }
           |      }
           |    }

@@ -22,7 +22,6 @@ class FastlyPurger private[mediaservice] (
   private val iGuimCodeCoUk = "5CSDV7WcKwnIIHipZzt3po"
 
   private val fastlyIOService = if (stage == "PROD") iGuimCoUk else iGuimCodeCoUk
-  private val imageHost = if (stage == "PROD") "i.guim.co.uk" else "i.guimcode.co.uk"
 
   def purge(key: String): Try[Unit] = Try {
     val apiKey = apiKeyProvider.apiKey
