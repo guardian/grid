@@ -1,10 +1,11 @@
 package com.gu.mediaservice
 
-
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest}
+import java.util.logging.Logger
 
 class FastlyPurger(apiKeyProvider: FastlyApiKeyProvider, stage: String) {
+  private val logger = Logger.getLogger(classOf[FastlyPurger].getName)
 
   private val iGuimCoUk = "1L0HRheo6sMtfQHnY1FU6C"
   private val iGuimCodeCoUk = "5CSDV7WcKwnIIHipZzt3po"
@@ -23,8 +24,10 @@ class FastlyPurger(apiKeyProvider: FastlyApiKeyProvider, stage: String) {
 
     val response = httpClient.send(builder, java.net.http.HttpResponse.BodyHandlers.ofString())
     response.statusCode() match {
-      case 200 => println(s"Purge successful for url: https://i.guimcode.co.uk/img/media/$key")
-      case _ => throw new RuntimeException(s"Failed to purge $key from Fastly: ${response.body()}")
+      case 200 => logger.info(s"Successfully purged img/media/$key from Fastly")
+      case statusCode =>
+        logger.severe(s"Failed to purge img/media/$key from Fastly: HTTP $statusCode")
+        throw new RuntimeException(s"Failed to purge $key from Fastly: ${response.body()}")
     }
   }
 }
