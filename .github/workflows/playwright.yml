@@ -36,14 +36,13 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-playwright-
     - name: Install Playwright Browsers
-      # On a cache hit the browsers are already present, so only install the OS
-      # dependencies; otherwise download the browsers too.
-      run: |
-        if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
-          npx playwright install-deps chromium
-        else
-          npx playwright install --with-deps chromium
-        fi
+      # Browser binaries are restored from the cache above, so only download them
+      # on a cache miss. We deliberately skip `playwright install-deps` (~20s of
+      # apt every run): the GitHub-hosted Ubuntu runner image already ships the
+      # system libraries Chromium needs. If a runner image ever drops one, add
+      # `--with-deps` back here (and it will only run on cache misses).
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install chromium
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     # Authenticate so buildx can pull (and, on main, push) the registry layer
