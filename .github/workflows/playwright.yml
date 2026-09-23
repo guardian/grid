@@ -68,7 +68,9 @@ jobs:
         # reads from :main; only pushes to main write it back (mode=max caches
         # intermediate layers too, so the mise toolchain layer is reused).
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
-        cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+        # TEMPORARY: also write the cache from this test branch so the :main cache
+        # is populated before merge. Revert to `github.event_name == 'push'` only.
+        cache-to: ${{ (github.event_name == 'push' || github.head_ref == 'dk-impove-test-ci-running-time') && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
