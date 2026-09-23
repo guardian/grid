@@ -3,6 +3,7 @@ package com.gu.mediaservice
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest}
 import java.util.logging.Logger
+import scala.util.Try
 
 class FastlyPurger(apiKeyProvider: FastlyApiKeyProvider, stage: String) {
   private val logger = Logger.getLogger(classOf[FastlyPurger].getName)
@@ -14,7 +15,7 @@ class FastlyPurger(apiKeyProvider: FastlyApiKeyProvider, stage: String) {
 
   private lazy val httpClient: HttpClient = HttpClient.newHttpClient()
 
-  def purge(key: String): Unit = {
+  def purge(key: String): Try[Unit] = Try {
     val apiKey = apiKeyProvider.apiKey
     val builder = HttpRequest.newBuilder()
       .uri(new URI(s"https://api.fastly.com/service/$fastlyIOService/purge/img/media/$key"))

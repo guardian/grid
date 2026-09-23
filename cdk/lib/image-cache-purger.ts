@@ -27,7 +27,7 @@ export class ImageCachePurger extends GuStack {
 			app: `${appName}-lambda`,
 			fileName: `${appName}.jar`,
 			functionName: `${appName}-${props.stage}`,
-			handler: 'com.gu.mediaservice.ImageCachePurger::handleRequest',
+			handler: 'com.gu.mediaservice.ImageCachePurgerHandler::handleRequest',
 			runtime: lambda.Runtime.JAVA_25,
 			architecture: Architecture.ARM_64,
 			environment: {

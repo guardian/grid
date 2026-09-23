@@ -1,14 +1,14 @@
 package com.gu.mediaservice
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-import org.mockito.Mockito.verify
+import org.mockito.Mockito.{verify, when}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 import scala.jdk.CollectionConverters._
 import scala.io.Source
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 
 class ImageCachePurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
   private val messageBody = Using.resource(Source.fromResource("s3-event.json"))(_.mkString)
@@ -21,6 +21,7 @@ class ImageCachePurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
 
     it("purges extracted S3 object keys from Fastly") {
       val fastlyPurger = mock[FastlyPurger]
+      when(fastlyPurger.purge(expectedKey)).thenReturn(Success(()))
       val record = new SQSEvent.SQSMessage()
       record.setBody(messageBody)
       val event = new SQSEvent()
@@ -29,6 +30,22 @@ class ImageCachePurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
       new ImageCachePurger(fastlyPurger).handleRecord(event)
 
       verify(fastlyPurger).purge(expectedKey)
+    }
+
+    it("propagates purge failures so SQS can retry the message") {
+      val expectedFailure = new RuntimeException("Fastly unavailable")
+      val fastlyPurger = mock[FastlyPurger]
+      when(fastlyPurger.purge(expectedKey)).thenReturn(Failure(expectedFailure))
+      val record = new SQSEvent.SQSMessage()
+      record.setBody(messageBody)
+      val event = new SQSEvent()
+      event.setRecords(List(record).asJava)
+
+      val thrown = intercept[RuntimeException] {
+        new ImageCachePurger(fastlyPurger).handleRecord(event)
+      }
+
+      thrown should be theSameInstanceAs expectedFailure
     }
   }
 }
