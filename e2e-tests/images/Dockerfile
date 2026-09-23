@@ -44,38 +44,34 @@ ARG NATIVE_PKGS
 # tools they resolve) are on PATH for any shell, including the entrypoints.
 # MISE_TRUSTED_CONFIG_PATHS pre-trusts /build so mise never prompts for the
 # .tool-versions baked in at build time or the one bind-mounted at run time.
+# AWS_CBOR_DISABLE turns off the Java SDK CBOR protocol for Localstack/Kinesis.
 ENV MISE_DATA_DIR=/mise \
     MISE_CONFIG_DIR=/mise \
     MISE_CACHE_DIR=/mise/cache \
     MISE_TRUSTED_CONFIG_PATHS=/build \
     JAVA_HOME=/opt/java \
+    AWS_CBOR_DISABLE=true \
     PATH=/mise/shims:/usr/local/bin:$PATH
-
-# The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
-ENV AWS_CBOR_DISABLE=true
-
-# Install mise plus the utilities it uses to fetch and unpack tools
-# (curl/ca-certificates/git/xz-utils/unzip), and the native image-processing
-# tools (mirrors the repo Brewfile).
-RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-    curl ca-certificates git xz-utils unzip ${NATIVE_PKGS}; \
-    curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh; \
-    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# Install the toolchain (JDK, Node, sbt) with mise from the single source of
-# truth in .tool-versions. This layer is cached and only re-runs when
-# .tool-versions changes, so the tools are effectively baked into the image: a
-# later `mise install` (build- or run-time) against the same versions is a no-op
-# because they already live under MISE_DATA_DIR. Java stays pinned to the
-# Corretto build named in .tool-versions. The download cache is a BuildKit cache
+# Everything the image needs is installed in a single layer so that, on the
+# common cache-hit path, only one (large) blob is fetched rather than several.
+# It bundles: the native image-processing tools (mirrors the repo Brewfile) and
+# mise's own fetch/unpack utilities via apt; the mise binary; and the JDK, Node
+# and sbt installed by mise from .tool-versions (the single source of truth).
+# The layer is keyed on .tool-versions, so it only rebuilds when versions change;
+# a later `mise install` against the same versions is a no-op. Java stays pinned
+# to the Corretto build named there. The download cache is a BuildKit cache
 # mount, so tarballs are reused across rebuilds and kept out of the image layer.
 COPY .tool-versions ./.tool-versions
 RUN --mount=type=cache,target=/mise/cache \
     set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+    curl ca-certificates git xz-utils unzip ${NATIVE_PKGS}; \
+    rm -rf /var/lib/apt/lists/*; \
+    curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh; \
     mise install java nodejs sbt; \
     mise reshim; \
     ln -sfn "$(mise where java)" /opt/java; \
@@ -84,15 +80,17 @@ RUN --mount=type=cache,target=/mise/cache \
     npm --version; \
     command -v sbt
 
-# Shared entrypoint helpers (service list, ports, graceful-shutdown trap).
-COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
+# All entrypoint scripts ship in one shared layer (reused by both ci and dev);
+# --chmod sets the executable bit inline, avoiding separate chmod layers.
+COPY --chmod=0755 \
+    e2e-tests/images/entrypoint.common.sh \
+    e2e-tests/images/entrypoint.ci.sh \
+    e2e-tests/images/entrypoint.dev.sh \
+    /usr/local/bin/
 
 # Stage: CI image (grid-e2e-ci). Builds Kahuna once, stages the services with
 # `sbt e2eStage`, and runs the staged applications in production mode.
 FROM toolchain AS ci
-
-COPY e2e-tests/images/entrypoint.ci.sh /usr/local/bin/entrypoint.ci.sh
-RUN chmod +x /usr/local/bin/entrypoint.ci.sh
 
 # media-api, thrall, image-loader, kahuna, cropper, metadata-editor, collections, auth, leases
 EXPOSE 9001 9002 9003 9005 9006 9007 9010 9011 9012
@@ -102,9 +100,6 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.ci.sh"]
 # Stage: development image (grid-e2e-dev). Runs the webpack watcher and the Scala
 # services from the mounted source with sbt (Play dev mode) for live reload.
 FROM toolchain AS dev
-
-COPY e2e-tests/images/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
-RUN chmod +x /usr/local/bin/entrypoint.dev.sh
 
 # media-api, thrall, image-loader, kahuna, cropper, metadata-editor, collections, auth, leases
 # plus the JDWP debug port used when GRID_DEBUG is set.
