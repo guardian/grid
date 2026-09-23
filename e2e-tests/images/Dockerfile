@@ -26,49 +26,63 @@
 # is mounted into /root/.grid (and /etc/grid), e.g.:
 #   docker run --rm -v "$PWD:/build" -v "$HOME/.grid:/root/.grid:ro" grid-e2e-dev
 
-# Shared build args (single source of truth for both images).
-ARG SBT_VERSION=1.10.3
-ARG NODE_VERSION=22.12.0
-# Native tools used by the image processing services (see repo Brewfile).
+# The JDK, Node, and sbt versions are the single source of truth in the repo's
+# root .tool-versions and are installed with mise (below). Java stays pinned to
+# the Corretto build identified there. Native tools used by the image-processing
+# services (see repo Brewfile).
 ARG NATIVE_PKGS="graphicsmagick imagemagick pngquant libimage-exiftool-perl libgd3"
 
-# Stage: shared toolchain — JDK, sbt, Node, and the native image-processing
-# tools. Both the ci and dev images are built from this. Neither copies nor
-# compiles application source: the repository is bind-mounted at run time.
-FROM eclipse-temurin:11-jdk-jammy AS toolchain
+# Stage: shared toolchain — JDK, sbt, Node (via mise), and the native
+# image-processing tools. Both the ci and dev images are built from this. Neither
+# copies nor compiles application source: the repository is bind-mounted at run
+# time.
+FROM ubuntu:22.04 AS toolchain
 
-ARG SBT_VERSION
-ARG NODE_VERSION
 ARG NATIVE_PKGS
-# Provided automatically by BuildKit (e.g. amd64, arm64).
-ARG TARGETARCH
 
-# Install sbt, Node, and the native tools in one layer. curl/ca-certificates
-# fetch the tarballs; xz-utils unpacks the Node tarball; the native tools mirror
-# the repo Brewfile. Node is pinned to match kahuna's required version.
+# mise data/config live at a fixed, predictable location so its shims (and the
+# tools they resolve) are on PATH for any shell, including the entrypoints.
+# MISE_TRUSTED_CONFIG_PATHS pre-trusts /build so mise never prompts for the
+# .tool-versions baked in at build time or the one bind-mounted at run time.
+ENV MISE_DATA_DIR=/mise \
+    MISE_CONFIG_DIR=/mise \
+    MISE_CACHE_DIR=/mise/cache \
+    MISE_TRUSTED_CONFIG_PATHS=/build \
+    PATH=/mise/shims:/usr/local/bin:$PATH
+
+# The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
+ENV AWS_CBOR_DISABLE=true
+
+# Install mise plus the utilities it uses to fetch and unpack tools
+# (curl/ca-certificates/git/xz-utils/unzip), and the native image-processing
+# tools (mirrors the repo Brewfile).
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends curl ca-certificates xz-utils ${NATIVE_PKGS}; \
-    curl -fLo /tmp/sbt.tgz "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz"; \
-    tar -xzf /tmp/sbt.tgz -C /opt; \
-    ln -s /opt/sbt/bin/sbt /usr/local/bin/sbt; \
-    rm -f /tmp/sbt.tgz; \
-    case "${TARGETARCH:-amd64}" in \
-    amd64) node_arch=x64 ;; \
-    arm64) node_arch=arm64 ;; \
-    *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    curl -fLo /tmp/node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz"; \
-    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner; \
-    rm -f /tmp/node.tar.xz; \
-    node --version; \
-    npm --version; \
+    apt-get install -y --no-install-recommends \
+    curl ca-certificates git xz-utils unzip ${NATIVE_PKGS}; \
+    curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh; \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# The Java SDK CBOR protocol is disabled for Localstack/Kinesis compatibility.
-ENV AWS_CBOR_DISABLE=true
+# Install the toolchain (JDK, Node, sbt) with mise from the single source of
+# truth in .tool-versions. This layer is cached and only re-runs when
+# .tool-versions changes, so the tools are effectively baked into the image: a
+# later `mise install` (build- or run-time) against the same versions is a no-op
+# because they already live under MISE_DATA_DIR. Java stays pinned to the
+# Corretto build named in .tool-versions.
+COPY .tool-versions ./.tool-versions
+RUN set -eux; \
+    mise install java nodejs sbt; \
+    mise reshim; \
+    ln -sfn "$(mise where java)" /opt/java; \
+    java -version; \
+    node --version; \
+    npm --version; \
+    command -v sbt
+
+# Give tooling that reads JAVA_HOME (rather than PATH) a stable location.
+ENV JAVA_HOME=/opt/java
 
 # Shared entrypoint helpers (service list, ports, graceful-shutdown trap).
 COPY e2e-tests/images/entrypoint.common.sh /usr/local/bin/entrypoint.common.sh
@@ -100,5 +114,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.dev.sh"]
 
 # Stage: default guard. This is the last stage, so a plain `docker build` (no
 # --target) builds it and fails, forcing an explicit `--target ci|dev`.
-FROM eclipse-temurin:11-jre-jammy AS default
+FROM ubuntu:22.04 AS default
 RUN echo 'ERROR: --target is required. Pass --target ci (grid-e2e-ci) or --target dev (grid-e2e-dev) when building the image' >&2; exit 1
