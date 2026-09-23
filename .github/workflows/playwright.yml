@@ -20,13 +20,16 @@ jobs:
     - uses: actions/setup-node@v6
       with:
         node-version: lts/*
-        # Cache the npm download cache, keyed on the e2e-tests lockfile.
+        # Cache downloads for both the host-side e2e install and the Kahuna install
+        # performed inside grid-e2e-ci. stack.ts mounts this cache into the container.
         cache: npm
-        cache-dependency-path: e2e-tests/package-lock.json
+        cache-dependency-path: |
+          e2e-tests/package-lock.json
+          kahuna/package-lock.json
     - name: Install dependencies
       run: npm ci
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
-    # runs `sbt e2eStage` at run time and, via cacheBindMounts() in
+    # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
     # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
     # Without this the container re-downloads the whole dependency tree from Maven
     # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
