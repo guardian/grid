@@ -25,6 +25,27 @@ jobs:
         cache-dependency-path: e2e-tests/package-lock.json
     - name: Install dependencies
       run: npm ci
+    # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
+    # runs `sbt e2eStage` at run time and, via cacheBindMounts() in
+    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # Without this the container re-downloads the whole dependency tree from Maven
+    # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
+    # build files, with a prefix restore-key so an unrelated build change only
+    # fetches the delta rather than everything.
+    - name: Cache sbt dependencies (ivy/coursier)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/coursier/v1
+          ~/.ivy2/cache
+        key: ${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-sbt-
+    - name: Ensure sbt cache dirs exist
+      # cacheBindMounts() only mounts these into the container when the host dir
+      # exists; create them so a cache miss still gets a writable rw mount that
+      # the container populates (and this job then saves for next time).
+      run: mkdir -p ~/.cache/coursier/v1 ~/.ivy2/cache
     # Cache the downloaded Playwright browser binaries. The cache key is tied to
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
