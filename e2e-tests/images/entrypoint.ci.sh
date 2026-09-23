@@ -11,27 +11,6 @@
 
 set -euo pipefail
 
-# errtrace (-E) so the ERR trap also fires for failures inside the ( ... ) subshells below.
-set -E
-
-# Make build/staging failures loud and greppable. Without this, a failure while resolving
-# dependencies (most often Maven Central returning HTTP 429 during `sbt e2eStage`, or the npm
-# registry rate limiting `npm ci`) only surfaces to the test harness as "services never became
-# healthy", masking the real cause. This banner puts the actual failure front and centre in the
-# container logs, which the harness now prints on a failed boot.
-on_error() {
-  local exit_code=$?
-  {
-    echo "=================================================================="
-    echo "ERROR: Grid CI entrypoint failed (exit ${exit_code}) at line ${BASH_LINENO[0]}."
-    echo "Check the output above for the underlying cause. Common culprits:"
-    echo "  * Maven Central rate limiting (HTTP 429 / 'Too Many Requests') during 'sbt e2eStage'"
-    echo "  * npm registry rate limiting or network errors during 'npm ci'"
-    echo "=================================================================="
-  } >&2
-}
-trap on_error ERR
-
 REPO=/build
 cd "$REPO"
 

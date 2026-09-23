@@ -101,27 +101,6 @@ interface StoppableStack {
   configDir?: string;
 }
 
-/**
- * A rolling capture of the grid container's output plus whether it has exited. The container
- * runs `sbt e2eStage` at startup, and when that fails (commonly Maven Central's 429 rate
- * limiting while resolving dependencies) the real error is buried in the container logs while
- * the boot only shows up as services never becoming healthy. Capturing the tail lets us print
- * the underlying cause on failure, and the `exited` flag lets the readiness waits fail fast
- * instead of blocking for the full startup timeout.
- */
-interface GridLogCapture {
-  lines: string[];
-  exited: boolean;
-}
-
-/** How many trailing lines of grid container output to retain for the failure dump. */
-const GRID_LOG_TAIL = 500;
-
-const GRID_EXITED_MESSAGE =
-  'The grid-e2e-ci container exited before its services became healthy. ' +
-  'This is usually `sbt e2eStage` failing to resolve dependencies (Maven Central 429 ' +
-  'rate limiting). See the container logs printed below for the underlying error.';
-
 /** What the boot tasks build up. Each task mutates it in place for the ones that follow. */
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
@@ -322,7 +301,6 @@ function gridContainer(
   network: StartedNetwork,
   configDir: string,
   startupTimeoutMs: number,
-  capture: GridLogCapture,
 ): GenericContainer {
   const container = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
@@ -353,26 +331,14 @@ function gridContainer(
     .withWaitStrategy(Wait.forLogMessage(/./))
     .withStartupTimeout(10_000);
 
-  // Always consume the logs: keep a rolling tail for the failure dump and flip `exited` when
-  // the stream ends (the container has stopped) so the readiness waits can fail fast. Under
-  // GRID_DEBUG, also mirror the full stream to a file for post-mortem inspection.
-  const logStream = process.env.GRID_DEBUG
-    ? fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'))
-    : undefined;
+  if (!process.env.GRID_DEBUG) {
+    return container;
+  }
 
-  const record = (line: string | Buffer) => {
-    capture.lines.push(line.toString());
-    if (capture.lines.length > GRID_LOG_TAIL) {
-      capture.lines.shift();
-    }
-    logStream?.write(line);
-  };
-
+  const logStream = fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'));
   return container.withLogConsumer((stream) => {
-    stream.on('data', record);
-    stream.on('err', record);
-    stream.on('end', () => { capture.exited = true; });
-    stream.on('close', () => { capture.exited = true; });
+    stream.on('data', (line) => logStream.write(line));
+    stream.on('err', (line) => logStream.write(line));
   });
 }
 
@@ -397,19 +363,11 @@ async function waitForHealthy(
   healthPath: string,
   timeoutMs: number,
   report: (message: string) => void,
-  shouldAbort?: () => string | undefined,
 ): Promise<void> {
   const startedAt = Date.now();
   const deadline = startedAt + timeoutMs;
 
   for (; ;) {
-    // Bail out immediately if the container has gone away, so the underlying failure surfaces
-    // in ~1s instead of waiting out the full startup timeout on a port that will never answer.
-    const abortReason = shouldAbort?.();
-    if (abortReason) {
-      throw new Error(abortReason);
-    }
-
     const { healthy } = await isServiceHealthy(healthPath)(port);
     if (healthy) {
       return;
@@ -475,8 +433,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
-  const gridLogs: GridLogCapture = { lines: [], exited: false };
-  const abortIfGridExited = (): string | undefined => (gridLogs.exited ? GRID_EXITED_MESSAGE : undefined);
 
   const tasks: ListrTask<BootContext>[] = [
     {
@@ -554,18 +510,18 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             title: 'Start container',
             task: async (ctx) => {
               ctx.containers.push(
-                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, gridLogs).start(),
+                await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start(),
               );
             },
           },
           {
             title: 'Wait for services',
-            task: (_, task) => {
+            task: (_, services) => {
               const readiness: ListrTask<BootContext>[] = [
                 ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
-                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask), abortIfGridExited),
+                    waitForHealthy(port, 'management/healthcheck', startupTimeoutMs, reportTo(serviceTask)),
                 })),
                 {
                   // Waits for the `Images_Current` alias the app assigns on startup, so this
@@ -578,7 +534,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                 },
               ];
 
-              return task.newListr(readiness, { concurrent: true });
+              return services.newListr(readiness, { concurrent: true });
             },
           },
         ]),
@@ -603,24 +559,10 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       mediaApiUrl: MEDIA_API_URL,
     };
   } catch (error) {
-    // Surface the grid container's own output before tearing down: the boot failure is often
-    // an error buried inside the container (e.g. `sbt e2eStage` hitting Maven Central's 429
-    // rate limit) that would otherwise be masked by a generic "service never became healthy".
-    dumpGridLogs(gridLogs);
     // Leave nothing running if we failed part-way through the boot.
     await stopStack(context);
     throw error;
   }
-}
-
-/** Print the captured tail of the grid container's output so CI shows the real boot failure. */
-function dumpGridLogs(capture: GridLogCapture): void {
-  if (capture.lines.length === 0) {
-    return;
-  }
-  process.stderr.write(`\n===== grid-e2e-ci container logs (last ${GRID_LOG_TAIL} lines) =====\n`);
-  process.stderr.write(capture.lines.join(''));
-  process.stderr.write('\n===== end grid-e2e-ci container logs =====\n\n');
 }
 
 /** Is a service answering its healthcheck on this fixed host port? */
