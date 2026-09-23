@@ -35,6 +35,27 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
         "Environment": {
           "Variables": {
             "APP": "image-cache-purger-lambda",
+            "FASTLY_API_KEY_SECRET_ID": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":secretsmanager:",
+                  {
+                    "Ref": "AWS::Region",
+                  },
+                  ":",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":secret:/TEST/media-service/image-cache-purger/fastly-api-key",
+                ],
+              ],
+            },
+            "FASTLY_IMAGE_BASE_URL": "https://media.test.dev-guim.co.uk",
             "STACK": "media-service",
             "STAGE": "TEST",
           },
@@ -215,6 +236,33 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
                       "Ref": "AWS::AccountId",
                     },
                     ":parameter/TEST/media-service/image-cache-purger-lambda/*",
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":secretsmanager:",
+                    {
+                      "Ref": "AWS::Region",
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":secret:/TEST/media-service/image-cache-purger/fastly-api-key-??????",
                   ],
                 ],
               },
