@@ -3,6 +3,7 @@ package com.gu.mediaservice
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
 import com.amazonaws.services.lambda.runtime.{Context, RequestHandler}
 import com.fasterxml.jackson.databind.ObjectMapper
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient
 
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -31,6 +32,7 @@ class ImageCachePurgerHandler extends RequestHandler[SQSEvent, String] {
 
 class ImageCachePurger(fastlyPurger: FastlyPurger) {
   private val logger = Logger.getLogger(classOf[ImageCachePurger].getName)
+
   def handleRecord(input: SQSEvent): Try[Unit] = {
     val keys = input.getRecords.asScala.toList.flatMap { record =>
       ImageCachePurger.extractKeys(record.getBody)

@@ -18,7 +18,7 @@ class FastlyApiKeyProviderTest extends AnyFunSpec with Matchers with MockitoSuga
     it("loads the configured secret once and caches it") {
       val client = mock[SecretsManagerClient]
       when(client.getSecretValue(any[GetSecretValueRequest]))
-        .thenReturn(GetSecretValueResponse.builder().secretString("the-api-key").build())
+        .thenReturn(GetSecretValueResponse.builder().secretString("{\n  \"FASTLY_API_KEY_SECRET_ID\": \"the-api-key\"\n}").build())
       val provider = FastlyApiKeyProvider.fromEnvironment(
         Map(FastlyApiKeyProvider.SecretIdEnvironmentVariable -> "fastly-secret-arn"),
         client
