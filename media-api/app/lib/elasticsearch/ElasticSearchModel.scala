@@ -117,23 +117,25 @@ object SortClauseBody {
   }
 }
 
-object SearchAfterParamsBody {
-  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] = {
-    val sort = SortClauseBody.fromJson(body)
-    val sortValues = (body \ "sortValues").toOption match {
-      case None        => scala.util.Right(None)
-      case Some(value) => value.validate[Seq[JsValue]].asEither
-        .left.map(_ => "sortValues must be an array when present")
-        .filterOrElse(_.forall {
-          case JsNull | _: JsNumber | _: JsString => true
-          case _                                  => false
-        }, "sortValues elements must be strings, numbers or null")
-        .map(Some(_))
-    }
+// Public sort tuple shared by Kupua's ordered reads: absent, or an array of scalars and nulls.
+object SortValuesBody {
+  def fromJson(body: JsValue): Either[String, Option[Seq[JsValue]]] = (body \ "sortValues").toOption match {
+    case None        => scala.util.Right(None)
+    case Some(value) => value.validate[Seq[JsValue]].asEither
+      .left.map(_ => "sortValues must be an array when present")
+      .filterOrElse(_.forall {
+        case JsNull | _: JsNumber | _: JsString => true
+        case _                                  => false
+      }, "sortValues elements must be strings, numbers or null")
+      .map(Some(_))
+  }
+}
 
+object SearchAfterParamsBody {
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] =
     for {
-      parsedSort       <- sort
-      parsedSortValues <- sortValues
+      parsedSort       <- SortClauseBody.fromJson(body)
+      parsedSortValues <- SortValuesBody.fromJson(body)
     } yield SearchAfterParams(
       searchParams = searchParams,
       sort         = parsedSort,
@@ -142,7 +144,6 @@ object SearchAfterParamsBody {
       reverse      = (body \ "reverse").asOpt[Boolean].getOrElse(false),
       seekToEnd    = (body \ "seekToEnd").asOpt[Boolean].getOrElse(false),
     )
-  }
 }
 
 // Params for the POST /images/window shallow offset read. Offset and length live in searchParams.
