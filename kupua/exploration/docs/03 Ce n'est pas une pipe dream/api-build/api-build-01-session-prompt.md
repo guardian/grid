@@ -17,7 +17,9 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
    with the plan, the plan wins (see "Known conflicts" in plan section 9).
 3. Check `git status`/HEAD and note the pre-existing dirty files; preserve them. Check (read-only)
    how far the branch is behind `main` in the directories you will touch; if behind, propose a
-   merge before any edit. Then run the unit's baseline gate once and record the count.
+   merge before any edit (and recheck just before committing). Run `git diff main -- ':!kupua'`
+   and reconcile it with the plan's section 7 table of existing Grid code; report any unlisted
+   difference. Then run the unit's baseline gate once and record the count.
 4. Check the unit note's limits and shapes against the Kupua code that will call the endpoint;
    report mismatches now, not after building.
 5. State in a few lines: the unit's scope, the files you expect to touch, the existing tests
@@ -47,6 +49,13 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
    Use `set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"` for Kupua npm scripts
    (unsandboxed), and don't run anything else while a suite runs.
 4. If a test breaks, work out whether the test or the change is wrong before touching assertions.
+5. For Scala endpoints, before handoff: temporarily break each core rule of the endpoint once
+   (for example a predicate, a refusal, a nested wrapper), confirm a test fails, revert, and list
+   what was and was not caught. Strengthen tests that miss. Review fixes also get failing-first
+   tests, or this check covers them.
+
+**Questions to me:** I am not an engineer. Every question explains the consequences in plain
+language and ends with your recommendation. Record my answer in the unit note straight away.
 
 **Welcome extras (ask first; they complement the gates, never replace them):**
 - **Throwaway characterization tests or scripts**, to confirm a hypothesis before changing code
@@ -83,18 +92,16 @@ before any commit; never commit it non-empty.
    - tests added or changed;
    - the exact gate commands you ran, with results;
    - known behavior changes for existing callers;
+   - section 7 rows added or changed, and one plain sentence on the effect on production Grid
+     and Kahuna (even "none");
+   - the break-and-revert check results;
    - commits made, or the proposed commit grouping if uncommitted;
    - what you deliberately did not do.
 
    Facts only: do not say what the reviewer should focus on or what you think is fine.
 3. When I bring back review findings, fix only the material ones (or explain why not), rerun the
    affected gates, then propose commits grouped by the problem they solve, and wait for my OK.
-4. After committing:
-   - update the plan's section 4 status and section 10 log line;
-   - update the unit note if the endpoint shape changed;
-   - add a changelog entry for code (under the current phase heading; implementation and
-     rationale only);
-   - update AGENTS.md only if architecture or routing changed.
+4. After committing, do everything in plan section 8 (the single completion checklist).
 5. Stop. Do not start the next unit.
 
 **Unit-specific notes from the operator:** (optional)

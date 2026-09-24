@@ -7,11 +7,12 @@ canonical bug index, not another migration plan or an assignment of work. P28 re
 query evidence. This record grants no new implementation, fuzzy-search or stronger-failure-policy authority.
 The [reproduction queue and evidence](bug-reproduction-evidence.md) accounts for the original 35 IDs,
 including conditional browser cases and bugs better checked outside the browser. The ten P32/P33
-integration additions below are source-supported only; none has an executed reproduction.
+integration additions below are source-supported only; none has an executed reproduction. GRID-014
+(24 September, API build U2) has its server side confirmed by a local ES test.
 
 ## At a Glance
 
-**Current recorded status: 23 September 2026.** The 22 entries below have an open defect,
+**Current recorded status: 24 September 2026.** The 23 entries below have an open defect,
 approval/integration task or explicit residual; 23 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -57,6 +58,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-011](#grid-011) | Collection membership lost update | Open; source-only | Independent Grid concurrency; useful future-editing contract |
 | [GRID-012](#grid-012) | Premature soft-delete acknowledgement | Open; source-only | Independent Grid handoff; useful future-editing contract |
 | [GRID-013](#grid-013) | Unawaited Thrall syndication updates | Open; source-only | Independent Grid consumer reliability |
+| [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
 
 <details>
 <summary>Completed bounded client repairs: 23 other IDs</summary>
@@ -555,6 +557,15 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** coordinator check of P33's actual syndication path; [consumer](../../../thrall/app/lib/kinesis/MessageProcessor.scala#L203), [acknowledgement](../../../thrall/app/lib/ThrallStreamProcessor.scala#L108), [ES method](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L201). High-confidence source defect, no runtime failure or message-loss incidence claimed.
 - **Smallest discriminator:** mock a successful lookup and deferred/failed ES futures; assert process completion remains pending/fails until the selected updates finish, retaining missing-image and successful controls. Proposed, not run.
 - **Dependency / disposition:** OPEN, independent Grid-only consumer reliability, distinct from metadata-editor [GRID-009](#grid-009). No new retry policy, durable outbox or current read-migration prerequisite.
+
+#### GRID-014
+**`GET /images` ignores Kahuna's `hasRightsAcquired` filter**
+- **Component / owner:** media-api `SearchParams.apply(request)` (GET search parsing); human owner-to-confirm.
+- **Trigger / expected / actual:** Kahuna search state carries `hasRightsAcquired` and its API client forwards it to `GET /images`. The result should be limited to images with (or without) acquired syndication rights. On `main` the parameter is never read and no such filter exists, so the result is unfiltered.
+- **Evidence:** Kahuna [state param](../../../kahuna/public/js/search/index.js#L191), [results](../../../kahuna/public/js/search/results.js#L592), [API client](../../../kahuna/public/js/services/api/media-api.js#L63); on `main`, `SearchParams.apply` has no such parameter and `QueryBuilder` no such filter. The branch's [GET parsing](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L434) deliberately keeps that behavior, and [the ES test](../../../media-api/test/lib/elasticsearch/ElasticSearchTest.scala#L875) asserts that `GET /images` returns every image for both values. Whether Kahuna exposes a visible control for it is source-unverified.
+- **History:** abandoned PR #4849 (commit `b52d027da`) fixed it on Kahuna's path as a side effect of making `GET /images` and D3 agree. That part was removed on 24 September (API build U2) rather than ported, because #4849 is being closed.
+- **Smallest fix:** once the Kupua filter lands (split PR 1, plan section 7), read the parameter in `SearchParams.apply` (one line) and flip the ES test's GET assertions to the filtered sets. Needs its own Grid PR stating the Kahuna-visible change.
+- **Dependency / disposition:** OPEN, independent Grid-only fix. Not a migration prerequisite.
 
 Cross-component raw default intent is canonical at [KUP-011](#kup-011), not duplicated here.
 Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the legacy GET policy finding.

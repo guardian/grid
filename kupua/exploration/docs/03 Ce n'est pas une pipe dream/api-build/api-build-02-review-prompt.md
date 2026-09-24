@@ -25,13 +25,17 @@ commands only if I say so in this chat.
    returned? Can any request shape bypass them?
 2. **Existing Grid behavior.** Did anything change for existing routes, `GET /images`,
    `createSort`, `prepareSearch`, getters, `ImageResponse.create` or shared files? Is each shared
-   change behavior-preserving and tested as such?
-3. **Correctness against the plan.** Does the endpoint meet the unit's "done" note? Do the
+   change behavior-preserving and tested as such? Reconcile the **whole** `git diff main --
+   media-api` (not only this unit's diff) with the plan's section 7 table; any unlisted change to
+   existing Grid code is at least S2, and S1 if Kahuna or other callers would see it.
+3. **Correctness against the plan.** Does the endpoint meet the unit's "done" note, and does the
+   note's recorded contract (shape, refusals, limits) match the code? Do the
    cross-checks exist and genuinely discriminate (for example window at k equals D3 at k; rank
    equals k), including ties, nulls, reverse ordering and a special sort where relevant? Does
    the contract fit the Kupua code that will call it?
 4. **Test quality.** Would the tests still pass with a plausible wrong implementation? Were any
-   existing assertions weakened, deleted or loosened? Was a failing-first run recorded?
+   existing assertions weakened, deleted or loosened? Was a failing-first run recorded, and does
+   the handoff's break-and-revert check cover the core rules?
 5. **Invariants.** `_search` only (no `_count`); no `_shard_doc` in public tuples; optional
    `pitId` path intact; limits (1k/65k/5k/200) not lowered; direct-ES and hybrid Kupua modes
    untouched or still green; no ES construction added in API mode. Include gaps inherited from

@@ -17,6 +17,17 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 24 September 2026 - Kahuna search path restored to main
+
+  Abandoned PR #4849 had amended Kahuna's `GET /images` path so that it agreed with D3: an
+  ascending `dateAddedToCollection` sort with `unmappedType`, the collection filter widened to
+  that sort, and reading `hasRightsAcquired` from the URL. U1 left those behind; they are now
+  back to `main`, as is an orphaned test fixture. Kupua loses nothing: its sort clause goes through
+  `jsonToSort`, the widened filter only repeated the query's own collection-path condition, and its
+  rights filter still arrives in request bodies. The filter stays in the shared query builder and
+  `GET /images` still ignores Kahuna's parameter, recorded as GRID-014. Plan section 7 now lists
+  every existing Grid file the branch touches, for the future PR descriptions.
+
   ### 24 September 2026 - media-api exact live rank
 
   API build U2 (Scala). New `POST /images/rank` ports Kupua's `countBefore`: how many

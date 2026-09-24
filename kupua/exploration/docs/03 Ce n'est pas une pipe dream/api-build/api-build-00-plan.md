@@ -17,7 +17,8 @@ Hosting Kupua for other users is a later, separate decision.
    Nothing becomes one big PR: the final split is 6-9 small PRs (section 7).
 2. **D3 is moldable.** The D3 code on this branch is identical to PR #4849, which is in draft and
    not under review. Reshape it as needed; it becomes one of the split PRs. Link #4849's review
-   history from the eventual PR.
+   history from the eventual PR. **Update 24 September:** #4849 will be closed, never merged; its
+   amendments to Kahuna's `GET /images` path are removed, not ported (section 7).
 3. **Do not wait for Grid PR #4957** (usage-search fix). Every server read uses the shared helper
    (section 3), so all endpoints agree with one another before or after #4957. When #4957 merges,
    import it as a parallel unit (P1). Until then, usage-negative/print-code queries carry
@@ -319,17 +320,49 @@ main regularly, and use `git merge-tree` before extraction (instructions item 27
 descriptions follow the repo memory rule: why, effects on existing callers, risks, reviewer-run
 tests. Kupua client commits stay on the prototype branch.
 
+### Existing Grid code this branch touches
+
+**Every split PR description must cover every row it contains:** what changes, why Kupua needs
+it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
+effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
+this table; a difference not listed here is a finding to resolve first. Executors update the
+table whenever a unit touches an existing file. State after U2 (24 September 2026):
+
+| Existing file | Change | Effect on existing callers | Needed by | PR |
+|---|---|---|---|---|
+| `MediaApiComponents.scala` | Constructs `ImageQueryController` and adds it to the router list. | None: a new controller only. | Every Kupua endpoint | 1 |
+| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank | 1, 2, 3 |
+| `ElasticSearchModel.scala`: `SearchParams` | New field `hasRightsAcquired: Option[Boolean] = None`. `SearchParams.apply(request)` passes `None`, so `GET /images` never sets it. | None at runtime. Code that constructs `SearchParams` positionally must add the argument (compile-time only). | Kupua's rights filter, read from request bodies | 1 |
+| `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
+| `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank sort admission | 1 |
+| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. | None. | Every Kupua endpoint | 1 onward |
+| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala` | Controller test helpers and new tests only. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR | per PR |
+
+**Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
+amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
+`unmappedType` and filter widening, `GET /images` reading `hasRightsAcquired` (now GRID-014), and
+an orphaned `graphic-image-1` test fixture. #4849 will be closed and none of this is ported.
+
 ## 8. Recording Progress
 
-At unit completion the executing agent:
+This is the single completion checklist; the session prompt points here. Record each operator
+decision in the unit note when it is made, not only at the end. At unit completion the executing
+agent:
 
 1. Sets the unit's status row in section 4 and adds a one-line result under section 10: done,
    commit hashes, anything deferred.
-2. Adds a changelog entry for code changes.
-3. Updates AGENTS.md only if architecture or routing changed.
+2. Updates the unit note: operator decisions and "as built" contract (shape, refusals, limits).
+3. Updates the section 7 table for every existing Grid file the unit touched, and confirms
+   `git diff main -- ':!kupua'` has no unlisted difference.
+4. Appends to section 11 anything noticed but out of scope, and marks resolved entries.
+5. Adds newly found Kupua or Grid bugs to the [backlog](../../bug-backlog.md) (next free ID,
+   At a Glance row and counts, AGENTS.md ID count).
+6. Adds a changelog entry for code changes.
+7. Updates AGENTS.md only if architecture, routing or a stated status changed.
+8. Resets the worklog to its scaffold before staging.
 
-The session worklog follows the directive; reset it at commit time. Endpoint shape changes are
-recorded in the unit note above, not in a new document. No new planning documents.
+Endpoint shape changes are recorded in the unit note above, not in a new document. No new
+planning documents.
 
 ## 9. What Executors Read
 
@@ -380,7 +413,8 @@ ignoring it.
 - 24 Sep 2026, U2: `5ee26d83f` (shared `sortValues` parser, behavior-preserving), `b24b9259f`
   (`POST /images/rank`). Branch merged `main` first (`d36a764ce`). Cold review: accept with
   fixes (arity cap, broader sort matrix; shared pagination validation kept). Mutation check
-  strengthened the collection fixture. Not yet called by Kupua (U5).
+  strengthened the collection fixture. Not yet called by Kupua (U5). Same session: `8a60f495d`
+  restored Kahuna's `GET /images` path to `main` (#4849 leftovers; section 7, GRID-014).
 
 ## 11. Parked Observations
 
@@ -390,9 +424,4 @@ file:line, what was noticed, and whether it looks like a bug, a risk or a clean-
 others into plan changes, or deletes them. Anything that blocks the current unit goes to the
 operator in chat instead, not here.
 
-- 24 Sep 2026, U2: [ElasticSearch.scala:386](../../../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L386)
-  and `sorts.dateAddedToCollection*`: since `b52d027da` (June, D3 Part 2, #4849 scope) the branch
-  changes `GET /images` (Kahuna) for `dateAddedToCollection` sorts (adds `unmappedType`, new
-  ascending case instead of falling through to `parseSortBy`). Existing-Grid behavior change; risk.
-  Operator: #4849 will be abandoned and this Kahuna-path part is not to be ported; Kupua's sort
-  goes through `jsonToSort`. Restoring it to `main` awaits a go-ahead.
+(none open)
