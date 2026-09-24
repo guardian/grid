@@ -48,19 +48,42 @@ export type Crop = {
 
 export type CropsResource = {
   getData: () => Promise<Crop[]>;
+  perform: (name: string, parameters?: { body?: unknown }) => Promise<unknown>;
 };
 
-// `crops` is not embedded on the image entity (unlike `usages`), it's only a
-// link - so it's reached via `.follow(rel)`, which returns a lazy resource
-// with no cached response, then `.get()` performs the actual HTTP GET.
-export type FollowableResource = {
-  get: () => Promise<CropsResource>;
+export type FollowableResource<T> = {
+  get: () => Promise<T>;
+};
+
+export type ImageAction = {
+  name: string;
+  href: string;
+  method: string;
+};
+
+export type SoftDeletedMetadata = {
+  deleteTime: string;
+  deletedBy: string;
+};
+
+export type MediaLease = {
+  access: string;
+  // No `endDate` means the lease never expires - i.e. it's permanent.
+  endDate?: string;
+};
+
+export type LeasesResource = {
+  getData: () => Promise<{ leases: MediaLease[] }>;
 };
 
 export type GridImage = {
   data: {
     id: string;
     usages: UsagesResource;
+    softDeletedMetadata?: SoftDeletedMetadata;
   };
-  follow: (rel: string) => FollowableResource;
+  follow: <T>(rel: string) => FollowableResource<T>;
+  getAction: (name: string) => Promise<ImageAction | undefined>;
+  perform: (name: string, parameters?: { body?: unknown }) => Promise<unknown>;
+  get: () => Promise<GridImage>;
 };
