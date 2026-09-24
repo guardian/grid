@@ -87,8 +87,25 @@ checkRequirements() {
   checkRequirement aws
 }
 
+openTunnelToElasticsearchTest() {
+  # Backgrounded (&) as this script blocks in the foreground for the
+  # lifetime of the tunnel and would otherwise hang the rest of the script.
+  "${DIR}/es-ssh-ssm-tunnel.sh" -s TEST &
+
+  # Check every second for 10 seconds to see if the tunnel is established
+  for i in {1..10}; do
+    if nc -z localhost 9200 2>/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo -e "${red}TUNNEL DID NOT ESTABLISH TO TEST ELASTICSEARCH (on port 9200) within 10s - see AWS CLI output above${plain}"
+  return 1
+}
+
 startDockerContainers() {
-  EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
+  EXISTING_TUNNELS=$(ps -ef | grep session-manager-plugin | grep 9200 | grep -v grep || true)
   if [[ $USE_TEST == true ]]; then
     if (docker stats --no-stream &> /dev/null); then
       docker compose down
@@ -96,10 +113,9 @@ startDockerContainers() {
     if [[ -n $EXISTING_TUNNELS ]]; then
       echo "RE-USING EXISTING TUNNEL TO TEST ELASTICSEARCH (on port 9200)"
     else
-      TUNNEL_OPTS="-o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=2"
-      SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw)
-      eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200
-      echo "TUNNEL ESTABLISHED TO TEST ELASTICSEARCH (on port 9200)"
+      if openTunnelToElasticsearchTest; then
+        echo "TUNNEL ESTABLISHED TO TEST ELASTICSEARCH (on port 9200)"
+      fi
     fi
   else
     if [[ $EXISTING_TUNNELS ]]; then
