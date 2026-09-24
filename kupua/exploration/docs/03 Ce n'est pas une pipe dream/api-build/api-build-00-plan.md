@@ -112,7 +112,7 @@ maintained here by the executing agent at completion (section 8).
 | ID | Unit | Side | Depends on | Status |
 |---|---|---|---|---|
 | U1 | Shared helper (D3 refactored onto it) + `POST /images/window` | Scala | — | done |
-| U2 | `POST /images/rank` | Scala | U1 | not started |
+| U2 | `POST /images/rank` | Scala | U1 | done |
 | U3a | `POST /images/sort-profile`: scalar-anchor, date-stats, date-buckets | Scala | U1 | not started |
 | U3b | sort-profile: keyword-page | Scala | U3a | not started |
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | not started |
@@ -172,6 +172,22 @@ maintained here by the executing agent at completion (section 8).
   (live TypeScript is the algorithm source), including null handling, selected-maximum special
   dates and nested usage dates. Implement as a size-0 `_search`.
 - **Tests:** rank of the tuple at window position `k` equals `k`, across every supported sort.
+- **Decisions (operator, 24 September 2026):**
+  - **Incomplete execution:** if the rank search times out or any shard fails, respond with an
+    error (503), never a partial count. Kupua's existing countBefore-failure paths handle it
+    (sort-around-focus degrades, seek shows its error state, restore falls back to approximate
+    seek). A returned "incomplete" flag was rejected: the client could only treat it as a failure
+    or use the wrong number.
+  - **Shared `sortValues` parser:** D3's inline element check is extracted into one shared body
+    parser used by D3 and rank (and later keys), in its own behavior-preservation commit.
+  - **Contract (agreed at intake):** body = D3 fields + `sort` + required `sortValues` + optional
+    `pitId`; response `{rank, pitId?}`. Nulls allowed in any tuple slot; tuple length must equal
+    the sort length. Refused: `reverse`/`seekToEnd` true (400); `missing` other than `_last`,
+    `mode` other than `max`, `_shard_doc`, length mismatch, more than 10 sort clauses (422; tie
+    predicates grow quadratically). `offset`/`length` pass the same shared validation as D3 and
+    window (offset >= 0, length <= 200) but do not affect the count; `countAll` is ignored. The
+    count is always exact (`track_total_hits`). Nested path comes from the
+    clause, not a client table. Golden-body replay waits for U5 (no Kupua caller yet).
 
 **U3a/U3b: profiles.**
 - **Scope:** fixed operation enum only, no generic aggregation DSL. Port from es-adapter.ts
@@ -361,6 +377,10 @@ ignoring it.
 - 24 Sep 2026, U1: `6fad30e37` (helper, D3 moved to `ImageQueryController`, `_shard_doc` refused),
   `d0c9da7bf` (`POST /images/window`). Branch merged `main` first (`b45e9d9ab`). Not yet called
   by Kupua (U5); U5 must handle the degraded >10k seek fallback (see U5 note).
+- 24 Sep 2026, U2: `5ee26d83f` (shared `sortValues` parser, behavior-preserving), `b24b9259f`
+  (`POST /images/rank`). Branch merged `main` first (`d36a764ce`). Cold review: accept with
+  fixes (arity cap, broader sort matrix; shared pagination validation kept). Mutation check
+  strengthened the collection fixture. Not yet called by Kupua (U5).
 
 ## 11. Parked Observations
 
@@ -370,4 +390,9 @@ file:line, what was noticed, and whether it looks like a bug, a risk or a clean-
 others into plan changes, or deletes them. Anything that blocks the current unit goes to the
 operator in chat instead, not here.
 
-(none yet)
+- 24 Sep 2026, U2: [ElasticSearch.scala:386](../../../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L386)
+  and `sorts.dateAddedToCollection*`: since `b52d027da` (June, D3 Part 2, #4849 scope) the branch
+  changes `GET /images` (Kahuna) for `dateAddedToCollection` sorts (adds `unmappedType`, new
+  ascending case instead of falling through to `parseSortBy`). Existing-Grid behavior change; risk.
+  Operator: #4849 will be abandoned and this Kahuna-path part is not to be ported; Kupua's sort
+  goes through `jsonToSort`. Restoring it to `main` awaits a go-ahead.

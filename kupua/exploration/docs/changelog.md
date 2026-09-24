@@ -17,6 +17,20 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 24 September 2026 - media-api exact live rank
+
+  API build U2 (Scala). New `POST /images/rank` ports Kupua's `countBefore`: how many
+  admitted images sort strictly before a public sort tuple. It shares D3 and window
+  admission and runs as a size-0 `_search` with an exact total, so the optional PIT path
+  works (`_count` cannot bind to a PIT). The predicates handle nulls in any tuple slot,
+  selected-maximum special dates and nested usage dates, taking the nested path from the
+  sort clause. Shapes the predicates cannot rank are refused: `missing` other than `_last`,
+  `mode` other than `max`, a tuple whose length differs from the sort, more than 10 clauses
+  (tie predicates grow quadratically), and `reverse`/`seekToEnd`. A timed-out or partly
+  failed count responds 503 instead of a smaller number, so Kupua's existing rank-failure
+  paths run rather than a wrong position being published. D3's `sortValues` check became a
+  shared parser used by both. Kupua does not call rank yet.
+
   ### 24 September 2026 - Shared media-api read helper and offset window
 
   API build U1 (Scala). Kupua-facing ordered reads now live in a new `ImageQueryController`
