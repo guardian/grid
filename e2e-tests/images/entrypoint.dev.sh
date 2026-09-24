@@ -18,6 +18,12 @@ set -euo pipefail
 REPO=/build
 cd "$REPO"
 
+# The repo is bind-mounted from the host, so /build is owned by the host user while this
+# container runs as root. Git refuses to operate on a repo it sees as owned by someone else
+# ("detected dubious ownership"), which breaks the git calls sbt makes for versioning. Mark
+# /build as trusted so those calls succeed.
+git config --global --add safe.directory "$REPO"
+
 source "$(dirname "$0")/entrypoint.common.sh"
 
 # Default to the full production service list; GRID_SERVICES can narrow it.
