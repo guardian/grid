@@ -1,7 +1,6 @@
 package com.gu.mediaservice
 
 import com.amazonaws.services.lambda.runtime.events.SQSEvent
-
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
 object LocalRun extends App {

@@ -12,6 +12,16 @@ class FastlyPurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
   private val apiKeyProvider = DummyFastlyApiKeyProvider("api-key")
 
   describe("FastlyPurger") {
+    it("builds the service and media-host purge URLs for a key") {
+      val purger = new FastlyPurger(apiKeyProvider, "TEST")
+      val key = "hash/crop/master/image.jpg"
+
+      purger.purgeUrls(key) shouldBe List(
+        s"https://api.fastly.com/service/5CSDV7WcKwnIIHipZzt3po/purge/img/media/$key",
+        s"https://api.fastly.com/purge/media.guimcode.co.uk/$key"
+      )
+    }
+
     it("returns a Failure when purging throws an exception") {
       val expectedFailure = new RuntimeException("Unable to load API key")
       val failingApiKeyProvider = new FastlyApiKeyProvider {
