@@ -2,12 +2,24 @@
 #
 # CI entrypoint for the Grid all-in-one image.
 #
-# Runs from the repository bind-mounted at /build. Builds Kahuna's production
-# bundle once (npm ci + npm run dist), stages all Play services with
-# `sbt e2eStage`, then launches the staged applications in production mode. Each
-# staged app defaults to port 9000, so the correct port is passed per service via
-# -Dhttp.port. Services run in the background; if any one exits the container
-# stops, and SIGTERM/SIGINT are forwarded for a clean shutdown.
+# Runs from the repository bind-mounted at /build. Has two modes so compilation
+# can run as a separate, visible CI step ahead of the tests rather than being
+# hidden inside stack startup:
+#
+#   GRID_STAGE_ONLY=1  Build Kahuna's production bundle (npm ci + npm run dist)
+#                      and stage all Play services with `sbt e2eStage`, then
+#                      exit. Used by the CI "precompile" step to produce
+#                      target/universal/stage into the mounted repo (and warm the
+#                      incremental-compile cache) before the stack is started.
+#
+#   default            Launch the staged applications in production mode. If the
+#                      services are already staged (e.g. by the precompile step),
+#                      staging is skipped for a fast start; otherwise they are
+#                      staged first. Set GRID_FORCE_STAGE=1 to always re-stage.
+#
+# Each staged app defaults to port 9000, so the correct port is passed per
+# service via -Dhttp.port. Services run in the background; if any one exits the
+# container stops, and SIGTERM/SIGINT are forwarded for a clean shutdown.
 
 set -euo pipefail
 
@@ -26,18 +38,43 @@ source "$(dirname "$0")/entrypoint.common.sh"
 # Default to the full production service list; GRID_SERVICES can narrow it.
 SERVICES="${GRID_SERVICES:-$SERVICES}"
 
-# --- Build the Kahuna frontend once (production bundle) so `sbt e2eStage`
-# packages the bundled assets into kahuna's staged output.
-if [[ " $SERVICES " == *" kahuna "* ]]; then
-  echo "Installing Kahuna dependencies (npm ci)..."
-  ( cd "$REPO/kahuna" && npm ci )
-  echo "Building Kahuna production bundle (npm run dist)..."
-  ( cd "$REPO/kahuna" && npm run dist )
+# Build the Kahuna production bundle (so `sbt e2eStage` packages its assets) then
+# stage all services as production artefacts.
+build_and_stage() {
+  if [[ " $SERVICES " == *" kahuna "* ]]; then
+    echo "Installing Kahuna dependencies (npm ci)..."
+    ( cd "$REPO/kahuna" && npm ci )
+    echo "Building Kahuna production bundle (npm run dist)..."
+    ( cd "$REPO/kahuna" && npm run dist )
+  fi
+
+  echo "Staging services with sbt e2eStage..."
+  sbt e2eStage
+}
+
+# True only when every selected service already has a staged launcher script.
+all_services_staged() {
+  local svc
+  for svc in $SERVICES; do
+    [[ -n "${PORTS[$svc]:-}" ]] || continue
+    [[ -x "$REPO/$svc/target/universal/stage/bin/$svc" ]] || return 1
+  done
+  return 0
+}
+
+# --- Precompile mode: build + stage, then exit for the next CI step to run.
+if [[ -n "${GRID_STAGE_ONLY:-}" ]]; then
+  build_and_stage
+  echo "Staging complete (GRID_STAGE_ONLY); exiting."
+  exit 0
 fi
 
-# --- Stage all services (production artefacts) with sbt.
-echo "Staging services with sbt e2eStage..."
-sbt e2eStage
+# --- Run mode: stage only if the precompile step has not already done so.
+if [[ -n "${GRID_FORCE_STAGE:-}" ]] || ! all_services_staged; then
+  build_and_stage
+else
+  echo "Services already staged; skipping build (set GRID_FORCE_STAGE=1 to re-stage)."
+fi
 
 # --- Launch the staged applications.
 pids=()
