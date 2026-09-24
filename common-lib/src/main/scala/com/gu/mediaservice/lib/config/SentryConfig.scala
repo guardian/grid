@@ -4,7 +4,13 @@ import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
 import java.net.URI
+import java.nio.charset.StandardCharsets
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import scala.util.Try
+
+/** What Grid tells Sentry about who was affected by an event. */
+case class SentryUserIdentity(id: Option[String] = None, email: Option[String] = None)
 
 /** How much identifying information about the signed-in user is attached to Sentry events. */
 sealed abstract class SentryUserMode(val name: String)
@@ -53,6 +59,22 @@ case class SentryConfig(
    * send no user identifier at all rather than a misleadingly "anonymous" one.
    */
   val canIdentifyUserAnonymously: Boolean = userSalt.exists(_.nonEmpty)
+
+  /**
+   * Describes who an event affected, without sending more than the configured mode allows.
+   *
+   * @param identity        the principal's identity - an email for a person, a service name for a machine
+   * @param isPersonalData  false for machine and inner-service callers, whose identity is not personal data
+   */
+  def userIdentity(identity: String, isPersonalData: Boolean): Option[SentryUserIdentity] = {
+    if (!enabled || identity.isEmpty) None
+    else if (!isPersonalData) Some(SentryUserIdentity(id = Some(identity)))
+    else userMode match {
+      case SentryUserMode.Email => Some(SentryUserIdentity(email = Some(identity)))
+      case SentryUserMode.Anonymous =>
+        userSalt.filter(_.nonEmpty).map(salt => SentryUserIdentity(id = Some(SentryConfig.anonymise(salt, identity))))
+    }
+  }
 }
 
 object SentryConfig extends StrictLogging {
@@ -133,4 +155,14 @@ object SentryConfig extends StrictLogging {
       case _ => None
     }
   }.toOption.flatten
+
+  /**
+   * HMAC rather than a plain digest: staff emails are drawn from a small, enumerable space, so an
+   * unsalted hash of one is reversible by brute force and would not be anonymous at all.
+   */
+  private[config] def anonymise(salt: String, identity: String): String = {
+    val mac = Mac.getInstance("HmacSHA256")
+    mac.init(new SecretKeySpec(salt.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
+    mac.doFinal(identity.getBytes(StandardCharsets.UTF_8)).take(8).map(b => f"$b%02x").mkString
+  }
 }

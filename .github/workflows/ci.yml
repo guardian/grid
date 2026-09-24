@@ -51,6 +51,14 @@ jobs:
           cache-dependency-path: "cdk/package-lock.json"
       - name: Kahuna (client-side)
         working-directory: ./kahuna
+        env:
+          # Unset for forked pull requests, which cannot read secrets; source-map upload is
+          # skipped in that case. See kahuna/webpack.config.prod.js.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          # Shared with the SBT step below so the browser and server report the same release.
+          BUILD_VCS_NUMBER: ${{ github.sha }}
         run: |
           npm install-clean
           npm run undist
@@ -67,6 +75,7 @@ jobs:
       - name: SBT
         env:
           USE_DOCKER_FOR_TESTS: false # i.e. don't initialise the DockerContainer within tests, instead rely on the ones defined in the 'services' section of this file
+          BUILD_VCS_NUMBER: ${{ github.sha }} # release identifier, must match the kahuna build above
         run: sbt clean compile scripts/compile Test/compile test Debian/packageBin
       - name: Image Counter Lambda
         working-directory: ./image-counter-lambda

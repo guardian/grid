@@ -107,4 +107,46 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
   test("derives no ingest origin when there is no DSN") {
     deployed().ingestOrigin shouldBe None
   }
+
+  test("sends no user identity at all when reporting is disabled") {
+    deployed().userIdentity("someone@example.com", isPersonalData = true) shouldBe None
+  }
+
+  test("sends a machine caller's service name as-is, since it is not personal data") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.userIdentity("media-api", isPersonalData = false) shouldBe Some(SentryUserIdentity(id = Some("media-api")))
+  }
+
+  test("sends an email only when the mode explicitly asks for it") {
+    val c = deployed("sentry.dsn" -> dsn, "sentry.user.mode" -> "email")
+    c.userIdentity("someone@example.com", isPersonalData = true) shouldBe
+      Some(SentryUserIdentity(email = Some("someone@example.com")))
+  }
+
+  test("sends a salted identifier, never the email, in anonymous mode") {
+    val c = deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "a-secret")
+    val identity = c.userIdentity("someone@example.com", isPersonalData = true)
+
+    identity.flatMap(_.email) shouldBe None
+    identity.flatMap(_.id) should not be empty
+    identity.flatMap(_.id) should not contain "someone@example.com"
+  }
+
+  test("sends no identifier in anonymous mode when no salt is configured") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.userIdentity("someone@example.com", isPersonalData = true) shouldBe None
+  }
+
+  test("produces a stable identifier for the same user and a different one for another") {
+    val c = deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "a-secret")
+    val first = c.userIdentity("someone@example.com", isPersonalData = true)
+
+    first shouldBe c.userIdentity("someone@example.com", isPersonalData = true)
+    first should not be c.userIdentity("someone-else@example.com", isPersonalData = true)
+  }
+
+  test("produces different identifiers under different salts, so rotating the salt breaks correlation") {
+    val identity = "someone@example.com"
+    SentryConfig.anonymise("salt-one", identity) should not be SentryConfig.anonymise("salt-two", identity)
+  }
 }

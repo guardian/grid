@@ -105,6 +105,48 @@ Service-specific configs. These will override all other config files.
     <td>Array<string></td>
     <td>None</td>
   </tr>
+  <tr>
+    <td><b><code>sentry.dsn</code></b><br>Sentry DSN for error reporting. Setting it enables reporting for every service, on the server and in kahuna. Leave unset to disable Sentry entirely. Treat as private: do not commit it.</td>
+    <td>True</td>
+    <td>string</td>
+    <td>None (reporting disabled)</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.localOptIn</code></b><br>Allows Sentry reporting in the <code>DEV</code> stage. Without it, a DSN in <code>~/.grid</code> is ignored, so local development cannot send events to a shared project.</td>
+    <td>True</td>
+    <td>boolean</td>
+    <td>false</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.tracesSampleRate</code></b><br>Fraction of requests recorded as performance traces, between 0 and 1. Zero disables tracing. Values outside that range fail startup rather than silently changing sampling.</td>
+    <td>True</td>
+    <td>double</td>
+    <td>0 (tracing disabled)</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.console.levels</code></b><br>Browser console levels captured as Sentry events, e.g. <code>["warn", "error"]</code>. An empty array disables console capture.</td>
+    <td>True</td>
+    <td>Array&lt;string&gt;</td>
+    <td>["error"]</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.user.mode</code></b><br><code>anonymous</code> sends a salted, non-reversible identifier. <code>email</code> sends the signed-in user's email address, which is personal data — enabling it is a data-protection decision, not a routine config change.</td>
+    <td>True</td>
+    <td>string</td>
+    <td>anonymous</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.user.salt</code></b><br>Secret salt for the anonymous user identifier. Without it no user identifier is sent at all, because an unsalted hash of an email is reversible by brute force. Rotating it breaks correlation with historical events.</td>
+    <td>True</td>
+    <td>string</td>
+    <td>None (no user identifier sent)</td>
+  </tr>
+  <tr>
+    <td><b><code>sentry.replay.onErrorSampleRate</code></b><br>Fraction of errors that capture a Session Replay, between 0 and 1. Replay records the DOM, which in Grid contains unpublished imagery and photographer PII, so enabling it requires sign-off. Continuous session recording is never enabled.</td>
+    <td>True</td>
+    <td>double</td>
+    <td>0 (replay disabled)</td>
+  </tr>
 </tbody>
 </table>
 

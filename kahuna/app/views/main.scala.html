@@ -16,7 +16,8 @@
   kahunaConfig: KahunaConfig,
   featureSwitches: String,
   imageTypes: String,
-  agencyPicksIngredients: String
+  agencyPicksIngredients: String,
+  sentryClientConfig: String
 )
 <!DOCTYPE html>
 <html>
@@ -39,7 +40,6 @@
     <link rel="reauth-uri" href="@reauthUri" />
     <link rel="auth-uri" href="@kahunaConfig.authUri" />
 
-    @kahunaConfig.sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 
     <style>
@@ -99,6 +99,7 @@
           announcements: @Html(announcements),
           imageTypes: @Html(imageTypes),
           agencyPicksIngredients: @Html(agencyPicksIngredients),
+          sentry: @Html(sentryClientConfig),
         }
     </script>
 
