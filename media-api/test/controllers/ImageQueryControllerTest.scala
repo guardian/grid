@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal,
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
-import lib.elasticsearch.{ElasticSearch, ImageWindowParams, ImageWindowRawResults, SearchAfterParams, SearchAfterRawResults}
+import lib.elasticsearch.{ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, SearchAfterParams, SearchAfterRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -210,6 +210,136 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       (json \ "total").toOption shouldBe None
       (json \ "rawHitCount").as[Int] shouldBe 0
+    }
+  }
+
+  private case class RankHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[ImageRankParams])
+
+  private def rankHarness(
+    principal: Principal,
+    privileged: Boolean = false,
+    result: Future[ImageRankRawResults] = Future.successful(ImageRankRawResults(0L, None)),
+  ): RankHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[ImageRankParams]()
+    when(search.imageRank(any[ImageRankParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[ImageRankParams](0))
+      result
+    }
+    RankHarness(imageQueryControllerFor(principal, search, mock[ImageResponse], privileged), search, captured.future)
+  }
+
+  private def rankRequest(body: JsObject) = FakeRequest("POST", "/images/rank").withBody(body)
+
+  describe("rank admission") {
+    val tuple = Json.arr(1700000000000L, "an-id")
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")), "sortValues" -> tuple)
+
+    Seq("is:deleted", "keyword:fixture is:deleted").foreach { query =>
+      Seq(ordinaryUser, otherUser).foreach { principal =>
+        it(s"scopes $query to the uploader ${principal.firstName} ${principal.lastName}, as D3 does") {
+          val harness = rankHarness(principal)
+          val request = rankRequest(body ++ Json.obj("q" -> query, "uploadedBy" -> "someone-else@example.test"))
+
+          harness.controller.rankImages().apply(request).futureValue.header.status shouldBe 200
+          harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(principal.email)
+        }
+      }
+    }
+
+    it("preserves a privileged user's requested uploader") {
+      val harness = rankHarness(ordinaryUser, privileged = true)
+      val request = rankRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> otherUser.email))
+
+      harness.controller.rankImages().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(otherUser.email)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = rankHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.rankImages().apply(rankRequest(body)).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq("reverse" -> Json.obj("reverse" -> true), "seekToEnd" -> Json.obj("seekToEnd" -> true)).foreach {
+      case (field, orderingField) =>
+        it(s"refuses $field, which would change what 'before' means, before reaching Elasticsearch") {
+          val harness = rankHarness(ordinaryUser)
+          val result = harness.controller.rankImages().apply(rankRequest(body ++ orderingField)).futureValue
+
+          result.header.status shouldBe 400
+          (jsonOf(result) \ "errorMessage").as[String] should include(field)
+          verifyNoInteractions(harness.search)
+        }
+    }
+
+    it("accepts the default values of ordering fields") {
+      val harness = rankHarness(ordinaryUser)
+      val request = rankRequest(body ++ Json.obj("reverse" -> false, "seekToEnd" -> false))
+
+      harness.controller.rankImages().apply(request).futureValue.header.status shouldBe 200
+    }
+
+    Seq("length" -> Json.obj("length" -> 201), "offset" -> Json.obj("offset" -> -1)).foreach { case (field, invalid) =>
+      it(s"validates $field exactly as D3 and window do, although rank does not use it") {
+        val harness = rankHarness(ordinaryUser)
+
+        harness.controller.rankImages().apply(rankRequest(body ++ invalid)).futureValue.header.status shouldBe 422
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq("absent" -> (body - "sortValues"), "null" -> (body ++ Json.obj("sortValues" -> JsNull))).foreach {
+      case (state, withoutTuple) =>
+        it(s"refuses a request whose sortValues is $state before reaching Elasticsearch") {
+          val harness = rankHarness(ordinaryUser)
+          val result = harness.controller.rankImages().apply(rankRequest(withoutTuple)).futureValue
+
+          result.header.status shouldBe 400
+          (jsonOf(result) \ "errorMessage").as[String] should include("sortValues")
+          verifyNoInteractions(harness.search)
+        }
+    }
+
+    it("passes sort, the tuple (including nulls) and PIT to Elasticsearch") {
+      val harness = rankHarness(ordinaryUser)
+      val nullZoneTuple = Json.arr(JsNull, 1700000000000L, "an-id")
+      val request = rankRequest(body ++ Json.obj("sortValues" -> nullZoneTuple, "pitId" -> "a-pit"))
+
+      harness.controller.rankImages().apply(request).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.sort shouldBe Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      params.sortValues shouldBe nullZoneTuple.value.toSeq
+      params.pitId shouldBe Some("a-pit")
+    }
+  }
+
+  describe("rank response") {
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")),
+      "sortValues" -> Json.arr(1700000000000L, "an-id"))
+
+    it("reports the rank and a PIT when one is returned") {
+      val harness = rankHarness(ordinaryUser, result = Future.successful(ImageRankRawResults(6100L, Some("refreshed-pit"))))
+      val json = jsonOf(harness.controller.rankImages().apply(rankRequest(body)).futureValue)
+
+      json shouldBe Json.obj("rank" -> 6100L, "pitId" -> "refreshed-pit")
+    }
+
+    it("omits pitId without a PIT") {
+      val harness = rankHarness(ordinaryUser, result = Future.successful(ImageRankRawResults(0L, None)))
+
+      jsonOf(harness.controller.rankImages().apply(rankRequest(body)).futureValue) shouldBe Json.obj("rank" -> 0L)
+    }
+
+    it("responds 503 rather than publishing an incomplete count") {
+      val harness = rankHarness(ordinaryUser, result = Future.failed(ImageRankIncomplete))
+      val result = harness.controller.rankImages().apply(rankRequest(body)).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "rank-incomplete"
     }
   }
 }

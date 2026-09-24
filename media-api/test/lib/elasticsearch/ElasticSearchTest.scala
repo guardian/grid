@@ -13,7 +13,8 @@ import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.Index
-import com.sksamuel.elastic4s.requests.searches.Pit
+import com.sksamuel.elastic4s.requests.common.Shards
+import com.sksamuel.elastic4s.requests.searches.{Pit, SearchBodyBuilderFn, SearchHits, SearchResponse, Total}
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import lib.querysyntax._
 import lib.{ImageResponse, MediaApiConfig, MediaApiMetrics}
@@ -1145,6 +1146,225 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         whenReady(controller.windowImages().apply(FakeRequest("POST", "/images/window")
           .withBody(Json.obj("sort" -> sortClause, "offset" -> 10000))), timeout, interval) { result =>
           result.header.status shouldBe 422
+        }
+      }
+    }
+
+    describe("rank") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val internal = SearchParams(tier = Internal)
+      val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+
+      def rankFixture(id: String, takenDay: Option[Int], uploadHour: Int, credit: Option[String], width: Int,
+                      collectionDays: Seq[Int], usageDays: Seq[Int], modifiedDay: Option[Int], editStatus: Option[String]): Image = {
+        val image = createImage(id, Handout(), usages = usageDays.map(day => createDigitalUsage(t0.plusDays(day))).toList,
+          fileMetadata = Some(FileMetadata(iptc = editStatus.map(status => Map("Edit Status" -> status)).getOrElse(Map.empty))))
+        image.copy(
+          uploadTime   = t0.plusHours(uploadHour),
+          lastModified = modifiedDay.map(day => t0.plusDays(day)),
+          metadata     = image.metadata.copy(dateTaken = takenDay.map(day => t0.plusDays(day)), credit = credit),
+          source       = image.source.copy(dimensions = Some(Dimensions(width = width, height = 600))),
+          collections  = collectionDays.map(day => Collection.build(List(s"rank-$day"), ActionData("rank-test", t0.plusDays(day)))).toList,
+        )
+      }
+      // Ties on every primary and on uploadTime within them, and a missing value for each nullable
+      // primary. b and g have several usages/collections, so max-mode and any-value predicates disagree;
+      // i's only usage and collection date equals b's smaller one, so max equality does too.
+      // Edit status is missing both where credit is present (g, i) and where it is missing (c, e).
+      val rankFixtures = Seq(
+        rankFixture("rank-a", Some(3), 1, Some("AAP"),     800,  Seq(4),    Seq(5),    Some(2), Some("Original")),
+        rankFixture("rank-b", Some(3), 1, Some("AAP"),     800,  Seq(2, 9), Seq(2, 9), Some(2), Some("Corrected")),
+        rankFixture("rank-c", Some(1), 2, None,            1200, Nil,       Nil,       None,    None),
+        rankFixture("rank-d", None,    1, Some("Reuters"), 800,  Seq(4),    Seq(5),    Some(6), Some("Original")),
+        rankFixture("rank-e", None,    3, None,            400,  Nil,       Nil,       None,    None),
+        rankFixture("rank-f", Some(7), 2, Some("Reuters"), 1200, Seq(9),    Seq(9),    Some(1), Some("Corrected")),
+        rankFixture("rank-g", Some(1), 3, Some("AAP"),     400,  Seq(1, 3), Nil,       Some(6), None),
+        rankFixture("rank-h", None,    2, Some("Getty"),   800,  Nil,       Nil,       None,    Some("Original")),
+        rankFixture("rank-i", Some(3), 3, Some("Getty"),   1200, Seq(2),    Seq(2),    Some(1), None),
+      )
+      val rankScope = internal.copy(ids = Some(rankFixtures.map(_.id).toList))
+
+      val id = Json.obj("id" -> "asc")
+      def plain(field: String, order: String) = Json.obj(field -> order)
+      def selectedMax(field: String, order: String, nestedPath: Option[String]) =
+        Json.obj(field -> (Json.obj("order" -> order, "mode" -> "max", "missing" -> "_last") ++
+          nestedPath.fold(Json.obj())(path => Json.obj("nested" -> Json.obj("path" -> path)))))
+      val newestFirst = Seq(plain("uploadTime", "desc"), id)
+      // A configured alias resolves to a fileMetadata keyword path (for example editStatus).
+      val editStatus = "fileMetadata.iptc.Edit Status"
+
+      // The clauses Kupua's buildSortClause emits for each supported order.
+      val supportedSorts = Seq(
+        "newest"                         -> newestFirst,
+        "oldest"                         -> Seq(plain("uploadTime", "asc"), id),
+        "taken descending"               -> Seq(plain("metadata.dateTaken", "desc"), plain("uploadTime", "desc"), id),
+        "taken ascending"                -> Seq(plain("metadata.dateTaken", "asc"), plain("uploadTime", "asc"), id),
+        "modified descending"            -> Seq(plain("lastModified", "desc"), plain("uploadTime", "desc"), id),
+        "modified ascending"             -> Seq(plain("lastModified", "asc"), plain("uploadTime", "asc"), id),
+        "last used descending"           -> Seq(selectedMax("usages.dateAdded", "desc", Some("usages")), plain("uploadTime", "desc"), id),
+        "last used ascending"            -> Seq(selectedMax("usages.dateAdded", "asc", Some("usages")), plain("uploadTime", "asc"), id),
+        "added to collection descending" -> Seq(selectedMax("collections.actionData.date", "desc", None), plain("uploadTime", "desc"), id),
+        "added to collection ascending"  -> Seq(selectedMax("collections.actionData.date", "asc", None), plain("uploadTime", "asc"), id),
+        "credit ascending"               -> Seq(plain("metadata.credit", "asc"), plain("uploadTime", "desc"), id),
+        "credit descending"              -> Seq(plain("metadata.credit", "desc"), plain("uploadTime", "desc"), id),
+        "width descending"               -> Seq(plain("source.dimensions.width", "desc"), plain("uploadTime", "desc"), id),
+        "width ascending"                -> Seq(plain("source.dimensions.width", "asc"), plain("uploadTime", "desc"), id),
+        "configured alias ascending"     -> Seq(plain(editStatus, "asc"), plain("uploadTime", "desc"), id),
+        "configured alias descending"    -> Seq(plain(editStatus, "desc"), plain("uploadTime", "desc"), id),
+        // An alias expanding to several clauses puts nulls outside the primary slot.
+        "multi-clause expansion"         -> Seq(plain("metadata.credit", "asc"), plain(editStatus, "desc"), plain("uploadTime", "desc"), id),
+      )
+      val alwaysValuedPrimary = Set("newest", "oldest", "width descending", "width ascending")
+      // Every admitted image sorts before an upload time of zero in newest-first order.
+      val afterEverything = Seq[JsValue](JsNumber(0), JsString(""))
+
+      def rank(searchParams: SearchParams, sort: Seq[JsObject], sortValues: Seq[JsValue], pitId: Option[String] = None) =
+        Await.result(ES.imageRank(ImageRankParams(searchParams, sort, sortValues, pitId)), fiveSeconds)
+
+      def windowTuples(searchParams: SearchParams, sort: Seq[JsObject]): Seq[(String, Seq[JsValue])] = {
+        val page = Await.result(ES.imageWindow(ImageWindowParams(searchParams.copy(offset = 0, length = 100), sort, None)), fiveSeconds)
+        page.hits.map(_._1).zip(page.sortValues)
+      }
+
+      def refusalOf(sort: Seq[JsObject], sortValues: Seq[JsValue]): String =
+        whenReady(ES.imageRank(ImageRankParams(internal, sort, sortValues, None)).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message
+        }
+
+      def statusAndJson(response: Future[Result]): (Int, JsValue) = whenReady(response, timeout, interval) { result =>
+        (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+      }
+
+      supportedSorts.foreach { case (name, sort) =>
+        it(s"ranks the tuple at every window position k as k: $name") {
+          withImages(rankFixtures) { _ =>
+            val positioned = windowTuples(rankScope, sort)
+            positioned.map(_._1) should contain theSameElementsAs rankFixtures.map(_.id)
+            positioned.exists(_._2.head == JsNull) shouldBe !alwaysValuedPrimary(name)
+            if (name == "multi-clause expansion") {
+              val leadingPairs = positioned.map(_._2.take(2))
+              leadingPairs should contain(Seq(JsString("AAP"), JsNull))
+              leadingPairs should contain(Seq(JsNull, JsNull))
+            }
+
+            positioned.zipWithIndex.foreach { case ((imageId, tuple), k) =>
+              withClue(s"$imageId at $k with $tuple: ") {
+                rank(rankScope, sort, tuple).rank shouldBe k.toLong
+              }
+            }
+          }
+        }
+      }
+
+      it("counts the images before a tuple that belongs to no image") {
+        withImages(rankFixtures) { _ =>
+          // Between the 1h and 2h uploads: the six images uploaded at 2h or 3h sort before it.
+          rank(rankScope, newestFirst, Seq(JsNumber(t0.plusMinutes(90).getMillis), JsString("rank-"))).rank shouldBe 6L
+        }
+      }
+
+      it("ranks identically under a PIT and returns it") {
+        withImages(rankFixtures) { _ =>
+          val sort = supportedSorts.toMap.apply("last used ascending")
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+
+          windowTuples(rankScope, sort).zipWithIndex.foreach { case ((_, tuple), k) =>
+            val pinned = rank(rankScope, sort, tuple, Some(pitId))
+            pinned.rank shouldBe k.toLong
+            pinned.pitId shouldBe defined
+          }
+        }
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newestFirst, None, None)), fiveSeconds)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        rank(syndication, newestFirst, afterEverything).rank shouldBe viaD3.total
+        rank(internal, newestFirst, afterEverything).rank shouldBe expectedNumberOfImages.toLong
+      }
+
+      it("counts within the same deleted scope as D3, for ordinary and privileged callers") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"rank-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          val body = base ++ Json.obj("q" -> "is:deleted", "sort" -> newestFirst)
+          Seq((uploader, false, 1L), (otherUploader, false, 1L), (uploader, true, 2L)).foreach { case (principal, privileged, expected) =>
+            val controller = imageQueryControllerFor(principal, ES, writer, privileged)
+            val (_, d3) = statusAndJson(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(body)))
+            val (status, ranked) = statusAndJson(controller.rankImages().apply(FakeRequest("POST", "/images/rank")
+              .withBody(body ++ Json.obj("sortValues" -> afterEverything))))
+
+            status shouldBe 200
+            (ranked \ "rank").as[Long] shouldBe (d3 \ "total").as[Long]
+            (ranked \ "rank").as[Long] shouldBe expected
+          }
+        }
+      }
+
+      it("reads through a size-0 _search with an exact total, not the 10,000 default cap") {
+        val body = Json.parse(SearchBodyBuilderFn(ES.imageRankRequest(ImageRankParams(internal, newestFirst, afterEverything, None))).string)
+        (body \ "size").as[Int] shouldBe 0
+        (body \ "track_total_hits").as[Boolean] shouldBe true
+      }
+
+      Seq(
+        "a tuple shorter than the sort" -> (newestFirst, Seq[JsValue](JsNumber(0))) -> "length",
+        "a tuple longer than the sort" -> (newestFirst, afterEverything :+ JsString("extra")) -> "length",
+        "a mode other than max" -> (Seq(Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "mode" -> "min",
+          "nested" -> Json.obj("path" -> "usages"))), id), afterEverything) -> "mode",
+        "nulls sorting first" -> (Seq(Json.obj("metadata.dateTaken" -> Json.obj("order" -> "desc", "missing" -> "_first")), id),
+          afterEverything) -> "missing",
+        "an explicit _shard_doc" -> (Seq(plain("uploadTime", "desc"), Json.obj("_shard_doc" -> "asc")),
+          Seq[JsValue](JsNumber(0), JsNumber(1))) -> "_shard_doc",
+        "an empty sort" -> (Seq.empty[JsObject], Seq.empty[JsValue]) -> "sort",
+        "more than ten sort clauses" -> ((1 to 10).map(n => plain(s"field$n", "asc")) :+ id,
+          Seq.fill[JsValue](11)(JsNumber(0))) -> "at most 10",
+      ).foreach { case ((what, (sort, sortValues)), mentioned) =>
+        it(s"refuses $what") {
+          refusalOf(sort, sortValues) should include(mentioned)
+        }
+      }
+
+      it("responds 422 to a tuple of the wrong length") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val (status, _) = statusAndJson(controller.rankImages().apply(FakeRequest("POST", "/images/rank")
+          .withBody(Json.obj("sort" -> newestFirst, "sortValues" -> Json.arr(0)))))
+        status shouldBe 422
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val response = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+          result <- controller.rankImages().apply(FakeRequest("POST", "/images/rank")
+            .withBody(Json.obj("sort" -> newestFirst, "sortValues" -> afterEverything, "pitId" -> opened.result.id)))
+        } yield result
+
+        val (status, json) = statusAndJson(response)
+        status shouldBe 410
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+
+      describe("completeness") {
+        def response(timedOut: Boolean, failedShards: Int) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+            SearchHits(Total(42L, "eq"), 0.0, Array.empty))
+
+        it("returns the exact total when every shard completed in time") {
+          ES.completeCount(response(timedOut = false, failedShards = 0)) shouldBe 42L
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
+          it(s"refuses to publish a count when $reason") {
+            the[Exception] thrownBy ES.completeCount(incomplete) shouldBe ImageRankIncomplete
+          }
         }
       }
     }

@@ -21,11 +21,11 @@ import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
-import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.{Query, RangeQuery}
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
-import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, Sort}
+import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, Sort, SortMode, SortOrder}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
 import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
@@ -949,6 +949,100 @@ class ElasticSearch(
       )
     }
   }
+
+  def imageRank(params: ImageRankParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageRankRawResults] =
+    try imageRankQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageRankQuery(params: ImageRankParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageRankRawResults] =
+    executeAndLog(imageRankRequest(params), "image-rank", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageRankRawResults(
+        rank  = completeCount(r.result),
+        pitId = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // A size-0 _search rather than _count, because only _search can bind to a PIT.
+  private[elasticsearch] def imageRankRequest(params: ImageRankParams): SearchRequest = {
+    val sortClause = admitRankSortClause(params.sort)
+    if (params.sortValues.length != sortClause.length)
+      throw InvalidUriParams(
+        s"sortValues length ${params.sortValues.length} must equal sort clause length ${sortClause.length}")
+
+    admittedSearch(params.searchParams, params.pitId, Some(sortsBeforeTuple(sortClause, params.sortValues)))
+      .size(0)
+      .trackTotalHits(true)
+  }
+
+  // Kupua sends one semantic sort (with any configured expansion) plus uploadTime and id. The bound
+  // matters because the tie predicates grow quadratically with the clause count.
+  private val MaxRankSortClauses = 10
+
+  // The rank predicates assume nulls sort last and multi-valued fields sort by their maximum.
+  private def admitRankSortClause(sort: Seq[JsObject]): Seq[FieldSort] = {
+    if (sort.length > MaxRankSortClauses)
+      throw InvalidUriParams(s"rank supports at most $MaxRankSortClauses sort clauses, got ${sort.length}")
+
+    admitSortClause(sort).map {
+      case fs: FieldSort if fs.missing.exists(_ != "_last") =>
+        throw InvalidUriParams(s"rank supports only missing _last, not ${fs.missing.get}, for ${fs.field}")
+      case fs: FieldSort if fs.sortMode.exists(_ != SortMode.Max) =>
+        throw InvalidUriParams(s"rank supports only sort mode max, not ${fs.sortMode.get}, for ${fs.field}")
+      case fs: FieldSort => fs
+      case other => throw InvalidUriParams(s"rank supports only field sorts, not $other")
+    }
+  }
+
+  // Ported from Kupua's countBefore: an image sorts before the tuple when it ties on every earlier
+  // clause and sorts strictly before on one clause.
+  private def sortsBeforeTuple(sortClause: Seq[FieldSort], sortValues: Seq[JsValue]): Query = {
+    val clauses = sortClause.zip(sortValues)
+    val alternatives = clauses.indices.map { i =>
+      val (sort, value) = clauses(i)
+      val ties = clauses.take(i).map { case (tiedSort, tiedValue) => tiesWith(tiedSort, tiedValue) }
+      if (ties.isEmpty) sortsBefore(sort, value) else boolQuery().must(ties :+ sortsBefore(sort, value))
+    }
+    boolQuery().should(alternatives).minimumShouldMatch(1)
+  }
+
+  // A max-mode sort compares each image's greatest value, so "equal" also excludes greater values.
+  private def tiesWith(sort: FieldSort, value: JsValue): Query = value match {
+    case JsNull => boolQuery().not(hasSortValue(sort))
+    case _ =>
+      val bound = jsValueToAny(value)
+      val atBound = sortRange(sort)(_.copy(gte = Some(bound), lte = Some(bound)))
+      if (sort.sortMode.contains(SortMode.Max)) boolQuery().must(atBound).not(sortRange(sort)(_.copy(gt = Some(bound))))
+      else atBound
+  }
+
+  // Nulls sort last in either direction, so everything with a value sorts before a null.
+  private def sortsBefore(sort: FieldSort, value: JsValue): Query = value match {
+    case JsNull => hasSortValue(sort)
+    case _ =>
+      val bound = jsValueToAny(value)
+      if (sort.order == SortOrder.DESC) sortRange(sort)(_.copy(gt = Some(bound)))
+      else if (sort.sortMode.contains(SortMode.Max)) boolQuery().must(hasSortValue(sort)).not(sortRange(sort)(_.copy(gte = Some(bound))))
+      else sortRange(sort)(_.copy(lt = Some(bound)))
+  }
+
+  // Without the nested wrapper, queries on a field inside a nested type match no parent document.
+  private def onSortField(sort: FieldSort)(query: Query): Query =
+    sort.nested.flatMap(_.path).fold(query)(path => nestedQuery(path, query))
+
+  private def hasSortValue(sort: FieldSort): Query = onSortField(sort)(existsQuery(sort.field))
+
+  private def sortRange(sort: FieldSort)(bounds: RangeQuery => RangeQuery): Query =
+    onSortField(sort)(bounds(rangeQuery(sort.field)))
+
+  // A timed-out or partly failed search returns a smaller count without an error; publishing it
+  // would place the caller at the wrong position.
+  private[elasticsearch] def completeCount(result: SearchResponse)(implicit logMarker: LogMarker): Long =
+    if (result.isTimedOut || result.shards.failed > 0) {
+      logger.warn(logMarker, s"Incomplete rank count: timedOut=${result.isTimedOut}, failedShards=${result.shards.failed}")
+      throw ImageRankIncomplete
+    } else result.totalHits
 
   private def sortValueToJsValue(v: AnyRef): JsValue = v match {
     case null                  => JsNull

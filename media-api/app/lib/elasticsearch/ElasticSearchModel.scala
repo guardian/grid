@@ -182,6 +182,38 @@ object ImageWindowParamsBody {
     }
 }
 
+// Params for POST /images/rank: how many admitted images sort strictly before sortValues.
+case class ImageRankParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  sortValues:   Seq[JsValue],
+  pitId:        Option[String],
+)
+
+case class ImageRankRawResults(rank: Long, pitId: Option[String])
+
+case object ImageRankIncomplete extends Exception("The rank count did not complete on every shard")
+
+object ImageRankParamsBody {
+  // A reversed or end-anchored order would change what "before" means, so it is refused, not ignored.
+  private def refuseOrderingField(body: JsValue): Option[String] =
+    Seq("reverse", "seekToEnd")
+      .find(field => (body \ field).asOpt[Boolean].contains(true))
+      .map(field => s"$field is unsupported by rank; it counts in the sort's own order")
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageRankParams] =
+    for {
+      _          <- refuseOrderingField(body).toLeft(())
+      sort       <- SortClauseBody.fromJson(body)
+      sortValues <- SortValuesBody.fromJson(body).flatMap(_.toRight("sortValues is required: rank counts the images before a tuple"))
+    } yield ImageRankParams(
+      searchParams = searchParams,
+      sort         = sort,
+      sortValues   = sortValues,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+
 // Parses a POST /images/search-after request body into SearchParams.
 object SearchParamsBody {
   def fromJson(body: JsValue, tier: Tier): Either[String, SearchParams] = {

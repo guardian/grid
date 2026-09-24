@@ -30,6 +30,7 @@ class ImageQueryController(
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   private def SearchAfterPitExpiredResponse = respondError(Gone, "search-after-pit-expired", SearchAfterPitExpired.getMessage)
+  private def RankIncompleteResponse = respondError(ServiceUnavailable, "rank-incomplete", ImageRankIncomplete.getMessage)
   private def InvalidParamsResponse(message: String) = respondError(BadRequest, "invalid-params", message)
 
   private val readFailureResponses: PartialFunction[Throwable, Result] = {
@@ -108,6 +109,25 @@ class ImageQueryController(
             pitId       = raw.pitId,
           ))).as(ArgoMediaType)
         }.recover(readFailureResponses)
+      )
+    }
+  }
+
+  private case class ImageRankResponse(rank: Long, pitId: Option[String])
+  private implicit val imageRankResponseWrites: OWrites[ImageRankResponse] = Json.writes[ImageRankResponse]
+
+  def rankImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-rank",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    admitSearchParams(request) { validParams =>
+      ImageRankParamsBody.fromJson(request.body, validParams).fold(
+        err => Future.successful(InvalidParamsResponse(err)),
+        params => elasticSearch.imageRank(params).map { raw =>
+          Ok(Json.toJson(ImageRankResponse(rank = raw.rank, pitId = raw.pitId))).as(ArgoMediaType)
+        }.recover(readFailureResponses.orElse { case ImageRankIncomplete => RankIncompleteResponse })
       )
     }
   }
