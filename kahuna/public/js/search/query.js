@@ -99,6 +99,12 @@ query.controller('SearchQueryCtrl', [
     ctrl.filterMyUploads = false;
     let lastUploadedByEventKey;
 
+    // Captured before the first digest: the seeded nonFree reaches $stateParams
+    // (via the useAISearch watcher) well before getSession() resolves, so by then
+    // the live params can no longer tell us whether the user asked for one.
+    const hasNonFreePreference =
+      $stateParams.nonFree !== undefined || storage.getJs("isNonFree", true) !== null;
+
     // media-api treats an absent nonFree param as 'false', so the model must never
     // silently substitute a different value for it - that would leave the toggle
     // claiming payable images are shown while the results are free-only.
@@ -725,15 +731,16 @@ query.controller('SearchQueryCtrl', [
 
       // If nonFree is provided in URL params use that, otherwise the stored
       // preference, falling back to the user's showPaid permission on first login.
-      if ($stateParams.nonFree !== undefined) {
+      if (ctrl.usePermissionsFilter && !hasNonFreePreference) {
+        ctrl.filter.nonFree = toNonFreeString(defNonFree);
+        storage.setJs("isNonFree", ctrl.filter.nonFree, true);
+      } else if ($stateParams.nonFree !== undefined) {
         ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
         storage.setJs("isNonFree", ctrl.filter.nonFree, true);
       } else {
         const isNonFree = storage.getJs("isNonFree", true);
         if (isNonFree === null) {
-          ctrl.filter.nonFree = ctrl.usePermissionsFilter
-            ? toNonFreeString(defNonFree)
-            : toNonFreeString($stateParams.nonFree);
+          ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
           storage.setJs("isNonFree", ctrl.filter.nonFree, true);
         } else {
           ctrl.filter.nonFree = isNonFreeString(isNonFree) ? 'true' : 'false';
