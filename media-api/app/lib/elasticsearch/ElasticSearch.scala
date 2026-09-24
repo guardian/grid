@@ -910,6 +910,46 @@ class ElasticSearch(
     }
   }
 
+  // Kupua's shallow-seek threshold. Deeper positions use cursor, rank and profile reads, never from/size.
+  private val ShallowWindowOffsetLimit = 10000
+
+  def imageWindow(params: ImageWindowParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageWindowRawResults] =
+    try imageWindowQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageWindowQuery(params: ImageWindowParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageWindowRawResults] = {
+    val searchParams = params.searchParams
+    if (searchParams.offset >= ShallowWindowOffsetLimit)
+      throw InvalidUriParams(s"offset must be below $ShallowWindowOffsetLimit; deeper positions need a cursor read")
+
+    val sortClause = admitSortClause(params.sort)
+    val countTotal = searchParams.countAll.getOrElse(true)
+
+    val request = admittedSearch(searchParams, params.pitId)
+      .from(searchParams.offset)
+      .size(searchParams.length)
+      .sortBy(sortClause)
+      .trackTotalHits(countTotal)
+
+    executeAndLog(withLeanImageSource(request), "image-window", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+
+      val rawHits = r.result.hits.hits.toSeq
+      val (hits, tuples) = rawHits.flatMap { hit =>
+        resolveLeanHit(hit).map(image => ((image.instance.id, image), publicTuple(hit, sortClause.length)))
+      }.unzip
+
+      ImageWindowRawResults(
+        hits        = hits,
+        sortValues  = tuples,
+        total       = if (countTotal) Some(r.result.totalHits) else None,
+        rawHitCount = rawHits.size,
+        pitId       = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+  }
+
   private def sortValueToJsValue(v: AnyRef): JsValue = v match {
     case null                  => JsNull
     case n: java.lang.Long if n == Long.MinValue || n == Long.MaxValue => JsNull

@@ -77,6 +77,41 @@ class ImageQueryController(
     }
   }
 
+  private case class ImageWindowResponse(
+    data:        Seq[EmbeddedEntity[JsValue]],
+    offset:      Int,
+    total:       Option[Long],
+    sortValues:  Seq[Seq[JsValue]],
+    rawHitCount: Int,
+    pitId:       Option[String],
+  )
+  private implicit val imageWindowResponseWrites: OWrites[ImageWindowResponse] = Json.writes[ImageWindowResponse]
+
+  def windowImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-window",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val include = includedFrom(request)
+
+    admitSearchParams(request) { validParams =>
+      ImageWindowParamsBody.fromJson(request.body, validParams).fold(
+        err => Future.successful(InvalidParamsResponse(err)),
+        params => elasticSearch.imageWindow(params).map { raw =>
+          Ok(Json.toJson(ImageWindowResponse(
+            data        = raw.hits.map((hitToImageEntity(request, include) _).tupled),
+            offset      = validParams.offset,
+            total       = raw.total,
+            sortValues  = raw.sortValues,
+            rawHitCount = raw.rawHitCount,
+            pitId       = raw.pitId,
+          ))).as(ArgoMediaType)
+        }.recover(readFailureResponses)
+      )
+    }
+  }
+
   private def admitSearchParams(request: Authentication.Request[JsValue])(read: SearchParams => Future[Result]): Future[Result] =
     SearchParamsBody.fromJson(request.body, request.user.accessor.tier)
       .map(restrictDeletedSearch(request.user))

@@ -931,6 +931,223 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
       }
     }
+
+    describe("window") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val defaultSort = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      val internal = SearchParams(tier = Internal)
+
+      val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+      def orderingFixture(id: String, takenDay: Option[Int], uploadHour: Int, usageDays: Int*): Image = {
+        val image = createImage(id, Handout(), usages = usageDays.map(day => createDigitalUsage(t0.plusDays(day))).toList)
+        image.copy(uploadTime = t0.plusHours(uploadHour), metadata = image.metadata.copy(dateTaken = takenDay.map(day => t0.plusDays(day))))
+      }
+      // Ties on dateTaken (a, b, i) and on uploadTime within them (a, b); missing dateTaken (d, e, h);
+      // ties on max usage date (b, f and a, d); images without usages (c, e, g, h).
+      val orderingFixtures = Seq(
+        orderingFixture("win-a", Some(3), 1, 5),
+        orderingFixture("win-b", Some(3), 1, 2, 9),
+        orderingFixture("win-c", Some(1), 2),
+        orderingFixture("win-d", None, 1, 5),
+        orderingFixture("win-e", None, 3),
+        orderingFixture("win-f", Some(7), 2, 9),
+        orderingFixture("win-g", Some(1), 3),
+        orderingFixture("win-h", None, 2),
+        orderingFixture("win-i", Some(3), 3, 2),
+      )
+      val orderingScope = internal.copy(ids = Some(orderingFixtures.map(_.id).toList))
+
+      val takenDescending = Seq(Json.obj("metadata.dateTaken" -> "desc"), Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      val takenAscending = Seq(Json.obj("metadata.dateTaken" -> "asc"), Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      val lastUsed = Seq(
+        Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "mode" -> "max", "missing" -> "_last", "nested" -> Json.obj("path" -> "usages"))),
+        Json.obj("uploadTime" -> "desc"),
+        Json.obj("id" -> "asc"),
+      )
+
+      def window(searchParams: SearchParams, sort: Seq[JsObject], offset: Int, length: Int, pitId: Option[String] = None) =
+        Await.result(ES.imageWindow(ImageWindowParams(searchParams.copy(offset = offset, length = length), sort, pitId)), fiveSeconds)
+
+      // Pages the way Kupua does: each page's last tuple (null-primary in the null zone) is the next cursor.
+      def d3Walk(searchParams: SearchParams, sort: Seq[JsObject]): Seq[(String, Seq[JsValue])] = {
+        def walk(cursor: Option[Seq[JsValue]], acc: Seq[(String, Seq[JsValue])], pages: Int): Seq[(String, Seq[JsValue])] = {
+          val page = Await.result(ES.searchAfter(SearchAfterParams(
+            searchParams.copy(length = 2, countAll = Some(false)), sort, cursor, None)), fiveSeconds)
+          if (page.hits.isEmpty || pages > 50) acc
+          else walk(page.nextSortValues, acc ++ page.hits.map(_._1).zip(page.sortValues), pages + 1)
+        }
+        walk(None, Seq.empty, 0)
+      }
+
+      def pageIds(response: Future[Result]): Set[String] = whenReady(response, timeout, interval) { result =>
+        result.header.status shouldBe 200
+        val json = Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+        (json \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String]).toSet
+      }
+
+      def viaD3AndWindow(controller: controllers.ImageQueryController, body: JsObject): (Set[String], Set[String]) = (
+        pageIds(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(body ++ Json.obj("sort" -> sortClause)))),
+        pageIds(controller.windowImages().apply(FakeRequest("POST", "/images/window").withBody(body ++ Json.obj("sort" -> sortClause)))),
+      )
+
+      Seq("dateTaken descending" -> takenDescending, "dateTaken ascending" -> takenAscending, "last used (nested max)" -> lastUsed).foreach {
+        case (name, sort) =>
+          it(s"returns exactly positions [k, k+n) of a D3 cursor walk, ids and tuples: $name") {
+            withImages(orderingFixtures) { _ =>
+              val walked = d3Walk(orderingScope, sort)
+              walked.map(_._1) should contain theSameElementsAs orderingFixtures.map(_.id)
+              walked.exists(_._2.head == JsNull) shouldBe true
+
+              for {
+                offset <- walked.indices
+                length <- Seq(1, 3)
+              } withClue(s"offset $offset, length $length: ") {
+                val result = window(orderingScope, sort, offset, length)
+                result.hits.map(_._1).zip(result.sortValues) shouldBe walked.slice(offset, offset + length)
+              }
+            }
+          }
+      }
+
+      it("reports the exact total when counting, omits it otherwise, and counts raw hits") {
+        withImages(orderingFixtures) { _ =>
+          val counted = window(orderingScope, defaultSort, 2, 3)
+          counted.total shouldBe Some(orderingFixtures.size.toLong)
+          counted.rawHitCount shouldBe 3
+
+          window(orderingScope.copy(countAll = Some(false)), defaultSort, 2, 3).total shouldBe None
+        }
+      }
+
+      it("counts undecodable hits in rawHitCount instead of hiding them") {
+        val undecodable = "win-undecodable"
+        val saved = executeAndLog(indexInto(index) id undecodable source Json.stringify(Json.obj(
+          "id" -> undecodable, "uploadTime" -> "2020-01-01T00:00:00.000Z")), "Indexing undecodable fixture")
+        whenReady(saved.flatMap(_ => client.execute(refreshIndex(index))), timeout, interval)(_ => ())
+        try {
+          withImages(orderingFixtures.take(1)) { _ =>
+            val result = window(internal.copy(ids = Some(List(undecodable, "win-a"))), defaultSort, 0, 10)
+            result.rawHitCount shouldBe 2
+            result.hits.map(_._1) shouldBe Seq("win-a")
+            result.sortValues should have size 1
+          }
+        } finally {
+          whenReady(client.execute(deleteById(index, undecodable)).flatMap(_ => client.execute(refreshIndex(index))), timeout, interval)(_ => ())
+        }
+      }
+
+      it("serves the deepest shallow request (offset 9,999, length 200) and refuses offset 10,000") {
+        window(internal, defaultSort, 9999, 200).hits shouldBe empty
+
+        whenReady(ES.imageWindow(ImageWindowParams(internal.copy(offset = 10000, length = 1), defaultSort, None)).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message should include("offset")
+        }
+      }
+
+      it("refuses an empty sort clause") {
+        whenReady(ES.imageWindow(ImageWindowParams(internal.copy(length = 1), Nil, None)).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message should include("sort")
+        }
+      }
+
+      it("refuses an explicit _shard_doc sort, so public tuples stay PIT-independent") {
+        val shardDocSort = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("_shard_doc" -> "asc"))
+        whenReady(ES.imageWindow(ImageWindowParams(internal.copy(length = 1), shardDocSort, None)).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message should include("_shard_doc")
+        }
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, defaultSort, None, None)), fiveSeconds)
+        val viaWindow = window(syndication, defaultSort, 0, 200)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        viaWindow.hits.map(_._1) shouldBe viaD3.hits.map(_._1)
+        viaWindow.total shouldBe Some(viaD3.total)
+      }
+
+      it("honours a PIT without leaking _shard_doc into tuples") {
+        withImages(orderingFixtures) { _ =>
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+          val live = window(orderingScope, takenDescending, 1, 4)
+          val pinned = window(orderingScope, takenDescending, 1, 4, Some(pitId))
+
+          pinned.hits.map(_._1) shouldBe live.hits.map(_._1)
+          pinned.sortValues shouldBe live.sortValues
+          pinned.sortValues.foreach(_ should have length takenDescending.length.toLong)
+          pinned.pitId shouldBe defined
+        }
+      }
+
+      it("scopes deleted hits identically through D3 and window, for ordinary and privileged callers") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"win-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          Seq(uploader, otherUploader).foreach { principal =>
+            val (viaD3, viaWindow) = viaD3AndWindow(imageQueryControllerFor(principal, ES, writer),
+              base ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> "not-the-uploader@example.test"))
+            viaD3 shouldBe Set(s"win-deleted-${principal.lastName}")
+            viaWindow shouldBe viaD3
+          }
+          val (privilegedD3, privilegedWindow) = viaD3AndWindow(imageQueryControllerFor(uploader, ES, writer, privileged = true),
+            base ++ Json.obj("q" -> "is:deleted"))
+          privilegedD3 shouldBe deleted.map(_.id).toSet
+          privilegedWindow shouldBe privilegedD3
+        }
+      }
+
+      // Agreement only for the witness: its membership (and whether the replaced default still applies
+      // alongside user usage negatives) changes with #4957, so it is deliberately not asserted. The
+      // default-query controls prove both paths apply the admitted query and its defaults.
+      it("admits the default query and a GRID-001 witness identically through D3 and window") {
+        val fixtures = Seq(
+          createImage("win-usage-witness", Handout(), usages = List(createPrintUsage(), createDigitalUsage())),
+          createImage("win-usage-replaced", Handout(),
+            usages = List(createUsage(ComposerUsageReference, DigitalUsage, com.gu.mediaservice.model.usage.ReplacedUsageStatus, t0))),
+          createImage("win-usage-none", Handout()),
+        )
+        withImages(fixtures) { base =>
+          val controller = imageQueryControllerFor(uploader, ES, writer)
+          val (defaultD3, defaultWindow) = viaD3AndWindow(controller, base)
+          defaultD3 should contain("win-usage-none")
+          defaultD3 should not contain "win-usage-replaced"
+          defaultWindow shouldBe defaultD3
+
+          val (witnessD3, witnessWindow) = viaD3AndWindow(controller, base ++ Json.obj("q" -> "-usages@platform:print -usages@status:published"))
+          witnessWindow shouldBe witnessD3
+        }
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val response = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+          result <- controller.windowImages().apply(FakeRequest("POST", "/images/window")
+            .withBody(Json.obj("sort" -> sortClause, "pitId" -> opened.result.id)))
+        } yield result
+
+        whenReady(response, timeout, interval) { result =>
+          result.header.status shouldBe 410
+          val json = Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+          (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+        }
+      }
+
+      it("responds 422 to a start position of 10,000") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        whenReady(controller.windowImages().apply(FakeRequest("POST", "/images/window")
+          .withBody(Json.obj("sort" -> sortClause, "offset" -> 10000))), timeout, interval) { result =>
+          result.header.status shouldBe 422
+        }
+      }
+    }
   }
 
   describe("searchAfter") {

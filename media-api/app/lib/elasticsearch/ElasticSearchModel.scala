@@ -109,12 +109,17 @@ case class SearchAfterRawResults(
 
 case object SearchAfterPitExpired extends Exception("The search point in time has expired")
 
+// Client-resolved ES sort clause shared by Kupua's ordered reads (Option B transport).
+object SortClauseBody {
+  def fromJson(body: JsValue): Either[String, Seq[JsObject]] = (body \ "sort").toOption match {
+    case None        => scala.util.Right(Seq.empty)
+    case Some(value) => value.validate[Seq[JsObject]].asEither.left.map(_ => "sort must be an array of objects")
+  }
+}
+
 object SearchAfterParamsBody {
   def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] = {
-    val sort = (body \ "sort").toOption match {
-      case None        => scala.util.Right(Seq.empty)
-      case Some(value) => value.validate[Seq[JsObject]].asEither.left.map(_ => "sort must be an array of objects")
-    }
+    val sort = SortClauseBody.fromJson(body)
     val sortValues = (body \ "sortValues").toOption match {
       case None        => scala.util.Right(None)
       case Some(value) => value.validate[Seq[JsValue]].asEither
@@ -138,6 +143,42 @@ object SearchAfterParamsBody {
       seekToEnd    = (body \ "seekToEnd").asOpt[Boolean].getOrElse(false),
     )
   }
+}
+
+// Params for the POST /images/window shallow offset read. Offset and length live in searchParams.
+case class ImageWindowParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  pitId:        Option[String],
+)
+
+// rawHitCount counts every ES hit, including any that failed to decode and are absent from hits.
+case class ImageWindowRawResults(
+  hits:        Seq[(String, SourceWrapper[Image])],
+  sortValues:  Seq[Seq[JsValue]],
+  total:       Option[Long],
+  rawHitCount: Int,
+  pitId:       Option[String],
+)
+
+object ImageWindowParamsBody {
+  // Cursor fields are refused rather than ignored: a window addresses positions by offset only.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by the offset window; use D3 for cursor reads" }
+  }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageWindowParams] =
+    refuseCursorField(body).toLeft(()).flatMap(_ => SortClauseBody.fromJson(body)).map { sort =>
+      ImageWindowParams(
+        searchParams = searchParams,
+        sort         = sort,
+        pitId        = (body \ "pitId").asOpt[String],
+      )
+    }
 }
 
 // Parses a POST /images/search-after request body into SearchParams.
