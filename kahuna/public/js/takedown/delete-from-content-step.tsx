@@ -56,22 +56,36 @@ const UsageReferenceIcon: React.FC<{ type: string }> = ({ type }) => {
 export const DeleteFromContentStep: React.FC<{
   image: GridImage | null;
 }> = () => {
-  const { activeContent, activeContentLoading: loading } = useTakedownContext();
+  const { activeContent, activeContentLoading, usages, usagesLoading } =
+    useTakedownContext();
+
+  const frontsUsages = (usages || []).filter(
+    (usage) => usage.status === "unknown"
+  );
+  const pendingPrintUsages = (usages || []).filter(
+    (usage) => usage.status === "pending" && usage.platform === "print"
+  );
+
+  if ((activeContentLoading || usagesLoading) && !activeContent) {
+    return (
+      <Typography
+        element="p"
+        variant="bodySm"
+        theme={standThemeOverride.typography.disabled}
+      >
+        Checking for pending or published content...
+      </Typography>
+    );
+  }
 
   return (
     <ClassNames>
       {({ css: classNameCss }) => {
-        if (loading && !activeContent) {
-          return (
-            <Typography
-              element="p"
-              variant="bodySm"
-              theme={standThemeOverride.typography.disabled}
-            >
-              Checking for pending or published content...
-            </Typography>
-          );
-        }
+        const listStyles = classNameCss`
+          padding: 0 0 0 ${semanticSpacing.stackMd};
+          margin: ${semanticSpacing.stackMd} 0;
+          border-left: 1px dotted ${semanticColors.border.strong};
+        `;
 
         return (
           <>
@@ -81,8 +95,8 @@ export const DeleteFromContentStep: React.FC<{
                 variant="bodySm"
                 theme={standThemeOverride.typography.default}
               >
-                This image is not currently used in any pending or published
-                content.
+                This image is not currently used in any pending or published web
+                articles.
               </Typography>
             )}
 
@@ -93,17 +107,11 @@ export const DeleteFromContentStep: React.FC<{
                   variant="bodySm"
                   theme={standThemeOverride.typography.default}
                 >
-                  This image is currently used in the following content. Remove
-                  it before continuing.
+                  This image is currently used in the following web articles.
+                  Remove it before continuing.
                 </Typography>
 
-                <ul
-                  className={classNameCss`
-                    padding: 0 0 0 ${semanticSpacing.stackMd};
-                    margin: ${semanticSpacing.stackMd} 0;
-                    border-left: 1px dotted ${semanticColors.border.strong};
-                  `}
-                >
+                <ul className={listStyles}>
                   {activeContent.map((content) => (
                     <li
                       key={content.contentId}
@@ -165,6 +173,74 @@ export const DeleteFromContentStep: React.FC<{
                           </Link>
                         </div>
                       </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {frontsUsages.length > 0 && (
+              <>
+                <Typography
+                  element="p"
+                  variant="bodySm"
+                  theme={standThemeOverride.typography.default}
+                >
+                  This image has been used in below fronts. Please review and
+                  ensure that the image is no longer live in fronts before
+                  proceeding.
+                </Typography>
+                <ul className={listStyles}>
+                  {frontsUsages.map((usage) => (
+                    <li
+                      key={usage.id}
+                      className={classNameCss`
+                        display: flex;
+                        margin-bottom: ${semanticSpacing.stackXxs};
+                      `}
+                    >
+                      <Link
+                        href={`${window._clientConfig.contentWebBaseUrl}/${usage.frontUsageMetadata.front}`}
+                        target="_blank"
+                        theme={standThemeOverride.link}
+                        cssOverrides={linkWithIconStyles}
+                      >
+                        <UsageReferenceIcon type="frontend" />
+                        {usage.frontUsageMetadata.front}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {pendingPrintUsages.length > 0 && (
+              <>
+                <Typography
+                  element="p"
+                  variant="bodySm"
+                  theme={standThemeOverride.typography.default}
+                >
+                  This image is used in below pending print articles. Please
+                  remove it from InDesign before proceeding.
+                </Typography>
+                <ul className={listStyles}>
+                  {pendingPrintUsages.map((usage) => (
+                    <li
+                      key={usage.id}
+                      className={classNameCss`
+                        display: flex;
+                        margin-bottom: ${semanticSpacing.stackXxs};
+                      `}
+                    >
+                      <Typography
+                        element="span"
+                        variant="bodyBoldSm"
+                        theme={standThemeOverride.typography.secondary}
+                      >
+                        {usage.references.find((ref) => ref.type === "indesign")
+                          ?.name ?? "No title given"}
+                      </Typography>
                     </li>
                   ))}
                 </ul>

@@ -32,6 +32,7 @@ function getCommonConfig(config) {
   const useLocalPermissions = !isNoAuthorisation && Boolean(config.coreStackProps.PermissionsBucket);
 
   return `domain.root="${config.DOMAIN}"
+        |content.web.baseUrl="https://notused.example.com"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |thrall.kinesis.stream.name="${config.coreStackProps.ThrallMessageStream}"

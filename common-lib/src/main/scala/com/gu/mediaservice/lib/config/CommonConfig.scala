@@ -81,6 +81,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val domainRootOverride: Option[String] = stringOpt("domain.root-override")
+  val contentWebBaseUrl: String = string("content.web.baseUrl")
   val rootAppName: String = stringDefault("app.name.root", "media")
   val serviceHosts = ServiceHosts(
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),

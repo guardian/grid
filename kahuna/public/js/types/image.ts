@@ -20,12 +20,26 @@ export type UsageReference = {
   name?: string;
 };
 
-export type Usage = {
+type BaseUsage = {
   id: string;
   platform: string;
-  status: string;
   references: UsageReference[];
 };
+
+type FrontsUsage = BaseUsage & {
+  status: "unknown";
+  frontUsageMetadata: {
+    front: string;
+    addedBy: string;
+  };
+};
+
+// @TODO: Further define other usage types with corresponding metadata
+export type Usage =
+  | (BaseUsage & {
+      status: "pending" | "published" | "removed" | "downloaded";
+    })
+  | FrontsUsage;
 
 export type UsageResource = {
   getData: () => Promise<Usage>;
