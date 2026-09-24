@@ -19,7 +19,7 @@ Given('I am permitted to upload images', async ({ page }) => {
 });
 
 When('the upload page loads', async ({ page }) => {
-  await expect(uploadPage(page).main).toBeVisible();
+  await expect(uploadPage(page).main).toBeVisible({ timeout: 5000 });
 });
 
 Then('I should see the file upload prompt', async ({ page }) => {
