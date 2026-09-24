@@ -814,6 +814,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     def assertBothModes(body: JsObject, expected: Set[String]): Unit = {
       val controller = mediaApiFor(uploader, ES, writer, privileged = true)
+      val d3 = imageQueryControllerFor(uploader, ES, writer, privileged = true)
       val queryParams = body.fields.map { case (name, value) =>
         name -> (value match {
           case JsString(text) => text
@@ -821,7 +822,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         })
       }
       assertPage(controller.imageSearch().apply(getRequest(queryParams.toList: _*)), expected)
-      assertPage(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+      assertPage(d3.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
         .withBody(body ++ Json.obj("sort" -> sortClause))), expected)
     }
 
@@ -838,8 +839,9 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       withImages(deleted ++ Seq(live, replaced)) { base =>
         Seq(uploader, otherUploader).foreach { principal =>
           val controller = mediaApiFor(principal, ES, writer)
+          val d3 = imageQueryControllerFor(principal, ES, writer)
           Seq("is:deleted", "keyword:test is:deleted", "is:DELETED -is:deletedx", "is:\"deleted\"", "is:'deleted'").foreach { query =>
-            assertPage(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(
+            assertPage(d3.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(
               base ++ Json.obj("sort" -> sortClause, "q" -> query, "uploadedBy" -> "not-the-uploader@example.test")
             )), Set(s"d3-deleted-${principal.lastName}"))
           }
@@ -847,12 +849,12 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             "q" -> "is:deleted", "ids" -> deleted.map(_.id).mkString(","), "countAll" -> "true"
           )), Set(s"d3-deleted-${principal.lastName}"))
         }
-        val privileged = mediaApiFor(uploader, ES, writer, privileged = true)
+        val privileged = imageQueryControllerFor(uploader, ES, writer, privileged = true)
         Seq("is:deleted", "is:\"deleted\"", "is:DELETED").foreach { query =>
           assertPage(privileged.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
             .withBody(base ++ Json.obj("sort" -> sortClause, "q" -> query))), deleted.map(_.id).toSet)
         }
-        val ordinary = mediaApiFor(uploader, ES, writer)
+        val ordinary = imageQueryControllerFor(uploader, ES, writer)
         Seq(Json.obj(), Json.obj("q" -> JsNull), Json.obj("q" -> 42), Json.obj("q" -> ""),
           Json.obj("q" -> "-is:deleted"), Json.obj("q" -> "-is:deletedx"),
           Json.obj("q" -> "-description:\"is:deleted\""), Json.obj("q" -> "fixture\tterm")).foreach { query =>
@@ -887,7 +889,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("returns a D3 expiry contract for a closed PIT search context") {
-      val controller = mediaApiFor(uploader, ES, writer)
+      val controller = imageQueryControllerFor(uploader, ES, writer)
       val response = for {
         opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
         _ <- client.execute(deletePointInTime(opened.result.id))
@@ -903,7 +905,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
 
     it("does not classify malformed PIT IDs as D3 expiry") {
-      val controller = mediaApiFor(uploader, ES, writer)
+      val controller = imageQueryControllerFor(uploader, ES, writer)
       val response = controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
         .withBody(Json.obj("sort" -> sortClause, "pitId" -> "not-a-pit")))
 
@@ -1506,6 +1508,22 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
         ex shouldBe an[InvalidUriParams]
         ex.asInstanceOf[InvalidUriParams].message should include("null")
+      }
+    }
+
+    it("explicit _shard_doc sort → Future.failed(InvalidUriParams), so public tuples stay PIT-independent") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val params = SearchAfterParams(
+        searchParams = SearchParams(tier = Internal, length = 3),
+        sort         = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("_shard_doc" -> "asc")),
+        sortValues   = None,
+        pitId        = None,
+      )
+
+      whenReady(ES.searchAfter(params).failed, timeout, interval) { ex =>
+        ex shouldBe an[InvalidUriParams]
+        ex.asInstanceOf[InvalidUriParams].message should include("_shard_doc")
       }
     }
 

@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopw
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
-import com.sksamuel.elastic4s.{ElasticDsl, Hit}
+import com.sksamuel.elastic4s.{ElasticDsl, Hit, Response}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.common.Operator.Or
@@ -727,23 +727,107 @@ class ElasticSearch(
   private val imageSourceFields: Seq[String] =
     classOf[Image].getDeclaredFields.toIndexedSeq.map(_.getName)
 
-  // Heavy fields excluded from this endpoint's payload. fieldAliasConfigs re-adds needed
+  // Heavy fields excluded from Kupua-facing image reads. fieldAliasConfigs re-adds needed
   // leaf paths individually (e.g. pur:adultContentWarning, for client-side graphic-image blur).
-  private val searchAfterDropFields = Set("embedding", "originalMetadata", "fileMetadata")
+  private val leanDropFields = Set("embedding", "originalMetadata", "fileMetadata")
 
   // _source here is missing the dropped fields, which the strict Image reader rejects.
   // Strip them from a copy before validating, but keep the full source for alias extraction.
   // Kept separate from resolveHit/mapImageFrom (production search), which must stay untouched.
-  private def resolveSearchAfterHit(hit: SearchHit): Option[SourceWrapper[Image]] = {
+  private def resolveLeanHit(hit: SearchHit): Option[SourceWrapper[Image]] = {
     val source   = Json.parse(hit.sourceAsString)
-    val forImage = searchAfterDropFields.foldLeft(source.as[JsObject])(_ - _)
+    val forImage = leanDropFields.foldLeft(source.as[JsObject])(_ - _)
     forImage.validate[Image] match {
       case JsSuccess(image, _) => Some(SourceWrapper(source, image, hit.index, JsObject.empty))
       case e: JsError =>
-        logger.error("Failed to parse search-after image from source string " + hit.id + ": " + e.toString)
+        logger.error("Failed to parse lean image from source string " + hit.id + ": " + e.toString)
         None
     }
   }
+
+  // The Image schema minus leanDropFields, plus the alias leaf paths so their values survive
+  // (e.g. fileMetadata.icc.Profile Description). The resulting PARTIAL fileMetadata is why
+  // image reads must resolve hits with resolveLeanHit.
+  private def withLeanImageSource(request: SearchRequest): SearchRequest = {
+    val includes = imageSourceFields.filterNot(leanDropFields) ++ config.fieldAliasConfigs.map(_.elasticsearchPath)
+    request.sourceInclude(includes.head, includes.tail: _*)
+  }
+
+  // Every Kupua-facing read starts here, so all of them share one query scope, target and timeout.
+  private def admittedSearch(searchParams: SearchParams, pitId: Option[String], extraFilter: Option[Query] = None): SearchRequest = {
+    val rawQuery = queryBuilder.makeQuery(searchParams.structuredQuery)
+    val filteredQuery = queryBuilder.buildFilterOpt(searchParams, searchFilters, syndicationFilter)
+      .map(f => boolQuery() must rawQuery filter f)
+      .getOrElse(rawQuery)
+    val query = extraFilter.map(f => boolQuery().must(filteredQuery).filter(f)).getOrElse(filteredQuery)
+
+    val target = pitId match {
+      case Some(pid) =>
+        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
+        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
+        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
+        withSearchQueryTimeout(ElasticDsl.search(Nil).query(query)).pit(Pit(pid).keepAlive(1.minute))
+      case None =>
+        prepareSearch(query)
+    }
+
+    // Same conditional runtime mapping search() applies: without it the review-queue filter's
+    // hasActiveDenySyndicationLease term is unmapped and silently matches nothing.
+    val runtimeMappings =
+      if (searchParams.syndicationStatus.contains(AwaitingReviewForSyndication) &&
+          config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
+        Seq(syndicationFilter.syndicationReviewQueueFixMapping)
+      else
+        Seq.empty
+
+    target.runtimeMappings(runtimeMappings)
+  }
+
+  // Admits only the client-resolved clause shapes jsonToSort understands; this is not a sort builder.
+  private def admitSortClause(sort: Seq[JsObject]): Seq[Sort] = {
+    if (sort.isEmpty)
+      throw InvalidUriParams("sort must be a non-empty array; positional reads need a deterministic sort")
+
+    val sortFields = sort.flatMap(_.fields.map(_._1))
+    val duplicateFields = sortFields.groupBy(identity).collect { case (field, occurrences) if occurrences.size > 1 => field }
+    if (duplicateFields.nonEmpty)
+      throw InvalidUriParams(s"duplicate sort fields are unsupported: ${duplicateFields.toSeq.sorted.mkString(", ")}")
+
+    val unresolvedAliases = sortFields.filter(Set("usagesDateAdded", "dateAddedToCollection"))
+    if (unresolvedAliases.nonEmpty)
+      throw InvalidUriParams(s"unresolved sort aliases are unsupported: ${unresolvedAliases.distinct.sorted.mkString(", ")}")
+
+    // A _shard_doc value is PIT-specific; publicTuple would otherwise keep it in public tuples.
+    if (sortFields.contains("_shard_doc"))
+      throw InvalidUriParams("_shard_doc is unsupported in sort; end the clause with a unique field such as id")
+
+    sort.map(sorts.jsonToSort)
+  }
+
+  private def requireTupleMatches(sortValues: Seq[JsValue], sortClause: Seq[Sort]): Unit = {
+    if (sortValues.contains(JsNull))
+      throw InvalidUriParams("null sort values are supported only in the leading primary slot")
+    if (sortValues.length != sortClause.length)
+      throw InvalidUriParams(
+        s"sortValues length ${sortValues.length} must equal sort clause length ${sortClause.length}")
+  }
+
+  private def requireSuccessfulRead(r: Response[SearchResponse], pitId: Option[String]): Unit =
+    if (!r.isSuccess) {
+      val missingContext = r.error.`type` == "search_context_missing_exception" ||
+        (r.error.`type` == "search_phase_execution_exception" && r.error.rootCause.nonEmpty &&
+          r.error.rootCause.forall(_.`type` == "search_context_missing_exception"))
+      if (r.status == 404 && pitId.nonEmpty && missingContext) throw SearchAfterPitExpired
+      else throw ElasticNotFoundException
+    }
+
+  // A PIT search's hit.sort carries an extra implicit _shard_doc tiebreaker. It is dropped
+  // deliberately: tuples outlive the PIT (clients persist them, and retry without a PIT when
+  // one expires), and a PIT-specific value in a non-PIT search_after is rejected by ES. Callers
+  // must therefore end their sort clause with a unique tiebreaker such as id, or documents tied
+  // on the clause can be skipped at a page boundary.
+  private def publicTuple(hit: SearchHit, sortLength: Int): Seq[JsValue] =
+    sortValuesToJsValues(hit.sort.getOrElse(Seq.empty).take(sortLength))
 
   def searchAfter(params: SearchAfterParams)
                  (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] =
@@ -758,21 +842,7 @@ class ElasticSearch(
     if (params.searchParams.offset != 0)
       throw InvalidUriParams("offset is unsupported by cursor pagination; use sortValues instead")
 
-    val sortFields = params.sort.flatMap(_.fields.map(_._1))
-    val duplicateFields = sortFields.groupBy(identity).collect { case (field, occurrences) if occurrences.size > 1 => field }
-    if (duplicateFields.nonEmpty)
-      throw InvalidUriParams(s"duplicate sort fields are unsupported: ${duplicateFields.toSeq.sorted.mkString(", ")}")
-
-    val unresolvedAliases = sortFields.filter(Set("usagesDateAdded", "dateAddedToCollection"))
-    if (unresolvedAliases.nonEmpty)
-      throw InvalidUriParams(s"unresolved sort aliases are unsupported: ${unresolvedAliases.distinct.sorted.mkString(", ")}")
-
-    val rawQuery: Query = queryBuilder.makeQuery(params.searchParams.structuredQuery)
-    val filterOpt: Option[Query] =
-      queryBuilder.buildFilterOpt(params.searchParams, searchFilters, syndicationFilter)
-    val filteredQuery: Query = filterOpt.map(f => boolQuery() must rawQuery filter f).getOrElse(rawQuery)
-
-    val baseSorts          = params.sort.map(sorts.jsonToSort)
+    val baseSorts          = admitSortClause(params.sort)
     val withReverse        = if (params.reverse) sorts.reverseSorts(baseSorts) else baseSorts
     val effectiveSortClause = if (params.seekToEnd) {
       withReverse.headOption match {
@@ -801,40 +871,9 @@ class ElasticSearch(
       (params.sortValues, effectiveSortClause, None)
     }
 
-    effectiveSortValues.foreach { sv =>
-      if (sv.contains(JsNull))
-        throw InvalidUriParams("null sort values are supported only in the leading primary slot")
-      if (sv.length != workingSort.length)
-        throw InvalidUriParams(
-          s"sortValues length ${sv.length} must equal sort clause length ${workingSort.length}")
-    }
+    effectiveSortValues.foreach(requireTupleMatches(_, workingSort))
 
-    val effectiveQuery: Query = extraMustNot match {
-      case Some(nzf) => boolQuery().must(filteredQuery).filter(nzf)
-      case None      => filteredQuery
-    }
-
-    val baseRequest = params.pitId match {
-      case Some(pid) =>
-        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
-        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
-        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
-        withSearchQueryTimeout(ElasticDsl.search(Nil).query(effectiveQuery)).pit(Pit(pid).keepAlive(1.minute))
-      case None =>
-        prepareSearch(effectiveQuery)
-    }
-
-    // Same conditional runtime mapping search() applies: without it the review-queue filter's
-    // hasActiveDenySyndicationLease term is unmapped and silently matches nothing.
-    val runtimeMappings =
-      if (params.searchParams.syndicationStatus.contains(AwaitingReviewForSyndication) &&
-          config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
-        Seq(syndicationFilter.syndicationReviewQueueFixMapping)
-      else
-        Seq.empty
-
-    val withSort = baseRequest
-      .runtimeMappings(runtimeMappings)
+    val withSort = admittedSearch(params.searchParams, params.pitId, extraMustNot)
       .size(params.searchParams.length)
       .sortBy(workingSort)
       .trackTotalHits(params.searchParams.countAll.getOrElse(true))
@@ -844,37 +883,13 @@ class ElasticSearch(
       case None     => withSort
     }
 
-    // Lean _source projection for this (kupua-facing) endpoint: the Image schema minus the
-    // heavy unused giants (searchAfterDropFields), plus the specific alias leaf paths so their
-    // values survive (e.g. fileMetadata.icc.Profile Description). This yields a PARTIAL
-    // fileMetadata in _source; resolveSearchAfterHit strips the dropped fields before Image
-    // validation while preserving the alias leaves for extractAliasFieldValues.
-    val projectionIncludes: Seq[String] =
-      imageSourceFields.filterNot(searchAfterDropFields) ++ config.fieldAliasConfigs.map(_.elasticsearchPath)
+    executeAndLog(withLeanImageSource(request), "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
 
-    val projected = request
-      .sourceInclude(projectionIncludes.head, projectionIncludes.tail: _*)
-
-    executeAndLog(projected, "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
-      if (!r.isSuccess) {
-        val missingContext = r.error.`type` == "search_context_missing_exception" ||
-          (r.error.`type` == "search_phase_execution_exception" && r.error.rootCause.nonEmpty &&
-            r.error.rootCause.forall(_.`type` == "search_context_missing_exception"))
-        if (r.status == 404 && params.pitId.nonEmpty && missingContext) throw SearchAfterPitExpired
-        else throw ElasticNotFoundException
-      }
-
-      // A PIT search's hit.sort carries an extra implicit _shard_doc tiebreaker. It is dropped
-      // deliberately: cursors outlive the PIT (clients persist them, and retry without a PIT when
-      // one expires), and a PIT-specific value in a non-PIT search_after is rejected by ES. Callers
-      // must therefore end their sort clause with a unique tiebreaker such as id, or documents tied
-      // on the clause can be skipped at a page boundary.
       val sortLen = workingSort.length
 
       val (rawHits, rawSortValues) = r.result.hits.hits.toSeq.flatMap { hit =>
-        resolveSearchAfterHit(hit).map { image =>
-          ((image.instance.id, image), sortValuesToJsValues(hit.sort.getOrElse(Seq.empty).take(sortLen)))
-        }
+        resolveLeanHit(hit).map(image => ((image.instance.id, image), publicTuple(hit, sortLen)))
       }.unzip
 
       val (orderedHits, orderedSortValues) =
