@@ -3,34 +3,67 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   CapiUsage,
   GridImage,
+  LeasesResource,
   MediaApiRoot,
-  Crop,
   Usage
 } from "../types/image";
 import { TakedownStepStatus } from "./takedown-step";
+import { pollUntil } from "../util/poll";
+import { is404 } from "../util/errors";
 
 export type TakedownStepId = "delete-from-content" | "delete-from-grid";
+export type DeleteFromGridStatus =
+  | "soft-deleted"
+  | "hard-deleted"
+  | "denied-lease";
 
 const ACTIVE_CONTENT_POLL_INTERVAL_MS = 3_000;
 const NO_ACTIVE_CONTENT_POLL_INTERVAL_MS = 10_000;
 
-const is404 = (error: unknown): boolean =>
-  Boolean(
-    error &&
-    typeof error === "object" &&
-    "status" in error &&
-    (error as { status: unknown }).status === 404
-  );
+const hasPermanentDenyLease = (
+  leases: { access: string; endDate?: string }[]
+): boolean =>
+  leases.some((lease) => lease.access === "deny-use" && !lease.endDate);
+
+const getDeleteFromGridStatus = async (image: GridImage | null) => {
+  if (!image) {
+    return "hard-deleted";
+  }
+
+  try {
+    const imageData = await image.get();
+
+    if (Boolean(imageData.data.softDeletedMetadata)) {
+      return "soft-deleted";
+    }
+
+    const leasesResource = await imageData
+      .follow<LeasesResource>("leases")
+      .get();
+    const { leases } = await leasesResource.getData();
+    if (hasPermanentDenyLease(leases)) {
+      return "denied-lease";
+    }
+
+    return null;
+  } catch (error) {
+    if (is404(error)) {
+      return "hard-deleted";
+    }
+    throw error;
+  }
+};
 
 type TakedownContextValue = {
   activeContent: CapiUsage[] | null;
   activeContentLoading: boolean;
+  activeStepId: TakedownStepId | null;
+  deleteFromGridStatus: DeleteFromGridStatus | null;
+  getStepStatus: (stepId: TakedownStepId) => TakedownStepStatus;
+  onDelete: (expectedStatus: DeleteFromGridStatus) => Promise<void>;
   usages: Usage[] | null;
   usagesLoading: boolean;
-  crops: Crop[] | null;
-  cropsLoading: boolean;
-  activeStepId: TakedownStepId | null;
-  getStepStatus: (stepId: TakedownStepId) => TakedownStepStatus;
+  fetchUsages: () => Promise<void>;
 };
 
 const TakedownContext = createContext<TakedownContextValue | null>(null);
@@ -61,8 +94,27 @@ export const TakedownContextProvider: React.FC<
   const [usages, setUsages] = useState<Usage[] | null>(null);
   const [usagesLoading, setUsagesLoading] = useState(false);
 
-  const [crops, setCrops] = useState<Crop[] | null>(null);
-  const [cropsLoading, setCropsLoading] = useState(false);
+  const [deleteFromGridStatus, setDeleteFromGridStatus] =
+    useState<DeleteFromGridStatus | null>(null);
+
+  useEffect(() => {
+    const fetchDeleteFromGridStatus = async () => {
+      const deleteFromGridStatus = await getDeleteFromGridStatus(image);
+      setDeleteFromGridStatus(deleteFromGridStatus);
+    };
+    fetchDeleteFromGridStatus();
+  }, [image]);
+
+  // After a delete/deny-lease action, media-api's search index can take a
+  // moment to catch up, so an immediate refetch may not yet reflect the
+  // change. Poll briefly until it does, rather than giving up after one try.
+  const onDelete = async (expectedStatus: DeleteFromGridStatus) => {
+    const status = await pollUntil(
+      () => getDeleteFromGridStatus(image),
+      (status) => status === expectedStatus
+    );
+    setDeleteFromGridStatus(status);
+  };
 
   const fetchActiveContent = async (): Promise<CapiUsage[] | undefined> => {
     if (!image) {
@@ -87,62 +139,7 @@ export const TakedownContextProvider: React.FC<
     }
   };
 
-  const fetchUsages = async () => {
-    if (!image) {
-      return;
-    }
-
-    setUsagesLoading(true);
-    try {
-      // Use `.get()` rather than `.getData()` on the usages resource: theseus
-      // Resources cache their response at construction time, so `.getData()`
-      // on the same Resource instance would keep replaying the response from
-      // when `image` was first fetched, never reflecting usages
-      // added/removed since. `.get()` performs a fresh HTTP GET each time.
-      const usagesResource = await image.data.usages.get();
-      const usageResources = await usagesResource.getData();
-      const fetchedUsages = await Promise.all(
-        usageResources.map((usageResource) => usageResource.getData())
-      );
-      setUsages(fetchedUsages);
-    } catch (error) {
-      // media-api returns a 404 for an image with no usages at all, rather
-      // than an empty collection - treat that as "no usages", not an error.
-      if (is404(error)) {
-        setUsages([]);
-        return;
-      }
-      throw error;
-    } finally {
-      setUsagesLoading(false);
-    }
-  };
-
-  const fetchCrops = async () => {
-    if (!image) {
-      return;
-    }
-
-    setCropsLoading(true);
-    try {
-      const cropsResource = await image.follow("crops").get();
-      const fetchedCrops = await cropsResource.getData();
-      setCrops(fetchedCrops);
-    } catch (error) {
-      if (is404(error)) {
-        setCrops([]);
-        return;
-      }
-      throw error;
-    } finally {
-      setCropsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchUsages();
-    fetchCrops();
-
     let timeoutId: ReturnType<typeof setTimeout>;
 
     const scheduleNextPoll = (delayMs: number) => {
@@ -176,26 +173,49 @@ export const TakedownContextProvider: React.FC<
     };
   }, []);
 
+  const fetchUsages = async () => {
+    if (!image) {
+      return;
+    }
+
+    setUsagesLoading(true);
+    try {
+      // Use `.get()` rather than `.getData()` on the usages resource: theseus
+      // Resources cache their response at construction time, so `.getData()`
+      // on the same Resource instance would keep replaying the response from
+      // when `image` was first fetched, never reflecting usages
+      // added/removed since. `.get()` performs a fresh HTTP GET each time.
+      const usagesResource = await image.data.usages.get();
+      const usageResources = await usagesResource.getData();
+      const fetchedUsages = await Promise.all(
+        usageResources.map((usageResource) => usageResource.getData())
+      );
+      setUsages(fetchedUsages);
+    } catch (error) {
+      // media-api returns a 404 for an image with no usages at all, rather
+      // than an empty collection - treat that as "no usages", not an error.
+      if (is404(error)) {
+        setUsages([]);
+        return;
+      }
+      throw error;
+    } finally {
+      setUsagesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsages();
+  }, [image]);
+
   const deletedFromContent =
     activeContent !== null && activeContent.length === 0;
-  const deletedFromGrid =
-    usages !== null &&
-    usages.length === 0 &&
-    crops !== null &&
-    crops.length === 0;
   const activeStepId =
-    deletedFromContent && deletedFromGrid
+    deletedFromContent && deleteFromGridStatus !== null
       ? null
       : deletedFromContent
         ? "delete-from-grid"
         : "delete-from-content";
-
-  useEffect(() => {
-    if (deletedFromContent) {
-      // Refetch usages once deleted from content to get the latest status of usages
-      fetchUsages();
-    }
-  }, [deletedFromContent]);
 
   const getStepStatus = (stepId: TakedownStepId): TakedownStepStatus => {
     if (!activeStepId) {
@@ -220,10 +240,11 @@ export const TakedownContextProvider: React.FC<
         activeContentLoading,
         usages,
         usagesLoading,
-        crops,
-        cropsLoading,
+        fetchUsages,
         activeStepId,
-        getStepStatus
+        deleteFromGridStatus,
+        getStepStatus,
+        onDelete
       }}
     >
       {children}

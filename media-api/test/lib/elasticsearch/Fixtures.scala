@@ -31,6 +31,7 @@ trait Fixtures {
     "thrall.kinesis.stream.name",
     "thrall.kinesis.lowPriorityStream.name",
     "domain.root",
+    "content.web.baseUrl",
     "s3.config.bucket",
     "s3.usagemail.bucket",
     "quota.store.key",
