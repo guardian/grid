@@ -28,14 +28,17 @@ commands only if I say so in this chat.
    change behavior-preserving and tested as such?
 3. **Correctness against the plan.** Does the endpoint meet the unit's "done" note? Do the
    cross-checks exist and genuinely discriminate (for example window at k equals D3 at k; rank
-   equals k), including ties, nulls, reverse ordering and a special sort where relevant?
+   equals k), including ties, nulls, reverse ordering and a special sort where relevant? Does
+   the contract fit the Kupua code that will call it?
 4. **Test quality.** Would the tests still pass with a plausible wrong implementation? Were any
    existing assertions weakened, deleted or loosened? Was a failing-first run recorded?
 5. **Invariants.** `_search` only (no `_count`); no `_shard_doc` in public tuples; optional
    `pitId` path intact; limits (1k/65k/5k/200) not lowered; direct-ES and hybrid Kupua modes
-   untouched or still green; no ES construction added in API mode.
+   untouched or still green; no ES construction added in API mode. Include gaps inherited from
+   shared code that the unit now exposes to a new endpoint.
 6. **Reviewability.** Scala matches house conventions (auth, log markers, Argo responses, no
-   `var`, no `Await`, clear control flow). Scala and Kupua in separate commits. No unrelated edits.
+   `var`, no `Await`, clear control flow). Scala and Kupua in separate commits (judge the
+   proposed grouping if nothing is committed yet). No unrelated edits.
 7. **Secrets.** The repository is public: no cookies, tokens, signed URLs, real emails or private
    hostnames in code, tests, fixtures or docs.
 

@@ -111,7 +111,7 @@ maintained here by the executing agent at completion (section 8).
 
 | ID | Unit | Side | Depends on | Status |
 |---|---|---|---|---|
-| U1 | Shared helper (D3 refactored onto it) + `POST /images/window` | Scala | — | not started |
+| U1 | Shared helper (D3 refactored onto it) + `POST /images/window` | Scala | — | done |
 | U2 | `POST /images/rank` | Scala | U1 | not started |
 | U3a | `POST /images/sort-profile`: scalar-anchor, date-stats, date-buckets | Scala | U1 | not started |
 | U3b | sort-profile: keyword-page | Scala | U3a | not started |
@@ -146,6 +146,26 @@ maintained here by the executing agent at completion (section 8).
   - A default query and a GRID-001 witness give the same membership through both (consistency,
     not correctness).
 - **Algorithm source:** current D3.
+- **As built (operator decisions, 24 September 2026):**
+  - **Placement:** D3 and window both live in a new `ImageQueryController`; every later Kupua read
+    goes there too. `MediaApi.scala` is byte-identical to `main` (D3's lift of the GET search's
+    `hitToImageEntity` is undone; the new controller keeps its own copy, per instructions item 9).
+    D3's test assertions are unchanged; its controller tests moved to `ImageQueryControllerTest`.
+  - **Shallow rule:** refuse `offset >= 10,000` (422). The refusal is on the start position, not
+    `offset + length`: Kupua's shallow seek centres a 200-image page, so starts up to 9,999 must
+    work (up to 10,199 end). `length <= 200` stays enforced by `SearchParams.validate`.
+  - **Body:** `sortValues`, `reverse: true` and `seekToEnd: true` are refused with 400 (defaults
+    accepted); optional `pitId` is honoured through the helper and returns D3's 410 expiry contract.
+  - **Response:** `data`, `offset`, `total` (omitted when `countAll` is false), `sortValues`
+    (one public tuple per decoded hit, no `_shard_doc`), `rawHitCount`, `pitId` (when present).
+  - **Helper (ES side):** `admittedSearch` (query + filters + runtime mapping + live/PIT target +
+    timeout), `admitSortClause`, `requireTupleMatches`, `requireSuccessfulRead`, `publicTuple`,
+    `withLeanImageSource`/`resolveLeanHit`. Controller side: `admitSearchParams`.
+  - **Sort admission** (D3 and window): non-empty, no duplicates, no unresolved aliases, and no
+    explicit `_shard_doc` (its PIT-specific value would otherwise survive in public tuples).
+  - **GRID-001 test:** asserts D3/window agreement only. Current grouped negation also swallows
+    the default replaced-usage hiding once user usage negatives are present; that is GRID-001 and
+    changes with #4957, so it is deliberately not asserted.
 
 **U2: rank.**
 - **Algorithm:** port `countBefore` from [es-adapter.ts](../../../../src/dal/es-adapter.ts#L1282)
@@ -179,6 +199,15 @@ maintained here by the executing agent at completion (section 8).
 - **Harness:** teach the e2e-perf runner's environment check to recognize the new API mode, as it
   recognizes `--use-media-api` today, so the smoke check in section 5 works from U5 on. Keep the
   runs labelled distinctly from hybrid runs.
+- **Must handle (from U1, operator-required):** the degraded seek fallback
+  ([search-store.ts:3510](../../../../src/stores/search-store.ts#L3510),
+  [:3521](../../../../src/stores/search-store.ts#L3521)) asks from/size for offsets up to
+  `MAX_RESULT_WINDOW - PAGE_SIZE` (~99,800) when the keyword walk's first page fails or no
+  estimator exists. Window refuses offsets >= 10,000, so in API mode this would show the error
+  state instead of today's approximate landing. Decide the API-mode behaviour (for example land
+  via the deep path, or clamp) in U5; do not raise the server limit to fit it.
+- **Browser check (from U1):** in API mode, jump to positions around 9,800-10,200 and confirm the
+  landing looks right and requests go to `/images/window` below 10,000 and deep paths above.
 
 **M1: laptop measurement.** Run the existing perceived suites (PP1-PP9, JA/JB) and the jank
 suite in API mode.
@@ -328,6 +357,10 @@ ignoring it.
 ## 10. Progress Log
 
 (One line per completed unit: date, unit, commits, notes.)
+
+- 24 Sep 2026, U1: `6fad30e37` (helper, D3 moved to `ImageQueryController`, `_shard_doc` refused),
+  `d0c9da7bf` (`POST /images/window`). Branch merged `main` first (`b45e9d9ab`). Not yet called
+  by Kupua (U5); U5 must handle the degraded >10k seek fallback (see U5 note).
 
 ## 11. Parked Observations
 

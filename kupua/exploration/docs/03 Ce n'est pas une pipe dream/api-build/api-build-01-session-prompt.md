@@ -15,8 +15,12 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
    and its existing tests. Do not read the research registers, packet reports or archives unless
    the plan points you to a specific section. Candidate 11 is a reference: where it conflicts
    with the plan, the plan wins (see "Known conflicts" in plan section 9).
-3. Check `git status`/HEAD and note the pre-existing dirty files; preserve them.
-4. State in a few lines: the unit's scope, the files you expect to touch, the existing tests
+3. Check `git status`/HEAD and note the pre-existing dirty files; preserve them. Check (read-only)
+   how far the branch is behind `main` in the directories you will touch; if behind, propose a
+   merge before any edit. Then run the unit's baseline gate once and record the count.
+4. Check the unit note's limits and shapes against the Kupua code that will call the endpoint;
+   report mismatches now, not after building.
+5. State in a few lines: the unit's scope, the files you expect to touch, the existing tests
    likely affected, and anything unclear. Ask me to confirm. Do not edit before I confirm.
 
 **Scope discipline:**
@@ -32,8 +36,13 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
 
 **Method:**
 1. Write the failing test(s) first and show they fail for the right reason. For endpoints,
-   include the cross-check the plan names (for example window(k) equals D3 at k).
-2. Implement the smallest change that passes. Scala and Kupua changes go in separate commits.
+   include the cross-check the plan names (for example window(k) equals D3 at k). A compile
+   failure on a new API is not enough on its own: show at least one runtime failure for any
+   refusal or change to existing behavior. Controls in agreement tests must not depend on
+   behavior an open upstream PR changes (for example #4957).
+2. Implement the smallest change that passes. Commits are branch-only: one Scala commit per
+   endpoint (so the later PR split is mechanical), Kupua separately, docs last. Each commit must
+   build and pass on its own; check split commits in a temporary worktree.
 3. Run the gates in plan section 5. Before E2E, ask me whether ports 3000/3030 are free.
    Use `set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"` for Kupua npm scripts
    (unsandboxed), and don't run anything else while a suite runs.
@@ -59,8 +68,9 @@ one approach that failed and the next needs assumptions.
 and tests without asking, **write to** non-local Elasticsearch (ever), read from TEST without my
 permission for this session, or write secrets or cookies to any file. The repository is public.
 
-**Worklog:** add a check-in line to the worklog at start, append key decisions and findings as
-you go (short), and reset it to its scaffold when I approve a commit.
+**Worklog:** add a check-in line to the worklog at start and append key decisions and findings as
+you go (short). Move durable decisions into the unit note. Reset the worklog to its scaffold
+before any commit; never commit it non-empty.
 
 **Completion:**
 1. Summarize what changed, the test results (failing-first plus final gates) and anything
@@ -72,6 +82,8 @@ you go (short), and reset it to its scaffold when I approve a commit.
    - files touched;
    - tests added or changed;
    - the exact gate commands you ran, with results;
+   - known behavior changes for existing callers;
+   - commits made, or the proposed commit grouping if uncommitted;
    - what you deliberately did not do.
 
    Facts only: do not say what the reviewer should focus on or what you think is fine.

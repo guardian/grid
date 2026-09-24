@@ -17,6 +17,22 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 24 September 2026 - Shared media-api read helper and offset window
+
+  API build U1 (Scala). Kupua-facing ordered reads now live in a new `ImageQueryController`
+  and share one admission path: controller-side body parsing with the caller's tier, the
+  `is:deleted` uploader restriction and validation; ES-side query and filters, syndication
+  runtime mapping, live or PIT target, timeout, sort admission, tuple checks and the lean
+  projection. D3 moved there unchanged in behavior, and `MediaApi.scala` returned to exactly
+  `main`. Sort admission now refuses an explicit `_shard_doc`, which would otherwise leak a
+  PIT-specific value into public tuples.
+
+  New `POST /images/window` is a from/size read for shallow seeks: start positions below
+  10,000 (the limit is on the start, since Kupua centres a 200-image page), cursor fields
+  refused, optional PIT, `total` only when counted and `rawHitCount` so dropped undecodable
+  hits are visible. Window slices are checked against a D3 cursor walk over ties, nulls,
+  ascending order and a nested special sort. Kupua does not call it yet.
+
   ### 22 September 2026 - Keep preview exit centering with its preview session
 
   KUP-027: each preview entry owns its delayed centering frame. Reentry or disposal
