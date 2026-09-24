@@ -13,6 +13,20 @@ z-index
 ========================================================================== */
 
 /* ==========================================================================
+   Material Symbols (used by @guardian/stand icons)
+
+   The extra unprefixed `font-feature-settings` rule below is ours: stand
+   only sets the `-webkit-`-prefixed property, which browsers without that
+   alias (e.g. Firefox) ignore, causing icon ligatures to render as literal
+   text instead of the icon glyph.
+   ========================================================================== */
+@import url('https://assets.guim.co.uk/fonts/material-symbols/MaterialSymbolsOutlined.css');
+
+.material-symbols {
+  font-feature-settings: 'liga';
+}
+
+/* ==========================================================================
    Common
    ========================================================================== */
 

@@ -47,8 +47,7 @@ declare global {
       staffPhotographerOrganisation: string;
       agencyPicksIngredients: {
         [field: string]: string[];
-      }
-      imageTakedownEnabled: boolean;
+      };
     };
   }
 }

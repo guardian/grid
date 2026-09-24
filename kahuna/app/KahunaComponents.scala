@@ -55,6 +55,8 @@ object KahunaSecurityConfig {
 
     val fontSources = s"font-src data: 'self' ${config.fontSources.mkString(" ")}"
 
+    val styleSources = s"style-src 'unsafe-inline' 'self' ${config.styleSources.mkString(" ")}"
+
     val scriptSources = s"script-src 'self' 'unsafe-inline' ${config.scriptsToLoad.map(_.host).mkString(" ")}"
 
     base.copy(
@@ -67,6 +69,7 @@ object KahunaSecurityConfig {
           frameAncestors,
           connectSources,
           fontSources,
+          styleSources,
           imageSources,
           "default-src 'unsafe-inline' 'self'",
           scriptSources

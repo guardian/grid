@@ -15,6 +15,7 @@ interface MediaApi {
   find: (
     imageId: string
   ) => Promise<GridImage & { getAction: (name: string) => Promise<unknown> }>;
+  root: { getLink: (rel: string) => Promise<unknown> };
 }
 
 // Grid image ids are a SHA-1 hex digest of the file contents (see
@@ -72,38 +73,50 @@ takedown.config([
             });
           }
         ],
-        // Gate access to this page behind the `delete_crops_or_usages` permission.
-        // The `delete-usages` action is only present on the image resource
-        // (returned by media-api) when the current user's permissions allow it,
-        // so its presence/absence is what actually reflects the user's access.
-        // @TODO: We may want to switch this to 'takedown' action when that is available in the API.
         ensureCanTakedown: [
           "$state",
           "$q",
           "image",
+          "mediaApi",
           (
             state: any,
             q: any,
-            image: { getAction: (name: string) => Promise<unknown> } | null
+            image: { getAction: (name: string) => Promise<unknown> } | null,
+            mediaApi: MediaApi
           ) => {
-            if (!window._clientConfig.imageTakedownEnabled) {
-              state.go("image-error", { message: "Page not found" });
-              return q.reject("feature-disabled");
-            }
-            // A null image means it's already been deleted from Grid - there's
-            // nothing left to gate access to, so let the user through to see
-            // the (already complete) takedown steps.
-            if (!image) {
-              return;
-            }
-            return image.getAction("delete-usages").then((action: unknown) => {
-              if (!action) {
-                state.go("image-error", {
-                  message: "You do not have permission to take down this image"
-                });
-                return q.reject("403");
-              }
-            });
+            const deny = () => {
+              state.go("image-error", {
+                message: "You do not have permission to take down this image"
+              });
+              return q.reject("403");
+            };
+
+            return mediaApi.root
+              .getLink("capiUsages")
+              .then(
+                () => true,
+                () => false
+              )
+              .then((takedownFeatureEnabled: boolean) => {
+                if (!takedownFeatureEnabled) {
+                  return deny();
+                }
+
+                // A null image means it's already been deleted from Grid -
+                // there's nothing left to gate access to, so let the user
+                // through to see the (already complete) takedown steps.
+                if (!image) {
+                  return;
+                }
+
+                return image
+                  .getAction("delete-usages")
+                  .then((action: unknown) => {
+                    if (!action) {
+                      return deny();
+                    }
+                  });
+              });
           }
         ]
       }

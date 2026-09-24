@@ -1,7 +1,7 @@
 import * as angular from "angular";
 
 import { takedownPage } from "./takedown-page";
-import { GridImage } from "../types/image";
+import { GridImage, MediaApiRoot } from "../types/image";
 
 const takedownController = angular.module("kahuna.takedown.controller", [
   takedownPage.name
@@ -10,11 +10,21 @@ const takedownController = angular.module("kahuna.takedown.controller", [
 takedownController.controller("TakedownCtrl", [
   "image",
   "imageId",
-  function (image: GridImage | null, imageId: string) {
-    const ctrl = this as { image: GridImage | null; imageId: string };
+  "mediaApi",
+  function (
+    image: GridImage | null,
+    imageId: string,
+    mediaApi: { root: MediaApiRoot }
+  ) {
+    const ctrl = this as {
+      image: GridImage | null;
+      imageId: string;
+      mediaApiRoot: MediaApiRoot;
+    };
 
     ctrl.image = image;
     ctrl.imageId = imageId;
+    ctrl.mediaApiRoot = mediaApi.root;
   }
 ]);
 

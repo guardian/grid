@@ -1,4 +1,4 @@
-import { Given, KAHUNA_APP_URL, expect } from './fixtures.ts';
+import { Given, KAHUNA_APP_URL, expect } from './setup.ts';
 
 Given('the application stack is running', async ({ request }) => {
   const response = await request.get('/management/healthcheck');

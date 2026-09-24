@@ -1,8 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
-import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
-import { testImages, uploadPage } from './setup.ts';
-
-const filesToUpload = [testImages.smaller, testImages.larger];
+import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
+import { filesToUpload, testImages, uploadPage } from './setup.ts';
 
 /**
  * Upload page shell
@@ -127,6 +125,16 @@ Then('I should see a message telling me to drag and drop or click to upload to t
     `Either drag 'n drop images onto this screen or click`,
   );
   await expect(uploadPage(page).prompt).toContainText(`to get your images on ${systemName}.`);
+});
+
+Given('I have not applied any preset labels', async ({ page }) => {
+  await page.evaluate(() => window.localStorage.removeItem('preset-labels'));
+  await page.reload();
+});
+
+Then('I should see a suggested example label to apply to all uploads', async ({ page }) => {
+  // The example label offered by the prompt comes from kahuna/public/js/strings.json.
+  await expect(uploadPage(page).prompt).toContainText(`label e.g. culture`);
 });
 
 /**

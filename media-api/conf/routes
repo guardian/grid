@@ -15,6 +15,7 @@ GET     /images/aggregations/date/:field                            controllers.
 # Images
 POST    /images/search-after                                        controllers.MediaApi.searchAfterImages()
 GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
+GET     /capiUsages/:id                                             controllers.MediaApi.getCapiUsages(id: String)
 GET     /images/:id/_elasticsearch                                  controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/projection/diff                                 controllers.MediaApi.diffProjection(id: String)
 GET     /images/:id/fileMetadata                                    controllers.MediaApi.getImageFileMetadata(id: String)

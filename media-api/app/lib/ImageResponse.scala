@@ -165,6 +165,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
 
     val imageUri = URI.create(s"${config.rootUri}/images/$id")
+    val hardDeleteUri = URI.create(s"${config.rootUri}/images/$id/hard-delete")
     val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
     val addCollectionUri = URI.create(s"${config.collectionsUri}/images/$id")
     val addLeaseUri = URI.create(s"${config.leasesUri}/leases")
@@ -174,6 +175,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     val deleteUsagesUri = URI.create(s"${config.usageUri}/usages/media/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
+    val hardDeleteAction = Action("hard-delete", hardDeleteUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
 
     val addCollectionAction = Action("add-collection", addCollectionUri, "POST")
@@ -186,6 +188,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
 
     List(
       deleteAction -> isDeletable,
+      hardDeleteAction -> isDeletable,
       reindexAction -> withWritePermission,
       addLeaseAction -> withWritePermission,
       addLeasesAction -> withWritePermission,
