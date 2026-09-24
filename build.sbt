@@ -63,16 +63,23 @@ val commonSettings = Seq(
 
 //Common projects to all organizations
 lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, imageCachePurger, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val e2eServiceProjects: Seq[sbt.ProjectReference] = Seq(auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall)
+lazy val e2eStage = taskKey[Seq[File]]("Stage the services required by the E2E test stack")
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
+  .settings(
+    e2eStage := (Universal / stage)
+      .all(ScopeFilter(inProjects(e2eServiceProjects: _*)))
+      .value
+  )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
 addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
-  Tags.limit(Tags.CPU, Math.min(1, java.lang.Runtime.getRuntime.availableProcessors - 1)),
+  Tags.limit(Tags.CPU, Math.max(1, java.lang.Runtime.getRuntime.availableProcessors - 1)),
   Tags.limit(Tags.Test, 1),
   Tags.limitAll(12)
 )

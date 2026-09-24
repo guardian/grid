@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # Required to read/write the buildx layer cache stored as a GHCR package.
+  packages: write
 jobs:
   test:
     timeout-minutes: 60
@@ -18,11 +20,51 @@ jobs:
     - uses: actions/setup-node@v6
       with:
         node-version: lts/*
-        # Cache the npm download cache, keyed on the e2e-tests lockfile.
+        # Cache downloads for both the host-side e2e install and the Kahuna install
+        # performed inside grid-e2e-ci. stack.ts mounts this cache into the container.
         cache: npm
-        cache-dependency-path: e2e-tests/package-lock.json
+        cache-dependency-path: |
+          e2e-tests/package-lock.json
+          kahuna/package-lock.json
     - name: Install dependencies
       run: npm ci
+    # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
+    # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
+    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # Without this the container re-downloads the whole dependency tree from Maven
+    # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
+    # build files, with a prefix restore-key so an unrelated build change only
+    # fetches the delta rather than everything.
+    - name: Cache sbt dependencies (ivy/coursier)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/coursier/v1
+          ~/.ivy2/cache
+        key: ${{ runner.os }}-sbt-${{ hashFiles('build.sbt', 'project/plugins.sbt', 'project/build.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-sbt-
+    - name: Ensure sbt cache dirs exist
+      # cacheBindMounts() only mounts these into the container when the host dir
+      # exists; create them so a cache miss still gets a writable rw mount that
+      # the container populates (and this job then saves for next time).
+      run: mkdir -p ~/.cache/coursier/v1 ~/.ivy2/cache
+    # Persist sbt's incremental-compile output (Zinc analysis + compiled classes
+    # in each module's target/ dir) so `sbt e2eStage` (run in the grid container at
+    # stack startup, against the bind-mounted repo) only recompiles the Scala that
+    # actually changed instead of doing a clean build of all nine services every
+    # run. Keyed on the Scala/sbt sources: an exact match means nothing to
+    # recompile, and the prefix restore-key seeds an incremental build from the
+    # most recent cache when sources have changed.
+    - name: Cache sbt compile output (incremental)
+      uses: actions/cache@v4
+      with:
+        path: |
+          **/target
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
+        restore-keys: |
+          ${{ runner.os }}-sbt-build-
     # Cache the downloaded Playwright browser binaries. The cache key is tied to
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
@@ -34,16 +76,24 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-playwright-
     - name: Install Playwright Browsers
-      # On a cache hit the browsers are already present, so only install the OS
-      # dependencies; otherwise download the browsers too.
-      run: |
-        if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
-          npx playwright install-deps chromium
-        else
-          npx playwright install --with-deps chromium
-        fi
+      # Browser binaries are restored from the cache above, so only download them
+      # on a cache miss. We deliberately skip `playwright install-deps` (~20s of
+      # apt every run): the GitHub-hosted Ubuntu runner image already ships the
+      # system libraries Chromium needs. If a runner image ever drops one, add
+      # `--with-deps` back here (and it will only run on cache misses).
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install chromium
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+    # Authenticate so buildx can pull (and, on main, push) the registry layer
+    # cache. GITHUB_TOKEN is read-only on fork PRs, which is fine: those runs
+    # only read the cache (see cache-to condition below).
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build CI image
       uses: docker/build-push-action@v6
       with:
@@ -53,6 +103,11 @@ jobs:
         tags: grid-e2e-ci
         push: false
         load: true
+        # Share layers across branches via a single stable cache ref. Every run
+        # reads from :main; only pushes to main write it back (mode=max caches
+        # intermediate layers too, so the mise toolchain layer is reused).
+        cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
+        cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Run Playwright tests
       run: npm test
     - uses: actions/upload-artifact@v4
