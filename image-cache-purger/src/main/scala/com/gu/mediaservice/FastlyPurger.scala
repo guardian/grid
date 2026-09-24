@@ -22,7 +22,7 @@ class FastlyPurger private[mediaservice] (
 
   private[mediaservice] def purgeUrls(key: String): List[String] =
     List(
-      s"https://api.fastly.com/service/$fastlyIOService/purge/img/media/$key",
+      s"https://api.fastly.com/service/$fastlyIOService/purge//$key",
       s"https://api.fastly.com/purge/media.guimcode.co.uk/$key"
     )
 
