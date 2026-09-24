@@ -17,7 +17,7 @@ class FastlyPurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
       val key = "hash/crop/master/image.jpg"
 
       purger.purgeUrls(key) shouldBe List(
-        s"https://api.fastly.com/service/5CSDV7WcKwnIIHipZzt3po/purge/img/media/$key",
+        s"https://api.fastly.com/service/5CSDV7WcKwnIIHipZzt3po/purge//$key",
         s"https://api.fastly.com/purge/media.guimcode.co.uk/$key"
       )
     }
