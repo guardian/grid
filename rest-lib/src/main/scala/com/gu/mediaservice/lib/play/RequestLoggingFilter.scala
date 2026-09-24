@@ -18,6 +18,8 @@ import scala.util.{Failure, Success}
 object RequestLoggingFilter {
   val requestUuidKey = TypedKey[String]("request-uuid")
   def getRequestId[T](req: WrappedRequest[T]): String = req.attrs.get(requestUuidKey).getOrElse("(unset request id)")
+  // Set by this filter, so only available to filters that run after it.
+  def requestIdFor(req: RequestHeader): Option[String] = req.attrs.get(requestUuidKey)
   val requestPrincipal = TypedKey[Principal]("request-principal")
 
   def loggablePrincipal(principal: Principal): Map[String, String] =
