@@ -17,14 +17,8 @@ object sorts {
     sortBy.fold(Seq(UploadTimeDescending))(parseSortBy)
   }
 
-  // This is a special case in the elastic1 code which does not fit well as it also effects the query criteria.
-  // unmappedType prevents ES from erroring when no documents have collections (field not in mapping).
-  def dateAddedToCollectionDescending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.DESC).unmappedType("date"))
-
-  // Ascending counterpart for the "-dateAddedToCollection" sort token. Same unmappedType guard.
-  // Without this, "-dateAddedToCollection" falls through to parseSortBy → fieldSort on an unmapped
-  // field with no unmappedType → ES error.
-  def dateAddedToCollectionAscending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.ASC).unmappedType("date"))
+  // This is a special case in the elastic1 code which does not fit well as it also effects the query criteria
+  def dateAddedToCollectionDescending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.DESC))
 
   // Flip the direction of every sort entry (used by reverse cursor pagination).
   def reverseSorts(sorts: Seq[Sort]): Seq[Sort] = sorts.map {

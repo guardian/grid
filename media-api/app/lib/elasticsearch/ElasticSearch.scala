@@ -383,8 +383,7 @@ class ElasticSearch(
     val filterOpt: Option[Query] = queryBuilder.buildFilterOpt(params, searchFilters, syndicationFilter)
 
     val sort = params.orderBy match {
-      case Some("dateAddedToCollection")  => sorts.dateAddedToCollectionDescending
-      case Some("-dateAddedToCollection") => sorts.dateAddedToCollectionAscending
+      case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
       case _ => sorts.createSort(params.orderBy)
     }
 

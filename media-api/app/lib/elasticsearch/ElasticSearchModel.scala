@@ -431,7 +431,7 @@ object SearchParams {
       request.getQueryString("free") flatMap parseBooleanFromQuery,
       request.getQueryString("payType") flatMap parsePayTypeFromQuery,
       request.getQueryString("hasRightsCategory") flatMap parseBooleanFromQuery,
-      request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery,
+      None, // hasRightsAcquired: request bodies only; GET /images ignores it as on main (GRID-014)
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),

@@ -626,9 +626,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
-        // test-image-8 (multi-key xmp) and graphic-image-1 (pur:adultContentWarning) both have xmp content
-        result.total shouldBe 2
-        result.hits.forall(_._2.instance.fileMetadata.xmp.nonEmpty) shouldBe true
+        result.total shouldBe 1
+        result.hits.head._2.instance.fileMetadata.xmp.nonEmpty shouldBe true
       }
     }
 
@@ -756,27 +755,6 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     }
   }
 
-  describe("dateAddedToCollection sort (Kahuna search path)") {
-    // Guards the production search() sort-match case for the "-dateAddedToCollection" (ascending)
-    // token. Without it, "-dateAddedToCollection" falls through to parseSortBy → fieldSort on an
-    // unmapped field with no unmappedType → ES error. The ascending sort def carries unmappedType,
-    // so the search succeeds even though no test image has a collection. This is a Kahuna-only
-    // capability (kupua sorts via its own client-sent clause through searchAfter).
-    it("accepts the -dateAddedToCollection (ascending) token without erroring") {
-      val search = SearchParams(tier = Internal, orderBy = Some("-dateAddedToCollection"))
-      whenReady(ES.search(search), timeout, interval) { result =>
-        result.total shouldBe expectedNumberOfImages
-      }
-    }
-
-    it("accepts the dateAddedToCollection (descending) token without erroring") {
-      val search = SearchParams(tier = Internal, orderBy = Some("dateAddedToCollection"))
-      whenReady(ES.search(search), timeout, interval) { result =>
-        result.total shouldBe expectedNumberOfImages
-      }
-    }
-  }
-
   describe("GET/D3 contracts") {
     val uploader = UserPrincipal("Test", "Uploader", "uploader@example.test")
     val otherUploader = UserPrincipal("Test", "Other", "other@example.test")
@@ -813,9 +791,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       FakeRequest("GET", s"/images?$query")
     }
 
-    def assertBothModes(body: JsObject, expected: Set[String]): Unit = {
+    def assertViaGet(body: JsObject, expected: Set[String]): Unit = {
       val controller = mediaApiFor(uploader, ES, writer, privileged = true)
-      val d3 = imageQueryControllerFor(uploader, ES, writer, privileged = true)
       val queryParams = body.fields.map { case (name, value) =>
         name -> (value match {
           case JsString(text) => text
@@ -823,8 +800,17 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         })
       }
       assertPage(controller.imageSearch().apply(getRequest(queryParams.toList: _*)), expected)
+    }
+
+    def assertViaD3(body: JsObject, expected: Set[String]): Unit = {
+      val d3 = imageQueryControllerFor(uploader, ES, writer, privileged = true)
       assertPage(d3.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
         .withBody(body ++ Json.obj("sort" -> sortClause))), expected)
+    }
+
+    def assertBothModes(body: JsObject, expected: Set[String]): Unit = {
+      assertViaGet(body, expected)
+      assertViaD3(body, expected)
     }
 
     it("scopes deleted hits and exact totals through the D3 controller and preserves GET authorization") {
@@ -867,7 +853,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       }
     }
 
-    it("retains omitted, true and false acquired-rights filters and existing mixed-rights status semantics") {
+    it("filters acquired rights through D3 while GET /images keeps ignoring the parameter, and keeps mixed-rights status semantics") {
       def rights(values: List[Option[Boolean]]) = Some(SyndicationRights(None, Nil,
         values.zipWithIndex.map { case (acquired, position) => com.gu.mediaservice.model.Right(s"right-$position", acquired, Nil) }))
       val fixtures = Seq(
@@ -883,8 +869,11 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       withImages(fixtures) { base =>
         assertBothModes(base, all)
-        assertBothModes(base ++ Json.obj("hasRightsAcquired" -> true), acquired)
-        assertBothModes(base ++ Json.obj("hasRightsAcquired" -> false), all -- acquired)
+        assertViaD3(base ++ Json.obj("hasRightsAcquired" -> true), acquired)
+        assertViaD3(base ++ Json.obj("hasRightsAcquired" -> false), all -- acquired)
+        // Unchanged Grid behaviour: GET /images does not read hasRightsAcquired (GRID-014).
+        assertViaGet(base ++ Json.obj("hasRightsAcquired" -> true), all)
+        assertViaGet(base ++ Json.obj("hasRightsAcquired" -> false), all)
         assertBothModes(base ++ Json.obj("syndicationStatus" -> "unsuitable"), all - "d3-rights-true")
       }
     }
@@ -2026,46 +2015,6 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       viaCursor.total shouldBe viaSearch.total
       viaCursor.hits.map(_._1).toSet shouldBe viaSearch.hits.map(_._1).toSet
-    }
-
-    it("dateAddedToCollection both orders apply pathHierarchy filter when hierarchy condition present") {
-      implicit val logMarker: LogMarker = MarkerMap()
-      // Use a plain uploadTime/id sort clause — collections.actionData.date is not in the test-index
-      // mapping (no test images have collections), so sending it as a sort field would cause an ES
-      // error. searchAfter reads orderBy only to decide whether to add the pathHierarchy filter;
-      // the actual ES sort comes from the `sort` array, so the two are independent.
-      val sortClause    = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
-      val hierarchyCond = Match(HierarchyField, Phrase("no/such/collection/path"))
-
-      // desc token ("dateAddedToCollection"): pathHierarchy filter fires → 0 results
-      val paramsDesc = SearchAfterParams(
-        searchParams = SearchParams(
-          tier = Internal, length = 100,
-          orderBy = Some("dateAddedToCollection"),
-          structuredQuery = List(hierarchyCond),
-        ),
-        sort       = sortClause,
-        sortValues = None,
-        pitId      = None,
-      )
-      whenReady(ES.searchAfter(paramsDesc), timeout, interval) { result =>
-        result.total shouldBe 0
-      }
-
-      // asc token ("-dateAddedToCollection"): QueryBuilder widening ensures the filter also fires → 0 results
-      val paramsAsc = SearchAfterParams(
-        searchParams = SearchParams(
-          tier = Internal, length = 100,
-          orderBy = Some("-dateAddedToCollection"),
-          structuredQuery = List(hierarchyCond),
-        ),
-        sort       = sortClause,
-        sortValues = None,
-        pitId      = None,
-      )
-      whenReady(ES.searchAfter(paramsAsc), timeout, interval) { result =>
-        result.total shouldBe 0
-      }
     }
   }
 

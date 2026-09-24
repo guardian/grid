@@ -198,7 +198,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     // Port of special case code in elastic1 sorts. Using the dateAddedToCollection sort implies an additional filter for reasons unknown
     val dateAddedToCollectionFilter = {
       params.orderBy match {
-        case Some("dateAddedToCollection") | Some("-dateAddedToCollection") => {
+        case Some("dateAddedToCollection") => {
           val pathHierarchyOpt = params.structuredQuery.flatMap {
             case Match(HierarchyField, Phrase(value)) => Some(value)
             case _ => None
