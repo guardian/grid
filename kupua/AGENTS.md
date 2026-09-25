@@ -22,7 +22,7 @@ Single entry point: `kupua/scripts/start.sh`. Three modes:
 |---|---|---|
 | **Local** (default) | `./kupua/scripts/start.sh` | Docker ES on port 9220 |
 | **TEST (direct-ES)** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 |
-| **TEST (media-api)** | `./kupua/scripts/start.sh --use-TEST --use-media-api` | SSH tunnel → TEST ES, `searchAfter` via `POST /images/search-after` |
+| **TEST (media-api)** | `./kupua/scripts/start.sh --use-TEST --use-media-api` | SSH tunnel → TEST ES; ordered reads (pages, window, rank, sort profiles, keys) via local media-api, the rest direct ES |
 
 Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunnel (via `ssm-scala` if available, falls back to raw AWS CLI + session-manager-plugin), auto-discovers index alias + S3 buckets, starts S3 proxy + imgproxy. Both independent of Grid's `dev/script/start.sh`. Docker Compose v1 and v2 supported.
 
@@ -38,7 +38,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
 | **Grid API adapter / media-api integration** | **Active build: [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) + its session prompt** (local-first, PIT-less, split into PRs late; supersedes the pause below). Background: the media-api index routes work; candidate 11 owns provisional direction and section 15 the post-merge alignment workplan. Section 1 requires unchanged endpoint reuse where sufficient, otherwise strongly prefers isolated new endpoints; established behavior changes need separate approval. D3 is Kupua-oriented with limited exceptions; PR #4957 is a separate Grid fix. Implementation waits for merge and authority. Core API search/scroll/position/traversal comes first; KUP-029/030 are deferred until afterward. Inventory 01, workplan 02 and April plans are references, not competing queues. |
 | **Capability-preserving API boundary research** | Candidate 11 sections 12/13 retain P29/P30/P31 and completed restore/accepted-cost limits; section 14 integrates P32 interaction/display/measurement and P33 Grid edit/delete/collection characterization with explicit corrections. Future editing is knowledge only, not scope; ten new source-only bugs are independently parked. Original reports/S1/history remain; whole-corpus readiness is false and no new implementation or campaign follows. |
-| **Canonical bugs / migration dependencies** | Start with the [backlog overview](exploration/docs/bug-backlog.md#at-a-glance): linked open/residual Kupua and Grid tables distinguish migration prerequisites, related obligations and independent work; completed repairs are collapsed. All 46 IDs retain their detailed evidence. [Execution evidence](exploration/docs/bug-reproduction-evidence.md#L1) preserves the original 35-ID history; P32/P33 additions are source-only. Reverse keyboard Home-to-resident-End remains UNFIXED; KUP-026 initialization and narrower density/native limits remain. S1, upstream and performance qualifications are unchanged. |
+| **Canonical bugs / migration dependencies** | Start with the [backlog overview](exploration/docs/bug-backlog.md#at-a-glance): linked open/residual Kupua and Grid tables distinguish migration prerequisites, related obligations and independent work; completed repairs are collapsed. All 48 IDs retain their detailed evidence. [Execution evidence](exploration/docs/bug-reproduction-evidence.md#L1) preserves the original 35-ID history; P32/P33 additions are source-only. Reverse keyboard Home-to-resident-End remains UNFIXED; KUP-026 initialization and narrower density/native limits remain. S1, upstream and performance qualifications are unchanged. |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **Grid usage-search follow-up** | [Research and current handoff](exploration/docs/grid-usage-search-investigation.md): Grid-only [PR #4957](https://github.com/guardian/grid/pull/4957) is locally validated, awaiting human review/merge. Independent negatives, positive same-record matching and print code/name support supersede P30's older direction. Prototype unchanged; D3 work waits for merge and checks inheritance first. Affected issues/migration gates remain open; no new implementation/Git authority. |
 | **Scala / media-api review conventions** | [Reference section 16](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-90-conventions.md#16-reviewable-scala-recent-pr-evidence) and [instruction summary](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md). Tom/Andrew foundation with bounded Lindsey evidence; open versus merged status and review attribution are explicit. The local instruction mirror is synchronized. |
@@ -64,16 +64,17 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
-**Status:** `POST /images/search-after` routes cursor pagination through media-api when
-`VITE_USE_MEDIA_API=true`; direct ES still owns every other query path plus selection and collection
-counts. `--use-TEST` is direct ES through an SSH tunnel; `--use-media-api` calls locally running
-modified media-api connected to TEST. The operator confirms one laptop caller, one successful D3
-TEST deployment, and PR #4849 updated with the agreed amendments; human review remains.
+**Status:** with `VITE_USE_MEDIA_API=true`, `ApiDataSource` routes every ordered read through
+media-api (API build U5): pages via `POST /images/search-after` and `/window`, ranks, sort profiles,
+position maps and range walks, with no PIT and no ES fallback for those reads. Counts, tickers,
+aggregations, detail `_mget` and AI still use a tested development ES fallback (U6), and selection
+and collections still construct ES directly (U6d). `--use-TEST` is direct ES through an SSH tunnel;
+`--use-media-api` calls locally running modified media-api connected to TEST. The operator confirms
+one laptop caller and one successful D3 TEST deployment; PR #4849 is abandoned (below).
 Draft/ready status is the operator's choice. Copilot comments and local
 performance campaigns do not establish production deployment or other callers.
-On this branch D3 now lives in media-api's `ImageQueryController` with the shared read helper
-(API build U1); `POST /images/window`, `POST /images/rank` (U2), `POST /images/sort-profile`
-(U3a, keyword pages U3b) and `POST /images/keys` (U4) exist there but Kupua does not call them yet.
+On this branch D3, `POST /images/window`, `/rank`, `/sort-profile` and `/keys` live in media-api's
+`ImageQueryController` with the shared read helper (API build U1-U4).
 
 **Current scope (15 September):** incrementally add media-api capabilities to make this read-only
 prototype deployable, preserving all current workflows and accepted compromises. Eventual deployed
@@ -108,7 +109,7 @@ remain reference material, not an active implementation plan; V1 stays refuted.
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/strangler-adapter.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional). `createDataSource()` returns `StranglerAdapter` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `StranglerAdapter` delegates all methods to ES except `searchAfter`, which calls `apiSearchAfter()` in `dal/grid-api-search-adapter.ts`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Position-map chunks omit exact totals in both paging phases; ordinary first-page totals are unchanged. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional; `openPit` may resolve `null`; optional `offsetReadLimit`). `createDataSource()` returns `ApiDataSource` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `ApiDataSource` sends ordered reads to media-api via `dal/grid-api-search-adapter.ts` (walk loops stay client-side) and lists its development-fallback methods in `DEVELOPMENT_FALLBACK_METHODS`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
 | Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Search-generation/range ownership guards publication/recovery. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
@@ -186,7 +187,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 | Routing | TanStack Router (Zod-validated search params) |
 | Styling | Tailwind CSS 4 |
 | Build | Vite 8 (Rolldown) |
-| Data Layer | `ImageDataSource` interface → `StranglerAdapter` / `ElasticsearchDataSource` |
+| Data Layer | `ImageDataSource` interface → `ApiDataSource` / `ElasticsearchDataSource` |
 | Testing | Vitest + Playwright |
 
 ## Key Architecture Decisions
@@ -203,7 +204,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 
    Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
 
-3. **DAL interface** — `ImageDataSource` with 18 methods (5 optional). `StranglerAdapter` is the live Phase 3 adapter: wraps `ElasticsearchDataSource`, overrides `searchAfter` to call the media-api endpoint. Selection and collection still own direct ES datasources. `GridApiDataSource` separately handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
+3. **DAL interface** — `ImageDataSource` with 18 methods (5 optional). `ApiDataSource` is the live Phase 3 adapter: ordered reads through media-api, the rest through a development-fallback `ElasticsearchDataSource` that shrinks to nothing by U6z. Selection and collection still own direct ES datasources. `GridApiDataSource` separately handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 

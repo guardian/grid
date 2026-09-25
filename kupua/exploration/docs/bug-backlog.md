@@ -8,11 +8,13 @@ query evidence. This record grants no new implementation, fuzzy-search or strong
 The [reproduction queue and evidence](bug-reproduction-evidence.md) accounts for the original 35 IDs,
 including conditional browser cases and bugs better checked outside the browser. The ten P32/P33
 integration additions below are source-supported only; none has an executed reproduction. GRID-014
-(24 September, API build U2) has its server side confirmed by a local ES test.
+(24 September, API build U2) has its server side confirmed by a local ES test. KUP-033 and KUP-034
+(25 September, API build U5 review) have their server mechanism shown by local ES tests; user-visible
+impact is not reproduced.
 
 ## At a Glance
 
-**Current recorded status: 24 September 2026.** The 23 entries below have an open defect,
+**Current recorded status: 25 September 2026.** The 25 entries below have an open defect,
 approval/integration task or explicit residual; 23 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -40,6 +42,8 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-030](#kup-030) | Stale overlay after overlay-less fallback | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
 | [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
+| [KUP-033](#kup-033) | Backward paging cannot leave the null tail | Open; server mechanism shown by a local ES test, both modes; user impact unreproduced | Independent; null-tail browsing preserved by both modes equally |
+| [KUP-034](#kup-034) | Uncapped backward page around a near-top target | Open; latent, mechanism shown by a local ES test, both modes | Independent; no ordinary caller known to reach it |
 
 ### Open Grid Work
 
@@ -396,7 +400,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** a prior API result supplied an overlay; a fresh same-ID result is returned by the existing unavailable-to-ES fallback without enrichment. Under baseline fallback the fresh result should not silently retain unrelated prior policy; the truthy-only commit leaves the old map entry active.
 - **Evidence:** P32-B3 and the pre-existing candidate overlay question; [real fallback](../../src/dal/strangler-adapter.ts#L77), [fresh publication](../../src/stores/search-store.ts#L2461), [per-ID consumption](../../src/hooks/useEnrichedImage.ts#L26). High-confidence source path, not execution; no runtime datasource hot-swap is required.
 - **Smallest discriminator:** seed API enrichment, resolve an ordinary fresh hybrid read via unavailable fallback with changed same-ID baseline, inspect effective display; preserve off-buffer selected overlays and current-overlay controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent current-hybrid defect. **Operator-deferred, 23 September:** address after a working API-backed app, not as a gate on query alignment, core browsing or initial image-read integration. Later image-result work must decide per-result ownership without blindly clearing selected overlays; no TTL/LRU system or universal freshness requirement follows. Server authorization is unchanged.
+- **Dependency / disposition:** OPEN, independent current-hybrid defect. **Operator-deferred, 23 September:** address after a working API-backed app, not as a gate on query alignment, core browsing or initial image-read integration. Later image-result work must decide per-result ownership without blindly clearing selected overlays; no TTL/LRU system or universal freshness requirement follows. Server authorization is unchanged. **25 September (API build U5):** the described trigger no longer exists in current code: `StranglerAdapter` (linked above, as it was before `3fdfeece2`) was deleted and `ApiDataSource` pages never fall back to ES. Closure is the operator's decision; U6 fallback removal should be checked against the same question.
 
 #### KUP-031
 **Acknowledgement metric is described as DOM-visible latency**
@@ -413,6 +417,24 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** P32-C2, qualified: [calculator](../../e2e-perf/perceived-metrics.mjs#L24), [existing correlation assertions](../../e2e-perf/harness-validation.test.mjs#L737). High-confidence source mechanism; no canonical row is alleged affected and no arbitrary total ordering of independent phases is required.
 - **Smallest discriminator:** pure fixtures for negative elapsed/status durations and invalid non-start timestamps, beside unchanged duplicate/missing/cross-document controls. Proposed, not run.
 - **Dependency / disposition:** OPEN, independent harness correctness. Before relying on future rows, validate the declared causal intervals; this neither explains PP6c/P8 nor authorizes metric changes or another campaign.
+
+#### KUP-033
+**Backward paging from the first null-tail image cannot reach the valued images before it**
+- **Component / owner:** null-zone cursor reads in both data sources (media-api `cursorRead`, direct-ES `_searchAfterImpl`) and the store's `extendBackward`; human owner-to-confirm.
+- **Trigger:** a sort whose primary field is missing on some images (e.g. `-lastModified`, `-taken`, `-credit`) in the seek tier (over 65k results); the buffer starts inside the null tail (for example after a deep seek landing just past the boundary), and the user scrolls up across the boundary.
+- **Expected / actual:** scrolling up should continue from the first null-tail image into the last valued images. A null-primary cursor reads only images lacking the primary value, in both directions, so a reverse page from the first null-tail image returns nothing from the valued part. `extendBackward` then prepends only the null-tail images it got; the next call from the new `startCursor` returns none, and the buffer cannot extend further up although `bufferOffset > 0`. Coordinates stay correct (no mislabelled positions); the scrubber and Home still reach the valued part.
+- **Evidence:** [media-api null-zone read](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L862) (filter `must_not exists` on the primary, primary clause dropped, regardless of `reverse`); [direct-ES equivalent](../../src/dal/es-adapter.ts#L954) with the [null-zone filter](../../src/dal/null-zone.ts#L87); [store extend](../../src/stores/search-store.ts#L2739). **25 September, local ES (media-api `ElasticSearchTest`, recorded client body replay):** on a six-image fixture plus the base index under `-taken`, a reverse page of 21 from the tuple of a null-tail image at position 21 returned only null-tail images; the valued images at positions 0-3 were absent. The replay test now asserts this confined contract (backward pages stay within the part their tuple belongs to), so a fix will need to update it deliberately. **25 September, live TEST via `--use-media-api`:** a deep seek to 40 past the Last-modified boundary landed about 1,100 past it and repeated `extendBackward` from a full buffer did not reach the boundary within the bounded probe (tab not visible, so geometry may have skewed eviction); user-visible impact is therefore not confirmed. Indexed tier (1k-65k) is expected to be covered by position-map seeks and the scroll tier (≤1k) holds the whole result set; neither was verified here.
+- **Smallest discriminator:** a store test over `MockDataSource` with a sparse primary (e.g. 20% `lastModified`), seek-tier thresholds, buffer seeded to start at the first null-tail image, then `extendBackward`: assert the last valued images are prepended and coordinates match `countBefore`. Run it through both `ElasticsearchDataSource`-style and `ApiDataSource` routing (the composed API-mode suite's stand-in reproduces the confined read). Proposed, not run.
+- **Dependency / disposition:** OPEN, independent; affects direct-ES and API modes identically. A fix is likely client-side (continue from a valued-zone tuple when a null-primary reverse page returns fewer than asked and `bufferOffset` exceeds them) or a server option to cross the boundary in reverse; either needs its own decision. Not introduced by API build U5.
+
+#### KUP-034
+**The restore/focus backward page is not capped at the target's offset**
+- **Component / owner:** `_loadBufferAroundImage` (sort-around-focus and `restoreAroundCursor`); human owner-to-confirm.
+- **Trigger:** a buffer is loaded around a target whose exact offset is below 100, under a sort with a null tail (missing primary values).
+- **Expected / actual:** the backward page should contain only the `exactOffset` images before the target. It always asks for 100; because missing values sort last in both directions, a reverse page longer than the images before a valued target runs on into the null tail. Those null-tail images would be prepended ahead of position 0 in the combined buffer and every position before the target would be mislabelled. `extendBackward` already caps its page at `bufferOffset`; this caller does not.
+- **Evidence:** [uncapped backward page](../../src/stores/search-store.ts#L1378); contrast [extend cap](../../src/stores/search-store.ts#L2739). **25 September, local ES (media-api `ElasticSearchTest`, recorded client body replay):** under `-taken`, a reverse page of 200 from the first image returned null-tail images although nothing sorts before position 0. Same ES semantics apply to direct ES. No ordinary flow is known to reach the store path: sort-around-focus loads around a target only when it is not in the 200-image first page, and restore normally finds such a target already buffered.
+- **Smallest discriminator:** call `restoreAroundCursor` (or the sort-around-focus path with a small `hintOffset`) for a target at position 5 under a sparse-primary sort over `MockDataSource`; assert buffer ids and `imagePositions` equal the corpus at their global positions. Proposed, not run.
+- **Dependency / disposition:** OPEN, independent latent defect in both modes. Smallest fix: cap the backward length at `exactOffset` (skip it at 0), as `extendBackward` does. Not introduced by API build U5.
 
 ### Dependency Unresolved
 

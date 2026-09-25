@@ -12,7 +12,7 @@
 
 ## DAL (`src/dal/`)
 
-`ImageDataSource` interface (`dal/types.ts`). `createDataSource()` (`dal/index.ts`) returns `StranglerAdapter` when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`. `StranglerAdapter` delegates all 13 methods to `ElasticsearchDataSource` except `searchAfter`, which calls `apiSearchAfter()` (`dal/grid-api-search-adapter.ts`) — sends `POST /images/search-after` to the media-api Scala endpoint and maps the response (including per-hit enrichment) to `SearchAfterResult`. `ElasticsearchDataSource` (`es-adapter.ts`): cursor-based pagination (PIT with 404/410 fallback), aggregations (terms + IS-filter in one request), percentile estimation, composite keyword walk, date/keyword distributions (adaptive interval selection), `getByIds` (mget, 1k-chunk parallel), `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek.
+`ImageDataSource` interface (`dal/types.ts`). `createDataSource()` (`dal/index.ts`) returns `ApiDataSource` (`dal/api-data-source.ts`) when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`. `ApiDataSource` sends ordered reads to media-api (`search-after`/`window` pages, `rank`, `sort-profile` scalar anchor/date stats/date buckets/keyword pages, `keys` for position maps and range walks), keeping the walk loops and caps client-side; `openPit` resolves `null`, and `offsetReadLimit` (10,000) caps the deep-seek from/size fallback. Its remaining methods (`DEVELOPMENT_FALLBACK_METHODS`) delegate to an `ElasticsearchDataSource` until U6. `ElasticsearchDataSource` (`es-adapter.ts`): cursor-based pagination (PIT with 404/410 fallback), aggregations (terms + IS-filter in one request), percentile estimation, composite keyword walk, date/keyword distributions (adaptive interval selection), `getByIds` (mget, 1k-chunk parallel), `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek.
 
 ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (universal `uploadTime` fallback). Null-zone helpers in `dal/null-zone.ts` (`detectNullZoneCursor`, `remapNullZoneSortValues`) — shared across seek, extend, fill, and getIdRange paths.
 
@@ -22,14 +22,14 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 
 ## Grid API Adapter (`src/dal/grid-api/`, `src/dal/grid-api-search-adapter.ts`)
 
-**Search path (`--use-media-api` mode):** `apiSearchAfter()` in `grid-api-search-adapter.ts` — builds and sends `POST /api/images/search-after`, maps Argo-wrapped response to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `StranglerAdapter`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard).
+**Search path (`--use-media-api` mode):** `grid-api-search-adapter.ts` builds the shared request body (`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`, `apiImageWindow`) to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `ApiDataSource`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard). `countAll` is sent only when the caller sets `trackTotalHits`.
 
-**Bounded hybrid recovery:** `SearchAfterApiError` distinguishes explicit HTTP 410 with
-`search-after-pit-expired` from transport absence and refusals. `StranglerAdapter` permits one
-additional DAL attempt: expiry retries media-api without the PIT; fetch/body transport failures
-or unstructured 502/504 responses without `Retry-After` use the existing ES adapter. Authentication,
-validation, throttling, 503, structured non-expiry errors, malformed JSON and unexpected failures
-do not trigger fallback. Cancellation is preserved; this is not API-only deployment behavior.
+**Failure handling:** `SearchAfterApiError` distinguishes explicit HTTP 410 with
+`search-after-pit-expired` from transport absence and refusals. A supplied PIT that expires is
+retried once without it (not reachable while `openPit` returns `null`). No migrated read falls back
+to ES: page, rank and range failures throw into the store's error paths; optional profiles and
+maps return `null` without warning on media-api refusal, incompleteness or unreachability.
+Cancellation is preserved.
 
 **Single-image enrichment (intent-driven, not wired to UI):** `GridApiDataSource` (`grid-api/grid-api-adapter.ts`) — HATEOAS service discovery (`service-discovery.ts`). `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort: network failure or non-2xx → `null` → caller degrades gracefully. Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount.
 

@@ -755,15 +755,18 @@ typeahead/debounce traffic and multi-request orchestration while keeping corpus
 contents out of the result. These are browser wall-clock timings, not server
 profiles, and `transferSize` retains normal browser cache semantics.
 
-**[V] Prove `--use-media-api` with both adapter identity and an observed route
-(2026-09-08).** A fresh tab should report `dataSource.constructor.name ===
-"StranglerAdapter"` and at least one `/api/images/search-after` resource after
-settlement. Either signal alone is weaker: a stale tab can retain old served
-code, while the strangler deliberately leaves most methods on direct ES. In the
-current Phase 3 boundary, initial/cursor/PIT/reverse/End `searchAfter` calls use
-media-api, but counts, aggregations, PIT lifecycle, position maps, ID retrieval
-and cursorless non-zero-offset shallow paging remain direct ES. Do not describe
-the mode as "all search traffic through media-api."
+**[V] Prove `--use-media-api` with both adapter identity and observed routes
+(updated 25 September 2026, API build U5).** A fresh tab should report
+`dataSource.constructor.name === "ApiDataSource"` (with `offsetReadLimit === 10000`)
+and `/api/images/*` resources after settlement. Either signal alone is weaker: a stale
+tab can retain old served code. Since U5 every ordered read goes to media-api — pages
+(`search-after`, shallow offsets via `window`), `rank`, `sort-profile` (scalar anchor,
+date stats/buckets, keyword pages), position maps and range walks (`keys`). Counts,
+tickers, aggregations, detail `_mget` and selection still use direct ES (development
+fallback until U6), so the mode is still not "all search traffic through media-api".
+A sorted `/es/_search` in this mode is a leak; unsorted size-0 aggregation searches
+and `_mget` are the expected fallback. Before U5 (`StranglerAdapter`) only
+`searchAfter` went to media-api; do not compare pre- and post-U5 route counts.
 
 **[V] Browser Resource Timing can prove browser-facing gzip, not the internal
 media-api↔ES hop (2026-09-08).** Capture the matching response and return only
@@ -1013,8 +1016,8 @@ Confirm the target with the operator, read only `IS_LOCAL_ES` from the served
 `/src/dal/es-config.ts` module, and check adapter identity plus observed coarse
 request routes. `IS_LOCAL_ES === false` confirms the adapter's non-local write
 guard, not which remote stage it reaches. Do not return the module's index or
-environment values. `StranglerAdapter` still delegates most methods to ES while
-routing qualifying `searchAfter` calls through media-api; timings across these
+environment values. Since U5, `ApiDataSource` sends ordered reads to media-api while
+counts, aggregations, detail and selection still use direct ES; timings across these
 modes are not interchangeable.
 Record frontend, request path and backend stage separately: for example,
 **Kupua UI -> direct Elasticsearch -> TEST**, versus **Kahuna UI -> media-api GET -> TEST**.
@@ -1040,7 +1043,7 @@ deep range chain scans a lot. Rules of thumb:
   specific design question, not for open-ended browsing of the corpus.
 
 **[V] `store.getState().dataSource` exposes the running adapter's read methods.**
-In direct mode this is `ElasticsearchDataSource`; media-api mode uses the strangler.
+In direct mode this is `ElasticsearchDataSource`; media-api mode uses `ApiDataSource`.
 Inspect the current interface and method before calling it, then use a bounded
 read through the app's existing guarded transport. No new tunnel or credentials
 are needed. A direct method call is a controlled DAL probe, not a reproduction
@@ -1083,17 +1086,31 @@ never hits. This confirmed both the real read-only adapter path and the probe's
 own call shape with a fixed two-query budget; it is a useful discriminating
 check before considering any broader ES investigation.
 
-**[V] A two-tier scrubber move can issue no media-api request even in
-`--use-media-api` mode (2026-09-08).** Confirmed on a ~4.8k-result query after
-waiting for the exact position map and `_seekGeneration` settlement: a mid-list
-track click used direct-ES searches only. The owning path explains why. When
-`fetchStart < DEEP_SEEK_THRESHOLD`, `seek()` requests cursorless non-zero-offset
-paging; `StranglerAdapter.searchAfter()` deliberately delegates that unsupported
-offset shape to ES because D3 rejects offsets it cannot apply. Return coarse
-route counts plus ratio agreement (`scrollTop`, slider, buffer), not identities,
-when proving this boundary.
+**[V] Classify requests by body flags, not only paths, with an init-script fetch
+observer (25 September 2026).** One `/images/sort-profile` route carries four
+operations and one `/images/search-after` route carries first, cursor, backward,
+null-zone and End pages, so path counts cannot tell a deep seek from a keyword walk.
+Wrap `window.fetch` via `page.addInitScript` (survives `goto`/reload; a plain
+`page.evaluate` patch dies on navigation), parse the JSON body inside the wrapper
+and keep only `operation`, `countAll`, `offset`, `reverse`, `seekToEnd`, `size`,
+whether `sortValues` is present and whether its first slot is null. Drain the log
+after each action. Your own verification calls (`countBefore` etc.) are logged too;
+drain before and after them so they are not mistaken for app traffic.
 
-**[\!] ES accepts a fractional epoch in `search_after` but rejects it in `_count`.**
+**[V] Check coordinates with media-api's own rank: `countBefore(params,
+startCursor) === bufferOffset` (25 September 2026).** After a real scrubber click,
+End, backward scroll, window seek near 9,800-10,150, sort-around-focus, detail reload
+and a null-tail seek, this single read discriminated honest positions in each case.
+For a focused image, look up its fresh tuple via an `ids` page first and compare its
+rank with `imagePositions`. Direct `seek(N)` store calls are the practical way to hit
+exact boundary targets on a 1M+ track, where a pixel maps to about a thousand images.
+
+**[V] End and alignment buffers of 199 are column trimming, not dropped images.**
+The reverse End page returned 200 hits and 200 tuples from the server; the store
+trims to a column multiple. Check the raw data-source page before suspecting a
+decode drop.
+
+**[V] ES accepts a fractional epoch in `search_after` but rejects it in `_count`.**
 `estimateSortValue` returns a tdigest float (e.g. `1674057953780.8923`). Feeding it
 to `countBefore` gives `400 failed to parse date field … with format [epoch_millis]`,
 while `searchAfter` swallows it happily. If you are probing a sort-value cursor by
@@ -1127,8 +1144,7 @@ ordinals with settled target visibility. Keep actual responses unchanged. For st
 use SPA navigation to keep the component mounted; a full reload resets the state under examination.
 
 **[V] D3 contract checks can be run without retaining TEST data.** In
-`--use-media-api` mode, verify `StranglerAdapter` and a `/api/images/search-after`
-resource first. For each special field/direction, compare only page sizes,
+`--use-media-api` mode, verify `ApiDataSource` and `/api/images/*` resources first. For each special field/direction, compare only page sizes,
 disjointness and in-memory identity-array equality for forward/backward pages;
 return booleans, never IDs or sort values. A terminal cursor can be converted to
 the supported null phase in memory by replacing only its primary slot with
@@ -1143,8 +1159,9 @@ seek therefore returned a perfectly contiguous page-one buffer while the store
 labelled it with the requested deep `bufferOffset`; ordinary duplicate/order
 checks looked healthy. The discriminating check is
 `countBefore(startCursor) === bufferOffset` under the same frozen `until`
-context. The fix keeps plain cursorless non-zero-offset calls on direct ES and
-makes D3 reject offset; cursor, PIT, reverse and End calls remain D3-backed.
+context. D3 still rejects offset; since U5 cursorless non-zero-offset reads go to
+`POST /images/window` (start offsets below 10,000) and cursor, reverse and End reads
+to D3.
 
 **[V] The browser tool's outer JavaScript realm may not have `URL` (17 September 2026).**
 `new URL(page.url())` stopped a script after opening detail. Read URL state with

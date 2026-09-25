@@ -17,6 +17,25 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - Ordered reads through media-api
+
+  API build U5 (Kupua). `ApiDataSource` replaces the one-route `StranglerAdapter` in
+  `--use-media-api` mode and sends every ordered read to media-api: pages through search-after, or
+  the window for cursor-less shallow offsets; `countBefore` through rank; percentile, date and
+  keyword profiles through sort-profile; position maps and range walks through keys. The direct-ES
+  walk loops, caps and completion rules are unchanged and stay client-side; the date-interval
+  choice and range overshoot comparison are shared with the ES adapter. No PIT is opened, so
+  `openPit` may now resolve `null`. Migrated reads never fall back to ES: pages, ranks and range
+  walks fail into the store's existing error paths, while optional profiles and maps are quietly
+  absent. Counts, aggregations, detail and AI keep a listed development fallback until U6. Totals
+  are counted only when the caller asks, which drops full counts from End and id lookups. The
+  deep-seek no-estimate fallback now lands below a data-source-declared offset limit (10,000 in
+  API mode, below the window's refusal) and records that actual position. The local Grid API
+  write guard admits the four new read-only POST paths. Golden request bodies recorded from the
+  real mapper are replayed by media-api tests, which require each to agree with a search-after
+  walk of its own scope; that replay exposed two older null-tail defects, recorded as KUP-033 and
+  KUP-034.
+
   ### 25 September 2026 - media-api keys
 
   API build U4 (Scala). New `POST /images/keys` returns one source-free page of `{id, sortValues}`

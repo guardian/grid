@@ -1468,3 +1468,57 @@ Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browse
 | JB5 | fullscreen-exit | 4 | — | — | — | 150 | 157 | — |
 
 JB2 matched no-anchor control: first visible 1239ms; settled 1247ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] local-media-api baseline, after U5 (7a34c6a67 (dirty), 2026-09-25)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: df942181b77fcc26
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 1 | — | 822 | 961 | 970 | — |
+| PP2 | sort-no-focus | 4 | 66 | — | 751 | 835 | 843 | — |
+| PP3 | sort-around-focus | 4 | 68 | — | 1132 | 1268 | 1278 | — |
+| PP4 | sort-around-focus | 4 | 65 | — | 1131 | 1230 | 1235 | — |
+| PP5 | filter-toggle | 4 | 65 | — | 933 | 946 | 953 | — |
+| PP6 | density-swap | 4 | — | — | — | 196 | 226 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 1301 | 1457 | 1466 | — |
+| PP7b | scrubber-seek | 4 | 1 | — | 1311 | 1468 | 1476 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 122 | 127 | — |
+| PP8 | search | 4 | 65 | — | 1467 | 1485 | 1493 | — |
+| PP9 | chip-remove | 4 | 393 | — | 996 | 1183 | 1205 | — |
+| PP11 | history-back | 4 | 47 | — | 1470 | 1642 | 1665 | — |
+| PP6b | density-swap | 4 | — | — | — | 301 | 307 | — |
+| PP6c | density-swap | 4 | — | — | — | 248 | 254 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 1956 | 21627 |
+
+---
+
+## [long] local-media-api baseline, after U5 (7a34c6a67 (dirty), 2026-09-25)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: df942181b77fcc26
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 954 | 1045 | 1052 | — |
+| JA2 | open-detail | 4 | — | — | 144 | 764 | 771 | — |
+| JA3 | metadata-click | 4 | 58 | — | 1273 | 1388 | 1406 | — |
+| JB1 | navigation-search | 4 | — | — | 950 | 1046 | 1054 | — |
+| JB2 | facet-click | 4 | 78 | — | 1606 | 1672 | 1681 | — |
+| JB3 | facet-click | 4 | 66 | — | 877 | 950 | 963 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 821 | 835 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 133 | 141 | — |
+
+JB2 matched no-anchor control: first visible 1441ms; settled 1452ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

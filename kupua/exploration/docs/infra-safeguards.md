@@ -287,6 +287,14 @@ by CORS. There's no "bypass the adapter" scenario to defend against.
 prefixes (currently `/api`, extensible via `GRID_API_PROXY_PREFIXES`
 array). Requests are rejected with 403 and a descriptive message.
 
+**Read-only POST exception:** media-api's ordered image reads take their
+compound sort clauses and cursors in a JSON body, so they are POST. The
+guard admits exactly those paths via `GRID_API_READ_VIA_POST`:
+`/images/search-after`, `/images/window`, `/images/rank`,
+`/images/sort-profile` and `/images/keys` (the last four added with API
+build U5, 25 September 2026). Each is a read on the server side; add a path
+here only when its server handler performs no write.
+
 **Env-var gate:** Set `VITE_GRID_API_WRITES_ENABLED=true` in the
 environment (NOT in `.env` — only pass it explicitly when running Phase C
 write features) to allow writes through. Without this var, writes are

@@ -54,7 +54,7 @@ Other flags:
 | `--runs N` | Repeat each suite N times; metrics aggregated as median + p95. Long/combined audits require an even count for balanced JB2 AB/BA order. |
 | `--dry-run` | Run everything, print summaries, write nothing. |
 | `--headed` | Show the browser window (otherwise headless). |
-| `--use-media-api` | Route `searchAfter` through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
+| `--use-media-api` | Route ordered reads through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
 | `--prune-history` | No-browser maintenance mode: atomically removes retired and pre-revision-2 replaced jank rows, rebuilds JSON/JS/Markdown, and removes campaigns left empty. |
 | `--rebuild-history` | No-browser maintenance mode: atomically regenerates jank JS/Markdown from canonical JSON without adding a campaign. |
 | `<P-id list>` | Positional jank-test filter (e.g. `P3,P8`). |
@@ -165,8 +165,14 @@ through the same rollback-capable file transaction as normal history writes.
 
 ### Running against local media-api (`--use-media-api`)
 
-This routes `searchAfter` through the local media-api instead of going
+This routes Kupua's ordered reads through the local media-api instead of going
 directly to ES. Useful for measuring the media-api code path end-to-end.
+
+**Scope changed with API build U5 (25 September 2026):** before U5 this mode sent only
+`searchAfter` pages to media-api; from U5 it also sends window, rank, sort-profile, position-map
+and range-walk reads there (counts, aggregations, detail and selection still use ES until U6).
+`dataMode` stays `media-api` for both, so distinguish runs by label (`local-media-api api-mode`
+after U5) and git revision.
 
 **Topology warning:** in this harness, `Mode: media-api` currently means:
 

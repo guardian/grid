@@ -117,7 +117,7 @@ maintained here by the executing agent at completion (section 8).
 | U3a | `POST /images/sort-profile`: scalar-anchor, date-stats, date-buckets | Scala | U1 | done |
 | U3b | sort-profile: keyword-page | Scala | U3a | done |
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | done |
-| U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | not started |
+| U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | done |
 | M1 | Laptop measurement and iteration gate | Both | U5 | not started |
 | U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | not started |
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | not started |
@@ -388,6 +388,69 @@ DAL contracts or accepted fallback behaviour. Existing obligations above and sec
   consume totals. Preserve the required exact initial total and existing total ownership; do not
   assume every other count is redundant or promise an unmeasured saving.
 
+**U5 decisions (operator, 25 September 2026):**
+- **openPit:** the DAL contract becomes `Promise<string | null>`; API mode resolves `null` (no fake
+  ID, no rejection, no warning). Approved exception to section 3's signature rule.
+- **Counting intent:** API-mode reads send `countAll` explicitly, true only when the caller sets
+  `trackTotalHits` (as direct ES counts). The hybrid mapper is unchanged.
+- **Incomplete pages (review item 1):** not in U5. Timeouts/failed shards on D3/window are parked
+  (section 11) for a decision after M1; undecodable images are not turned into failures.
+- **Tests:** `ApiDataSource` contract tests with controlled responses; a composed store suite
+  (real `ApiDataSource` and mapper over a fetch stand-in answering from `MockDataSource`) for
+  both directions, End/null tail, deep seek, sort-around-focus, restore, map build/failure,
+  range walks, cancellation and refusal versus absent profiles; golden bodies as media-api test
+  fixtures replayed in Scala. Not a rerun of the whole store suite through the stand-in. The
+  existing unit, build and direct-ES E2E gates still run unchanged.
+- **Write guard:** the local Vite Grid API guard admits POST `/images/window`, `/rank`,
+  `/sort-profile` and `/keys` as read-only, alongside `/search-after`.
+- **Degraded deep seek (review item 2):** when no deep estimate exists, land at the data source's
+  declared shallow limit minus one page (API mode: 10,000 - 200 = 9,800), and the store records that
+  actual position. Direct ES keeps its `MAX_RESULT_WINDOW` reach. The 10,000 server limit is one
+  branch-only constant (U1) and can be raised later up to the cluster's `max_result_window`.
+- **Mode flag:** no new switch. `--use-media-api` (`VITE_USE_MEDIA_API=true`) stays the hybrid
+  mode and now routes every ordered read through media-api via `ApiDataSource`, with the tested
+  development fallback for unmigrated reads; the one-route `StranglerAdapter` path is replaced.
+  Migrated reads no longer fall back to ES when media-api is unreachable. `--use-TEST` and local
+  mode are unchanged. The perf runner's existing `--use-media-api` check needs no new mode; runs
+  are told apart by label and git revision. A future switch for TEST-deployed media-api is U8.
+
+**U5 as built:** `kupua/src/dal/api-data-source.ts` (`ApiDataSource`), built by `createDataSource()`
+when `VITE_USE_MEDIA_API=true` over a development-fallback `ElasticsearchDataSource`; the one-route
+`StranglerAdapter` and its tests are deleted.
+- **Routing:** cursor-less, forward, non-End reads with `offset > 0` → `POST /images/window`
+  (`offset`, `length`); every other page → `POST /images/search-after` without `offset`;
+  `countBefore` → `/rank`; `estimateSortValue` → `sort-profile` `scalar-anchor`;
+  `findKeywordSortValue`/`getKeywordDistribution` → `keyword-page` pages (the direct-ES walk loops,
+  caps and completion rules unchanged; coverage only on the first distribution page);
+  `getDateDistribution` → `date-stats` then `date-buckets` with the client-chosen interval (shared
+  `chooseDateHistogramInterval`); `fetchPositionIndex` → one `/keys` walk (size
+  `min(10,000, MAX_RESULT_WINDOW)`) following `after`; `getIdRange` → `/keys` pages of 1,000 from
+  the start tuple, stopping at the first key strictly after the end tuple (shared
+  `sortValuesStrictlyAfter`), cap 5,000 with one lookahead.
+- **Bodies:** `buildReadBody` (the former D3 mapper's query/filter fields plus `sort`) is shared by
+  every read; only page reads send `length`; `countAll` is `trackTotalHits === true`, also for the
+  hybrid D3 path it replaced.
+- **Failures:** pages, rank and range walks throw (refusals, 503 incomplete, unreachable), so the
+  store's existing error/degradation paths run; profiles and maps return `null`, as direct ES does,
+  without a console warning for media-api refusals, incomplete reads or unreachability (quiet
+  absence; unexpected errors still warn). No migrated read calls the fallback. A 410 PIT expiry is
+  retried once without the PIT on search-after and window reads (unreachable in practice:
+  `openPit` returns `null`); a supplied PIT is forwarded with the window's offset.
+- **DAL:** `openPit(): Promise<string | null>`; optional `offsetReadLimit` (API mode 10,000). The
+  store's two no-estimate deep-seek fallbacks land at `min(fetchStart, limit - 200)`.
+- **Fallback list** (tested exactly): `count`, `countWithTickers`, `getById`, `getByIds`,
+  `getAggregation`, `getAggregations`, `searchByAi`. Selection and collections still construct
+  their own ES data sources (U6d). The Vite Grid API guard admits the four new POST read paths.
+- **Tests:** contract tests (`api-data-source.test.ts`); a composed store suite
+  (`search-store-api-mode.test.ts`) through a fetch stand-in answering from `MockDataSource`, with a
+  fallback that fails if a migrated read reaches it; 15 golden body files in
+  `media-api/test/resources/ordered-read-bodies/`, written/compared by `ordered-read-bodies.test.ts`
+  and replayed through `ImageQueryController` on the Elasticsearch fixture by `ElasticSearchTest`:
+  every recording answers 200, and each must agree with a search-after walk of its own recorded
+  scope (pages, window positions, ranks, keys, keyword and date profiles), substituting only
+  tuples, ids or scope values the recording cannot know (review fix).
+- **Not built:** API-mode E2E (parked, operator-deferred); keyword walk for alias sorts (parked).
+
 **M1: laptop measurement.** Run the existing perceived suites (PP1-PP9, JA/JB) and the jank
 suite in API mode.
 - **Comparisons:**
@@ -421,6 +484,9 @@ suite in API mode.
   including refusal and restore recovery (KUP-010).
 - Core-read failures show the existing error state, never an empty result. Optional data
   (collections tree, AI, leases) stays quietly absent.
+- Recheck [KUP-030](../../bug-backlog.md#kup-030) (stale same-ID enrichment from overlay-less
+  ES results): U5 removed its original page-fallback trigger; once the fallback list is empty,
+  confirm no remaining image-returning path lacks enrichment, then offer the operator closure.
 
 **U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
 `/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
@@ -505,7 +571,7 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U4 (25 September 2026):
+table whenever a unit touches an existing file. State after U5 (25 September 2026):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
@@ -516,7 +582,7 @@ table whenever a unit touches an existing file. State after U4 (25 September 202
 | `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank, profiles and keys sort admission | 1 |
 | `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. | None. | Every Kupua endpoint | 1 onward |
-| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR | per PR |
+| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
 amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
@@ -609,6 +675,13 @@ ignoring it.
   touch no media-api or Kupua files). Cold review: accept with fixes (nested path, `id` suffix,
   omission tests); operator chose the shared-admission fix. Split commits tested in a temporary
   worktree. Not yet called by Kupua (U5).
+- 25 Sep 2026, U5: `a06f583fb` (recorded client request bodies replayed through media-api, test-only),
+  `3fdfeece2` (`ApiDataSource`; `--use-media-api` reused, `StranglerAdapter` removed). No merge needed
+  (main's new commits touch no media-api or Kupua files). Cold review: accept with fixes (relational
+  replay, quiet optional absence, window keeps a supplied PIT; the reviewer's `!pitId` route was
+  replaced by forwarding the PIT so the offset is kept). Operator dry-run preflights and a TEST
+  browser drive passed. Deferred: API-mode E2E, D3/window incomplete pages (M1), alias-sort keyword
+  walk; new backlog KUP-033/034 (both modes).
 
 ## 11. Parked Observations
 
@@ -624,3 +697,8 @@ operator in chat instead, not here.
 - 25 Sep, U3b, keyword-page: each page is bounded by media-api's 10 s query timeout (503 on timeout), where direct ES has no per-page limit, only Kupua's 8 s walk cap. Risk at PROD cardinality; measure in M1.
 - 25 Sep, U4, `ElasticSearch.scala` `admitSortClause`: a nested field without `nested` passed D3/window/rank admission (500 on a first page; on a D3 null-zone cursor, valued images returned as null-zone hits), and a sort without a unique `id` suffix was accepted (ties skipped). **Resolved in U4:** shared admission refuses both for every ordered read.
 - 25 Sep, pre-U5 review, [e2e/shared/helpers.ts:27](../../../../e2e/shared/helpers.ts#L27): habitual E2E blocks `/api/**`, leaving a coverage risk. Consider an **additional API-mode test run** reusing selected core browsing scenarios under a second backend configuration, not a duplicate full suite; exercise the modified media-api on the laptop or deployed to TEST and verify expected API calls/no forbidden ES fallback. A fully local media-api + local ES arrangement would need a separate setup assessment. **Operator-deferred:** revisit only when the operator chooses after seeing API mode work and comparing its speed with direct ES; not a new U5, U6 or measurement gate. Existing section 5 preflights remain unchanged in scope.
+- 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: D3 and window publish partial pages when media-api's 10 s query timeout fires or a shard fails (rank/keys/profiles return 503); direct ES sets no timeout. Silent skipped images and shifted positions. Risk; operator decision after M1 (check media-api logs for `SearchQuery was TimedOut`). Undecodable hits should stay non-fatal: failing the page would make a corrupt image a permanent wall.
+- 25 Sep, U5 intake, `search-store.ts:3312`: the 7 configured alias fields (e.g. Edit Status; sortable only by clicking their hidden-by-default table column header or via URL, not the sort dropdown) are not in `KEYWORD_SORT_ES_FIELDS`, so deep seek never uses the keyword walk and always takes the from/size fallback. The keyword-page endpoint could serve them. Clean-up/improvement for both modes.
+- 25 Sep, U5 intake, `search-store.ts:1597`: the phantom neighbour batch sends `length = visibleNeighbours.length`; above 200 visible images D3 refuses (422) and the fallback clears focus. Existing hybrid limit, direct ES unaffected. Risk, likely rare.
+- 25 Sep, U5 review, `ElasticSearch.scala` `cursorRead` and `es-adapter.ts` `_searchAfterImpl`: a reverse page from a null-primary tuple reads only the null tail, so a backward extend from the first null-tail image cannot cross back into the valued images before it (both modes; replay test asserts the confined contract). The live probe could not reach the boundary to confirm user impact (indexed tier likely covered by map seeks). Risk; needs a decision. **Moved to the backlog as [KUP-033](../../bug-backlog.md#kup-033).**
+- 25 Sep, U5 review, `search-store.ts:1378` `_loadBufferAroundImage`: the backward page asks for 100 without capping at the target's offset; missing values sort last in reverse too, so a target among the first 100 of a null-tail sort would pull null-tail images into the buffer (both modes). Normally unreachable (such targets are in the first page). Latent. **Moved to the backlog as [KUP-034](../../bug-backlog.md#kup-034).**
