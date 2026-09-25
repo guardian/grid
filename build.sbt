@@ -168,7 +168,7 @@ lazy val mediaApi = playProject("media-api", 9001)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.commons" % "commons-email" % "1.5",
-      "com.gu" %% "content-api-client-default" % "32.0.0",
+      "com.gu" %% "content-api-client-default" % "50.0.0",
       "com.gu" %% "content-api-client-aws" % "1.0.1",
       "software.amazon.awssdk" % "sts" % awsSdkV2Version,
       "org.parboiled" %% "parboiled" % "2.1.7",
