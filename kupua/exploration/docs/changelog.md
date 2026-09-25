@@ -17,6 +17,23 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - Counts and tickers through media-api (API build U6b)
+
+  media-api gains `POST /images/count`: one size-0 `_search` over the shared admitted scope with an
+  exact total and Grid's configured ticker aggregations, read by the existing ticker helpers so its
+  `tickerCounts` equal `GET /images` for the same scope. Cursor fields are refused, shared validation
+  applies, an optional PIT is honoured, and a timed-out or partly failed count answers 503 rather
+  than a short number. In `--use-media-api` mode `count` and `countWithTickers` now use it (without
+  sending the sort) and left the development fallback list; failures stay in the callers' existing
+  quiet paths. The tickers shown in API mode are therefore the ones Grid's configuration enables, as
+  in Kahuna; Grid's ticker clauses carry the default hidden-image conditions, so they read 0 while
+  browsing `is:deleted` (operator-accepted).
+
+  Cold review found that the Vite Grid API write guard matched its read-via-POST paths by prefix, so
+  each listed path also admitted a write route whose image ID equalled it (for example
+  `/images/count/partner/true/syndicateImage`). The allowlist moved to
+  `src/dal/grid-api/read-via-post.ts` and now matches exact paths, query string allowed.
+
   ### 25 September 2026 - Standalone detail through media-api (API build U6a)
 
   In `--use-media-api` mode, detail for an image that is not in the loaded results now reads the

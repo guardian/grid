@@ -67,15 +67,15 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 **Status:** with `VITE_USE_MEDIA_API=true`, `ApiDataSource` routes every ordered read through
 media-api (API build U5): pages via `POST /images/search-after` and `/window`, ranks, sort profiles,
 position maps and range walks, with no PIT and no ES fallback for those reads. Standalone detail
-reads media-api's `GET /images/:id` (U6a). Counts, tickers, aggregations, selection `_mget` and AI
-still use a tested development ES fallback (U6), and selection
+reads media-api's `GET /images/:id` (U6a); counts and tickers use `POST /images/count` (U6b).
+Aggregations, selection `_mget` and AI still use a tested development ES fallback (U6), and selection
 and collections still construct ES directly (U6d). `--use-TEST` is direct ES through an SSH tunnel;
 `--use-media-api` calls locally running modified media-api connected to TEST. The operator confirms
 one laptop caller and one successful D3 TEST deployment; PR #4849 is abandoned (below).
 Draft/ready status is the operator's choice. Copilot comments and local
 performance campaigns do not establish production deployment or other callers.
-On this branch D3, `POST /images/window`, `/rank`, `/sort-profile` and `/keys` live in media-api's
-`ImageQueryController` with the shared read helper (API build U1-U4).
+On this branch D3, `POST /images/window`, `/rank`, `/sort-profile`, `/keys` and `/count` live in media-api's
+`ImageQueryController` with the shared read helper (API build U1-U4, U6b).
 
 **Current scope (15 September):** incrementally add media-api capabilities to make this read-only
 prototype deployable, preserving all current workflows and accepted compromises. Eventual deployed
@@ -127,7 +127,7 @@ remain reference material, not an active implementation plan; V1 stays refuted.
 
 ### Testing Summary
 
-- **1899 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **1921 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~7min, 2 workers) -- `npm --prefix kupua run test:e2e`

@@ -120,7 +120,7 @@ maintained here by the executing agent at completion (section 8).
 | U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | done |
 | M1 | Laptop measurement and iteration gate | Both | U5 | measured; operator decision pending |
 | U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | done |
-| U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | not started |
+| U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | done |
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | not started |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | not started |
 | U6z | Zero-ES verification: fallback list empty, no ES construction | Kupua | U6a-d | not started |
@@ -518,6 +518,40 @@ suite in API mode.
     reaches only the detail metadata panel; any later detail consumer of server actions (for
     example editing) must take it from the same standalone state.
 - Count keeps baseline-plus-latest polling (KUP-006).
+- **U6b decisions (operator, 25 September 2026):**
+  - **Tickers are Grid's:** the count endpoint returns the tickers Grid's configuration defines
+    (the same ones `GET /images` reports), not client-supplied ticker queries. API-mode badges are
+    therefore whatever Grid enables, as in Kahuna. Accepted difference: Grid's ticker clauses carry
+    the default hidden-image conditions, so tickers read 0 while browsing `is:deleted`.
+  - **Incomplete execution:** timeout or any failed shard → 503, as for rank, keys and profiles.
+    Kupua then shows no tickers or keeps its previous new-images count, never a low number.
+  - **Contract (agreed at intake):** body = the shared query fields (no `sort` sent) + optional
+    `pitId`; response `{total, tickerCounts, pitId?}`, each ticker `{value, searchClause,
+    backgroundColour, subCounts?}` as Grid's existing ticker writer produces. Refused:
+    `sortValues`, `reverse: true`, `seekToEnd: true` (400); shared validation (422); PIT expiry
+    (410). `sort`, `offset`, `length`, `countAll` do not affect the count.
+- **U6b as built:** `POST /images/count` in `ImageQueryController`, through `admitSearchParams` and
+  `admittedSearch`; one size-0 `_search`, `track_total_hits: true`, with Grid's existing ticker
+  aggregations (`extraCountAggregations`, read with `extraCountsFrom`, both unchanged); optional
+  `pitId` (410 on expiry).
+  - **Response:** `{total, tickerCounts, pitId?}`; `tickerCounts` is `{}` when Grid configures no
+    tickers; a ticker with no matching images reports `value: 0` without `subCounts`; sub-counts
+    include `other` (possibly 0), as on `GET /images`.
+  - **Refusals:** 400 `sortValues`, `reverse: true`, `seekToEnd: true`; 422 shared validation;
+    503 `count-incomplete` on timeout or failed shard.
+  - **Cross-checks:** total equals D3's total for the same body (also for a `since` interval, which
+    excludes an image uploaded exactly then); each ticker equals D3's total with the ticker's clause
+    as the query; total and tickers equal `GET /images` for the same scope; tier and deleted scope
+    match D3; identical under a PIT.
+  - **Kupua:** `ApiDataSource.countWithTickers` posts `buildReadBody` without `sort` and keeps each
+    ticker's `value`/`subCounts`; `count` returns its total. Failures reject (callers already treat
+    them as no tickers/no update). The Vite guard admits the path. **Review fix:** the guard's
+    read-via-POST allowlist (now `src/dal/grid-api/read-via-post.ts`) matched by prefix, so every
+    listed path also admitted write routes whose image ID equalled it (for example
+    `/images/count/partner/true/syndicateImage`); it now matches exact paths, query string allowed,
+    with a unit test. Fallback list: `getByIds`,
+    `getAggregation`, `getAggregations`, `searchByAi`. Recorded bodies `count-tickers` and
+    `count-poll-since` are replayed in Scala against a walk of the same scope.
 - Aggregations need:
   - verbatim field paths (no `metadata.` prefix);
   - named `is:` filters;
@@ -622,18 +656,18 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U6a (25 September 2026; U6a touched no Grid file):
+table whenever a unit touches an existing file. State after U6b (25 September 2026):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
 | `MediaApiComponents.scala` | Constructs `ImageQueryController` and adds it to the router list. | None: a new controller only. | Every Kupua endpoint | 1 |
-| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys | 1, 2, 3, 4, 5 |
-| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results) and keys (`ImageKeys*`, `ImageKey`). | None: new types only. | Their endpoint | 1-5 |
+| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, `/count`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys, count | 1, 2, 3, 4, 5, 6 |
+| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results), keys (`ImageKeys*`, `ImageKey`) and count (`ImageCount*`, importing common-lib's `ExtraCount`). | None: new types only. | Their endpoint | 1-6 |
 | `ElasticSearchModel.scala`: `SearchParams` | New field `hasRightsAcquired: Option[Boolean] = None`. `SearchParams.apply(request)` passes `None`, so `GET /images` never sets it. | None at runtime. Code that constructs `SearchParams` positionally must add the argument (compile-time only). | Kupua's rights filter, read from request bodies | 1 |
 | `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank, profiles and keys sort admission | 1 |
-| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. | None. | Every Kupua endpoint | 1 onward |
-| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
+| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. | None. | Every Kupua endpoint | 1 onward |
+| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
 amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
@@ -739,6 +773,12 @@ ignoring it.
   now accepts one aborted Strict Mode replay); the stale metadata click-to-search decode test was
   repaired with operator approval. Operator API-mode dry-run preflights passed. Deferred: `getByIds`
   enrichment shape (U6d); unused `GridApiDataSource.getImageDetail` (parked).
+- 25 Sep 2026, U6b: `0940dd9ab` (`POST /images/count`), `6b8fc9a1b` (`ApiDataSource` counts and
+  tickers through it; Vite guard exact-path fix). No merge needed (main's new commits touch no
+  media-api or Kupua files). Operator: Grid-owned tickers, 503 on incomplete. Cold review: accept
+  with fixes (the guard's prefix match admitted `/images/<listed path>/...` write routes, for all
+  six read paths; now exact). Deferred: operator API-mode preflights; two parked items (unused
+  `count()`, unread exact total on ticker-only reads).
 
 ## 11. Parked Observations
 
@@ -761,3 +801,5 @@ operator in chat instead, not here.
 - 25 Sep, U5 review, `search-store.ts:1378` `_loadBufferAroundImage`: the backward page asks for 100 without capping at the target's offset; missing values sort last in reverse too, so a target among the first 100 of a null-tail sort would pull null-tail images into the buffer (both modes). Normally unreachable (such targets are in the first page). Latent. **Moved to the backlog as [KUP-034](../../bug-backlog.md#kup-034).**
 - 25 Sep, U6a, [grid-api-adapter.ts:50](../../../../src/dal/grid-api/grid-api-adapter.ts#L50) `GridApiDataSource.getImageDetail`: still unused (only its tests call it); it drops the envelope's `actions` and mixes `null`/thrown outcomes. U6a's `apiGetImage` supersedes it for detail. Clean-up: delete or align when the satellite adapters are next touched.
 - 25 Sep, U6a E2E, [browser-history.spec.ts:1163](../../../../e2e/local/browser-history.spec.ts#L1163): "metadata search pushes once; Back restores the exact rendered detail image" fails deterministically since `b1239d26d` made `waitForDecodedDetailImage` a real bounded loop (the old async `waitForFunction` passed vacuously). Local E2E has no media, so the detail shows "Image preview not available" and never decodes; identity and metadata were correct (resident image, not the U6a path). Test-harness bug; needs a decision (stub the media route as the KUP-021 tests do, or assert rendered identity only). Not weakened here. **Resolved in U6a (operator-authorized):** the test stubs `image-urls.ts` with an identity-tagged pixel, as the KUP-021 tests do; the decode check is unchanged.
+- 25 Sep, U6b intake, [types.ts](../../../../src/dal/types.ts) `ImageDataSource.count`: no production caller (only tests); every mode must still implement it. Clean-up: drop it from the interface when the DAL is next trimmed.
+- 25 Sep, U6b intake, [search-store.ts:2331](../../../../src/stores/search-store.ts#L2331): the ticker request fired with the first page computes an exact total nobody reads (the page supplies it), in both modes. Possible saving: an opt-out of the exact total for ticker-only reads. Unmeasured; filter aggregations already visit every match, so the gain may be small. Improvement.
