@@ -1576,7 +1576,7 @@ textarea.ng-invalid {
     color: #999;
 }
 
-/* "No matches — try AI search instead" prompt (prototype variants a–d) */
+/* "No matches — try AI search instead" prompt (prototype variants a–e) */
 .ai-search-prompt {
     display: flex;
     flex-direction: column;
@@ -1649,8 +1649,9 @@ textarea.ng-invalid {
     border-radius: 2px;
     cursor: pointer;
     max-width: 100%;
+    max-height: 45vh;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: auto;
 }
 .ai-search-preview:hover {
     border-color: #00adee;
@@ -1661,20 +1662,24 @@ textarea.ng-invalid {
     color: #999;
 }
 
+.ai-search-preview__heading {
+    font-size: 2rem;
+}
+
 .ai-search-preview__row {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
     max-width: 100%;
     min-width: 0;
-    overflow: hidden;
 }
 
 .ai-search-preview__thumb {
     height: 140px;
     width: auto;
-    min-width: 0;
-    flex: 0 1 auto;
+    max-width: 100%;
+    flex: 0 0 auto;
     object-fit: cover;
 }
 

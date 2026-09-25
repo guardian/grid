@@ -234,7 +234,7 @@
             <span ng-if="! ctrl.canOfferAiSearch">No matches, sorry! Try altering your search.</span>
 
             <div ng-if="ctrl.canOfferAiSearch" class="ai-search-prompt">
-                <span class="ai-search-prompt__heading">No matches, sorry! Try altering your search.</span>
+                <span class="ai-search-prompt__heading">No results from text search</span>
 
                 <!-- (a) plain link -->
                 <a ng-if="ctrl.aiSearchVariant === 'a'"
@@ -270,9 +270,12 @@
                 <a ng-if="ctrl.aiSearchVariant === 'e'"
                    class="ai-search-preview"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
-                   aria-label="Click to try AI search instead">
+                   aria-label="Click to see all AI search results">
                     <span class="ai-search-preview__loading" ng-if="ctrl.aiSearchPreviewLoading">
                         Looking for AI search results…
+                    </span>
+                    <span class="ai-search-preview__heading" ng-if="! ctrl.aiSearchPreviewLoading">
+                        Here are the top results from AI search:
                     </span>
                     <span class="ai-search-preview__row" ng-if="! ctrl.aiSearchPreviewLoading">
                         <img class="ai-search-preview__thumb"
@@ -282,7 +285,7 @@
                     </span>
                     <span class="ai-search-preview__cta"
                           ng-if="! ctrl.aiSearchPreviewLoading">
-                        <gr-icon-label gr-icon="search">Click to try AI search instead</gr-icon-label>
+                        <gr-icon-label gr-icon="search">Click to see all AI search results</gr-icon-label>
                     </span>
                 </a>
 
