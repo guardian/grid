@@ -48,7 +48,8 @@ export function pruneAuditHistory(history) {
   const entries = history.entries.map((entry) => {
     const metrics = Object.fromEntries(Object.entries(entry.metrics ?? {}).filter(([id, metric]) => {
       const retired = RETIRED_AUDIT_METRIC_IDS.has(id);
-      const replacedLegacy = REPLACED_AUDIT_METRIC_IDS.has(id) && metric.scenarioRevision !== 2;
+      const replacedLegacy = REPLACED_AUDIT_METRIC_IDS.has(id)
+        && (!Number.isInteger(metric.scenarioRevision) || metric.scenarioRevision < 2);
       if (retired || replacedLegacy) removedMetricCount++;
       return !retired && !replacedLegacy;
     }));

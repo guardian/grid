@@ -117,6 +117,10 @@
       <option value="status_total_p95_ms">Banner total p95 (ms)</option>
       <option value="dt_native_exit_ms">Native fullscreen exit (ms)</option>
       <option value="sampleCount">Samples across repetitions</option>
+      <option value="imageLookupCount">Image metadata lookups (resident traversal: 0)</option>
+      <option value="detailLookupMs">Standalone lookup response (ms)</option>
+      <option value="detailMetadataReadyMs">Standalone metadata ready (ms)</option>
+      <option value="detailImageReadyMs">Standalone decoded image ready (ms; warm media)</option>
       <option value="requestedRatio">Requested result ratio</option>
       <option value="achievedRatio">Achieved result ratio</option>
       <option value="anchorDriftPx">Anchor drift (px)</option>
@@ -141,6 +145,7 @@
   </label>
   <label><input type="checkbox" id="showShort" checked /> short (single-action)</label>
   <label><input type="checkbox" id="showLong" checked /> long (journeys)</label>
+  <label><input type="checkbox" id="showImageProbes" checked /> jank-suite image probes</label>
   <label><input type="checkbox" id="showDiagnostics" /> background diagnostics</label>
   <label><input type="checkbox" id="comparableOnly" checked /> comparable within each mode</label>
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
@@ -156,6 +161,7 @@
 
 <!-- Load sibling .js sidecar BEFORE the inline script so window.__PERCEIVED_LOG__ is set when the check runs (mirrors audit-graphs.html pattern). -->
 <script src="perceived-log.js" onerror="window.__PERCEIVED_LOG_LOAD_FAILED__=true"></script>
+<script src="audit-log.js" onerror="window.__AUDIT_LOG_LOAD_FAILED__=true"></script>
 
 <script>
 // ---------------------------------------------------------------------------
@@ -177,6 +183,7 @@ let currentMetric = "dt_ack_ms";
 // the kind field existed are treated as "short" for back-compat.
 let showShort = true;
 let showLong = true;
+let showImageProbes = true;
 let showDiagnostics = false;
 let comparableOnly = true;
 function entryKind(e) { return e.kind ?? "short"; }
@@ -196,7 +203,8 @@ function visibleEntries(entries) {
   const modes = visibleModeSet();
   return entries.filter((e) => {
     const k = entryKind(e);
-    return modes.has(entryMode(e)) && ((k === "short" && showShort) || (k === "long" && showLong));
+    return modes.has(entryMode(e)) && ((k === "short" && showShort) || (k === "long" && showLong)
+      || (k === "jank-probes" && showImageProbes));
   });
 }
 const METRIC_LABELS = {
@@ -220,6 +228,10 @@ const METRIC_LABELS = {
   aggTook: "Agg took (ms)",
   aggFetchDuration: "Agg fetch duration (ms)",
   sampleCount: "Samples across repetitions",
+  imageLookupCount: "Image metadata lookups (resident traversal: 0)",
+  detailLookupMs: "Standalone lookup response (ms)",
+  detailMetadataReadyMs: "Standalone metadata ready (ms)",
+  detailImageReadyMs: "Standalone decoded image ready (ms; warm media)",
   requestedRatio: "Requested result ratio",
   achievedRatio: "Achieved result ratio",
   anchorDriftPx: "Anchor drift (px)",
@@ -234,7 +246,7 @@ const METRIC_LABELS = {
 function metricUnit(metric) {
   if (["requestedRatio", "achievedRatio", "anchorDriftRatio"].includes(metric)) return "";
   if (metric === "anchorDriftPx") return "px";
-  if (["sampleCount", "mapEntryCount"].includes(metric)) return "";
+  if (["sampleCount", "mapEntryCount", "imageLookupCount"].includes(metric)) return "";
   return "ms";
 }
 
@@ -268,7 +280,36 @@ function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
   if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
   if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
   if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  if ((referenceMetric.completionBoundary ?? null) !== (metric.completionBoundary ?? null)) return false;
+  if ((referenceMetric.resultRegime ?? null) !== (metric.resultRegime ?? null)) return false;
+  if (JSON.stringify(referenceMetric.routes ?? null) !== JSON.stringify(metric.routes ?? null)) return false;
   return true;
+}
+
+function sourceMatchLabel(directEntry, apiEntry) {
+  if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
+  const directHash = directEntry.environment?.appSourceDirtyStateHash;
+  const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
+  if (!directHash || !apiHash) return "app source unverified";
+  return directHash === apiHash ? "app source matched" : "app source differs";
+}
+
+const STORE_TIMING_METRICS = new Set(["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]);
+
+function perceivedMetricValue(record, metric) {
+  if (!record) return null;
+  if (STORE_TIMING_METRICS.has(metric)
+    && !record.routes?.some((route) => route === "direct-es" || route === "media-api")) return null;
+  return Number.isFinite(record[metric]) ? record[metric] : null;
+}
+
+function pairedModeSummary(modeSeries, metric) {
+  const direct = modeSeries.find((series) => series.mode === "direct-es");
+  const api = modeSeries.find((series) => series.mode === "media-api");
+  if (!direct || !api) return "";
+  const delta = api.latestValue - direct.latestValue;
+  const deltaText = `${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+  return `<span class="mode-summary"><strong>API − direct</strong> ${deltaText} · ${sourceMatchLabel(direct.latestEntry, api.latestEntry)}</span>`;
 }
 
 // Contract: every numeric field on PerceivedMetrics that the dashboard
@@ -303,6 +344,7 @@ const KNOWN_METRICS = new Set([
   "aggTook",
   "aggFetchDuration",
   "sampleCount",
+  "imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs",
   "requestedRatio",
   "achievedRatio",
   "anchorDriftPx",
@@ -317,6 +359,7 @@ const KNOWN_METRICS = new Set([
 // unknown-metric scan can ignore them rather than warning.
 const NON_METRIC_FIELDS = new Set([
   "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "metricClass",
+  "cacheClass", "lookupGuardRevision",
   "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
   "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration", "setupEvictedCount",
 ]);
@@ -327,8 +370,38 @@ const NON_METRIC_FIELDS = new Set([
 
 let LOG = null;
 
+function auditImageReadEntries(audit) {
+  return (audit?.entries ?? []).flatMap((entry) => {
+    const perceived = {};
+    for (const id of ["P13c", "P14a", "P14b", "P14c", "P14d"]) {
+      const metric = entry.metrics?.[id];
+      if (!Number.isFinite(metric?.imageLookupCount)) continue;
+      const record = {
+        label: id === "P13c" ? "Standalone detail, non-resident metadata / warm media" : "Resident traversal lookup guard",
+        action: id === "P13c" ? "standalone-detail" : "resident-traversal",
+      };
+      for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs", "sampleCount",
+        "scenarioRevision", "cacheClass", "lookupGuardRevision", "routes"]) {
+        if (metric[field] != null) record[field] = metric[field];
+      }
+      perceived[id] = record;
+    }
+    if (Object.keys(perceived).length === 0) return [];
+    const { metrics, ...context } = entry;
+    return [{ ...context, kind: "jank-probes", perceived }];
+  });
+}
+
 function ingestLog(data) {
-  LOG = typeof data === "string" ? JSON.parse(data) : data;
+  const parsed = typeof data === "string" ? JSON.parse(data) : data;
+  const isAudit = (parsed.entries ?? []).some((entry) => entry.metrics);
+  const entries = isAudit ? auditImageReadEntries(parsed)
+    : [...(parsed.entries ?? []), ...auditImageReadEntries(window.__AUDIT_LOG__)];
+  LOG = { entries: entries.sort((first, second) => first.timestamp.localeCompare(second.timestamp)) };
+  for (const chart of charts.values()) chart.destroy();
+  charts.clear();
+  document.getElementById("grid").innerHTML = "";
+  document.getElementById("diagnosticGrid").innerHTML = "";
   render();
 }
 
@@ -367,6 +440,13 @@ document.getElementById("showDiagnostics").addEventListener("change", (e) => {
   showDiagnostics = e.target.checked;
   document.getElementById("diagnosticGrid").innerHTML = "";
   for (const c of charts.values()) c.destroy();
+  charts.clear();
+  render();
+});
+document.getElementById("showImageProbes").addEventListener("change", (e) => {
+  showImageProbes = e.target.checked;
+  document.getElementById("grid").innerHTML = "";
+  for (const chart of charts.values()) chart.destroy();
   charts.clear();
   render();
 });
@@ -479,8 +559,9 @@ function render() {
   const latest = entries[entries.length - 1];
   const shortCount = allEntries.filter((e) => entryKind(e) === "short").length;
   const longCount  = allEntries.filter((e) => entryKind(e) === "long").length;
+  const probeCount = allEntries.filter((e) => entryKind(e) === "jank-probes").length;
   document.getElementById("sub").textContent =
-    `${allEntries.length} entries (${shortCount} short, ${longCount} long), ${entries.length} visible — latest: [${entryKind(latest)} · ${entryMode(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
+    `${allEntries.length} entries (${shortCount} short, ${longCount} long, ${probeCount} jank-probe), ${entries.length} visible — latest: [${entryKind(latest)} · ${entryMode(latest)}] ${latest.label} (${latest.gitSha}${latest.gitDirty ? " dirty" : ""}, ${new Date(latest.timestamp).toLocaleDateString()})`;
 
   // Collect all scenario IDs across all entries
   const allIds = new Set();
@@ -500,7 +581,7 @@ function render() {
   for (const id of allIds) {
     const modeSeries = selectedModes.flatMap((mode) => {
       const referenceIndex = entries.findLastIndex((entry) =>
-        entryMode(entry) === mode && Number.isFinite(entry.perceived?.[id]?.[currentMetric])
+        entryMode(entry) === mode && perceivedMetricValue(entry.perceived?.[id], currentMetric) != null
       );
       if (referenceIndex < 0) return [];
       const referenceEntry = entries[referenceIndex];
@@ -510,8 +591,7 @@ function render() {
         const metric = entry.perceived?.[id];
         if (!metric) return null;
         if (comparableOnly && !metricsComparable(entry, metric, referenceEntry, referenceMetric)) return null;
-        const value = metric[currentMetric];
-        return Number.isFinite(value) ? value : null;
+        return perceivedMetricValue(metric, currentMetric);
       });
       const latestIndex = points.findLastIndex((point) => point != null);
       if (latestIndex < 0) return [];
@@ -554,7 +634,7 @@ function render() {
         ? "no predecessor"
         : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(currentMetric, delta)}`;
       return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(currentMetric, series.latestValue)} · ${deltaText}</span>`;
-    }).join("");
+    }).join("") + pairedModeSummary(modeSeries, currentMetric);
 
     // Get or create card
     let card = document.getElementById(`card-${id}`);
@@ -568,13 +648,16 @@ function render() {
     const target = metricClass === "background-diagnostic" ? null : getTargetForAction(action, currentMetric);
 
     // Chips for latest values
-    const CHIP_METRICS = ["dt_ack_ms", "dt_store_ready_ms", "dt_first_visible_frame_ms", "dt_visual_settled_ms", "status_total_ms"];
+    const CHIP_METRICS = entryKind(latestScenarioEntry) === "jank-probes"
+      ? ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"]
+      : ["dt_ack_ms", "dt_store_ready_ms", "dt_first_visible_frame_ms", "dt_visual_settled_ms", "status_total_ms"];
     const chipsHtml = CHIP_METRICS.map((m) => {
       const v = latestMetrics ? latestMetrics[m] : null;
       const t = metricClass === "background-diagnostic" ? null : getTargetForAction(action, m);
       const cls = chipClass(v, t);
-      const lbl = { dt_ack_ms: "ack", dt_store_ready_ms: "store", dt_first_visible_frame_ms: "visible", dt_visual_settled_ms: "settle", status_total_ms: "banner" }[m];
-      return `<span class="metric-chip ${cls}">${lbl}: ${v != null ? v + "ms" : "—"}</span>`;
+      const lbl = { dt_ack_ms: "ack", dt_store_ready_ms: "store", dt_first_visible_frame_ms: "visible", dt_visual_settled_ms: "settle", status_total_ms: "banner",
+        imageLookupCount: "lookups", detailLookupMs: "response", detailMetadataReadyMs: "metadata", detailImageReadyMs: "decoded" }[m];
+      return `<span class="metric-chip ${cls}">${lbl}: ${formatMetricValue(m, v)}</span>`;
     }).join("");
 
     card.innerHTML = `
@@ -657,6 +740,12 @@ function render() {
 }
 
 (async () => {
+  if (!window.__AUDIT_LOG__) {
+    try {
+      const response = await fetch("./audit-log.json", { cache: "no-store" });
+      if (response.ok) window.__AUDIT_LOG__ = await response.json();
+    } catch (error) {}
+  }
   // 1) Sibling JS file set window.__PERCEIVED_LOG__ — works on file:// too.
   if (window.__PERCEIVED_LOG__) {
     ingestLog(window.__PERCEIVED_LOG__);
@@ -667,6 +756,7 @@ function render() {
     const res = await fetch("./perceived-log.json", { cache: "no-store" });
     if (res.ok) { ingestLog(await res.json()); return; }
   } catch (e) { /* blocked on file://, fall through */ }
+  if (window.__AUDIT_LOG__) { ingestLog({ entries: [] }); return; }
   // 3) Show file picker fallback.
   document.getElementById("picker").hidden = false;
 })();

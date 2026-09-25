@@ -7,7 +7,28 @@ import {
   metricsAreComparable,
   severeRateIsReportable,
   sanitizeLayoutShift,
+  classifyImageLookup,
+  comparisonEvidenceClass,
 } from "./p14-metrics.mjs";
+
+test("reserves regression verdicts for repeated current evidence", () => {
+  assert.equal(comparisonEvidenceClass({ sampleCount: 1 }, { sampleCount: 4 }), "watchpoint");
+  assert.equal(comparisonEvidenceClass({ sampleCount: 2 }, { sampleCount: 4 }), "repeated");
+  assert.equal(comparisonEvidenceClass({ sampleCount: 4 }, { sampleCount: 1 }), "watchpoint");
+  assert.equal(comparisonEvidenceClass({}, { sampleCount: 4 }), "watchpoint");
+});
+
+test("classifies image hydration without confusing ordered reads or media", () => {
+  assert.equal(classifyImageLookup("POST", "/es/images/_mget"), "direct-es");
+  assert.equal(classifyImageLookup("GET", "/api/images/example-id"), "media-api");
+  assert.equal(classifyImageLookup("POST", "/api/images/mget"), "media-api");
+  for (const path of ["/api/images/search-after", "/api/images/window", "/api/images/keys"]) {
+    assert.equal(classifyImageLookup("POST", path), null);
+  }
+  assert.equal(classifyImageLookup("GET", "/api/images/example-id/fileMetadata"), null);
+  assert.equal(classifyImageLookup("GET", "/imgproxy/insecure/image"), null);
+  assert.equal(classifyImageLookup("DELETE", "/api/images/example-id"), null);
+});
 
 test("measures landing from the final committed navigation", () => {
   assert.equal(landingElapsedMs(1_250, 1_600), 350);

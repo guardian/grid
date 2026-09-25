@@ -135,6 +135,10 @@ const KNOWN_METRICS = {
   clsMax:            { label: "CLS (max single shift)",         lowerIsBetter: true,  defaultShow: true,  quietThreshold: 0.001 },
   frameCount:        { label: "frame count (context only)",     lowerIsBetter: null,  defaultShow: false },
   sampleCount:       { label: "samples across repetitions",     lowerIsBetter: null,  defaultShow: false },
+  imageLookupCount:  { label: "Image metadata lookups (resident traversal: 0)", lowerIsBetter: true, defaultShow: true, quietThreshold: 0 },
+  detailLookupMs:    { label: "Standalone lookup response (ms)", lowerIsBetter: true, defaultShow: true },
+  detailMetadataReadyMs: { label: "Standalone metadata ready (ms)", lowerIsBetter: true, defaultShow: true },
+  detailImageReadyMs: { label: "Standalone decoded image ready (ms; warm media)", lowerIsBetter: true, defaultShow: true },
   // Focus position tracking (P4a/b, P6 — see README § Focus Position Tracking).
   focusDriftPx:      { label: "focusDriftPx (px, signed; 0 = perfect)", lowerIsBetter: null, defaultShow: true },
   focusDriftRatio:   { label: "focusDriftRatio (frac of viewport; 0 = perfect)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0.001 },
@@ -168,6 +172,7 @@ const KNOWN_ENTRY_KEYS = new Set([
 ]);
 const KNOWN_METRIC_META_KEYS = new Set([
   "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
+  "lookupGuardRevision",
   "traversals", "cadenceMs", "speed", "direction", "clsEvents",
   "completionBoundary", "detailDecoded",
   "dragSteps", "stepIntervalMs", "releaseExcluded",
@@ -355,7 +360,27 @@ function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
   if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
   if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
   if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
+  if ((referenceMetric.completionBoundary ?? null) !== (metric.completionBoundary ?? null)) return false;
+  if ((referenceMetric.resultRegime ?? null) !== (metric.resultRegime ?? null)) return false;
+  if (JSON.stringify(referenceMetric.routes ?? null) !== JSON.stringify(metric.routes ?? null)) return false;
   return true;
+}
+
+function sourceMatchLabel(directEntry, apiEntry) {
+  if (directEntry.gitSha !== apiEntry.gitSha) return "commit differs";
+  const directHash = directEntry.environment?.appSourceDirtyStateHash;
+  const apiHash = apiEntry.environment?.appSourceDirtyStateHash;
+  if (!directHash || !apiHash) return "app source unverified";
+  return directHash === apiHash ? "app source matched" : "app source differs";
+}
+
+function pairedModeSummary(modeSeries, metric) {
+  const direct = modeSeries.find((series) => series.mode === "direct-es");
+  const api = modeSeries.find((series) => series.mode === "media-api");
+  if (!direct || !api) return "";
+  const delta = api.latestValue - direct.latestValue;
+  const deltaText = `${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
+  return `<span class="mode-summary"><strong>API − direct</strong> ${deltaText} · ${sourceMatchLabel(direct.latestEntry, api.latestEntry)}</span>`;
 }
 
 function entryMode(entry) {
@@ -434,6 +459,7 @@ function buildCharts() {
         latestIndex,
         latestValue: data[latestIndex],
         previousValue: previousIndex >= 0 ? data[previousIndex] : null,
+        latestEntry: entries[latestIndex],
       }];
     });
     const finite = modeSeries.flatMap((series) =>
@@ -450,8 +476,10 @@ function buildCharts() {
       const deltaText = delta == null
         ? "no predecessor"
         : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
-      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}</span>`;
-    }).join("");
+      const actualRoute = entries[series.latestIndex].metrics[t]?.routes?.join("+");
+      const routeLabel = actualRoute ? ` · route: ${actualRoute}` : "";
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}${routeLabel}</span>`;
+    }).join("") + pairedModeSummary(modeSeries, metric);
 
     const card = document.createElement("div");
     card.className = "card";

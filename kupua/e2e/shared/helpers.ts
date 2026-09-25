@@ -142,6 +142,7 @@ export class KupuaHelpers {
               && itemRect.top < containerRect.bottom;
           });
       },
+      null,
       { timeout },
     );
   }
@@ -428,6 +429,7 @@ export class KupuaHelpers {
           }
           return true;
         },
+        null,
         { timeout },
       );
     } catch {
@@ -453,6 +455,7 @@ export class KupuaHelpers {
         // Callers check s.error themselves for pass/fail assertions.
         return !s.loading && s.results.length > 0;
       },
+      null,
       { timeout },
     );
   }
@@ -574,6 +577,7 @@ export class KupuaHelpers {
             }
             return false;
           },
+          null,
           { timeout: 5000 },
         );
       } catch {
@@ -681,7 +685,8 @@ export class KupuaHelpers {
         const s = store.getState();
         return s.total > 0 && s.results.length >= s.total;
       },
-      { timeout },
+        null,
+        { timeout },
     );
   }
 
@@ -890,6 +895,7 @@ export class KupuaHelpers {
         if (!store) return true; // no store = local tests without store exposure
         return !store.getState().loading;
       },
+      null,
       { timeout },
     );
     // Wait for SEEK_COOLDOWN_MS (100ms) + margin to expire.
@@ -1086,6 +1092,7 @@ export class KupuaHelpers {
         const s = store.getState();
         return s.sortAroundFocusStatus === null && !s.loading;
       },
+      null,
       { timeout },
     );
   }
@@ -1188,6 +1195,7 @@ export class KupuaHelpers {
     await this.page.waitForFunction(
       () => !new URL(window.location.href).searchParams.has("image")
         && document.querySelector("[data-detail-image-id]") === null,
+      null,
       { timeout },
     );
   }
@@ -1232,27 +1240,39 @@ export class KupuaHelpers {
    * This proves decode/readiness and stable layout, not compositor paint.
    */
   async waitForDecodedDetailImage(expectedId: string, timeout = 10_000) {
-    await this.page.waitForFunction(
-      async (targetId) => {
-        const detail = document.querySelector(`[data-detail-image-id="${CSS.escape(targetId)}"]`);
-        const routeId = new URL(location.href).searchParams.get("image");
-        const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
-        if (!detail || !image || routeId !== targetId) return false;
-        if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) return false;
-        const firstImage = image.getBoundingClientRect();
-        const firstDetail = detail.getBoundingClientRect();
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        const secondImage = image.getBoundingClientRect();
-        const secondDetail = detail.getBoundingClientRect();
+    await this.page.evaluate(
+      async ({ targetId, timeoutMs }) => {
+        const deadline = performance.now() + timeoutMs;
+        const selector = `[data-detail-image-id="${CSS.escape(targetId)}"]`;
         const stable = (left: DOMRect, right: DOMRect) =>
           Math.abs(left.top - right.top) <= 1
           && Math.abs(left.left - right.left) <= 1
           && Math.abs(left.width - right.width) <= 1
           && Math.abs(left.height - right.height) <= 1;
-        return stable(firstImage, secondImage) && stable(firstDetail, secondDetail);
+        while (performance.now() < deadline) {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          const detail = document.querySelector(selector);
+          const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+          if (!detail || !image || new URL(location.href).searchParams.get("image") !== targetId) continue;
+          if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) continue;
+          const source = image.currentSrc;
+          const firstImage = image.getBoundingClientRect();
+          const firstDetail = detail.getBoundingClientRect();
+          if (firstImage.width <= 0 || firstImage.height <= 0
+            || firstImage.bottom <= 0 || firstImage.top >= innerHeight
+            || firstImage.right <= 0 || firstImage.left >= innerWidth) continue;
+          try { await image.decode(); } catch { continue; }
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          if (!image.isConnected || document.querySelector(selector) !== detail
+            || detail.querySelector('img[fetchpriority="high"]') !== image
+            || new URL(location.href).searchParams.get("image") !== targetId
+            || image.currentSrc !== source || !image.complete) continue;
+          if (stable(firstImage, image.getBoundingClientRect())
+            && stable(firstDetail, detail.getBoundingClientRect())) return;
+        }
+        throw new Error("Expected detail image did not become decoded and visibly stable before the deadline");
       },
-      expectedId,
-      { timeout },
+      { targetId: expectedId, timeoutMs: timeout },
     );
   }
 

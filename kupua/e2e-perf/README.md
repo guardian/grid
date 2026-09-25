@@ -137,6 +137,37 @@ the jank repetitions completed. The unique report survives; it is not a resumabl
 campaign checkpoint. This all-or-nothing policy is deliberate: no checkpoints,
 partial history, automatic retries or failure suppression.
 
+### Harness reliability invariants
+
+The pure `test:perf-harness` gate statically inspects every maintained perf spec and the
+shared E2E helper. `waitForFunction` predicates must be synchronous, and timeout/polling
+options must occupy Playwright's third parameter rather than the unused predicate-argument
+slot. Multi-frame decode/geometry conditions use explicit bounded async loops with negative
+controls for delayed, missing, moving and wrong-identity states.
+
+Aggregation requires optional evidence to be present in every repetition or none. A missing
+phase, route, store timing, traversal diagnostic or seek-measure set therefore fails instead
+of silently shrinking the sample. Metric-ID manifests reject missing, duplicate and unexpected
+rows; environment and route ownership must remain stable across repetitions; history sibling
+writes remain transactional. Dashboard schemas warn on unknown fields.
+
+Store timings are published only when the measured action owns a successful direct-ES or
+media-api route; dashboards also suppress stale timings in older `client-only` records. Each
+dashboard shows the latest API-minus-direct delta when both modes are visible, qualified as
+app-source matched/different/unverified (or a different commit). New environment fingerprints
+retain both the complete dirty-state hash and an app-source hash excluding only generated
+audit/perceived history siblings, so recording one half of a pair does not invalidate the other.
+
+Threshold crossings from a single current repetition remain visible in the diff table but are
+reported as **single-sample watchpoints**, not regression verdicts. “Possible regression” is
+reserved for current and previous aggregates that each contain at least two repetitions. This
+does not make two runs a performance proof; it prevents quick dry-runs from overstating evidence.
+
+P5c and P13b use revision 3 after correcting their stable-geometry boundaries. P13a and
+P15a/b/c are also revision 3 after correcting decoded-detail readiness. Earlier history is
+retained but excluded by comparable-only views. Fixed waits that deliberately define input
+cadence or observation windows are not completion proofs and were not removed by this audit.
+
 For a strictly isolated diagnostic, use an exact title filter and preview it with
 `--list` through the direct Playwright config. Runner filters differ: jank's `P1`
 also matches P11-P18, while the perceived selector does not accept `PP1:`. An
@@ -418,6 +449,7 @@ signed vertical and horizontal pixel drift plus final visibility.
 | **P11** | Thumbnail CLS after seek (3 positions) | ~15s | CLS per seek position. Image loading stability. |
 | **P11b** | Same, keyword sort variant | ~15s | CLS comparison across sort types. |
 | **P13a/b** | Image detail enter/exit | ~5s | CLS, maxFrame. Overlay transition quality. Scroll restoration. |
+| **P13c** | Standalone detail after P13a/b; non-resident metadata, warm media | additional seconds, not yet measured | Lookup response, metadata-ready and decoded/stable-image timings; actual lookup route and count. |
 | **P14a** | Image traversal, normal (10 fwd @ 2/s) | ~6s | maxFrame, severe, **landingRenderMs**, **renderedCount**. Browsing-pace image swap smoothness. |
 | **P14b** | Image traversal, fast burst (15 fwd @ 5/s + 3s settle) | ~7s | severe during burst, CLS/LoAF during settle, **landingRenderMs**, **swappedNotRendered**. Does the app load only the final image? |
 | **P14c** | Image traversal, fast backward (10 back @ 5/s + 3s settle) | ~6s | Same as P14b, reverse direction. Prefetch-behind effectiveness. |
@@ -426,6 +458,51 @@ signed vertical and horizontal pixel drift plus final visibility.
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
 | **P17** | Reverse grid scroll from first backward-prepend trigger through 200ms quiescence | ~5s | severe, p95Frame, LoAF, DOM churn, route class, prepend count, direction violations. Includes any natural causally-following prepend cascade rather than suppressing it. |
 | **P18** | Shift-click result 99 from a settled result-0 anchor with Details open | ~2s | maxFrame, LoAF, selection publication, metadata/reconcile/visual settlement. Cold-except-anchor, exactly 100 selected. |
+
+### Image-read probes (P13c and P14)
+
+**Readiness correction (25 September):** the shared detail-ready helper now awaits an
+explicit frame/decode loop. Its former async `waitForFunction` predicate could resolve false
+without being retried, letting P13 reach the warm-source capture before the image loaded.
+P13a/b and P15a/b/c therefore use scenario revision 3; revision-2 history is retained but is
+not automatically comparable. P13c keeps its strict warm-rendition assertion. Other async
+polling call sites were not audited by this repair. Rerun P13/P15 in the current app mode
+before recording a new campaign.
+
+P14a-d count image-hydration requests during the existing traversal and landing window and
+require zero. Both direct-ES `_mget` and media-api singleton/bulk reads are counted; ordered
+pages and image-byte requests are not. The listener adds no navigation or extra wait.
+
+P13c runs once per repetition after P13a/b have emitted their unchanged metrics. It uses a
+normal query change to a different resident ID, verifies that the original target is absent,
+then opens that target as standalone detail without restarting the browser. P13c revision 2
+accepts one lookup or two from development Strict Mode mount-effect replay; every request
+must target that single ID, use the expected route and succeed. Zero, three or more, or
+unrelated reads fail. Both requests remain visible in `imageLookupCount`; the probe does not
+deduplicate them or change the application. Direct mode expects ES; hybrid API mode follows
+the declared `getById` development fallback until U6a removes it, then expects media-api.
+The result records the actual route; an unexpected route fails rather than masquerading as
+API evidence. The final decoded rendition must match the one warmed by P13a.
+
+`detailLookupMs` ends at the last-issued lookup's response body (the replay-owned read when
+there are two); `detailMetadataReadyMs` ends at the first
+observed requested-ID detail frame; `detailImageReadyMs` additionally requires a visible image,
+stable geometry over two frames and successful decode. All start at standalone navigation.
+These are not cold-media or compositor-paint measurements. Setup and readiness use bounded
+condition waits, not extra fixed sleeps. The additional runtime has not been measured live.
+
+Both dashboards offer these three timings and `imageLookupCount` in their metric menus.
+The perceived dashboard reads the same audit history under **jank-suite image probes**;
+it does not duplicate samples into perceived history or rerun the probes. Jank-only and
+combined campaigns refresh them; perceived-only campaigns do not. Old records remain gaps,
+not invented zero counts. Comparable-history filtering separates actual lookup routes as
+well as app modes, so pre-U6 API-mode ES fallback is not silently compared as API singleton
+work; uncheck that filter deliberately to inspect the migration transition.
+
+Operator preflight: run `P13,P14 --dry-run --runs 2` through the audit runner in each app mode,
+with `--use-media-api` on both app and runner for API mode. No recorded campaign or live
+preflight was run by the implementing agent; pure helper tests and synthetic browser dashboard
+checks cover both transports, ownership refusals, aggregation and display contracts.
 
 ### Jank metrics glossary
 

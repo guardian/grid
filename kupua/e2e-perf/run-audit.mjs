@@ -50,17 +50,17 @@
  *   Terminal 2: node e2e-perf/run-audit.mjs --label "..."
  */
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { arch, platform, release } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
 import {
   assertBalancedLongRuns,
   assertCompleteMetricIds,
   assertEnvironmentMatches,
+  assertConsistentNames,
   assertPlaywrightSucceeded,
   assertSameEnvironment,
   aggregateScenarioFields,
@@ -72,10 +72,14 @@ import {
   parseSuccessfulRun,
   JANK_SCENARIO_AGGREGATION,
   PERCEIVED_METRIC_IDS,
+  assertFiniteFields,
+  REQUIRED_JANK_NUMERIC_FIELDS,
   requireSingleEnvironment,
+  requireConsistentPresence,
+  generatedHistoryExclusions,
 } from "./harness-validation.mjs";
 import { commitFileTransaction, pruneAuditHistory, readHistoryLog } from "./history-files.mjs";
-import { metricsAreComparable, severeRateIsReportable } from "./p14-metrics.mjs";
+import { comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable } from "./p14-metrics.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -218,18 +222,23 @@ const STABLE_UNTIL = "2026-02-15T00:00:00.000Z";
 
 function getGitInfo() {
   try {
-    const sha = execSync("git rev-parse --short HEAD", { cwd: ROOT }).toString().trim();
-    const status = execSync("git status --porcelain -- .", { cwd: ROOT });
-    const diff = execSync(
-      "git diff --binary HEAD -- .",
-      { cwd: ROOT, maxBuffer: 20 * 1024 * 1024 },
-    );
+    const runGit = (args) => execFileSync("git", args, { cwd: ROOT, maxBuffer: 20 * 1024 * 1024 });
+    const sha = runGit(["rev-parse", "--short", "HEAD"]).toString().trim();
+    const status = runGit(["status", "--porcelain", "--", "."]);
+    const diff = runGit(["diff", "--binary", "HEAD", "--", "."]);
     const dirty = status.length > 0;
     const dirtyState = Buffer.concat([status, diff]);
     const dirtyStateHash = createHash("sha256").update(dirtyState).digest("hex").slice(0, 16);
-    return { sha, dirty, dirtyStateHash };
+    const sourcePathspecs = [".", ...generatedHistoryExclusions()];
+    const sourceStatus = runGit(["status", "--porcelain", "--", ...sourcePathspecs]);
+    const sourceDiff = runGit(["diff", "--binary", "HEAD", "--", ...sourcePathspecs]);
+    const appSourceDirtyStateHash = createHash("sha256")
+      .update(Buffer.concat([sourceStatus, sourceDiff]))
+      .digest("hex")
+      .slice(0, 16);
+    return { sha, dirty, dirtyStateHash, appSourceDirtyStateHash };
   } catch {
-    return { sha: "unknown", dirty: false, dirtyStateHash: "unknown" };
+    return { sha: "unknown", dirty: false, dirtyStateHash: "unknown", appSourceDirtyStateHash: "unknown" };
   }
 }
 
@@ -268,6 +277,7 @@ function readEnvironment(exitCode, suiteLabel, git) {
     gitSha: git.sha,
     gitDirty: git.dirty,
     gitDirtyStateHash: git.dirtyStateHash,
+    appSourceDirtyStateHash: git.appSourceDirtyStateHash,
   };
 }
 
@@ -286,6 +296,7 @@ function formatEnvironment(environment) {
     `Cache: ${environment.cacheClass}`,
     `Workers: ${environment.workers}`,
     `Dirty state: ${environment.gitDirtyStateHash}`,
+    `App source: ${environment.appSourceDirtyStateHash ?? "unavailable"}`,
   ].join(" | ");
 }
 
@@ -439,7 +450,7 @@ function aggregatePerceivedMetrics(allRunMetrics) {
       sampleCount: entries.length,
     };
     for (const f of FIELDS) {
-      const values = entries.map((e) => e[f]).filter((v) => v != null);
+      const values = requireConsistentPresence(entries, f, id);
       if (values.length === 0) {
         agg[f] = null;
         agg[f.replace("_ms", "_p95_ms")] = null;
@@ -452,7 +463,7 @@ function aggregatePerceivedMetrics(allRunMetrics) {
     }
     // Store timing fields — only aggregate when present (not all scenarios hit ES).
     for (const f of ["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]) {
-      const values = entries.map((e) => e[f]).filter((v) => v != null);
+      const values = requireConsistentPresence(entries, f, id);
       if (values.length > 0) {
         const sorted = [...values].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
@@ -466,7 +477,7 @@ function aggregatePerceivedMetrics(allRunMetrics) {
       "setupVisibleRangeRatio", "setupExtended", "setupEvictGeneration",
       "setupEvictedCount",
     ]) {
-      const values = entries.map((entry) => entry[field]).filter((value) => value != null);
+      const values = requireConsistentPresence(entries, field, id);
       if (values.length > 0) {
         if (field !== "interactionId" && new Set(values.map((value) => JSON.stringify(value))).size !== 1) {
           throw new Error(`${id} changed ${field} across repetitions`);
@@ -475,25 +486,30 @@ function aggregatePerceivedMetrics(allRunMetrics) {
       }
     }
     Object.assign(agg, aggregateSettledTotal(entries, id));
-    const routeValues = entries.map((entry) => entry.routes).filter(Boolean);
+    const routeValues = requireConsistentPresence(entries, "routes", id);
     if (routeValues.length > 0) {
       const routeFingerprints = new Set(routeValues.map((routes) => JSON.stringify(routes)));
       if (routeFingerprints.size !== 1) throw new Error(`${id} changed routes across repetitions`);
       agg.routes = routeValues[0];
     }
-    const controlRouteValues = entries.map((entry) => entry.matchedControlRoutes).filter(Boolean);
+    const controlRouteValues = requireConsistentPresence(entries, "matchedControlRoutes", id);
     if (controlRouteValues.length > 0) {
       const controlRouteFingerprints = new Set(controlRouteValues.map((routes) => JSON.stringify(routes)));
       if (controlRouteFingerprints.size !== 1) throw new Error(`${id} changed matchedControlRoutes across repetitions`);
       agg.matchedControlRoutes = controlRouteValues[0];
     }
     for (const field of ["requestedRatio", "achievedRatio", "anchorDriftPx", "anchorDriftRatio"]) {
-      const values = entries.map((entry) => entry[field]).filter((value) => value != null);
+      const values = requireConsistentPresence(entries, field, id);
       if (values.length > 0) agg[field] = median(values);
     }
     // seekMeasures — aggregate by name, median duration across runs.
-    const allSeekMeasures = entries.flatMap((e) => e.seekMeasures ?? []);
+    const seekMeasureSets = requireConsistentPresence(entries, "seekMeasures", id);
+    const allSeekMeasures = seekMeasureSets.flat();
     if (allSeekMeasures.length > 0) {
+      assertConsistentNames(entries, "seekMeasures", id);
+      if (allSeekMeasures.some((measure) => !Number.isFinite(measure.duration))) {
+        throw new Error(`${id} missing numeric seekMeasures duration`);
+      }
       const byName = new Map();
       for (const m of allSeekMeasures) {
         if (!byName.has(m.name)) byName.set(m.name, []);
@@ -780,6 +796,7 @@ function aggregateMetrics(allRunMetrics) {
 
   const result = {};
   for (const [id, entries] of byId) {
+    assertFiniteFields(entries, REQUIRED_JANK_NUMERIC_FIELDS, id);
     const agg = {
       sampleCount: entries.length,
       cls: median(entries.map((e) => e.cls)),
@@ -804,13 +821,13 @@ function aggregateMetrics(allRunMetrics) {
     // Preserve focus drift fields when present (P4a, P4b, P6).
     // These measure "Never Lost" accuracy — how far the focused item drifts
     // in the viewport during density switches and sort changes.
-    const driftValues = entries.map((e) => e.focusDriftPx).filter((v) => v != null);
+    const driftValues = requireConsistentPresence(entries, "focusDriftPx", id);
     if (driftValues.length > 0) agg.focusDriftPx = Math.round(median(driftValues));
-    const ratioValues = entries.map((e) => e.focusDriftRatio).filter((v) => v != null);
+    const ratioValues = requireConsistentPresence(entries, "focusDriftRatio", id);
     if (ratioValues.length > 0) agg.focusDriftRatio = Math.round(median(ratioValues) * 1000) / 1000;
-    const visValues = entries.map((e) => e.focusVisible).filter((v) => v != null);
+    const visValues = requireConsistentPresence(entries, "focusVisible", id);
     if (visValues.length > 0) agg.focusVisible = visValues.filter(Boolean).length >= visValues.length / 2;
-    const horizontalDriftValues = entries.map((e) => e.focusHorizontalDriftPx).filter((v) => v != null);
+    const horizontalDriftValues = requireConsistentPresence(entries, "focusHorizontalDriftPx", id);
     if (horizontalDriftValues.length > 0) agg.focusHorizontalDriftPx = Math.round(median(horizontalDriftValues));
     if (id === "P1" || id === "P5c" || id === "P7" || id === "P13a" || id === "P13b" || id === "P15a" || id === "P15b" || id === "P15c" || id === "P16a" || id === "P16b") {
       for (const field of ["scenarioRevision", "completionBoundary"]) {
@@ -860,22 +877,25 @@ function aggregateMetrics(allRunMetrics) {
       Object.assign(agg, aggregateScenarioFields(entries, id, scenarioAggregation));
     }
     // Traversal image-render fields (P14a–d) — only aggregate when present.
-    const landingRenderValues = entries.map((e) => e.landingRenderMs).filter((v) => v != null);
+    const landingRenderValues = requireConsistentPresence(entries, "landingRenderMs", id);
     if (landingRenderValues.length > 0) agg.landingRenderMs = Math.round(median(landingRenderValues));
-    const landingNetworkValues = entries.map((e) => e.landingNetworkMs).filter((v) => v != null);
+    const landingNetworkValues = requireConsistentPresence(entries, "landingNetworkMs", id);
     if (landingNetworkValues.length > 0) agg.landingNetworkMs = Math.round(median(landingNetworkValues));
-    const renderedCountValues = entries.map((e) => e.renderedCount).filter((v) => v != null);
+    const renderedCountValues = requireConsistentPresence(entries, "renderedCount", id);
     if (renderedCountValues.length > 0) agg.renderedCount = Math.round(median(renderedCountValues));
-    const renderedTotalValues = entries.map((e) => e.renderedTotal).filter((v) => v != null);
+    const renderedTotalValues = requireConsistentPresence(entries, "renderedTotal", id);
     if (renderedTotalValues.length > 0) agg.renderedTotal = Math.round(median(renderedTotalValues));
-    const swappedValues = entries.map((e) => e.swappedNotRendered).filter((v) => v != null);
+    const swappedValues = requireConsistentPresence(entries, "swappedNotRendered", id);
     if (swappedValues.length > 0) agg.swappedNotRendered = Math.round(median(swappedValues));
-    const landingAlreadyValues = entries.map((e) => e.landingAlreadyRendered).filter((v) => v != null);
+    const landingAlreadyValues = requireConsistentPresence(entries, "landingAlreadyRendered", id);
     if (landingAlreadyValues.length > 0) agg.landingAlreadyRendered = landingAlreadyValues.filter(Boolean).length >= landingAlreadyValues.length / 2;
-    const landingCacheValues = entries.map((e) => e.landingCacheHit).filter((v) => v != null);
+    const landingCacheValues = requireConsistentPresence(entries, "landingCacheHit", id);
     if (landingCacheValues.length > 0) agg.landingCacheHit = landingCacheValues.filter(Boolean).length >= landingCacheValues.length / 2;
     const p14Entries = entries.filter((entry) => entry.scenarioRevision === 2 && entry.id?.startsWith("P14"));
     if (p14Entries.length > 0) {
+      if (p14Entries.length !== entries.length) {
+        throw new Error(`${id} changed P14 scenario identity across repetitions`);
+      }
       for (const field of ["scenarioRevision", "cacheClass", "startRank", "committedSteps", "traversals", "cadenceMs", "speed", "direction"]) {
         const values = p14Entries.map((entry) => entry[field]);
         if (new Set(values.map((value) => JSON.stringify(value))).size !== 1) {
@@ -931,6 +951,7 @@ const REGRESSION_MIN_ABSOLUTE_DELTA = {
 
 function formatValue(key, value, metric) {
   const unit = METRIC_UNITS[key] ?? "";
+  if (value == null || !Number.isFinite(value)) return "—";
   if (key === "severeRate" && !severeRateIsReportable(metric)) return "n/a (<30 frames)";
   if (key === "cls") return value.toFixed(4);
   if (key === "severeRate") return `${value.toFixed(1)}${unit}`;
@@ -957,7 +978,7 @@ function buildBaselineTable(entry) {
     const m = entry.metrics[id];
     const cells = METRIC_COLS.map((k) => {
       const val = m[k] ?? (k === "severeRate" && m.frameCount > 0
-        ? Math.round(m.severe / m.frameCount * 1000 * 10) / 10 : 0);
+        ? Math.round(m.severe / m.frameCount * 1000 * 10) / 10 : null);
       return formatValue(k, val, m);
     });
     return `| ${id} | ${m.sampleCount} | ${cells.join(" | ")} |`;
@@ -1001,14 +1022,16 @@ function buildDiffTable(current, previous) {
     const cells = METRIC_COLS.map((k) => {
       // For severeRate: compute from severe/frameCount if not stored directly
       const curVal = cur[k] ?? (k === "severeRate" && cur.frameCount > 0
-        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : 0);
+        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : null);
       const val = formatValue(k, curVal, cur);
+      if (curVal == null) return val;
       if (k === "severeRate" && !severeRateIsReportable(cur)) return val;
       if (!prev) return val;
       if (k === "severeRate" && !severeRateIsReportable(prev)) return `${val} (not comparable)`;
       if (!comparable) return `${val} (not comparable)`;
       const prevVal = prev[k] ?? (k === "severeRate" && prev.frameCount > 0
-        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : 0);
+        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : null);
+      if (prevVal == null) return `${val} (not comparable)`;
       const delta = k === "cls"
         ? parseFloat((curVal - prevVal).toFixed(4))
         : k === "severeRate"
@@ -1025,6 +1048,7 @@ function buildDiffTable(current, previous) {
   // severe/frameCount for old entries that lack severeRate.
   let verdict = "No regression detected.";
   const regressions = [];
+  const watchpoints = [];
   for (const id of ids) {
     const cur = current.metrics[id];
     const prev = previous.metrics[id];
@@ -1033,9 +1057,10 @@ function buildDiffTable(current, previous) {
     for (const k of ["maxFrame", "severeRate", "p95Frame"]) {
       if (k === "severeRate" && (!severeRateIsReportable(cur) || !severeRateIsReportable(prev))) continue;
       const curVal = cur[k] ?? (k === "severeRate" && cur.frameCount > 0
-        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : 0);
+        ? Math.round(cur.severe / cur.frameCount * 1000 * 10) / 10 : null);
       const prevVal = prev[k] ?? (k === "severeRate" && prev.frameCount > 0
-        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : 0);
+        ? Math.round(prev.severe / prev.frameCount * 1000 * 10) / 10 : null);
+      if (curVal == null || prevVal == null) continue;
       const absoluteDelta = curVal - prevVal;
       if (
         prevVal > 0
@@ -1046,18 +1071,31 @@ function buildDiffTable(current, previous) {
         const fmt = k === "severeRate"
           ? `${prevVal.toFixed(1)}‰ → ${curVal.toFixed(1)}‰`
           : `${prevVal} → ${curVal}`;
-        regressions.push(`${label}: ${fmt} (+${(((curVal - prevVal) / prevVal) * 100).toFixed(0)}%)`);
+        const finding = `${label}: ${fmt} (+${(((curVal - prevVal) / prevVal) * 100).toFixed(0)}%)`;
+        if (comparisonEvidenceClass(cur, prev) === "repeated") regressions.push(finding);
+        else watchpoints.push(finding);
       }
     }
   }
   if (regressions.length > 0) {
     verdict = `⚠️ Possible regressions: ${regressions.join(", ")}`;
+  } else if (watchpoints.length > 0) {
+    verdict = "No repeated regression detected.";
   }
+
+  const watchpointNote = watchpoints.length > 0
+    ? `Single-sample watchpoints (not a regression verdict): ${watchpoints.join(", ")}.`
+    : null;
 
   const comparisonNote = incomparable.length > 0
     ? `Not compared across scenario revision/cache changes: ${incomparable.join(", ")}.`
     : null;
-  return [...[header, sep, ...rows], ...(comparisonNote ? ["", comparisonNote] : []), "", `Verdict: ${verdict}`].join("\n");
+  return [
+    ...[header, sep, ...rows],
+    ...(comparisonNote ? ["", comparisonNote] : []),
+    ...(watchpointNote ? ["", watchpointNote] : []),
+    "", `Verdict: ${verdict}`,
+  ].join("\n");
 }
 
 function buildAuditMarkdown(existing, entry, previousEntry) {

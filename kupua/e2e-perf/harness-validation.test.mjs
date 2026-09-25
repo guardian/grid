@@ -9,7 +9,9 @@ import ts from "typescript";
 import {
   assertBalancedLongRuns,
   assertCompleteMetricIds,
+  assertConsistentNames,
   assertEnvironmentMatches,
+  assertFiniteFields,
   assertSameEnvironment,
   assertPlaywrightSucceeded,
   aggregateScenarioFields,
@@ -21,15 +23,500 @@ import {
   parseSuccessfulRun,
   JANK_SCENARIO_AGGREGATION,
   PERCEIVED_METRIC_IDS,
+  REQUIRED_JANK_NUMERIC_FIELDS,
+  generatedHistoryExclusions,
   requireSingleEnvironment,
+  requireConsistentPresence,
 } from "./harness-validation.mjs";
 import {
   commitFileTransaction,
   parseHistoryLog,
   pruneAuditHistory,
 } from "./history-files.mjs";
-import { computeCorrelatedMetrics } from "./perceived-metrics.mjs";
+import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 import TeardownReporter from "./teardown-reporter.mjs";
+import {
+  classifyImageLookup,
+  comparisonEvidenceClass,
+  metricsAreComparable,
+  severeRateIsReportable,
+} from "./p14-metrics.mjs";
+
+function dashboardFunction(filename, name) {
+  const html = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+  const source = html.slice(html.indexOf(`function ${name}(`));
+  const parsed = ts.createSourceFile("dashboard.js", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+  const declaration = parsed.statements[0];
+  assert.equal(declaration.name?.text, name);
+  return source.slice(declaration.pos, declaration.end);
+}
+
+function runnerFunction(name) {
+  const source = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const tail = source.slice(source.indexOf(`function ${name}(`));
+  const parsed = ts.createSourceFile("runner.js", tail, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+  const declaration = parsed.statements[0];
+  assert.equal(declaration.name?.text, name);
+  return tail.slice(declaration.pos, declaration.end);
+}
+
+function waitForFunctionDefects() {
+  const files = [
+    "perf.spec.ts", "perceived-short.spec.ts", "perceived-long.spec.ts",
+    "helpers.ts", "../e2e/shared/helpers.ts",
+  ];
+  const defects = [];
+  for (const relativePath of files) {
+    const file = join(import.meta.dirname, relativePath);
+    const text = readFileSync(file, "utf8");
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+    const visit = (node) => {
+      if (ts.isCallExpression(node)
+        && ts.isPropertyAccessExpression(node.expression)
+        && node.expression.name.text === "waitForFunction") {
+        const predicate = node.arguments[0];
+        const line = source.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+        if ((ts.isArrowFunction(predicate) || ts.isFunctionExpression(predicate))
+          && predicate.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword)) {
+          defects.push(`${relativePath}:${line} async predicate`);
+        }
+        if ((ts.isArrowFunction(predicate) || ts.isFunctionExpression(predicate))
+          && predicate.parameters.length === 0) {
+          node.arguments.forEach((argument, index) => {
+            if (!ts.isObjectLiteralExpression(argument)) return;
+            const keys = argument.properties.map((property) => property.name?.getText(source));
+            if ((keys.includes("timeout") || keys.includes("polling")) && index !== 2) {
+              defects.push(`${relativePath}:${line} options in argument slot`);
+            }
+          });
+        }
+        if (node.arguments.length > 3) {
+          defects.push(`${relativePath}:${line} too many waitForFunction arguments`);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return defects;
+}
+
+test("performance polling uses synchronous predicates and real option slots", () => {
+  assert.deepEqual(waitForFunctionDefects(), []);
+});
+
+test("store timings belong only to actions that own a data route", () => {
+  assert.equal(ownsDataRoute(["direct-es"]), true);
+  assert.equal(ownsDataRoute(["media-api"]), true);
+  assert.equal(ownsDataRoute(["direct-es", "media-api"]), true);
+  assert.equal(ownsDataRoute(["client-only"]), false);
+  assert.equal(ownsDataRoute(undefined), false);
+  for (const filename of ["perceived-short.spec.ts", "perceived-long.spec.ts"]) {
+    const source = readFileSync(join(import.meta.dirname, filename), "utf8");
+    const calls = [...source.matchAll(/readStoreTiming\(([^)]*)\)/g)].slice(1);
+    assert.ok(calls.length > 0, filename);
+    for (const call of calls) assert.match(call[1], /,\s*(?:metrics|m)\.routes$/, filename);
+  }
+  const perceivedMetricValue = runInNewContext(
+    `${dashboardFunction("perceived-graphs.html", "perceivedMetricValue")}\nperceivedMetricValue`,
+    { STORE_TIMING_METRICS: new Set(["took", "fetchDuration", "seekTime", "aggTook", "aggFetchDuration"]) },
+  );
+  assert.equal(perceivedMetricValue({ routes: ["client-only"], fetchDuration: 900 }, "fetchDuration"), null);
+  assert.equal(perceivedMetricValue({ routes: ["direct-es"], fetchDuration: 900 }, "fetchDuration"), 900);
+});
+
+test("application-source fingerprint excludes only generated perf histories", () => {
+  assert.deepEqual(generatedHistoryExclusions(), [
+    ":(exclude)e2e-perf/results/audit-log.json",
+    ":(exclude)e2e-perf/results/audit-log.js",
+    ":(exclude)e2e-perf/results/audit-log.md",
+    ":(exclude)e2e-perf/results/perceived-log.json",
+    ":(exclude)e2e-perf/results/perceived-log.js",
+    ":(exclude)e2e-perf/results/perceived-log.md",
+  ]);
+  const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  assert.match(runner, /appSourceDirtyStateHash/);
+  assert.match(runner, /generatedHistoryExclusions\(\)/);
+});
+
+test("both dashboards qualify paired mode deltas by application-source identity", () => {
+  for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
+    const sourceMatchLabel = runInNewContext(
+      `${dashboardFunction(filename, "sourceMatchLabel")}\nsourceMatchLabel`,
+    );
+    const base = { gitSha: "abc", environment: { appSourceDirtyStateHash: "same" } };
+    assert.equal(sourceMatchLabel(base, base), "app source matched");
+    assert.equal(sourceMatchLabel(base, { ...base, environment: { appSourceDirtyStateHash: "other" } }), "app source differs");
+    assert.equal(sourceMatchLabel(base, { ...base, environment: {} }), "app source unverified");
+    assert.equal(sourceMatchLabel(base, { ...base, gitSha: "def" }), "commit differs");
+    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+    assert.match(source, /API − direct/);
+  }
+});
+
+test("required jank fields must be finite in every repetition", () => {
+  const fields = ["maxFrame", "frameCount"];
+  assert.doesNotThrow(() => assertFiniteFields([{ maxFrame: 10, frameCount: 60 }, { maxFrame: 12, frameCount: 60 }], fields, "P2"));
+  assert.throws(
+    () => assertFiniteFields([{ maxFrame: 10, frameCount: 60 }, { maxFrame: undefined, frameCount: 60 }], fields, "P2"),
+    /P2 missing numeric maxFrame/,
+  );
+});
+
+test("actual jank aggregation rejects missing base numerics", () => {
+  const aggregateMetrics = runInNewContext(`${runnerFunction("aggregateMetrics")}\naggregateMetrics`, {
+    assertFiniteFields, REQUIRED_JANK_NUMERIC_FIELDS,
+    requireConsistentPresence, aggregateScenarioFields, JANK_SCENARIO_AGGREGATION,
+    median: (values) => values[0],
+  });
+  const base = {
+    id: "P2", cls: 0, clsMax: 0, maxFrame: 20, severe: 0, severeRate: 0,
+    p95Frame: 9, domChurn: 10, loafBlocking: 0, frameCount: 100,
+  };
+  assert.doesNotThrow(() => aggregateMetrics([[base], [{ ...base }]]));
+  assert.throws(
+    () => aggregateMetrics([[base], [{ ...base, maxFrame: undefined }]]),
+    /P2 missing numeric maxFrame/,
+  );
+});
+
+test("actual perceived aggregation does not require jank fields", () => {
+  const aggregatePerceivedMetrics = runInNewContext(
+    `${runnerFunction("aggregatePerceivedMetrics")}\naggregatePerceivedMetrics`,
+    {
+      requireConsistentPresence, aggregateSettledTotal, assertConsistentNames,
+      median: (values) => values[0],
+    },
+  );
+  const metric = {
+    id: "PP2", label: "fixture", action: "home-logo", scenarioRevision: 2,
+    dt_ack_ms: 20, routes: ["direct-es"],
+  };
+  const result = aggregatePerceivedMetrics([[metric], [{ ...metric, dt_ack_ms: 30 }]]);
+  assert.equal(result.PP2.sampleCount, 2);
+  assert.equal(result.PP2.dt_ack_ms, 25);
+});
+
+test("totals, regimes, and seek-measure names cannot be partial across repetitions", () => {
+  assert.throws(
+    () => aggregateSettledTotal([
+      { settledTotal: 100, resultRegime: "indexed" },
+      { resultRegime: "indexed" },
+    ], "JB1"),
+    /JB1 changed settledTotal presence/,
+  );
+  assert.doesNotThrow(() => assertConsistentNames([
+    { seekMeasures: [{ name: "seek:rank" }] },
+    { seekMeasures: [{ name: "seek:rank" }] },
+  ], "seekMeasures", "PP7"));
+  assert.throws(
+    () => assertConsistentNames([
+      { seekMeasures: [{ name: "seek:rank" }] },
+      { seekMeasures: [{ name: "seek:page" }] },
+    ], "seekMeasures", "PP7"),
+    /PP7 changed seekMeasures names/,
+  );
+});
+
+test("audit verdict reports one-off threshold crossings as watchpoints", () => {
+  const source = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
+  const reporting = source.slice(
+    source.indexOf("const METRIC_COLS ="),
+    source.indexOf("function buildAuditMarkdown("),
+  );
+  const buildDiffTable = runInNewContext(`${reporting}\nbuildDiffTable`, {
+    comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable,
+  });
+  const metric = (sampleCount, maxFrame) => ({
+    sampleCount, maxFrame, severeRate: 1, severe: 1, p95Frame: 9,
+    frameCount: 100, cls: 0, clsMax: 0, domChurn: 10, loafBlocking: 0,
+    scenarioRevision: 2, cacheClass: "fixture",
+  });
+  const previous = { metrics: { P14b: metric(4, 100) } };
+  const watchpoint = buildDiffTable({ metrics: { P14b: metric(1, 120) } }, previous);
+  assert.match(watchpoint, /Single-sample watchpoints \(not a regression verdict\): P14b\.maxFrame/);
+  assert.match(watchpoint, /Verdict: No repeated regression detected\./);
+  assert.doesNotMatch(watchpoint, /Possible regressions/);
+  const repeated = buildDiffTable({ metrics: { P14b: metric(2, 120) } }, previous);
+  assert.match(repeated, /Verdict: ⚠️ Possible regressions: P14b\.maxFrame/);
+  assert.doesNotMatch(repeated, /Single-sample watchpoints/);
+});
+
+test("perceived dashboard imports only real image-read evidence from audit history", () => {
+  const project = runInNewContext(`${dashboardFunction("perceived-graphs.html", "auditImageReadEntries")}\nauditImageReadEntries`);
+  const entries = ["direct-es", "media-api"].map((mode) => ({
+    label: mode, environment: { dataMode: mode }, timestamp: "2026-09-25T00:00:00Z",
+    metrics: {
+      P13c: { imageLookupCount: 1, detailLookupMs: 45, detailMetadataReadyMs: 60, detailImageReadyMs: 80,
+        routes: [mode], scenarioRevision: 1, cacheClass: "nonresident-metadata-warm-media", privateIdentity: "never-copy" },
+      P14a: { imageLookupCount: 0, lookupGuardRevision: 1, scenarioRevision: 2, cacheClass: "fresh-browser-context" },
+      P14b: { landingRenderMs: 100 },
+      P18: { metadataSettleMs: 150 },
+    },
+  }));
+  const projected = JSON.parse(JSON.stringify(project({ entries })));
+  assert.equal(projected.length, 2);
+  assert.deepEqual(projected.map((entry) => entry.environment.dataMode), ["direct-es", "media-api"]);
+  for (const entry of projected) {
+    assert.equal(entry.kind, "jank-probes");
+    assert.deepEqual(Object.keys(entry.perceived), ["P13c", "P14a"]);
+    assert.equal(entry.perceived.P14a.imageLookupCount, 0);
+    assert.equal(entry.perceived.P13c.detailImageReadyMs, 80);
+    assert.equal(entry.perceived.P13c.dt_visual_settled_ms, undefined);
+    assert.equal(entry.metrics, undefined);
+  }
+  assert.equal(JSON.stringify(projected).includes("never-copy"), false);
+  assert.equal(project({ entries: [{ metrics: { P14a: { landingRenderMs: 80 } } }] }).length, 0);
+});
+
+test("both dashboards expose lookup metrics without conflating fallback and API transport", () => {
+  for (const filename of ["audit-graphs.html", "perceived-graphs.html"]) {
+    const source = readFileSync(join(import.meta.dirname, "results", filename), "utf8");
+    for (const field of ["imageLookupCount", "detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"]) {
+      assert.ok(source.includes(field), `${filename}: ${field}`);
+      if (filename === "perceived-graphs.html") assert.ok(source.includes(`value="${field}"`));
+    }
+    const comparable = runInNewContext(`${dashboardFunction(filename, "metricsComparable")}\nmetricsComparable`, {
+      environmentKey: (entry) => entry.environment.dataMode,
+    });
+    const entry = { environment: { dataMode: "media-api" } };
+    const metric = {
+      routes: ["direct-es"], scenarioRevision: 1, cacheClass: "nonresident-metadata-warm-media",
+      resultRegime: "seek", completionBoundary: "stable-detail",
+    };
+    assert.equal(comparable(entry, metric, entry, metric), true);
+    assert.equal(comparable(entry, metric, entry, { ...metric, routes: ["media-api"] }), false);
+    assert.equal(comparable(entry, metric, entry, { ...metric, resultRegime: "indexed" }), false);
+    assert.equal(comparable(entry, metric, entry, { ...metric, completionBoundary: "fixed-wait" }), false);
+    assert.equal(comparable(entry, {}, entry, metric), false);
+  }
+  const audit = readFileSync(join(import.meta.dirname, "results/audit-graphs.html"), "utf8");
+  assert.match(audit, /imageLookupCount:[^\n]+quietThreshold: 0/);
+  const perceived = readFileSync(join(import.meta.dirname, "results/perceived-graphs.html"), "utf8");
+  assert.match(perceived, /script src="audit-log.js"/);
+  assert.match(perceived, /auditImageReadEntries\(window\.__AUDIT_LOG__\)/);
+  const unit = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricUnit")}\nmetricUnit`);
+  assert.equal(unit("imageLookupCount"), "");
+  assert.equal(unit("detailImageReadyMs"), "ms");
+});
+
+test("replacing perceived history removes stale charts before rendering shared probes", () => {
+  const elements = { grid: { innerHTML: "old cards" }, diagnosticGrid: { innerHTML: "old diagnostics" } };
+  let destroyed = 0;
+  const charts = new Map([["old", { destroy: () => destroyed++ }]]);
+  let rendered = false;
+  const ingest = runInNewContext(`${dashboardFunction("perceived-graphs.html", "ingestLog")}\ningestLog`, {
+    window: { __AUDIT_LOG__: { entries: [] } },
+    auditImageReadEntries: () => [],
+    document: { getElementById: (id) => elements[id] },
+    charts,
+    render: () => {
+      assert.equal(charts.size, 0);
+      assert.equal(elements.grid.innerHTML, "");
+      assert.equal(elements.diagnosticGrid.innerHTML, "");
+      rendered = true;
+    },
+  });
+  ingest({ entries: [] });
+  assert.equal(destroyed, 1);
+  assert.equal(rendered, true);
+});
+
+function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false } = {}) {
+  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  const helper = source.slice(source.indexOf("function captureImageLookups("), source.indexOf("// Guard: per-test cluster checks"));
+  const { outputText } = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
+  let now = 0;
+  const listeners = new Map();
+  const target = "fixture-target";
+  const response = { ok: () => true, finished: async () => null };
+  const requests = Array.from({ length: requestCount }, (_, index) => {
+    const actualRoute = mixedRoute && index > 0 ? "media-api" : route;
+    const requestedId = wrongTarget || wrongTargetIndex === index ? "different-target" : target;
+    return {
+      method: () => actualRoute === "direct-es" ? "POST" : "GET",
+      url: () => actualRoute === "direct-es" ? "https://example.invalid/es/images/_mget" : `https://example.invalid/api/images/${requestedId}`,
+      response: async () => response,
+      postDataJSON: () => ({ docs: [{ _id: requestedId }] }),
+      timing: () => ({ startTime: 1000, responseEnd: 40 + index * 20 }),
+    };
+  });
+  const image = {
+    get complete() { return now >= 60; }, naturalWidth: 400,
+    currentSrc: changedMedia ? "/new-rendition" : "/warm-rendition",
+    getBoundingClientRect: () => ({ top: 10, left: 0, width: 400, height: 300, bottom: 310 }),
+    decode: async () => {},
+  };
+  const owner = { getAttribute: () => target, querySelector: () => image };
+  const page = {
+    on: (event, listener) => listeners.set(event, listener),
+    off: (event) => listeners.delete(event),
+    evaluate: (callback, argument) => callback(argument),
+  };
+  const expect = (value) => ({
+    toHaveLength: (length) => assert.equal(value.length, length),
+    toBe: (expected) => assert.equal(value, expected),
+    toBeGreaterThanOrEqual: (minimum) => assert.ok(value >= minimum),
+  });
+  const measure = runInNewContext(`${outputText}\nmeasureStandaloneDetail`, {
+    URL, expect, classifyImageLookup, innerHeight: 900,
+    Date: { now: () => 1000 }, performance: { now: () => now },
+    location: { href: `https://example.invalid/search?image=${target}` },
+    requestAnimationFrame: (callback) => { now += 16; queueMicrotask(callback); },
+    document: { querySelector: () => now >= 40 ? owner : null },
+    window: {
+      __perfStandaloneMedia__: "/warm-rendition",
+      __kupua_store__: { getState: () => ({ results: resident ? [{ id: target }] : [{ id: "other" }], imagePositions: { has: () => becomesResident } }) },
+      __kupua_router__: { navigate: async () => {
+        for (const request of requests) listeners.get("request")?.(request);
+      } },
+    },
+  });
+  return { run: () => measure({ page }, target, expectedRoute), listeners };
+}
+
+function geometryWaitFunctions(context) {
+  const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
+  const helpers = source.slice(
+    source.indexOf("async function waitForResultsWidthGrowth("),
+    source.indexOf("// Guard: per-test cluster checks"),
+  );
+  const { outputText } = ts.transpileModule(helpers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
+  return runInNewContext(`${outputText}\n({ waitForResultsWidthGrowth, waitForFocusedReturnStability })`, context);
+}
+
+test("P5c geometry wait requires real width growth and two stable frames", async () => {
+  for (const outcome of ["settled", "never-grows", "keeps-moving"]) {
+    let now = 0;
+    const element = {
+      isConnected: true,
+      getBoundingClientRect: () => ({
+        width: outcome === "never-grows" ? 500 : now >= 48 ? 700 + (outcome === "keeps-moving" ? now : 0) : 500,
+        left: outcome === "keeps-moving" ? now : 100,
+      }),
+    };
+    const context = {
+      performance: { now: () => now },
+      requestAnimationFrame: (callback) => { now += 16; queueMicrotask(callback); },
+      document: { querySelector: () => element },
+    };
+    const { waitForResultsWidthGrowth } = geometryWaitFunctions(context);
+    const page = { evaluate: (callback, argument) => callback(argument) };
+    if (outcome === "settled") {
+      await waitForResultsWidthGrowth(page, 500, 160);
+      assert.ok(now >= 64);
+    } else {
+      await assert.rejects(waitForResultsWidthGrowth(page, 500, 160));
+      assert.ok(now >= 160);
+    }
+  }
+});
+
+test("P13b return wait requires current focus, visibility and stable geometry", async () => {
+  for (const outcome of ["settled", "wrong-focus", "invisible", "keeps-moving"]) {
+    let now = 0;
+    const rect = () => ({
+      top: outcome === "invisible" ? 1_200 : outcome === "keeps-moving" ? now : 100,
+      left: outcome === "keeps-moving" ? now : 40,
+      width: 200, height: 100,
+      bottom: outcome === "invisible" ? 1_300 : outcome === "keeps-moving" ? now + 100 : 200,
+    });
+    const container = { isConnected: true, getBoundingClientRect: () => ({ top: 0, left: 0, bottom: 900 }) };
+    const cell = { isConnected: true, getBoundingClientRect: rect };
+    const store = { getState: () => ({ focusedImageId: outcome === "wrong-focus" ? "other" : "target" }) };
+    const context = {
+      CSS: { escape: (value) => value },
+      performance: { now: () => now },
+      requestAnimationFrame: (callback) => { now += 16; queueMicrotask(callback); },
+      document: { querySelector: (selector) => selector.includes("data-image-id") ? cell : container },
+      window: { __kupua_store__: store },
+    };
+    const { waitForFocusedReturnStability } = geometryWaitFunctions(context);
+    const page = { evaluate: (callback, argument) => callback(argument) };
+    if (outcome === "settled") {
+      await waitForFocusedReturnStability(page, "target", 160);
+      assert.ok(now >= 32);
+    } else {
+      await assert.rejects(waitForFocusedReturnStability(page, "target", 160));
+      assert.ok(now >= 160);
+    }
+  }
+});
+
+test("actual standalone probe records single reads and Strict Mode replay in both transports", async () => {
+  for (const route of ["direct-es", "media-api"]) {
+    for (const requestCount of [1, 2]) {
+      const harness = standaloneProbeHarness({ route, requestCount });
+      const result = await harness.run();
+      assert.equal(result.scenarioRevision, 2);
+      assert.equal(result.routes[0], route);
+      assert.equal(result.imageLookupCount, requestCount);
+      assert.equal(result.detailLookupMs, 40 + (requestCount - 1) * 20);
+      assert.ok(result.detailImageReadyMs >= result.detailMetadataReadyMs);
+      assert.equal(harness.listeners.size, 0);
+      assert.equal(JSON.stringify(result).includes("fixture-target"), false);
+    }
+  }
+});
+
+test("actual standalone probe rejects excess, missing or mismatched reads and resident shortcuts", async () => {
+  for (const options of [{ resident: true }, { becomesResident: true }, { requestCount: 3 }, { requestCount: 0 }, { expectedRoute: "media-api" }, { changedMedia: true }, { wrongTarget: true },
+    { requestCount: 2, wrongTargetIndex: 0 }, { requestCount: 2, wrongTargetIndex: 1 },
+    { requestCount: 2, mixedRoute: true }]) {
+    const harness = standaloneProbeHarness(options);
+    await assert.rejects(harness.run());
+    assert.equal(harness.listeners.size, 0);
+  }
+});
+
+function decodedDetailHarness({ readyAt = 64, wrongIdentity = false, moving = false, decodeFails = false } = {}) {
+  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const method = source.slice(source.indexOf("  async waitForDecodedDetailImage("), source.indexOf("  /** Wait for native fullscreen state"));
+  const { outputText } = ts.transpileModule(`class DetailHelper { constructor(public page: any) {} ${method} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let now = 0;
+  let decodes = 0;
+  const rect = () => ({ top: moving ? now : 10, left: 10, width: 400, height: 300, bottom: 310, right: 410 });
+  const image = {
+    get complete() { return now >= readyAt; }, naturalWidth: 400, naturalHeight: 300,
+    currentSrc: "https://example.invalid/fixture-image", isConnected: true,
+    getBoundingClientRect: rect,
+    decode: async () => { decodes++; if (decodeFails) throw new Error("fixture decode failure"); },
+  };
+  const detail = { querySelector: () => image, getBoundingClientRect: rect, getAttribute: () => "fixture-target", isConnected: true };
+  const page = {
+    waitForFunction: async (callback, argument) => {
+      const result = callback(argument);
+      if (result) return await result;
+      throw new Error("fixture synchronous predicate not satisfied");
+    },
+    evaluate: (callback, argument) => callback(argument),
+  };
+  const Helper = runInNewContext(`${outputText}\nDetailHelper`, {
+    URL, CSS: { escape: (value) => value }, innerHeight: 900, innerWidth: 1200,
+    performance: { now: () => now },
+    requestAnimationFrame: (callback) => { now += 16; queueMicrotask(callback); },
+    location: { href: "https://example.invalid/search?image=fixture-target" },
+    document: { querySelector: () => wrongIdentity ? null : detail },
+  });
+  return { run: () => new Helper(page).waitForDecodedDetailImage("fixture-target", 160), elapsed: () => now, decodes: () => decodes };
+}
+
+test("detail readiness cannot pass on an async predicate resolving false before image load", async () => {
+  const harness = decodedDetailHarness();
+  await harness.run();
+  assert.ok(harness.elapsed() >= 80, "must wait for load and a following stable frame");
+  assert.ok(harness.decodes() > 0, "must actually await image decode");
+});
+
+test("detail readiness rejects missing, undecodable and unstable images at its deadline", async () => {
+  for (const options of [{ readyAt: 1000 }, { wrongIdentity: true }, { moving: true }, { decodeFails: true }]) {
+    const harness = decodedDetailHarness(options);
+    await assert.rejects(harness.run());
+    assert.ok(harness.elapsed() >= 160);
+  }
+});
 
 test("perf campaigns and direct configs retain teardown diagnostics", () => {
   const runner = readFileSync(join(import.meta.dirname, "run-audit.mjs"), "utf8");
@@ -377,6 +864,19 @@ test("accepts exactly one row for every expected metric ID", () => {
   );
 });
 
+test("optional aggregate fields must be present in every repetition or none", () => {
+  assert.deepEqual(requireConsistentPresence([{ value: 10 }, { value: 20 }], "value", "P14a"), [10, 20]);
+  assert.deepEqual(requireConsistentPresence([{}, {}], "value", "P14a"), []);
+  assert.throws(
+    () => requireConsistentPresence([{ value: 10 }, {}], "value", "P14a"),
+    /P14a changed value presence across repetitions/,
+  );
+  assert.throws(
+    () => requireConsistentPresence([{ routes: ["direct-es"] }, { routes: null }], "routes", "PP3"),
+    /PP3 changed routes presence across repetitions/,
+  );
+});
+
 test("allows bounded live-corpus total drift only in the seek regime", () => {
   assert.deepEqual(
     aggregateSettledTotal([
@@ -410,7 +910,7 @@ test("allows bounded live-corpus total drift only in the seek regime", () => {
 
 test("derives compound jank metric IDs from the existing title filter", () => {
   assert.deepEqual(expectedJankMetricIds("P5|P13"), [
-    "P5a", "P5b", "P5c", "P13a", "P13b",
+    "P5a", "P5b", "P5c", "P13a", "P13b", "P13c",
   ]);
 });
 
@@ -418,15 +918,39 @@ test("selects one isolated P14 cadence by title", () => {
   assert.deepEqual(expectedJankMetricIds("P14b"), ["P14b"]);
 });
 
-test("manifests account for all 55 maintained unique metric IDs", () => {
+test("manifests account for all 56 maintained unique metric IDs", () => {
   const jankIds = expectedJankMetricIds("");
 
-  assert.equal(jankIds.length, 32);
-  assert.equal(new Set(jankIds).size, 32);
+  assert.equal(jankIds.length, 33);
+  assert.equal(new Set(jankIds).size, 33);
   assert.equal(PERCEIVED_METRIC_IDS.short.length, 15);
   assert.equal(new Set(PERCEIVED_METRIC_IDS.short).size, 15);
   assert.equal(PERCEIVED_METRIC_IDS.long.length, 8);
   assert.equal(new Set(PERCEIVED_METRIC_IDS.long).size, 8);
+});
+
+test("image-read aggregation retains route, cache condition and zero lookup evidence", () => {
+  const standalone = {
+    scenarioRevision: 1, cacheClass: "nonresident-metadata-warm-media",
+    completionBoundary: "singleton-response-and-decoded-stable-detail",
+    routes: ["direct-es"], imageLookupCount: 1,
+    detailLookupMs: 40, detailMetadataReadyMs: 60, detailImageReadyMs: 80,
+  };
+  const aggregated = aggregateScenarioFields([
+    standalone, { ...standalone, detailLookupMs: 60, detailMetadataReadyMs: 80, detailImageReadyMs: 100 },
+  ], "P13c", JANK_SCENARIO_AGGREGATION.P13c);
+  assert.equal(aggregated.detailLookupMs, 50);
+  assert.equal(aggregated.detailMetadataReadyMs, 70);
+  assert.equal(aggregated.detailImageReadyMs, 90);
+  assert.deepEqual(aggregated.routes, ["direct-es"]);
+  assert.throws(() => aggregateScenarioFields([
+    standalone, { ...standalone, routes: ["media-api"] },
+  ], "P13c", JANK_SCENARIO_AGGREGATION.P13c), /changed routes/);
+  for (const id of ["P14a", "P14b", "P14c", "P14d"]) {
+    const valid = { lookupGuardRevision: 1, imageLookupCount: 0 };
+    assert.deepEqual(aggregateScenarioFields([valid, valid], id, JANK_SCENARIO_AGGREGATION[id]), valid);
+    assert.throws(() => aggregateScenarioFields([valid, {}], id, JANK_SCENARIO_AGGREGATION[id]), /missing/);
+  }
 });
 
 test("preserves P17/P18 scenario contracts and numeric diagnostics across repetitions", () => {
@@ -638,6 +1162,8 @@ test("prunes retired and legacy replaced jank metrics without dropping campaigns
       metrics: {
         P1: { maxFrame: 50, scenarioRevision: 2 },
         P7: { maxFrame: 60, scenarioRevision: 2 },
+        P13a: { maxFrame: 65, scenarioRevision: 3 },
+        P15b: { maxFrame: 75, scenarioRevision: 3 },
       },
     }, {
       label: "retired-only",
@@ -653,8 +1179,9 @@ test("prunes retired and legacy replaced jank metrics without dropping campaigns
   assert.equal(result.removedCampaignCount, 1);
   assert.deepEqual(result.history.entries.map((entry) => entry.label), ["old", "new"]);
   assert.deepEqual(Object.keys(result.history.entries[0].metrics), ["P2"]);
-  assert.deepEqual(Object.keys(result.history.entries[1].metrics), ["P1", "P7"]);
+  assert.deepEqual(Object.keys(result.history.entries[1].metrics), ["P1", "P7", "P13a", "P15b"]);
   assert.equal(result.history.entries[1].metrics.P1.scenarioRevision, 2);
+  assert.equal(result.history.entries[1].metrics.P13a.scenarioRevision, 3);
 });
 
 test("commits every sibling history file together", () => {

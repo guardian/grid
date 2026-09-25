@@ -118,7 +118,7 @@ maintained here by the executing agent at completion (section 8).
 | U3b | sort-profile: keyword-page | Scala | U3a | done |
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | done |
 | U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | done |
-| M1 | Laptop measurement and iteration gate | Both | U5 | not started |
+| M1 | Laptop measurement and iteration gate | Both | U5 | measured; operator decision pending |
 | U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | not started |
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | not started |
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | not started |
@@ -462,10 +462,30 @@ suite in API mode.
   (3) are keyword walks acceptable.
 - **Output:** iterate endpoint shapes if needed. Record results and interpretation in the
   normal perf history; label runs `local-media-api api-mode`.
+- **Measured 25 September:** four-run API and direct-ES baselines used the same HTTPS origin,
+  browser/viewport/DPR and corpus pin. Resident P14 traversal remained client-owned, issued zero
+  hydration reads and was broadly equivalent at normal/fast cadence. API-backed perceived actions
+  were consistently about 0.2-0.6 seconds slower locally (seek, sort-around-focus, search and
+  restore), while client-only actions remained close; this is material but still includes the
+  local JVM and SSH-tunnel topology, so it is not production/deployed-TEST capacity evidence.
+  No visible PIT-less drift appeared in the pinned core; default seek totals differed by only a
+  handful of live documents. Bare `sport` membership differed persistently (API 292,034 versus
+  direct 285,238), confirming P23/P28's known Grid/Kupua free-text-policy difference and making
+  PP8 a policy-plus-performance comparison rather than equal workload. P13c still used the direct
+  ES singleton fallback in both modes, as expected before U6a. Carry the local latency delta and
+  query-policy decision explicitly to M2a/operator acceptance; no endpoint redesign is selected
+  by M1 alone.
 
 **U6a-U6d.**
 - Detail reuses `GET /images/:id` through the S1 normalizer, bound to the requested ID
   (KUP-004 contract).
+- **U6a recommendation to assess, not a new gate:** aim to preserve zero singleton
+  requests during resident detail/fullscreen traversal, using buffered images and existing
+  page extension. Prefer normalizing each singleton response once through S1 and publishing
+  its image/enrichment only while the originating requested ID and request lifetime remain
+  current. Consider a focused request-count regression alongside the existing identity tests.
+  Check the actual consumers and revise the approach if needed; this does not prohibit U7's
+  separate bounded expired-media renewal or weaken the existing KUP-004 contract.
 - Count keeps baseline-plus-latest polling (KUP-006).
 - Aggregations need:
   - verbatim field paths (no `metadata.` prefix);

@@ -154,6 +154,44 @@ not a paired API benchmark or high-cardinality validation.
 
 ## 2. Selectors
 
+**[V] 25 September 2026, traversal request attribution:** a bounded shared-tab
+probe can observe `page.on("request")`, classify singleton/ordered/ES/media paths
+without returning URLs, and keep expected image identities inside the page.
+Resident arrow steps and one page-boundary crossing were checked this way in
+`ApiDataSource` mode. Remove the listener in `finally` and delete page probe state;
+request starts are not completed transfers, and warm embedded-tab observations are
+not campaign timings or mobile evidence.
+
+**[V] 25 September 2026, Kahuna singleton observation:** visible image links can
+be selected with `a[href^="/images/"]` filtered to contain an `img`; other matching
+anchors may be hidden controls. Observe the XHR/fetch singleton response, not the
+HTML detail route. Keep bodies/URLs ephemeral and return only byte counts/timings.
+Cross-origin resource timing can report zero byte counts despite a nonempty gzip
+response; use selected response headers and decoded text size, not zero as evidence
+of a cache hit. Sequential authenticated GET samples are not a load test, and a
+search used to select sample records can warm the server before singleton reads.
+
+**[V] 25 September 2026, static perf dashboards:** open the dashboard HTML files
+directly and inject only synthetic aggregate histories through `onData` (audit) or
+`window.__AUDIT_LOG__` plus `ingestLog` (perceived). Both mode series, zero lookup
+counts, units, warnings and chart rendering can be checked without app/TEST requests
+or history writes. Dataset replacement must destroy old charts before rendering;
+reload afterward to discard fixtures and restore the real sidecar history.
+
+**[V] 25 September 2026, async polling trap:** on the static dashboard tab,
+`page.waitForFunction(async () => false, null, {timeout: 150})` resolved with a false
+handle in about 22ms instead of timing out. Do not use async predicates as retry loops;
+await an explicit bounded async loop with `page.evaluate`, or use synchronous predicates.
+The shared decoded-detail helper is corrected; this is not an audit of every polling site.
+
+**[V] 25 September 2026, local trace viewing:** Playwright `show-trace` with an
+explicit loopback host/port serves a saved trace for the integrated browser without
+running a test or uploading the trace. Use `iframe.snapshot-visible`, not bare
+`iframe` (the viewer keeps a hidden snapshot frame too). Select Before/After on the
+wheel actions and the later settling wait: a wheel's immediate After snapshot can
+precede the resulting scroll. Stop the local viewer after inspection. Keep any
+request-body comparisons in memory and report only counts/equality/statuses.
+
 **[?] `data-testid` coverage is sparse.** Only two are known in source:
 `scrubber-track` and `toast`. Do not expect a testid to exist; check first.
 

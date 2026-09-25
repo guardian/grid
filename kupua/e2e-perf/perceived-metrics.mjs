@@ -62,3 +62,8 @@ export function computeCorrelatedMetrics({
     raw: entries,
   };
 }
+
+export function ownsDataRoute(routes) {
+  return Array.isArray(routes)
+    && routes.some((route) => route === "direct-es" || route === "media-api");
+}

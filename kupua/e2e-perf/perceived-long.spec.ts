@@ -45,7 +45,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "./helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
-import { computeCorrelatedMetrics } from "./perceived-metrics.mjs";
+import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const METRICS_FILE = resolve(__dirname, "results/.perceived-long-tmp.jsonl");
@@ -404,7 +404,8 @@ function emitMetrics(metrics: PerceivedMetrics) {
 }
 
 /** Read timing fields from the search store for diagnostic enrichment. */
-async function readStoreTiming(kupua: any) {
+async function readStoreTiming(kupua: any, routes: string[] | undefined) {
+  if (!ownsDataRoute(routes)) return null;
   return kupua.page.evaluate(() => {
     const s = (window as any).__kupua_store__?.getState?.();
     if (!s) return null;
@@ -461,6 +462,7 @@ async function waitForStoreSettled(kupua: any, maxWait = 15_000) {
       const s = store.getState();
       return !s.loading && s.sortAroundFocusStatus === null && !s.aggLoading;
     },
+    null,
     { timeout: maxWait },
   );
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -477,6 +479,7 @@ async function waitForStoreSettled(kupua: any, maxWait = 15_000) {
           const s = store.getState();
           return !s.loading && s.sortAroundFocusStatus === null && !s.aggLoading;
         },
+        null,
         { timeout: maxWait },
       );
     }
@@ -492,6 +495,7 @@ async function waitForAggsLoaded(kupua: any, maxWait = 20_000) {
       const s = store.getState();
       return !s.aggLoading && s.aggregations !== null;
     },
+    null,
     { timeout: maxWait },
   );
   await kupua.page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
@@ -581,7 +585,7 @@ test.describe("Journey Tests", () => {
         routes: navigation.routes,
       };
       logStep("JA1", m);
-      const timingJA1 = await readStoreTiming(kupua);
+      const timingJA1 = await readStoreTiming(kupua, m.routes);
       if (timingJA1) Object.assign(m, timingJA1);
       emitMetrics(m);
       expect(navigation.entries).toHaveLength(4);
@@ -632,7 +636,7 @@ test.describe("Journey Tests", () => {
         ...context,
       };
       logStep("JA2", m);
-      const timingJA2 = await readStoreTiming(kupua);
+      const timingJA2 = await readStoreTiming(kupua, m.routes);
       if (timingJA2) Object.assign(m, timingJA2);
       emitMetrics(m);
     }
@@ -706,7 +710,7 @@ test.describe("Journey Tests", () => {
         ...context,
       };
       logStep("JA3", m);
-      const timingJA3 = await readStoreTiming(kupua);
+      const timingJA3 = await readStoreTiming(kupua, m.routes);
       if (timingJA3) Object.assign(m, timingJA3);
       emitMetrics(m);
     }
@@ -748,7 +752,7 @@ test.describe("Journey Tests", () => {
         routes: navigation.routes,
       };
       logStep("JB1", m);
-      const timingJB1 = await readStoreTiming(kupua);
+      const timingJB1 = await readStoreTiming(kupua, m.routes);
       if (timingJB1) Object.assign(m, timingJB1);
       emitMetrics(m);
       expect(navigation.entries).toHaveLength(4);
@@ -883,7 +887,7 @@ test.describe("Journey Tests", () => {
         matchedControlDesign: "alternating-ab-ba",
       };
       logStep("JB2", m);
-      const timingJB2 = await readStoreTiming(kupua);
+      const timingJB2 = await readStoreTiming(kupua, m.routes);
       if (timingJB2) Object.assign(m, timingJB2);
       emitMetrics(m);
     }
@@ -953,7 +957,7 @@ test.describe("Journey Tests", () => {
         ...context,
       };
       logStep("JB3", m);
-      const timingJB3 = await readStoreTiming(kupua);
+      const timingJB3 = await readStoreTiming(kupua, m.routes);
       if (timingJB3) Object.assign(m, timingJB3);
       emitMetrics(m);
     }
@@ -1006,7 +1010,7 @@ test.describe("Journey Tests", () => {
         ...context,
       };
       logStep("JB4", m);
-      const timingJB4 = await readStoreTiming(kupua);
+      const timingJB4 = await readStoreTiming(kupua, m.routes);
       if (timingJB4) Object.assign(m, timingJB4);
       emitMetrics(m);
     }
@@ -1084,7 +1088,7 @@ test.describe("Journey Tests", () => {
         ...context,
       };
       logStep("JB5", m);
-      const timingJB5 = await readStoreTiming(kupua);
+      const timingJB5 = await readStoreTiming(kupua, m.routes);
       if (timingJB5) Object.assign(m, timingJB5);
       emitMetrics(m);
     }

@@ -3,6 +3,19 @@ function finite(value, label) {
   return value;
 }
 
+export function classifyImageLookup(method, path) {
+  if (method === "POST" && /^\/es\/(?:[^/]+\/)?_mget$/.test(path)) return "direct-es";
+  if (method === "POST" && path === "/api/images/mget") return "media-api";
+  if (method === "GET" && /^\/api\/images\/[^/]+$/.test(path)) return "media-api";
+  return null;
+}
+
+export function comparisonEvidenceClass(current, previous) {
+  return current?.sampleCount >= 2 && previous?.sampleCount >= 2
+    ? "repeated"
+    : "watchpoint";
+}
+
 function sanitizeRect(rect) {
   return {
     x: Math.round(finite(rect?.x, "rect.x")),

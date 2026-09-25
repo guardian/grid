@@ -40,7 +40,7 @@ import {
   GRID_MIN_CELL_WIDTH,
   TABLE_ROW_HEIGHT,
 } from "@/constants/layout";
-import { deriveNavigationTiming, landingElapsedMs, sanitizeLayoutShift } from "./p14-metrics.mjs";
+import { classifyImageLookup, deriveNavigationTiming, landingElapsedMs, sanitizeLayoutShift } from "./p14-metrics.mjs";
 
 // Pin to explicit focus mode — P4a/b, P6, P12–P15 use focusNthItem.
 test.beforeEach(async ({ kupua }) => {
@@ -101,6 +101,183 @@ function captureSuccessfulDataRoutes(
 
 const isP18SelectionMetadataPath = (path: string) =>
   path.startsWith("/es/") && path.endsWith("/_mget");
+
+function captureImageLookups(page: any) {
+  const requests: Array<{ route: string; request: any }> = [];
+  const onRequest = (request: any) => {
+    const route = classifyImageLookup(request.method(), new URL(request.url()).pathname);
+    if (route) requests.push({ route, request });
+  };
+  page.on("request", onRequest);
+  return {
+    requests,
+    stop: () => page.off("request", onRequest),
+  };
+}
+
+async function prepareStandaloneDetail(kupua: any, targetId: string) {
+  const setup = await kupua.page.evaluate(async (target: string) => {
+    const state = (window as any).__kupua_store__.getState();
+    const other = state.results.find((image: any) => image && image.id !== target);
+    if (!other) throw new Error("P13c needs a different resident image for its query control");
+    let expectedRoute = "direct-es";
+    if (state.dataSource.constructor.name === "ApiDataSource") {
+      const modulePath = "/src/dal/api-data-source.ts";
+      const adapter = await import(modulePath);
+      expectedRoute = adapter.DEVELOPMENT_FALLBACK_METHODS?.includes("getById")
+        ? "direct-es" : "media-api";
+    }
+    await (window as any).__kupua_router__.navigate({
+      to: "/search",
+      search: (previous: Record<string, unknown>) => ({ ...previous, ids: other.id, image: undefined }),
+      replace: true,
+    });
+    return { otherId: other.id, expectedRoute };
+  }, targetId);
+  await kupua.page.waitForFunction(({ otherId, target }: { otherId: string; target: string }) => {
+    const state = (window as any).__kupua_store__.getState();
+    return state.params.ids === otherId && !state.loading && state.results.length === 1
+      && state.results[0]?.id === otherId && !state.imagePositions.has(target)
+      && !(window as any).__kupua_getVisibleImageIds__?.().includes(target);
+  }, { otherId: setup.otherId, target: targetId }, { timeout: 10_000 });
+  return setup.expectedRoute;
+}
+
+async function measureStandaloneDetail(kupua: any, targetId: string, expectedRoute: string) {
+  const probe = captureImageLookups(kupua.page);
+  try {
+    const timing = await kupua.page.evaluate(async (target: string) => {
+      const state = (window as any).__kupua_store__.getState();
+      if (state.results.some((image: any) => image?.id === target)) {
+        throw new Error("P13c target must be non-resident before opening");
+      }
+      const startedEpoch = Date.now();
+      const started = performance.now();
+      let metadataReadyMs: number | null = null;
+      let previousRect: { top: number; left: number; width: number; height: number } | null = null;
+      const navigation = (window as any).__kupua_router__.navigate({
+        to: "/search",
+        search: (previous: Record<string, unknown>) => ({ ...previous, image: target }),
+        replace: true,
+      });
+      await navigation;
+      while (performance.now() - started < 10_000) {
+        await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+        const owner = document.querySelector("[data-detail-image-id]");
+        const ownsTarget = owner?.getAttribute("data-detail-image-id") === target
+          && new URL(location.href).searchParams.get("image") === target;
+        if (!ownsTarget) { previousRect = null; continue; }
+        metadataReadyMs ??= performance.now() - started;
+        const image = owner.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
+        if (!image?.complete || image.naturalWidth === 0) { previousRect = null; continue; }
+        const rect = image.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || rect.bottom <= 0 || rect.top >= innerHeight) {
+          previousRect = null;
+          continue;
+        }
+        if (previousRect && ["top", "left", "width", "height"].every((key) =>
+          Math.abs(rect[key as keyof typeof previousRect] - previousRect![key as keyof typeof previousRect]) <= 1
+        )) {
+          await image.decode();
+          if (owner.getAttribute("data-detail-image-id") !== target) throw new Error("P13c identity changed during decode");
+          if (image.currentSrc !== (window as any).__perfStandaloneMedia__) {
+            throw new Error("P13c rendition changed; warm-media timings would not be comparable");
+          }
+          if ((window as any).__kupua_store__.getState().imagePositions.has(target)) {
+            throw new Error("P13c was satisfied by a resident image instead of standalone detail");
+          }
+          return {
+            startedEpoch,
+            detailMetadataReadyMs: Math.round(metadataReadyMs),
+            detailImageReadyMs: Math.round(performance.now() - started),
+          };
+        }
+        previousRect = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      }
+      throw new Error("P13c standalone image did not become decoded and visibly stable within 10 seconds");
+    }, targetId);
+    probe.stop();
+    if (probe.requests.length < 1 || probe.requests.length > 2) {
+      throw new Error(`P13c expected one lookup or two with development effect replay; observed ${probe.requests.length}`);
+    }
+    for (const { request, route } of probe.requests) {
+      expect(route).toBe(expectedRoute);
+      const ownsTarget = request.method() === "GET"
+        ? new URL(request.url()).pathname === `/api/images/${encodeURIComponent(targetId)}`
+        : (() => {
+          const body = request.postDataJSON();
+          const ids = body?.ids ?? body?.docs?.map((document: { _id: string }) => document._id);
+          return Array.isArray(ids) && ids.length === 1 && ids[0] === targetId;
+        })();
+      expect(ownsTarget).toBe(true);
+      const response = await request.response();
+      expect(response?.ok()).toBe(true);
+      await response.finished();
+    }
+    const { request, route } = probe.requests[probe.requests.length - 1];
+    const requestTiming = request.timing();
+    const detailLookupMs = Math.round(requestTiming.startTime + requestTiming.responseEnd - timing.startedEpoch);
+    expect(detailLookupMs).toBeGreaterThanOrEqual(0);
+    return {
+      scenarioRevision: 2,
+      cacheClass: "nonresident-metadata-warm-media",
+      completionBoundary: "singleton-response-and-decoded-stable-detail",
+      routes: [route],
+      imageLookupCount: probe.requests.length,
+      detailLookupMs,
+      detailMetadataReadyMs: timing.detailMetadataReadyMs,
+      detailImageReadyMs: timing.detailImageReadyMs,
+    };
+  } finally {
+    probe.stop();
+  }
+}
+
+async function waitForResultsWidthGrowth(page: any, previousWidth: number, timeoutMs = 5_000) {
+  await page.evaluate(async ({ baselineWidth, deadlineMs }: { baselineWidth: number; deadlineMs: number }) => {
+    const deadline = performance.now() + deadlineMs;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+      const element = document.querySelector('[aria-label="Image results grid"]');
+      if (!element) continue;
+      const first = element.getBoundingClientRect();
+      if (first.width <= baselineWidth) continue;
+      await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+      if (!element.isConnected) continue;
+      const second = element.getBoundingClientRect();
+      if (Math.abs(first.width - second.width) <= 1 && Math.abs(first.left - second.left) <= 1) return;
+    }
+    throw new Error("P5c results geometry did not grow and settle before the deadline");
+  }, { baselineWidth: previousWidth, deadlineMs: timeoutMs });
+}
+
+async function waitForFocusedReturnStability(page: any, targetId: string, timeoutMs = 10_000) {
+  await page.evaluate(async ({ target, deadlineMs }: { target: string; deadlineMs: number }) => {
+    const deadline = performance.now() + deadlineMs;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+      const store = (window as any).__kupua_store__?.getState();
+      const container = document.querySelector('[aria-label="Image results grid"]')
+        ?? document.querySelector('[aria-label="Image results table"]');
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(target)}"]`);
+      if (!store || store.focusedImageId !== target || !container || !cell) continue;
+      const firstCell = cell.getBoundingClientRect();
+      const firstContainer = container.getBoundingClientRect();
+      if (firstCell.bottom <= firstContainer.top || firstCell.top >= firstContainer.bottom) continue;
+      await new Promise<void>((resolveFrame) => requestAnimationFrame(() => resolveFrame()));
+      if (!cell.isConnected || !container.isConnected) continue;
+      const latestStore = (window as any).__kupua_store__?.getState();
+      if (!latestStore || latestStore.focusedImageId !== target) continue;
+      const secondCell = cell.getBoundingClientRect();
+      const secondContainer = container.getBoundingClientRect();
+      if (Math.abs(firstCell.top - secondCell.top) <= 1
+        && Math.abs(firstCell.left - secondCell.left) <= 1
+        && Math.abs(firstContainer.top - secondContainer.top) <= 1
+        && Math.abs(firstContainer.left - secondContainer.left) <= 1) return;
+    }
+    throw new Error("P13b focused destination did not become visible and stable before the deadline");
+  }, { target: targetId, deadlineMs: timeoutMs });
+}
 
 // ---------------------------------------------------------------------------
 // Guard: per-test cluster checks live in the harness (run-audit.mjs probes
@@ -1049,7 +1226,7 @@ async function prepareP14Scenario(kupua: any, direction: "forward" | "backward",
   await kupua.page.waitForFunction(() => {
     const image = document.querySelector('.flex-1 img[draggable="false"]') as HTMLImageElement | null;
     return !!image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
-  }, { timeout: 10_000 });
+  }, null, { timeout: 10_000 });
 
   const expectedSequence = await kupua.page.evaluate(({ rank, count, traversalDirection }) => {
     const state = (window as any).__kupua_store__?.getState();
@@ -1399,22 +1576,13 @@ test.describe("Rendering Performance Smoke", () => {
     await kupua.page.keyboard.press("Alt+[");
     await expect(kupua.page.getByRole("separator", { name: "Resize left panel (double-click to close)" })).toHaveCount(0);
     await expect(kupua.page.getByRole("separator", { name: "Resize right panel (double-click to close)" })).toHaveCount(1);
-    await kupua.page.waitForFunction(async (previousWidth: number) => {
-      const element = document.querySelector('[aria-label="Image results grid"]');
-      if (!element) return false;
-      const first = element.getBoundingClientRect();
-      if (first.width <= previousWidth) return false;
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      const second = element.getBoundingClientRect();
-      return Math.abs(first.width - second.width) <= 1
-        && Math.abs(first.left - second.left) <= 1;
-    }, widthBeforeClose, { timeout: 5_000 });
+    await waitForResultsWidthGrowth(kupua.page, widthBeforeClose);
     const widthAfterClose = await results.evaluate((element) => element.getBoundingClientRect().width);
 
     const snapClose = await collectPerfSnapshot(kupua, "P5c: Left panel closed, right remains open");
     logPerfReport("P5c: Left Panel Close", snapClose);
     emitMetric("P5c", snapClose, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "left-absent-right-present-stable-results-geometry",
       resultsWidthDeltaPx: Math.round(widthAfterClose - widthBeforeClose),
     });
@@ -1469,6 +1637,7 @@ test.describe("Rendering Performance Smoke", () => {
     await kupua.scrubber.hover();
     await kupua.page.waitForFunction(() =>
       (window as any).__kupua_store__?.getState().sortDistribution !== null,
+      null,
       { timeout: 15_000 },
     );
 
@@ -1504,7 +1673,7 @@ test.describe("Rendering Performance Smoke", () => {
     await kupua.page.waitForFunction(() => {
       const state = (window as any).__kupua_store__?.getState();
       return state && !state.loading && !state._seekInFlight;
-    }, { timeout: 30_000 });
+    }, null, { timeout: 30_000 });
 
     expect(snap.cls.total).toBeLessThan(0.05);
   });
@@ -2150,30 +2319,19 @@ test.describe("Rendering Performance Smoke", () => {
     const snapEnter = await collectPerfSnapshot(kupua, "P13: Enter detail");
     logPerfReport("P13a: Enter Image Detail", snapEnter);
     emitMetric("P13a", snapEnter, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "decoded-stable-detail",
       detailDecoded: true,
+    });
+    await kupua.page.evaluate(() => {
+      const image = document.querySelector('[data-detail-image-id] img[fetchpriority="high"]') as HTMLImageElement | null;
+      if (!image?.complete || !image.naturalWidth) throw new Error("P13c warm-media source unavailable");
+      (window as any).__perfStandaloneMedia__ = image.currentSrc;
     });
     await resetPerfProbes(kupua);
 
     await kupua.closeDetailViaBackspace();
-    await kupua.page.waitForFunction(async (targetId: string) => {
-      const store = (window as any).__kupua_store__?.getState();
-      const container = document.querySelector('[aria-label="Image results grid"]')
-        ?? document.querySelector('[aria-label="Image results table"]');
-      const cell = document.querySelector(`[data-image-id="${CSS.escape(targetId)}"]`);
-      if (!store || store.focusedImageId !== targetId || !container || !cell) return false;
-      const firstCell = cell.getBoundingClientRect();
-      const firstContainer = container.getBoundingClientRect();
-      if (firstCell.bottom <= firstContainer.top || firstCell.top >= firstContainer.bottom) return false;
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      const secondCell = cell.getBoundingClientRect();
-      const secondContainer = container.getBoundingClientRect();
-      return Math.abs(firstCell.top - secondCell.top) <= 1
-        && Math.abs(firstCell.left - secondCell.left) <= 1
-        && Math.abs(firstContainer.top - secondContainer.top) <= 1
-        && Math.abs(firstContainer.left - secondContainer.left) <= 1;
-    }, focusedId, { timeout: 10_000 });
+    await waitForFocusedReturnStability(kupua.page, focusedId);
 
     const snapExit = await collectPerfSnapshot(kupua, "P13: Exit detail");
     logPerfReport("P13b: Exit Image Detail", snapExit);
@@ -2181,12 +2339,22 @@ test.describe("Rendering Performance Smoke", () => {
     const afterLeft = await kupua.getFocusedCellLeft();
     expect(await kupua.isFocusedCellVisible()).toBe(true);
     emitMetric("P13b", snapExit, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "visible-stable-focused-destination",
       focusVisible: true,
       focusDriftPx: Math.round((afterTop ?? 0) - beforePlacement.top),
       focusHorizontalDriftPx: Math.round((afterLeft ?? 0) - beforePlacement.left),
     });
+
+    try {
+      const expectedRoute = await prepareStandaloneDetail(kupua, focusedId);
+      await resetPerfProbes(kupua);
+      const standalone = await measureStandaloneDetail(kupua, focusedId, expectedRoute);
+      const snapStandalone = await collectPerfSnapshot(kupua, "P13c: Standalone detail, warm media");
+      emitMetric("P13c", snapStandalone, standalone);
+    } finally {
+      await kupua.page.evaluate(() => { delete (window as any).__perfStandaloneMedia__; });
+    }
   });
 
   // ─── P14: Image traversal (prev/next) ─────────────────────────────
@@ -2203,42 +2371,50 @@ test.describe("Rendering Performance Smoke", () => {
   for (const scenario of p14Scenarios) {
     test(`${scenario.id}: image traversal — ${scenario.label}`, async ({ kupua }) => {
       const setup = await prepareP14Scenario(kupua, scenario.direction, scenario.steps);
-      const traversal = await traverseExpectedSequence(
-        kupua.page,
-        scenario.direction,
-        setup.expectedSequence,
-        scenario.cadenceMs,
-      );
-      const landing = await waitForLandingImage(kupua.page, traversal.finalCommit);
-      const observationRemaining = Math.max(
-        0,
-        3_000 - (Date.now() - traversal.finalCommit.committedEpochMs),
-      );
-      if (observationRemaining > 0) await kupua.page.waitForTimeout(observationRemaining);
+      const lookupProbe = captureImageLookups(kupua.page);
+      try {
+        const traversal = await traverseExpectedSequence(
+          kupua.page,
+          scenario.direction,
+          setup.expectedSequence,
+          scenario.cadenceMs,
+        );
+        const landing = await waitForLandingImage(kupua.page, traversal.finalCommit);
+        const observationRemaining = Math.max(
+          0,
+          3_000 - (Date.now() - traversal.finalCommit.committedEpochMs),
+        );
+        if (observationRemaining > 0) await kupua.page.waitForTimeout(observationRemaining);
 
-      const snap = await collectPerfSnapshot(kupua, `${scenario.id}: ${scenario.label}`);
-      const clsEvents = snap.cls.shiftDetails.map((shift) =>
-        sanitizeLayoutShift(shift, traversal.finalCommit.committedPerformanceMs)
-      );
-      logTraversalSummary(scenario.id, traversal.timings, landing);
-      logPerfReport(
-        `${scenario.id}: ${scenario.label} (${scenario.steps} @ ${scenario.cadenceMs}ms)`,
-        snap,
-      );
-      emitMetric(scenario.id, snap, {
-        scenarioRevision: 2,
-        cacheClass: "fresh-browser-context",
-        startRank: setup.startRank,
-        committedSteps: traversal.timings.length,
-        traversals: scenario.steps,
-        cadenceMs: scenario.cadenceMs,
-        speed: scenario.speed,
-        direction: scenario.direction,
-        clsEvents,
-        ...summariseTraversal(traversal.timings, landing),
-      });
-      expect(traversal.timings).toHaveLength(scenario.steps);
-      expect(landing.rendered).toBe(true);
+        const snap = await collectPerfSnapshot(kupua, `${scenario.id}: ${scenario.label}`);
+        const clsEvents = snap.cls.shiftDetails.map((shift) =>
+          sanitizeLayoutShift(shift, traversal.finalCommit.committedPerformanceMs)
+        );
+        logTraversalSummary(scenario.id, traversal.timings, landing);
+        logPerfReport(
+          `${scenario.id}: ${scenario.label} (${scenario.steps} @ ${scenario.cadenceMs}ms)`,
+          snap,
+        );
+        expect(lookupProbe.requests.length).toBe(0);
+        emitMetric(scenario.id, snap, {
+          scenarioRevision: 2,
+          lookupGuardRevision: 1,
+          imageLookupCount: lookupProbe.requests.length,
+          cacheClass: "fresh-browser-context",
+          startRank: setup.startRank,
+          committedSteps: traversal.timings.length,
+          traversals: scenario.steps,
+          cadenceMs: scenario.cadenceMs,
+          speed: scenario.speed,
+          direction: scenario.direction,
+          clsEvents,
+          ...summariseTraversal(traversal.timings, landing),
+        });
+        expect(traversal.timings).toHaveLength(scenario.steps);
+        expect(landing.rendered).toBe(true);
+      } finally {
+        lookupProbe.stop();
+      }
     });
   }
 
@@ -2261,7 +2437,7 @@ test.describe("Rendering Performance Smoke", () => {
     const snapFsEnter = await collectPerfSnapshot(kupua, "P15: Enter fullscreen");
     logPerfReport("P15a: Enter Fullscreen", snapFsEnter);
     emitMetric("P15a", snapFsEnter, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "native-fullscreen-decoded-stable-detail",
     });
     await resetPerfProbes(kupua);
@@ -2290,7 +2466,7 @@ test.describe("Rendering Performance Smoke", () => {
     const snapFsTraverse = await collectPerfSnapshot(kupua, "P15: Fullscreen traverse");
     logPerfReport("P15b: Traverse in Fullscreen", snapFsTraverse);
     emitMetric("P15b", snapFsTraverse, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "two-decoded-fullscreen-commits",
       traversals: 2,
       committedSteps: expectedSequence.length,
@@ -2304,7 +2480,7 @@ test.describe("Rendering Performance Smoke", () => {
     const snapFsExit = await collectPerfSnapshot(kupua, "P15: Exit fullscreen");
     logPerfReport("P15c: Exit Fullscreen", snapFsExit);
     emitMetric("P15c", snapFsExit, {
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       completionBoundary: "app-toggle-native-exit-decoded-stable-windowed-detail",
     });
 

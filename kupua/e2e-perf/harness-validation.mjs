@@ -10,7 +10,19 @@ export function assertBalancedLongRuns({ runLong, runs, dryRun }) {
   }
 }
 
+export function generatedHistoryExclusions() {
+  return ["audit-log.json", "audit-log.js", "audit-log.md", "perceived-log.json", "perceived-log.js", "perceived-log.md"]
+    .map((name) => `:(exclude)e2e-perf/results/${name}`);
+}
+
 export const JANK_SCENARIO_AGGREGATION = {
+  P13c: {
+    invariantFields: ["scenarioRevision", "completionBoundary", "cacheClass", "routes", "imageLookupCount"],
+    medianFields: ["detailLookupMs", "detailMetadataReadyMs", "detailImageReadyMs"],
+  },
+  ...Object.fromEntries(["P14a", "P14b", "P14c", "P14d"].map((id) => [id, {
+    invariantFields: ["lookupGuardRevision", "imageLookupCount"],
+  }])),
   P17: {
     invariantFields: [
       "scenarioRevision", "completionBoundary", "routes", "maxInputEvents", "stepIntervalMs",
@@ -32,6 +44,27 @@ export const JANK_SCENARIO_AGGREGATION = {
     ],
   },
 };
+
+export const REQUIRED_JANK_NUMERIC_FIELDS = [
+  "cls", "clsMax", "maxFrame", "severe", "severeRate", "p95Frame",
+  "domChurn", "loafBlocking", "frameCount",
+];
+
+export function assertFiniteFields(entries, fields, scenarioId) {
+  for (const field of fields) {
+    if (entries.some((entry) => !Number.isFinite(entry[field]))) {
+      throw new Error(`${scenarioId} missing numeric ${field}`);
+    }
+  }
+}
+
+export function assertConsistentNames(entries, field, scenarioId) {
+  const fingerprints = new Set(entries.map((entry) =>
+    JSON.stringify((entry[field] ?? []).map((value) => value.name).sort())));
+  if (fingerprints.size !== 1) {
+    throw new Error(`${scenarioId} changed ${field} names across repetitions`);
+  }
+}
 
 export function aggregateScenarioFields(entries, scenarioId, config) {
   if (!Array.isArray(entries) || entries.length === 0) {
@@ -118,18 +151,29 @@ export function assertCompleteMetricIds(metrics, expectedIds, runLabel) {
   return metrics;
 }
 
-export function aggregateSettledTotal(entries, scenarioId) {
-  const values = entries
-    .map((entry) => entry.settledTotal)
-    .filter((value) => value != null);
-  if (values.length === 0) return {};
+export function requireConsistentPresence(entries, field, scenarioId) {
+  const values = entries.map((entry) => entry[field]);
+  const present = values.filter((value) => value != null);
+  if (present.length > 0 && present.length !== entries.length) {
+    throw new Error(`${scenarioId} changed ${field} presence across repetitions`);
+  }
+  return present;
+}
 
-  const regimes = new Set(entries.map((entry) => entry.resultRegime).filter(Boolean));
-  if (regimes.size !== 1) {
+export function aggregateSettledTotal(entries, scenarioId) {
+  const values = requireConsistentPresence(entries, "settledTotal", scenarioId);
+  const regimes = requireConsistentPresence(entries, "resultRegime", scenarioId);
+  if (values.length === 0 && regimes.length === 0) return {};
+  if (values.length !== regimes.length) {
+    throw new Error(`${scenarioId} settledTotal and resultRegime presence differs`);
+  }
+
+  const regimeSet = new Set(regimes);
+  if (regimeSet.size !== 1) {
     throw new Error(`${scenarioId} changed resultRegime across repetitions`);
   }
 
-  if (regimes.has("seek")) {
+  if (regimeSet.has("seek")) {
     const minimum = Math.min(...values);
     const maximum = Math.max(...values);
     const tolerance = Math.max(100, Math.ceil(minimum * 0.0001));
@@ -166,7 +210,7 @@ const JANK_METRIC_MANIFEST = [
   ["P9: sort field change", ["P9"]],
   ["P11: thumbnail reflow", ["P11@20", "P11@60", "P11@85"]],
   ["P11b: thumbnail reflow", ["P11b@20", "P11b@60", "P11b@85"]],
-  ["P13: image detail enter/exit", ["P13a", "P13b"]],
+  ["P13: image detail enter/exit", ["P13a", "P13b", "P13c"]],
   ["P14a: image traversal", ["P14a"]],
   ["P14b: image traversal", ["P14b"]],
   ["P14c: image traversal", ["P14c"]],

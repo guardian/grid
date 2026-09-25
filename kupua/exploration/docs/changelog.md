@@ -17,6 +17,40 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - Harden image traversal performance evidence
+
+  The jank campaign now verifies that resident P14 traversal issues no image-hydration reads and
+  adds P13c for standalone detail: a normal query change makes the target non-resident, then one
+  or two development Strict Mode reads must fetch that exact ID through the declared current
+  transport. P13c records response, requested-ID metadata and decoded stable-image readiness while
+  reusing the previously warmed rendition; U6a's future API route remains distinguishable from the
+  current hybrid ES fallback. Both dashboards display these shared audit records without duplicating
+  execution or history, preserve old missing values as gaps and separate mode, route, cache,
+  scenario, completion-boundary and result-regime changes. They hide stale store timings on
+  client-only actions and show qualified latest API-minus-direct deltas. Campaign fingerprints now
+  retain the full dirty hash plus an app-source hash that excludes only generated perf histories.
+
+  Performance readiness and reporting were hardened at the same time. Decoded detail, P5c panel
+  width and P13b return placement now use deadline-bounded frame/decode/geometry loops instead of
+  async Playwright predicates that could pass while resolving false; affected scenarios moved to
+  revision 3. Static checks reject async predicates, misplaced timeout options and excess
+  `waitForFunction` arguments across maintained perf/shared helpers. Aggregation rejects missing or
+  non-finite base jank values, partial per-repetition fields, totals/regimes, routes and named seek
+  measures; history writes remain transactional. Single-run threshold crossings remain visible as
+  watchpoints, while regression verdicts require repeated current and previous evidence. Cadence and
+  observation windows remain intentional. Swallowed indexed-seek outcomes and scenario-specific
+  fixed-wait semantics remain separate, non-mechanical review work.
+
+  Matched four-run API/direct baselines on the same HTTPS origin found resident traversal broadly
+  equivalent at normal/fast cadence, with zero image-hydration reads. API-backed search, seek,
+  sort-around-focus and restore actions were consistently about 0.2-0.6 seconds slower in the
+  local-JVM/SSH-tunnel topology, while client-only actions stayed close; deployed-TEST impact
+  remains M2a evidence. Bare `sport` membership differed materially (292,034 API versus 285,238
+  direct), confirming the known Grid/Kupua free-text-policy difference and preventing PP8 from
+  being treated as equal workload. P13c remained on the expected direct-ES singleton fallback
+  before U6a. M1 records these costs without selecting endpoint redesign or accepting production
+  performance.
+
   ### 25 September 2026 - Ordered reads through media-api
 
   API build U5 (Kupua). `ApiDataSource` replaces the one-route `StranglerAdapter` in
