@@ -17,6 +17,21 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - media-api sort profiles
+
+  API build U3a (Scala). New `POST /images/sort-profile` runs one fixed aggregation per call
+  over the admitted search, ported from `estimateSortValue` and `getDateDistribution`:
+  `scalar-anchor` (tdigest percentile, optionally narrowed by equality `scope` term filters),
+  `date-stats` (value count, min, max) and `date-buckets` (histogram with start positions, at a
+  Kupua-chosen calendar or fixed interval). Stats-then-buckets stays two requests and the interval
+  choice stays in Kupua. Profiled, scope and missing fields must come from the request's sort;
+  the clause supplies the nested path, histogram direction and max-mode semantics, and
+  `missingField` must be the primary, giving the null-zone filter. Max-mode special dates return
+  an exact image `coveredCount` separately from buckets labelled `approximate-evidence`, and are
+  refused without `mode: max` so a bare clause cannot claim exact ranks. Timed-out or partly
+  failed profiles respond 503. Rank's sort admission and completeness check became shared helpers
+  with unchanged messages. Kupua does not call the endpoint yet.
+
   ### 24 September 2026 - Kahuna search path restored to main
 
   Abandoned PR #4849 had amended Kahuna's `GET /images` path so that it agreed with D3: an

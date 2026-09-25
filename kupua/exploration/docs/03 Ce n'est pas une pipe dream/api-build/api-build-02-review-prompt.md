@@ -27,7 +27,8 @@ commands only if I say so in this chat.
    `createSort`, `prepareSearch`, getters, `ImageResponse.create` or shared files? Is each shared
    change behavior-preserving and tested as such? Reconcile the **whole** `git diff main --
    media-api` (not only this unit's diff) with the plan's section 7 table; any unlisted change to
-   existing Grid code is at least S2, and S1 if Kahuna or other callers would see it.
+   existing Grid code is at least S2, and S1 if Kahuna or other callers would see it. The section 7
+   table and the unit's "as built" note should already be updated in the diff; if not, that is a finding.
 3. **Correctness against the plan.** Does the endpoint meet the unit's "done" note, and does the
    note's recorded contract (shape, refusals, limits) match the code? Do the
    cross-checks exist and genuinely discriminate (for example window at k equals D3 at k; rank
@@ -35,7 +36,9 @@ commands only if I say so in this chat.
    the contract fit the Kupua code that will call it?
 4. **Test quality.** Would the tests still pass with a plausible wrong implementation? Were any
    existing assertions weakened, deleted or loosened? Was a failing-first run recorded, and does
-   the handoff's break-and-revert check cover the core rules?
+   the handoff's break-and-revert check cover the core rules? If a client-supplied attribute the
+   endpoint relies on (for example sort `mode`, `nested`, `missing`) is omitted, is the request
+   refused or still correct, and is that tested?
 5. **Invariants.** `_search` only (no `_count`); no `_shard_doc` in public tuples; optional
    `pitId` path intact; limits (1k/65k/5k/200) not lowered; direct-ES and hybrid Kupua modes
    untouched or still green; no ES construction added in API mode. Include gaps inherited from

@@ -44,15 +44,21 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
    behavior an open upstream PR changes (for example #4957).
 2. Implement the smallest change that passes. Commits are branch-only: one Scala commit per
    endpoint (so the later PR split is mechanical), Kupua separately, docs last. Each commit must
-   build and pass on its own; check split commits in a temporary worktree.
+   build and pass on its own; check split commits whose tree was never tested in a temporary
+   worktree (for the last commit, an empty `git diff HEAD` against the tested tree suffices).
 3. Run the gates in plan section 5. Before E2E, ask me whether ports 3000/3030 are free.
    Use `set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"` for Kupua npm scripts
-   (unsandboxed), and don't run anything else while a suite runs.
+   (unsandboxed), and don't run anything else while a suite runs. Scala runs the same way:
+   `TZ=UTC sbt ... 2>&1 | tee "$TMPDIR/..."`, unsandboxed (Docker), then grep the summary.
 4. If a test breaks, work out whether the test or the change is wrong before touching assertions.
 5. For Scala endpoints, before handoff: temporarily break each core rule of the endpoint once
    (for example a predicate, a refusal, a nested wrapper), confirm a test fails, revert, and list
    what was and was not caught. Strengthen tests that miss. Review fixes also get failing-first
-   tests, or this check covers them.
+   tests, or this check covers them. Also test the request with each client-supplied attribute
+   the endpoint relies on omitted (for example sort `mode`, `nested`, `missing`, optional fields).
+   Recipe: snapshot the files and restore by copy (never `git checkout` over uncommitted work),
+   confirm byte-identical restores, group only non-overlapping breaks in one run, and if a break
+   crashes the runner, count it caught and rerun the rest of that group.
 
 **Questions to me:** I am not an engineer. Every question explains the consequences in plain
 language and ends with your recommendation. Record my answer in the unit note straight away.
@@ -79,11 +85,12 @@ permission for this session, or write secrets or cookies to any file. The reposi
 
 **Worklog:** add a check-in line to the worklog at start and append key decisions and findings as
 you go (short). Move durable decisions into the unit note. Reset the worklog to its scaffold
-before any commit; never commit it non-empty.
+before the commit that stages Kupua docs; never commit it non-empty.
 
 **Completion:**
 1. Summarize what changed, the test results (failing-first plus final gates) and anything
-   deferred.
+   deferred. Before the handoff, do plan section 8 items 2-4 (unit note "as built", section 7
+   table, parked observations), so the reviewer sees them in the diff.
 2. Give me a **handoff facts** fenced block (easy to copy) for the cold reviewer (`api-build-02-review-prompt.md`):
    - unit ID;
    - base commit and how to see the diff (for example `git diff <base>` or the file list, if
@@ -101,7 +108,7 @@ before any commit; never commit it non-empty.
    Facts only: do not say what the reviewer should focus on or what you think is fine.
 3. When I bring back review findings, fix only the material ones (or explain why not), rerun the
    affected gates, then propose commits grouped by the problem they solve, and wait for my OK.
-4. After committing, do everything in plan section 8 (the single completion checklist).
+4. After committing, do the rest of plan section 8 (the single completion checklist).
 5. Stop. Do not start the next unit.
 
 **Unit-specific notes from the operator:** (optional)
