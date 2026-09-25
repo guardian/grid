@@ -1357,6 +1357,352 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
       }
     }
+
+    describe("sort profile") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val internal = SearchParams(tier = Internal)
+      val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+      val Day = 86400000L
+      val Hour = 3600000L
+      val TenMinutes = 600000L
+
+      def profileFixture(id: String, takenDay: Option[Int], uploadMinute: Int, credit: Option[String], width: Int,
+                         usageDays: Seq[Int], collectionDays: Seq[Int]): Image = {
+        val image = createImage(id, Handout(), usages = usageDays.map(day => createDigitalUsage(t0.plusDays(day))).toList)
+        image.copy(
+          uploadTime  = t0.plusMinutes(uploadMinute),
+          metadata    = image.metadata.copy(dateTaken = takenDay.map(day => t0.plusDays(day)), credit = credit),
+          source      = image.source.copy(dimensions = Some(Dimensions(width = width, height = 600))),
+          collections = collectionDays.map(day => Collection.build(List(s"profile-$day"), ActionData("profile-test", t0.plusDays(day)))).toList,
+        )
+      }
+      // Upload times share 10-minute and hour buckets unevenly; dateTaken is missing for d, e and h.
+      // b and f have two usages (f's on the same day) and b and g two collections, so image and value
+      // counts differ; c, e, g and h have no usages and c, e and h no collections.
+      val profileFixtures = Seq(
+        profileFixture("profile-a", Some(3), 60,  Some("AAP"),     800,  Seq(5),    Seq(4)),
+        profileFixture("profile-b", Some(3), 60,  Some("AAP"),     800,  Seq(2, 9), Seq(2, 9)),
+        profileFixture("profile-c", Some(1), 135, None,            1200, Nil,       Nil),
+        profileFixture("profile-d", None,    100, Some("Reuters"), 800,  Seq(5),    Seq(4)),
+        profileFixture("profile-e", None,    180, None,            400,  Nil,       Nil),
+        profileFixture("profile-f", Some(7), 135, Some("Reuters"), 1200, Seq(9, 9), Seq(9)),
+        profileFixture("profile-g", Some(1), 205, Some("AAP"),     400,  Nil,       Seq(1, 3)),
+        profileFixture("profile-h", None,    170, Some("Getty"),   800,  Nil,       Nil),
+        profileFixture("profile-i", Some(3), 180, Some("Getty"),   1200, Seq(2),    Seq(2)),
+      )
+      val profileScope = internal.copy(ids = Some(profileFixtures.map(_.id).toList))
+
+      val id = Json.obj("id" -> "asc")
+      def plain(field: String, order: String) = Json.obj(field -> order)
+      def selectedMax(field: String, order: String, nestedPath: Option[String]) =
+        Json.obj(field -> (Json.obj("order" -> order, "mode" -> "max", "missing" -> "_last") ++
+          nestedPath.fold(Json.obj())(path => Json.obj("nested" -> Json.obj("path" -> path)))))
+      val newest        = Seq(plain("uploadTime", "desc"), id)
+      val oldest        = Seq(plain("uploadTime", "asc"), id)
+      val takenDesc     = Seq(plain("metadata.dateTaken", "desc"), plain("uploadTime", "desc"), id)
+      val takenAsc      = Seq(plain("metadata.dateTaken", "asc"), plain("uploadTime", "asc"), id)
+      val lastUsedDesc  = Seq(selectedMax("usages.dateAdded", "desc", Some("usages")), plain("uploadTime", "desc"), id)
+      val collectionAsc = Seq(selectedMax("collections.actionData.date", "asc", None), plain("uploadTime", "asc"), id)
+      val creditAsc     = Seq(plain("metadata.credit", "asc"), plain("uploadTime", "desc"), id)
+      val widthAsc      = Seq(plain("source.dimensions.width", "asc"), plain("uploadTime", "desc"), id)
+
+      def profile(operation: SortProfileOperation, sort: Seq[JsObject], searchParams: SearchParams = profileScope,
+                  pitId: Option[String] = None): SortProfileRawResults =
+        Await.result(ES.sortProfile(SortProfileParams(searchParams, sort, operation, pitId)), fiveSeconds)
+      def anchor(field: String, percentile: Double, sort: Seq[JsObject], scope: Seq[(String, String)] = Nil,
+                 searchParams: SearchParams = profileScope): Option[Double] =
+        profile(ScalarAnchor(field, percentile, scope), sort, searchParams).result.asInstanceOf[ScalarAnchorResult].value
+      def dateStats(field: String, missingField: Option[String], sort: Seq[JsObject],
+                    searchParams: SearchParams = profileScope): DateStatsResult =
+        profile(DateStats(field, missingField), sort, searchParams).result.asInstanceOf[DateStatsResult]
+      def dateBuckets(field: String, missingField: Option[String], interval: String, sort: Seq[JsObject]): DateBucketsResult =
+        profile(DateBuckets(field, missingField, interval), sort).result.asInstanceOf[DateBucketsResult]
+
+      def positioned(sort: Seq[JsObject]): Seq[Seq[JsValue]] =
+        Await.result(ES.imageWindow(ImageWindowParams(profileScope.copy(offset = 0, length = 100), sort, None)), fiveSeconds).sortValues
+      def epochMillis(value: JsValue): Long = value.as[Long]
+      def bucketTriples(result: DateBucketsResult): Seq[(Long, Long, Long)] =
+        result.buckets.map(bucket => (DateTime.parse(bucket.key).getMillis, bucket.count, bucket.startPosition))
+      // Bucket start, count and cumulative start position for per-bucket counts already in sort order.
+      def withStartPositions(counts: Seq[(Long, Long)]): Seq[(Long, Long, Long)] =
+        counts.zip(counts.scanLeft(0L)(_ + _._2)).map { case ((start, count), position) => (start, count, position) }
+      // Consecutive sorted values grouped by bucket start: exact ranks, one value per image.
+      def groupedBuckets(values: Seq[Long], width: Long): Seq[(Long, Long, Long)] = {
+        val starts = values.map(value => value - Math.floorMod(value, width))
+        val counts = starts.foldLeft(Vector.empty[(Long, Long)]) {
+          case (acc, start) if acc.lastOption.exists(_._1 == start) => acc.init :+ (start -> (acc.last._2 + 1))
+          case (acc, start) => acc :+ (start -> 1L)
+        }
+        withStartPositions(counts)
+      }
+
+      def postProfile(controller: controllers.ImageQueryController, body: JsObject): (Int, JsValue) =
+        whenReady(controller.sortProfile().apply(FakeRequest("POST", "/images/sort-profile").withBody(body)), timeout, interval) { result =>
+          (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+        }
+
+      Seq(
+        ("taken descending", takenDesc, "metadata.dateTaken", "day", Day),
+        ("taken ascending", takenAsc, "metadata.dateTaken", "day", Day),
+        ("newest, fixed 10-minute interval", newest, "uploadTime", "10m", TenMinutes),
+        ("oldest, calendar hour interval", oldest, "uploadTime", "hour", Hour),
+      ).foreach { case (name, sort, field, bucketInterval, width) =>
+        it(s"buckets a scalar date exactly as the window positions it: $name") {
+          withImages(profileFixtures) { _ =>
+            val valued = positioned(sort).map(_.head).takeWhile(_ != JsNull).map(epochMillis)
+            val result = dateBuckets(field, None, bucketInterval, sort)
+
+            result.positionKind shouldBe "exact-rank"
+            bucketTriples(result) shouldBe groupedBuckets(valued, width)
+            result.evidenceCount shouldBe valued.size.toLong
+          }
+        }
+      }
+
+      Seq("taken descending" -> takenDesc, "last used descending (nested)" -> lastUsedDesc,
+        "added to collection ascending" -> collectionAsc).foreach { case (name, sort) =>
+        it(s"profiles the null zone's upload times exactly as the window positions them: $name") {
+          withImages(profileFixtures) { _ =>
+            val nullTail = positioned(sort).dropWhile(_.head != JsNull).map(tuple => epochMillis(tuple(1)))
+            val primary = sort.head.keys.head
+            nullTail should not be empty
+
+            val result = dateBuckets("uploadTime", Some(primary), "10m", sort)
+            result.positionKind shouldBe "exact-rank"
+            bucketTriples(result) shouldBe groupedBuckets(nullTail, TenMinutes)
+            dateStats("uploadTime", Some(primary), sort).valueCount shouldBe nullTail.size.toLong
+          }
+        }
+      }
+
+      it("reports scalar date stats as the window positions them, without a parent count") {
+        withImages(profileFixtures) { _ =>
+          val valued = positioned(takenDesc).map(_.head).takeWhile(_ != JsNull).map(epochMillis)
+          dateStats("metadata.dateTaken", None, takenDesc) shouldBe
+            DateStatsResult(valued.size.toLong, Some(valued.min), Some(valued.max), None)
+        }
+      }
+
+      Seq(
+        ("last used descending (nested)", lastUsedDesc, "usages.dateAdded", true,
+          (image: Image) => image.usages.flatMap(_.dateAdded).map(_.getMillis)),
+        ("added to collection ascending", collectionAsc, "collections.actionData.date", false,
+          (image: Image) => image.collections.map(_.actionData.date.getMillis)),
+      ).foreach { case (name, sort, field, descending, valuesOf) =>
+        it(s"reports exact parent coverage separately from approximate child-date buckets: $name") {
+          withImages(profileFixtures) { _ =>
+            val values = profileFixtures.map(valuesOf)
+            val stats = dateStats(field, None, sort)
+            stats.coveredCount shouldBe Some(positioned(sort).takeWhile(_.head != JsNull).size.toLong)
+            stats.coveredCount shouldBe Some(values.count(_.nonEmpty).toLong)
+            stats.valueCount shouldBe values.map(_.size).sum.toLong
+            stats.min shouldBe Some(values.flatten.min)
+            stats.max shouldBe Some(values.flatten.max)
+
+            // Each image counts once in every day bucket holding any of its values.
+            val perDay = values.flatMap(_.map(value => value - Math.floorMod(value, Day)).distinct)
+              .groupBy(identity).map { case (start, images) => start -> images.size.toLong }.toSeq.sortBy(_._1)
+            val result = dateBuckets(field, None, "day", sort)
+            result.positionKind shouldBe "approximate-evidence"
+            bucketTriples(result) shouldBe withStartPositions(if (descending) perDay.reverse else perDay)
+            result.evidenceCount shouldBe perDay.map(_._2).sum
+            result.evidenceCount should be > stats.coveredCount.get
+          }
+        }
+      }
+
+      it("anchors the extreme percentiles at the smallest and largest admitted values") {
+        withImages(profileFixtures) { _ =>
+          val uploads = profileFixtures.map(_.uploadTime.getMillis.toDouble)
+          anchor("uploadTime", 0, newest) shouldBe Some(uploads.min)
+          anchor("uploadTime", 100, newest) shouldBe Some(uploads.max)
+          anchor("uploadTime", 50, newest).get should (be > uploads.min and be < uploads.max)
+          anchor("source.dimensions.width", 0, widthAsc) shouldBe Some(400.0)
+          anchor("source.dimensions.width", 100, widthAsc) shouldBe Some(1200.0)
+        }
+      }
+
+      it("anchors a nested field within its nested documents") {
+        withImages(profileFixtures) { _ =>
+          val usageDates = profileFixtures.flatMap(_.usages.flatMap(_.dateAdded)).map(_.getMillis.toDouble)
+          anchor("usages.dateAdded", 0, lastUsedDesc) shouldBe Some(usageDates.min)
+          anchor("usages.dateAdded", 100, lastUsedDesc) shouldBe Some(usageDates.max)
+        }
+      }
+
+      it("narrows the anchor to an equality scope on a sort field") {
+        withImages(profileFixtures) { _ =>
+          val reuters = Seq("metadata.credit" -> "Reuters")
+          anchor("uploadTime", 0, creditAsc, reuters) shouldBe Some(t0.plusMinutes(100).getMillis.toDouble)
+          anchor("uploadTime", 100, creditAsc, reuters) shouldBe Some(t0.plusMinutes(135).getMillis.toDouble)
+          anchor("uploadTime", 0, creditAsc) shouldBe Some(t0.plusMinutes(60).getMillis.toDouble)
+        }
+      }
+
+      it("returns no anchor or range when nothing is admitted") {
+        val nothing = internal.copy(ids = Some(List("profile-absent")))
+        anchor("uploadTime", 50, newest, searchParams = nothing) shouldBe None
+        dateStats("uploadTime", None, newest, nothing) shouldBe DateStatsResult(0L, None, None, None)
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newest, None, None)), fiveSeconds)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        dateStats("uploadTime", None, newest, syndication).valueCount shouldBe viaD3.total
+        dateStats("uploadTime", None, newest, internal).valueCount shouldBe expectedNumberOfImages.toLong
+      }
+
+      it("profiles within the same deleted scope as D3, for ordinary and privileged callers") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"profile-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          val body = base ++ Json.obj("q" -> "is:deleted", "sort" -> newest)
+          Seq((uploader, false, 1L), (otherUploader, false, 1L), (uploader, true, 2L)).foreach { case (principal, privileged, expected) =>
+            val controller = imageQueryControllerFor(principal, ES, writer, privileged)
+            val d3 = whenReady(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(body)), timeout, interval) {
+              result => Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+            }
+            val (status, stats) = postProfile(controller, body ++ Json.obj("operation" -> "date-stats", "field" -> "uploadTime"))
+
+            status shouldBe 200
+            (stats \ "valueCount").as[Long] shouldBe (d3 \ "total").as[Long]
+            (stats \ "valueCount").as[Long] shouldBe expected
+          }
+        }
+      }
+
+      it("profiles identically under a PIT and returns it") {
+        withImages(profileFixtures) { _ =>
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+          val operation = DateBuckets("metadata.dateTaken", None, "day")
+          val pinned = profile(operation, takenDesc, pitId = Some(pitId))
+
+          pinned.result shouldBe profile(operation, takenDesc).result
+          pinned.pitId shouldBe defined
+        }
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val closed = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+        } yield opened.result.id
+        val pitId = Await.result(closed, fiveSeconds)
+
+        val (status, json) = postProfile(controller, Json.obj("sort" -> newest, "operation" -> "date-stats",
+          "field" -> "uploadTime", "pitId" -> pitId))
+        status shouldBe 410
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+
+      it("responds with each operation's typed JSON, keeping an absent anchor as null") {
+        withImages(profileFixtures) { base =>
+          val controller = imageQueryControllerFor(uploader, ES, writer)
+          val (bucketStatus, buckets) = postProfile(controller, base ++ Json.obj("sort" -> takenDesc,
+            "operation" -> "date-buckets", "field" -> "metadata.dateTaken", "interval" -> "day"))
+          bucketStatus shouldBe 200
+          (buckets \ "positionKind").as[String] shouldBe "exact-rank"
+          (buckets \ "evidenceCount").as[Long] shouldBe 6L
+          (buckets \ "buckets").as[Seq[JsObject]].map(_.keys) should contain only Set("key", "count", "startPosition")
+          (buckets \ "pitId").toOption shouldBe None
+
+          val nothing = Json.obj("sort" -> newest, "ids" -> "profile-absent")
+          postProfile(controller, nothing ++ Json.obj("operation" -> "scalar-anchor", "field" -> "uploadTime", "percentile" -> 50)) shouldBe
+            (200, Json.obj("value" -> JsNull))
+          postProfile(controller, nothing ++ Json.obj("operation" -> "date-stats", "field" -> "uploadTime")) shouldBe
+            (200, Json.obj("valueCount" -> 0, "min" -> JsNull, "max" -> JsNull))
+          val (_, special) = postProfile(controller, base ++ Json.obj("sort" -> lastUsedDesc,
+            "operation" -> "date-stats", "field" -> "usages.dateAdded"))
+          (special \ "coveredCount").as[Long] shouldBe 5L
+        }
+      }
+
+      Seq(
+        "no operation"              -> Json.obj("field" -> "uploadTime") -> "operation",
+        "an unknown operation"      -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime") -> "unsupported",
+        "no field"                  -> Json.obj("operation" -> "date-stats") -> "field",
+        "an unknown interval"       -> Json.obj("operation" -> "date-buckets", "field" -> "uploadTime", "interval" -> "1w") -> "interval",
+        "a non-numeric percentile"  -> Json.obj("operation" -> "scalar-anchor", "field" -> "uploadTime", "percentile" -> "50") -> "percentile",
+        "a malformed scope"         -> Json.obj("operation" -> "scalar-anchor", "field" -> "uploadTime", "percentile" -> 50,
+          "scope" -> Json.arr(Json.obj("field" -> "metadata.credit"))) -> "scope",
+        "a non-string missingField" -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "missingField" -> 3) -> "missingField",
+        "reverse"                   -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "reverse" -> true) -> "reverse",
+        "seekToEnd"                 -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "seekToEnd" -> true) -> "seekToEnd",
+        "a cursor"                  -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "sortValues" -> Json.arr(0, "x")) -> "sortValues",
+      ).foreach { case ((what, body), mentioned) =>
+        it(s"responds 400 to $what") {
+          val (status, json) = postProfile(imageQueryControllerFor(uploader, ES, writer), Json.obj("sort" -> newest) ++ body)
+          status shouldBe 400
+          (json \ "errorMessage").as[String] should include(mentioned)
+        }
+      }
+
+      def refusalOf(operation: SortProfileOperation, sort: Seq[JsObject]): String =
+        whenReady(ES.sortProfile(SortProfileParams(internal, sort, operation, None)).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message
+        }
+
+      Seq(
+        "a field outside the sort"          -> (ScalarAnchor("lastModified", 50, Nil), newest) -> "lastModified",
+        "a missing field that is not the primary" -> (DateBuckets("uploadTime", Some("uploadTime"), "day"), takenDesc) -> "missingField",
+        "a scope field outside the sort"    -> (ScalarAnchor("uploadTime", 50, Seq("metadata.credit" -> "AAP")), newest) -> "metadata.credit",
+        "a percentile above 100"            -> (ScalarAnchor("uploadTime", 100.5, Nil), newest) -> "percentile",
+        "a negative percentile"             -> (ScalarAnchor("uploadTime", -1, Nil), newest) -> "percentile",
+        "nulls sorting first"               -> (DateStats("metadata.dateTaken", None),
+          Seq(Json.obj("metadata.dateTaken" -> Json.obj("order" -> "desc", "missing" -> "_first")), id)) -> "missing",
+        "an empty sort"                     -> (DateStats("uploadTime", None), Seq.empty[JsObject]) -> "sort",
+        "collection dates without max mode (stats)" -> (DateStats("collections.actionData.date", None),
+          Seq(plain("collections.actionData.date", "desc"), plain("uploadTime", "desc"), id)) -> "mode max",
+        "collection dates without max mode (buckets)" -> (DateBuckets("collections.actionData.date", None, "day"),
+          Seq(plain("collections.actionData.date", "asc"), plain("uploadTime", "asc"), id)) -> "mode max",
+        "nested usage dates without max mode" -> (DateBuckets("usages.dateAdded", None, "day"),
+          Seq(Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc", "nested" -> Json.obj("path" -> "usages"))),
+            plain("uploadTime", "desc"), id)) -> "mode max",
+      ).foreach { case ((what, (operation, sort)), mentioned) =>
+        it(s"refuses $what") {
+          refusalOf(operation, sort) should include(mentioned)
+        }
+      }
+
+      it("responds 422 to a field outside the sort") {
+        val (status, _) = postProfile(imageQueryControllerFor(uploader, ES, writer), Json.obj("sort" -> newest,
+          "operation" -> "date-stats", "field" -> "lastModified"))
+        status shouldBe 422
+      }
+
+      it("reads through a size-0 _search without counting total hits") {
+        val body = Json.parse(SearchBodyBuilderFn(ES.sortProfileRequest(
+          SortProfileParams(internal, takenDesc, DateBuckets("metadata.dateTaken", None, "day"), None))).string)
+        (body \ "size").as[Int] shouldBe 0
+        (body \ "track_total_hits").as[Boolean] shouldBe false
+        (body \ "aggs").toOption shouldBe defined
+      }
+
+      describe("completeness") {
+        val anchorParams = SortProfileParams(internal, newest, ScalarAnchor("uploadTime", 50, Nil), None)
+        def response(timedOut: Boolean, failedShards: Int, value: Any) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None,
+            Map("profile" -> Map("values" -> Map("50.0" -> value))), SearchHits(Total(0L, "eq"), 0.0, Array.empty))
+
+        it("reads the anchor when every shard completed in time, and null as no value") {
+          ES.readSortProfile(anchorParams, response(timedOut = false, failedShards = 0, 42.0)) shouldBe ScalarAnchorResult(Some(42.0))
+          ES.readSortProfile(anchorParams, response(timedOut = false, failedShards = 0, null)) shouldBe ScalarAnchorResult(None)
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0, 42.0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1, 42.0)).foreach { case (reason, incomplete) =>
+          it(s"refuses to publish a profile when $reason") {
+            the[Exception] thrownBy ES.readSortProfile(anchorParams, incomplete) shouldBe SortProfileIncomplete
+          }
+        }
+      }
+    }
   }
 
   describe("searchAfter") {

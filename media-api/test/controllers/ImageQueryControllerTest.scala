@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal,
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
-import lib.elasticsearch.{ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, SearchAfterParams, SearchAfterRawResults}
+import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -340,6 +340,112 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       result.header.status shouldBe 503
       (jsonOf(result) \ "errorKey").as[String] shouldBe "rank-incomplete"
+    }
+  }
+
+  private case class SortProfileHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[SortProfileParams])
+
+  private def sortProfileHarness(
+    principal: Principal,
+    privileged: Boolean = false,
+    result: Future[SortProfileRawResults] = Future.successful(SortProfileRawResults(DateStatsResult(0L, None, None, None), None)),
+  ): SortProfileHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[SortProfileParams]()
+    when(search.sortProfile(any[SortProfileParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[SortProfileParams](0))
+      result
+    }
+    SortProfileHarness(imageQueryControllerFor(principal, search, mock[ImageResponse], privileged), search, captured.future)
+  }
+
+  private def sortProfileRequest(body: JsObject) = FakeRequest("POST", "/images/sort-profile").withBody(body)
+
+  describe("sort profile admission") {
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")),
+      "operation" -> "date-stats", "field" -> "uploadTime")
+
+    Seq(ordinaryUser, otherUser).foreach { principal =>
+      it(s"scopes is:deleted to the uploader ${principal.firstName} ${principal.lastName}, as D3 does") {
+        val harness = sortProfileHarness(principal)
+        val request = sortProfileRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> "someone-else@example.test"))
+
+        harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
+        harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(principal.email)
+      }
+    }
+
+    it("preserves a privileged user's requested uploader") {
+      val harness = sortProfileHarness(ordinaryUser, privileged = true)
+      val request = sortProfileRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> otherUser.email))
+
+      harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(otherUser.email)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = sortProfileHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.sortProfile().apply(sortProfileRequest(body)).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    it("validates length exactly as D3 and window do, although profiles do not use it") {
+      val harness = sortProfileHarness(ordinaryUser)
+
+      harness.controller.sortProfile().apply(sortProfileRequest(body ++ Json.obj("length" -> 201))).futureValue.header.status shouldBe 422
+      verifyNoInteractions(harness.search)
+    }
+
+    it("refuses a cursor before reaching Elasticsearch") {
+      val harness = sortProfileHarness(ordinaryUser)
+      val result = harness.controller.sortProfile().apply(sortProfileRequest(body ++ Json.obj("sortValues" -> Json.arr(0, "x")))).futureValue
+
+      result.header.status shouldBe 400
+      verifyNoInteractions(harness.search)
+    }
+
+    it("passes the operation, its scope, sort and PIT to Elasticsearch") {
+      val harness = sortProfileHarness(ordinaryUser)
+      val request = sortProfileRequest(body ++ Json.obj("operation" -> "scalar-anchor", "percentile" -> 12.5,
+        "scope" -> Json.arr(Json.obj("field" -> "metadata.credit", "value" -> "AAP")), "pitId" -> "a-pit"))
+
+      harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.operation shouldBe ScalarAnchor("uploadTime", 12.5, Seq("metadata.credit" -> "AAP"))
+      params.sort shouldBe Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      params.pitId shouldBe Some("a-pit")
+    }
+
+    it("passes an optional missing field") {
+      val harness = sortProfileHarness(ordinaryUser)
+      val request = sortProfileRequest(body ++ Json.obj("field" -> "uploadTime", "missingField" -> "metadata.dateTaken"))
+
+      harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.operation shouldBe DateStats("uploadTime", Some("metadata.dateTaken"))
+    }
+  }
+
+  describe("sort profile response") {
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")),
+      "operation" -> "date-stats", "field" -> "uploadTime")
+
+    it("reports the profile and a PIT when one is returned") {
+      val harness = sortProfileHarness(ordinaryUser,
+        result = Future.successful(SortProfileRawResults(DateStatsResult(3L, Some(1L), Some(9L), Some(2L)), Some("refreshed-pit"))))
+
+      jsonOf(harness.controller.sortProfile().apply(sortProfileRequest(body)).futureValue) shouldBe
+        Json.obj("valueCount" -> 3L, "min" -> 1L, "max" -> 9L, "coveredCount" -> 2L, "pitId" -> "refreshed-pit")
+    }
+
+    it("responds 503 rather than publishing an incomplete profile") {
+      val harness = sortProfileHarness(ordinaryUser, result = Future.failed(SortProfileIncomplete))
+      val result = harness.controller.sortProfile().apply(sortProfileRequest(body)).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "sort-profile-incomplete"
     }
   }
 }

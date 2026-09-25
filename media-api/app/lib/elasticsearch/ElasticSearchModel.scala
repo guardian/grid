@@ -213,7 +213,121 @@ object ImageRankParamsBody {
       pitId        = (body \ "pitId").asOpt[String],
     )
 }
+// Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
+sealed trait SortProfileOperation
+case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation
+case class DateStats(field: String, missingField: Option[String]) extends SortProfileOperation
+case class DateBuckets(field: String, missingField: Option[String], interval: String) extends SortProfileOperation
 
+object DateBucketInterval {
+  val Calendar: Set[String] = Set("month", "day", "hour")
+  val Fixed: Set[String]    = Set("30m", "10m", "5m")
+}
+
+case class SortProfileParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  operation:    SortProfileOperation,
+  pitId:        Option[String],
+)
+
+sealed trait SortProfileResult
+case class ScalarAnchorResult(value: Option[Double]) extends SortProfileResult
+// coveredCount (images with at least one value) is reported only for max-mode, multi-valued fields.
+case class DateStatsResult(valueCount: Long, min: Option[Long], max: Option[Long], coveredCount: Option[Long]) extends SortProfileResult
+case class DateBucket(key: String, count: Long, startPosition: Long)
+// approximate-evidence buckets may count an image in several buckets, so startPosition is not its rank.
+case class DateBucketsResult(buckets: Seq[DateBucket], positionKind: String, evidenceCount: Long) extends SortProfileResult
+
+object SortProfileResult {
+  private implicit val dateBucketWrites: OWrites[DateBucket] = Json.writes[DateBucket]
+
+  implicit val jsonWrites: OWrites[SortProfileResult] = {
+    case ScalarAnchorResult(value) => Json.obj("value" -> value)
+    case DateStatsResult(valueCount, min, max, coveredCount) =>
+      Json.obj("valueCount" -> valueCount, "min" -> min, "max" -> max) ++
+        coveredCount.fold(Json.obj())(count => Json.obj("coveredCount" -> count))
+    case DateBucketsResult(buckets, positionKind, evidenceCount) =>
+      Json.obj("buckets" -> buckets, "positionKind" -> positionKind, "evidenceCount" -> evidenceCount)
+  }
+}
+
+case class SortProfileRawResults(result: SortProfileResult, pitId: Option[String])
+
+case object SortProfileIncomplete extends Exception("The sort profile did not complete on every shard")
+
+object SortProfileParamsBody {
+  // A profile describes the whole ordered result, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by sort profiles" }
+  }
+
+  private def requiredString(body: JsValue, key: String): Either[String, String] =
+    (body \ key).asOpt[String].toRight(s"$key must be a string")
+
+  private def optionalString(body: JsValue, key: String): Either[String, Option[String]] =
+    (body \ key).toOption.filter(_ != JsNull) match {
+      case None                 => scala.util.Right(None)
+      case Some(JsString(text)) => scala.util.Right(Some(text))
+      case Some(_)              => scala.util.Left(s"$key must be a string when present")
+    }
+
+  private def scopeFrom(body: JsValue): Either[String, Seq[(String, String)]] =
+    (body \ "scope").toOption.filter(_ != JsNull) match {
+      case None => scala.util.Right(Seq.empty)
+      case Some(value) =>
+        value.validate[Seq[JsObject]].asOpt
+          .flatMap(entries => entries.foldRight(Option(List.empty[(String, String)])) { (entry, acc) =>
+            for {
+              rest  <- acc
+              field <- (entry \ "field").asOpt[String]
+              text  <- (entry \ "value").asOpt[String]
+            } yield (field, text) :: rest
+          })
+          .toRight("scope must be an array of {field, value} string pairs")
+    }
+
+  private def operationFrom(body: JsValue): Either[String, SortProfileOperation] =
+    (body \ "operation").asOpt[String] match {
+      case Some("scalar-anchor") =>
+        for {
+          field      <- requiredString(body, "field")
+          percentile <- (body \ "percentile").asOpt[Double].toRight("percentile must be a number")
+          scope      <- scopeFrom(body)
+        } yield ScalarAnchor(field, percentile, scope)
+      case Some("date-stats") =>
+        for {
+          field        <- requiredString(body, "field")
+          missingField <- optionalString(body, "missingField")
+        } yield DateStats(field, missingField)
+      case Some("date-buckets") =>
+        for {
+          field        <- requiredString(body, "field")
+          missingField <- optionalString(body, "missingField")
+          interval     <- (body \ "interval").asOpt[String]
+            .filter(DateBucketInterval.Calendar ++ DateBucketInterval.Fixed)
+            .toRight("interval must be one of month, day, hour, 30m, 10m, 5m")
+        } yield DateBuckets(field, missingField, interval)
+      case Some(other) => scala.util.Left(s"unsupported sort profile operation: $other")
+      case None        => scala.util.Left("operation must be one of scalar-anchor, date-stats, date-buckets")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SortProfileParams] =
+    for {
+      _         <- refuseCursorField(body).toLeft(())
+      sort      <- SortClauseBody.fromJson(body)
+      operation <- operationFrom(body)
+    } yield SortProfileParams(
+      searchParams = searchParams,
+      sort         = sort,
+      operation    = operation,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
 // Parses a POST /images/search-after request body into SearchParams.
 object SearchParamsBody {
   def fromJson(body: JsValue, tier: Tier): Either[String, SearchParams] = {

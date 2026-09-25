@@ -18,7 +18,7 @@ import com.sksamuel.elastic4s.requests.common.Operator.Or
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
-import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
+import com.sksamuel.elastic4s.requests.searches.aggs.{AbstractAggregation, Aggregation, HistogramOrder}
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.{Query, RangeQuery}
@@ -1047,6 +1047,144 @@ class ElasticSearch(
       logger.warn(logMarker, s"Incomplete $what: timedOut=${result.isTimedOut}, failedShards=${result.shards.failed}")
       throw incomplete
     }
+
+  def sortProfile(params: SortProfileParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
+    try sortProfileQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def sortProfileQuery(params: SortProfileParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
+    executeAndLog(sortProfileRequest(params), "sort-profile", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      SortProfileRawResults(
+        result = readSortProfile(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // Profiles describe fields of the admitted sort only; each clause supplies its nested path,
+  // direction and max-mode (multi-valued) semantics.
+  private case class ProfiledSort(sortClause: Seq[FieldSort]) {
+    def clauseFor(field: String): FieldSort = sortClause.find(_.field == field)
+      .getOrElse(throw InvalidUriParams(s"$field is not a field of the admitted sort; profiles describe sorted fields only"))
+
+    // Parent coverage and bucket exactness follow the clause's mode, so a multi-valued date must say max.
+    def profiledClause(field: String): FieldSort = {
+      val sort = clauseFor(field)
+      if (MultiValuedSortDates(field) && !isMultiValued(sort))
+        throw InvalidUriParams(s"sort profiles of $field require sort mode max")
+      sort
+    }
+
+    // The null zone is the images without the primary sort value, which sort last.
+    def withoutPrimary(missingField: Option[String]): Option[Query] = missingField.map { field =>
+      val primary = sortClause.head
+      if (field != primary.field)
+        throw InvalidUriParams(s"missingField must be the primary sort field ${primary.field}, not $field")
+      boolQuery().not(hasSortValue(primary))
+    }
+  }
+
+  private val ProfileAggregation = "profile"
+  private val MultiValuedSortDates = Set("usages.dateAdded", "collections.actionData.date")
+  private val NestedProfileAggregation = "nested"
+  private val CoveredParentsAggregation = "covered"
+  private val BucketParentsAggregation = "parents"
+
+  // Without the nested wrapper, aggregations on a field inside a nested type see no values.
+  private def onSortFieldValues(sort: FieldSort)(aggregation: AbstractAggregation): AbstractAggregation =
+    sort.nested.flatMap(_.path).fold(aggregation)(path => nestedAggregation(NestedProfileAggregation, path).subAggregations(aggregation))
+
+  private def sortFieldValues(sort: FieldSort, aggregations: Aggregations): Option[Aggregations] =
+    sort.nested.flatMap(_.path).fold(Option(aggregations))(_ => aggregations.getAgg(NestedProfileAggregation))
+      .flatMap(_.getAgg(ProfileAggregation))
+
+  private def isMultiValued(sort: FieldSort): Boolean = sort.sortMode.contains(SortMode.Max)
+
+  private[elasticsearch] def sortProfileRequest(params: SortProfileParams): SearchRequest = {
+    val profiled = ProfiledSort(admitNullsLastSortClause(params.sort, "sort profile"))
+    def profileSearch(filter: Option[Query], aggregations: AbstractAggregation*): SearchRequest =
+      admittedSearch(params.searchParams, params.pitId, filter)
+        .size(0)
+        .trackTotalHits(false)
+        .aggregations(aggregations)
+
+    params.operation match {
+      case ScalarAnchor(field, percentile, scope) =>
+        if (percentile < 0 || percentile > 100)
+          throw InvalidUriParams(s"percentile must be between 0 and 100, got $percentile")
+        val sort = profiled.profiledClause(field)
+        val scopeFilter = if (scope.isEmpty) None else Some(boolQuery().filter(scope.map { case (scopeField, value) =>
+          onSortField(profiled.clauseFor(scopeField))(termQuery(scopeField, value))
+        }))
+        profileSearch(scopeFilter,
+          onSortFieldValues(sort)(percentilesAgg(ProfileAggregation, field).percents(Seq(percentile)).compression(200)))
+
+      case DateStats(field, missingField) =>
+        val sort = profiled.profiledClause(field)
+        val stats = onSortFieldValues(sort)(statsAggregation(ProfileAggregation).field(field))
+        val coveredParents = if (isMultiValued(sort)) Seq(filterAgg(CoveredParentsAggregation, hasSortValue(sort))) else Nil
+        profileSearch(profiled.withoutPrimary(missingField), stats +: coveredParents: _*)
+
+      case DateBuckets(field, missingField, bucketInterval) =>
+        val sort = profiled.profiledClause(field)
+        val interval = DateHistogramInterval.fromString(bucketInterval)
+        val histogram = dateHistogramAgg(ProfileAggregation, field)
+          .minDocCount(1)
+          .order(if (sort.order == SortOrder.DESC) HistogramOrder.KEY_DESC else HistogramOrder.KEY_ASC)
+        val intervalled =
+          if (DateBucketInterval.Calendar(bucketInterval)) histogram.calendarInterval(interval) else histogram.fixedInterval(interval)
+        val counted = if (sort.nested.isDefined) intervalled.subAggregations(reverseNestedAggregation(BucketParentsAggregation)) else intervalled
+        profileSearch(profiled.withoutPrimary(missingField), onSortFieldValues(sort)(counted))
+    }
+  }
+
+  private[elasticsearch] def readSortProfile(params: SortProfileParams, result: SearchResponse)
+                                            (implicit logMarker: LogMarker): SortProfileResult = {
+    requireCompleteExecution(result, SortProfileIncomplete, "sort profile")
+    val profiled = ProfiledSort(admitNullsLastSortClause(params.sort, "sort profile"))
+    val aggregations = result.aggregations
+
+    params.operation match {
+      case ScalarAnchor(field, _, _) =>
+        val percentiles = sortFieldValues(profiled.profiledClause(field), aggregations).flatMap(_.getAgg("values"))
+        ScalarAnchorResult(percentiles.flatMap(_.dataAsMap.values.headOption).flatMap(finiteNumber))
+
+      case DateStats(field, _) =>
+        val sort = profiled.profiledClause(field)
+        val stats = sortFieldValues(sort, aggregations).map(_.dataAsMap).getOrElse(Map.empty[String, Any])
+        DateStatsResult(
+          valueCount   = stats.get("count").flatMap(finiteNumber).fold(0L)(_.toLong),
+          min          = stats.get("min").flatMap(finiteNumber).map(_.toLong),
+          max          = stats.get("max").flatMap(finiteNumber).map(_.toLong),
+          coveredCount = if (isMultiValued(sort)) Some(docCount(aggregations.getAgg(CoveredParentsAggregation))) else None,
+        )
+
+      case DateBuckets(field, _, _) =>
+        val sort = profiled.profiledClause(field)
+        val counts = sortFieldValues(sort, aggregations).toSeq
+          .flatMap(values => DateHistogram(ProfileAggregation, values.dataAsMap).buckets)
+          .map { bucket =>
+            val images = if (sort.nested.isDefined) docCount(bucket.getAgg(BucketParentsAggregation)) else bucket.docCount
+            bucket.date -> images
+          }
+          .filter { case (_, images) => images > 0 }
+        val starts = counts.scanLeft(0L)(_ + _._2)
+        DateBucketsResult(
+          buckets       = counts.zip(starts).map { case ((key, count), start) => DateBucket(key, count, start) },
+          positionKind  = if (isMultiValued(sort)) "approximate-evidence" else "exact-rank",
+          evidenceCount = starts.last,
+        )
+    }
+  }
+
+  private def finiteNumber(value: Any): Option[Double] = value match {
+    case n: java.lang.Number if !n.doubleValue.isNaN && !n.doubleValue.isInfinite => Some(n.doubleValue)
+    case _ => None
+  }
+
+  private def docCount(aggregation: Option[Aggregations]): Long =
+    aggregation.flatMap(_.dataAsMap.get("doc_count")).flatMap(finiteNumber).fold(0L)(_.toLong)
 
   private def sortValueToJsValue(v: AnyRef): JsValue = v match {
     case null                  => JsNull

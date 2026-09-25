@@ -31,6 +31,7 @@ class ImageQueryController(
 
   private def SearchAfterPitExpiredResponse = respondError(Gone, "search-after-pit-expired", SearchAfterPitExpired.getMessage)
   private def RankIncompleteResponse = respondError(ServiceUnavailable, "rank-incomplete", ImageRankIncomplete.getMessage)
+  private def SortProfileIncompleteResponse = respondError(ServiceUnavailable, "sort-profile-incomplete", SortProfileIncomplete.getMessage)
   private def InvalidParamsResponse(message: String) = respondError(BadRequest, "invalid-params", message)
 
   private val readFailureResponses: PartialFunction[Throwable, Result] = {
@@ -128,6 +129,23 @@ class ImageQueryController(
         params => elasticSearch.imageRank(params).map { raw =>
           Ok(Json.toJson(ImageRankResponse(rank = raw.rank, pitId = raw.pitId))).as(ArgoMediaType)
         }.recover(readFailureResponses.orElse { case ImageRankIncomplete => RankIncompleteResponse })
+      )
+    }
+  }
+
+  def sortProfile() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "sort-profile",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    admitSearchParams(request) { validParams =>
+      SortProfileParamsBody.fromJson(request.body, validParams).fold(
+        err => Future.successful(InvalidParamsResponse(err)),
+        params => elasticSearch.sortProfile(params).map { raw =>
+          val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
+          Ok(Json.toJsObject(raw.result) ++ pit).as(ArgoMediaType)
+        }.recover(readFailureResponses.orElse { case SortProfileIncomplete => SortProfileIncompleteResponse })
       )
     }
   }
