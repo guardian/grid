@@ -19,7 +19,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, IsField, IsValue, Match}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
@@ -147,6 +147,7 @@ class MediaApi(
   private def ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
   private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
   private def ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
+  private def SearchAfterPitExpiredResponse = respondError(Gone, "search-after-pit-expired", SearchAfterPitExpired.getMessage)
 
   def index = auth { request => indexResponse(request.user) }
 
@@ -580,25 +581,13 @@ class MediaApi(
 
     val include = getIncludedFromParams(request)
 
-    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
-      val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
-      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
-      val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
-
-      val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
-      val id = (imageData \ "id").as[String]
-      val imageUri = URI.create(s"${config.rootUri}/images/$id")
-      EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
-    }
-
     def performSearchAndRespond(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount, extraCounts) <- elasticSearch.search(
         searchParams.copy(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
       )
-      imageEntities = hits map (hitToImageEntity _).tupled
+      imageEntities = hits map (hitToImageEntity(request, include) _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
@@ -653,7 +642,7 @@ class MediaApi(
     }
 
     def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
-      val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
+      val imageEntities = searchResults.hits map (hitToImageEntity(request, include) _).tupled
       respondCollection(
         data = imageEntities,
         offset = Some(0),
@@ -855,6 +844,81 @@ class MediaApi(
     } else {
       None
     }
+  }
+
+  private case class SearchAfterResponse(
+    data:           Seq[EmbeddedEntity[JsValue]],
+    total:          Long,
+    sortValues:     Seq[Seq[JsValue]],
+    nextSortValues: Option[Seq[JsValue]],
+    pitId:          Option[String],
+  )
+  private implicit val searchAfterResponseWrites: OWrites[SearchAfterResponse] =
+    (r: SearchAfterResponse) => Json.obj(
+      "data"           -> Json.toJson(r.data),
+      "total"          -> r.total,
+      "sortValues"     -> Json.toJson(r.sortValues),
+      "nextSortValues" -> Json.toJson(r.nextSortValues),
+      "pitId"          -> r.pitId,
+    )
+
+  private def hitToImageEntity(
+    request: Authentication.Request[_],
+    include: List[String]
+  )(elasticId: String, image: SourceWrapper[Image])(implicit logMarker: LogMarker): EmbeddedEntity[JsValue] = {
+    val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
+    val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
+    val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
+    val result: (JsValue, List[Link], List[Action]) =
+      imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
+    val (imageData, imageLinks, imageActions) = result
+    val id = (imageData \ "id").as[String]
+    EmbeddedEntity(uri = URI.create(s"${config.rootUri}/images/$id"), data = Some(imageData), imageLinks, imageActions)
+  }
+
+  def searchAfterImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "search-after",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val include = request.getQueryString("include").map(_.split(",").map(_.trim).toList).getOrElse(List())
+    val body    = request.body
+
+    SearchParamsBody.fromJson(body, request.user.accessor.tier)
+      .map { params =>
+        val searchesDeleted = params.structuredQuery.exists {
+          case Match(IsField, IsValue(value)) => value.equalsIgnoreCase("deleted")
+          case _ => false
+        }
+        if (searchesDeleted && !authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)) {
+          params.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
+        } else params
+      }
+      .fold(
+        err => Future.successful(respondError(BadRequest, "invalid-params", err)),
+        searchParams => SearchParams.validate(searchParams)
+          .fold(
+            errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey, errors.map(_.message).mkString("; "))),
+            validParams => SearchAfterParamsBody.fromJson(body, validParams).fold(
+              err => Future.successful(respondError(BadRequest, "invalid-params", err)),
+              params => elasticSearch.searchAfter(params).map { raw =>
+                  val imageEntities = raw.hits.map((hitToImageEntity(request, include) _).tupled)
+                  Ok(Json.toJson(SearchAfterResponse(
+                    data           = imageEntities,
+                    total          = raw.total,
+                    sortValues     = raw.sortValues,
+                    nextSortValues = raw.nextSortValues,
+                    pitId          = raw.pitId,
+                  ))).as(ArgoMediaType)
+                }.recover {
+                  case SearchAfterPitExpired => SearchAfterPitExpiredResponse
+                  case e: InvalidUriParams =>
+                    respondError(UnprocessableEntity, InvalidUriParams.errorKey, e.message)
+                }
+            )
+          )
+      )
   }
 
 }
