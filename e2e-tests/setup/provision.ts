@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { generateKeyPairSync } from 'crypto';
 import {
   CloudFormationClient,
   CreateStackCommand,
@@ -14,8 +15,18 @@ import {
   waitUntilTableExists,
 } from '@aws-sdk/client-dynamodb';
 import { KinesisClient, ListShardsCommand } from '@aws-sdk/client-kinesis';
-import { CreateBucketCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { API_KEY as API_KEY_PATH, CORE_STACK_NAME, PERMISSIONS_BUCKET, REGION, REPO_ROOT } from './constants.ts';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  API_KEY as API_KEY_PATH,
+  AUTH_STACK_NAME,
+  CORE_STACK_NAME,
+  DOMAIN,
+  OIDC_CLIENT_ID,
+  OIDC_CLIENT_SECRET,
+  OIDC_ISSUER,
+  REGION,
+  REPO_ROOT,
+} from './constants.ts';
 
 const CREDENTIALS = { accessKeyId: 'test', secretAccessKey: 'test' };
 
@@ -39,22 +50,23 @@ export function provisioningClients(endpoint: string) {
  * core stack, waits for completion, reads the created resource names, and seeds the
  * buckets with the config files the services expect (similar to dev/script/setup.sh).
  */
-export async function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
-  const templateBody = fs.readFileSync(
-    path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
-    'utf8',
-  );
+async function createStack(
+  cfn: CloudFormationClient,
+  stackName: string,
+  templatePath: string,
+): Promise<StackProps> {
+  const templateBody = fs.readFileSync(templatePath, 'utf8');
 
-  await cfn.send(new CreateStackCommand({ StackName: CORE_STACK_NAME, TemplateBody: templateBody }));
+  await cfn.send(new CreateStackCommand({ StackName: stackName, TemplateBody: templateBody }));
 
   // LocalStack applies the stack in seconds; the SDK default would sit out its 30s minimum delay.
   await waitUntilStackCreateComplete(
     { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 1 },
-    { StackName: CORE_STACK_NAME },
+    { StackName: stackName },
   );
 
   const { StackResources = [] } = await cfn.send(
-    new DescribeStackResourcesCommand({ StackName: CORE_STACK_NAME }),
+    new DescribeStackResourcesCommand({ StackName: stackName }),
   );
 
   return Object.fromEntries(
@@ -62,6 +74,22 @@ export async function createCoreStack(cfn: CloudFormationClient): Promise<StackP
       r.LogicalResourceId as string,
       r.PhysicalResourceId as string,
     ]),
+  );
+}
+
+export function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
+  return createStack(
+    cfn,
+    CORE_STACK_NAME,
+    path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
+  );
+}
+
+export function createAuthStack(cfn: CloudFormationClient): Promise<StackProps> {
+  return createStack(
+    cfn,
+    AUTH_STACK_NAME,
+    path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-auth.yml'),
   );
 }
 
@@ -93,27 +121,38 @@ export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void
   ]);
 }
 
-/**
- * Create the permissions bucket (not part of the core stack) and seed it with the
- * permissions fixture so the real authorisation provider can read `permissions.json`.
- * Returns the bucket name so it can be added to the stack props map.
- */
-export async function provisionPermissionsBucket(s3: S3Client): Promise<string> {
-  await s3.send(
-    new CreateBucketCommand({
-      Bucket: PERMISSIONS_BUCKET,
-      CreateBucketConfiguration: { LocationConstraint: REGION },
-    }),
-  );
+function keyBody(pem: string): string {
+  return pem.replace(/-----[^-]+-----|\s/g, '');
+}
 
-  await putObject(
-    s3,
-    PERMISSIONS_BUCKET,
-    'permissions.json',
-    fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
-  );
+export async function seedAuthBuckets(s3: S3Client, props: StackProps): Promise<void> {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+    modulusLength: 4096,
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  });
+  const privateKeyBody = keyBody(privateKey);
+  const publicKeyBody = keyBody(publicKey);
+  const settings = [
+    `privateKey=${privateKeyBody}`,
+    `publicKey=${publicKeyBody}`,
+    'cookieName=gutoolsAuth-assym',
+    `clientId=${OIDC_CLIENT_ID}`,
+    `clientSecret=${OIDC_CLIENT_SECRET}`,
+    `discoveryDocumentUrl=${OIDC_ISSUER}/.well-known/openid-configuration`,
+    '',
+  ].join('\n');
 
-  return PERMISSIONS_BUCKET;
+  await Promise.all([
+    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings`, settings),
+    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings.public`, `publicKey=${publicKeyBody}\n`),
+    putObject(
+      s3,
+      props.PermissionsBucket,
+      'permissions.json',
+      fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
+    ),
+  ]);
 }
 
 /**

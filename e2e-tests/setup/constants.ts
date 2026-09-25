@@ -8,13 +8,16 @@ export const EMAIL_DOMAIN = 'guardian.co.uk';
 export const REGION = 'eu-west-1';
 
 export const CORE_STACK_NAME = 'grid-dev-core';
+export const AUTH_STACK_NAME = 'grid-dev-auth';
 
-/**
- * Bucket holding `permissions.json` for the real authorisation provider. Not part of the
- * core CloudFormation stack, so it is created directly during provisioning. The name
- * matches the code default in `PermissionsAuthorisationProvider`.
- */
-export const PERMISSIONS_BUCKET = 'permissions-cache';
+export const OIDC_CLIENT_ID = 'grid-local-id';
+export const OIDC_CLIENT_SECRET = 'grid-local-secret';
+export const OIDC_PORT = 9014;
+export const OIDC_HOST = `oidc.media.${DOMAIN}`;
+export const OIDC_ISSUER = `http://${OIDC_HOST}:${OIDC_PORT}`;
+export const OIDC_CONTEXT = path.join(REPO_ROOT, 'dev', 'oidc-provider');
+export const OIDC_IMAGE = 'grid-e2e-oidc-provider';
+export const TEST_USER_EMAIL = `grid-e2e-account@${EMAIL_DOMAIN}`;
 
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
 export const GRID_IMAGE = process.env.CI ? 'grid-e2e-ci' : 'grid-e2e-dev';
