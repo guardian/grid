@@ -1645,16 +1645,17 @@ textarea.ng-invalid {
     align-items: center;
     gap: 1.5rem;
     padding: 12px;
+    background-color: #393939;
     border: 1px solid #555;
-    border-radius: 2px;
     cursor: pointer;
     max-width: 100%;
     max-height: 45vh;
     box-sizing: border-box;
     overflow: auto;
 }
+/* Matches a results-grid tile (.result) */
 .ai-search-preview:hover {
-    border-color: #00adee;
+    background-color: #404040;
 }
 
 .ai-search-preview__loading {
@@ -1699,8 +1700,11 @@ textarea.ng-invalid {
 
 .ai-search-preview--e2 .ai-search-preview__footer {
     padding: 10px 12px 12px;
-    background-color: #333;
+    background-color: #393939;
     border-top: 1px solid #555;
+}
+.ai-search-preview--e2:hover .ai-search-preview__footer {
+    background-color: #404040;
 }
 
 /* e3 takes no vertical space: pulled up over the last line of thumbnails */
