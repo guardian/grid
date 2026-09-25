@@ -830,6 +830,37 @@ class ElasticSearch(
   private def publicTuple(hit: SearchHit, sortLength: Int): Seq[JsValue] =
     sortValuesToJsValues(hit.sort.getOrElse(Seq.empty).take(sortLength))
 
+  // How a cursor read continues from a tuple. A null primary value means the null zone: read without
+  // the primary clause, only images lacking it, and re-insert the null into the published tuples.
+  private case class CursorRead(
+    searchAfter: Option[Seq[JsValue]],
+    sortClause:  Seq[Sort],
+    filter:      Option[Query],
+    publish:     Seq[Seq[JsValue]] => Seq[Seq[JsValue]],
+  )
+
+  private def cursorRead(baseSorts: Seq[Sort], effectiveSortClause: Seq[Sort], sortValues: Option[Seq[JsValue]]): CursorRead = {
+    val read = sortValues.filter(_.headOption.contains(JsNull)) match {
+      case Some(sv) =>
+        val primarySort = baseSorts.collectFirst { case fs: FieldSort => fs }
+          .getOrElse(throw InvalidUriParams("cannot detect primary sort field for null-zone cursor"))
+        val primaryField = primarySort.field
+        val nzSort   = effectiveSortClause.filterNot { case fs: FieldSort => fs.field == primaryField; case _ => false }
+        // A root-level exists on a field inside a nested type matches no parent document, so the
+        // must_not would exclude nothing and images that have the field would leak into the null zone.
+        val nzExists = primarySort.nested.flatMap(_.path) match {
+          case Some(path) => nestedQuery(path, existsQuery(primaryField))
+          case None       => existsQuery(primaryField)
+        }
+        CursorRead(Some(sv.tail), nzSort, Some(boolQuery().withNot(nzExists)),
+          remapNullZoneSortValues(_, baseSorts, primaryField))
+      case None =>
+        CursorRead(sortValues, effectiveSortClause, None, identity)
+    }
+    read.searchAfter.foreach(requireTupleMatches(_, read.sortClause))
+    read
+  }
+
   def searchAfter(params: SearchAfterParams)
                  (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] =
     // Sort/cursor validation below throws before any Future exists, and the controller only recovers
@@ -852,34 +883,14 @@ class ElasticSearch(
       }
     } else withReverse
 
-    val isNullZone = params.sortValues.exists(_.headOption.contains(JsNull))
+    val cursor = cursorRead(baseSorts, effectiveSortClause, params.sortValues)
 
-    val (effectiveSortValues, workingSort, extraMustNot) = if (isNullZone) {
-      val sv          = params.sortValues.get
-      val primarySort = baseSorts.collectFirst { case fs: FieldSort => fs }
-        .getOrElse(throw InvalidUriParams("cannot detect primary sort field for null-zone cursor"))
-      val primaryField = primarySort.field
-      val nzSort   = effectiveSortClause.filterNot { case fs: FieldSort => fs.field == primaryField; case _ => false }
-      // A root-level exists on a field inside a nested type matches no parent document, so the
-      // must_not would exclude nothing and images that have the field would leak into the null zone.
-      val nzExists = primarySort.nested.flatMap(_.path) match {
-        case Some(path) => nestedQuery(path, existsQuery(primaryField))
-        case None       => existsQuery(primaryField)
-      }
-      val nzFilter = boolQuery().withNot(nzExists)
-      (Some(sv.tail), nzSort, Some(nzFilter))
-    } else {
-      (params.sortValues, effectiveSortClause, None)
-    }
-
-    effectiveSortValues.foreach(requireTupleMatches(_, workingSort))
-
-    val withSort = admittedSearch(params.searchParams, params.pitId, extraMustNot)
+    val withSort = admittedSearch(params.searchParams, params.pitId, cursor.filter)
       .size(params.searchParams.length)
-      .sortBy(workingSort)
+      .sortBy(cursor.sortClause)
       .trackTotalHits(params.searchParams.countAll.getOrElse(true))
 
-    val request = effectiveSortValues match {
+    val request = cursor.searchAfter match {
       case Some(sv) => withSort.searchAfter(sv.map(jsValueToAny))
       case None     => withSort
     }
@@ -887,7 +898,7 @@ class ElasticSearch(
     executeAndLog(withLeanImageSource(request), "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
       requireSuccessfulRead(r, params.pitId)
 
-      val sortLen = workingSort.length
+      val sortLen = cursor.sortClause.length
 
       val (rawHits, rawSortValues) = r.result.hits.hits.toSeq.flatMap { hit =>
         resolveLeanHit(hit).map(image => ((image.instance.id, image), publicTuple(hit, sortLen)))
@@ -896,10 +907,7 @@ class ElasticSearch(
       val (orderedHits, orderedSortValues) =
         if (params.reverse) (rawHits.reverse, rawSortValues.reverse) else (rawHits, rawSortValues)
 
-      val finalSortValues = if (isNullZone) {
-        val primaryField = baseSorts.collectFirst { case fs: FieldSort => fs.field }.get
-        remapNullZoneSortValues(orderedSortValues, baseSorts, primaryField)
-      } else orderedSortValues
+      val finalSortValues = cursor.publish(orderedSortValues)
 
       SearchAfterRawResults(
         hits           = orderedHits,
