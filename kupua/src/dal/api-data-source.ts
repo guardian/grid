@@ -1,7 +1,7 @@
 /**
  * ApiDataSource — Kupua's ordered image reads through media-api (VITE_USE_MEDIA_API=true).
  *
- * Pages, ranks, sort profiles, position maps and range walks use media-api's POST endpoints;
+ * Pages, ranks, sort profiles, position maps, range walks and counts use media-api's POST endpoints;
  * standalone images use GET /images/:id.
  * Walk loops and their caps stay here; each call is one bounded server read. No PIT is opened.
  * Migrated reads never fall back to Elasticsearch. Reads not yet migrated use the development
@@ -9,6 +9,7 @@
  */
 
 import type {
+  CountWithTickersResult,
   ImageDataSource,
   IdRangeResult,
   ImageByIdResult,
@@ -18,6 +19,7 @@ import type {
   SortDistBucket,
   SortDistribution,
   SortValues,
+  TickerCountResult,
 } from "./types";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
@@ -31,13 +33,14 @@ export const API_WINDOW_OFFSET_LIMIT = 10_000;
 
 /** Reads still served by the development fallback until later build units migrate them. */
 export const DEVELOPMENT_FALLBACK_METHODS = [
-  "count", "countWithTickers", "getByIds", "getAggregation", "getAggregations", "searchByAi",
+  "getByIds", "getAggregation", "getAggregations", "searchByAi",
 ] as const;
 
 type KeywordPage = { buckets: Array<{ key: string | number; count: number }>; after: string | number | null; coveredCount?: number };
 type KeyPage = { keys: Array<{ id: string; sortValues: SortValues }>; after: SortValues | null };
 type DateStats = { valueCount: number; min: number | null; max: number | null; coveredCount?: number };
 type DateBuckets = { buckets: SortDistBucket[]; positionKind: "exact-rank" | "approximate-evidence"; evidenceCount: number };
+type CountResponse = { total: number; tickerCounts: Record<string, TickerCountResult> };
 
 function isCancellation(error: unknown, signal?: AbortSignal): boolean {
   return signal?.aborted === true || (error instanceof DOMException && error.name === "AbortError");
@@ -63,11 +66,24 @@ export class ApiDataSource implements ImageDataSource {
     if (developmentFallback.searchByAi) this.searchByAi = developmentFallback.searchByAi.bind(developmentFallback);
   }
 
-  count(...a: Parameters<ImageDataSource["count"]>) { return this.developmentFallback.count(...a); }
-  countWithTickers(...a: Parameters<ImageDataSource["countWithTickers"]>) { return this.developmentFallback.countWithTickers(...a); }
   getByIds(...a: Parameters<ImageDataSource["getByIds"]>) { return this.developmentFallback.getByIds(...a); }
   getAggregation(...a: Parameters<ImageDataSource["getAggregation"]>) { return this.developmentFallback.getAggregation(...a); }
   getAggregations(...a: Parameters<ImageDataSource["getAggregations"]>) { return this.developmentFallback.getAggregations(...a); }
+
+  async count(params: SearchParams): Promise<number> {
+    return (await this.countWithTickers(params)).count;
+  }
+
+  async countWithTickers(params: SearchParams): Promise<CountWithTickersResult> {
+    const body = buildReadBody(params);
+    delete body.sort;
+    const json = await postImageRead("/images/count", body) as CountResponse;
+    const tickerCounts: Record<string, TickerCountResult> = {};
+    for (const [name, { value, subCounts }] of Object.entries(json.tickerCounts)) {
+      tickerCounts[name] = subCounts ? { value, subCounts } : { value };
+    }
+    return { count: json.total, tickerCounts };
+  }
 
   async openPit(_keepAlive?: string): Promise<string | null> {
     return null;

@@ -21,6 +21,7 @@ function captureBodies(): Body[] {
     const body = JSON.parse(init.body as string) as Body;
     bodies.push({ path: url.replace(/^\/api/, ""), body });
     const response = url.endsWith("/rank") ? { rank: 0 }
+      : url.endsWith("/count") ? { total: 0, tickerCounts: {} }
       : url.endsWith("/keys") ? { keys: [], after: null }
       : url.endsWith("/sort-profile") ? (
         body.operation === "date-stats" ? { valueCount: 2, min: T, max: T + 30 * DAY }
@@ -53,6 +54,8 @@ const cases: Array<{ name: string; read: () => Promise<unknown> }> = [
   { name: "sort-profile-date-last-used", read: () => ds.getDateDistribution(base("-usagesDateAdded"), "usages.dateAdded", "desc") },
   { name: "keys-map-first-page-last-used", read: () => ds.fetchPositionIndex(base("-usagesDateAdded"), signal()) },
   { name: "keys-range-null-zone-taken", read: () => ds.getIdRange(base("-taken"), [null, T, "fixture-id"], [null, 0, "fixture-id"]) },
+  { name: "count-tickers", read: () => ds.countWithTickers(base()) },
+  { name: "count-poll-since", read: () => ds.countWithTickers({ ...base(), since: "2020-01-01T03:00:00.000Z", offset: 0, length: 0 }) },
 ];
 
 afterEach(() => vi.unstubAllGlobals());

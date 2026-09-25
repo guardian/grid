@@ -56,7 +56,7 @@ describe("ApiDataSource development fallback", () => {
   });
   it("lists exactly the reads that still use the development fallback", () => {
     expect([...DEVELOPMENT_FALLBACK_METHODS].sort()).toEqual(
-      ["count", "countWithTickers", "getAggregation", "getAggregations", "getByIds", "searchByAi"],
+      ["getAggregation", "getAggregations", "getByIds", "searchByAi"],
     );
   });
 
@@ -98,12 +98,14 @@ describe("ApiDataSource development fallback", () => {
       ds.fetchPositionIndex(params, signal),
       ds.getIdRange(params, cursor, cursor, signal),
       ds.getById("img-1", signal),
+      ds.count(params),
+      ds.countWithTickers(params),
       ds.openPit("1m"),
       ds.closePit("pit"),
     ]);
 
     const migrated = ALL_METHODS.filter((m) => !(DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m));
-    expect(migrated).toHaveLength(12);
+    expect(migrated).toHaveLength(14);
     for (const method of migrated) expect(fallback[method], method).not.toHaveBeenCalled();
   });
 });
@@ -572,5 +574,46 @@ describe("ApiDataSource key walks", () => {
     stubMediaApi({ "/images/keys": () => failure(503, "keys-incomplete") });
     await expect(new ApiDataSource(makeFallback()).getIdRange(lastModified, keys[0].sortValues, keys[4].sortValues))
       .rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("ApiDataSource counts", () => {
+  const counted = {
+    total: 1234,
+    tickerCounts: {
+      "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" },
+      "agency picks": { value: 3, searchClause: "is:agency-pick", backgroundColour: "#7d0068", subCounts: { Reuters: 2, other: 1 } },
+    },
+  };
+
+  it("counts through media-api with the read scope and no sort, keeping each ticker's value and sub-counts", async () => {
+    const calls = stubMediaApi({ "/images/count": () => counted });
+    const result = await new ApiDataSource(makeFallback()).countWithTickers({ ...params, since: "2026-09-25T10:00:00.000Z", offset: 0, length: 0 });
+
+    expect(result).toEqual({
+      count: 1234,
+      tickerCounts: { "GNM-owned": { value: 7 }, "agency picks": { value: 3, subCounts: { Reuters: 2, other: 1 } } },
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toMatchObject({ orderBy: "-uploadTime", since: "2026-09-25T10:00:00.000Z" });
+    for (const field of ["sort", "offset", "length", "countAll", "pitId"]) expect(calls[0].body).not.toHaveProperty(field);
+  });
+
+  it("returns the total alone for a plain count", async () => {
+    stubMediaApi({ "/images/count": () => counted });
+    await expect(new ApiDataSource(makeFallback()).count(params)).resolves.toBe(1234);
+  });
+
+  it.each([
+    { name: "an incomplete count", route: () => failure(503, "count-incomplete"), status: 503 },
+    { name: "a refusal", route: () => failure(422, "invalid-uri-parameters"), status: 422 },
+  ])("rejects $name rather than reporting zero", async ({ route, status }) => {
+    stubMediaApi({ "/images/count": route });
+    await expect(new ApiDataSource(makeFallback()).countWithTickers(params)).rejects.toMatchObject({ status });
+  });
+
+  it("rejects when media-api is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    await expect(new ApiDataSource(makeFallback()).countWithTickers(params)).rejects.toMatchObject({ kind: "unavailable" });
   });
 });

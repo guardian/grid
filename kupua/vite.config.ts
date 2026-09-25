@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import type { Plugin } from "vite";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
+import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
 
 /**
  * Proxy-level ES path guard.
@@ -67,25 +68,13 @@ function esProxyGuard(): Plugin {
  */
 const GRID_API_PROXY_PREFIXES = ["/api"];
 
-// POST endpoints on /api that are read-only (use POST only for request body).
-// These bypass the write guard without needing VITE_GRID_API_WRITES_ENABLED.
-const GRID_API_READ_VIA_POST = [
-  "/images/search-after",
-  "/images/window",
-  "/images/rank",
-  "/images/sort-profile",
-  "/images/keys",
-];
-
 function gridApiWriteGuard(): Plugin {
   return {
     name: "grid-api-write-guard",
     configureServer(server) {
       for (const prefix of GRID_API_PROXY_PREFIXES) {
         server.middlewares.use(prefix, (req, res, next) => {
-          const isReadViaPost =
-            req.method === "POST" &&
-            GRID_API_READ_VIA_POST.some((p) => (req.url ?? "").startsWith(p));
+          const isReadViaPost = isGridApiReadViaPost(req.method, req.url);
           if (req.method !== "GET" && !isReadViaPost && process.env.VITE_GRID_API_WRITES_ENABLED !== "true") {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(

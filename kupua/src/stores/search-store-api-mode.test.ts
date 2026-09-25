@@ -64,6 +64,10 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
       return { data: images(r.hits), offset: b.offset, ...(b.countAll ? { total: r.total } : {}), sortValues: r.sortValues, rawHitCount: r.hits.length };
     },
     "/images/rank": async (b) => ({ rank: await corpus.countBefore(toParams(b), b.sortValues as SortValues) }),
+    "/images/count": async () => ({
+      total: (await corpus.countWithTickers()).count,
+      tickerCounts: { "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" } },
+    }),
     "/images/keys": async (b) => {
       const size = b.size as number;
       const r = await corpus.searchAfter({ ...toParams(b), length: size }, (b.sortValues as SortValues | undefined) ?? null);
@@ -118,7 +122,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
 
 const MIGRATED = [
   "searchRange", "openPit", "closePit", "searchAfter", "countBefore", "estimateSortValue", "findKeywordSortValue",
-  "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById",
+  "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById", "count", "countWithTickers",
 ];
 
 /** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */
@@ -205,6 +209,24 @@ describe("API mode: routing and counting", () => {
     expect(counted).toHaveLength(1);
     expect(counted[0]).toMatchObject({ path: "/images/search-after", body: { reverse: false } });
     expect(calls.every((c) => !("pitId" in c.body))).toBe(true);
+  });
+
+  it("publishes the first page's tickers from media-api's count, without a sort", async () => {
+    useApiMode(120_000);
+    await state().search();
+
+    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
+    expect(bodiesFor("/images/count")).toHaveLength(1);
+    expect(bodiesFor("/images/count")[0]).not.toHaveProperty("sort");
+  });
+
+  it("shows no tickers, and no error, when the count is incomplete", async () => {
+    useApiMode(120_000, { routes: { "/images/count": () => refusal(503, "count-incomplete") } });
+    await state().search();
+
+    expect(state().error).toBeNull();
+    expect(state().total).toBe(120_000);
+    expect(state().tickerCounts).toBeNull();
   });
 });
 
