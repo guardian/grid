@@ -6,19 +6,21 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, Mappings, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
 import com.sksamuel.elastic4s.{ElasticDsl, Hit, Response}
+import com.sksamuel.elastic4s.fields.{ElasticField, NestedField, ObjectField}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.common.Operator.Or
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
-import com.sksamuel.elastic4s.requests.searches.aggs.{AbstractAggregation, Aggregation, HistogramOrder}
+import com.sksamuel.elastic4s.requests.searches.aggs.{AbstractAggregation, Aggregation, CompositeAggregation, HistogramOrder, TermsValueSource}
+import com.sksamuel.elastic4s.requests.searches.aggs.CompositeAggregation.CompositeAggResult
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.{Query, RangeQuery}
@@ -1083,6 +1085,28 @@ class ElasticSearch(
         throw InvalidUriParams(s"missingField must be the primary sort field ${primary.field}, not $field")
       boolQuery().not(hasSortValue(primary))
     }
+
+    // Counts are images per value; the clause flags cannot reveal a nested field, so Grid's mapping does.
+    def keywordPageClause(field: String): FieldSort = {
+      val primary = sortClause.head
+      if (field != primary.field)
+        throw InvalidUriParams(s"keyword pages walk the primary sort field ${primary.field}, not $field")
+      if (primary.nested.isDefined || isMultiValued(primary))
+        throw InvalidUriParams(s"keyword pages count plain values; nested or max-mode sort clauses are unsupported, not $field")
+      MappedNestedPaths.find(path => field.startsWith(s"$path.")).foreach { path =>
+        throw InvalidUriParams(s"$field is inside the nested path $path, which keyword pages do not support")
+      }
+      primary
+    }
+  }
+
+  private lazy val MappedNestedPaths: Set[String] = {
+    def nestedPaths(prefix: String, fields: Seq[ElasticField]): Seq[String] = fields.flatMap {
+      case nested: NestedField => s"$prefix${nested.name}" +: nestedPaths(s"$prefix${nested.name}.", nested.properties)
+      case obj: ObjectField    => nestedPaths(s"$prefix${obj.name}.", obj.properties)
+      case _                   => Nil
+    }
+    nestedPaths("", Mappings.imageMapping(includeDenseVectorMappings).properties).toSet
   }
 
   private val ProfileAggregation = "profile"
@@ -1090,6 +1114,7 @@ class ElasticSearch(
   private val NestedProfileAggregation = "nested"
   private val CoveredParentsAggregation = "covered"
   private val BucketParentsAggregation = "parents"
+  private val KeywordPageSource = "value"
 
   // Without the nested wrapper, aggregations on a field inside a nested type see no values.
   private def onSortFieldValues(sort: FieldSort)(aggregation: AbstractAggregation): AbstractAggregation =
@@ -1136,6 +1161,18 @@ class ElasticSearch(
           if (DateBucketInterval.Calendar(bucketInterval)) histogram.calendarInterval(interval) else histogram.fixedInterval(interval)
         val counted = if (sort.nested.isDefined) intervalled.subAggregations(reverseNestedAggregation(BucketParentsAggregation)) else intervalled
         profileSearch(profiled.withoutPrimary(missingField), onSortFieldValues(sort)(counted))
+
+      case KeywordPage(field, after, size, includeCoveredCount) =>
+        if (size < 1 || size > KeywordPage.MaxSize)
+          throw InvalidUriParams(s"keyword page size must be between 1 and ${KeywordPage.MaxSize}, got $size")
+        val sort = profiled.keywordPageClause(field)
+        val page = CompositeAggregation(ProfileAggregation,
+          sources = Seq(TermsValueSource(KeywordPageSource, field = Some(field), order = Some(if (sort.order == SortOrder.DESC) "desc" else "asc"))),
+          size    = Some(size),
+          after   = after.map(key => Map(KeywordPageSource -> jsValueToAny(key))),
+        )
+        val coveredParents = if (includeCoveredCount) Seq(filterAgg(CoveredParentsAggregation, hasSortValue(sort))) else Nil
+        profileSearch(None, page +: coveredParents: _*)
     }
   }
 
@@ -1175,7 +1212,22 @@ class ElasticSearch(
           positionKind  = if (isMultiValued(sort)) "approximate-evidence" else "exact-rank",
           evidenceCount = starts.last,
         )
+
+      case KeywordPage(field, _, _, includeCoveredCount) =>
+        profiled.keywordPageClause(field)
+        val page = aggregations.compositeAgg(ProfileAggregation)
+        KeywordPageResult(
+          buckets      = page.buckets.map(bucket => KeywordBucket(keywordValue(bucket.key(KeywordPageSource)), bucket.docCount)),
+          after        = page.afterKey.flatMap(_.get(KeywordPageSource)).map(keywordValue),
+          coveredCount = if (includeCoveredCount) Some(docCount(aggregations.getAgg(CoveredParentsAggregation))) else None,
+        )
     }
+  }
+
+  private def keywordValue(key: Any): JsValue = key match {
+    case text: String             => JsString(text)
+    case number: java.lang.Number => JsNumber(BigDecimal(number.toString))
+    case other                    => JsString(other.toString)
   }
 
   private def finiteNumber(value: Any): Option[Double] = value match {

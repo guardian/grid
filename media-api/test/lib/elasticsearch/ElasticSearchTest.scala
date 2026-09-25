@@ -1624,7 +1624,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       Seq(
         "no operation"              -> Json.obj("field" -> "uploadTime") -> "operation",
-        "an unknown operation"      -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime") -> "unsupported",
+        "an unknown operation"      -> Json.obj("operation" -> "terms-aggregation", "field" -> "uploadTime") -> "unsupported",
         "no field"                  -> Json.obj("operation" -> "date-stats") -> "field",
         "an unknown interval"       -> Json.obj("operation" -> "date-buckets", "field" -> "uploadTime", "interval" -> "1w") -> "interval",
         "a non-numeric percentile"  -> Json.obj("operation" -> "scalar-anchor", "field" -> "uploadTime", "percentile" -> "50") -> "percentile",
@@ -1634,6 +1634,11 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         "reverse"                   -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "reverse" -> true) -> "reverse",
         "seekToEnd"                 -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "seekToEnd" -> true) -> "seekToEnd",
         "a cursor"                  -> Json.obj("operation" -> "date-stats", "field" -> "uploadTime", "sortValues" -> Json.arr(0, "x")) -> "sortValues",
+        "a non-scalar after"        -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime", "after" -> Json.obj("value" -> 1)) -> "after",
+        "a non-integer size"        -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime", "size" -> 2.5) -> "size",
+        "a string size"             -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime", "size" -> "2") -> "size",
+        "a non-boolean includeCoveredCount" -> Json.obj("operation" -> "keyword-page", "field" -> "uploadTime",
+          "includeCoveredCount" -> "yes") -> "includeCoveredCount",
       ).foreach { case ((what, body), mentioned) =>
         it(s"responds 400 to $what") {
           val (status, json) = postProfile(imageQueryControllerFor(uploader, ES, writer), Json.obj("sort" -> newest) ++ body)
@@ -1699,6 +1704,209 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "a shard failed" -> response(timedOut = false, failedShards = 1, 42.0)).foreach { case (reason, incomplete) =>
           it(s"refuses to publish a profile when $reason") {
             the[Exception] thrownBy ES.readSortProfile(anchorParams, incomplete) shouldBe SortProfileIncomplete
+          }
+        }
+      }
+
+      describe("keyword page") {
+        val creditDesc = Seq(Json.obj("metadata.credit" -> Json.obj("order" -> "desc")), plain("uploadTime", "desc"), id)
+        val widthDesc  = Seq(plain("source.dimensions.width", "desc"), plain("uploadTime", "desc"), id)
+
+        def keywordPage(base: JsObject, sort: Seq[JsObject], field: String, extra: JsObject = Json.obj(),
+                        principal: Principal = uploader, privileged: Boolean = false): JsValue = {
+          val (status, json) = postProfile(imageQueryControllerFor(principal, ES, writer, privileged),
+            base ++ Json.obj("sort" -> sort, "operation" -> "keyword-page", "field" -> field) ++ extra)
+          withClue(json) { status shouldBe 200 }
+          json
+        }
+        def bucketsOf(page: JsValue): Seq[(JsValue, Long)] =
+          (page \ "buckets").as[Seq[JsObject]].map(bucket => (bucket \ "key").as[JsValue] -> (bucket \ "count").as[Long])
+        def afterOf(page: JsValue): Option[JsValue] = (page \ "after").toOption.filter(_ != JsNull)
+        // Follows the continuation to an empty page or no continuation.
+        def walk(base: JsObject, sort: Seq[JsObject], field: String, size: Int, after: Option[JsValue] = None, pagesLeft: Int = 10): Seq[JsValue] = {
+          withClue("the walk did not end:") { pagesLeft should be > 0 }
+          val page = keywordPage(base, sort, field, Json.obj("size" -> size) ++ after.fold(Json.obj())(key => Json.obj("after" -> key)))
+          if (bucketsOf(page).isEmpty || afterOf(page).isEmpty) Seq(page) else page +: walk(base, sort, field, size, afterOf(page), pagesLeft - 1)
+        }
+        // Consecutive equal primary values, as the window orders them: one run per keyword bucket.
+        def runs(values: Seq[JsValue]): Seq[(JsValue, Long)] = values.foldLeft(Vector.empty[(JsValue, Long)]) {
+          case (acc, value) if acc.lastOption.exists(_._1 == value) => acc.init :+ (value -> (acc.last._2 + 1))
+          case (acc, value) => acc :+ (value -> 1L)
+        }
+
+        Seq(("credit ascending", creditAsc, 3), ("credit descending, object form without missing", creditDesc, 3),
+          ("width ascending (numeric keys)", widthAsc, 3), ("width descending (numeric keys)", widthDesc, 3),
+          ("upload time descending (date keys)", newest, 6)).foreach { case (name, sort, distinctValues) =>
+          it(s"walks the primary values page by page exactly as the window positions them: $name") {
+            withImages(profileFixtures) { base =>
+              val valued = runs(positioned(sort).map(_.head).takeWhile(_ != JsNull))
+              val pages = walk(base, sort, sort.head.keys.head, size = 2)
+              valued.size shouldBe distinctValues
+
+              pages.size should be >= 2
+              pages.flatMap(bucketsOf) shouldBe valued
+              pages.init.foreach(page => afterOf(page) shouldBe Some(bucketsOf(page).last._1))
+            }
+          }
+        }
+
+        it("returns the whole vocabulary in one page by default") {
+          withImages(profileFixtures) { base =>
+            bucketsOf(keywordPage(base, creditAsc, "metadata.credit")) shouldBe
+              runs(positioned(creditAsc).map(_.head).takeWhile(_ != JsNull))
+          }
+        }
+
+        it("counts every valued image only when asked, independently of the page") {
+          withImages(profileFixtures) { base =>
+            val valued = positioned(creditAsc).takeWhile(_.head != JsNull).size.toLong
+            val first = keywordPage(base, creditAsc, "metadata.credit", Json.obj("size" -> 2, "includeCoveredCount" -> true))
+
+            valued shouldBe 7L
+            (first \ "coveredCount").as[Long] shouldBe valued
+            bucketsOf(first).map(_._2).sum should be < valued
+            (keywordPage(base, creditAsc, "metadata.credit", Json.obj("size" -> 2)) \ "coveredCount").toOption shouldBe None
+            (keywordPage(base, widthAsc, "source.dimensions.width", Json.obj("includeCoveredCount" -> true)) \ "coveredCount").as[Long] shouldBe 9L
+          }
+        }
+
+        it("returns an empty page with no continuation when nothing is admitted") {
+          keywordPage(Json.obj("ids" -> "profile-absent"), creditAsc, "metadata.credit", Json.obj("includeCoveredCount" -> true)) shouldBe
+            Json.obj("buckets" -> Json.arr(), "after" -> JsNull, "coveredCount" -> 0)
+        }
+
+        it("counts an image once for each value it holds when the field has several") {
+          withImages(profileFixtures) { base =>
+            val page = keywordPage(base, Seq(plain("metadata.keywords", "asc"), id), "metadata.keywords", Json.obj("includeCoveredCount" -> true))
+
+            bucketsOf(page) shouldBe Seq(JsString("es") -> 9L, JsString("test") -> 9L)
+            (page \ "coveredCount").as[Long] shouldBe 9L
+          }
+        }
+
+        it("applies the syndication tier filter exactly as D3 does") {
+          val syndication = SearchParams(tier = Syndication, length = 200)
+          val uploaderAsc = Seq(plain("uploadedBy", "asc"), plain("uploadTime", "desc"), id)
+          def imagesCounted(searchParams: SearchParams): Long =
+            profile(KeywordPage("uploadedBy", None, KeywordPage.MaxSize, includeCoveredCount = false), uploaderAsc, searchParams)
+              .result.asInstanceOf[KeywordPageResult].buckets.map(_.count).sum
+          val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newest, None, None)), fiveSeconds)
+
+          viaD3.total should be < expectedNumberOfImages.toLong
+          imagesCounted(syndication) shouldBe viaD3.total
+          imagesCounted(internal) shouldBe expectedNumberOfImages.toLong
+        }
+
+        it("walks within the same deleted scope as D3, for ordinary and privileged callers") {
+          val deleted = Seq(uploader, otherUploader).map { principal =>
+            createImage(s"keyword-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+              softDeletedMetadata = Some(deletionData(principal.email)))
+          }
+          withImages(deleted) { base =>
+            val body = base ++ Json.obj("q" -> "is:deleted")
+            Seq((uploader, false, 1L), (otherUploader, false, 1L), (uploader, true, 2L)).foreach { case (principal, privileged, expected) =>
+              val controller = imageQueryControllerFor(principal, ES, writer, privileged)
+              val d3 = whenReady(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+                .withBody(body ++ Json.obj("sort" -> newest))), timeout, interval) {
+                result => Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+              }
+              val counted = bucketsOf(keywordPage(body, Seq(plain("uploadedBy", "asc"), plain("uploadTime", "desc"), id), "uploadedBy",
+                principal = principal, privileged = privileged)).map(_._2).sum
+
+              counted shouldBe (d3 \ "total").as[Long]
+              counted shouldBe expected
+            }
+          }
+        }
+
+        it("pages identically under a PIT and returns it") {
+          withImages(profileFixtures) { _ =>
+            val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+            val operation = KeywordPage("metadata.credit", Some(JsString("AAP")), 1, includeCoveredCount = true)
+            val pinned = profile(operation, creditAsc, pitId = Some(pitId))
+
+            pinned.result shouldBe profile(operation, creditAsc).result
+            pinned.result shouldBe KeywordPageResult(Seq(KeywordBucket(JsString("Getty"), 2L)), Some(JsString("Getty")), Some(7L))
+            pinned.pitId shouldBe defined
+          }
+        }
+
+        Seq(
+          "a sort field that is not the primary" -> (KeywordPage("uploadTime", None, 10, false), creditAsc) -> "primary",
+          "a field outside the sort"             -> (KeywordPage("metadata.source", None, 10, false), creditAsc) -> "primary",
+          "a max-mode primary"                   -> (KeywordPage("metadata.credit", None, 10, false),
+            Seq(Json.obj("metadata.credit" -> Json.obj("order" -> "asc", "mode" -> "max")), id)) -> "nested or max-mode",
+          "a nested primary"                     -> (KeywordPage("usages.platform", None, 10, false),
+            Seq(Json.obj("usages.platform" -> Json.obj("order" -> "asc", "nested" -> Json.obj("path" -> "usages"))), id)) -> "nested or max-mode",
+          "a special date primary with max mode" -> (KeywordPage("collections.actionData.date", None, 10, false), collectionAsc) -> "nested or max-mode",
+          "a nested primary without its nested path" -> (KeywordPage("usages.platform", None, 10, false),
+            Seq(plain("usages.platform", "asc"), id)) -> "nested path usages",
+          "a deeper nested primary without its nested path" -> (KeywordPage("usages.printUsageMetadata.sectionCode", None, 10, false),
+            Seq(plain("usages.printUsageMetadata.sectionCode", "asc"), id)) -> "nested path usages",
+          "a flat field sent as nested"          -> (KeywordPage("metadata.credit", None, 10, false),
+            Seq(Json.obj("metadata.credit" -> Json.obj("order" -> "asc", "nested" -> Json.obj("path" -> "usages"))), id)) -> "nested or max-mode",
+          "a zero size"                          -> (KeywordPage("metadata.credit", None, 0, false), creditAsc) -> "size",
+          "a size above 10,000"                  -> (KeywordPage("metadata.credit", None, 10001, false), creditAsc) -> "size",
+        ).foreach { case ((what, (operation, sort)), mentioned) =>
+          it(s"refuses a keyword page with $what") {
+            refusalOf(operation, sort) should include(mentioned)
+          }
+        }
+
+        it("accepts the largest page size") {
+          withImages(profileFixtures) { base =>
+            bucketsOf(keywordPage(base, creditAsc, "metadata.credit", Json.obj("size" -> KeywordPage.MaxSize))).size shouldBe 3
+          }
+        }
+
+        it("responds 422 to a keyword page off the primary") {
+          val (status, _) = postProfile(imageQueryControllerFor(uploader, ES, writer), Json.obj("sort" -> creditAsc,
+            "operation" -> "keyword-page", "field" -> "uploadTime"))
+          status shouldBe 422
+        }
+
+        it("reads one composite page through a size-0 _search, in the clause's direction, after the given key") {
+          def bodyOf(operation: KeywordPage, sort: Seq[JsObject]) =
+            Json.parse(SearchBodyBuilderFn(ES.sortProfileRequest(SortProfileParams(internal, sort, operation, None))).string)
+          val descending = bodyOf(KeywordPage("metadata.credit", Some(JsString("Reuters")), 2, includeCoveredCount = false), creditDesc)
+          val composite = descending \ "aggs" \ "profile" \ "composite"
+
+          (descending \ "size").as[Int] shouldBe 0
+          (descending \ "track_total_hits").as[Boolean] shouldBe false
+          (composite \ "size").as[Int] shouldBe 2
+          (composite \ "sources").as[Seq[JsObject]] shouldBe
+            Seq(Json.obj("value" -> Json.obj("terms" -> Json.obj("field" -> "metadata.credit", "order" -> "desc"))))
+          (composite \ "after").as[JsObject] shouldBe Json.obj("value" -> "Reuters")
+          (descending \ "aggs" \ "covered").toOption shouldBe None
+
+          val numeric = bodyOf(KeywordPage("source.dimensions.width", Some(JsNumber(800)), 5, includeCoveredCount = true), widthAsc)
+          (numeric \ "aggs" \ "profile" \ "composite" \ "after").as[JsObject] shouldBe Json.obj("value" -> 800)
+          (numeric \ "aggs" \ "profile" \ "composite" \ "sources" \ 0 \ "value" \ "terms" \ "order").as[String] shouldBe "asc"
+          (numeric \ "aggs" \ "covered" \ "filter").toOption shouldBe defined
+
+          val first = bodyOf(KeywordPage("metadata.credit", None, 2, includeCoveredCount = false), creditAsc)
+          (first \ "aggs" \ "profile" \ "composite" \ "after").toOption shouldBe None
+        }
+
+        describe("completeness") {
+          val pageParams = SortProfileParams(internal, creditAsc, KeywordPage("metadata.credit", None, 2, includeCoveredCount = false), None)
+          def response(timedOut: Boolean, failedShards: Int, page: Map[String, Any]) =
+            SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None,
+              Map("profile" -> page), SearchHits(Total(0L, "eq"), 0.0, Array.empty))
+          val onePage = Map("buckets" -> Seq(Map("key" -> Map("value" -> "AAP"), "doc_count" -> 3)), "after_key" -> Map("value" -> "AAP"))
+
+          it("reads the page and its continuation when every shard completed in time") {
+            ES.readSortProfile(pageParams, response(timedOut = false, failedShards = 0, onePage)) shouldBe
+              KeywordPageResult(Seq(KeywordBucket(JsString("AAP"), 3L)), Some(JsString("AAP")), None)
+            ES.readSortProfile(pageParams, response(timedOut = false, failedShards = 0, Map("buckets" -> Seq.empty))) shouldBe
+              KeywordPageResult(Nil, None, None)
+          }
+
+          Seq("the search timed out" -> response(timedOut = true, failedShards = 0, onePage),
+            "a shard failed" -> response(timedOut = false, failedShards = 1, onePage)).foreach { case (reason, incomplete) =>
+            it(s"refuses to publish a keyword page when $reason") {
+              the[Exception] thrownBy ES.readSortProfile(pageParams, incomplete) shouldBe SortProfileIncomplete
+            }
           }
         }
       }

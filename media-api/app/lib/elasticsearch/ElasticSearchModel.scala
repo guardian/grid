@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
+import play.api.libs.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -218,6 +218,12 @@ sealed trait SortProfileOperation
 case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation
 case class DateStats(field: String, missingField: Option[String]) extends SortProfileOperation
 case class DateBuckets(field: String, missingField: Option[String], interval: String) extends SortProfileOperation
+// One bounded composite page of the primary sort field's values; the caller owns the walk and its caps.
+case class KeywordPage(field: String, after: Option[JsValue], size: Int, includeCoveredCount: Boolean) extends SortProfileOperation
+
+object KeywordPage {
+  val MaxSize = 10000
+}
 
 object DateBucketInterval {
   val Calendar: Set[String] = Set("month", "day", "hour")
@@ -238,9 +244,13 @@ case class DateStatsResult(valueCount: Long, min: Option[Long], max: Option[Long
 case class DateBucket(key: String, count: Long, startPosition: Long)
 // approximate-evidence buckets may count an image in several buckets, so startPosition is not its rank.
 case class DateBucketsResult(buckets: Seq[DateBucket], positionKind: String, evidenceCount: Long) extends SortProfileResult
+case class KeywordBucket(key: JsValue, count: Long)
+// after is the continuation for the next page, absent (null) when Elasticsearch reports none.
+case class KeywordPageResult(buckets: Seq[KeywordBucket], after: Option[JsValue], coveredCount: Option[Long]) extends SortProfileResult
 
 object SortProfileResult {
   private implicit val dateBucketWrites: OWrites[DateBucket] = Json.writes[DateBucket]
+  private implicit val keywordBucketWrites: OWrites[KeywordBucket] = Json.writes[KeywordBucket]
 
   implicit val jsonWrites: OWrites[SortProfileResult] = {
     case ScalarAnchorResult(value) => Json.obj("value" -> value)
@@ -249,6 +259,9 @@ object SortProfileResult {
         coveredCount.fold(Json.obj())(count => Json.obj("coveredCount" -> count))
     case DateBucketsResult(buckets, positionKind, evidenceCount) =>
       Json.obj("buckets" -> buckets, "positionKind" -> positionKind, "evidenceCount" -> evidenceCount)
+    case KeywordPageResult(buckets, after, coveredCount) =>
+      Json.obj("buckets" -> buckets, "after" -> after) ++
+        coveredCount.fold(Json.obj())(count => Json.obj("coveredCount" -> count))
   }
 }
 
@@ -312,8 +325,27 @@ object SortProfileParamsBody {
             .filter(DateBucketInterval.Calendar ++ DateBucketInterval.Fixed)
             .toRight("interval must be one of month, day, hour, 30m, 10m, 5m")
         } yield DateBuckets(field, missingField, interval)
+      case Some("keyword-page") =>
+        for {
+          field <- requiredString(body, "field")
+          after <- (body \ "after").toOption.filter(_ != JsNull) match {
+            case None                                    => scala.util.Right(None)
+            case Some(key @ (_: JsString | _: JsNumber)) => scala.util.Right(Some(key))
+            case Some(_)                                 => scala.util.Left("after must be a string or number when present")
+          }
+          size <- (body \ "size").toOption.filter(_ != JsNull) match {
+            case None                                        => scala.util.Right(KeywordPage.MaxSize)
+            case Some(JsNumber(number)) if number.isValidInt => scala.util.Right(number.toInt)
+            case Some(_)                                     => scala.util.Left("size must be an integer when present")
+          }
+          includeCoveredCount <- (body \ "includeCoveredCount").toOption.filter(_ != JsNull) match {
+            case None                  => scala.util.Right(false)
+            case Some(JsBoolean(flag)) => scala.util.Right(flag)
+            case Some(_)               => scala.util.Left("includeCoveredCount must be a boolean when present")
+          }
+        } yield KeywordPage(field, after, size, includeCoveredCount)
       case Some(other) => scala.util.Left(s"unsupported sort profile operation: $other")
-      case None        => scala.util.Left("operation must be one of scalar-anchor, date-stats, date-buckets")
+      case None        => scala.util.Left("operation must be one of scalar-anchor, date-stats, date-buckets, keyword-page")
     }
 
   def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SortProfileParams] =

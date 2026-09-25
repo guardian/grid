@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal,
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
-import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
+import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -425,6 +425,23 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
       harness.captured.futureValue.operation shouldBe DateStats("uploadTime", Some("metadata.dateTaken"))
+    }
+
+    Seq(
+      "a text continuation, size and covered count" ->
+        Json.obj("after" -> "AAP", "size" -> 2, "includeCoveredCount" -> true) ->
+        KeywordPage("metadata.credit", Some(JsString("AAP")), 2, includeCoveredCount = true),
+      "a numeric continuation" -> Json.obj("after" -> 800) -> KeywordPage("metadata.credit", Some(JsNumber(800)), KeywordPage.MaxSize, includeCoveredCount = false),
+      "defaults: first and largest page, no covered count" -> Json.obj("after" -> JsNull) ->
+        KeywordPage("metadata.credit", None, KeywordPage.MaxSize, includeCoveredCount = false),
+    ).foreach { case ((what, extra), expected) =>
+      it(s"passes a keyword page with $what") {
+        val harness = sortProfileHarness(ordinaryUser)
+        val request = sortProfileRequest(body ++ Json.obj("operation" -> "keyword-page", "field" -> "metadata.credit") ++ extra)
+
+        harness.controller.sortProfile().apply(request).futureValue.header.status shouldBe 200
+        harness.captured.futureValue.operation shouldBe expected
+      }
     }
   }
 
