@@ -2,9 +2,10 @@
  * Boots and tears down the full local Grid stack with Testcontainers:
  *   1. a shared network,
  *   2. Elasticsearch + LocalStack + imgops (infrastructure),
- *   3. the CloudFormation core stack + seeded buckets (provisioning),
+ *   3. the CloudFormation core/auth stacks + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
- *   5. the pre-built `grid-e2e-ci` / `grid-e2e-dev` image running the Grid services.
+ *   5. the pre-built `grid-e2e-ci` / `grid-e2e-dev` image running the Grid services,
+ *   6. the local OIDC provider on the shared network and host port 9014.
  *
  * Used by Playwright's global setup/teardown and by `dev.ts`, which runs the same
  * stack interactively outside the test runner.
@@ -18,6 +19,7 @@ import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
   CONFIG_DIR,
   DOMAIN,
+  EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
   ELASTICSEARCH_PORT,
@@ -33,6 +35,13 @@ import {
   LOCALSTACK_IMAGE,
   LOCALSTACK_PORT,
   MEDIA_API_PORT,
+  OIDC_CLIENT_ID,
+  OIDC_CLIENT_SECRET,
+  OIDC_CONTEXT,
+  OIDC_HOST,
+  OIDC_IMAGE,
+  OIDC_ISSUER,
+  OIDC_PORT,
   PROXY_IMAGE,
   REGION,
   REPO_ROOT,
@@ -42,9 +51,10 @@ import { generateServiceConfig } from './config.ts';
 import { reportTo, runTasks } from './progress.ts';
 import type { ListrTask } from './progress.ts';
 import {
+  createAuthStack,
   createCoreStack,
   provisioningClients,
-  provisionPermissionsBucket,
+  seedAuthBuckets,
   seedBuckets,
   seedKclLeaseTable,
 } from './provision.ts';
@@ -104,6 +114,7 @@ interface StoppableStack {
 /** What the boot tasks build up. Each task mutates it in place for the ones that follow. */
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
+  authStackProps?: StackProps;
 }
 
 /**
@@ -342,6 +353,29 @@ function gridContainer(
   });
 }
 
+function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
+  return image
+    .withNetwork(network)
+    .withNetworkAliases(OIDC_HOST)
+    .withLabels({ [ROLE_LABEL]: 'the local OIDC provider' })
+    .withEnvironment({
+      DOMAIN,
+      EMAIL_DOMAIN,
+      OIDC_CLIENT_ID,
+      OIDC_CLIENT_SECRET,
+      OIDC_ISSUER,
+    })
+    .withCopyFilesToContainer([
+      {
+        source: path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'auth', 'users.json'),
+        target: '/etc/grid/users.json',
+      },
+    ])
+    .withExposedPorts({ container: OIDC_PORT, host: OIDC_PORT })
+    .withWaitStrategy(Wait.forLogMessage(/local oidc provider listening/))
+    .withStartupTimeout(60_000);
+}
+
 /**
  * Locally, the browser reaches the https://*.media.<domain> domains via the developer's
  * dev-nginx. CI has no dev-nginx, so a Caddy proxy replays the same subdomain routing and
@@ -398,9 +432,15 @@ function localstackTasks(): ListrTask<BootContext>[] {
       },
     },
     {
-      title: 'Apply CloudFormation template',
+      title: 'Apply core CloudFormation template',
       task: async (ctx) => {
         ctx.coreStackProps = await createCoreStack(clients.cfn);
+      },
+    },
+    {
+      title: 'Apply auth CloudFormation template',
+      task: async (ctx) => {
+        ctx.authStackProps = await createAuthStack(clients.cfn);
       },
     },
     {
@@ -408,10 +448,8 @@ function localstackTasks(): ListrTask<BootContext>[] {
       task: (ctx) => seedBuckets(clients.s3, ctx.coreStackProps!),
     },
     {
-      title: 'Create permissions bucket',
-      task: async (ctx) => {
-        ctx.coreStackProps!.PermissionsBucket = await provisionPermissionsBucket(clients.s3);
-      },
+      title: 'Seed auth buckets',
+      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!),
     },
     {
       title: 'Seed KCL lease tables',
@@ -499,7 +537,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
         fs.mkdirSync(CONFIG_DIR, { recursive: true });
         ctx.configDir = CONFIG_DIR;
         ownedConfigDir = CONFIG_DIR;
-        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!);
+        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!, ctx.authStackProps!);
       },
     },
     {
@@ -538,6 +576,33 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
           },
         ]),
+    },
+    {
+      title: 'Start OIDC provider',
+      task: (_, oidcTask) => {
+        let image: GenericContainer;
+
+        return oidcTask.newListr(
+          [
+            {
+              title: 'Build image',
+              task: async () => {
+                image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
+                  deleteOnExit: false,
+                });
+              },
+            },
+            {
+              title: 'Start container',
+              task: async (ctx) => {
+                const oidc = await oidcContainer(image, ctx.network!).start();
+                ctx.containers.push(oidc);
+              },
+            },
+          ],
+          { concurrent: false },
+        );
+      },
     },
     {
       title: 'Start reverse proxy',
@@ -587,6 +652,7 @@ const isServiceHealthy = (path: string) => async (port: number): Promise<{ port:
 export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
   const healthchecks = [
     ...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')),
+    isServiceHealthy('.well-known/openid-configuration')(OIDC_PORT),
     isServiceHealthy('_cluster/health')(ELASTICSEARCH_PORT),
     isServiceHealthy('_localstack/health')(LOCALSTACK_PORT),
     isServiceHealthy('_')(IMGOPS_PORT)

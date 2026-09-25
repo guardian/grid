@@ -4,11 +4,11 @@ import { makeProvider } from "./make-provider.js";
 // relative path to the users file within the localstack box ( to /etc/grid/users.json)
 import USER_JSON from "../../../etc/grid/users.json" with { type: "json" };
 
-const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } =
+const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_ISSUER } =
   process.env;
 
 const port = 9014;
-const issuer = `http://localhost:${port}`;
+const issuer = OIDC_ISSUER ?? `http://localhost:${port}`;
 const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;
 
 const findAccount = findAccountFunc(EMAIL_DOMAIN, USER_JSON);

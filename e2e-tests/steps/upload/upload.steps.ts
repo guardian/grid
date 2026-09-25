@@ -1,5 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
+import { TEST_USER_EMAIL } from '../../setup/constants.ts';
 import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 
 /**
@@ -85,7 +86,7 @@ When('I choose {string}', async ({ page }, label: string) => {
 });
 
 Then('I should be taken to a search filtered to images I uploaded', async ({ page }) => {
-  await expect(page).toHaveURL((url) => url.searchParams.get('uploadedBy') === 'johndoe@example.com');
+  await expect(page).toHaveURL((url) => url.searchParams.get('uploadedBy') === TEST_USER_EMAIL);
 });
 
 When(

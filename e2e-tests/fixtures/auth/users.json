@@ -1,0 +1,12 @@
+[
+  {
+    "id": "grid-e2e-account",
+    "firstName": "E2E",
+    "lastName": "Account"
+  },
+  {
+    "id": "grid-e2e-restricted-account",
+    "firstName": "Restricted E2E",
+    "lastName": "Account"
+  }
+]

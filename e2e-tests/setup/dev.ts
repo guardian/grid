@@ -10,6 +10,7 @@ import {
   DOMAIN,
   ELASTICSEARCH_PORT,
   LOCALSTACK_PORT,
+  OIDC_ISSUER,
   SERVICE_PORTS,
 } from './constants.ts';
 import { probeStack, startStack, stopStack } from './stack.ts';
@@ -31,6 +32,7 @@ function banner(elapsedMs: number): string {
     '  Infrastructure:',
     `    localstack       http://localhost:${LOCALSTACK_PORT}`,
     `    elasticsearch    http://localhost:${ELASTICSEARCH_PORT}`,
+    `    oidc-provider    ${OIDC_ISSUER}`,
     '',
     `  Config at ${CONFIG_DIR}`,
     '',
