@@ -1358,6 +1358,56 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       }
     }
 
+    describe("shared sort admission") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val internal = SearchParams(tier = Internal, length = 1)
+      val id = Json.obj("id" -> "asc")
+      def plain(field: String, order: String) = Json.obj(field -> order)
+      def clause(field: String, attributes: (String, JsValue)*) = Json.obj(field -> JsObject(("order" -> JsString("desc")) +: attributes))
+      val upload = plain("uploadTime", "desc")
+      val max = "mode" -> JsString("max")
+      def path(nested: String) = "nested" -> Json.obj("path" -> nested)
+
+      // Each ordered read admits the same sort, so each must refuse the same malformed clause.
+      val reads: Seq[(String, Seq[JsObject] => Future[Any])] = Seq(
+        "search-after" -> (sort => ES.searchAfter(SearchAfterParams(internal, sort, None, None))),
+        "window"       -> (sort => ES.imageWindow(ImageWindowParams(internal, sort, None))),
+        "rank"         -> (sort => ES.imageRank(ImageRankParams(internal, sort, Seq.fill[JsValue](sort.length)(JsNumber(0)), None))),
+        "sort profile" -> (sort => ES.sortProfile(SortProfileParams(internal, sort, DateStats("uploadTime", None), None))),
+      )
+
+      val malformed: Seq[((String, Seq[JsObject]), String)] = Seq(
+        "no id suffix"                     -> Seq(upload) -> "id",
+        "id before the last clause"        -> Seq(id, upload) -> "id",
+        "a nested field without its path"  -> Seq(clause("usages.dateAdded", max), upload, id) -> "nested",
+        "a nested field with another path" -> Seq(clause("usages.dateAdded", max, path("collections")), upload, id) -> "nested",
+        "a flat field with a nested path"  -> Seq(clause("collections.actionData.date", max, path("collections")), upload, id) -> "nested",
+        "collection dates without max"     -> Seq(clause("collections.actionData.date"), upload, id) -> "mode max",
+        "usage dates without max"          -> Seq(clause("usages.dateAdded", path("usages")), upload, id) -> "mode max",
+      )
+
+      for {
+        (read, call)          <- reads
+        ((what, sort), named) <- malformed
+      } it(s"$read refuses $what") {
+        whenReady(call(sort).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message should include(named)
+        }
+      }
+
+      // Without the path, a null-zone cursor would drop the clause and filter with an exists that matches no image.
+      it("refuses a null-zone cursor on a nested field sorted without its path") {
+        val withoutPath = Seq(clause("usages.dateAdded", max), upload, id)
+        val nullZoneStart = Some(Seq[JsValue](JsNull, JsNumber(0), JsString("x")))
+        Seq(
+          ES.searchAfter(SearchAfterParams(internal, withoutPath, nullZoneStart, None)),
+        ).foreach { read =>
+          whenReady(read.failed, timeout, interval)(_.asInstanceOf[InvalidUriParams].message should include("nested"))
+        }
+      }
+    }
+
     describe("sort profile") {
       implicit val logMarker: LogMarker = MarkerMap()
       val internal = SearchParams(tier = Internal)
@@ -1844,7 +1894,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "a deeper nested primary without its nested path" -> (KeywordPage("usages.printUsageMetadata.sectionCode", None, 10, false),
             Seq(plain("usages.printUsageMetadata.sectionCode", "asc"), id)) -> "nested path usages",
           "a flat field sent as nested"          -> (KeywordPage("metadata.credit", None, 10, false),
-            Seq(Json.obj("metadata.credit" -> Json.obj("order" -> "asc", "nested" -> Json.obj("path" -> "usages"))), id)) -> "nested or max-mode",
+            Seq(Json.obj("metadata.credit" -> Json.obj("order" -> "asc", "nested" -> Json.obj("path" -> "usages"))), id)) -> "nested path none",
           "a zero size"                          -> (KeywordPage("metadata.credit", None, 0, false), creditAsc) -> "size",
           "a size above 10,000"                  -> (KeywordPage("metadata.credit", None, 10001, false), creditAsc) -> "size",
         ).foreach { case ((what, (operation, sort)), mentioned) =>

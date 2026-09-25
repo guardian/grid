@@ -802,7 +802,27 @@ class ElasticSearch(
     if (sortFields.contains("_shard_doc"))
       throw InvalidUriParams("_shard_doc is unsupported in sort; end the clause with a unique field such as id")
 
-    sort.map(sorts.jsonToSort)
+    val admitted = sort.map(sorts.jsonToSort).map {
+      case fs: FieldSort =>
+        requireMappedNestedPath(fs)
+        if (MultiValuedSortDates(fs.field) && !isMultiValued(fs))
+          throw InvalidUriParams(s"${fs.field} needs sort mode max; ordered reads position an image by its latest date")
+        fs
+      case other => other
+    }
+
+    // A continuation after a tie on a non-unique last clause would skip the remaining tied images.
+    if (!sortFields.lastOption.contains("id"))
+      throw InvalidUriParams("sort must end with the unique id field; otherwise continuations can skip tied images")
+    admitted
+  }
+
+  // Null-zone filters, rank predicates and profiles wrap a clause in its nested path, so it must match Grid's mapping.
+  private def requireMappedNestedPath(sort: FieldSort): Unit = {
+    val mapped = MappedNestedPaths.toSeq.filter(path => sort.field.startsWith(s"$path.")).sortBy(-_.length).headOption
+    val requested = sort.nested.flatMap(_.path)
+    if (requested != mapped)
+      throw InvalidUriParams(s"${sort.field} needs nested path ${mapped.getOrElse("none")}, not ${requested.getOrElse("none")}")
   }
 
   private def requireTupleMatches(sortValues: Seq[JsValue], sortClause: Seq[Sort]): Unit = {
@@ -1078,14 +1098,6 @@ class ElasticSearch(
     def clauseFor(field: String): FieldSort = sortClause.find(_.field == field)
       .getOrElse(throw InvalidUriParams(s"$field is not a field of the admitted sort; profiles describe sorted fields only"))
 
-    // Parent coverage and bucket exactness follow the clause's mode, so a multi-valued date must say max.
-    def profiledClause(field: String): FieldSort = {
-      val sort = clauseFor(field)
-      if (MultiValuedSortDates(field) && !isMultiValued(sort))
-        throw InvalidUriParams(s"sort profiles of $field require sort mode max")
-      sort
-    }
-
     // The null zone is the images without the primary sort value, which sort last.
     def withoutPrimary(missingField: Option[String]): Option[Query] = missingField.map { field =>
       val primary = sortClause.head
@@ -1094,16 +1106,13 @@ class ElasticSearch(
       boolQuery().not(hasSortValue(primary))
     }
 
-    // Counts are images per value; the clause flags cannot reveal a nested field, so Grid's mapping does.
+    // Counts are images per value; admission has already matched any nested path to Grid's mapping.
     def keywordPageClause(field: String): FieldSort = {
       val primary = sortClause.head
       if (field != primary.field)
         throw InvalidUriParams(s"keyword pages walk the primary sort field ${primary.field}, not $field")
       if (primary.nested.isDefined || isMultiValued(primary))
         throw InvalidUriParams(s"keyword pages count plain values; nested or max-mode sort clauses are unsupported, not $field")
-      MappedNestedPaths.find(path => field.startsWith(s"$path.")).foreach { path =>
-        throw InvalidUriParams(s"$field is inside the nested path $path, which keyword pages do not support")
-      }
       primary
     }
   }
@@ -1146,7 +1155,7 @@ class ElasticSearch(
       case ScalarAnchor(field, percentile, scope) =>
         if (percentile < 0 || percentile > 100)
           throw InvalidUriParams(s"percentile must be between 0 and 100, got $percentile")
-        val sort = profiled.profiledClause(field)
+        val sort = profiled.clauseFor(field)
         val scopeFilter = if (scope.isEmpty) None else Some(boolQuery().filter(scope.map { case (scopeField, value) =>
           onSortField(profiled.clauseFor(scopeField))(termQuery(scopeField, value))
         }))
@@ -1154,13 +1163,13 @@ class ElasticSearch(
           onSortFieldValues(sort)(percentilesAgg(ProfileAggregation, field).percents(Seq(percentile)).compression(200)))
 
       case DateStats(field, missingField) =>
-        val sort = profiled.profiledClause(field)
+        val sort = profiled.clauseFor(field)
         val stats = onSortFieldValues(sort)(statsAggregation(ProfileAggregation).field(field))
         val coveredParents = if (isMultiValued(sort)) Seq(filterAgg(CoveredParentsAggregation, hasSortValue(sort))) else Nil
         profileSearch(profiled.withoutPrimary(missingField), stats +: coveredParents: _*)
 
       case DateBuckets(field, missingField, bucketInterval) =>
-        val sort = profiled.profiledClause(field)
+        val sort = profiled.clauseFor(field)
         val interval = DateHistogramInterval.fromString(bucketInterval)
         val histogram = dateHistogramAgg(ProfileAggregation, field)
           .minDocCount(1)
@@ -1192,11 +1201,11 @@ class ElasticSearch(
 
     params.operation match {
       case ScalarAnchor(field, _, _) =>
-        val percentiles = sortFieldValues(profiled.profiledClause(field), aggregations).flatMap(_.getAgg("values"))
+        val percentiles = sortFieldValues(profiled.clauseFor(field), aggregations).flatMap(_.getAgg("values"))
         ScalarAnchorResult(percentiles.flatMap(_.dataAsMap.values.headOption).flatMap(finiteNumber))
 
       case DateStats(field, _) =>
-        val sort = profiled.profiledClause(field)
+        val sort = profiled.clauseFor(field)
         val stats = sortFieldValues(sort, aggregations).map(_.dataAsMap).getOrElse(Map.empty[String, Any])
         DateStatsResult(
           valueCount   = stats.get("count").flatMap(finiteNumber).fold(0L)(_.toLong),
@@ -1206,7 +1215,7 @@ class ElasticSearch(
         )
 
       case DateBuckets(field, _, _) =>
-        val sort = profiled.profiledClause(field)
+        val sort = profiled.clauseFor(field)
         val counts = sortFieldValues(sort, aggregations).toSeq
           .flatMap(values => DateHistogram(ProfileAggregation, values.dataAsMap).buckets)
           .map { bucket =>
