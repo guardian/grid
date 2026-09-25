@@ -26,6 +26,10 @@ const testImage = (fileName: string): TestImage => {
 export const testImages = {
   smaller: testImage('test-card-f.jpg'),
   larger: testImage('test.jpg'),
+  /** A copy of the smaller image with embedded IPTC metadata (see fixtures/images). */
+  withMetadata: testImage('embedded-metadata.jpg'),
+  /** Credited to AAP, so supplier processing gives it the `agency` usageRights category. */
+  agency: testImage('agency-usage.jpg'),
 };
 
 /** The set that both the file picker and drag-and-drop scenarios upload. */
@@ -41,11 +45,12 @@ export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images
 /**
  * A JPEG unique to this run. The Grid dedupes by content hash, so a scenario that deletes
  * its image would otherwise poison the shared fixtures and its own re-runs; random trailing
- * bytes change the hash without stopping the image decoding.
+ * bytes change the hash without stopping the image decoding (or the embedded metadata, which
+ * lives in the leading JPEG segments).
  */
-export const uniqueImage = (): TestImage => {
+export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => {
   const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
-  writeFileSync(filePath, Buffer.concat([readFileSync(testImages.smaller.path), randomBytes(16)]));
+  writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
   return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
 };
 
@@ -87,6 +92,7 @@ export const failDelete = (page: Page) =>
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
+  const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
 
   return {
     prompt,
@@ -94,9 +100,9 @@ export const uploadPage = (page: Page) => {
     currentUploads,
     pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
-    /* The overlay is `position: fixed`, so the <dnd-uploader> wrapper has no box of its own
-       and always reads as hidden. Assert visibility against the overlay itself. */
-    dropzone: page.getByRole('region', { name: 'Drag and drop uploader' }).locator('.dnd-uploader'),
+    /* The dropzone overlay is a `position: fixed` region rendered only mid-drag; target it by
+       its accessible name (the <dnd-uploader> wrapper has no box of its own). */
+    dropzone: page.getByRole('region', { name: 'Dropzone' }),
     fileInput: prompt.locator('input[name="files"]'),
     /* The upload and back-to-search controls carry aria-labels that override their visible
        text, so filter on the text the feature file names rather than the accessible name. */
@@ -107,7 +113,25 @@ export const uploadPage = (page: Page) => {
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
     /** A finished upload that has become an editable image, scoped to current uploads. */
-    editableJob: currentUploads.getByRole('region', { name: 'Image metadata' }),
+    editableJob: metadataEditor,
+    /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
+    metadataEditor,
+    /** Fields inside the required-metadata editor. The credit input has no name, so key on data-cy. */
+    metadataField: {
+      description: metadataEditor.locator('textarea[name="description"]'),
+      byline: metadataEditor.locator('input[name="byline"]'),
+      credit: metadataEditor.locator('[data-cy="image-metadata-credit"]'),
+      copyright: metadataEditor.locator('input[name="copyright"]'),
+      imageType: metadataEditor.locator('select[name="imageType"]'),
+      specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
+    },
+    /* The read-only usage-instructions block is asserted by its visible text in the steps. */
+    /* Credit suggestions rendered by gr-datalist as options in a listbox. */
+    creditSuggestions: metadataEditor.getByRole('option'),
+    /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
+       "Image metadata" form but still within the current-uploads region. */
+    metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
+    applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /* The per-item undelete control, an <a role="button">. The batch action bar renders a

@@ -19,6 +19,12 @@ interface TestContext {
   previousSearchQuery?: string;
   /** Path of the image uploaded earlier in a scenario, to re-upload the same bytes. */
   uploadedImagePath?: string;
+  /** A field value edited before applying a metadata template, to assert its restoration. */
+  editedByline?: string;
+  /** Embedded metadata values expected to appear in the editor, keyed by field name. */
+  expectedMetadata?: Record<string, string>;
+  /** Field values batch-applied across current uploads, keyed by the feature-table label. */
+  batchApplied?: Record<string, string>;
 }
 
 export interface TestImage {

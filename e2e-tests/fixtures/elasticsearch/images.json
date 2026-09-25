@@ -274,7 +274,8 @@
                                 }
                             }
                         ],
-                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z"
+                        "userMetadataLastModified": "2020-03-04T10:55:06.059Z",
+                        "suggestMetadataCredit": "Richard Austin"
                     }
                 },
                 {
@@ -468,7 +469,8 @@
                             "lastModified": null
                         },
                         "collections": [],
-                        "userMetadataLastModified": "2019-01-25T11:23:46.597Z"
+                        "userMetadataLastModified": "2019-01-25T11:23:46.597Z",
+                        "suggestMetadataCredit": "Getty Images"
                     }
                 },
                 {
@@ -622,7 +624,8 @@
                                 }
                             }
                         ],
-                        "userMetadataLastModified": "2020-03-04T10:47:49.175Z"
+                        "userMetadataLastModified": "2020-03-04T10:47:49.175Z",
+                        "suggestMetadataCredit": "Avalon.red"
                     }
                 },
                 {
@@ -1212,7 +1215,8 @@
                             "lastModified": null
                         },
                         "collections": [],
-                        "userMetadataLastModified": "2014-01-07T05:01:26.000Z"
+                        "userMetadataLastModified": "2014-01-07T05:01:26.000Z",
+                        "suggestMetadataCredit": "Lucy Young"
                     }
                 },
                 {
@@ -1453,7 +1457,8 @@
                             "lastModified": null
                         },
                         "collections": [],
-                        "userMetadataLastModified": "2020-06-06T14:14:16.513Z"
+                        "userMetadataLastModified": "2020-06-06T14:14:16.513Z",
+                        "suggestMetadataCredit": "TASS"
                     }
                 },
                 {
@@ -1675,7 +1680,8 @@
                             "lastModified": null
                         },
                         "collections": [],
-                        "userMetadataLastModified": "2006-03-31T23:00:00.000Z"
+                        "userMetadataLastModified": "2006-03-31T23:00:00.000Z",
+                        "suggestMetadataCredit": "Action Images/Reuters"
                     }
                 },
                 {
@@ -2113,7 +2119,8 @@
                                 }
                             }
                         ],
-                        "userMetadataLastModified": "2020-06-12T15:04:11.817Z"
+                        "userMetadataLastModified": "2020-06-12T15:04:11.817Z",
+                        "suggestMetadataCredit": "pixel8000"
                     }
                 },
                 {
@@ -2618,7 +2625,8 @@
                             "lastModified": null
                         },
                         "collections": [],
-                        "userMetadataLastModified": "2020-02-24T09:08:18.715Z"
+                        "userMetadataLastModified": "2020-02-24T09:08:18.715Z",
+                        "suggestMetadataCredit": "Didier Bizet"
                     }
                 },
                 {
@@ -2801,7 +2809,8 @@
                             "leases": [],
                             "lastModified": null
                         },
-                        "collections": []
+                        "collections": [],
+                        "suggestMetadataCredit": "Amy L Weiser"
                     }
                 }
             ]
