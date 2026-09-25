@@ -72,8 +72,8 @@ TEST deployment, and PR #4849 updated with the agreed amendments; human review r
 Draft/ready status is the operator's choice. Copilot comments and local
 performance campaigns do not establish production deployment or other callers.
 On this branch D3 now lives in media-api's `ImageQueryController` with the shared read helper
-(API build U1); `POST /images/window`, `POST /images/rank` (U2) and `POST /images/sort-profile`
-(U3a, keyword pages U3b) exist there but Kupua does not call them yet.
+(API build U1); `POST /images/window`, `POST /images/rank` (U2), `POST /images/sort-profile`
+(U3a, keyword pages U3b) and `POST /images/keys` (U4) exist there but Kupua does not call them yet.
 
 **Current scope (15 September):** incrementally add media-api capabilities to make this read-only
 prototype deployable, preserving all current workflows and accepted compromises. Eventual deployed

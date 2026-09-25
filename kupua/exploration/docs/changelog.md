@@ -17,6 +17,20 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - media-api keys
+
+  API build U4 (Scala). New `POST /images/keys` returns one source-free page of `{id, sortValues}`
+  per call for position maps and range walks, ported from `fetchPositionIndex` and `getIdRange`,
+  whose loops stay in Kupua. There is no phase field: as in search-after, a page runs on into the
+  null tail and a null-primary tuple continues inside it; the map's two passes become one walk
+  with identical ids and tuples. `size` defaults to and is capped at 10,000, independent of the
+  200-image cap; `after` is `null` once a page runs short; timed-out or partly failed pages
+  respond 503. Search-after's null-zone handling became a shared helper. The cold review found
+  that a nested field sent without its path, or a sort without a unique `id` suffix, could return
+  wrong results; the operator chose to fix this once in the shared sort admission for every
+  ordered read, which now also requires `mode: max` on the two multi-valued date sorts. Kupua
+  does not call the endpoint yet.
+
   ### 25 September 2026 - media-api keyword pages
 
   API build U3b (Scala). `POST /images/sort-profile` gains `keyword-page`: one bounded composite
