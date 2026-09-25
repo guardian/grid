@@ -17,6 +17,30 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - Standalone detail through media-api (API build U6a)
+
+  In `--use-media-api` mode, detail for an image that is not in the loaded results now reads the
+  existing `GET /images/:id`, normalizes it through the same S1 mapper as page reads and accepts it
+  only when the returned ID matches the requested one. `getById` left the development fallback list;
+  404 (missing or hidden) is absence, other failures reject quietly into the existing "Image not
+  found" state, and nothing falls back to Elasticsearch. `getById` now resolves `{image,
+  enrichment?}` and takes an optional abort signal (an operator-approved exception to the unchanged
+  DAL signature rule), mirroring `SearchAfterResult.enrichment`.
+
+  The singleton's server enrichment (overquota cost, validity, archive status, actions, rights)
+  stays with ImageDetail's requested-ID-bound standalone state and is passed to the metadata panel
+  through an optional `useEnrichedImage` overlay, rather than written to the shared enrichment store:
+  a later fresh-search commit replaces that store and would have wiped it on pasted links. Each
+  standalone request is aborted on identity change or when the image becomes resident; resident
+  traversal still issues no singleton read. No `include=fileMetadata`, so standalone and page images
+  carry the same fields.
+
+  Cold review found that aborting the first read of a development Strict Mode replay broke P13c's
+  every-read-succeeds rule; the probe now accepts exactly one aborted first read of two, keeping its
+  target, route and count checks. The metadata click-to-search E2E test, which could never decode
+  local media once the decoded-detail wait became real, now stubs identity-tagged media as the
+  KUP-021 tests do.
+
   ### 25 September 2026 - Harden image traversal performance evidence
 
   The jank campaign now verifies that resident P14 traversal issues no image-hydration reads and

@@ -477,10 +477,12 @@ P13c runs once per repetition after P13a/b have emitted their unchanged metrics.
 normal query change to a different resident ID, verifies that the original target is absent,
 then opens that target as standalone detail without restarting the browser. P13c revision 2
 accepts one lookup or two from development Strict Mode mount-effect replay; every request
-must target that single ID, use the expected route and succeed. Zero, three or more, or
-unrelated reads fail. Both requests remain visible in `imageLookupCount`; the probe does not
-deduplicate them or change the application. Direct mode expects ES; hybrid API mode follows
-the declared `getById` development fallback until U6a removes it, then expects media-api.
+must target that single ID, use the expected route and succeed, except that, since U6a, the
+first of two may be the replay's own aborted read (`net::ERR_ABORTED`, no response). Zero,
+three or more, or unrelated reads fail. Both requests remain visible in `imageLookupCount`; the probe does not
+deduplicate them or change the application. Direct mode expects ES; hybrid API mode derives
+the route from the declared development-fallback list, so since U6a it expects media-api's
+`GET /api/images/:id`.
 The result records the actual route; an unexpected route fails rather than masquerading as
 API evidence. The final decoded rendition must match the one warmed by P13a.
 

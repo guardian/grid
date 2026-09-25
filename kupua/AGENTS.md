@@ -66,8 +66,9 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 **Status:** with `VITE_USE_MEDIA_API=true`, `ApiDataSource` routes every ordered read through
 media-api (API build U5): pages via `POST /images/search-after` and `/window`, ranks, sort profiles,
-position maps and range walks, with no PIT and no ES fallback for those reads. Counts, tickers,
-aggregations, detail `_mget` and AI still use a tested development ES fallback (U6), and selection
+position maps and range walks, with no PIT and no ES fallback for those reads. Standalone detail
+reads media-api's `GET /images/:id` (U6a). Counts, tickers, aggregations, selection `_mget` and AI
+still use a tested development ES fallback (U6), and selection
 and collections still construct ES directly (U6d). `--use-TEST` is direct ES through an SSH tunnel;
 `--use-media-api` calls locally running modified media-api connected to TEST. The operator confirms
 one laptop caller and one successful D3 TEST deployment; PR #4849 is abandoned (below).
@@ -126,13 +127,13 @@ remain reference material, not an active implementation plan; V1 stays refuted.
 
 ### Testing Summary
 
-- **1819 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **1899 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~7min, 2 workers) -- `npm --prefix kupua run test:e2e`
 - **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
 - **22 jank perf tests / 33 metric IDs** + experiment infrastructure — `npm run test:perf`. P13c measures non-resident detail with warm media; P14 guards zero image-hydration reads. Both dashboards show these shared audit records; live two-mode preflight remains operator-run.
-- **76 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). Static polling/deadline checks reject async predicates and misplaced or extra wait arguments; numeric, total, route, regime, revision, cache, completion-boundary, and named-measure aggregation contracts reject incomplete repetitions; dashboards preserve missing values as gaps, hide stale client-only store timings, show qualified API-direct deltas and separate incomparable evidence; the runner records full-dirty and generated-history-independent app-source hashes; single-run threshold crossings are watchpoints. P5c/P13a-b/P15 are revision 3; P13c revision 2 records bounded development Strict Mode replay. Earlier records remain separate.
+- **78 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). Static polling/deadline checks reject async predicates and misplaced or extra wait arguments; numeric, total, route, regime, revision, cache, completion-boundary, and named-measure aggregation contracts reject incomplete repetitions; dashboards preserve missing values as gaps, hide stale client-only store timings, show qualified API-direct deltas and separate incomparable evidence; the runner records full-dirty and generated-history-independent app-source hashes; single-run threshold crossings are watchpoints. P5c/P13a-b/P15 are revision 3; P13c revision 2 records bounded development Strict Mode replay. Earlier records remain separate.
 - **Retired smoke surface** — 57 direct-config/29 menu cases removed after elected evidence moved or was explicitly dropped
 - **15 perceived-perf short tests** against TEST cluster — `node e2e-perf/run-audit.mjs --short-perceived-only --label "..."` (manual, real ES required)
 - **2 opt-in restore diagnostics** in the short spec, excluded from campaign history; unchanged existing PP contracts. See the reproduction evidence for setup, accepted cost and limitations.

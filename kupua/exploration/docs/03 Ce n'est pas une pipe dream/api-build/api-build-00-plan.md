@@ -119,7 +119,7 @@ maintained here by the executing agent at completion (section 8).
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | done |
 | U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | done |
 | M1 | Laptop measurement and iteration gate | Both | U5 | measured; operator decision pending |
-| U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | not started |
+| U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | done |
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | not started |
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | not started |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | not started |
@@ -486,6 +486,37 @@ suite in API mode.
   current. Consider a focused request-count regression alongside the existing identity tests.
   Check the actual consumers and revise the approach if needed; this does not prohibit U7's
   separate bounded expired-media renewal or weaken the existing KUP-004 contract.
+- **U6a decisions (operator, 25 September 2026):**
+  - **Overlay ownership (option A):** the singleton's server enrichment (cost, validity,
+    persisted, actions, rights, syndication, usages) stays with ImageDetail's requested-ID-bound
+    standalone state and is passed to the metadata panel; it is not written to the shared
+    enrichment store, whose fresh-search `setEnrichment` would otherwise wipe it on pasted links.
+  - **DAL change (approved exception to section 3's signature rule):** `getById(id, signal?)`
+    resolves `{ image, enrichment? } | undefined`, mirroring `SearchAfterResult.enrichment`;
+    direct ES and the mock return no enrichment. The signal cancels an obsolete request.
+  - **No `include=fileMetadata`:** standalone images carry the same fields as page images.
+- **U6a as built:** `ApiDataSource.getById` → `apiGetImage` (`grid-api-search-adapter.ts`):
+  `GET /api/images/{encodeURIComponent(id)}`, sharing the ordered reads' fetch/failure/JSON
+  helpers (extracted from `postImageRead`, behavior unchanged). The entity goes through the S1
+  normalizer (`mapApiImageToImage`) and `extractEnrichment` (envelope `actions` included).
+  - **Outcomes:** 404 (missing or hidden from the caller) and an entity whose `id` differs from
+    the requested one → `undefined` ("Image not found", quiet); other non-2xx → `refused`,
+    network failure → `unavailable` (both reject; ImageDetail shows "Image not found", no
+    warning); an aborted signal rejects with `AbortError`. No ES fallback.
+  - **ImageDetail:** the standalone state is `{imageId, image, enrichment, failed}`; each request
+    has its own `AbortController`, aborted on identity change or when the image becomes resident.
+    `ImageMetadata` receives `overlay` only while the standalone image is displayed;
+    `useEnrichedImage(image, ownOverlay?)` prefers it to the shared store. Resident images and
+    traversal are unchanged and issue no singleton request (new regression test).
+  - **Fallback list:** `count`, `countWithTickers`, `getByIds`, `getAggregation`, `getAggregations`,
+    `searchByAi`. The perf harness's P13c already switches to expecting media-api from this list.
+  - **Review fix (P13c):** cancelling on identity change aborts the first read of a development
+    Strict Mode replay, so the P13c probe now accepts exactly one aborted (`net::ERR_ABORTED`) first
+    read of two, followed by a successful one; target, route and count checks are unchanged.
+  - **Left for later:** `getByIds` still returns `Image[]` without enrichment; U6d chooses its
+    shape (the `{image, enrichment?}` pattern here is precedent, not a decision). The overlay
+    reaches only the detail metadata panel; any later detail consumer of server actions (for
+    example editing) must take it from the same standalone state.
 - Count keeps baseline-plus-latest polling (KUP-006).
 - Aggregations need:
   - verbatim field paths (no `metadata.` prefix);
@@ -591,7 +622,7 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U5 (25 September 2026):
+table whenever a unit touches an existing file. State after U6a (25 September 2026; U6a touched no Grid file):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
@@ -702,6 +733,12 @@ ignoring it.
   replaced by forwarding the PIT so the offset is kept). Operator dry-run preflights and a TEST
   browser drive passed. Deferred: API-mode E2E, D3/window incomplete pages (M1), alias-sort keyword
   walk; new backlog KUP-033/034 (both modes).
+- 25 Sep 2026, U6a: `10e5231db` (standalone detail via `GET /images/:id`; `getById` returns
+  `{image, enrichment?}` with a signal; overlay held with the standalone state). No merge needed
+  (main's new commits touch no media-api or Kupua files). Cold review: accept with fixes (P13c probe
+  now accepts one aborted Strict Mode replay); the stale metadata click-to-search decode test was
+  repaired with operator approval. Operator API-mode dry-run preflights passed. Deferred: `getByIds`
+  enrichment shape (U6d); unused `GridApiDataSource.getImageDetail` (parked).
 
 ## 11. Parked Observations
 
@@ -722,3 +759,5 @@ operator in chat instead, not here.
 - 25 Sep, U5 intake, `search-store.ts:1597`: the phantom neighbour batch sends `length = visibleNeighbours.length`; above 200 visible images D3 refuses (422) and the fallback clears focus. Existing hybrid limit, direct ES unaffected. Risk, likely rare.
 - 25 Sep, U5 review, `ElasticSearch.scala` `cursorRead` and `es-adapter.ts` `_searchAfterImpl`: a reverse page from a null-primary tuple reads only the null tail, so a backward extend from the first null-tail image cannot cross back into the valued images before it (both modes; replay test asserts the confined contract). The live probe could not reach the boundary to confirm user impact (indexed tier likely covered by map seeks). Risk; needs a decision. **Moved to the backlog as [KUP-033](../../bug-backlog.md#kup-033).**
 - 25 Sep, U5 review, `search-store.ts:1378` `_loadBufferAroundImage`: the backward page asks for 100 without capping at the target's offset; missing values sort last in reverse too, so a target among the first 100 of a null-tail sort would pull null-tail images into the buffer (both modes). Normally unreachable (such targets are in the first page). Latent. **Moved to the backlog as [KUP-034](../../bug-backlog.md#kup-034).**
+- 25 Sep, U6a, [grid-api-adapter.ts:50](../../../../src/dal/grid-api/grid-api-adapter.ts#L50) `GridApiDataSource.getImageDetail`: still unused (only its tests call it); it drops the envelope's `actions` and mixes `null`/thrown outcomes. U6a's `apiGetImage` supersedes it for detail. Clean-up: delete or align when the satellite adapters are next touched.
+- 25 Sep, U6a E2E, [browser-history.spec.ts:1163](../../../../e2e/local/browser-history.spec.ts#L1163): "metadata search pushes once; Back restores the exact rendered detail image" fails deterministically since `b1239d26d` made `waitForDecodedDetailImage` a real bounded loop (the old async `waitForFunction` passed vacuously). Local E2E has no media, so the detail shows "Image preview not available" and never decodes; identity and metadata were correct (resident image, not the U6a path). Test-harness bug; needs a decision (stub the media route as the KUP-021 tests do, or assert rendered identity only). Not weakened here. **Resolved in U6a (operator-authorized):** the test stubs `image-urls.ts` with an identity-tagged pixel, as the KUP-021 tests do; the decode check is unchanged.
