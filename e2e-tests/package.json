@@ -10,7 +10,8 @@
     "test:headed": "bddgen && playwright test --headed --reporter=list,html",
     "test:report": "playwright show-report",
     "test:ui": "bddgen && playwright test --ui-port 6080",
-    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080"
+    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080",
+    "fetch:report": "bash setup/playwright-fetch-report.sh"
   },
   "engines": {
     "node": ">=22.12"

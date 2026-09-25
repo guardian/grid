@@ -39,6 +39,7 @@ image-embedder-lambda/__tests__/embedder/test-data
 /e2e-tests/.features-gen/
 /e2e-tests/test-results/
 /e2e-tests/playwright-report/
+/e2e-tests/playwright-report-remote
 /e2e-tests/blob-report/
 /e2e-tests/playwright/.cache/
 /e2e-tests/playwright/.auth/
