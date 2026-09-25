@@ -10,6 +10,7 @@ import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
 import scala.concurrent.{ExecutionContext, Future}
 
 trait BuildInfo {
+  def gitCommitId: String
   def toJson: String
 }
 

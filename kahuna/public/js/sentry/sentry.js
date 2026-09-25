@@ -65,7 +65,12 @@ sentry.config(['$provide', function ($provide) {
             // Don't send failed HTTP requests as that's mostly just
             // noise we already get in other logs
             if (!isHttpError(exception)) {
-                Sentry.captureException(exception, cause);
+                Sentry.withScope(scope => {
+                    if (cause) {
+                        scope.setExtra('angularCause', cause);
+                    }
+                    Sentry.captureException(exception);
+                });
             }
         };
     }]);
@@ -74,13 +79,19 @@ sentry.config(['$provide', function ($provide) {
 sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
             ($rootScope, sentryEnabled, sentryDsn) => {
     if (sentryEnabled) {
-      Sentry.init({dsn: sentryDsn,
+      const release = window.SENTRY_RELEASE && window.SENTRY_RELEASE.id;
+      Sentry.init({
+        dsn: sentryDsn,
+        release,
         integrations: [
           new CaptureConsole({
             levels: ['warn', 'error']
           })
-        ]});
-      // Ensures user data is blank
-      Sentry.setContext('session_id', window._clientConfig.sessionId);
+        ]
+      });
+      // Attach a non-PII session hint for correlation.
+      Sentry.setContext('session', {
+        id: window._clientConfig.sessionId
+      });
     }
 }]);
