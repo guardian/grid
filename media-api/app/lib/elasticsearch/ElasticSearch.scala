@@ -965,7 +965,7 @@ class ElasticSearch(
 
   // A size-0 _search rather than _count, because only _search can bind to a PIT.
   private[elasticsearch] def imageRankRequest(params: ImageRankParams): SearchRequest = {
-    val sortClause = admitRankSortClause(params.sort)
+    val sortClause = admitNullsLastSortClause(params.sort, "rank")
     if (params.sortValues.length != sortClause.length)
       throw InvalidUriParams(
         s"sortValues length ${params.sortValues.length} must equal sort clause length ${sortClause.length}")
@@ -977,20 +977,20 @@ class ElasticSearch(
 
   // Kupua sends one semantic sort (with any configured expansion) plus uploadTime and id. The bound
   // matters because the tie predicates grow quadratically with the clause count.
-  private val MaxRankSortClauses = 10
+  private val MaxNullsLastSortClauses = 10
 
   // The rank predicates assume nulls sort last and multi-valued fields sort by their maximum.
-  private def admitRankSortClause(sort: Seq[JsObject]): Seq[FieldSort] = {
-    if (sort.length > MaxRankSortClauses)
-      throw InvalidUriParams(s"rank supports at most $MaxRankSortClauses sort clauses, got ${sort.length}")
+  private def admitNullsLastSortClause(sort: Seq[JsObject], operation: String): Seq[FieldSort] = {
+    if (sort.length > MaxNullsLastSortClauses)
+      throw InvalidUriParams(s"$operation supports at most $MaxNullsLastSortClauses sort clauses, got ${sort.length}")
 
     admitSortClause(sort).map {
       case fs: FieldSort if fs.missing.exists(_ != "_last") =>
-        throw InvalidUriParams(s"rank supports only missing _last, not ${fs.missing.get}, for ${fs.field}")
+        throw InvalidUriParams(s"$operation supports only missing _last, not ${fs.missing.get}, for ${fs.field}")
       case fs: FieldSort if fs.sortMode.exists(_ != SortMode.Max) =>
-        throw InvalidUriParams(s"rank supports only sort mode max, not ${fs.sortMode.get}, for ${fs.field}")
+        throw InvalidUriParams(s"$operation supports only sort mode max, not ${fs.sortMode.get}, for ${fs.field}")
       case fs: FieldSort => fs
-      case other => throw InvalidUriParams(s"rank supports only field sorts, not $other")
+      case other => throw InvalidUriParams(s"$operation supports only field sorts, not $other")
     }
   }
 
@@ -1037,11 +1037,16 @@ class ElasticSearch(
 
   // A timed-out or partly failed search returns a smaller count without an error; publishing it
   // would place the caller at the wrong position.
-  private[elasticsearch] def completeCount(result: SearchResponse)(implicit logMarker: LogMarker): Long =
+  private[elasticsearch] def completeCount(result: SearchResponse)(implicit logMarker: LogMarker): Long = {
+    requireCompleteExecution(result, ImageRankIncomplete, "rank count")
+    result.totalHits
+  }
+
+  private def requireCompleteExecution(result: SearchResponse, incomplete: Exception, what: String)(implicit logMarker: LogMarker): Unit =
     if (result.isTimedOut || result.shards.failed > 0) {
-      logger.warn(logMarker, s"Incomplete rank count: timedOut=${result.isTimedOut}, failedShards=${result.shards.failed}")
-      throw ImageRankIncomplete
-    } else result.totalHits
+      logger.warn(logMarker, s"Incomplete $what: timedOut=${result.isTimedOut}, failedShards=${result.shards.failed}")
+      throw incomplete
+    }
 
   private def sortValueToJsValue(v: AnyRef): JsValue = v match {
     case null                  => JsNull
