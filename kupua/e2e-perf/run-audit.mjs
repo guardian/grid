@@ -30,7 +30,7 @@
  *                   median + p95.
  *   --dry-run       Run everything, print summaries, but write nothing.
  *   --headed        Show the browser window (otherwise headless).
- *   --use-media-api Route searchAfter through the local media-api server.
+ *   --use-media-api Route ordered reads through the local media-api server.
  *                   Requires kupua started with: ./scripts/start.sh --use-media-api
  *                   Also requires a panda auth file (one-time setup — see
  *                   enforceClusterGate() for the generation command).
@@ -144,7 +144,7 @@ let perceivedFull = false;     // --perceived             jank + short + long
 let perceivedOnly = false;     // --perceived-only        short + long
 let shortOnly = false;         // --short-perceived-only  short
 let longOnly = false;          // --long-perceived-only   long
-let useMediaApi = false;       // --use-media-api         route searchAfter through media-api
+let useMediaApi = false;       // --use-media-api         route ordered reads through media-api
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -1150,7 +1150,7 @@ async function main() {
   console.log(`  Grep:         ${grepArg || "(all tests)"}`);
   if (dryRun) console.log(`  Dry run:      no log files will be written`);
   if (headed) console.log(`  Headed:       browser will be visible`);
-  if (useMediaApi) console.log(`  Mode:         --use-media-api (searchAfter via local media-api)`);
+  if (useMediaApi) console.log(`  Mode:         --use-media-api (ordered reads via local media-api)`);
   console.log(`  Suites:       jank=${runJank} short=${runShort} long=${runLong}`);
   console.log();
 

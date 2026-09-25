@@ -69,7 +69,13 @@ const GRID_API_PROXY_PREFIXES = ["/api"];
 
 // POST endpoints on /api that are read-only (use POST only for request body).
 // These bypass the write guard without needing VITE_GRID_API_WRITES_ENABLED.
-const GRID_API_READ_VIA_POST = ["/images/search-after"];
+const GRID_API_READ_VIA_POST = [
+  "/images/search-after",
+  "/images/window",
+  "/images/rank",
+  "/images/sort-profile",
+  "/images/keys",
+];
 
 function gridApiWriteGuard(): Plugin {
   return {

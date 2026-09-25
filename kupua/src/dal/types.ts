@@ -2,7 +2,7 @@
  * Data Access Layer — abstract interface.
  *
  * Phase 1-2: implemented by ElasticsearchDataSource (direct ES queries via Vite proxy)
- * Phase 3: implemented by GridApiDataSource (Grid media-api with auth)
+ * Phase 3: ApiDataSource (media-api ordered reads, with a development fallback for the rest)
  *
  * UI code depends only on this interface, never on the concrete implementation.
  */
@@ -308,10 +308,17 @@ export interface ImageDataSource {
 
   /**
    * Open a Point In Time snapshot for consistent pagination.
-   * Returns the PIT ID. The caller is responsible for closing it.
+   * Returns the PIT ID, or `null` when this data source reads without a PIT.
+   * The caller is responsible for closing a returned PIT.
    * @param keepAlive — PIT keepalive duration (default: "5m").
    */
-  openPit(keepAlive?: string): Promise<string>;
+  openPit(keepAlive?: string): Promise<string | null>;
+
+  /**
+   * Exclusive upper bound on cursor-less offset (from/size) reads, when lower than
+   * `MAX_RESULT_WINDOW`. Deep seek's no-estimate fallback lands below it.
+   */
+  readonly offsetReadLimit?: number;
 
   /**
    * Semantic KNN search via Bedrock embeddings.

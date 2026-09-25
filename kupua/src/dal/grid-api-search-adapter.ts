@@ -1,12 +1,8 @@
 /**
- * API client for POST /images/search-after.
+ * Request mapping and transport for media-api's ordered image reads
+ * (POST /images/search-after, /window, /rank, /sort-profile, /keys).
  *
- * Called by StranglerAdapter when VITE_USE_MEDIA_API=true. Routes cursor
- * pagination through the media-api server instead of direct ES access.
- *
- * PITs opened by kupua's openPit() are forwarded to the server — both kupua
- * and the local media-api connect to the same ES cluster (TEST), so PIT IDs
- * are valid across both connections.
+ * Used by ApiDataSource when VITE_USE_MEDIA_API=true.
  */
 
 import type { Image } from "@/types/image";
@@ -16,12 +12,15 @@ import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData } from "./grid-api/types";
 
-type SearchAfterApiResponse = {
+type ImagePageResponse = {
   data: Array<{ data?: unknown; actions?: unknown }>;
-  total: number;
   sortValues: SortValues[];
   pitId?: string | null;
 };
+
+type SearchAfterApiResponse = ImagePageResponse & { total: number };
+
+type ImageWindowApiResponse = ImagePageResponse & { total?: number; offset: number; rawHitCount: number };
 
 /**
  * Maps the API image response (ImageData with Argo-wrapped fields) to the
@@ -95,23 +94,18 @@ export class SearchAfterApiError extends Error {
   readonly status?: number;
 
   constructor(kind: SearchAfterApiError["kind"], status?: number) {
-    super(status ? `search-after API ${status}` : "search-after API unavailable");
+    super(status ? `media-api read ${status}` : "media-api read unavailable");
     this.name = "SearchAfterApiError";
     this.kind = kind;
     this.status = status;
   }
 }
 
-export async function apiSearchAfter(
-  params: SearchParams,
-  searchAfterValues: SortValues | null,
-  pitId: string | null | undefined,
-  signal: AbortSignal | undefined,
-  reverse: boolean | undefined,
-  seekToEnd: boolean | undefined,
-): Promise<SearchAfterResult> {
-  const t0 = Date.now();
-
+/**
+ * The query and filter fields shared by every media-api ordered read: the admitted search scope
+ * and the client-resolved sort clause. Paging, cursor and operation fields are added per endpoint.
+ */
+export function buildReadBody(params: SearchParams): Record<string, unknown> {
   // Restore the two default-hide clauses that Kahuna applies to every query
   // (via Parser.scala thingsToHideByDefault). The server's Parser.run only
   // fires these when the query explicitly contains the terms, so we must
@@ -124,14 +118,7 @@ export async function apiSearchAfter(
     q: effectiveQ,
     orderBy: params.orderBy,
     sort: buildSortClause(params.orderBy),
-    length: params.length ?? 200,
-    reverse: reverse ?? false,
-    seekToEnd: seekToEnd ?? false,
-    countAll: !searchAfterValues,
   };
-
-  if (searchAfterValues) body.sortValues = searchAfterValues;
-  if (pitId) body.pitId = pitId;
 
   if (params.since) body.since = params.since;
   if (params.until) body.until = params.until;
@@ -152,10 +139,15 @@ export async function apiSearchAfter(
   if (params.hasRightsAcquired === "true") body.hasRightsAcquired = true;
   else if (params.hasRightsAcquired === "false") body.hasRightsAcquired = false;
 
+  return body;
+}
+
+/** POSTs one ordered read to media-api and returns its JSON, classifying failures for recovery. */
+export async function postImageRead(path: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   signal?.throwIfAborted();
   let res: Response;
   try {
-    res = await fetch("/api/images/search-after", {
+    res = await fetch(`/api${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -180,28 +172,73 @@ export async function apiSearchAfter(
     throw new SearchAfterApiError(kind, res.status);
   }
 
-  const json = (await res.json().catch((error: unknown) => {
+  const json: unknown = await res.json().catch((error: unknown) => {
     signal?.throwIfAborted();
     if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");
     throw error;
-  })) as SearchAfterApiResponse;
+  });
   signal?.throwIfAborted();
+  return json;
+}
 
-  // Single pass: build enrichment map and hits array together.
-  // Previously two separate passes over json.data (a for-loop then three chained
-  // .map/.filter/.map calls). Combined here to halve the iterations and avoid
-  // computing the usages-unwrap twice per entity.
+function decodeImagePage(data: ImagePageResponse["data"]): { hits: Image[]; enrichment: Map<string, EnrichmentFields> } {
   const enrichment = new Map<string, EnrichmentFields>();
   const hits: Image[] = [];
-  for (const entity of json.data) {
+  for (const entity of data) {
     const entry = extractEnrichment(entity);
     if (entry) enrichment.set(entry[0], entry[1]);
     if (entity.data != null) hits.push(mapApiImageToImage(entity.data));
   }
+  return { hits, enrichment };
+}
 
+export async function apiSearchAfter(
+  params: SearchParams,
+  searchAfterValues: SortValues | null,
+  pitId: string | null | undefined,
+  signal: AbortSignal | undefined,
+  reverse: boolean | undefined,
+  seekToEnd: boolean | undefined,
+): Promise<SearchAfterResult> {
+  const t0 = Date.now();
+  const body: Record<string, unknown> = {
+    ...buildReadBody(params),
+    length: params.length ?? 200,
+    reverse: reverse ?? false,
+    seekToEnd: seekToEnd ?? false,
+    countAll: params.trackTotalHits === true,
+  };
+  if (searchAfterValues) body.sortValues = searchAfterValues;
+  if (pitId) body.pitId = pitId;
+
+  const json = await postImageRead("/images/search-after", body, signal) as SearchAfterApiResponse;
+  const { hits, enrichment } = decodeImagePage(json.data);
   return {
     hits,
     total: json.total,
+    sortValues: json.sortValues ?? [],
+    pitId: json.pitId ?? null,
+    fetchDuration: Date.now() - t0,
+    enrichment,
+  };
+}
+
+/** One page at a shallow offset through POST /images/window (offsets below media-api's window limit). */
+export async function apiImageWindow(params: SearchParams, pitId: string | null | undefined, signal?: AbortSignal): Promise<SearchAfterResult> {
+  const t0 = Date.now();
+  const body: Record<string, unknown> = {
+    ...buildReadBody(params),
+    offset: params.offset ?? 0,
+    length: params.length ?? 200,
+    countAll: params.trackTotalHits === true,
+  };
+  if (pitId) body.pitId = pitId;
+
+  const json = await postImageRead("/images/window", body, signal) as ImageWindowApiResponse;
+  const { hits, enrichment } = decodeImagePage(json.data);
+  return {
+    hits,
+    total: json.total ?? 0,
     sortValues: json.sortValues ?? [],
     pitId: json.pitId ?? null,
     fetchDuration: Date.now() - t0,

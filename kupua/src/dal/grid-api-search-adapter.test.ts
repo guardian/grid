@@ -708,6 +708,21 @@ describe("apiSearchAfter request body — media-api wire contract", () => {
     expect(Array.isArray(body.sort)).toBe(true);
     expect((body.sort as unknown[]).length).toBeGreaterThan(0);
   });
+
+  it.each([
+    { name: "first page asking for a total", trackTotalHits: true, cursor: null, reverse: false, countAll: true },
+    { name: "first page not asking", trackTotalHits: undefined, cursor: null, reverse: false, countAll: false },
+    { name: "End (reverse from the tail)", trackTotalHits: undefined, cursor: null, reverse: true, countAll: false },
+    { name: "cursor page", trackTotalHits: undefined, cursor: [1, "img-1"], reverse: false, countAll: false },
+  ])("counts only when the caller asks for a total: $name", async ({ trackTotalHits, cursor, reverse, countAll }) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => makeApiResponse("img-1") });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiSearchAfter({ ...probeParams, trackTotalHits }, cursor, null, undefined, reverse, reverse);
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body) as { countAll?: unknown };
+    expect(body.countAll).toBe(countAll);
+  });
 });
 
 describe("apiSearchAfter recovery classification", () => {

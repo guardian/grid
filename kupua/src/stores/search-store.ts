@@ -2879,6 +2879,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const params = frozenParams(rawParams, get);
     const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
+    const offsetReadLimit = Math.min(dataSource.offsetReadLimit ?? MAX_RESULT_WINDOW, MAX_RESULT_WINDOW);
     const pendingFocus = get()._pendingFocusAfterSeek;
 
     // Clamp to valid range
@@ -3507,7 +3508,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
               // findKeywordSortValue returned null (field not aggregatable,
               // exceeded page limit, or target past end). Fall back to
               // from/size at the capped position.
-              const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+              const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
               result = await searchAfter(
                 { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
                 null,
@@ -3518,7 +3519,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
             }
           } else {
             // No keyword seek available — fall back to from/size at capped position.
-            const cappedStart = Math.min(fetchStart, MAX_RESULT_WINDOW - PAGE_SIZE);
+            const cappedStart = Math.min(fetchStart, offsetReadLimit - PAGE_SIZE);
             result = await searchAfter(
               { ...params, offset: Math.max(0, cappedStart), length: PAGE_SIZE },
               null,

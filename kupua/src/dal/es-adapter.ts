@@ -96,7 +96,7 @@ function sanitizeSortValues(sv: SortValues): SortValues {
  * built that way is ever fed into this helper, the null branch below will
  * need to become direction-aware.
  */
-function sortValuesStrictlyAfter(
+export function sortValuesStrictlyAfter(
   hitSv: SortValues,
   cursor: SortValues,
   sortClause: Record<string, unknown>[],
@@ -453,6 +453,17 @@ function parseTickerAggs(
 
 
 // ---------------------------------------------------------------------------
+
+/** Date-histogram interval for a value span, as documented on getDateDistribution. */
+export function chooseDateHistogramInterval(spanMs: number): string {
+  const MS_PER_DAY = 86_400_000;
+  if (spanMs > 2 * 365 * MS_PER_DAY) return "month";
+  if (spanMs > 2 * MS_PER_DAY) return "day";
+  if (spanMs > 25 * 3600_000) return "hour";
+  if (spanMs > 12 * 3600_000) return "30m";
+  if (spanMs > 3 * 3600_000) return "10m";
+  return "5m";
+}
 
 function normalizeDateBound(value: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00.000Z` : value;
@@ -1843,20 +1854,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       }
 
       spanMs = Math.abs(stats.max - stats.min);
-      const MS_PER_DAY = 86_400_000;
-      if (spanMs > 2 * 365 * MS_PER_DAY) {
-        interval = "month";
-      } else if (spanMs > 2 * MS_PER_DAY) {
-        interval = "day";
-      } else if (spanMs > 25 * 3600_000) {
-        interval = "hour";
-      } else if (spanMs > 12 * 3600_000) {
-        interval = "30m";
-      } else if (spanMs > 3 * 3600_000) {
-        interval = "10m";
-      } else {
-        interval = "5m";
-      }
+      interval = chooseDateHistogramInterval(spanMs);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return null;
       console.warn("[ES] getDateDistribution stats failed:", e);

@@ -230,6 +230,75 @@ describe("T3 — cached distribution vs composite-walk fallback branching", () =
   });
 });
 
+describe("degraded deep seek — offset fallback respects the data source's offset limit", () => {
+  const fallbackOffsets = (ds: MockDataSource) => {
+    const offsets: number[] = [];
+    const original = ds.searchAfter.bind(ds);
+    ds.searchAfter = (async (...args: Parameters<typeof original>) => {
+      const [params, cursor, , , reverse] = args;
+      if (!cursor && !reverse && (params.offset ?? 0) > 0) offsets.push(params.offset!);
+      return original(...args);
+    }) as typeof ds.searchAfter;
+    return offsets;
+  };
+
+  async function positionOf(ds: MockDataSource, orderBy: string, offset: number) {
+    const page = await ds.searchAfter({ orderBy, nonFree: "true", offset, length: 1 }, null);
+    return page.hits[0]!.id;
+  }
+
+  const cases = [
+    {
+      branch: "keyword walk found no value",
+      orderBy: "-credit",
+      disable: (ds: MockDataSource) => {
+        ds.getKeywordDistribution = (async () => null) as typeof ds.getKeywordDistribution;
+        ds.findKeywordSortValue = (async () => null) as typeof ds.findKeywordSortValue;
+      },
+    },
+    {
+      branch: "no primary estimate",
+      orderBy: "-uploadTime",
+      disable: (ds: MockDataSource) => {
+        ds.estimateSortValue = (async () => null) as typeof ds.estimateSortValue;
+      },
+    },
+  ];
+
+  it.each(cases)("lands at the declared limit with its actual position ($branch)", async ({ orderBy, disable }) => {
+    useSearchStore.setState({
+      dataSource: Object.assign(mock, { offsetReadLimit: 10_000 }),
+      params: { ...state().params, orderBy },
+    });
+    disable(mock);
+    const offsets = fallbackOffsets(mock);
+    await actions().search();
+    await flush();
+
+    await actions().seek(50_000);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(offsets).toEqual([9_800]);
+    const landed = await positionOf(mock, orderBy, 9_800);
+    expect(state().results[9_800 - state().bufferOffset]?.id).toBe(landed);
+  });
+
+  it.each(cases)("keeps the max_result_window reach without a declared limit ($branch)", async ({ orderBy, disable }) => {
+    useSearchStore.setState({ params: { ...state().params, orderBy } });
+    disable(mock);
+    const offsets = fallbackOffsets(mock);
+    await actions().search();
+    await flush();
+
+    await actions().seek(50_000);
+    await flush();
+
+    expect(state().error).toBeNull();
+    expect(offsets).toEqual([49_900]);
+  });
+});
+
 describe("T5 — fractional percentile estimate is rounded before use as a cursor", () => {
   it("passes an integer uploadTime to searchAfter, not a fractional epoch", async () => {
     await actions().search();

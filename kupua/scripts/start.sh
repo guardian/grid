@@ -12,7 +12,7 @@
 # Usage:
 #   ./kupua/scripts/start.sh                     # local mock data (default)
 #   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
-#   ./kupua/scripts/start.sh --use-media-api     # TEST ES + route searchAfter through media-api
+#   ./kupua/scripts/start.sh --use-media-api     # TEST ES + ordered reads through media-api
 #
 # Options:
 #   --use-TEST      Connect to real TEST ES cluster via SSH tunnel (port 9200).
@@ -20,8 +20,9 @@
 #                   Skips local ES startup and sample data loading.
 #                   Sets VITE_ES_IS_LOCAL=false (enables write protection).
 #   --use-media-api Same as --use-TEST plus VITE_USE_MEDIA_API=true.
-#                   Routes searchAfter calls through the local media-api server
-#                   (port 9001 via nginx). Requires media-api to be running
+#                   Routes ordered reads (pages, rank, sort profiles, position maps,
+#                   range walks) through the local media-api server (port 9001
+#                   via nginx); other reads still go to ES. Requires media-api to be running
 #                   in --use-TEST mode. Implies --use-TEST.
 #   --skip-es       Skip starting / waiting for Elasticsearch
 #   --skip-data     Skip checking / loading sample data
@@ -636,7 +637,7 @@ print('')
   echo -e "${yellow}      → Write protection: ON${plain}"
   if [ "$USE_MEDIA_API" = true ]; then
     export VITE_USE_MEDIA_API="true"
-    echo -e "${cyan}      → media-api: ON  (searchAfter → POST /images/search-after)${plain}"
+    echo -e "${cyan}      → media-api: ON  (ordered reads → POST /images/search-after, /window, /rank, /sort-profile, /keys)${plain}"
     echo -e "${cyan}        Requires media-api running: ./dev/script/start.sh media-api${plain}"
   fi
   if [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then
