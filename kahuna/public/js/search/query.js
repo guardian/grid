@@ -20,6 +20,11 @@ import { renderQuery, structureQuery } from './structured-query/syntax';
 import * as PermissionsConf from '../components/gr-permissions-filter/gr-permissions-filter-config';
 import {updateFilterChips} from "../components/gr-permissions-filter/gr-permissions-filter-util";
 import {
+  DEFAULT_NON_FREE_FILTER_KEY,
+  disarmedDefaultNonFreeFilter,
+  isDefaultNonFreeFilterArmed
+} from '../util/default-non-free-filter';
+import {
   manageSortSelection,
   DefaultSortOption,
   CollectionSortOption,
@@ -49,11 +54,10 @@ query.controller('SearchQueryCtrl', [
   '$scope',
   '$state',
   '$stateParams',
-  '$timeout',
   'onValChange',
   'storage',
   'mediaApi',
-  function($rootScope, $scope, $state, $stateParams, $timeout, onValChange, storage, mediaApi) {
+  function($rootScope, $scope, $state, $stateParams, onValChange, storage, mediaApi) {
 
     const ctrl = this;
     ctrl.costFilterLabel = window._clientConfig.costFilterLabel;
@@ -83,7 +87,35 @@ query.controller('SearchQueryCtrl', [
     ctrl.usePermissionsFilter = window._clientConfig.usePermissionsFilter;
     ctrl.filterMyUploads = false;
     let lastUploadedByEventKey;
-    ctrl.initialShowPaidEvent = ($stateParams.nonFree === undefined && ctrl.usePermissionsFilter) ? false : true;
+
+    // Captured before the first digest: the seeded nonFree reaches $stateParams
+    // (via the useAISearch watcher) well before getSession() resolves, so by then
+    // the live params can no longer tell us whether the user asked for one.
+    const hasNonFreePreference =
+      $stateParams.nonFree !== undefined || storage.getJs("isNonFree", true) !== null;
+
+    // media-api treats an absent nonFree param as 'false', so the model must never
+    // silently substitute a different value for it - that would leave the toggle
+    // claiming payable images are shown while the results are free-only.
+    function nonFreeFromParam(rawVal) {
+      const val = (rawVal === undefined || rawVal === null || rawVal === '') ? undefined : rawVal;
+      if (!ctrl.usePermissionsFilter && val === undefined) {
+        return undefined;
+      }
+      return toNonFreeString(val);
+    }
+
+    // Seeded from the stored preference so the React toggle mounts in agreement
+    // with the navigation the getSession() callback below is about to make.
+    function initialNonFree() {
+      const stored = storage.getJs("isNonFree", true);
+      if ($stateParams.nonFree !== undefined || stored === null || !ctrl.usePermissionsFilter) {
+        return nonFreeFromParam($stateParams.nonFree);
+      }
+      return isNonFreeString(stored) ? 'true' : 'false';
+    }
+
+    ctrl.filter.nonFree = initialNonFree();
 
     ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled;
     if (!ctrl.shouldDisplayAISearchOption) {
@@ -95,15 +127,6 @@ query.controller('SearchQueryCtrl', [
     }
 
     //--react - angular interop events--
-    function raisePayableImagesEvent(showPaid) {
-      const boolShowPaid = toNonFreeString(showPaid) === 'true';
-      const customEvent = new CustomEvent('setPayableImages', {
-        detail: {showPaid: boolShowPaid},
-        bubbles: true
-      });
-      window.dispatchEvent(customEvent);
-    }
-
     function raiseQueryChangeEvent(query, prevHasCollec, orderBy) {
       const customEvent = new CustomEvent('queryChangeEvent', {
         detail: {query: query, hasCollection: prevHasCollec, orderBy: orderBy},
@@ -165,28 +188,22 @@ query.controller('SearchQueryCtrl', [
       storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
     }
 
-    // Guards the delayed disarming of the "pending default nonFree" flag,
-    // see manageDefaultNonFree() below for why this is needed.
-    let clearDefaultNonFreeFilterTimeout;
-
     function disarmDefaultNonFreeFilter() {
-      if (clearDefaultNonFreeFilterTimeout) {
-        $timeout.cancel(clearDefaultNonFreeFilterTimeout);
-        clearDefaultNonFreeFilterTimeout = undefined;
-      }
-      const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+      const defaultNonFreeFilter = storage.getJs(DEFAULT_NON_FREE_FILTER_KEY, true);
       if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true) {
         storage.setJs(
-          "defaultNonFreeFilter",
-          {isDefault: false, isNonFree: defaultNonFreeFilter.isNonFree},
+          DEFAULT_NON_FREE_FILTER_KEY,
+          disarmedDefaultNonFreeFilter(defaultNonFreeFilter.isNonFree),
           true
         );
       }
     }
 
     function manageDefaultNonFree() {
-      const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
-      if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
+      const defaultNonFreeFilter = storage.getJs(DEFAULT_NON_FREE_FILTER_KEY, true);
+      // A single logo click triggers several back-to-back filter-change digests,
+      // so the default is re-applied on every pass until its deadline expires.
+      if (isDefaultNonFreeFilterArmed(defaultNonFreeFilter)) {
         const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
         storage.setJs("isNonFree", newNonFree, true);
         storage.setJs("defaultIsNonFree", newNonFree, true);
@@ -199,38 +216,8 @@ query.controller('SearchQueryCtrl', [
         ctrl.useAISearch = false;
         Object.assign(ctrl.filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
         raiseFilterChangeEvent(ctrl.filter);
-
-        // IMPORTANT: don't disarm the "isDefault" flag immediately here.
-        // A single logo click triggers *several* back-to-back
-        // navigations/filter-change digests (onLogoClick's own $state.go,
-        // then gr-sort-control's handleLogoClick -> updateSortChips, and
-        // sometimes a delayed, spurious transition fired by
-        // ui-router-extras' Deep State Redirect mechanism that drops
-        // params such as `nonFree` back to their state defaults).
-        // If we disarm the flag on the very *first* of these passes
-        // (which may just be an incidental/harmless one - e.g. the echo
-        // of onLogoClick's own navigation - and not the actual rogue
-        // transition we need to correct), this function becomes a no-op
-        // for any later pass, so `nonFree` never gets corrected again if
-        // the rogue transition drops it afterwards, leaving it stuck at
-        // its non-default value. Instead, keep re-applying the default
-        // on every pass for a short grace period after being armed, and
-        // only disarm it once that period elapses.
-        if (clearDefaultNonFreeFilterTimeout) {
-          $timeout.cancel(clearDefaultNonFreeFilterTimeout);
-        }
-        clearDefaultNonFreeFilterTimeout = $timeout(() => {
-          storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: newNonFree}, true);
-          clearDefaultNonFreeFilterTimeout = undefined;
-        }, 1500);
       }
     }
-
-    $scope.$on('$destroy', () => {
-      if (clearDefaultNonFreeFilterTimeout) {
-        $timeout.cancel(clearDefaultNonFreeFilterTimeout);
-      }
-    });
 
     function manageOrgOwnedSetting(filter) {
       const structuredQuery = structureQuery(filter.query) || [];
@@ -469,8 +456,15 @@ query.controller('SearchQueryCtrl', [
     }
 
     function chargeableChange (showChargeable) {
+      const next = toNonFreeString(showChargeable);
+      // Ignore echoes of the current state, which would otherwise navigate and
+      // needlessly disarm a default set by a logo click.
+      if (toNonFreeString(ctrl.filter.nonFree) === next &&
+          toNonFreeString($stateParams.nonFree) === next) {
+        return;
+      }
       disarmDefaultNonFreeFilter();
-      ctrl.filter.nonFree = toNonFreeString(showChargeable);
+      ctrl.filter.nonFree = next;
       watchSearchChange(ctrl.filter, "chargeableChange");
     }
 
@@ -497,23 +491,25 @@ query.controller('SearchQueryCtrl', [
       selectedOption: pfDefPerm,
       onSelect: updatePermissionsChips,
       onChargeable: chargeableChange,
-      chargeable: toNonFreeString(ctrl.filter.nonFree || $stateParams.nonFree) === "true",
+      chargeable: toNonFreeString(ctrl.filter.nonFree) === "true",
       query: ctrl.filter.query
     };
 
     // Keep the React permissions-filter's props in sync with the underlying
     // model (e.g. after a reset via onLogoClick or the back button), for the
     // same reason as ctrl.sortProps above: react2angular's one-way binding
-    // only re-renders on a *new* object reference.
+    // only re-renders on a *new* object reference. Deliberately not wrapped in
+    // onValChange: the first pass must run too, or props built above can be
+    // left permanently stale by anything that touches ctrl.filter before it.
     $scope.$watch(
       () => `${ctrl.filter.nonFree}||${ctrl.filter.query}`,
-      onValChange(() => {
+      () => {
         ctrl.permissionsProps = {
           ...ctrl.permissionsProps,
           chargeable: toNonFreeString(ctrl.filter.nonFree) === "true",
           query: ctrl.filter.query
         };
-      })
+      }
     );
     //-end permissions filter-
 
@@ -565,8 +561,8 @@ query.controller('SearchQueryCtrl', [
     function valOrUndefined(str) { return str ? str : undefined; }
 
     function setAndWatchParam(key) {
-      //this value has been set on ctrl.order
-      if (key !== 'orderBy') {
+      //this value has been set on ctrl.order, and nonFree by initialNonFree()
+      if (key !== 'orderBy' && key !== 'nonFree') {
         ctrl.filter[key] = valOrUndefined($stateParams[key]);
       }
 
@@ -577,9 +573,9 @@ query.controller('SearchQueryCtrl', [
         // FIXME: broken for 'your uploads'
         // FIXME: + they triggers filter $watch and $state.go (breaks history)
         if (key !== 'orderBy') {
-          // For nonFree, ensure boolean true from URL decode is normalised to string 'true'
-          const val = valOrUndefined(newVal);
-          ctrl.filter[key] = (key === 'nonFree' && val !== undefined) ? toNonFreeString(val) : val;
+          ctrl.filter[key] = key === 'nonFree'
+            ? nonFreeFromParam(newVal)
+            : valOrUndefined(newVal);
         } else {
           ctrl.ordering.orderBy = valOrUndefined(newVal);
         }
@@ -709,13 +705,13 @@ query.controller('SearchQueryCtrl', [
       //-default non free-
       const defNonFree = session.user.permissions ? session.user.permissions.showPaid : undefined;
       storage.setJs("defaultIsNonFree", toNonFreeString(defNonFree), true);
-      if (!ctrl.initialShowPaidEvent && toNonFreeString(defNonFree) === 'true') {
-        ctrl.initialShowPaidEvent = true;
-        raisePayableImagesEvent(defNonFree);
-      }
 
-      // If nonFree is provided in URL params, use that; otherwise use stored value
-      if ($stateParams.nonFree !== undefined) {
+      // If nonFree is provided in URL params use that, otherwise the stored
+      // preference, falling back to the user's showPaid permission on first login.
+      if (ctrl.usePermissionsFilter && !hasNonFreePreference) {
+        ctrl.filter.nonFree = toNonFreeString(defNonFree);
+        storage.setJs("isNonFree", ctrl.filter.nonFree, true);
+      } else if ($stateParams.nonFree !== undefined) {
         ctrl.filter.nonFree = toNonFreeString($stateParams.nonFree);
         storage.setJs("isNonFree", ctrl.filter.nonFree, true);
       } else {
