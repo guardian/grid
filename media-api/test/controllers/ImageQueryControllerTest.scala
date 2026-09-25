@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal,
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
-import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
+import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -463,6 +463,126 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       result.header.status shouldBe 503
       (jsonOf(result) \ "errorKey").as[String] shouldBe "sort-profile-incomplete"
+    }
+  }
+
+  private case class KeysHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[ImageKeysParams])
+
+  private def keysHarness(
+    principal: Principal,
+    privileged: Boolean = false,
+    result: Future[ImageKeysRawResults] = Future.successful(ImageKeysRawResults(ImageKeysResult(Nil, None), None)),
+  ): KeysHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[ImageKeysParams]()
+    when(search.imageKeys(any[ImageKeysParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[ImageKeysParams](0))
+      result
+    }
+    KeysHarness(imageQueryControllerFor(principal, search, mock[ImageResponse], privileged), search, captured.future)
+  }
+
+  private def keysRequest(body: JsObject) = FakeRequest("POST", "/images/keys").withBody(body)
+
+  describe("keys admission") {
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")))
+
+    Seq(ordinaryUser, otherUser).foreach { principal =>
+      it(s"scopes is:deleted to the uploader ${principal.firstName} ${principal.lastName}, as D3 does") {
+        val harness = keysHarness(principal)
+        val request = keysRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> "someone-else@example.test"))
+
+        harness.controller.imageKeys().apply(request).futureValue.header.status shouldBe 200
+        harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(principal.email)
+      }
+    }
+
+    it("preserves a privileged user's requested uploader") {
+      val harness = keysHarness(ordinaryUser, privileged = true)
+      val request = keysRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> otherUser.email))
+
+      harness.controller.imageKeys().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(otherUser.email)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = keysHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.imageKeys().apply(keysRequest(body)).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq("reverse" -> Json.obj("reverse" -> true), "seekToEnd" -> Json.obj("seekToEnd" -> true),
+      "size" -> Json.obj("size" -> "10"), "size" -> Json.obj("size" -> 2.5)).foreach { case (field, invalid) =>
+      it(s"refuses $invalid before reaching Elasticsearch") {
+        val harness = keysHarness(ordinaryUser)
+        val result = harness.controller.imageKeys().apply(keysRequest(body ++ invalid)).futureValue
+
+        result.header.status shouldBe 400
+        (jsonOf(result) \ "errorMessage").as[String] should include(field)
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    it("validates length exactly as D3 and window do, although key pages size themselves") {
+      val harness = keysHarness(ordinaryUser)
+
+      harness.controller.imageKeys().apply(keysRequest(body ++ Json.obj("length" -> 201))).futureValue.header.status shouldBe 422
+      verifyNoInteractions(harness.search)
+    }
+
+    it("passes sort, a null-zone start tuple, the page size and PIT to Elasticsearch") {
+      val harness = keysHarness(ordinaryUser)
+      val nullZoneTuple = Json.arr(JsNull, 1700000000000L, "an-id")
+      val request = keysRequest(body ++ Json.obj("sortValues" -> nullZoneTuple, "size" -> 1000, "pitId" -> "a-pit",
+        "reverse" -> false, "seekToEnd" -> false))
+
+      harness.controller.imageKeys().apply(request).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.sort shouldBe Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      params.sortValues shouldBe Some(nullZoneTuple.value.toSeq)
+      params.size shouldBe 1000
+      params.pitId shouldBe Some("a-pit")
+    }
+
+    it("defaults to the first and largest page without a PIT") {
+      val harness = keysHarness(ordinaryUser)
+
+      harness.controller.imageKeys().apply(keysRequest(body ++ Json.obj("size" -> JsNull))).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.sortValues shouldBe None
+      params.size shouldBe ImageKeysParams.MaxSize
+      params.pitId shouldBe None
+    }
+  }
+
+  describe("keys response") {
+    val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")))
+    val tuple = Seq[JsValue](JsNumber(1700000000000L), JsString("an-id"))
+
+    it("reports the keys, the continuation and a PIT when one is returned") {
+      val harness = keysHarness(ordinaryUser,
+        result = Future.successful(ImageKeysRawResults(ImageKeysResult(Seq(ImageKey("an-id", tuple)), Some(tuple)), Some("refreshed-pit"))))
+
+      jsonOf(harness.controller.imageKeys().apply(keysRequest(body)).futureValue) shouldBe Json.obj(
+        "keys" -> Json.arr(Json.obj("id" -> "an-id", "sortValues" -> tuple)), "after" -> tuple, "pitId" -> "refreshed-pit")
+    }
+
+    it("reports a null continuation at the end and omits pitId without a PIT") {
+      val harness = keysHarness(ordinaryUser)
+
+      jsonOf(harness.controller.imageKeys().apply(keysRequest(body)).futureValue) shouldBe
+        Json.obj("keys" -> Json.arr(), "after" -> JsNull)
+    }
+
+    it("responds 503 rather than publishing an incomplete page") {
+      val harness = keysHarness(ordinaryUser, result = Future.failed(ImageKeysIncomplete))
+      val result = harness.controller.imageKeys().apply(keysRequest(body)).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "keys-incomplete"
     }
   }
 }

@@ -213,6 +213,60 @@ object ImageRankParamsBody {
       pitId        = (body \ "pitId").asOpt[String],
     )
 }
+// Params for POST /images/keys: one source-free page of ordered image keys after an optional tuple.
+case class ImageKeysParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  sortValues:   Option[Seq[JsValue]],
+  size:         Int,
+  pitId:        Option[String],
+)
+
+object ImageKeysParams {
+  val MaxSize = 10000
+}
+
+case class ImageKey(id: String, sortValues: Seq[JsValue])
+
+object ImageKey {
+  implicit val jsonWrites: OWrites[ImageKey] = Json.writes[ImageKey]
+}
+
+// after is the tuple to continue from; absent once a page came back shorter than its size.
+case class ImageKeysResult(keys: Seq[ImageKey], after: Option[Seq[JsValue]])
+
+case class ImageKeysRawResults(result: ImageKeysResult, pitId: Option[String])
+
+case object ImageKeysIncomplete extends Exception("The key page did not complete on every shard")
+
+object ImageKeysParamsBody {
+  // Keys follow the sort's own order; a reversed or end-anchored order would change what "after" means.
+  private def refuseOrderingField(body: JsValue): Option[String] =
+    Seq("reverse", "seekToEnd")
+      .find(field => (body \ field).asOpt[Boolean].contains(true))
+      .map(field => s"$field is unsupported by key pages; they follow the sort's own order")
+
+  private def sizeFrom(body: JsValue): Either[String, Int] =
+    (body \ "size").toOption.filter(_ != JsNull) match {
+      case None                                        => scala.util.Right(ImageKeysParams.MaxSize)
+      case Some(JsNumber(number)) if number.isValidInt => scala.util.Right(number.toInt)
+      case Some(_)                                     => scala.util.Left("size must be an integer when present")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageKeysParams] =
+    for {
+      _          <- refuseOrderingField(body).toLeft(())
+      sort       <- SortClauseBody.fromJson(body)
+      sortValues <- SortValuesBody.fromJson(body)
+      size       <- sizeFrom(body)
+    } yield ImageKeysParams(
+      searchParams = searchParams,
+      sort         = sort,
+      sortValues   = sortValues,
+      size         = size,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
 // Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
 sealed trait SortProfileOperation
 case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation

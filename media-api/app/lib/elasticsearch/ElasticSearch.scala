@@ -1078,6 +1078,53 @@ class ElasticSearch(
       throw incomplete
     }
 
+  def imageKeys(params: ImageKeysParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageKeysRawResults] =
+    try imageKeysQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageKeysQuery(params: ImageKeysParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageKeysRawResults] =
+    executeAndLog(imageKeysRequest(params), "image-keys", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageKeysRawResults(
+        result = readImageKeys(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // A valued page runs on into the null tail, and a null-primary tuple continues inside it, as in D3.
+  private def keysRead(params: ImageKeysParams): CursorRead = {
+    if (params.size < 1 || params.size > ImageKeysParams.MaxSize)
+      throw InvalidUriParams(s"key page size must be between 1 and ${ImageKeysParams.MaxSize}, got ${params.size}")
+    if (params.searchParams.offset != 0)
+      throw InvalidUriParams("offset is unsupported by key pages; use sortValues instead")
+
+    val sortClause = admitNullsLastSortClause(params.sort, "keys")
+    cursorRead(sortClause, sortClause, params.sortValues)
+  }
+
+  private[elasticsearch] def imageKeysRequest(params: ImageKeysParams): SearchRequest = {
+    val cursor = keysRead(params)
+    val page = admittedSearch(params.searchParams, params.pitId, cursor.filter)
+      .size(params.size)
+      .sortBy(cursor.sortClause)
+      .fetchSource(false)
+      .trackTotalHits(false)
+    cursor.searchAfter.fold(page)(sv => page.searchAfter(sv.map(jsValueToAny)))
+  }
+
+  private[elasticsearch] def readImageKeys(params: ImageKeysParams, result: SearchResponse)
+                                          (implicit logMarker: LogMarker): ImageKeysResult = {
+    requireCompleteExecution(result, ImageKeysIncomplete, "key page")
+    val cursor = keysRead(params)
+    val hits = result.hits.hits.toSeq
+    val tuples = cursor.publish(hits.map(publicTuple(_, cursor.sortClause.length)))
+    ImageKeysResult(
+      keys  = hits.map(_.id).zip(tuples).map { case (id, tuple) => ImageKey(id, tuple) },
+      after = if (hits.size < params.size) None else tuples.lastOption,
+    )
+  }
+
   def sortProfile(params: SortProfileParams)
                  (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
     try sortProfileQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }

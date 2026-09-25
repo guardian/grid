@@ -1358,6 +1358,256 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       }
     }
 
+    describe("keys") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val internal = SearchParams(tier = Internal)
+      val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+
+      def keysFixture(id: String, takenDay: Option[Int], uploadHour: Int, credit: Option[String], width: Int,
+                      collectionDays: Seq[Int], usageDays: Seq[Int], modifiedDay: Option[Int], editStatus: Option[String]): Image = {
+        val image = createImage(id, Handout(), usages = usageDays.map(day => createDigitalUsage(t0.plusDays(day))).toList,
+          fileMetadata = Some(FileMetadata(iptc = editStatus.map(status => Map("Edit Status" -> status)).getOrElse(Map.empty))))
+        image.copy(
+          uploadTime   = t0.plusHours(uploadHour),
+          lastModified = modifiedDay.map(day => t0.plusDays(day)),
+          metadata     = image.metadata.copy(dateTaken = takenDay.map(day => t0.plusDays(day)), credit = credit),
+          source       = image.source.copy(dimensions = Some(Dimensions(width = width, height = 600))),
+          collections  = collectionDays.map(day => Collection.build(List(s"keys-$day"), ActionData("keys-test", t0.plusDays(day)))).toList,
+        )
+      }
+      // Ties on every primary and on uploadTime within them, and a missing value for each nullable primary;
+      // b and g have several usages/collections, so their max-mode position differs from their smallest value.
+      val keysFixtures = Seq(
+        keysFixture("keys-a", Some(3), 1, Some("AAP"),     800,  Seq(4),    Seq(5),    Some(2), Some("Original")),
+        keysFixture("keys-b", Some(3), 1, Some("AAP"),     800,  Seq(2, 9), Seq(2, 9), Some(2), Some("Corrected")),
+        keysFixture("keys-c", Some(1), 2, None,            1200, Nil,       Nil,       None,    None),
+        keysFixture("keys-d", None,    1, Some("Reuters"), 800,  Seq(4),    Seq(5),    Some(6), Some("Original")),
+        keysFixture("keys-e", None,    3, None,            400,  Nil,       Nil,       None,    None),
+        keysFixture("keys-f", Some(7), 2, Some("Reuters"), 1200, Seq(9),    Seq(9),    Some(1), Some("Corrected")),
+        keysFixture("keys-g", Some(1), 3, Some("AAP"),     400,  Seq(1, 3), Nil,       Some(6), None),
+        keysFixture("keys-h", None,    2, Some("Getty"),   800,  Nil,       Nil,       None,    Some("Original")),
+        keysFixture("keys-i", Some(3), 3, Some("Getty"),   1200, Seq(2),    Seq(2),    Some(1), None),
+      )
+      val keysScope = internal.copy(ids = Some(keysFixtures.map(_.id).toList))
+
+      val id = Json.obj("id" -> "asc")
+      def plain(field: String, order: String) = Json.obj(field -> order)
+      def selectedMax(field: String, order: String, nestedPath: Option[String]) =
+        Json.obj(field -> (Json.obj("order" -> order, "mode" -> "max", "missing" -> "_last") ++
+          nestedPath.fold(Json.obj())(path => Json.obj("nested" -> Json.obj("path" -> path)))))
+      val newestFirst = Seq(plain("uploadTime", "desc"), id)
+      val editStatus = "fileMetadata.iptc.Edit Status"
+
+      val supportedSorts = Seq(
+        "newest"                         -> newestFirst,
+        "oldest"                         -> Seq(plain("uploadTime", "asc"), id),
+        "taken descending"               -> Seq(plain("metadata.dateTaken", "desc"), plain("uploadTime", "desc"), id),
+        "taken ascending"                -> Seq(plain("metadata.dateTaken", "asc"), plain("uploadTime", "asc"), id),
+        "modified descending"            -> Seq(plain("lastModified", "desc"), plain("uploadTime", "desc"), id),
+        "modified ascending"             -> Seq(plain("lastModified", "asc"), plain("uploadTime", "asc"), id),
+        "last used descending"           -> Seq(selectedMax("usages.dateAdded", "desc", Some("usages")), plain("uploadTime", "desc"), id),
+        "last used ascending"            -> Seq(selectedMax("usages.dateAdded", "asc", Some("usages")), plain("uploadTime", "asc"), id),
+        "added to collection descending" -> Seq(selectedMax("collections.actionData.date", "desc", None), plain("uploadTime", "desc"), id),
+        "added to collection ascending"  -> Seq(selectedMax("collections.actionData.date", "asc", None), plain("uploadTime", "asc"), id),
+        "credit ascending"               -> Seq(plain("metadata.credit", "asc"), plain("uploadTime", "desc"), id),
+        "credit descending"              -> Seq(plain("metadata.credit", "desc"), plain("uploadTime", "desc"), id),
+        "width descending"               -> Seq(plain("source.dimensions.width", "desc"), plain("uploadTime", "desc"), id),
+        "width ascending"                -> Seq(plain("source.dimensions.width", "asc"), plain("uploadTime", "desc"), id),
+        "configured alias ascending"     -> Seq(plain(editStatus, "asc"), plain("uploadTime", "desc"), id),
+        "configured alias descending"    -> Seq(plain(editStatus, "desc"), plain("uploadTime", "desc"), id),
+      )
+      val alwaysValuedPrimary = Set("newest", "oldest", "width descending", "width ascending")
+
+      def keys(searchParams: SearchParams, sort: Seq[JsObject], sortValues: Option[Seq[JsValue]], size: Int,
+               pitId: Option[String] = None): ImageKeysRawResults =
+        Await.result(ES.imageKeys(ImageKeysParams(searchParams, sort, sortValues, size, pitId)), fiveSeconds)
+
+      def pairs(page: ImageKeysRawResults): Seq[(String, Seq[JsValue])] = page.result.keys.map(key => key.id -> key.sortValues)
+
+      // Each page's after is the next page's start.
+      def keysWalk(searchParams: SearchParams, sort: Seq[JsObject], size: Int, pitId: Option[String] = None): Seq[(String, Seq[JsValue])] = {
+        def walk(start: Option[Seq[JsValue]], acc: Seq[(String, Seq[JsValue])], pages: Int): Seq[(String, Seq[JsValue])] = {
+          val page = keys(searchParams, sort, start, size, pitId)
+          page.result.after match {
+            case Some(next) if pages < 50 => walk(Some(next), acc ++ pairs(page), pages + 1)
+            case _                        => acc ++ pairs(page)
+          }
+        }
+        walk(None, Seq.empty, 0)
+      }
+
+      def windowTuples(searchParams: SearchParams, sort: Seq[JsObject]): Seq[(String, Seq[JsValue])] = {
+        val page = Await.result(ES.imageWindow(ImageWindowParams(searchParams.copy(offset = 0, length = 100), sort, None)), fiveSeconds)
+        page.hits.map(_._1).zip(page.sortValues)
+      }
+
+      def refusalOf(params: ImageKeysParams): String =
+        whenReady(ES.imageKeys(params).failed, timeout, interval) { ex =>
+          ex shouldBe an[InvalidUriParams]
+          ex.asInstanceOf[InvalidUriParams].message
+        }
+
+      def statusAndJson(response: Future[Result]): (Int, JsValue) = whenReady(response, timeout, interval) { result =>
+        (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+      }
+
+      supportedSorts.foreach { case (name, sort) =>
+        it(s"walks exactly the window's positions, ids and tuples, into the null zone: $name") {
+          withImages(keysFixtures) { _ =>
+            val positioned = windowTuples(keysScope, sort)
+            positioned.map(_._1) should contain theSameElementsAs keysFixtures.map(_.id)
+            positioned.exists(_._2.head == JsNull) shouldBe !alwaysValuedPrimary(name)
+
+            Seq(2, keysFixtures.size, 100).foreach { size =>
+              withClue(s"page size $size: ") { keysWalk(keysScope, sort, size) shouldBe positioned }
+            }
+            positioned.indices.foreach { k =>
+              withClue(s"after position $k (${positioned(k)._2}): ") {
+                pairs(keys(keysScope, sort, Some(positioned(k)._2), 3)) shouldBe positioned.slice(k + 1, k + 4)
+              }
+            }
+          }
+        }
+      }
+
+      it("continues after a full page and reports no continuation once a page runs short") {
+        withImages(keysFixtures) { _ =>
+          val full = keys(keysScope, newestFirst, None, keysFixtures.size)
+          full.result.keys should have size keysFixtures.size.toLong
+          full.result.after shouldBe Some(full.result.keys.last.sortValues)
+
+          val beyond = keys(keysScope, newestFirst, full.result.after, keysFixtures.size)
+          beyond.result.keys shouldBe empty
+          beyond.result.after shouldBe None
+
+          keys(keysScope, newestFirst, None, keysFixtures.size + 1).result.after shouldBe None
+        }
+      }
+
+      // missing defaults to _last; omitting it must keep the walk equal to the window, null tail included.
+      it("agrees with the window when a clause omits missing") {
+        withImages(keysFixtures) { _ =>
+          val sort = Seq(Json.obj("metadata.dateTaken" -> Json.obj("order" -> "asc")), plain("uploadTime", "asc"), id)
+          val positioned = windowTuples(keysScope, sort)
+          positioned.exists(_._2.head == JsNull) shouldBe true
+          keysWalk(keysScope, sort, 2) shouldBe positioned
+        }
+      }
+
+      it("reads source-free keys through one _search page of the requested size, without counting a total") {
+        val body = Json.parse(SearchBodyBuilderFn(ES.imageKeysRequest(
+          ImageKeysParams(internal, newestFirst, None, ImageKeysParams.MaxSize, None))).string)
+        (body \ "size").as[Int] shouldBe 10000
+        (body \ "_source").as[Boolean] shouldBe false
+        (body \ "track_total_hits").as[Boolean] shouldBe false
+        (body \ "sort").as[Seq[JsValue]] should have size 2
+        (body \ "search_after").toOption shouldBe None
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newestFirst, None, None)), fiveSeconds)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        pairs(keys(syndication, newestFirst, None, ImageKeysParams.MaxSize)) shouldBe viaD3.hits.map(_._1).zip(viaD3.sortValues)
+        keys(internal, newestFirst, None, ImageKeysParams.MaxSize).result.keys should have size expectedNumberOfImages.toLong
+      }
+
+      it("reads within the same deleted scope as D3, for ordinary and privileged callers") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"keys-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          val body = base ++ Json.obj("q" -> "is:deleted", "sort" -> newestFirst)
+          Seq((uploader, false, Set("keys-deleted-Uploader")), (otherUploader, false, Set("keys-deleted-Other")),
+            (uploader, true, deleted.map(_.id).toSet)).foreach { case (principal, privileged, expected) =>
+            val controller = imageQueryControllerFor(principal, ES, writer, privileged)
+            val (_, d3) = statusAndJson(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after").withBody(body)))
+            val (status, keyed) = statusAndJson(controller.imageKeys().apply(FakeRequest("POST", "/images/keys").withBody(body)))
+
+            status shouldBe 200
+            val keyedIds = (keyed \ "keys").as[Seq[JsValue]].map(key => (key \ "id").as[String]).toSet
+            keyedIds shouldBe (d3 \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String]).toSet
+            keyedIds shouldBe expected
+          }
+        }
+      }
+
+      it("walks identically under a PIT without leaking _shard_doc into tuples, and returns the PIT") {
+        withImages(keysFixtures) { _ =>
+          val sort = supportedSorts.toMap.apply("last used ascending")
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+
+          keysWalk(keysScope, sort, 2, Some(pitId)) shouldBe windowTuples(keysScope, sort)
+          keys(keysScope, sort, None, 2, Some(pitId)).pitId shouldBe defined
+        }
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val response = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+          result <- controller.imageKeys().apply(FakeRequest("POST", "/images/keys")
+            .withBody(Json.obj("sort" -> newestFirst, "pitId" -> opened.result.id)))
+        } yield result
+
+        val (status, json) = statusAndJson(response)
+        status shouldBe 410
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+
+      val afterEverything = Some(Seq[JsValue](JsNumber(0), JsString("")))
+      val multiClause = Seq(plain("metadata.credit", "asc"), plain(editStatus, "desc"), plain("uploadTime", "desc"), id)
+      Seq(
+        "a page size of zero" -> ImageKeysParams(internal, newestFirst, None, 0, None) -> "size",
+        "a page size above 10,000" -> ImageKeysParams(internal, newestFirst, None, 10001, None) -> "size",
+        "a non-zero offset" -> ImageKeysParams(internal.copy(offset = 1), newestFirst, None, 10, None) -> "offset",
+        "a tuple shorter than the sort" -> ImageKeysParams(internal, newestFirst, Some(Seq(JsNumber(0))), 10, None) -> "length",
+        "a null outside the primary slot" -> ImageKeysParams(internal, multiClause,
+          Some(Seq(JsString("AAP"), JsNull, JsNumber(0), JsString("x"))), 10, None) -> "null",
+        "nulls sorting first" -> ImageKeysParams(internal,
+          Seq(Json.obj("metadata.dateTaken" -> Json.obj("order" -> "desc", "missing" -> "_first")), id), None, 10, None) -> "missing",
+        "a mode other than max" -> ImageKeysParams(internal, Seq(Json.obj("usages.dateAdded" -> Json.obj("order" -> "desc",
+          "mode" -> "min", "nested" -> Json.obj("path" -> "usages"))), id), None, 10, None) -> "mode",
+        "an explicit _shard_doc" -> ImageKeysParams(internal, Seq(plain("uploadTime", "desc"), Json.obj("_shard_doc" -> "asc")),
+          None, 10, None) -> "_shard_doc",
+        "an empty sort" -> ImageKeysParams(internal, Nil, None, 10, None) -> "sort",
+        "more than ten sort clauses" -> ImageKeysParams(internal, (1 to 10).map(n => plain(s"field$n", "asc")) :+ id,
+          None, 10, None) -> "at most 10",
+      ).foreach { case ((what, params), mentioned) =>
+        it(s"refuses $what") {
+          refusalOf(params) should include(mentioned)
+        }
+      }
+
+      it("responds 422 to a page size above 10,000") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val (status, _) = statusAndJson(controller.imageKeys().apply(FakeRequest("POST", "/images/keys")
+          .withBody(Json.obj("sort" -> newestFirst, "size" -> 10001))))
+        status shouldBe 422
+      }
+
+      describe("completeness") {
+        val params = ImageKeysParams(internal, newestFirst, afterEverything, 10, None)
+        def response(timedOut: Boolean, failedShards: Int) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+            SearchHits(Total(0L, "eq"), 0.0, Array.empty))
+
+        it("reads an empty page as the end when every shard completed in time") {
+          ES.readImageKeys(params, response(timedOut = false, failedShards = 0)) shouldBe ImageKeysResult(Nil, None)
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
+          it(s"refuses to publish a page when $reason") {
+            the[Exception] thrownBy ES.readImageKeys(params, incomplete) shouldBe ImageKeysIncomplete
+          }
+        }
+      }
+    }
+
     describe("shared sort admission") {
       implicit val logMarker: LogMarker = MarkerMap()
       val internal = SearchParams(tier = Internal, length = 1)
@@ -1374,6 +1624,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         "window"       -> (sort => ES.imageWindow(ImageWindowParams(internal, sort, None))),
         "rank"         -> (sort => ES.imageRank(ImageRankParams(internal, sort, Seq.fill[JsValue](sort.length)(JsNumber(0)), None))),
         "sort profile" -> (sort => ES.sortProfile(SortProfileParams(internal, sort, DateStats("uploadTime", None), None))),
+        "keys"         -> (sort => ES.imageKeys(ImageKeysParams(internal, sort, None, 10, None))),
       )
 
       val malformed: Seq[((String, Seq[JsObject]), String)] = Seq(
@@ -1402,6 +1653,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         val nullZoneStart = Some(Seq[JsValue](JsNull, JsNumber(0), JsString("x")))
         Seq(
           ES.searchAfter(SearchAfterParams(internal, withoutPath, nullZoneStart, None)),
+          ES.imageKeys(ImageKeysParams(internal, withoutPath, nullZoneStart, 10, None)),
         ).foreach { read =>
           whenReady(read.failed, timeout, interval)(_.asInstanceOf[InvalidUriParams].message should include("nested"))
         }
