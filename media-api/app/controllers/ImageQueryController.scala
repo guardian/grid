@@ -1,6 +1,7 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.model.CollectionResponse.extraCountWrites
 import com.gu.mediaservice.lib.argo.model.EmbeddedEntity
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -33,6 +34,7 @@ class ImageQueryController(
   private def RankIncompleteResponse = respondError(ServiceUnavailable, "rank-incomplete", ImageRankIncomplete.getMessage)
   private def SortProfileIncompleteResponse = respondError(ServiceUnavailable, "sort-profile-incomplete", SortProfileIncomplete.getMessage)
   private def KeysIncompleteResponse = respondError(ServiceUnavailable, "keys-incomplete", ImageKeysIncomplete.getMessage)
+  private def CountIncompleteResponse = respondError(ServiceUnavailable, "count-incomplete", ImageCountIncomplete.getMessage)
   private def InvalidParamsResponse(message: String) = respondError(BadRequest, "invalid-params", message)
 
   private val readFailureResponses: PartialFunction[Throwable, Result] = {
@@ -164,6 +166,23 @@ class ImageQueryController(
           val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
           Ok(Json.obj("keys" -> raw.result.keys, "after" -> raw.result.after) ++ pit).as(ArgoMediaType)
         }.recover(readFailureResponses.orElse { case ImageKeysIncomplete => KeysIncompleteResponse })
+      )
+    }
+  }
+
+  def countImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-count",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    admitSearchParams(request) { validParams =>
+      ImageCountParamsBody.fromJson(request.body, validParams).fold(
+        err => Future.successful(InvalidParamsResponse(err)),
+        params => elasticSearch.imageCount(params).map { raw =>
+          val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
+          Ok(Json.obj("total" -> raw.total, "tickerCounts" -> raw.tickerCounts) ++ pit).as(ArgoMediaType)
+        }.recover(readFailureResponses.orElse { case ImageCountIncomplete => CountIncompleteResponse })
       )
     }
   }

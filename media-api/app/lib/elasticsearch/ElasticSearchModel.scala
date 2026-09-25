@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.argo.model.ExtraCounts
+import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCounts}
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
@@ -267,6 +267,27 @@ object ImageKeysParamsBody {
       pitId        = (body \ "pitId").asOpt[String],
     )
 }
+// Params for POST /images/count: the number of admitted images, with the configured ticker counts.
+case class ImageCountParams(searchParams: SearchParams, pitId: Option[String])
+
+case class ImageCountRawResults(total: Long, tickerCounts: Map[String, ExtraCount], pitId: Option[String])
+
+case object ImageCountIncomplete extends Exception("The image count did not complete on every shard")
+
+object ImageCountParamsBody {
+  // A count covers the whole admitted scope, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by counts; use rank to count the images before a tuple" }
+  }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageCountParams] =
+    refuseCursorField(body).toLeft(ImageCountParams(searchParams, pitId = (body \ "pitId").asOpt[String]))
+}
+
 // Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
 sealed trait SortProfileOperation
 case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation

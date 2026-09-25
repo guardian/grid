@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal,
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
-import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
+import com.gu.mediaservice.lib.argo.model.ExtraCount
+import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageCountIncomplete, ImageCountParams, ImageCountRawResults, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -583,6 +584,138 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       result.header.status shouldBe 503
       (jsonOf(result) \ "errorKey").as[String] shouldBe "keys-incomplete"
+    }
+  }
+
+  private case class CountHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[ImageCountParams])
+
+  private def countHarness(
+    principal: Principal,
+    privileged: Boolean = false,
+    result: Future[ImageCountRawResults] = Future.successful(ImageCountRawResults(0L, Map.empty, None)),
+  ): CountHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[ImageCountParams]()
+    when(search.imageCount(any[ImageCountParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[ImageCountParams](0))
+      result
+    }
+    CountHarness(imageQueryControllerFor(principal, search, mock[ImageResponse], privileged), search, captured.future)
+  }
+
+  private def countRequest(body: JsObject) = FakeRequest("POST", "/images/count").withBody(body)
+
+  describe("count admission") {
+    val body = Json.obj("q" -> "keyword:fixture")
+
+    Seq(ordinaryUser, otherUser).foreach { principal =>
+      it(s"scopes is:deleted to the uploader ${principal.firstName} ${principal.lastName}, as D3 does") {
+        val harness = countHarness(principal)
+        val request = countRequest(Json.obj("q" -> "is:deleted", "uploadedBy" -> "someone-else@example.test"))
+
+        harness.controller.countImages().apply(request).futureValue.header.status shouldBe 200
+        harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(principal.email)
+      }
+    }
+
+    it("preserves a privileged user's requested uploader") {
+      val harness = countHarness(ordinaryUser, privileged = true)
+      val request = countRequest(Json.obj("q" -> "is:deleted", "uploadedBy" -> otherUser.email))
+
+      harness.controller.countImages().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(otherUser.email)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = countHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.countImages().apply(countRequest(body)).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq(
+      "sortValues" -> Json.obj("sortValues" -> Json.arr(1700000000000L, "an-id")),
+      "reverse" -> Json.obj("reverse" -> true),
+      "seekToEnd" -> Json.obj("seekToEnd" -> true),
+    ).foreach { case (field, cursorField) =>
+      it(s"refuses the cursor field $field before reaching Elasticsearch") {
+        val harness = countHarness(ordinaryUser)
+        val result = harness.controller.countImages().apply(countRequest(body ++ cursorField)).futureValue
+
+        result.header.status shouldBe 400
+        (jsonOf(result) \ "errorMessage").as[String] should include(field)
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    it("accepts the default values of cursor fields and ignores a sort") {
+      val harness = countHarness(ordinaryUser)
+      val request = countRequest(body ++ Json.obj("sortValues" -> JsNull, "reverse" -> false, "seekToEnd" -> false,
+        "sort" -> Json.arr(Json.obj("uploadTime" -> "desc"))))
+
+      harness.controller.countImages().apply(request).futureValue.header.status shouldBe 200
+    }
+
+    it("validates length exactly as D3 and window do, although a count does not use it") {
+      val harness = countHarness(ordinaryUser)
+
+      harness.controller.countImages().apply(countRequest(body ++ Json.obj("length" -> 201))).futureValue.header.status shouldBe 422
+      verifyNoInteractions(harness.search)
+    }
+
+    it("passes the query scope and PIT to Elasticsearch") {
+      val harness = countHarness(ordinaryUser)
+      val request = countRequest(body ++ Json.obj("since" -> "2020-06-15T00:00:00.000Z", "pitId" -> "a-pit"))
+
+      harness.controller.countImages().apply(request).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.searchParams.query shouldBe Some("keyword:fixture")
+      params.searchParams.since.map(_.getMillis) shouldBe Some(1592179200000L)
+      params.pitId shouldBe Some("a-pit")
+    }
+
+    it("passes no PIT when none is sent") {
+      val harness = countHarness(ordinaryUser)
+
+      harness.controller.countImages().apply(countRequest(Json.obj())).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.pitId shouldBe None
+    }
+  }
+
+  describe("count response") {
+    val tickers = Map(
+      "owned" -> ExtraCount(7L, "is:owned", "#005689"),
+      "picks" -> ExtraCount(3L, "is:picks", "#7d0068", Some(Map("ACME" -> 2L, "other" -> 1L))),
+    )
+
+    it("reports the total, each ticker as Grid writes it, and a PIT when one is returned") {
+      val harness = countHarness(ordinaryUser, result = Future.successful(ImageCountRawResults(1234L, tickers, Some("refreshed-pit"))))
+
+      jsonOf(harness.controller.countImages().apply(countRequest(Json.obj())).futureValue) shouldBe Json.obj(
+        "total" -> 1234L,
+        "tickerCounts" -> Json.obj(
+          "owned" -> Json.obj("value" -> 7L, "searchClause" -> "is:owned", "backgroundColour" -> "#005689"),
+          "picks" -> Json.obj("value" -> 3L, "searchClause" -> "is:picks", "backgroundColour" -> "#7d0068",
+            "subCounts" -> Json.obj("ACME" -> 2L, "other" -> 1L)),
+        ),
+        "pitId" -> "refreshed-pit")
+    }
+
+    it("reports empty ticker counts and omits pitId without tickers or a PIT") {
+      val harness = countHarness(ordinaryUser)
+
+      jsonOf(harness.controller.countImages().apply(countRequest(Json.obj())).futureValue) shouldBe
+        Json.obj("total" -> 0L, "tickerCounts" -> Json.obj())
+    }
+
+    it("responds 503 rather than publishing an incomplete count") {
+      val harness = countHarness(ordinaryUser, result = Future.failed(ImageCountIncomplete))
+      val result = harness.controller.countImages().apply(countRequest(Json.obj())).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "count-incomplete"
     }
   }
 }

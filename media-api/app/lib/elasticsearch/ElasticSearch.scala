@@ -1125,6 +1125,31 @@ class ElasticSearch(
     )
   }
 
+  def imageCount(params: ImageCountParams)
+                (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageCountRawResults] =
+    executeAndLog(imageCountRequest(params), "image-count", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      val (total, tickerCounts) = readImageCount(r.result)
+      ImageCountRawResults(
+        total        = total,
+        tickerCounts = tickerCounts,
+        pitId        = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // The same ticker aggregations as search(), over the admitted scope.
+  private[elasticsearch] def imageCountRequest(params: ImageCountParams): SearchRequest =
+    admittedSearch(params.searchParams, params.pitId)
+      .size(0)
+      .trackTotalHits(true)
+      .aggregations(extraCountAggregations)
+
+  private[elasticsearch] def readImageCount(result: SearchResponse)
+                                           (implicit logMarker: LogMarker): (Long, Map[String, ExtraCount]) = {
+    requireCompleteExecution(result, ImageCountIncomplete, "image count")
+    (result.totalHits, extraCountsFrom(result.aggregations).tickerCounts)
+  }
+
   def sortProfile(params: SortProfileParams)
                  (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
     try sortProfileQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }

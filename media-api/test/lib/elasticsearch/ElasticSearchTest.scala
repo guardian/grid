@@ -26,7 +26,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.http.HttpEntity
-import play.api.libs.json.{JsNull, JsNumber, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsLookupResult, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
 import play.api.mvc.{AnyContent, Result}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.test.FakeRequest
@@ -939,13 +939,14 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           case "/images/rank"         => reader.rankImages().apply(request)
           case "/images/sort-profile" => reader.sortProfile().apply(request)
           case "/images/keys"         => reader.imageKeys().apply(request)
+          case "/images/count"        => reader.countImages().apply(request)
           case other                  => fail(s"no ordered read at $other")
         }
       }
 
       it("cover every ordered-read endpoint") {
         recordings.flatMap(calls).map(call => (call \ "path").as[String]).toSet shouldBe
-          Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys")
+          Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys", "/images/count")
       }
 
       recordings.foreach { file =>
@@ -1132,6 +1133,18 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             buckets.map(b => (b \ "key").as[JsValue]) shouldBe valued.map(_._2.head).distinct
             buckets.map(b => (b \ "count").as[Long]).sum shouldBe valued.size.toLong
             (json \ "coveredCount").as[Long] shouldBe valued.size.toLong
+          }
+        }
+
+        it("count: the length of a walk of the recorded scope, and a shorter one for the poll interval") {
+          withFixtures {
+            val sorted = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")))
+            val Seq(whole, poll) = Seq("count-tickers", "count-poll-since").map(name => bodyOf(recorded(name).head))
+            Seq(whole, poll).foreach { body =>
+              (body \ "sort").toOption shouldBe None
+              (respond("/images/count", body) \ "total").as[Long] shouldBe walk(body ++ sorted).size.toLong
+            }
+            walk(poll ++ sorted).size should be < walk(whole ++ sorted).size
           }
         }
 
@@ -1612,6 +1625,203 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
           it(s"refuses to publish a count when $reason") {
             the[Exception] thrownBy ES.completeCount(incomplete) shouldBe ImageRankIncomplete
+          }
+        }
+      }
+    }
+
+    describe("count") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val newestFirst = Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+      val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+
+      // Parsed rather than built from a Map, whose keys would split "metadata.description" into a path.
+      val agencyPicks = Configuration(com.typesafe.config.ConfigFactory.parseString(
+        """agencyPicks.ingredients { "metadata.description": ["count-pick"] }"""))
+      val tickersConfig = new MediaApiConfig(GridConfigResources(
+        agencyPicks.withFallback(Configuration.from(USED_CONFIGS_IN_TEST ++ Map(
+          "filters.shouldDisplayOrgOwnedCountAndFilterCheckbox" -> true,
+        ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap)),
+        null,
+        applicationLifecycle
+      ))
+      lazy val ESWithTickers = new ElasticSearch(tickersConfig, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler])
+
+      def countFixture(id: String, usageRights: UsageRights, uploadHour: Int, pick: Boolean): Image = {
+        val image = createImage(id, usageRights)
+        image.copy(uploadTime = t0.plusHours(uploadHour),
+          metadata = image.metadata.copy(description = if (pick) Some("count-pick") else None))
+      }
+      // Two owned images, three agency picks from two suppliers, one of each kind in the later hours.
+      val countFixtures = Seq(
+        countFixture("count-owned-early", staffPhotographer, 1, pick = false),
+        countFixture("count-pick-getty-early", Agency("Getty Images"), 2, pick = true),
+        countFixture("count-plain", Handout(), 3, pick = false),
+        countFixture("count-pick-getty-late", Agency("Getty Images"), 4, pick = true),
+        countFixture("count-owned-late", staffPhotographer, 5, pick = false),
+        countFixture("count-pick-reuters", Agency("Reuters"), 6, pick = true),
+      )
+
+      def statusAndJson(response: Future[Result]): (Int, JsValue) = whenReady(response, timeout, interval) { result =>
+        (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+      }
+      def countVia(search: ElasticSearch, body: JsObject, principal: Principal = uploader, privileged: Boolean = true): (Int, JsValue) =
+        statusAndJson(imageQueryControllerFor(principal, search, writer, privileged).countImages()
+          .apply(FakeRequest("POST", "/images/count").withBody(body)))
+      def d3Total(search: ElasticSearch, body: JsObject, principal: Principal = uploader, privileged: Boolean = true): Long = {
+        val (status, json) = statusAndJson(imageQueryControllerFor(principal, search, writer, privileged).searchAfterImages()
+          .apply(FakeRequest("POST", "/images/search-after").withBody(body ++ Json.obj("sort" -> newestFirst, "countAll" -> true))))
+        status shouldBe 200
+        (json \ "total").as[Long]
+      }
+      def ticker(json: JsValue, name: String): JsLookupResult = json \ "tickerCounts" \ name
+
+      it("counts exactly D3's total, with each ticker equal to D3's total under the ticker's own clause") {
+        withImages(countFixtures) { base =>
+          val (status, counted) = countVia(ESWithTickers, base)
+
+          status shouldBe 200
+          (counted \ "total").as[Long] shouldBe d3Total(ESWithTickers, base)
+          (counted \ "total").as[Long] shouldBe countFixtures.size.toLong
+          (counted \ "tickerCounts").as[JsObject].keys shouldBe Set("GNM-owned", "agency picks")
+          (ticker(counted, "GNM-owned") \ "value").as[Long] shouldBe d3Total(ESWithTickers, base ++ Json.obj("q" -> "is:GNM-owned"))
+          (ticker(counted, "GNM-owned") \ "value").as[Long] shouldBe 2L
+          (ticker(counted, "agency picks") \ "value").as[Long] shouldBe d3Total(ESWithTickers, base ++ Json.obj("q" -> "is:agency-pick"))
+          (ticker(counted, "agency picks") \ "value").as[Long] shouldBe 3L
+          (ticker(counted, "agency picks") \ "subCounts").as[Map[String, Long]] shouldBe
+            Map("Getty Images" -> 2L, "Reuters" -> 1L, "other" -> 0L)
+          (ticker(counted, "GNM-owned") \ "subCounts").toOption shouldBe None
+        }
+      }
+
+      it("reports the same total and tickers as GET /images for the same scope") {
+        withImages(countFixtures) { base =>
+          val (_, counted) = countVia(ESWithTickers, base)
+          val (getStatus, viaGet) = statusAndJson(mediaApiFor(uploader, ESWithTickers, writer, privileged = true).imageSearch()
+            .apply(getRequest("ids" -> countFixtures.map(_.id).mkString(","), "countAll" -> "true")))
+
+          getStatus shouldBe 200
+          (counted \ "total").as[Long] shouldBe (viaGet \ "total").as[Long]
+          (counted \ "tickerCounts").as[JsObject] shouldBe (viaGet \ "actions" \ "tickerCounts").as[JsObject]
+        }
+      }
+
+      it("counts only the interval after since, excluding an image uploaded exactly then, as D3 does") {
+        withImages(countFixtures) { base =>
+          val interval = base ++ Json.obj("since" -> t0.plusHours(3).toString)
+          val (_, counted) = countVia(ESWithTickers, interval)
+
+          (counted \ "total").as[Long] shouldBe d3Total(ESWithTickers, interval)
+          (counted \ "total").as[Long] shouldBe 3L
+          (ticker(counted, "GNM-owned") \ "value").as[Long] shouldBe 1L
+          (ticker(counted, "agency picks") \ "value").as[Long] shouldBe 2L
+          (ticker(counted, "agency picks") \ "subCounts").as[Map[String, Long]] shouldBe
+            Map("Getty Images" -> 1L, "Reuters" -> 1L, "other" -> 0L)
+        }
+      }
+
+      it("reports tickers with no matching images as zero, without sub-counts") {
+        withImages(countFixtures) { _ =>
+          val (_, counted) = countVia(ESWithTickers, Json.obj("ids" -> "count-plain"))
+
+          (counted \ "total").as[Long] shouldBe 1L
+          (ticker(counted, "GNM-owned") \ "value").as[Long] shouldBe 0L
+          (ticker(counted, "agency picks") \ "value").as[Long] shouldBe 0L
+          (ticker(counted, "agency picks") \ "subCounts").toOption shouldBe None
+        }
+      }
+
+      it("reports no tickers when none are configured, and still counts") {
+        withImages(countFixtures) { base =>
+          val (status, counted) = countVia(ES, base)
+
+          status shouldBe 200
+          (counted \ "total").as[Long] shouldBe countFixtures.size.toLong
+          (counted \ "tickerCounts").as[JsObject] shouldBe Json.obj()
+        }
+      }
+
+      it("counts the whole admitted scope when the body has no query fields") {
+        val (status, counted) = countVia(ES, Json.obj())
+
+        status shouldBe 200
+        (counted \ "total").as[Long] shouldBe d3Total(ES, Json.obj())
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newestFirst.as[Seq[JsObject]], None, None)), fiveSeconds)
+        val counted = Await.result(ES.imageCount(ImageCountParams(syndication, None)), fiveSeconds)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        counted.total shouldBe viaD3.total
+        Await.result(ES.imageCount(ImageCountParams(SearchParams(tier = Internal), None)), fiveSeconds).total shouldBe
+          expectedNumberOfImages.toLong
+      }
+
+      it("counts within the same deleted scope as D3, for ordinary and privileged callers") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"count-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          val body = base ++ Json.obj("q" -> "is:deleted")
+          Seq((uploader, false, 1L), (otherUploader, false, 1L), (uploader, true, 2L)).foreach { case (principal, privileged, expected) =>
+            val (status, counted) = countVia(ES, body, principal, privileged)
+
+            status shouldBe 200
+            (counted \ "total").as[Long] shouldBe d3Total(ES, body, principal, privileged)
+            (counted \ "total").as[Long] shouldBe expected
+          }
+        }
+      }
+
+      it("reads through a size-0 _search with an exact total and the ticker aggregations") {
+        val body = Json.parse(SearchBodyBuilderFn(ESWithTickers.imageCountRequest(ImageCountParams(SearchParams(tier = Internal), None))).string)
+        (body \ "size").as[Int] shouldBe 0
+        (body \ "track_total_hits").as[Boolean] shouldBe true
+        (body \ "aggs").as[JsObject].keys shouldBe Set("GNM-owned", "agency picks")
+      }
+
+      it("counts identically under a PIT and returns it") {
+        withImages(countFixtures) { base =>
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+          val (_, live) = countVia(ESWithTickers, base)
+          val (status, pinned) = countVia(ESWithTickers, base ++ Json.obj("pitId" -> pitId))
+
+          status shouldBe 200
+          pinned.as[JsObject] - "pitId" shouldBe live
+          (pinned \ "pitId").asOpt[String] shouldBe defined
+        }
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val response = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+          result <- controller.countImages().apply(FakeRequest("POST", "/images/count")
+            .withBody(Json.obj("pitId" -> opened.result.id)))
+        } yield result
+
+        val (status, json) = statusAndJson(response)
+        status shouldBe 410
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+
+      describe("completeness") {
+        def response(timedOut: Boolean, failedShards: Int) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+            SearchHits(Total(42L, "eq"), 0.0, Array.empty))
+
+        it("returns the exact total when every shard completed in time") {
+          ES.readImageCount(response(timedOut = false, failedShards = 0))._1 shouldBe 42L
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
+          it(s"refuses to publish a count when $reason") {
+            the[Exception] thrownBy ES.readImageCount(incomplete) shouldBe ImageCountIncomplete
           }
         }
       }
