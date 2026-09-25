@@ -1,7 +1,9 @@
 import com.gu.contentapi.client.ScheduledExecutor
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
-import controllers.UsageApi
+import controllers.{AssetsComponents, ImageTakedownController, UsageApi}
 import lib._
 import model._
 import play.api.ApplicationLoader.Context
@@ -9,7 +11,7 @@ import router.Routes
 
 import scala.concurrent.Future
 
-class UsageComponents(context: Context) extends GridComponents(context, new UsageConfig(_)) {
+class UsageComponents(context: Context) extends GridComponents(context, new UsageConfig(_)) with AssetsComponents  {
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
@@ -22,6 +24,8 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageNotifier = new UsageNotifier(config, usageTable)
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
+  val gridClient: GridClient = GridClient(services, services.usageBaseUri)(wsClient)
 
   if(!config.apiOnly) {
     val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
@@ -36,7 +40,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
+  val imageTakeDownController = new ImageTakedownController(liveContentApi, gridClient, auth, services, controllerComponents)
 
-
-  override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
+  override lazy val router = new Routes(httpErrorHandler, controller, imageTakeDownController, management, InnerServiceStatusCheckController, assets)
 }
