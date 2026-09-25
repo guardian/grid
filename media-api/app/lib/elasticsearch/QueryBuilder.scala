@@ -125,6 +125,9 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
           case (parent: SingleField, n: List[Nested]) => {
 
             val nested = n.foldLeft(boolQuery()) {
+              case (query, Nested(_, SingleField("orderedBy"), value))
+                if parent.name == "usages" && findFieldAliasConfig("orderedBy").isEmpty =>
+                query.withMust(makeQueryBit(Match(SingleField(usagesField("printUsageMetadata.orderedBy")), value)))
               case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
               case (query, _) => query
             }
@@ -144,7 +147,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
 
       val queryWithNestedAndNormal = listOfNestedToQueries(nested).foldLeft(queryWithNormal) { case (q, nestedQ) => q.withMust(nestedQ) }
 
-      listOfNestedToQueries(negationNested).foldLeft(queryWithNestedAndNormal) { case (q, negNestedQ) => q.withNot(negNestedQ) }
+      val negativeQueries = negationNested.flatMap(condition => listOfNestedToQueries(List(condition)))
+      negativeQueries.foldLeft(queryWithNestedAndNormal) { (query, negativeQuery) =>
+        query.withNot(negativeQuery)
+      }
     }
   }
 

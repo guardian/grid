@@ -1,18 +1,19 @@
 package lib.elasticsearch
 
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
-import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
+import com.gu.mediaservice.lib.auth.{ApiAccessor, Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
-import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus, RemovedUsageStatus, SyndicationUsage, UnknownUsageStatus, ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage}
+import com.gu.mediaservice.model.usage._
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
+import org.apache.http.client.utils.URIBuilder
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar
@@ -21,7 +22,9 @@ import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
+import play.api.test.FakeRequest
 
+import java.net.URI
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -175,6 +178,372 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val deletes = images.map(i => executeAndLog(deleteById(index, i.id), s"Deleting quota test image ${i.id}"))
       Await.ready(Future.sequence(deletes), fiveSeconds)
       eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+    }
+  }
+
+  describe("usage search") {
+    val usageDate = DateTime.parse("2020-06-15T00:00:00Z")
+
+    def usage(platform: UsageType, status: UsageStatus): Usage =
+      createUsage(ComposerUsageReference, platform, status, usageDate)
+
+    val digitalPublished = usage(DigitalUsage, PublishedUsageStatus)
+    val printPublished = usage(PrintUsage, PublishedUsageStatus)
+    val digitalReplaced = usage(DigitalUsage, ReplacedUsageStatus)
+    val imageUsages = Seq(
+      "none" -> List.empty[Usage],
+      "digital" -> List(digitalPublished),
+      "print" -> List(printPublished),
+      "replaced" -> List(digitalReplaced),
+      "print-replaced" -> List(usage(PrintUsage, ReplacedUsageStatus)),
+      "removed" -> List(usage(PrintUsage, RemovedUsageStatus)),
+      "split" -> List(usage(PrintUsage, PendingUsageStatus), digitalPublished),
+      "mixed-replaced" -> List(printPublished, digitalReplaced),
+      "both" -> List(printPublished, digitalPublished)
+    )
+    val usageImages = imageUsages.zipWithIndex.map { case ((suffix, usages), position) =>
+      val image = createImage(s"usage-search-$suffix", Handout(),
+        uploadedBy = "usage-search@example.test", usages = usages)
+      val keywords = if (Set("digital", "print", "replaced").contains(suffix)) Set("keep") else Set.empty[String]
+      image.copy(uploadTime = usageDate.plusMinutes(position), metadata = image.metadata.copy(keywords = Some(keywords)))
+    }
+    val eligible = Set("none", "digital", "print", "removed", "split", "both")
+
+    def searchParams(query: Option[String], fixtureImages: Seq[Image] = usageImages): SearchParams = {
+      val parameters = Seq(
+        "ids" -> fixtureImages.map(_.id).mkString(","),
+        "length" -> fixtureImages.size.toString,
+        "countAll" -> "true"
+      ) ++ query.map("q" -> _)
+      val requestUri = new URIBuilder("/images")
+      parameters.foreach { case (name, value) => requestUri.addParameter(name, value) }
+      val searchRequest = new AuthenticatedRequest[AnyContent, Principal](
+        MachinePrincipal(ApiAccessor("usage-search-test", Internal)),
+        FakeRequest("GET", requestUri.build().toString)
+      )
+      SearchParams(searchRequest)
+    }
+
+    def expectMatches(queryText: String, expected: Set[String], fixtureImages: Seq[Image] = usageImages): Unit = {
+      withClue(queryText) {
+        whenReady(ES.search(searchParams(Some(queryText), fixtureImages)), timeout, interval) { result =>
+          result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"usage-search-$suffix")
+          result.total shouldBe expected.size.toLong
+        }
+      }
+    }
+
+    it("matches positive usage conditions on the same record") {
+      withQuotaImages(usageImages) {
+        expectMatches("usages@platform:print", Set("print", "removed", "split", "both"))
+        expectMatches("usages@status:published", Set("digital", "print", "split", "both"))
+        expectMatches("usages@platform:print usages@status:published", Set("print", "both"))
+        expectMatches("usages@status:published usages@platform:print", Set("print", "both"))
+        expectMatches("usages@platform:print usages@platform:digital", Set.empty)
+      }
+    }
+
+    it("excludes images independently for each negative usage condition") {
+      withQuotaImages(usageImages) {
+        Seq(
+          "-usages@platform:print" -> Set("none", "digital"),
+          "-usages@platform:digital" -> Set("none", "print", "removed"),
+          "-usages@status:published" -> Set("none", "removed"),
+          "-usages@status:pending" -> Set("none", "digital", "print", "removed", "both"),
+          "-usages@status:replaced" -> eligible,
+          "-usages@platform:print -usages@status:replaced" -> Set("none", "digital"),
+          "-usages@status:replaced -usages@platform:print" -> Set("none", "digital"),
+          "-usages@platform:print -usages@status:removed" -> Set("none", "digital"),
+          "-usages@platform:print -usages@platform:digital" -> Set("none"),
+          "-usages@platform:print -usages@platform:print" -> Set("none", "digital")
+        ).foreach { case (queryText, expected) => expectMatches(queryText, expected) }
+      }
+    }
+
+    it("applies exclusions image-wide alongside positive and ordinary conditions") {
+      withQuotaImages(usageImages) {
+        expectMatches("usages@platform:print -usages@platform:digital", Set("print", "removed"))
+        expectMatches("-usages@platform:digital usages@platform:print", Set("print", "removed"))
+        expectMatches("usages@platform:print -usages@status:published", Set("removed"))
+        expectMatches("usages@status:replaced -usages@platform:print", Set("replaced"))
+        expectMatches("keyword:keep -usages@platform:print", Set("digital"))
+        expectMatches("keyword:keep", Set("digital", "print"))
+        expectMatches("-keyword:keep", Set("none", "removed", "split", "both"))
+      }
+    }
+
+    it("recognizes replaced intent without mistaking literal text or prefixes for it") {
+      withQuotaImages(usageImages) {
+        Seq("replaced", "\"replaced\"", "'replaced'").foreach { value =>
+          expectMatches(s"usages@status:$value", Set("replaced", "print-replaced", "mixed-replaced"))
+          expectMatches(s"-usages@status:$value", eligible)
+        }
+        expectMatches("-description:\"usages@status:replaced\"", eligible)
+        expectMatches("-usages@status:replacedx", eligible)
+      }
+    }
+
+    it("matches reference URIs and phrases and excludes matching usages independently") {
+      val matchingUsage = digitalPublished.copy(references = List(UsageReference(
+        ComposerUsageReference, Some(URI.create("https://example.test/usage/a")), Some("alpha beta")
+      )))
+      val otherUsage = digitalPublished.copy(references = List(UsageReference(
+        ComposerUsageReference, Some(URI.create("https://example.test/usage/b")), Some("alpha gamma beta")
+      )))
+      val referenceImages = Seq(
+        "reference-none" -> List.empty[Usage],
+        "reference-match" -> List(matchingUsage),
+        "reference-other" -> List(otherUsage),
+        "reference-replaced-match" -> List(matchingUsage.copy(status = ReplacedUsageStatus)),
+        "reference-replaced-other" -> List(otherUsage.copy(status = ReplacedUsageStatus)),
+        "reference-split" -> List(matchingUsage, otherUsage.copy(status = ReplacedUsageStatus))
+      ).map { case (suffix, usages) =>
+        createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+      }
+      withQuotaImages(referenceImages) {
+        Seq("\"https://example.test/usage/a\"", "https://example.test/usage/a", "\"alpha beta\"").foreach { value =>
+          expectMatches(s"usages@reference:$value", Set("reference-match"), referenceImages)
+          expectMatches(s"-usages@reference:$value", Set("reference-none", "reference-other"), referenceImages)
+          expectMatches(s"usages@status:replaced -usages@reference:$value", Set("reference-replaced-other"), referenceImages)
+        }
+      }
+    }
+
+    it("preserves inclusive usage dates and positive correlation while excluding each negative bound") {
+      val boundary = DateTime.parse("2020-06-15")
+      val dateImages = Seq(
+        "date-none" -> List.empty[DateTime],
+        "date-before" -> List(boundary.minusDays(1)),
+        "date-boundary" -> List(boundary),
+        "date-after" -> List(boundary.plusDays(1)),
+        "date-future" -> List(boundary.plusYears(80)),
+        "date-split" -> List(boundary.minusDays(1), boundary.plusDays(2))
+      ).map { case (suffix, dates) =>
+        createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test",
+          usages = dates.map(date => createDigitalUsage(date)))
+      }
+      withQuotaImages(dateImages) {
+        expectMatches("usages@>added:2020-06-15", Set("date-boundary", "date-after", "date-split"), dateImages)
+        expectMatches("-usages@>added:2020-06-15", Set("date-none", "date-before", "date-future"), dateImages)
+        expectMatches("usages@<added:2020-06-15", Set("date-before", "date-boundary", "date-split"), dateImages)
+        expectMatches("-usages@<added:2020-06-15", Set("date-none", "date-after", "date-future"), dateImages)
+        expectMatches("usages@>added:2020-06-15 usages@<added:2020-06-16", Set("date-boundary", "date-after"), dateImages)
+        expectMatches("-usages@>added:2020-06-15 -usages@<added:2020-06-16", Set("date-none", "date-future"), dateImages)
+      }
+    }
+
+    it("preserves absent and empty GET queries, ordering, offsets and totals") {
+      withQuotaImages(usageImages) {
+        expectMatches("", eligible)
+        whenReady(ES.search(searchParams(None)), timeout, interval) { result =>
+          result.hits.map(_._1) should contain theSameElementsAs usageImages.map(_.id)
+          result.total shouldBe usageImages.size.toLong
+        }
+        val page = searchParams(Some("-usages@platform:print")).copy(
+          orderBy = Some("uploadTime"), offset = 1, length = 1
+        )
+        whenReady(ES.search(page), timeout, interval) { result =>
+          result.hits.map(_._1) shouldBe Seq("usage-search-digital")
+          result.total shouldBe 2L
+        }
+      }
+    }
+
+    describe("print fields") {
+      val otherMetadata = PrintUsageMetadata(
+        sectionName = "Other Section",
+        issueDate = usageDate,
+        pageNumber = 1,
+        storyName = "Fixture story",
+        publicationCode = "OTHER",
+        publicationName = "Other Publication",
+        edition = None,
+        orderedBy = Some("OTHER"),
+        sectionCode = "OTHER"
+      )
+
+      Seq(
+        "usages@section:SEC1" -> otherMetadata.copy(sectionCode = "SEC1"),
+        "usages@section:\"Morning Section\"" -> otherMetadata.copy(sectionName = "Morning Section"),
+        "usages@publication:PUB1" -> otherMetadata.copy(publicationCode = "PUB1"),
+        "usages@publication:\"Morning Publication\"" -> otherMetadata.copy(publicationName = "Morning Publication"),
+        "usages@orderedBy:DESK1" -> otherMetadata.copy(orderedBy = Some("DESK1"))
+      ).foreach { case (queryText, matchingMetadata) =>
+        it(s"matches and excludes $queryText through its own mapped field") {
+          val matchingUsage = printPublished.copy(printUsageMetadata = Some(matchingMetadata))
+          val otherUsage = printPublished.copy(printUsageMetadata = Some(otherMetadata))
+          val fieldImages = Seq(
+            "field-none" -> List.empty[Usage],
+            "field-match" -> List(matchingUsage),
+            "field-other" -> List(otherUsage),
+            "field-replaced-match" -> List(matchingUsage.copy(status = ReplacedUsageStatus)),
+            "field-replaced-other" -> List(otherUsage.copy(status = ReplacedUsageStatus)),
+            "field-split" -> List(matchingUsage, otherUsage.copy(status = ReplacedUsageStatus))
+          ).map { case (suffix, usages) =>
+            createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+          }
+
+          withQuotaImages(fieldImages) {
+            expectMatches(queryText, Set("field-match"), fieldImages)
+            expectMatches(s"-$queryText", Set("field-none", "field-other"), fieldImages)
+            expectMatches(s"usages@status:replaced -$queryText", Set("field-replaced-other"), fieldImages)
+          }
+        }
+      }
+
+      it("keeps code and name conditions on one print usage without adding digital section IDs") {
+        val together = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(
+          sectionCode = "SEC1", sectionName = "Morning Section", publicationCode = "PUB1"
+        )))
+        val sectionOnly = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(sectionCode = "SEC1")))
+        val nameAndPublication = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(
+          sectionName = "Morning Section", publicationCode = "PUB1"
+        )))
+        val digitalSection = digitalPublished.copy(digitalUsageMetadata = Some(DigitalUsageMetadata(
+          URI.create("https://example.test/article"), "Fixture article", "SEC1"
+        )))
+        val fieldImages = Seq(
+          "fields-together" -> List(together),
+          "fields-split" -> List(sectionOnly, nameAndPublication),
+          "fields-digital" -> List(digitalSection)
+        ).map { case (suffix, usages) =>
+          createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+        }
+
+        withQuotaImages(fieldImages) {
+          expectMatches("usages@section:SEC1", Set("fields-together", "fields-split"), fieldImages)
+          expectMatches("usages@section:SEC1 usages@section:\"Morning Section\"", Set("fields-together"), fieldImages)
+          expectMatches("usages@section:SEC1 usages@publication:PUB1", Set("fields-together"), fieldImages)
+          expectMatches("-usages@section:SEC1 -usages@publication:PUB1", Set("fields-digital"), fieldImages)
+          expectMatches("usages@section:\"morning section\"", Set.empty, fieldImages)
+        }
+      }
+
+      Seq(
+        ("no alias", None, "alias-print", Set("alias-none", "alias-digital")),
+        ("canonical alias", Some("usages.printUsageMetadata.orderedBy"), "alias-print", Set("alias-none", "alias-digital")),
+        ("redirected alias", Some("usages.digitalUsageMetadata.sectionId"), "alias-digital", Set("alias-none", "alias-print"))
+      ).foreach { case (description, aliasPath, positiveMatch, negativeMatches) =>
+        it(s"uses the orderedBy field selected by $description") {
+          val aliases = aliasPath.toSeq.map { path =>
+            Map("alias" -> "orderedBy", "elasticsearchPath" -> path, "label" -> "Ordered by")
+          }
+          val aliasConfig = new MediaApiConfig(GridConfigResources(
+            Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++
+              Map("field.aliases" -> aliases)),
+            null,
+            applicationLifecycle
+          ))
+          val aliasedSearch = new ElasticSearch(aliasConfig, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+          val orderedPrint = printPublished.copy(printUsageMetadata = Some(otherMetadata.copy(orderedBy = Some("DESK1"))))
+          val digitalSection = digitalPublished.copy(digitalUsageMetadata = Some(DigitalUsageMetadata(
+            URI.create("https://example.test/article"), "Fixture article", "DESK1"
+          )))
+          val aliasImages = Seq(
+            "alias-none" -> List.empty[Usage],
+            "alias-print" -> List(orderedPrint),
+            "alias-digital" -> List(digitalSection)
+          ).map { case (suffix, usages) =>
+            createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test", usages = usages)
+          }
+
+          withQuotaImages(aliasImages) {
+            try {
+              Seq(
+                "usages@orderedBy:DESK1" -> Set(positiveMatch),
+                "-usages@orderedBy:DESK1" -> negativeMatches
+              ).foreach { case (queryText, expected) =>
+                whenReady(aliasedSearch.search(searchParams(Some(queryText), aliasImages)), timeout, interval) { result =>
+                  result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"usage-search-$suffix")
+                  result.total shouldBe expected.size.toLong
+                }
+              }
+            } finally aliasedSearch.client.close()
+          }
+        }
+      }
+    }
+
+    it("filters metadata and date aggregations with the same usage exclusions") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val queryText = "uploader:usage-search@example.test -usages@platform:print"
+      val aggregateRequest = FakeRequest("GET", new URIBuilder("/images/aggregations")
+        .addParameter("q", queryText).build().toString)
+      val params = AggregateSearchParams("keywords", aggregateRequest)
+
+      withQuotaImages(usageImages) {
+        whenReady(ES.metadataSearch(params), timeout, interval) { result =>
+          result.results shouldBe Seq(BucketResult("keep", 1L))
+          result.total shouldBe 1L
+        }
+        whenReady(ES.dateHistogramAggregate(params.copy(field = "uploadTime")), timeout, interval) { result =>
+          result.results.map(_.count) shouldBe Seq(2L)
+          result.total shouldBe 1L
+        }
+      }
+    }
+
+    it("preserves ticker and AI filter-pool counts under usage exclusions") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val tickerConfig = new MediaApiConfig(GridConfigResources(
+        Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++ Map(
+          "filters.shouldDisplayOrgOwnedCountAndFilterCheckbox" -> true,
+          "branding.staffPhotographerOrganisation" -> "FixtureOrg"
+        )),
+        null,
+        applicationLifecycle
+      ))
+      val tickerSearch = new ElasticSearch(tickerConfig, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+      val ownedIds = Set("usage-search-digital", "usage-search-print", "usage-search-mixed-replaced")
+      val ownedRights = StaffPhotographer("Fixture Photographer", "FixtureOrg")
+      val ownedImages = usageImages.map { image =>
+        if (ownedIds.contains(image.id)) image.copy(usageRights = ownedRights, originalUsageRights = ownedRights)
+        else image
+      }
+
+      withQuotaImages(ownedImages) {
+        try {
+          whenReady(tickerSearch.search(searchParams(None, ownedImages)), timeout, interval) { result =>
+            result.total shouldBe 9L
+            result.extraCounts.get.tickerCounts("FixtureOrg-owned").value shouldBe 2L
+          }
+          whenReady(tickerSearch.search(searchParams(Some("-usages@platform:print"), ownedImages)), timeout, interval) { result =>
+            result.hits.map(_._1) should contain theSameElementsAs Seq("usage-search-none", "usage-search-digital")
+            result.total shouldBe 2L
+            result.extraCounts.get.tickerCounts("FixtureOrg-owned").value shouldBe 1L
+          }
+
+          val aiParams = searchParams(Some("sunlight -usages@platform:print"), ownedImages)
+          val parts = aiParams.aiQueryParts.fold(error => fail(s"Expected AI query parts, got $error"), identity)
+          parts.semanticQuery shouldBe Some("sunlight")
+          val requestFilters = tickerSearch.queryBuilder.buildFilterOpt(
+            aiParams, tickerSearch.searchFilters, tickerSearch.syndicationFilter
+          )
+          val filter = boolQuery().filter(
+            tickerSearch.queryBuilder.makeQuery(parts.filterConditions) +: requestFilters.toList
+          )
+          whenReady(tickerSearch.countMatchingFilterWithExtraCounts(Some(filter)), timeout, interval) {
+            case (total, counts) =>
+              total shouldBe 2L
+              counts.tickerCounts("FixtureOrg-owned").value shouldBe 1L
+          }
+        } finally tickerSearch.client.close()
+      }
+    }
+
+    it("preserves independent ordinary keyword exclusions") {
+      val keywordImages = Seq(
+        "keyword-cat" -> Set("cat"),
+        "keyword-dog" -> Set("dog"),
+        "keyword-both" -> Set("cat", "dog"),
+        "keyword-neither" -> Set.empty[String]
+      ).map { case (suffix, keywords) =>
+        val image = createImage(s"usage-search-$suffix", Handout(), uploadedBy = "usage-search@example.test")
+        image.copy(metadata = image.metadata.copy(keywords = Some(keywords)))
+      }
+      withQuotaImages(keywordImages) {
+        expectMatches("-keyword:cat -keyword:dog", Set("keyword-neither"), keywordImages)
+      }
     }
   }
 
