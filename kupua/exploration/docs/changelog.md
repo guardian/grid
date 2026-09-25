@@ -17,6 +17,18 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 25 September 2026 - media-api keyword pages
+
+  API build U3b (Scala). `POST /images/sort-profile` gains `keyword-page`: one bounded composite
+  page of the primary sort field's values per call, ported from `findKeywordSortValue` and
+  `getKeywordDistribution`, whose walks and caps stay in Kupua. The continuation is the page's
+  plain `after` key; `size` defaults to and is capped at 10,000; the exact valued-image count is
+  opt-in so the seek walk does not pay for it. Counts are images per value, so they are positions
+  only for single-valued fields. A first review fix, a server list of the fields Kupua walks, was
+  replaced by operator decision: it coupled Grid to one consumer. Fields inside a nested path of
+  Grid's own mapping are refused instead, as are nested or max-mode clauses and non-primary
+  fields. Kupua does not call the operation yet.
+
   ### 25 September 2026 - media-api sort profiles
 
   API build U3a (Scala). New `POST /images/sort-profile` runs one fixed aggregation per call

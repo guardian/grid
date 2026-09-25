@@ -35,6 +35,9 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
 - Every read goes through `_search` (never `_count`); public tuples never contain `_shard_doc`;
   the optional `pitId` path stays possible.
 - Direct-ES and current hybrid modes must keep working.
+- Grid code serves any caller: do not name Kupua (or any consumer) in new Scala code, comments,
+  test names or error messages, and do not encode one consumer's field choices. Describe Grid
+  behavior only when it's not clear from the code. Leave existing comments alone; the operator prunes them separately.
 
 **Method:**
 1. Write the failing test(s) first and show they fail for the right reason. For endpoints,

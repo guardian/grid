@@ -115,7 +115,7 @@ maintained here by the executing agent at completion (section 8).
 | U1 | Shared helper (D3 refactored onto it) + `POST /images/window` | Scala | — | done |
 | U2 | `POST /images/rank` | Scala | U1 | done |
 | U3a | `POST /images/sort-profile`: scalar-anchor, date-stats, date-buckets | Scala | U1 | done |
-| U3b | sort-profile: keyword-page | Scala | U3a | not started |
+| U3b | sort-profile: keyword-page | Scala | U3a | done |
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | not started |
 | U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | not started |
 | M1 | Laptop measurement and iteration gate | Both | U5 | not started |
@@ -224,6 +224,44 @@ maintained here by the executing agent at completion (section 8).
     `usages.dateAdded`/`collections.actionData.date` profiled without `mode: max` (review fix),
     and the rank sort admission (missing `_last`, mode `max`, at most 10 clauses); 503
     `sort-profile-incomplete` on timeout or failed shard.
+- **U3b decisions (operator, 25 September 2026):**
+  - **Continuation:** the response's `after` is the last page's composite key as a plain JSON
+    scalar; Kupua sends it back for the next page. No sealed server token (inventory 01's D5/D6
+    token assumed a server-owned walk; the plan keeps loops in Kupua). Drift between pages without
+    a PIT matches today's direct-ES walk; optional `pitId` still pins pages.
+  - **Page size:** optional `size`, default and maximum 10,000 (today's value). The dev-only
+    `VITE_KEYWORD_SEEK_BUCKET_SIZE` above 10,000 is refused in API mode.
+  - **Covered count:** opt-in `includeCoveredCount: true` (the distribution's first page only), so
+    the seek walk does not pay for it.
+  - **Field admission:** `field` must be the primary sort field; nested and `mode: max` clauses are
+    refused (422), since composite counts would be per value, not per image. All eight Kupua
+    keyword/numeric sorts are single-valued and not nested. **Review fix (operator, option B):** the
+    reviewer found that clause flags cannot prove a field is single-valued or flat (omitting
+    `mode`/`nested` on `metadata.keywords` or `usages.platform` passed). A server list of the
+    fields one consumer walks was tried and rejected as consumer coupling. Instead: a field inside
+    a nested path of Grid's own mapping (`Mappings.imageMapping`) is refused, and counts are
+    defined as images per value, so an image holding several values counts once per value.
+    Counts equal positions only for single-valued fields, which the caller chooses. This matches
+    D3/window/rank, which also trust clause flags (readiness finding N1).
+- **U3b as built:** `operation: "keyword-page"` on the same `POST /images/sort-profile` (no new route).
+  - **Body:** `field` (the primary sort field), optional `after` (string or number), `size`
+    (integer, default 10,000) and `includeCoveredCount` (boolean, default false).
+  - **Execution:** one size-0 `_search`, `track_total_hits: false`, a composite aggregation with one
+    `terms` source on `field`, ordered by the clause's direction, `after` when given; no
+    `missing_bucket`, so images without the value are skipped exactly as today. With
+    `includeCoveredCount`, an `exists` filter aggregation on the field. Optional `pitId` as U3a.
+  - **Response:** `{buckets: [{key, count}], after, coveredCount?, pitId?}`. A count is the number
+    of admitted images holding that value (an image with several values counts in each). Keys and
+    `after` are JSON
+    scalars as stored (strings for keyword fields, numbers for width/height); `after` is
+    Elasticsearch's `after_key` value, `null` when it reports none. No `startPosition`: Kupua
+    accumulates it. Kupua's walk conditions (empty page, no `after`, short page) are unchanged.
+  - **Refusals:** 400 for a non-scalar `after`, a non-integer `size` and a non-boolean
+    `includeCoveredCount`; 422 for `size` outside 1-10,000, a field other than the primary, a
+    field inside a nested path of Grid's mapping, and a nested or `mode: max` clause; 503 on
+    timeout or failed shard.
+  - **Cross-check:** walking pages of size 2 reproduces the runs of primary values in the order the
+    window returns them (credit and width, both directions); tier and deleted scope match D3.
 
 **U4: keys.**
 - **Response:** ordered `{id, sortValues}` pages without `_source`, for both the valued and
@@ -352,17 +390,17 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U3a (25 September 2026):
+table whenever a unit touches an existing file. State after U3b (25 September 2026):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
 | `MediaApiComponents.scala` | Constructs `ImageQueryController` and adds it to the router list. | None: a new controller only. | Every Kupua endpoint | 1 |
 | `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles | 1, 2, 3, 4 |
-| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank and sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`). | None: new types only. | Their endpoint | 1-4 |
+| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank and sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results). | None: new types only. | Their endpoint | 1-4 |
 | `ElasticSearchModel.scala`: `SearchParams` | New field `hasRightsAcquired: Option[Boolean] = None`. `SearchParams.apply(request)` passes `None`, so `GET /images` never sets it. | None at runtime. Code that constructs `SearchParams` positionally must add the argument (compile-time only). | Kupua's rights filter, read from request bodies | 1 |
 | `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank sort admission | 1 |
-| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. | None. | Every Kupua endpoint | 1 onward |
+| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. | None. | Every Kupua endpoint | 1 onward |
 | Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR | per PR |
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
@@ -446,6 +484,10 @@ ignoring it.
   behavior-preserving), `64afaabe9` (`POST /images/sort-profile`). No merge needed (main's new
   commits touch only `build.sbt` packaging/CI). Cold review: accept with fixes (special dates now
   require `mode: max`; section 7 updated). Not yet called by Kupua (U5); keyword-page is U3b.
+- 25 Sep 2026, U3b: `c513fcafc` (`keyword-page` on `POST /images/sort-profile`). No merge needed
+  (main's new commits touch no media-api or Kupua files). First cold review: accept with fixes
+  (flag-only field guard); its suggested field list was replaced by operator option B (Grid
+  mapping nested check, per-value counts); fresh re-review: accept. Not yet called by Kupua (U5).
 
 ## 11. Parked Observations
 
@@ -458,3 +500,5 @@ operator in chat instead, not here.
 - 25 Sep, U3a, `search-store.ts:3328`: deep seek on a configured keyword-alias primary (e.g. editStatus) asks for a percentile on a keyword field; ES refuses, so `scalar-anchor` answers 500 (logged error) where direct ES gives null. Kupua still degrades. Risk/clean-up for U5: skip the call for non-numeric, non-date primaries.
 - 25 Sep, U3a, sbt test harness: a test failing with a raw `ElasticSearchException` can crash the forked test JVM (non-serializable throwable), truncating the run. Clean-up; seen only under deliberate breaks.
 - 25 Sep, U3a review, `ElasticSearch.scala` `admitNullsLastSortClause`: rank still admits a special-date clause without `mode: max` (ES then defaults to min for asc), so its max-mode predicates would not apply. Latent; Kupua always sends max. Profiles now refuse it.
+- 25 Sep, U3b, `ElasticSearch.scala` `docCount`: a `coveredCount` whose filter aggregation is absent from the response reads as 0, not an error (shared with date-stats). Latent; the request always adds the aggregation when asked.
+- 25 Sep, U3b, keyword-page: each page is bounded by media-api's 10 s query timeout (503 on timeout), where direct ES has no per-page limit, only Kupua's 8 s walk cap. Risk at PROD cardinality; measure in M1.
