@@ -922,6 +922,265 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       }
     }
 
+    describe("recorded client request bodies") {
+      // Each file holds the exact POST bodies a client sent for one read, in order.
+      val recordings = new java.io.File(getClass.getResource("/ordered-read-bodies").toURI)
+        .listFiles().filter(_.getName.endsWith(".json")).sortBy(_.getName).toSeq
+      def calls(file: java.io.File): Seq[JsObject] =
+        Json.parse(java.nio.file.Files.readString(file.toPath)).as[Seq[JsObject]]
+      val reader = imageQueryControllerFor(uploader, ES, writer, privileged = true)
+
+      def replay(call: JsObject): Future[Result] = {
+        val path = (call \ "path").as[String]
+        val request = FakeRequest("POST", path).withBody((call \ "body").as[JsObject])
+        path match {
+          case "/images/search-after" => reader.searchAfterImages().apply(request)
+          case "/images/window"       => reader.windowImages().apply(request)
+          case "/images/rank"         => reader.rankImages().apply(request)
+          case "/images/sort-profile" => reader.sortProfile().apply(request)
+          case "/images/keys"         => reader.imageKeys().apply(request)
+          case other                  => fail(s"no ordered read at $other")
+        }
+      }
+
+      it("cover every ordered-read endpoint") {
+        recordings.flatMap(calls).map(call => (call \ "path").as[String]).toSet shouldBe
+          Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys")
+      }
+
+      recordings.foreach { file =>
+        it(s"accepts and executes ${file.getName.stripSuffix(".json")}") {
+          calls(file).foreach { call =>
+            whenReady(replay(call), timeout, interval) { result =>
+              val text = result.body.asInstanceOf[HttpEntity.Strict].data.utf8String
+              withClue(s"${(call \ "path").as[String]} answered $text: ") { result.header.status shouldBe 200 }
+            }
+          }
+        }
+      }
+
+      // Every recorded read must agree with a search-after walk of its own recorded search scope.
+      // Only values a recording cannot know for this index (a tuple, an id, a scope value) are
+      // replaced, and only with values taken from that walk.
+      describe("agree with a search-after walk of the same recorded scope") {
+        val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+        def replayFixture(id: String, takenDay: Option[Int], uploadHour: Int, credit: Option[String], usageDays: Int*): Image = {
+          val image = createImage(id, Handout(), usages = usageDays.map(day => createDigitalUsage(t0.plusDays(day))).toList)
+          image.copy(uploadTime = t0.plusHours(uploadHour),
+            metadata = image.metadata.copy(dateTaken = takenDay.map(day => t0.plusDays(day)), credit = credit))
+        }
+        // Ties on dateTaken and credit, missing dateTaken and credit, several usages on one image.
+        val fixtures = Seq(
+          replayFixture("replay-a", Some(3), 1, Some("AAP"), 5),
+          replayFixture("replay-b", Some(3), 2, Some("AAP"), 2, 9),
+          replayFixture("replay-c", Some(1), 3, None),
+          replayFixture("replay-d", None,    4, Some("Reuters"), 5),
+          replayFixture("replay-e", None,    5, None),
+          replayFixture("replay-f", Some(7), 6, Some("AAP")),
+        )
+
+        def recorded(name: String): Seq[JsObject] =
+          calls(recordings.find(_.getName == s"$name.json").getOrElse(fail(s"no recording $name")))
+        def bodyOf(call: JsObject): JsObject = (call \ "body").as[JsObject]
+        def respond(path: String, body: JsObject): JsValue =
+          whenReady(replay(Json.obj("path" -> path, "body" -> body)), timeout, interval) { result =>
+            val text = result.body.asInstanceOf[HttpEntity.Strict].data.utf8String
+            withClue(s"$path answered $text: ") { result.header.status shouldBe 200 }
+            Json.parse(text)
+          }
+        def page(json: JsValue): Seq[(String, Seq[JsValue])] =
+          (json \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String])
+            .zip((json \ "sortValues").as[Seq[Seq[JsValue]]])
+
+        val readFields = Seq("sortValues", "reverse", "seekToEnd", "offset", "length", "countAll", "ids", "pitId",
+          "operation", "field", "percentile", "scope", "missingField", "interval", "after", "size", "includeCoveredCount")
+        def walk(body: JsObject): Seq[(String, Seq[JsValue])] = {
+          val scope = readFields.foldLeft(body)(_ - _) ++ Json.obj("length" -> 200, "countAll" -> false)
+          def from(cursor: Option[Seq[JsValue]], acc: Seq[(String, Seq[JsValue])], pages: Int): Seq[(String, Seq[JsValue])] = {
+            val next = page(respond("/images/search-after", scope ++ cursor.fold(Json.obj())(c => Json.obj("sortValues" -> c))))
+            if (next.isEmpty || pages > 20) acc else from(next.lastOption.map(_._2), acc ++ next, pages + 1)
+          }
+          from(None, Seq.empty, 0)
+        }
+        def nullPrimary(entry: (String, Seq[JsValue])): Boolean = entry._2.headOption.contains(JsNull)
+        def samples(walked: Seq[(String, Seq[JsValue])]): Seq[Int] =
+          (Seq(0, 1, walked.size / 2, walked.size - 1) :+ walked.indexWhere(nullPrimary))
+            .filter(i => i >= 0 && i < walked.size).distinct
+
+        def withFixtures(check: => Unit): Unit = withImages(fixtures)(_ => check)
+
+        it("first page: the walk's first images, with the exact total") {
+          withFixtures {
+            val body = bodyOf(recorded("search-after-first-page").head)
+            val walked = walk(body)
+            val json = respond("/images/search-after", body)
+            page(json) shouldBe walked.take(page(json).size)
+            page(json) should not be empty
+            (json \ "total").as[Long] shouldBe walked.size.toLong
+          }
+        }
+
+        it("cursor page: continues the walk after the tuple at each sampled position") {
+          withFixtures {
+            val body = bodyOf(recorded("search-after-cursor-taken").head)
+            val walked = walk(body)
+            val length = (body \ "length").as[Int]
+            walked.exists(nullPrimary) shouldBe true
+            samples(walked).foreach { k =>
+              withClue(s"after position $k: ") {
+                page(respond("/images/search-after", body ++ Json.obj("sortValues" -> walked(k)._2))) shouldBe walked.slice(k + 1, k + 1 + length)
+              }
+            }
+          }
+        }
+
+        // Missing values sort last in both directions, and a null-primary cursor reads only the null
+        // tail, so a reverse page stays within the part (valued or null) its tuple belongs to.
+        it("backward page: the images before the tuple at each sampled position, in order") {
+          withFixtures {
+            val body = bodyOf(recorded("search-after-backward-null-zone-taken").head)
+            val walked = walk(body)
+            val length = (body \ "length").as[Int]
+            val firstNull = walked.indexWhere(nullPrimary)
+            firstNull should be > 1
+            (samples(walked) :+ (firstNull + 1)).distinct.foreach { k =>
+              val partStart = if (nullPrimary(walked(k))) firstNull else 0
+              val take = length min (k - partStart)
+              if (take > 0) withClue(s"$take before position $k: ") {
+                page(respond("/images/search-after", body ++ Json.obj("sortValues" -> walked(k)._2, "length" -> take))) shouldBe walked.slice(k - take, k)
+              }
+            }
+          }
+        }
+
+        it("End: the walk's last images") {
+          withFixtures {
+            val body = bodyOf(recorded("search-after-end-taken").head)
+            val walked = walk(body)
+            val end = page(respond("/images/search-after", body))
+            end shouldBe walked.takeRight((body \ "length").as[Int])
+          }
+        }
+
+        it("id lookup: exactly the image and tuple the walk has for that id") {
+          withFixtures {
+            val body = bodyOf(recorded("search-after-ids-lookup-last-used").head)
+            val walked = walk(body)
+            samples(walked).foreach { k =>
+              page(respond("/images/search-after", body ++ Json.obj("ids" -> walked(k)._1))) shouldBe Seq(walked(k))
+            }
+          }
+        }
+
+        it("window: exactly the walk's positions from the recorded offset") {
+          withFixtures {
+            val body = bodyOf(recorded("window-shallow-credit").head)
+            val walked = walk(body)
+            val offset = (body \ "offset").as[Int]
+            walked.size should be > offset
+            page(respond("/images/window", body)) shouldBe walked.slice(offset, offset + (body \ "length").as[Int])
+          }
+        }
+
+        Seq("rank-last-used", "rank-null-zone-taken", "rank-collection-added").foreach { name =>
+          it(s"$name: the rank of the tuple at each sampled position is that position") {
+            withFixtures {
+              val body = bodyOf(recorded(name).head)
+              val walked = walk(body)
+              samples(walked).foreach { k =>
+                withClue(s"position $k: ") {
+                  (respond("/images/rank", body ++ Json.obj("sortValues" -> walked(k)._2)) \ "rank").as[Long] shouldBe k.toLong
+                }
+              }
+            }
+          }
+        }
+
+        def keys(json: JsValue): Seq[(String, Seq[JsValue])] =
+          (json \ "keys").as[Seq[JsValue]].map(key => ((key \ "id").as[String], (key \ "sortValues").as[Seq[JsValue]]))
+
+        it("map key page: the whole walk, ending the continuation") {
+          withFixtures {
+            val body = bodyOf(recorded("keys-map-first-page-last-used").head)
+            val walked = walk(body)
+            walked.exists(nullPrimary) shouldBe true
+            val json = respond("/images/keys", body)
+            keys(json) shouldBe walked
+            (json \ "after").toOption shouldBe Some(JsNull)
+          }
+        }
+
+        it("range key page: continues the walk after the tuple at each sampled position") {
+          withFixtures {
+            val body = bodyOf(recorded("keys-range-null-zone-taken").head)
+            val walked = walk(body)
+            samples(walked).foreach { k =>
+              withClue(s"after position $k: ") {
+                keys(respond("/images/keys", body ++ Json.obj("sortValues" -> walked(k)._2))) shouldBe walked.drop(k + 1).take((body \ "size").as[Int])
+              }
+            }
+          }
+        }
+
+        it("keyword page: the walk's primary values in order, counting its valued images") {
+          withFixtures {
+            val body = bodyOf(recorded("sort-profile-keyword-page-credit").head)
+            val walked = walk(body)
+            val valued = walked.filterNot(nullPrimary)
+            val json = respond("/images/sort-profile", body)
+            val buckets = (json \ "buckets").as[Seq[JsValue]]
+            buckets.map(b => (b \ "key").as[JsValue]) shouldBe valued.map(_._2.head).distinct
+            buckets.map(b => (b \ "count").as[Long]).sum shouldBe valued.size.toLong
+            (json \ "coveredCount").as[Long] shouldBe valued.size.toLong
+          }
+        }
+
+        it("null-zone date profile: stats and buckets describe exactly the walk's null tail") {
+          withFixtures {
+            val Seq(stats, buckets) = recorded("sort-profile-date-null-zone-taken").map(bodyOf)
+            val walked = walk(stats)
+            val uploadTimes = walked.filter(nullPrimary).map(_._2(1).as[Long])
+            uploadTimes should not be empty
+            val statsJson = respond("/images/sort-profile", stats)
+            (statsJson \ "valueCount").as[Long] shouldBe uploadTimes.size.toLong
+            (statsJson \ "min").as[Long] shouldBe uploadTimes.min
+            (statsJson \ "max").as[Long] shouldBe uploadTimes.max
+            val bucketsJson = respond("/images/sort-profile", buckets)
+            (bucketsJson \ "buckets").as[Seq[JsValue]].map(b => (b \ "count").as[Long]).sum shouldBe uploadTimes.size.toLong
+            (bucketsJson \ "positionKind").as[String] shouldBe "exact-rank"
+          }
+        }
+
+        it("max-mode date profile: covered count is the walk's valued images, buckets are approximate evidence") {
+          withFixtures {
+            val Seq(stats, buckets) = recorded("sort-profile-date-last-used").map(bodyOf)
+            val walked = walk(stats)
+            val valued = walked.filterNot(nullPrimary)
+            (respond("/images/sort-profile", stats) \ "coveredCount").as[Long] shouldBe valued.size.toLong
+            val bucketsJson = respond("/images/sort-profile", buckets)
+            (bucketsJson \ "positionKind").as[String] shouldBe "approximate-evidence"
+            (bucketsJson \ "evidenceCount").as[Long] shouldBe
+              (bucketsJson \ "buckets").as[Seq[JsValue]].map(b => (b \ "count").as[Long]).sum
+          }
+        }
+
+        it("scoped scalar anchor: null for an absent scope value, within the scoped images' range otherwise") {
+          withFixtures {
+            val body = bodyOf(recorded("sort-profile-scalar-anchor-scoped-credit").head)
+            val walked = walk(body)
+            val recordedValue = (body \ "scope" \ 0 \ "value").as[String]
+            walked.map(_._2.head) should not contain JsString(recordedValue)
+            (respond("/images/sort-profile", body) \ "value").toOption shouldBe Some(JsNull)
+            val scoped = walked.filter(_._2.head == JsString("AAP")).map(_._2(1).as[Long])
+            scoped should not be empty
+            val value = (respond("/images/sort-profile",
+              body ++ Json.obj("scope" -> Json.arr(Json.obj("field" -> "metadata.credit", "value" -> "AAP")))) \ "value").as[Double]
+            value should (be >= scoped.min.toDouble and be <= scoped.max.toDouble)
+          }
+        }
+      }
+    }
+
     describe("window") {
       implicit val logMarker: LogMarker = MarkerMap()
       val defaultSort = Seq(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))

@@ -1,0 +1,59 @@
+[
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-usagesDateAdded",
+      "sort": [
+        {
+          "usages.dateAdded": {
+            "order": "desc",
+            "mode": "max",
+            "nested": {
+              "path": "usages"
+            },
+            "missing": "_last"
+          }
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "date-stats",
+      "field": "usages.dateAdded"
+    }
+  },
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-usagesDateAdded",
+      "sort": [
+        {
+          "usages.dateAdded": {
+            "order": "desc",
+            "mode": "max",
+            "nested": {
+              "path": "usages"
+            },
+            "missing": "_last"
+          }
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "date-buckets",
+      "field": "usages.dateAdded",
+      "interval": "day"
+    }
+  }
+]
