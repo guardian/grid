@@ -442,7 +442,7 @@ test.describe("S4 -- multi-image Details panel", () => {
     try {
       await page.evaluate(async () => {
         const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
-        const template = await new MockDataSource(1).getById("img-0");
+        const template = (await new MockDataSource(1).getById("img-0")).image;
         const images = [0, 1, 2].map(index => ({
           ...template, id: `cached-scalar-${index}`,
           metadata: { ...template.metadata, credit: index === 2 ? "Synthetic cached credit" : undefined },
@@ -489,7 +489,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
       await kupua.page.evaluate(async (initialCount) => {
         const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
-        const template = await new MockDataSource(1).getById("img-0");
+        const template = (await new MockDataSource(1).getById("img-0")).image;
         const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
           ...template,
           id: `panel-snapshot-${index}`,
@@ -647,7 +647,7 @@ test.describe("S4 -- multi-image Details panel", () => {
         const mockPath = "/src/dal/mock-data-source.ts";
         const { MockDataSource } = await import(mockPath);
         const source = new MockDataSource(1);
-        const template = await source.getById("img-0");
+        const template = (await source.getById("img-0")).image;
         const images = Array.from({ length: count }, (_, index) => ({
           ...template,
           id: `s3-off-buffer-${index}`,

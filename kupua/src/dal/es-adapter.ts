@@ -27,6 +27,7 @@ import type {
   IdRangeResult,
   TickerCountResult,
   CountWithTickersResult,
+  ImageByIdResult,
 } from "./types";
 import { parseCql } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
@@ -738,9 +739,9 @@ export class ElasticsearchDataSource implements ImageDataSource {
     };
   }
 
-  async getById(id: string): Promise<Image | undefined> {
-    const results = await this.getByIds([id]);
-    return results[0];
+  async getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
+    const [image] = await this.getByIds([id], signal);
+    return image ? { image } : undefined;
   }
 
   async getAggregation(

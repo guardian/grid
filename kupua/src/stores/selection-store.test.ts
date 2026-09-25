@@ -690,7 +690,7 @@ describe("hydrate", () => {
   });
 
   it("publishes metadata revisions for changed images but not repeated references", async () => {
-    const image = (await mock.getById("img-0"))!;
+    const image = (await mock.getById("img-0"))!.image;
     const fetchMetadata = vi.spyOn(mock, "getByIds").mockResolvedValue([image]);
     useSelectionStore.setState({ selectedIds: new Set([image.id]) });
     const before = useSelectionStore.getState();

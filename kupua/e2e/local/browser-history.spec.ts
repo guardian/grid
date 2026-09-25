@@ -1128,6 +1128,15 @@ test.describe("Browser back/forward — density toggle", () => {
 
 test.describe("Browser back/forward — metadata click-to-search", () => {
   test("metadata search pushes once; Back restores the exact rendered detail image", async ({ kupua }) => {
+    // Local mode builds no media URLs; serve an identity-tagged pixel so the detail can decode.
+    await kupua.page.route("**/src/lib/image-urls.ts", (route) => route.fulfill({
+      contentType: "application/javascript",
+      body: `export const thumbnailsEnabled = true;
+        const pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+        export const getThumbnailUrl = image => pixel + "#" + image.id;
+        export const getFullImageUrl = getThumbnailUrl;
+        export const getZoomImageUrl = getFullImageUrl;`,
+    }));
     await kupua.goto();
 
     // Use a non-first image so stale buffer-local index 0 cannot accidentally

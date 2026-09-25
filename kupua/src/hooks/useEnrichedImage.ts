@@ -13,7 +13,7 @@
  */
 
 import { useRef } from "react";
-import { useEnrichmentStore } from "@/stores/enrichment-store";
+import { useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
 import { deriveImage, type EnrichedImage } from "@/lib/derive-enriched-image";
 import type { Image } from "@/types/image";
 
@@ -21,10 +21,12 @@ import type { Image } from "@/types/image";
  * Returns an `EnrichedImage` merging the raw ES `Image` with the API overlay.
  *
  * Pass the Image you already have from props. Returns `undefined` when
- * `image` is undefined (skeleton/placeholder cells).
+ * `image` is undefined (skeleton/placeholder cells). A supplied `ownOverlay`
+ * (the caller's own singleton result) wins over the shared store.
  */
-export function useEnrichedImage(image: Image | undefined): EnrichedImage | undefined {
-  const overlay = useEnrichmentStore((s) => image ? s.data.get(image.id) : undefined);
+export function useEnrichedImage(image: Image | undefined, ownOverlay?: EnrichmentFields): EnrichedImage | undefined {
+  const storedOverlay = useEnrichmentStore((s) => image ? s.data.get(image.id) : undefined);
+  const overlay = ownOverlay ?? storedOverlay;
 
   // Memoise: only recompute when image or overlay reference changes.
   const prevRef = useRef<{ image: typeof image; overlay: typeof overlay; result: EnrichedImage | undefined }>({

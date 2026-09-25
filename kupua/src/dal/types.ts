@@ -148,6 +148,12 @@ export interface SearchAfterResult {
   enrichment?: Map<string, EnrichmentFields>;
 }
 
+/** One image looked up by ID. `enrichment` is present only on the media-api path; callers own its publication. */
+export interface ImageByIdResult {
+  image: Image;
+  enrichment?: EnrichmentFields;
+}
+
 export interface AggregationBucket {
   key: string;
   count: number;
@@ -277,7 +283,7 @@ export interface ImageDataSource {
   countWithTickers(params: SearchParams): Promise<CountWithTickersResult>;
 
   /** Fetch a single image by ID. Returns undefined if not found. */
-  getById(id: string): Promise<Image | undefined>;
+  getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined>;
 
   /** Get terms aggregation for a field (for filter dropdowns). */
   getAggregation(

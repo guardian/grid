@@ -56,7 +56,7 @@ describe("ApiDataSource development fallback", () => {
   });
   it("lists exactly the reads that still use the development fallback", () => {
     expect([...DEVELOPMENT_FALLBACK_METHODS].sort()).toEqual(
-      ["count", "countWithTickers", "getAggregation", "getAggregations", "getById", "getByIds", "searchByAi"],
+      ["count", "countWithTickers", "getAggregation", "getAggregations", "getByIds", "searchByAi"],
     );
   });
 
@@ -97,12 +97,13 @@ describe("ApiDataSource development fallback", () => {
       ds.getDateDistribution(params, "uploadTime", "desc", signal),
       ds.fetchPositionIndex(params, signal),
       ds.getIdRange(params, cursor, cursor, signal),
+      ds.getById("img-1", signal),
       ds.openPit("1m"),
       ds.closePit("pit"),
     ]);
 
     const migrated = ALL_METHODS.filter((m) => !(DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m));
-    expect(migrated).toHaveLength(11);
+    expect(migrated).toHaveLength(12);
     for (const method of migrated) expect(fallback[method], method).not.toHaveBeenCalled();
   });
 });
@@ -209,6 +210,82 @@ describe("ApiDataSource page routing", () => {
 
   it("declares media-api's window limit for offset reads", () => {
     expect(new ApiDataSource(makeFallback()).offsetReadLimit).toBe(10_000);
+  });
+});
+
+describe("ApiDataSource standalone image", () => {
+  function stubSingleton(respond: (url: string) => Response | Promise<Response>) {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      init?.signal?.throwIfAborted();
+      return respond(url);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const singleton = (id: string) => new Response(JSON.stringify({
+    uri: `/images/${id}`,
+    data: {
+      id, uploadTime: "2026-01-01T00:00:00Z", cost: "overquota", valid: false, invalidReasons: { quota: "Over quota" },
+      persisted: { value: true, reasons: ["archived"] },
+      userMetadata: { data: {
+        archived: { data: false }, labels: { data: [{ data: "Priority" }] }, metadata: { data: {} },
+        usageRights: {}, photoshoot: {}, lastModified: "2026-01-02T00:00:00Z",
+      } },
+      usages: { data: [{ data: { id: "usage-1", platform: "print" } }] },
+    },
+    links: [{ rel: "crops", href: "/crops" }],
+    actions: [{ name: "delete", href: `/images/${id}`, method: "DELETE" }],
+  }), { status: 200 });
+
+  it("reads GET /images/:id and returns the normalized image with its overlay", async () => {
+    const fetchMock = stubSingleton(() => singleton("img/1"));
+    const fallback = makeFallback();
+    const found = await new ApiDataSource(fallback).getById("img/1");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/images/img%2F1");
+    expect(init?.method ?? "GET").toBe("GET");
+    expect(found?.image.id).toBe("img/1");
+    expect(found?.image.userMetadata?.labels).toEqual(["Priority"]);
+    expect(found?.image.usages).toEqual([{ id: "usage-1", platform: "print" }]);
+    expect(found?.enrichment).toMatchObject({
+      cost: "overquota", valid: false, invalidReasons: { quota: "Over quota" },
+      persisted: { value: true, reasons: ["archived"] },
+      actions: [{ name: "delete", href: "/images/img/1", method: "DELETE" }],
+    });
+    expect(fallback.getById).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing or hidden image as absent, quietly", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    stubSingleton(() => failure(404, "image-not-found"));
+    await expect(new ApiDataSource(makeFallback()).getById("img-1")).resolves.toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("treats an image answered under another ID as absent", async () => {
+    stubSingleton(() => singleton("img-2"));
+    await expect(new ApiDataSource(makeFallback()).getById("img-1")).resolves.toBeUndefined();
+  });
+
+  it.each([
+    { name: "refusing", respond: () => failure(503), expected: { kind: "refused", status: 503 } },
+    { name: "unreachable", respond: () => { throw new TypeError("Failed to fetch"); }, expected: { kind: "unavailable" } },
+  ])("fails rather than reporting absence when media-api is $name", async ({ respond, expected }) => {
+    stubSingleton(respond);
+    await expect(new ApiDataSource(makeFallback()).getById("img-1")).rejects.toMatchObject(expected);
+  });
+
+  it("passes cancellation to media-api", async () => {
+    const controller = new AbortController();
+    const fetchMock = stubSingleton(() => {
+      controller.abort();
+      return singleton("img-1");
+    });
+    await expect(new ApiDataSource(makeFallback()).getById("img-1", controller.signal))
+      .rejects.toMatchObject({ name: "AbortError" });
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
 });
 

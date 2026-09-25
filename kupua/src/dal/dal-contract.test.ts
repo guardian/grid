@@ -13,7 +13,7 @@ describe("ImageDataSource contract (MockDataSource)", () => {
   const ds = new MockDataSource(100);
 
   it("getById(known) returns image with matching id", async () => {
-    const img = await ds.getById("img-42");
+    const img = (await ds.getById("img-42"))?.image;
     expect(img).toBeDefined();
     expect(img!.id).toBe("img-42");
   });

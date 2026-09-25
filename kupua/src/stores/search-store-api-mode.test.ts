@@ -118,7 +118,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
 
 const MIGRATED = [
   "searchRange", "openPit", "closePit", "searchAfter", "countBefore", "estimateSortValue", "findKeywordSortValue",
-  "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange",
+  "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById",
 ];
 
 /** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */

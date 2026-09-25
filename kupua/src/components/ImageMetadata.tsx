@@ -35,6 +35,7 @@
  */
 
 import type { Image } from "@/types/image";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { DETAIL_PANEL_FIELDS } from "@/lib/field-registry";
 import {
   useMetadataSearch,
@@ -186,11 +187,13 @@ function formatDeletedTime(iso: string): { relative: string; absolute: string } 
 
 interface ImageMetadataProps {
   image: Image;
+  /** Server enrichment the caller fetched with this image itself; wins over the shared store. */
+  overlay?: EnrichmentFields;
 }
 
-export function ImageMetadata({ image }: ImageMetadataProps) {
+export function ImageMetadata({ image, overlay }: ImageMetadataProps) {
   const onSearch = useMetadataSearch();
-  const enriched = useEnrichedImage(image);
+  const enriched = useEnrichedImage(image, overlay);
 
   // All cost/validity fields come from deriveImage (ES baseline + API overlay)
   const cost = enriched?.cost ?? "pay";

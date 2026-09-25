@@ -4,8 +4,11 @@ import { useLayoutEffect, type ComponentProps, type ReactNode } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
+import type { ImageByIdResult } from "@/dal/types";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { useSearchStore } from "@/stores/search-store";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
 import { ImageDetail } from "./ImageDetail";
 
 vi.hoisted(() => {
@@ -57,7 +60,9 @@ vi.mock("@/components/StableImg", () => ({ StableImg: ({ imgRef, ...props }: Com
   fixture.mediaProps.push(props);
   return <img ref={imgRef} {...props} />;
 } }));
-vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image }: { image: Image }) => <span data-testid="metadata">{image.id}: {image.metadata.title}</span> }));
+vi.mock("@/components/ImageMetadata", () => ({ ImageMetadata: ({ image, overlay }: { image: Image; overlay?: EnrichmentFields }) => (
+  <span data-testid="metadata">{image.id}: {image.metadata.title}{overlay?.cost ? ` [${overlay.cost}]` : ""}</span>
+) }));
 vi.mock("@/components/UsagesSection", () => ({ UsagesSection: () => null, countDisplayUsages: () => 0 }));
 vi.mock("@/components/PanelLayout", () => ({ AccordionSection: ({ children }: { children: ReactNode }) => <section>{children}</section> }));
 vi.mock("@/lib/reset-to-home", () => ({ resetToHome: vi.fn() }));
@@ -72,6 +77,10 @@ vi.mock("@/lib/image-offset-cache", () => ({
 
 function makeImage(imageId: string): Image {
   return { id: imageId, metadata: { title: `Title ${imageId}` }, usages: [] } as unknown as Image;
+}
+
+function found(imageId: string, enrichment?: EnrichmentFields): ImageByIdResult {
+  return { image: makeImage(imageId), enrichment };
 }
 
 function deferred<T>() {
@@ -162,8 +171,8 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it.each(["null", "undefined", "reject", "success"])("never renders loaded A as pending B, then handles %s", async (outcome) => {
-    const pending = deferred<Image | undefined>();
-    const lookup = vi.spyOn(dataSource, "getById").mockResolvedValueOnce(makeImage("A")).mockReturnValueOnce(pending.promise);
+    const pending = deferred<ImageByIdResult | undefined>();
+    const lookup = vi.spyOn(dataSource, "getById").mockResolvedValueOnce(found("A")).mockReturnValueOnce(pending.promise);
     const view = render(<Detail imageId="A" />);
     await act(async () => {});
     expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
@@ -179,7 +188,7 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.queryByAltText("Title A")).toBeNull();
     await act(async () => {
       if (outcome === "reject") pending.reject(new Error("unavailable"));
-      else pending.resolve(outcome === "success" ? makeImage("B") : outcome === "null" ? null as unknown as undefined : undefined);
+      else pending.resolve(outcome === "success" ? found("B") : outcome === "null" ? null as unknown as undefined : undefined);
     });
     expect(lookup.mock.calls.map(([imageId]) => imageId)).toEqual(["A", "B"]);
     expect(screen.queryByText("A: Title A")).toBeNull();
@@ -215,7 +224,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it.each(["success", "reject"])("ignores obsolete A %s during rapid A-B-C-A navigation", async (outcome) => {
-    const requests = Array.from({ length: 4 }, () => deferred<Image | undefined>());
+    const requests = Array.from({ length: 4 }, () => deferred<ImageByIdResult | undefined>());
     const lookup = vi.spyOn(dataSource, "getById");
     requests.forEach((request) => lookup.mockReturnValueOnce(request.promise));
     const view = render(<Detail imageId="A" />);
@@ -224,25 +233,25 @@ describe("KUP-004 standalone detail identity", () => {
     view.rerender(<Detail imageId="A" />);
     await act(async () => {
       if (outcome === "reject") requests[0].reject(new Error("obsolete"));
-      else requests[0].resolve(makeImage("A"));
-      requests[1].resolve(makeImage("B"));
+      else requests[0].resolve(found("A"));
+      requests[1].resolve(found("B"));
       requests[2].resolve(undefined);
     });
     expect(screen.queryByTestId("metadata")).toBeNull();
     expect(screen.queryByText("Image not found")).toBeNull();
-    await act(async () => requests[3].resolve(makeImage("A")));
+    await act(async () => requests[3].resolve(found("A")));
     expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
     expect(lookup).toHaveBeenCalledTimes(4);
   });
 
   it("gives resident B precedence over pending standalone completion and keeps the detail mounted", async () => {
-    const pending = deferred<Image | undefined>();
+    const pending = deferred<ImageByIdResult | undefined>();
     const lookup = vi.spyOn(dataSource, "getById").mockReturnValueOnce(pending.promise);
     const view = render(<Detail imageId="A" />);
     fixture.resident = [makeImage("B")];
     view.rerender(<Detail imageId="B" />);
     const wrapper = view.container.querySelector("[data-detail-image-id]");
-    await act(async () => pending.resolve(makeImage("A")));
+    await act(async () => pending.resolve(found("A")));
     expect(screen.getByTestId("metadata").textContent).toBe("B: Title B");
     expect(lookup).toHaveBeenCalledTimes(1);
     fixture.resident = [makeImage("C")];
@@ -250,5 +259,49 @@ describe("KUP-004 standalone detail identity", () => {
     expect(view.container.querySelector("[data-detail-image-id]")).toBe(wrapper);
     expect(transitions.at(-1)).toMatchObject({ requested: "C", displayed: "C" });
     expect(history.state._detailEntryImageId).toBe("A");
+  });
+
+  it("hands the standalone image's own overlay to the metadata panel without publishing it", async () => {
+    vi.spyOn(dataSource, "getById").mockResolvedValueOnce(found("A", { cost: "overquota" }));
+    useEnrichmentStore.getState().setEnrichment(new Map());
+    render(<Detail imageId="A" />);
+    await act(async () => {});
+    expect(screen.getByTestId("metadata").textContent).toBe("A: Title A [overquota]");
+    expect(useEnrichmentStore.getState().data.has("A")).toBe(false);
+    act(() => useEnrichmentStore.getState().setEnrichment(new Map([["fresh-search", { valid: true }]])));
+    expect(screen.getByTestId("metadata").textContent).toBe("A: Title A [overquota]");
+  });
+
+  it("never shows a standalone overlay under another image", async () => {
+    vi.spyOn(dataSource, "getById")
+      .mockResolvedValueOnce(found("A", { cost: "overquota" }))
+      .mockResolvedValueOnce(found("B"));
+    const view = render(<Detail imageId="A" />);
+    await act(async () => {});
+    view.rerender(<Detail imageId="B" />);
+    await act(async () => {});
+    expect(screen.getByTestId("metadata").textContent).toBe("B: Title B");
+    fixture.resident = [makeImage("A")];
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
+  });
+
+  it("cancels an obsolete standalone request when the requested image changes", () => {
+    const lookup = vi.spyOn(dataSource, "getById").mockReturnValue(new Promise(() => {}));
+    const view = render(<Detail imageId="A" />);
+    const signal = lookup.mock.calls[0][1];
+    expect(signal?.aborted).toBe(false);
+    view.rerender(<Detail imageId="B" />);
+    expect(signal?.aborted).toBe(true);
+    expect(lookup.mock.calls[1][1]?.aborted).toBe(false);
+  });
+
+  it("makes no singleton request while traversing resident images", () => {
+    const lookup = vi.spyOn(dataSource, "getById");
+    fixture.resident = [makeImage("A"), makeImage("B"), makeImage("C")];
+    const view = render(<Detail imageId="A" />);
+    for (const imageId of ["B", "C", "B", "A"]) view.rerender(<Detail imageId={imageId} />);
+    expect(screen.getByTestId("metadata").textContent).toBe("A: Title A");
+    expect(lookup).not.toHaveBeenCalled();
   });
 });

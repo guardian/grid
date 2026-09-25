@@ -1,12 +1,12 @@
 /**
- * Request mapping and transport for media-api's ordered image reads
- * (POST /images/search-after, /window, /rank, /sort-profile, /keys).
+ * Request mapping and transport for media-api's image reads
+ * (POST /images/search-after, /window, /rank, /sort-profile, /keys; GET /images/:id).
  *
  * Used by ApiDataSource when VITE_USE_MEDIA_API=true.
  */
 
 import type { Image } from "@/types/image";
-import type { SearchAfterResult, SearchParams, SortValues } from "./types";
+import type { ImageByIdResult, SearchAfterResult, SearchParams, SortValues } from "./types";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
@@ -144,34 +144,50 @@ export function buildReadBody(params: SearchParams): Record<string, unknown> {
 
 /** POSTs one ordered read to media-api and returns its JSON, classifying failures for recovery. */
 export async function postImageRead(path: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+  const res = await fetchImageRead(`/api${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }, signal);
+  if (!res.ok) throw await readFailure(res, signal);
+  return readJson(res, signal);
+}
+
+/** Reads one image through GET /images/:id; undefined when media-api has no visible image with that ID. */
+export async function apiGetImage(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
+  const res = await fetchImageRead(`/api/images/${encodeURIComponent(id)}`, {}, signal);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw await readFailure(res, signal);
+  const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown };
+  if (json.data?.id !== id) return undefined;
+  return { image: mapApiImageToImage(json.data), enrichment: extractEnrichment(json)?.[1] };
+}
+
+async function fetchImageRead(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
   signal?.throwIfAborted();
-  let res: Response;
   try {
-    res = await fetch(`/api${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal,
-    });
+    return await fetch(url, { ...init, signal });
   } catch (error) {
     signal?.throwIfAborted();
     if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");
     throw error;
   }
+}
 
-  if (!res.ok) {
-    const errorBody: unknown = await res.json().catch(() => undefined);
-    signal?.throwIfAborted();
-    const errorKey = errorBody && typeof errorBody === "object" && "errorKey" in errorBody
-      ? errorBody.errorKey : undefined;
-    const kind = res.status === 410 && errorKey === "search-after-pit-expired"
-      ? "pit-expired"
-      : (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")
-        ? "unavailable"
-        : "refused";
-    throw new SearchAfterApiError(kind, res.status);
-  }
+async function readFailure(res: Response, signal?: AbortSignal): Promise<SearchAfterApiError> {
+  const errorBody: unknown = await res.json().catch(() => undefined);
+  signal?.throwIfAborted();
+  const errorKey = errorBody && typeof errorBody === "object" && "errorKey" in errorBody
+    ? errorBody.errorKey : undefined;
+  const kind = res.status === 410 && errorKey === "search-after-pit-expired"
+    ? "pit-expired"
+    : (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")
+      ? "unavailable"
+      : "refused";
+  return new SearchAfterApiError(kind, res.status);
+}
 
+async function readJson(res: Response, signal?: AbortSignal): Promise<unknown> {
   const json: unknown = await res.json().catch((error: unknown) => {
     signal?.throwIfAborted();
     if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");

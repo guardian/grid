@@ -200,7 +200,7 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
     if (probe.requests.length < 1 || probe.requests.length > 2) {
       throw new Error(`P13c expected one lookup or two with development effect replay; observed ${probe.requests.length}`);
     }
-    for (const { request, route } of probe.requests) {
+    for (const [index, { request, route }] of probe.requests.entries()) {
       expect(route).toBe(expectedRoute);
       const ownsTarget = request.method() === "GET"
         ? new URL(request.url()).pathname === `/api/images/${encodeURIComponent(targetId)}`
@@ -211,6 +211,10 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
         })();
       expect(ownsTarget).toBe(true);
       const response = await request.response();
+      // The detail aborts its first read when development Strict Mode replays the effect.
+      const cancelledReplay = !response && index === 0 && probe.requests.length === 2
+        && request.failure()?.errorText === "net::ERR_ABORTED";
+      if (cancelledReplay) continue;
       expect(response?.ok()).toBe(true);
       await response.finished();
     }

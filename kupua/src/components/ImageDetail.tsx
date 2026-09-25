@@ -66,6 +66,7 @@ import { AccordionSection } from "@/components/PanelLayout";
 import { useUiPrefsStore, getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 
 /** Delay before acting on single-tap in fullscreen — allows double-tap-to-zoom. */
 const DOUBLE_TAP_MS = 300;
@@ -243,9 +244,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const [standalone, setStandalone] = useState<{
     imageId: string;
     image: Image | null;
+    enrichment?: EnrichmentFields;
     failed: boolean;
   } | null>(null);
   const standaloneImage = standalone?.imageId === imageId ? standalone.image : null;
+  const standaloneEnrichment = standalone?.imageId === imageId ? standalone.enrichment : undefined;
   const standaloneFetchFailed = standalone?.imageId === imageId && standalone.failed;
 
   useEffect(() => {
@@ -256,17 +259,21 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     }
     // Fetch by ID
     let cancelled = false;
+    const request = new AbortController();
     setStandalone({ imageId, image: null, failed: false });
-    dataSource.getById(imageId).then(
-      (img) => {
+    dataSource.getById(imageId, request.signal).then(
+      (found) => {
         if (cancelled) return;
-        setStandalone({ imageId, image: img ?? null, failed: !img });
+        setStandalone({ imageId, image: found?.image ?? null, enrichment: found?.enrichment, failed: !found });
       },
       () => {
         if (!cancelled) setStandalone({ imageId, image: null, failed: true });
       },
     );
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      request.abort();
+    };
   }, [imageId, imageFromResults, dataSource]);
 
   // Use the image from results if available (preserves prev/next nav),
@@ -859,7 +866,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           <aside className="w-full sm:w-72 shrink-0 sm:border-l border-t sm:border-t-0 border-grid-separator bg-grid-bg sm:overflow-y-auto sm:overflow-x-clip">
             <AccordionSection sectionId="detail-metadata" title="Details">
               <div className="p-3">
-                <ImageMetadata image={displayImage} />
+                <ImageMetadata image={displayImage} overlay={imageFromResults ? undefined : standaloneEnrichment} />
               </div>
             </AccordionSection>
             <AccordionSection

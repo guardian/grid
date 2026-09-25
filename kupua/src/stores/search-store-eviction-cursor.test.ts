@@ -300,7 +300,7 @@ describe("failed replacement navigation", () => {
       await actions().seek(5000);
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
-    const target = (await mock.getById("img-8000"))!;
+    const target = (await mock.getById("img-8000"))!.image;
     const targetCursor: SortValues = [Date.parse(target.uploadTime), target.id];
     vi.spyOn(mock, "searchAfter").mockImplementationOnce((_params, _cursor, _pit, signal) =>
       new Promise<SearchAfterResult>((_resolve, reject) => {

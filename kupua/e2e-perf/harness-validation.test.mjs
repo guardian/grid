@@ -322,7 +322,7 @@ test("replacing perceived history removes stale charts before rendering shared p
   assert.equal(rendered, true);
 });
 
-function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false } = {}) {
+function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, resident = false, becomesResident = false, requestCount = 1, changedMedia = false, wrongTarget = false, wrongTargetIndex = -1, mixedRoute = false, failedIndex = -1, failureText = "net::ERR_ABORTED" } = {}) {
   const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
   const helper = source.slice(source.indexOf("function captureImageLookups("), source.indexOf("// Guard: per-test cluster checks"));
   const { outputText } = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
@@ -336,7 +336,8 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
     return {
       method: () => actualRoute === "direct-es" ? "POST" : "GET",
       url: () => actualRoute === "direct-es" ? "https://example.invalid/es/images/_mget" : `https://example.invalid/api/images/${requestedId}`,
-      response: async () => response,
+      response: async () => failedIndex === index ? null : response,
+      failure: () => failedIndex === index ? { errorText: failureText } : null,
       postDataJSON: () => ({ docs: [{ _id: requestedId }] }),
       timing: () => ({ startTime: 1000, responseEnd: 40 + index * 20 }),
     };
@@ -463,6 +464,27 @@ test("actual standalone probe rejects excess, missing or mismatched reads and re
   for (const options of [{ resident: true }, { becomesResident: true }, { requestCount: 3 }, { requestCount: 0 }, { expectedRoute: "media-api" }, { changedMedia: true }, { wrongTarget: true },
     { requestCount: 2, wrongTargetIndex: 0 }, { requestCount: 2, wrongTargetIndex: 1 },
     { requestCount: 2, mixedRoute: true }]) {
+    const harness = standaloneProbeHarness(options);
+    await assert.rejects(harness.run());
+    assert.equal(harness.listeners.size, 0);
+  }
+});
+
+test("actual standalone probe accepts one cancelled Strict Mode replay before a successful read", async () => {
+  for (const route of ["direct-es", "media-api"]) {
+    const harness = standaloneProbeHarness({ route, requestCount: 2, failedIndex: 0 });
+    const result = await harness.run();
+    assert.equal(result.imageLookupCount, 2);
+    assert.equal(result.routes[0], route);
+    assert.equal(result.detailLookupMs, 60);
+    assert.equal(harness.listeners.size, 0);
+  }
+});
+
+test("actual standalone probe rejects a cancelled only, last or non-abort failed read", async () => {
+  for (const options of [{ requestCount: 1, failedIndex: 0 }, { requestCount: 2, failedIndex: 1 },
+    { requestCount: 2, failedIndex: 0, failureText: "net::ERR_CONNECTION_REFUSED" },
+    { requestCount: 2, failedIndex: 0, wrongTargetIndex: 0 }]) {
     const harness = standaloneProbeHarness(options);
     await assert.rejects(harness.run());
     assert.equal(harness.listeners.size, 0);

@@ -331,9 +331,9 @@ describe("MockDataSource.getIdRange", () => {
   it("returns IDs in range (img-2 to img-4 from dataset of 10)", async () => {
     const mock = new MockDataSource(10);
     // Sorted desc: img-0, img-1, img-2, img-3, img-4, img-5, img-6, img-7, img-8, img-9
-    const img1 = await mock.getById("img-1");
-    const img4 = await mock.getById("img-4");
-    const img5 = await mock.getById("img-5");
+    const img1 = (await mock.getById("img-1"))?.image;
+    const img4 = (await mock.getById("img-4"))?.image;
+    const img5 = (await mock.getById("img-5"))?.image;
     expect(img1).toBeDefined();
     expect(img4).toBeDefined();
     expect(img5).toBeDefined();
@@ -351,8 +351,8 @@ describe("MockDataSource.getIdRange", () => {
 
   it("returns empty when toCursor is before fromCursor", async () => {
     const mock = new MockDataSource(10);
-    const img5 = await mock.getById("img-5");
-    const img2 = await mock.getById("img-2");
+    const img5 = (await mock.getById("img-5"))?.image;
+    const img2 = (await mock.getById("img-2"))?.image;
     // img-5 sorts later (smaller index in desc sort → actually img-5 has
     // lower uploadTime → sorts further in desc order). fromCursor=img-5,
     // toCursor=img-2: in desc order img-2 comes BEFORE img-5, so range is empty.
@@ -367,8 +367,8 @@ describe("MockDataSource.getIdRange", () => {
   it("respects RANGE_HARD_CAP and sets truncated=true", async () => {
     vi.stubEnv("VITE_RANGE_HARD_CAP", "3");
     const mock = new MockDataSource(20);
-    const img0 = await mock.getById("img-0");
-    const img9 = await mock.getById("img-9");
+    const img0 = (await mock.getById("img-0"))?.image;
+    const img9 = (await mock.getById("img-9"))?.image;
     // Range img-1..img-9 (8 items), cap=3 → truncated
     const fromSv = [new Date(img0!.uploadTime).getTime(), img0!.id];
     const toSv = [new Date(img9!.uploadTime).getTime(), img9!.id];
@@ -382,8 +382,8 @@ describe("MockDataSource.getIdRange", () => {
   it("does not set truncated when range equals cap exactly", async () => {
     vi.stubEnv("VITE_RANGE_HARD_CAP", "3");
     const mock = new MockDataSource(20);
-    const img0 = await mock.getById("img-0");
-    const img3 = await mock.getById("img-3");
+    const img0 = (await mock.getById("img-0"))?.image;
+    const img3 = (await mock.getById("img-3"))?.image;
     // Range img-1..img-3 (3 items) — exactly at cap → truncated=false
     const fromSv = [new Date(img0!.uploadTime).getTime(), img0!.id];
     const toSv = [new Date(img3!.uploadTime).getTime(), img3!.id];
@@ -624,8 +624,8 @@ describe("MockDataSource.getIdRange — sparse fields", () => {
   it("range entirely in populated zone", async () => {
     const mock = makeSparse();
     // Populated sorted: img-15, img-10, img-5, img-0 (desc lastModified)
-    const img15 = await mock.getById("img-15");
-    const img5 = await mock.getById("img-5");
+    const img15 = (await mock.getById("img-15"))?.image;
+    const img5 = (await mock.getById("img-5"))?.image;
     // Range from img-15 to img-5 (exclusive start, inclusive end): img-10, img-5
     const fromSv = [new Date(img15!.uploadTime).getTime(), new Date(img15!.uploadTime).getTime(), img15!.id];
     const toSv = [new Date(img5!.uploadTime).getTime(), new Date(img5!.uploadTime).getTime(), img5!.id];
@@ -641,8 +641,8 @@ describe("MockDataSource.getIdRange — sparse fields", () => {
     const mock = makeSparse();
     // Null-zone docs sorted by uploadTime desc: img-19, img-18, ..., img-1 (skipping 15,10,5,0)
     // Get sort values for null-zone docs via the mock
-    const img19 = await mock.getById("img-19");
-    const img16 = await mock.getById("img-16");
+    const img19 = (await mock.getById("img-19"))?.image;
+    const img16 = (await mock.getById("img-16"))?.image;
     // fromCursor = img-19 (null zone), toCursor = img-16 (null zone)
     // Expected: img-18, img-17, img-16
     const fromSv = [null, new Date(img19!.uploadTime).getTime(), img19!.id];
@@ -657,8 +657,8 @@ describe("MockDataSource.getIdRange — sparse fields", () => {
     const mock = makeSparse();
     // img-0 is last populated doc. Null zone starts after it.
     // fromCursor = img-5 (populated), toCursor = img-19 (first null-zone doc, uploadTime desc)
-    const img5 = await mock.getById("img-5");
-    const img19 = await mock.getById("img-19");
+    const img5 = (await mock.getById("img-5"))?.image;
+    const img19 = (await mock.getById("img-19"))?.image;
     // Range from img-5 (excl) → img-19 (incl): img-0 (last populated) + all null-zone down to img-19
     const fromSv = [new Date(img5!.uploadTime).getTime(), new Date(img5!.uploadTime).getTime(), img5!.id];
     const toSv = [null, new Date(img19!.uploadTime).getTime(), img19!.id];
