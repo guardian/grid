@@ -1,15 +1,18 @@
 /**
  * ApiDataSource — Kupua's ordered image reads through media-api (VITE_USE_MEDIA_API=true).
  *
- * Pages, ranks, sort profiles, position maps, range walks and counts use media-api's POST endpoints;
- * standalone images use GET /images/:id.
+ * Pages, ranks, sort profiles, position maps, range walks, counts and aggregations use media-api's
+ * POST endpoints; standalone images use GET /images/:id.
  * Walk loops and their caps stay here; each call is one bounded server read. No PIT is opened.
  * Migrated reads never fall back to Elasticsearch. Reads not yet migrated use the development
  * fallback listed in DEVELOPMENT_FALLBACK_METHODS, which shrinks to empty as the build proceeds.
  */
 
 import type {
+  AggregationRequest,
+  AggregationsResult,
   CountWithTickersResult,
+  FilterAggRequest,
   ImageDataSource,
   IdRangeResult,
   ImageByIdResult,
@@ -20,6 +23,7 @@ import type {
   SortDistribution,
   SortValues,
   TickerCountResult,
+  UsageFilterAggRequest,
 } from "./types";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
@@ -33,7 +37,7 @@ export const API_WINDOW_OFFSET_LIMIT = 10_000;
 
 /** Reads still served by the development fallback until later build units migrate them. */
 export const DEVELOPMENT_FALLBACK_METHODS = [
-  "getByIds", "getAggregation", "getAggregations", "searchByAi",
+  "getByIds", "searchByAi",
 ] as const;
 
 type KeywordPage = { buckets: Array<{ key: string | number; count: number }>; after: string | number | null; coveredCount?: number };
@@ -41,6 +45,18 @@ type KeyPage = { keys: Array<{ id: string; sortValues: SortValues }>; after: Sor
 type DateStats = { valueCount: number; min: number | null; max: number | null; coveredCount?: number };
 type DateBuckets = { buckets: SortDistBucket[]; positionKind: "exact-rank" | "approximate-evidence"; evidenceCount: number };
 type CountResponse = { total: number; tickerCounts: Record<string, TickerCountResult> };
+type AggregationsResponse = {
+  fields: Record<string, { buckets: Array<{ key: string; count: number }> }>;
+  isFilterCounts: Record<string, number>;
+};
+
+/** Grid's per-image copies of the nested usage values, so plain terms count images rather than usages. */
+const USAGE_ROLLUP_FIELDS: Record<UsageFilterAggRequest["subField"], string> = {
+  platform: "usagesPlatform",
+  status: "usagesStatus",
+};
+const USAGE_ROLLUP_SIZE = 20;
+const DEFAULT_AGGREGATION_SIZE = 10;
 
 function isCancellation(error: unknown, signal?: AbortSignal): boolean {
   return signal?.aborted === true || (error instanceof DOMException && error.name === "AbortError");
@@ -67,8 +83,45 @@ export class ApiDataSource implements ImageDataSource {
   }
 
   getByIds(...a: Parameters<ImageDataSource["getByIds"]>) { return this.developmentFallback.getByIds(...a); }
-  getAggregation(...a: Parameters<ImageDataSource["getAggregation"]>) { return this.developmentFallback.getAggregation(...a); }
-  getAggregations(...a: Parameters<ImageDataSource["getAggregations"]>) { return this.developmentFallback.getAggregations(...a); }
+
+  async getAggregations(
+    params: SearchParams,
+    fields: AggregationRequest[],
+    signal?: AbortSignal,
+    isFilters?: FilterAggRequest[],
+    usageFilters?: UsageFilterAggRequest[],
+  ): Promise<AggregationsResult> {
+    const t0 = Date.now();
+    const sizes = new Map<string, number>();
+    const request = (field: string, size: number) => sizes.set(field, Math.max(sizes.get(field) ?? 0, size));
+    for (const { field, size } of fields) request(field, size ?? DEFAULT_AGGREGATION_SIZE);
+    for (const { subField } of usageFilters ?? []) request(USAGE_ROLLUP_FIELDS[subField], USAGE_ROLLUP_SIZE);
+    const isValues = [...new Set((isFilters ?? []).map((f) => f.isFilter))];
+
+    const body = buildReadBody(params);
+    delete body.sort;
+    const json = await postImageRead("/images/aggregations", {
+      ...body,
+      fields: [...sizes].map(([field, size]) => ({ field, size })),
+      ...(isValues.length > 0 ? { isFilters: isValues } : {}),
+    }, signal) as AggregationsResponse;
+
+    const bucketsOf = (field: string) => json.fields[field]?.buckets ?? [];
+    return {
+      fields: Object.fromEntries(fields.map(({ field }) => [field, { buckets: bucketsOf(field) }])),
+      ...(isFilters?.length
+        ? { filters: Object.fromEntries(isFilters.map(({ name, isFilter }) => [name, json.isFilterCounts[isFilter] ?? 0])) }
+        : {}),
+      ...(usageFilters?.length
+        ? {
+            usageFilters: Object.fromEntries(usageFilters.map(({ name, subField, value }) => [
+              name, bucketsOf(USAGE_ROLLUP_FIELDS[subField]).find((b) => b.key === value)?.count ?? 0,
+            ])),
+          }
+        : {}),
+      fetchDuration: Date.now() - t0,
+    };
+  }
 
   async count(params: SearchParams): Promise<number> {
     return (await this.countWithTickers(params)).count;

@@ -161,7 +161,8 @@ export interface AggregationBucket {
 
 export interface AggregationResult {
   buckets: AggregationBucket[];
-  total: number;
+  /** Documents matching the query. Direct ES only; media-api reports buckets alone. */
+  total?: number;
 }
 
 /** Request for a single field aggregation within a batch. */
@@ -284,13 +285,6 @@ export interface ImageDataSource {
 
   /** Fetch a single image by ID. Returns undefined if not found. */
   getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined>;
-
-  /** Get terms aggregation for a field (for filter dropdowns). */
-  getAggregation(
-    field: string,
-    query?: string,
-    size?: number
-  ): Promise<AggregationResult>;
 
   /**
    * Batched aggregations — terms aggs per field and optional IS-filter aggs,

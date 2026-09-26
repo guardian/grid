@@ -1,9 +1,31 @@
-import { describe, it, expect } from "vitest";
-import { buildSubtreeCounts } from "./collection-store";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { buildSubtreeCounts, useCollectionStore } from "./collection-store";
+import type { ImageDataSource } from "@/dal";
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe("loadCollections", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useCollectionStore.setState({ tree: null, counts: {}, status: "idle" });
+  });
+
+  it("counts collection images through the data source it is given, in the unfiltered default scope", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { basename: "root", children: [] } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const getAggregations = vi.fn(async () => ({
+      fields: { "collections.pathId": { buckets: [{ key: "sport", count: 2 }, { key: "sport/football", count: 3 }] } },
+    }));
+
+    await useCollectionStore.getState().loadCollections({ getAggregations } as unknown as Pick<ImageDataSource, "getAggregations">);
+
+    expect(getAggregations).toHaveBeenCalledWith({}, [{ field: "collections.pathId", size: 6000 }]);
+    expect(useCollectionStore.getState().counts).toEqual({ sport: 5, "sport/football": 3 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("buildSubtreeCounts", () => {
   it("returns empty map for empty input", () => {

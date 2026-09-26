@@ -1,9 +1,10 @@
 /**
  * Typeahead field resolvers for the CQL chip input.
  *
- * Dynamic resolvers use `ImageDataSource.getAggregation()` — a terms
- * aggregation on the keyword field, ranked by prevalence.  Results appear
- * immediately when the user types `:` and filter as they type further.
+ * Dynamic resolvers use `ImageDataSource.getAggregations()` — a terms
+ * aggregation on the keyword field, scoped to the current search and ranked
+ * by prevalence.  Results appear immediately when the user types `:` and
+ * filter as they type further.
  *
  * Static resolvers (is, fileType, subject) use hardcoded lists — same as kahuna.
  *
@@ -191,19 +192,15 @@ export function buildTypeaheadFields(
     cqlKey?: string,
     signal?: AbortSignal,
   ): Promise<AggregationResult> {
-    const params = getParams?.();
+    const params = getParams?.() ?? {};
     return isolateAggregationFailure(async () => {
-      if (params) {
-        let adjustedParams = params;
-        if (cqlKey && params.query) {
-          const stripped = stripFieldFromQuery(cqlKey, params.query);
-          if (stripped !== params.query) adjustedParams = { ...params, query: stripped || undefined };
-        }
-        const result = await dataSource.getAggregations(adjustedParams, [{ field, size }], signal);
-        return result.fields[field] ?? { buckets: [], total: 0 };
+      let adjustedParams = params;
+      if (cqlKey && params.query) {
+        const stripped = stripFieldFromQuery(cqlKey, params.query);
+        if (stripped !== params.query) adjustedParams = { ...params, query: stripped || undefined };
       }
-      // No params callback — fall back to unscoped (match_all)
-      return dataSource.getAggregation(field, undefined, size);
+      const result = await dataSource.getAggregations(adjustedParams, [{ field, size }], signal);
+      return result.fields[field] ?? { buckets: [], total: 0 };
     }, { buckets: [], total: 0 });
   }
 

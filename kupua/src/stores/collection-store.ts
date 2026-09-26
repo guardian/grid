@@ -4,7 +4,7 @@
  * Loads once at boot:
  * 1. Fetches the collection tree directly from the collections service
  *    (URL from `VITE_COLLECTIONS_URL`, credentials included for panda auth)
- * 2. Fetches unfiltered image counts via ES aggregation (not search-scoped)
+ * 2. Fetches unfiltered image counts via an aggregation on the app's data source (not search-scoped)
  * 3. Computes subtree counts (parent = sum of own + all descendants)
  *
  * Graceful-absence: if the tree fetch fails, status = 'absent' and the
@@ -16,7 +16,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { ElasticsearchDataSource } from "@/dal";
+import type { ImageDataSource } from "@/dal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,7 +59,7 @@ interface CollectionStoreState {
   status: CollectionStatus;
 
   /** Load the collection tree and counts. Called once at app boot. */
-  loadCollections: () => Promise<void>;
+  loadCollections: (dataSource: Pick<ImageDataSource, "getAggregations">) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,8 +113,6 @@ export function buildSubtreeCounts(
 // Store
 // ---------------------------------------------------------------------------
 
-const dataSource = new ElasticsearchDataSource();
-
 export const useCollectionStore = create<CollectionStoreState>()(
   persist(
     (set, get) => ({
@@ -122,7 +120,7 @@ export const useCollectionStore = create<CollectionStoreState>()(
       counts: {},
       status: "idle" as CollectionStatus,
 
-      loadCollections: async () => {
+      loadCollections: async (dataSource) => {
         // Don't reload if already loaded or loading
         const { status } = get();
         if (status === "loading" || status === "ready") return;

@@ -744,46 +744,6 @@ export class ElasticsearchDataSource implements ImageDataSource {
     return image ? { image } : undefined;
   }
 
-  async getAggregation(
-    field: string,
-    query?: string,
-    size: number = 50
-  ): Promise<AggregationResult> {
-    const body: Record<string, unknown> = {
-      size: 0,
-      query: query
-        ? {
-            multi_match: {
-              query,
-              fields: ["metadata.englishAnalysedCatchAll"],
-            },
-          }
-        : { match_all: {} },
-      aggs: {
-        field_agg: {
-          terms: { field, size },
-        },
-      },
-    };
-
-    const result = (await this.esRequest("_search", body)) as {
-      aggregations: {
-        field_agg: {
-          buckets: Array<{ key: string; doc_count: number }>;
-        };
-      };
-      hits: { total: { value: number } };
-    };
-
-    return {
-      buckets: result.aggregations.field_agg.buckets.map((b) => ({
-        key: b.key,
-        count: b.doc_count,
-      })),
-      total: result.hits.total.value,
-    };
-  }
-
   async getAggregations(
     params: SearchParams,
     fields: AggregationRequest[],

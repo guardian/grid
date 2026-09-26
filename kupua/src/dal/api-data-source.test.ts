@@ -22,7 +22,7 @@ function stubMediaApi(routes: Record<string, Route>) {
 }
 
 const everyMethod: Record<Exclude<keyof ImageDataSource, "offsetReadLimit">, true> = {
-  searchRange: true, count: true, countWithTickers: true, getById: true, getAggregation: true,
+  searchRange: true, count: true, countWithTickers: true, getById: true,
   getAggregations: true, openPit: true, searchByAi: true, closePit: true, searchAfter: true,
   countBefore: true, estimateSortValue: true, findKeywordSortValue: true, getKeywordDistribution: true,
   getDateDistribution: true, fetchPositionIndex: true, getByIds: true, getIdRange: true,
@@ -56,7 +56,7 @@ describe("ApiDataSource development fallback", () => {
   });
   it("lists exactly the reads that still use the development fallback", () => {
     expect([...DEVELOPMENT_FALLBACK_METHODS].sort()).toEqual(
-      ["getAggregation", "getAggregations", "getByIds", "searchByAi"],
+      ["getByIds", "searchByAi"],
     );
   });
 
@@ -100,12 +100,13 @@ describe("ApiDataSource development fallback", () => {
       ds.getById("img-1", signal),
       ds.count(params),
       ds.countWithTickers(params),
+      ds.getAggregations(params, [{ field: "metadata.credit" }], signal, [{ name: "deleted", isFilter: "deleted" }]),
       ds.openPit("1m"),
       ds.closePit("pit"),
     ]);
 
     const migrated = ALL_METHODS.filter((m) => !(DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m));
-    expect(migrated).toHaveLength(14);
+    expect(migrated).toHaveLength(15);
     for (const method of migrated) expect(fallback[method], method).not.toHaveBeenCalled();
   });
 });
@@ -615,5 +616,82 @@ describe("ApiDataSource counts", () => {
   it("rejects when media-api is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
     await expect(new ApiDataSource(makeFallback()).countWithTickers(params)).rejects.toMatchObject({ kind: "unavailable" });
+  });
+});
+
+describe("ApiDataSource aggregations", () => {
+  const aggregated = {
+    fields: {
+      "metadata.credit": { buckets: [{ key: "AAP", count: 5 }, { key: "Reuters", count: 2 }] },
+      "fileMetadata.iptc.Edit Status": { buckets: [] },
+      usagesPlatform: { buckets: [{ key: "digital", count: 4 }, { key: "print", count: 1 }] },
+      usagesStatus: { buckets: [{ key: "published", count: 3 }] },
+    },
+    isFilterCounts: { deleted: 0, "under-quota": 6 },
+  };
+
+  it("counts fields verbatim, named is: filters and usage values through media-api with the read scope and no sort", async () => {
+    const calls = stubMediaApi({ "/images/aggregations": () => aggregated });
+    const signal = new AbortController().signal;
+    const result = await new ApiDataSource(makeFallback()).getAggregations(
+      { ...params, ids: "a,b" },
+      [{ field: "metadata.credit", size: 10 }, { field: "fileMetadata.iptc.Edit Status" }],
+      signal,
+      [{ name: "deleted", isFilter: "deleted" }, { name: "quota", isFilter: "under-quota" }],
+      [
+        { name: "digital", subField: "platform", value: "digital" },
+        { name: "syndication", subField: "platform", value: "syndication" },
+        { name: "published", subField: "status", value: "published" },
+      ],
+    );
+
+    expect(result.fields).toEqual({
+      "metadata.credit": { buckets: [{ key: "AAP", count: 5 }, { key: "Reuters", count: 2 }] },
+      "fileMetadata.iptc.Edit Status": { buckets: [] },
+    });
+    expect(result.filters).toEqual({ deleted: 0, quota: 6 });
+    expect(result.usageFilters).toEqual({ digital: 4, syndication: 0, published: 3 });
+    expect(result.took).toBeUndefined();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toMatchObject({
+      orderBy: "-uploadTime",
+      ids: "a,b",
+      fields: [
+        { field: "metadata.credit", size: 10 },
+        { field: "fileMetadata.iptc.Edit Status", size: 10 },
+        { field: "usagesPlatform", size: 20 },
+        { field: "usagesStatus", size: 20 },
+      ],
+      isFilters: ["deleted", "under-quota"],
+    });
+    for (const field of ["sort", "offset", "length", "countAll", "pitId"]) expect(calls[0].body).not.toHaveProperty(field);
+  });
+
+  it("sends no is: filters and returns neither filter nor usage counts when none are asked for", async () => {
+    const calls = stubMediaApi({ "/images/aggregations": () => ({ fields: { "metadata.credit": { buckets: [] } }, isFilterCounts: {} }) });
+    const result = await new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "metadata.credit", size: 100 }]);
+
+    expect(result).toEqual({ fields: { "metadata.credit": { buckets: [] } }, fetchDuration: expect.any(Number) });
+    expect(calls[0].body.fields).toEqual([{ field: "metadata.credit", size: 100 }]);
+    expect(calls[0].body).not.toHaveProperty("isFilters");
+  });
+
+  it("reports a requested field media-api did not return as empty", async () => {
+    stubMediaApi({ "/images/aggregations": () => ({ fields: {}, isFilterCounts: {} }) });
+    const result = await new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "collections.pathId", size: 6000 }]);
+    expect(result.fields["collections.pathId"]).toEqual({ buckets: [] });
+  });
+
+  it.each([
+    { name: "incomplete counts", route: () => failure(503, "aggregations-incomplete"), status: 503 },
+    { name: "a field that cannot be aggregated", route: () => failure(422, "invalid-uri-parameters"), status: 422 },
+  ])("rejects $name rather than reporting empty buckets", async ({ route, status }) => {
+    stubMediaApi({ "/images/aggregations": route });
+    await expect(new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "metadata.title" }])).rejects.toMatchObject({ status });
+  });
+
+  it("rejects when media-api is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    await expect(new ApiDataSource(makeFallback()).getAggregations(params, [])).rejects.toMatchObject({ kind: "unavailable" });
   });
 });

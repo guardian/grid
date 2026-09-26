@@ -68,6 +68,14 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
       total: (await corpus.countWithTickers()).count,
       tickerCounts: { "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" } },
     }),
+    "/images/aggregations": async (b) => ({
+      fields: Object.fromEntries((b.fields as Array<{ field: string }>).map(({ field }) => [field, {
+        buckets: field === "usagesPlatform" ? [{ key: "digital", count: 9 }]
+          : field === "usagesStatus" ? [{ key: "published", count: 4 }]
+          : [{ key: `${field}-top`, count: 3 }],
+      }])),
+      isFilterCounts: Object.fromEntries(((b.isFilters as string[] | undefined) ?? []).map((name) => [name, name === "deleted" ? 0 : 11])),
+    }),
     "/images/keys": async (b) => {
       const size = b.size as number;
       const r = await corpus.searchAfter({ ...toParams(b), length: size }, (b.sortValues as SortValues | undefined) ?? null);
@@ -123,6 +131,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
 const MIGRATED = [
   "searchRange", "openPit", "closePit", "searchAfter", "countBefore", "estimateSortValue", "findKeywordSortValue",
   "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById", "count", "countWithTickers",
+  "getAggregations",
 ];
 
 /** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */
@@ -189,7 +198,7 @@ afterEach(() => {
 
 describe("API mode: routing and counting", () => {
   it("keeps the migrated-method list complementary to the development fallback", () => {
-    expect([...MIGRATED, ...DEVELOPMENT_FALLBACK_METHODS].sort()).toHaveLength(18);
+    expect([...MIGRATED, ...DEVELOPMENT_FALLBACK_METHODS].sort()).toHaveLength(17);
     expect(MIGRATED.some((m) => (DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m))).toBe(false);
   });
 
@@ -422,5 +431,38 @@ describe("API mode: range walks", () => {
     expect(viaApi.ids).toHaveLength(250);
     expect(from[0]).not.toBeNull();
     expect(to[0]).toBeNull();
+  });
+});
+
+describe("API mode: facet aggregations", () => {
+  it("publishes field, is: and usage counts from one media-api read", async () => {
+    useApiMode(5_000);
+    await state().search();
+    await state().fetchAggregations("force");
+
+    const bodies = bodiesFor("/images/aggregations");
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0].isFilters).toEqual(["deleted", "under-quota"]);
+    const requested = (bodies[0].fields as Array<{ field: string }>).map((f) => f.field);
+    expect(requested).toEqual(expect.arrayContaining(["usageRights.category", "metadata.credit", "usagesPlatform", "usagesStatus"]));
+    expect(state().aggregations?.fields["metadata.credit"]?.buckets).toEqual([{ key: "metadata.credit-top", count: 3 }]);
+    expect(state().aggregations?.fields).not.toHaveProperty("usagesPlatform");
+    expect(state().isFilterCounts).toEqual({ deleted: 0, "under-quota": 11 });
+    expect(state().usageFilterCounts).toEqual({ digital: 9, print: 0, syndication: 0, published: 4, pending: 0, removed: 0 });
+    expect(state().aggLoading).toBe(false);
+  });
+
+  it("keeps the previous counts when the aggregation read is incomplete", async () => {
+    useApiMode(5_000);
+    await state().search();
+    await state().fetchAggregations("force");
+    const published = state().aggregations;
+    calls.length = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => refusal(503, "aggregations-incomplete")));
+
+    await state().fetchAggregations("force");
+
+    expect(state().aggregations).toBe(published);
+    expect(state().aggLoading).toBe(false);
   });
 });

@@ -24,7 +24,6 @@ import type {
   SearchResult,
   SearchAfterResult,
   SortValues,
-  AggregationResult,
   AggregationRequest,
   AggregationsResult,
   FilterAggRequest,
@@ -429,10 +428,6 @@ export class MockDataSource implements ImageDataSource {
     this.requestCount++;
     const [img] = this.findById(id);
     return img ? { image: img } : undefined;
-  }
-
-  async getAggregation(): Promise<AggregationResult> {
-    return { buckets: [], total: 0 };
   }
 
   async getAggregations(

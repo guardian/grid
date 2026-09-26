@@ -22,6 +22,7 @@ function captureBodies(): Body[] {
     bodies.push({ path: url.replace(/^\/api/, ""), body });
     const response = url.endsWith("/rank") ? { rank: 0 }
       : url.endsWith("/count") ? { total: 0, tickerCounts: {} }
+      : url.endsWith("/aggregations") ? { fields: {}, isFilterCounts: {} }
       : url.endsWith("/keys") ? { keys: [], after: null }
       : url.endsWith("/sort-profile") ? (
         body.operation === "date-stats" ? { valueCount: 2, min: T, max: T + 30 * DAY }
@@ -56,6 +57,13 @@ const cases: Array<{ name: string; read: () => Promise<unknown> }> = [
   { name: "keys-range-null-zone-taken", read: () => ds.getIdRange(base("-taken"), [null, T, "fixture-id"], [null, 0, "fixture-id"]) },
   { name: "count-tickers", read: () => ds.countWithTickers(base()) },
   { name: "count-poll-since", read: () => ds.countWithTickers({ ...base(), since: "2020-01-01T03:00:00.000Z", offset: 0, length: 0 }) },
+  {
+    name: "aggregations-facets",
+    read: () => ds.getAggregations(base(), [{ field: "metadata.credit", size: 10 }, { field: "usageRights.category", size: 10 }], undefined,
+      [{ name: "deleted", isFilter: "deleted" }, { name: "under-quota", isFilter: "under-quota" }],
+      [{ name: "digital", subField: "platform", value: "digital" }, { name: "published", subField: "status", value: "published" }]),
+  },
+  { name: "aggregations-collections", read: () => ds.getAggregations({}, [{ field: "collections.pathId", size: 6000 }]) },
 ];
 
 afterEach(() => vi.unstubAllGlobals());

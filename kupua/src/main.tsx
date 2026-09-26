@@ -8,6 +8,7 @@ import { snapshotStore, PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD } from "./lib/histo
 import { buildHistorySnapshot } from "./lib/build-history-snapshot";
 import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
+import { useSearchStore } from "./stores/search-store";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
 import { setBedrockAvailable } from "./lib/grid-config";
 import "./index.css";
@@ -25,7 +26,7 @@ checkBedrockHealth().then(setBedrockAvailable).catch(() => {});
 // Load collection tree + counts once at startup. Fire-and-forget — if the
 // collections service is unavailable, the Collections panel section is hidden.
 // See kupua/src/stores/collection-store.ts.
-useCollectionStore.getState().loadCollections();
+useCollectionStore.getState().loadCollections(useSearchStore.getState().dataSource);
 
 // Disable browser's automatic scroll restoration — we manage scroll
 // position ourselves via snapshot-based restoration on popstate.
