@@ -108,6 +108,7 @@ case class SearchAfterRawResults(
 )
 
 case object SearchAfterPitExpired extends Exception("The search point in time has expired")
+case object SearchAfterIncomplete extends Exception("The search-after page did not complete on every shard")
 
 // Client-resolved ES sort clause shared by Kupua's ordered reads (Option B transport).
 object SortClauseBody {
@@ -161,6 +162,8 @@ case class ImageWindowRawResults(
   rawHitCount: Int,
   pitId:       Option[String],
 )
+
+case object ImageWindowIncomplete extends Exception("The image window did not complete on every shard")
 
 object ImageWindowParamsBody {
   // Cursor fields are refused rather than ignored: a window addresses positions by offset only.

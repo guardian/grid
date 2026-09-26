@@ -12,9 +12,9 @@ import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus, RemovedUsageStatus, SyndicationUsage, UnknownUsageStatus, ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, Usage, UsageType}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.Index
+import com.sksamuel.elastic4s.{Executor, Functor, Handler, Index, RequestSuccess, Response}
 import com.sksamuel.elastic4s.requests.common.Shards
-import com.sksamuel.elastic4s.requests.searches.{Pit, SearchBodyBuilderFn, SearchHits, SearchResponse, Total}
+import com.sksamuel.elastic4s.requests.searches.{Pit, SearchBodyBuilderFn, SearchHits, SearchRequest, SearchResponse, Total}
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import lib.querysyntax._
 import lib.{ImageResponse, MediaApiConfig, MediaApiMetrics}
@@ -32,7 +32,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.test.FakeRequest
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar with controllers.MediaApiTestSupport {
@@ -875,6 +875,95 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         assertViaGet(base ++ Json.obj("hasRightsAcquired" -> true), all)
         assertViaGet(base ++ Json.obj("hasRightsAcquired" -> false), all)
         assertBothModes(base ++ Json.obj("syndicationStatus" -> "unsuitable"), all - "d3-rights-true")
+      }
+    }
+
+    describe("image page execution completeness") {
+      val fixtures = Seq("complete-page-a", "complete-page-b").map(id => createImage(id, Handout()))
+
+      def pageResponse(endpoint: String, response: SearchResponse, countAll: Boolean): Future[Result] = {
+        val synthetic = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler]) {
+          override lazy val client = ES.client
+          override def executeAndLog[Request, Result](request: Request, message: String, notFoundSuccessful: Boolean)(implicit
+            functor: Functor[Future], executor: Executor[Future], handler: Handler[Request, Result],
+            manifest: Manifest[Result], executionContext: ExecutionContext, logMarkers: LogMarker
+          ): Future[Response[Result]] = request match {
+            case _: SearchRequest => Future.successful(RequestSuccess(200, None, Map.empty, response).asInstanceOf[Response[Result]])
+            case _ => super.executeAndLog(request, message, notFoundSuccessful)(
+              functor, executor, handler, manifest, executionContext, logMarkers)
+          }
+        }
+        val controller = imageQueryControllerFor(uploader, synthetic, writer)
+        val body = Json.obj("sort" -> sortClause, "length" -> 2, "countAll" -> countAll)
+        val request = FakeRequest("POST", s"/images/$endpoint").withBody(body)
+        if (endpoint == "search-after") controller.searchAfterImages().apply(request)
+        else controller.windowImages().apply(request)
+      }
+
+      Seq("search-after", "window").foreach { endpoint =>
+        it(s"$endpoint omits an undecodable image from a complete execution without failing the page") {
+          val unreadableId = "complete-page-unreadable"
+          withImages(fixtures.take(1)) { _ =>
+            try {
+              val result = for {
+                _ <- client.execute(indexInto(index).id(unreadableId).source(Json.stringify(Json.obj("id" -> unreadableId))))
+                _ <- client.execute(refreshIndex(index))
+                response <- client.execute(search(index).query(idsQuery(Seq(fixtures.head.id, unreadableId)))
+                  .sortBy(fieldSort("uploadTime").desc(), fieldSort("id").asc()).size(2))
+                page <- pageResponse(endpoint, response.result, countAll = true)
+              } yield page
+              whenReady(result, timeout, interval) { page =>
+                page.header.status shouldBe 200
+                val json = Json.parse(page.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+                (json \ "data").as[Seq[JsValue]] should have size 1
+                (json \ "sortValues").as[Seq[Seq[JsValue]]] should have size 1
+                (json \ "total").as[Long] shouldBe 2L
+                if (endpoint == "window") (json \ "rawHitCount").as[Int] shouldBe 2
+              }
+            } finally {
+              whenReady(client.execute(deleteById(index, unreadableId)).flatMap(_ => client.execute(refreshIndex(index))), timeout, interval)(_ => ())
+            }
+          }
+        }
+
+        Seq(0, 1, 2).foreach { hitCount =>
+          Seq(true, false).foreach { countAll =>
+            Seq(("complete", false, 0), ("timeout only", true, 0), ("failed shard only", false, 1)).foreach {
+              case (execution, timedOut, failedShards) =>
+                it(s"$endpoint with $execution and $hitCount hits (countAll=$countAll) publishes only complete execution") {
+                  withImages(fixtures) { _ =>
+                    val result = for {
+                      original <- client.execute(search(index).query(idsQuery(fixtures.map(_.id)))
+                        .sortBy(fieldSort("uploadTime").desc(), fieldSort("id").asc()).size(2))
+                      response = SearchResponse(1L, timedOut, false, Map.empty,
+                        Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+                        original.result.hits.copy(hits = original.result.hits.hits.take(hitCount)))
+                      page <- pageResponse(endpoint, response, countAll)
+                    } yield page
+
+                    whenReady(result, timeout, interval) { page =>
+                      val json = Json.parse(page.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+                      if (timedOut || failedShards > 0) {
+                        page.header.status shouldBe 503
+                        (json \ "errorKey").as[String] shouldBe s"$endpoint-incomplete"
+                        (json \ "data").toOption shouldBe None
+                        (json \ "sortValues").toOption shouldBe None
+                        (json \ "total").toOption shouldBe None
+                      } else {
+                        page.header.status shouldBe 200
+                        (json \ "data").as[Seq[JsValue]] should have size hitCount
+                        (json \ "sortValues").as[Seq[Seq[JsValue]]] should have size hitCount
+                        if (countAll) (json \ "total").as[Long] shouldBe 2L
+                        else if (endpoint == "search-after") (json \ "total").as[Long] shouldBe 0L
+                        else (json \ "total").toOption shouldBe None
+                        if (endpoint == "window") (json \ "rawHitCount").as[Int] shouldBe hitCount
+                      }
+                    }
+                  }
+                }
+            }
+          }
+        }
       }
     }
 

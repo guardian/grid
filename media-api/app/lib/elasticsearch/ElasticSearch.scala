@@ -919,6 +919,7 @@ class ElasticSearch(
 
     executeAndLog(withLeanImageSource(request), "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
       requireSuccessfulRead(r, params.pitId)
+      requireCompleteExecution(r.result, SearchAfterIncomplete, "search-after page")
 
       val sortLen = cursor.sortClause.length
 
@@ -965,6 +966,7 @@ class ElasticSearch(
 
     executeAndLog(withLeanImageSource(request), "image-window", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
       requireSuccessfulRead(r, params.pitId)
+      requireCompleteExecution(r.result, ImageWindowIncomplete, "image window")
 
       val rawHits = r.result.hits.hits.toSeq
       val (hits, tuples) = rawHits.flatMap { hit =>

@@ -31,6 +31,8 @@ class ImageQueryController(
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   private def SearchAfterPitExpiredResponse = respondError(Gone, "search-after-pit-expired", SearchAfterPitExpired.getMessage)
+  private def SearchAfterIncompleteResponse = respondError(ServiceUnavailable, "search-after-incomplete", SearchAfterIncomplete.getMessage)
+  private def WindowIncompleteResponse = respondError(ServiceUnavailable, "window-incomplete", ImageWindowIncomplete.getMessage)
   private def RankIncompleteResponse = respondError(ServiceUnavailable, "rank-incomplete", ImageRankIncomplete.getMessage)
   private def SortProfileIncompleteResponse = respondError(ServiceUnavailable, "sort-profile-incomplete", SortProfileIncomplete.getMessage)
   private def KeysIncompleteResponse = respondError(ServiceUnavailable, "keys-incomplete", ImageKeysIncomplete.getMessage)
@@ -79,7 +81,7 @@ class ImageQueryController(
             nextSortValues = raw.nextSortValues,
             pitId          = raw.pitId,
           ))).as(ArgoMediaType)
-        }.recover(readFailureResponses)
+        }.recover(readFailureResponses.orElse { case SearchAfterIncomplete => SearchAfterIncompleteResponse })
       )
     }
   }
@@ -114,7 +116,7 @@ class ImageQueryController(
             rawHitCount = raw.rawHitCount,
             pitId       = raw.pitId,
           ))).as(ArgoMediaType)
-        }.recover(readFailureResponses)
+        }.recover(readFailureResponses.orElse { case ImageWindowIncomplete => WindowIncompleteResponse })
       )
     }
   }
