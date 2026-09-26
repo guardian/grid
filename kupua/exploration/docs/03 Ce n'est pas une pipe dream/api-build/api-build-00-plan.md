@@ -121,7 +121,7 @@ maintained here by the executing agent at completion (section 8).
 | M1 | Laptop measurement and iteration gate | Both | U5 | measured; operator decision pending |
 | U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | done |
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | done |
-| U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | not started |
+| U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | done |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | not started |
 | U6z | Zero-ES verification: fallback list empty, no ES construction | Kupua | U6a-d | not started |
 | U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U6z | not started |
@@ -552,6 +552,61 @@ suite in API mode.
     with a unit test. Fallback list: `getByIds`,
     `getAggregation`, `getAggregations`, `searchByAi`. Recorded bodies `count-tickers` and
     `count-poll-since` are replayed in Scala against a walk of the same scope.
+- **U6c decisions (operator, 26 September 2026):**
+  - **Performance risk noted:** the facet panel stops auto-refreshing once one aggregation fetch takes
+    longer than `AGG_CIRCUIT_BREAKER_MS` (2,000 ms); media-api's extra hop (M1: +0.2-0.6 s locally)
+    makes that likelier on large scopes. The limit may need raising after M2a; not changed in U6c.
+  - **Usage counts from Grid's rollups (Q1):** no server nested/`reverse_nested` support. Kupua's
+    platform/status counts request plain terms on the root copies `usagesPlatform`/`usagesStatus`
+    (copy_to from the nested usages, already used by Grid's filters), which count each image once
+    per value, as direct ES's nested+`reverse_nested` does.
+  - **Unknown `is:` names count 0 (Q2),** compiled with Grid's own `is:` rules (as a query would match nothing).
+  - **Uncountable fields refused (Q3):** 422 for a field inside a nested path of Grid's mapping (a
+    root terms aggregation would silently count nothing) and for a field Elasticsearch cannot
+    aggregate (for example a text field). Kupua already treats both as absent suggestions/facets.
+  - **Incomplete execution (Q4):** timeout or any failed shard → 503, as for rank, keys, profiles, count.
+  - **`getAggregation` removed (Q5):** dead in both modes (only reachable when typeahead has no
+    search params, which no construction does). Removed from the DAL, adapters, mock and typeahead.
+  - **Collections (Q6):** the collection store takes the app's data source, so API mode counts via
+    media-api; scope unchanged (default free filter, deleted/replaced hidden: accepted compromise).
+  - **No `total` or `took` (Q7):** `AggregationResult.total` becomes optional (direct ES still sets
+    it); API mode shows no aggregation ES time in the dev search-bar readout.
+  - **Limits (Q8):** at most 50 fields, `size` 1-10,000 (default 10), at most 20 `is:` names, no
+    duplicates. Kupua's largest request is collections (6,000 buckets); the facet batch is ~17 fields.
+- **U6c as built:** `POST /images/aggregations` in `ImageQueryController`, through `admitSearchParams`
+  and `admittedSearch`; one size-0 `_search`, `track_total_hits: false`, one `terms` aggregation per
+  field (verbatim path, the field's `size`) and one `filter` aggregation per `is:` name, compiled by
+  Grid's own `is:` rules (`queryBuilder.makeQuery` of a single `is:` condition); positional
+  aggregation names; optional `pitId` (410 on expiry).
+  - **Body:** the shared query fields (no `sort` sent; one is ignored) + optional
+    `fields: [{field, size?}]` + optional `isFilters: [string]` + optional `pitId`.
+  - **Response:** `{fields: {<field>: {buckets: [{key, count}]}}, isFilterCounts: {<name>: count}, pitId?}`,
+    fields in request order, keys as strings (Grid's existing `BucketResult`), counts the admitted
+    images holding each value; names keyed exactly as sent.
+  - **Refusals:** 400 `sortValues`/`reverse: true`/`seekToEnd: true`, `fields` not an array of
+    `{field: string, size?: integer}`, `isFilters` not an array of strings; 422 shared validation,
+    more than 50 fields or 20 names, `size` outside 1-10,000, an empty or duplicate field, a
+    duplicate name, a field inside a nested path of Grid's mapping, and a field Elasticsearch cannot
+    aggregate (its `illegal_argument_exception` root cause, for example a text field); 503
+    `aggregations-incomplete` on timeout or failed shard.
+  - **Found:** `ids: ""` makes Elasticsearch refuse every body read ("Ids can't be empty", 500), D3
+    included: it fails closed, never widens. Kupua never sends it (known-empty AI membership sends no
+    request). Parked.
+  - **Cross-checks:** each value count equals D3's total with that value as a CQL clause; each
+    `is:` count equals D3's total with the clause added; the usage rollups equal a nested
+    `reverse_nested` parent count (and differ from usage-record counts); tier and deleted scope match
+    D3; identical under a PIT; recorded bodies `aggregations-facets` and `aggregations-collections`
+    replayed, the facets one against a walk of its own recorded scope.
+  - **Kupua:** `ApiDataSource.getAggregations` posts `buildReadBody` without `sort`; `usageFilters`
+    become `usagesPlatform`/`usagesStatus` terms (size 20, merged with any same field at the larger
+    size) read back per value (absent value → 0); `is:` requests send each distinct `isFilter` once and
+    map counts back to the caller's names; requested fields missing from the response are empty; no
+    `took`/`total`. Failures reject (the store keeps its previous counts; typeahead and dynamic facets
+    already isolate failures; collections show the tree without counts). `getAggregation` is removed
+    from the DAL, the ES adapter, the mock, `ApiDataSource` and typeahead (which now always scopes to
+    its params, `{}` if none). The collection store takes `loadCollections(dataSource)`, given the
+    search store's data source by `main.tsx`, and no longer constructs `ElasticsearchDataSource`.
+    The Vite guard admits the path. Fallback list: `getByIds`, `searchByAi`.
 - Aggregations need:
   - verbatim field paths (no `metadata.` prefix);
   - named `is:` filters;
@@ -656,18 +711,18 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U6b (25 September 2026):
+table whenever a unit touches an existing file. State after U6c (26 September 2026):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
 | `MediaApiComponents.scala` | Constructs `ImageQueryController` and adds it to the router list. | None: a new controller only. | Every Kupua endpoint | 1 |
-| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, `/count`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys, count | 1, 2, 3, 4, 5, 6 |
-| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results), keys (`ImageKeys*`, `ImageKey`) and count (`ImageCount*`, importing common-lib's `ExtraCount`). | None: new types only. | Their endpoint | 1-6 |
+| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, `/count`, `/aggregations`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys, count, aggregations | 1, 2, 3, 4, 5, 6, 7 |
+| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results), keys (`ImageKeys*`, `ImageKey`), count (`ImageCount*`, importing common-lib's `ExtraCount`) and aggregations (`FieldAggregation`, `ImageAggregations*`, reusing the existing `BucketResult` unchanged). | None: new types only. | Their endpoint | 1-7 |
 | `ElasticSearchModel.scala`: `SearchParams` | New field `hasRightsAcquired: Option[Boolean] = None`. `SearchParams.apply(request)` passes `None`, so `GET /images` never sets it. | None at runtime. Code that constructs `SearchParams` positionally must add the argument (compile-time only). | Kupua's rights filter, read from request bodies | 1 |
 | `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank, profiles and keys sort admission | 1 |
-| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. | None. | Every Kupua endpoint | 1 onward |
-| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
+| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. U6c's aggregations import common-lib's `ElasticSearchError` (to classify an unaggregatable field) and `IsField`/`IsValue`, and call the existing `queryBuilder.makeQuery` with one `is:` condition. | None. | Every Kupua endpoint | 1 onward |
+| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration; U6c adds the aggregation recordings. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
 amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
@@ -779,6 +834,13 @@ ignoring it.
   with fixes (the guard's prefix match admitted `/images/<listed path>/...` write routes, for all
   six read paths; now exact). Deferred: operator API-mode preflights; two parked items (unused
   `count()`, unread exact total on ticker-only reads).
+- 26 Sep 2026, U6c: `e52aee642` (`POST /images/aggregations`), `6a2b3edd8` (`ApiDataSource` aggregations,
+  typeahead and collection counts through it; `getAggregation` removed; collection store takes the app's
+  data source). No merge needed (main's new commits touch no media-api or Kupua files). Operator: all
+  recommendations (usage rollups, unknown `is:` = 0, 422 for uncountable fields, 503, limits). Cold
+  review: accept, no findings. Operator API-mode dry-run preflights passed; `is:` filters and collections
+  checked in the app. Deferred: facet circuit-breaker latency risk (M2a); two parked items (`ids: ""`
+  500, error log on 422).
 
 ## 11. Parked Observations
 
@@ -803,3 +865,5 @@ operator in chat instead, not here.
 - 25 Sep, U6a E2E, [browser-history.spec.ts:1163](../../../../e2e/local/browser-history.spec.ts#L1163): "metadata search pushes once; Back restores the exact rendered detail image" fails deterministically since `b1239d26d` made `waitForDecodedDetailImage` a real bounded loop (the old async `waitForFunction` passed vacuously). Local E2E has no media, so the detail shows "Image preview not available" and never decodes; identity and metadata were correct (resident image, not the U6a path). Test-harness bug; needs a decision (stub the media route as the KUP-021 tests do, or assert rendered identity only). Not weakened here. **Resolved in U6a (operator-authorized):** the test stubs `image-urls.ts` with an identity-tagged pixel, as the KUP-021 tests do; the decode check is unchanged.
 - 25 Sep, U6b intake, [types.ts](../../../../src/dal/types.ts) `ImageDataSource.count`: no production caller (only tests); every mode must still implement it. Clean-up: drop it from the interface when the DAL is next trimmed.
 - 25 Sep, U6b intake, [search-store.ts:2331](../../../../src/stores/search-store.ts#L2331): the ticker request fired with the first page computes an exact total nobody reads (the page supplies it), in both modes. Possible saving: an opt-out of the exact total for ticker-only reads. Unmeasured; filter aggregations already visit every match, so the gain may be small. Improvement.
+- 26 Sep, U6c, `SearchParamsBody.fromJson` `ids`: a body with `ids: ""` becomes an empty ids query, which Elasticsearch refuses ("Ids can't be empty"), so every body read answers 500 (fails closed, never widens). Kupua never sends it. Clean-up: refuse with 422, or read it as an explicitly empty scope.
+- 26 Sep, U6c, `executeAndLog`: an aggregation on an unaggregatable field (e.g. a `has:` facet on a text field) answers 422 but still logs an error-level Elasticsearch failure. Log noise, likely rare. Clean-up.

@@ -17,6 +17,24 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Aggregations, typeahead and collection counts through media-api (API build U6c)
+
+  media-api gains `POST /images/aggregations`: one size-0 `_search` over the shared admitted scope
+  with a terms aggregation per requested field (verbatim path, bounded size) and a filter aggregation
+  per named `is:` filter compiled by Grid's own `is:` rules. Fields inside a nested mapping path and
+  fields Elasticsearch cannot aggregate are refused with 422 rather than silently counting nothing,
+  and incomplete execution answers 503. In `--use-media-api` mode facets, `is:` counts, typeahead
+  suggestions and collection counts use it; usage platform/status counts come from Grid's per-image
+  rollup fields (`usagesPlatform`/`usagesStatus`), which count images once per value exactly as the
+  direct-ES nested `reverse_nested` counts do. `getAggregations` left the development fallback list.
+
+  The collection store now takes the app's data source instead of constructing its own
+  `ElasticsearchDataSource`, so API mode reads collection counts through media-api (scope unchanged).
+  `getAggregation` was removed from the DAL: its only caller was a typeahead branch no construction
+  reached. `AggregationResult.total` is optional because media-api reports buckets only; API mode
+  shows no aggregation ES time in the dev search-bar readout. The facet circuit breaker (2 s) may need
+  raising once deployed latency is measured.
+
   ### 25 September 2026 - Counts and tickers through media-api (API build U6b)
 
   media-api gains `POST /images/count`: one size-0 `_search` over the shared admitted scope with an

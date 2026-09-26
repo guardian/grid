@@ -67,15 +67,16 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 **Status:** with `VITE_USE_MEDIA_API=true`, `ApiDataSource` routes every ordered read through
 media-api (API build U5): pages via `POST /images/search-after` and `/window`, ranks, sort profiles,
 position maps and range walks, with no PIT and no ES fallback for those reads. Standalone detail
-reads media-api's `GET /images/:id` (U6a); counts and tickers use `POST /images/count` (U6b).
-Aggregations, selection `_mget` and AI still use a tested development ES fallback (U6), and selection
-and collections still construct ES directly (U6d). `--use-TEST` is direct ES through an SSH tunnel;
+reads media-api's `GET /images/:id` (U6a); counts and tickers use `POST /images/count` (U6b);
+facets, `is:` counts, typeahead and collection counts use `POST /images/aggregations` (U6c).
+Selection `_mget` and AI still use a tested development ES fallback (U6), and selection
+still constructs ES directly (U6d). `--use-TEST` is direct ES through an SSH tunnel;
 `--use-media-api` calls locally running modified media-api connected to TEST. The operator confirms
 one laptop caller and one successful D3 TEST deployment; PR #4849 is abandoned (below).
 Draft/ready status is the operator's choice. Copilot comments and local
 performance campaigns do not establish production deployment or other callers.
-On this branch D3, `POST /images/window`, `/rank`, `/sort-profile`, `/keys` and `/count` live in media-api's
-`ImageQueryController` with the shared read helper (API build U1-U4, U6b).
+On this branch D3, `POST /images/window`, `/rank`, `/sort-profile`, `/keys`, `/count` and `/aggregations` live in media-api's
+`ImageQueryController` with the shared read helper (API build U1-U4, U6b-U6c).
 
 **Current scope (15 September):** incrementally add media-api capabilities to make this read-only
 prototype deployable, preserving all current workflows and accepted compromises. Eventual deployed
@@ -110,11 +111,11 @@ remain reference material, not an active implementation plan; V1 stays refuted.
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (18 methods, 5 optional; `openPit` may resolve `null`; optional `offsetReadLimit`). `createDataSource()` returns `ApiDataSource` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `ApiDataSource` sends ordered reads to media-api via `dal/grid-api-search-adapter.ts` (walk loops stay client-side) and lists its development-fallback methods in `DEVELOPMENT_FALLBACK_METHODS`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (17 methods, 5 optional; `openPit` may resolve `null`; optional `offsetReadLimit`). `createDataSource()` returns `ApiDataSource` (`VITE_USE_MEDIA_API=true`) or `ElasticsearchDataSource`. `ApiDataSource` sends ordered reads to media-api via `dal/grid-api-search-adapter.ts` (walk loops stay client-side) and lists its development-fallback methods in `DEVELOPMENT_FALLBACK_METHODS`. Selection currently constructs ES directly, so D9/D2 require separate wiring. Write protection on non-local ES. `DATE_SORT_FIELDS` gotcha: ES sort values are epoch ms, `_source` is ISO. |
 | Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Search-generation/range ownership guards publication/recovery. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
-| Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from ES agg. Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
+| Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from an aggregation on the app's data source (media-api in API mode). Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
 | Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (33 static + config aliases). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore; consumed dedupe transitions also refresh the departing key. Detail entries carry immutable entry-image identity so traversal centring survives reload. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Has predicates/facets share configured-alias resolution. Registered and dotted-field typeahead share literal-safe AST self-exclusion and cancellation; live store getters survive wrapper remounts. `is:` enriches suggestions from ticker, category and cold aggregation counts. Datasource remains first-registration-bound. |
@@ -127,7 +128,7 @@ remain reference material, not an active implementation plan; V1 stays refuted.
 
 ### Testing Summary
 
-- **1921 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **1934 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~7min, 2 workers) -- `npm --prefix kupua run test:e2e`
@@ -205,7 +206,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 
    Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
 
-3. **DAL interface** — `ImageDataSource` with 18 methods (5 optional). `ApiDataSource` is the live Phase 3 adapter: ordered reads through media-api, the rest through a development-fallback `ElasticsearchDataSource` that shrinks to nothing by U6z. Selection and collection still own direct ES datasources. `GridApiDataSource` separately handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
+3. **DAL interface** — `ImageDataSource` with 17 methods (5 optional). `ApiDataSource` is the live Phase 3 adapter: ordered reads through media-api, the rest through a development-fallback `ElasticsearchDataSource` that shrinks to nothing by U6z. Selection still owns a direct ES datasource; the collection store takes the app's data source. `GridApiDataSource` separately handles single-image enrichment (`getImageDetail`, intent-driven). Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 
