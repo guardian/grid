@@ -42,6 +42,17 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 26 September 2026, KUP-036 ordinary API browsing:** the shared tab's
+`page.on("response")` collector saw no API events across navigation, but resource timing
+reported the initial search-after/count/aggregation reads and subsequent window/deep reads.
+Use `performance.setResourceTimingBufferSize(1000)` and action-local timing resets when needed;
+return endpoint classes, counts and status only, never full resource URLs. A post-search idle
+store can precede thumbnail decoding, so check decoded images separately. Real scrubber clicks
+use the shared helper's bounding box plus `_seekGeneration` wait; a store-driven shallow seek
+is a bounded route check, not evidence of a user gesture. All collectors here were call-local;
+no fetch patch or retained probe state needed cleanup. This checks ordinary browsing only,
+not synthetic failure handling or performance.
+
 **[V] 26 September 2026, KUP-034 intake:** a shared tab retained `ApiDataSource`
 after the operator switched the server to direct mode; reloading changed it to
 `ElasticsearchDataSource`. In this session, both reused and forced-new tabs still

@@ -164,6 +164,8 @@ confirms its implementation scope and any required Scala write permission before
 
 **Completed pitstop (26 September):** [KUP-034](../../bug-backlog.md#kup-034) DONE; near-top predecessor bounds repaired with parallel focus loading preserved; gates and direct-TEST checks passed, cold review resolved; natural-workflow incidence unproved.
 
+**Completed pitstop (26 September):** [KUP-036](../../bug-backlog.md#kup-036) DONE; D3/window reject explicit incomplete execution with 503. Synthetic failure tests, full gates and ordinary API-mode browsing passed; cold review's documentation-only finding resolved. No live failure incident claimed.
+
 ### Unit notes (what "done" means)
 
 **U1: helper + window.**
@@ -199,6 +201,25 @@ confirms its implementation scope and any required Scala write permission before
   - **GRID-001 test:** asserts D3/window agreement only. Current grouped negation also swallows
     the default replaced-usage hiding once user usage negatives are present; that is GRID-001 and
     changes with #4957, so it is deliberately not asserted.
+
+**KUP-036: image-page execution completeness (26 September).**
+- **Commit grouping (operator):** one Scala-only commit for both endpoints, followed by client
+  tests and documentation together. Per-endpoint PR extraction remains unit S; no intermediate
+  endpoint split or temporary-worktree validation is needed for this repair.
+- Search-after and window reuse `requireCompleteExecution` immediately after request-success/PIT
+  classification, before decoding hits. Timeout or any failed shard returns 503 with
+  `search-after-incomplete` or `window-incomplete`; no successful page payload accompanies it.
+- Complete response shapes, individual undecodable-hit omission and window `rawHitCount` stay
+  unchanged. The existing 410 PIT-expiry contract remains distinct. No shared execution, target,
+  timeout, sort, PIT policy or retry change; legacy GET and AI are untouched.
+- Synthetic ES responses pass through the real readers/controllers: empty, short and full pages,
+  timeout alone, shard failure alone, counted/uncounted complete controls and decode omission.
+  Failing-first and independent flag/mapping break-and-revert checks discriminate the contract.
+  Real-adapter/store tests retain buffers on 503 and allow only API-backed restore recovery.
+- Full Scala and Kupua unit/build/local-E2E gates passed. Ordinary read-only TEST browsing through
+  modified local media-api passed bounded initial/deep/shallow/detail/scroll checks; no live failure
+  was induced or observed. Fresh read-only cold review found no S1/S2 issues; its sole changelog
+  formatting finding is corrected. M1 acceptance, U6z and U7 remain separate.
 
 **U2: rank.**
 - **Algorithm:** port `countBefore` from [es-adapter.ts](../../../../src/dal/es-adapter.ts#L1282)
@@ -810,7 +831,9 @@ watchpoints.
 
 ## 7. Splitting Into PRs (unit S)
 
-Target order, each small and independently reviewable:
+**Scala to main only; Kupua client code stays on the prototype branch.** Each PR should answer
+one coherent review question and be human-sized, not mirror build-unit or commit boundaries.
+Provisional order (split large items or combine closely related small ones when useful):
 
 1. Shared helper + D3.
 2. Window.
@@ -820,13 +843,20 @@ Target order, each small and independently reviewable:
 6. Count.
 7. Aggregations.
 8. mget.
-9. AI.
+9. AI, only after its separately agreed design is implemented.
 
-Keep one Scala commit (or short series) per endpoint throughout the build, with its tests, so the
-split is mechanical. Any shared-file change is its own behavior-preservation commit. Rebase on
-main regularly, and use `git merge-tree` before extraction (instructions item 27). PR
-descriptions follow the repo memory rule: why, effects on existing callers, risks, reviewer-run
-tests. Kupua client commits stay on the prototype branch.
+- Keep each capability's implementation, routes, types, tests and fixtures together. Put shared
+  prerequisites in the earliest PR needing them; fold later repairs into their owning PRs.
+  Each cumulative PR must build and pass tests on main plus declared predecessors, without Kupua.
+- Keep Scala commits separate during development. Use the inventory below to track PR ownership,
+  repair commits and dependencies; avoid unrelated shared-file churn. Do not rewrite history or
+  maintain parallel extraction branches merely to prepare the split.
+- Once shapes settle, rehearse extraction against current main in an approved isolated worktree.
+  Use `git merge-tree` as directed by instructions item 27, then build/test each cumulative tree
+  and reconcile the final Scala diff. Clean cherry-picks alone are not verification.
+- PR descriptions explain why, behavior/limits, effects on existing callers, risks, prerequisites
+  and reviewer-run tests. Kupua is the intended caller, but shared media-api resource and behavior
+  risks still count. Git mutations/extraction need operator approval; agents never push.
 
 ### Existing Grid code this branch touches
 
@@ -846,6 +876,21 @@ table whenever a unit touches an existing file. State after U6d (26 September 20
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank, profiles and keys sort admission | 1 |
 | `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. U6c's aggregations import common-lib's `ElasticSearchError` (to classify an unaggregatable field) and `IsField`/`IsValue`, and call the existing `queryBuilder.makeQuery` with one `is:` condition. U6d extracted the branch-only target choice of `admittedSearch` into `readTarget` (behaviour unchanged) and adds mget, importing common-lib's `Syndication`/`Tier` for its visibility rule (a copy of `MediaApi`'s private `isVisibleToAccessor`, which is unchanged). | None. | Every Kupua endpoint | 1 onward |
 | Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration; U6c adds the aggregation recordings; U6d adds the mget tests and recording. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
+
+**KUP-036 additions to the rows above (26 September):**
+
+| File | Repair delta | Effect on callers | PR |
+| --- | --- | --- | --- |
+| `ElasticSearch.scala` | Two calls to the unchanged completeness helper before page decoding. | Only the new D3/window reads reject explicit timeout/failed-shard execution; legacy methods and shared execution remain unchanged. | 1, 2 |
+| `ElasticSearchModel.scala` | `SearchAfterIncomplete` and `ImageWindowIncomplete` exceptions. | New-read errors only; successful types are unchanged. | 1, 2 |
+| `ImageQueryController.scala` (branch-added) | Endpoint-local Argo 503 mappings, `search-after-incomplete` / `window-incomplete`. | D3/window failure instead of incomplete success; no change to Kahuna or `GET /images`. | 1, 2 |
+| `ElasticSearchTest.scala` | Synthetic response/controller matrix and complete-but-undecodable controls. | Tests only; existing assertions retained. | 1, 2 |
+
+The intake comparison with local `main` also contains unrelated pre-existing differences in
+build/CI, dev scripts, upload E2E, Kahuna and script documentation, plus the operator's dirty
+nginx template. They are outside this API inventory and KUP-036's edits; no reconciliation or
+legacy-behavior change is claimed for them. No relevant `media-api`/`kupua` commits were missing
+from the working branch at intake.
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
 amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
@@ -917,6 +962,10 @@ ignoring it.
 
 (One line per completed unit: date, unit, commits, notes.)
 
+- 26 Sep 2026, KUP-036: `ca38c5032` (Scala); client composition tests and closure docs accompany
+  this record. D3/window now return 503 for explicit incomplete execution, with decode omission
+  preserved. Full gates and ordinary read-only API-mode browsing passed; cold review resolved.
+  No live failure reproduction or operator API preflights; final U6z remains separate.
 - 24 Sep 2026, U1: `6fad30e37` (helper, D3 moved to `ImageQueryController`, `_shard_doc` refused),
   `d0c9da7bf` (`POST /images/window`). Branch merged `main` first (`b45e9d9ab`). Not yet called
   by Kupua (U5); U5 must handle the degraded >10k seek fallback (see U5 note).
@@ -989,7 +1038,7 @@ operator in chat instead, not here.
 - 25 Sep, U3b, keyword-page: each page is bounded by media-api's 10 s query timeout (503 on timeout), where direct ES has no per-page limit, only Kupua's 8 s walk cap. Risk at PROD cardinality; measure in M1.
 - 25 Sep, U4, `ElasticSearch.scala` `admitSortClause`: a nested field without `nested` passed D3/window/rank admission (500 on a first page; on a D3 null-zone cursor, valued images returned as null-zone hits), and a sort without a unique `id` suffix was accepted (ties skipped). **Resolved in U4:** shared admission refuses both for every ordered read.
 - 25 Sep, pre-U5 review, [e2e/shared/helpers.ts:27](../../../../e2e/shared/helpers.ts#L27): habitual E2E blocks `/api/**`, leaving a coverage risk. Consider an **additional API-mode test run** reusing selected core browsing scenarios under a second backend configuration, not a duplicate full suite; exercise the modified media-api on the laptop or deployed to TEST and verify expected API calls/no forbidden ES fallback. A fully local media-api + local ES arrangement would need a separate setup assessment. **Operator-deferred:** revisit only when the operator chooses after seeing API mode work and comparing its speed with direct ES; not a new U5, U6 or measurement gate. Existing section 5 preflights remain unchanged in scope.
-- 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: explicit timeout/failed-shard responses can be published as complete image pages. **Moved to [KUP-036](../../bug-backlog.md#kup-036), 26 September:** separate bounded repair before final U6z verification; target 503, preserve non-fatal undecodable-hit omission. Source-supported, not a reproduced live incident; M1 is accepted.
+- 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: explicit timeout/failed-shard responses could be published as complete image pages. **Resolved as [KUP-036](../../bug-backlog.md#kup-036), 26 September:** endpoint-local 503; complete responses and non-fatal undecodable-hit omission preserved. Synthetic failure contract and ordinary read-only TEST browsing verified separately; cold review resolved, no reproduced live incident. M1 remains accepted.
 - 25 Sep, U5 intake, `search-store.ts:3312`: the 7 configured alias fields (e.g. Edit Status; sortable only by clicking their hidden-by-default table column header or via URL, not the sort dropdown) are not in `KEYWORD_SORT_ES_FIELDS`, so deep seek never uses the keyword walk and always takes the from/size fallback. The keyword-page endpoint could serve them. Clean-up/improvement for both modes.
 - 25 Sep, U5 intake, `search-store.ts:1597`: the phantom neighbour batch sends `length = visibleNeighbours.length`; above 200 visible images D3 refuses (422) and the fallback clears focus. Existing hybrid limit, direct ES unaffected. Risk, likely rare.
 - 25 Sep, U5 review, `_loadBufferAroundImage`: uncapped near-top backward reads could prepend null-tail images. **Resolved as [KUP-034](../../bug-backlog.md#kup-034).**

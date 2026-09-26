@@ -741,6 +741,95 @@ describe("API mode: finding and restoring an image", () => {
 });
 
 describe("API mode: failures", () => {
+  it("KUP-036 does not turn an incomplete first page into empty success", async () => {
+    useApiMode(120_000, { routes: { "/images/search-after": () => refusal(503, "search-after-incomplete") } });
+    await state().search();
+    await flush();
+
+    expect(state().error).not.toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state().results).toEqual([]);
+    expect(state().imagePositions.size).toBe(0);
+    expect(bodiesFor("/images/search-after")).toHaveLength(1);
+    expect(state().pitId).toBeNull();
+  });
+
+  it.each(["forward", "backward", "window"] as const)("KUP-036 retains the committed buffer on incomplete %s reads", async (operation) => {
+    useApiMode(120_000);
+    await state().search();
+    if (operation === "backward") await state().seek(60_000);
+    await flush();
+    await waitPastCooldown();
+    const before = state();
+    const enrichment = useEnrichmentStore.getState().data;
+    const endpoint = operation === "window" ? "window" : "search-after";
+    calls = standInMediaApi(corpus, { [`/images/${endpoint}`]: () => refusal(503, `${endpoint}-incomplete`) });
+    const publications: unknown[] = [];
+    const unsubscribe = useSearchStore.subscribe((next) => { publications.push(next.results); });
+    try {
+      if (operation === "window") await state().seek(5_000);
+      else if (operation === "forward") await state().extendForward();
+      else await state().extendBackward();
+      await flush();
+    } finally {
+      unsubscribe();
+    }
+
+    expect(state().error).not.toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state()._extendForwardInFlight).toBe(false);
+    expect(state()._extendBackwardInFlight).toBe(false);
+    expect(state().results).toBe(before.results);
+    expect(publications.every((results) => results === before.results)).toBe(true);
+    expect(state().imagePositions).toBe(before.imagePositions);
+    expect(state().bufferOffset).toBe(before.bufferOffset);
+    expect(state().total).toBe(before.total);
+    expect(state().startCursor).toEqual(before.startCursor);
+    expect(state().endCursor).toEqual(before.endCursor);
+    expect(useEnrichmentStore.getState().data).toBe(enrichment);
+    expect(bodiesFor(`/images/${endpoint}`)).toHaveLength(1);
+  });
+
+  it.each(["target", "forward", "backward"] as const)("KUP-036 recovers an incomplete restore %s through the API without partial publication", async (failedRead) => {
+    useApiMode(120_000);
+    await state().search();
+    await flush();
+    const before = state();
+    const target = await corpus.searchAfter({ orderBy: "-uploadTime", nonFree: "true", ids: "img-5000", length: 1 }, null);
+    calls = standInMediaApi(corpus, {
+      "/images/search-after": async (body) => {
+        const isTarget = body.ids === "img-5000";
+        if ((failedRead === "target" && isTarget)
+          || (failedRead === "forward" && !isTarget && !body.reverse)
+          || (failedRead === "backward" && !isTarget && body.reverse)) {
+          return refusal(503, "search-after-incomplete");
+        }
+        const page = await corpus.searchAfter(toParams(body), (body.sortValues as SortValues | undefined) ?? null,
+          null, undefined, body.reverse as boolean);
+        return { data: page.hits.map((data) => ({ data })), total: 0, sortValues: page.sortValues };
+      },
+    });
+    const publications: unknown[] = [];
+    const unsubscribe = useSearchStore.subscribe((next, previous) => {
+      if (next.results !== previous.results) publications.push(next.results);
+    });
+    try {
+      await state().restoreAroundCursor("img-5000", target.sortValues[0], 5_000);
+      await flush();
+    } finally {
+      unsubscribe();
+    }
+
+    expect(state().error).toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state().results).not.toBe(before.results);
+    expect(publications).toEqual([state().results]);
+    expect(bodiesFor("/images/window").map((body) => body.offset)).toEqual([4_900]);
+    expect(bodiesFor("/images/search-after")).toHaveLength(failedRead === "target" ? 1 : 3);
+    expect(calls.every((call) => call.path.startsWith("/images/") && !("pitId" in call.body))).toBe(true);
+    await expectCoherentBuffer();
+  });
+
   it("shows the error state when a core read is refused", async () => {
     useApiMode(120_000, { routes: { "/images/search-after": () => refusal(403, "forbidden") } });
     await state().search();

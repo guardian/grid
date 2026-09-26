@@ -17,6 +17,21 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Incomplete API image pages fail explicitly (KUP-036)
+
+  The new media-api search-after and window reads now reject explicit Elasticsearch timeouts
+  or failed shards before decoding hits, using the existing completeness helper and endpoint-local
+  Argo HTTP 503 responses. This prevents incomplete image pages from appearing to be successful
+  short or empty results. Complete pages, non-fatal omission of an unreadable image, raw hit counts
+  and PIT-expiry handling retain their contracts. Legacy Grid search and shared execution are unchanged.
+
+  Synthetic response tests exercise the real readers and controllers, independently varying timeout,
+  failed shards, page fullness and counting intent. Composed adapter/store regressions retain committed
+  buffers on failure and publish only successful API recovery after a failed restore, without ES rescue.
+  No client production change was needed. Ordinary read-only TEST browsing checked successful behavior;
+  the failure contract is local synthetic evidence, not a reproduced live incident. AI, U6z, U7 and
+  other parked work remain separate.
+
   ### 26 September 2026 - Near-top centred paging respects the available prefix (KUP-034)
 
   `_loadBufferAroundImage` now caps known-rank backward reads at the target's position and

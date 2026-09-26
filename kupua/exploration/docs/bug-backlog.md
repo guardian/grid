@@ -16,8 +16,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 26 September 2026.** The 25 entries below have an open defect,
-approval/integration/review task or explicit residual; 25 additional IDs have completed bounded repairs.
+**Current recorded status: 26 September 2026.** The 24 entries below have an open defect,
+approval/integration/review task or explicit residual; 26 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -31,7 +31,7 @@ media-api coverage, including recovery. Existing AI is the sole deliberate ES ex
 team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
 claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
 silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
-KUP-034 is DONE; KUP-036 remains separate before final U6z verification.
+KUP-034 and KUP-036 are DONE as separate repairs; final U6z verification remains separate.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -52,7 +52,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
-| [KUP-036](#kup-036) | Incomplete API image pages published as success | Open; source-supported, failure not runtime-reproduced | New D3/window correctness; separate repair before final U6z verification |
 
 ### Open Grid Work
 
@@ -74,7 +73,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
 
 <details>
-<summary>Completed bounded client repairs: 25 other IDs</summary>
+<summary>Completed bounded repairs: 26 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -85,6 +84,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Restore coordinates and selected-tuple rank | [KUP-024](#kup-024), [KUP-025](#kup-025) |
 | Backward null-boundary crossing | [KUP-033](#kup-033) |
 | Near-top centred paging | [KUP-034](#kup-034) |
+| Explicitly incomplete API image pages | [KUP-036](#kup-036) |
 
 DONE refers to the repaired scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -461,10 +461,12 @@ and browse-only repair direction; they do not approve wider API implementation o
 **New API image-page endpoints can publish incomplete Elasticsearch execution as success**
 - **Component / responsibility:** branch-added media-api `searchAfterQuery` and `imageWindowQuery`, their controller outcomes and Kupua's page consumers; human owner-to-confirm. This is Kupua migration work even though the repair is primarily Scala, not an independent legacy Grid defect.
 - **Trigger:** Elasticsearch returns an otherwise successful search response with `timed_out: true` or one or more failed shards. These flags describe incomplete execution, not an individual undecodable image.
-- **Expected / actual:** an explicitly incomplete page must not be published as a complete page. Both methods check request success, then decode and return surviving hits without `requireCompleteExecution`; other new reads already reject explicit incompleteness. Kupua can mistake a short page for exhaustion or assign consecutive positions to incomplete results, potentially skipping images or shifting positions.
-- **Evidence / reproduction:** [request-success check and search-after publication](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L921), [window publication](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L967), [existing completeness helper](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L1077), [client page decoding](../../src/dal/grid-api-search-adapter.ts#L272). Originally API build section 11, 25 September U5 intake; source rechecked 26 September. No timeout/shard failure was induced, and no live user-visible impact is claimed. Window's `rawHitCount` does not establish execution completeness and is not consumed by the client.
-- **Smallest discriminator:** synthetic ES responses for each endpoint: timeout only, failed shard only, short/empty/full-sized hits, and complete controls. Assert non-success at the controller boundary (target 503), not an empty/partial 200. Through the real Kupua adapter/store with controlled transport, verify no partial publication or ES rescue. Separately retain the accepted undecodable-hit omission control.
-- **Dependency / disposition:** OPEN. Operator selected a separate bounded repair before final amended U6z verification (26 September), with implementation scope confirmed at intake. Reuse endpoint-local completeness handling; leave legacy `GET /images`, shared Grid execution behavior, target selection, query timeout, PIT expiry, sort/tuple contracts and AI unchanged. Do not reject a page merely because an individual image cannot be decoded, introduce unbounded refill/automatic retries, or provoke failures/load against TEST/PROD. Confirm permission for media-api edits and use cold review before commit. M1 acceptance does not constitute a reproduction or settle this failure contract.
+- **Former behavior:** both methods checked request success, then decoded and returned surviving hits without checking explicit execution incompleteness. A short page could be mistaken for exhaustion or incomplete hits assigned consecutive positions. Window's `rawHitCount` neither establishes completeness nor is consumed by the client. This was a source finding, not an observed live incident.
+- **Repair:** [search-after and window](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L921) now call the existing `requireCompleteExecution` after `requireSuccessfulRead`, before decoding. [Controller-local mappings](../../../media-api/app/controllers/ImageQueryController.scala#L34) return HTTP 503 with `search-after-incomplete` / `window-incomplete`, without page data, tuples or totals. Complete responses and non-fatal individual decode omission remain; window still reports raw hits. No client production change was needed.
+- **Synthetic evidence:** [Scala matrix](../../../media-api/test/lib/elasticsearch/ElasticSearchTest.scala#L878) injects ES responses through the actual page methods and controllers: timeout alone and failed shard alone, empty/short/full pages, counted and uncounted. Failing-first produced 24 HTTP 200-versus-503 failures with 12 complete controls passing. All 38 final cases pass, including two complete-but-undecodable controls. Temporarily omitting each flag check on each endpoint caused the corresponding failures (12 per paired run); removing both controller mappings caused 24 failures. Both source files were restored byte-identically. Existing PIT-expiry/malformed-PIT, sort admission and omission assertions remain unchanged.
+- **Client evidence:** [seven composed tests](../../src/stores/search-store-api-mode.test.ts#L744) use the real adapter and store over controlled 503 responses. Failed startup is not empty success; forward/backward/window failure retains the committed buffer, coordinates, tuples and enrichment. Restore target/forward/backward failures publish only the successful API-window recovery, never the partial neighbourhood; no migrated method reaches the ES fallback. Full gates passed: 742 Scala tests, 2,028 Kupua unit tests, build and 299 local/direct-ES E2E tests.
+- **Ordinary live check (26 September):** operator-authorized read-only TEST through the modified local media-api and `--use-media-api`: pinned initial search, real scrubber deep navigation, resident detail traversal/return, bounded store-driven shallow navigation and wheel scrolling remained error-free and position-consistent. Shallow navigation used window (200); deep navigation used two search-after pages plus rank/profiles. The traversed image remained visible on return; observed image-data requests used media-api, with no browser ES traffic. This is bounded ordinary-behavior evidence, not a live failure reproduction, whole-workflow certification or performance comparison. No synthetic browser failure, induced ES timeout/shard failure or load campaign was run.
+- **Disposition / limits:** DONE (26 September), implemented and verified locally. Fresh read-only subagent cold review found no S1/S2 issues; its sole S3 changelog-formatting finding is corrected. The reviewer inspected source, tests and recorded Scala summaries, not new test/live executions. Separate migration repair before final U6z verification, with media-api edit permission confirmed. Legacy `GET /images`, shared Grid execution, timeout settings, targets, PIT policy/expiry, sort/tuples, decode omission, retries, AI and other parked issues are unchanged. M1 remains accepted; U7 and operator API perf preflights remain separate, not run here.
 
 ### Dependency Unresolved
 
