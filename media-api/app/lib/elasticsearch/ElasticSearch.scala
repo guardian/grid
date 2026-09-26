@@ -762,16 +762,6 @@ class ElasticSearch(
       .getOrElse(rawQuery)
     val query = extraFilter.map(f => boolQuery().must(filteredQuery).filter(f)).getOrElse(filteredQuery)
 
-    val target = pitId match {
-      case Some(pid) =>
-        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
-        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
-        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
-        withSearchQueryTimeout(ElasticDsl.search(Nil).query(query)).pit(Pit(pid).keepAlive(1.minute))
-      case None =>
-        prepareSearch(query)
-    }
-
     // Same conditional runtime mapping search() applies: without it the review-queue filter's
     // hasActiveDenySyndicationLease term is unmapped and silently matches nothing.
     val runtimeMappings =
@@ -781,8 +771,19 @@ class ElasticSearch(
       else
         Seq.empty
 
-    target.runtimeMappings(runtimeMappings)
+    readTarget(query, pitId).runtimeMappings(runtimeMappings)
   }
+
+  private def readTarget(query: Query, pitId: Option[String]): SearchRequest =
+    pitId match {
+      case Some(pid) =>
+        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
+        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
+        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
+        withSearchQueryTimeout(ElasticDsl.search(Nil).query(query)).pit(Pit(pid).keepAlive(1.minute))
+      case None =>
+        prepareSearch(query)
+    }
 
   // Admits only the client-resolved clause shapes jsonToSort understands; this is not a sort builder.
   private def admitSortClause(sort: Seq[JsObject]): Seq[Sort] = {
