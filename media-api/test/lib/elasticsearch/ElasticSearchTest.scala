@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearc
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
-import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus, RemovedUsageStatus, SyndicationUsage, UnknownUsageStatus, ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus, RemovedUsageStatus, SyndicationUsage, UnknownUsageStatus, ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, Usage, UsageType}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.Index
@@ -940,13 +940,15 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           case "/images/sort-profile" => reader.sortProfile().apply(request)
           case "/images/keys"         => reader.imageKeys().apply(request)
           case "/images/count"        => reader.countImages().apply(request)
+          case "/images/aggregations" => reader.aggregateImages().apply(request)
           case other                  => fail(s"no ordered read at $other")
         }
       }
 
       it("cover every ordered-read endpoint") {
         recordings.flatMap(calls).map(call => (call \ "path").as[String]).toSet shouldBe
-          Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys", "/images/count")
+          Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys", "/images/count",
+            "/images/aggregations")
       }
 
       recordings.foreach { file =>
@@ -994,7 +996,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             .zip((json \ "sortValues").as[Seq[Seq[JsValue]]])
 
         val readFields = Seq("sortValues", "reverse", "seekToEnd", "offset", "length", "countAll", "ids", "pitId",
-          "operation", "field", "percentile", "scope", "missingField", "interval", "after", "size", "includeCoveredCount")
+          "operation", "field", "percentile", "scope", "missingField", "interval", "after", "size", "includeCoveredCount",
+          "fields", "isFilters")
         def walk(body: JsObject): Seq[(String, Seq[JsValue])] = {
           val scope = readFields.foldLeft(body)(_ - _) ++ Json.obj("length" -> 200, "countAll" -> false)
           def from(cursor: Option[Seq[JsValue]], acc: Seq[(String, Seq[JsValue])], pages: Int): Seq[(String, Seq[JsValue])] = {
@@ -1145,6 +1148,26 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
               (respond("/images/count", body) \ "total").as[Long] shouldBe walk(body ++ sorted).size.toLong
             }
             walk(poll ++ sorted).size should be < walk(whole ++ sorted).size
+          }
+        }
+
+        it("aggregations: value, usage-rollup and is: counts describe exactly the walk's images") {
+          withFixtures {
+            val sorted = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")))
+            val body = bodyOf(recorded("aggregations-facets").head)
+            (body \ "sort").toOption shouldBe None
+            val inScope = walk(body ++ sorted).map(_._1).toSet
+            val walkedImages = fixtures.filter(image => inScope(image.id))
+            walkedImages should not be empty
+            val json = respond("/images/aggregations", body ++ Json.obj("ids" -> fixtures.map(_.id).mkString(",")))
+            def counts(field: String): Map[String, Long] = (json \ "fields" \ field \ "buckets").as[Seq[JsValue]]
+              .map(b => (b \ "key").as[String] -> (b \ "count").as[Long]).toMap
+
+            counts("metadata.credit") shouldBe walkedImages.flatMap(_.metadata.credit).groupBy(identity).map { case (k, v) => k -> v.size.toLong }
+            counts("usagesPlatform") shouldBe Map("digital" -> walkedImages.count(_.usages.nonEmpty).toLong)
+            counts("usagesStatus") shouldBe Map("published" -> walkedImages.count(_.usages.nonEmpty).toLong)
+            (json \ "isFilterCounts" \ "deleted").as[Long] shouldBe 0L
+            (json \ "isFilterCounts" \ "under-quota").as[Long] shouldBe walkedImages.size.toLong
           }
         }
 
@@ -1822,6 +1845,241 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
           it(s"refuses to publish a count when $reason") {
             the[Exception] thrownBy ES.readImageCount(incomplete) shouldBe ImageCountIncomplete
+          }
+        }
+      }
+    }
+
+    describe("aggregations") {
+      implicit val logMarker: LogMarker = MarkerMap()
+      val newestFirst = Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
+
+      def usage(platform: UsageType, status: com.gu.mediaservice.model.usage.UsageStatus): Usage =
+        createUsage(ComposerUsageReference, platform, status, DateTime.parse("2020-06-15T00:00:00Z"))
+      def aggFixture(id: String, credit: Option[String], usageRights: UsageRights, usages: List[Usage] = Nil): Image = {
+        val image = createImage(id, usageRights, usages = usages)
+        image.copy(metadata = image.metadata.copy(credit = credit))
+      }
+      // Three AAP images, one image with two digital and two published usage records, an uncredited illustration.
+      val aggFixtures = Seq(
+        aggFixture("agg-aap-owned", Some("AAP"), staffPhotographer,
+          List(usage(DigitalUsage, PublishedUsageStatus), usage(DigitalUsage, PublishedUsageStatus), usage(PrintUsage, PendingUsageStatus))),
+        aggFixture("agg-aap-getty", Some("AAP"), Agency("Getty Images"), List(usage(DigitalUsage, PendingUsageStatus))),
+        aggFixture("agg-aap-handout", Some("AAP"), Handout()),
+        aggFixture("agg-reuters", Some("Reuters"), Agency("Reuters"), List(usage(PrintUsage, PublishedUsageStatus))),
+        aggFixture("agg-illustration", None, StaffIllustrator("Fixture Illustrator")),
+      )
+
+      def statusAndJson(response: Future[Result]): (Int, JsValue) = whenReady(response, timeout, interval) { result =>
+        (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+      }
+      def aggregate(body: JsObject, principal: Principal = uploader, privileged: Boolean = true): (Int, JsValue) =
+        statusAndJson(imageQueryControllerFor(principal, ES, writer, privileged).aggregateImages()
+          .apply(FakeRequest("POST", "/images/aggregations").withBody(body)))
+      def d3Total(body: JsObject, principal: Principal = uploader, privileged: Boolean = true): Long = {
+        val (status, json) = statusAndJson(imageQueryControllerFor(principal, ES, writer, privileged).searchAfterImages()
+          .apply(FakeRequest("POST", "/images/search-after").withBody(body ++ Json.obj("sort" -> newestFirst, "countAll" -> true))))
+        status shouldBe 200
+        (json \ "total").as[Long]
+      }
+      def fields(requested: (String, Int)*): JsObject =
+        Json.obj("fields" -> requested.map { case (field, size) => Json.obj("field" -> field, "size" -> size) })
+      def buckets(json: JsValue, field: String): Seq[(String, Long)] =
+        (json \ "fields" \ field \ "buckets").as[Seq[JsValue]].map(b => ((b \ "key").as[String], (b \ "count").as[Long]))
+      def filterCount(json: JsValue, name: String): Long = (json \ "isFilterCounts" \ name).as[Long]
+
+      it("counts each value's images, most frequent first, as D3's total for that value") {
+        withImages(aggFixtures) { base =>
+          val (status, json) = aggregate(base ++ fields("metadata.credit" -> 10))
+
+          status shouldBe 200
+          buckets(json, "metadata.credit") shouldBe Seq("AAP" -> 3L, "Reuters" -> 1L)
+          buckets(json, "metadata.credit").foreach { case (credit, count) =>
+            count shouldBe d3Total(base ++ Json.obj("q" -> s"""credit:"$credit""""))
+          }
+        }
+      }
+
+      it("aggregates field paths verbatim and keeps at most size values, 10 when size is omitted") {
+        val uploaders = (1 to 12).map(n => createImage(f"agg-uploader-$n%02d", Handout(), uploadedBy = f"uploader-$n%02d@example.test"))
+        withImages(uploaders) { base =>
+          val (_, sized) = aggregate(base ++ fields("uploadedBy" -> 3))
+          val (_, defaulted) = aggregate(base ++ Json.obj("fields" -> Json.arr(Json.obj("field" -> "uploadedBy"))))
+
+          buckets(sized, "uploadedBy").map(_._2) shouldBe Seq(1L, 1L, 1L)
+          buckets(defaulted, "uploadedBy") should have size 10
+          buckets(defaulted, "uploadedBy").map(_._1).toSet.subsetOf(uploaders.map(_.uploadedBy).toSet) shouldBe true
+        }
+      }
+
+      it("counts images, not usage records, on the usage rollups, as a nested count of parent images does") {
+        def parentCounts(subField: String): Map[String, Long] = {
+          val response = Await.result(client.execute(ElasticDsl.search(index).query(idsQuery(aggFixtures.map(_.id))).size(0)
+            .aggregations(nestedAggregation("usages", "usages").subAggregations(
+              termsAgg("values", s"usages.$subField").subAggregations(reverseNestedAggregation("parents"))))), fiveSeconds)
+          val values = response.result.aggregations.dataAsMap("usages").asInstanceOf[Map[String, Any]]("values").asInstanceOf[Map[String, Any]]
+          values("buckets").asInstanceOf[Seq[Map[String, Any]]].map { bucket =>
+            bucket("key").toString -> bucket("parents").asInstanceOf[Map[String, Any]]("doc_count").toString.toLong
+          }.toMap
+        }
+        withImages(aggFixtures) { base =>
+          val (_, json) = aggregate(base ++ fields("usagesPlatform" -> 20, "usagesStatus" -> 20))
+
+          buckets(json, "usagesPlatform").toMap shouldBe Map("digital" -> 2L, "print" -> 2L)
+          buckets(json, "usagesStatus").toMap shouldBe Map("published" -> 2L, "pending" -> 2L)
+          buckets(json, "usagesPlatform").toMap shouldBe parentCounts("platform")
+          buckets(json, "usagesStatus").toMap shouldBe parentCounts("status")
+        }
+      }
+
+      it("counts each named is: filter within the admitted scope, keyed as requested, an unknown name as 0") {
+        withImages(aggFixtures) { base =>
+          val names = Seq("GNM-owned-photo", "GNM-owned-illustration", "under-quota", "deleted", "no-such-filter")
+          val (status, json) = aggregate(base ++ Json.obj("isFilters" -> names))
+
+          status shouldBe 200
+          (json \ "isFilterCounts").as[JsObject].keys shouldBe names.toSet
+          filterCount(json, "GNM-owned-photo") shouldBe 1L
+          filterCount(json, "GNM-owned-illustration") shouldBe 1L
+          filterCount(json, "under-quota") shouldBe aggFixtures.size.toLong
+          Seq("GNM-owned-photo", "GNM-owned-illustration", "under-quota").foreach { name =>
+            filterCount(json, name) shouldBe d3Total(base ++ Json.obj("q" -> s"is:$name"))
+          }
+          filterCount(json, "deleted") shouldBe 0L
+          filterCount(json, "no-such-filter") shouldBe 0L
+        }
+      }
+
+      it("counts deleted images only inside a deleted search, within the caller's deleted scope") {
+        val deleted = Seq(uploader, otherUploader).map { principal =>
+          createImage(s"agg-deleted-${principal.lastName}", Handout(), uploadedBy = principal.email,
+            softDeletedMetadata = Some(deletionData(principal.email)))
+        }
+        withImages(deleted) { base =>
+          val body = base ++ Json.obj("q" -> "is:deleted", "isFilters" -> Json.arr("deleted")) ++ fields("uploadedBy" -> 10)
+          Seq((false, Seq(uploader.email -> 1L)), (true, Seq(uploader.email -> 1L, otherUploader.email -> 1L))).foreach {
+            case (privileged, expected) =>
+              val (status, json) = aggregate(body, uploader, privileged)
+
+              status shouldBe 200
+              buckets(json, "uploadedBy").sorted shouldBe expected.sorted
+              filterCount(json, "deleted") shouldBe d3Total(body, uploader, privileged)
+              filterCount(json, "deleted") shouldBe expected.size.toLong
+          }
+        }
+      }
+
+      it("never widens an explicitly empty ID list to the whole scope: it fails, as D3 does") {
+        withImages(aggFixtures) { _ =>
+          val request = fields("metadata.credit" -> 10) ++ Json.obj("isFilters" -> Json.arr("under-quota"))
+          val controller = imageQueryControllerFor(uploader, ES, writer, privileged = true)
+          val emptyIds = Json.obj("ids" -> "")
+          whenReady(controller.aggregateImages().apply(FakeRequest("POST", "/images/aggregations").withBody(request ++ emptyIds)).failed,
+            timeout, interval)(_ shouldBe a[com.gu.mediaservice.lib.elasticsearch.ElasticSearchError])
+          whenReady(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+            .withBody(emptyIds ++ Json.obj("sort" -> newestFirst))).failed,
+            timeout, interval)(_ shouldBe a[com.gu.mediaservice.lib.elasticsearch.ElasticSearchError])
+
+          val (_, whole) = aggregate(request)
+          filterCount(whole, "under-quota") shouldBe d3Total(Json.obj())
+          filterCount(whole, "under-quota") should be > aggFixtures.size.toLong
+        }
+      }
+
+      it("applies the syndication tier filter exactly as D3 does") {
+        val syndication = SearchParams(tier = Syndication, length = 200)
+        val viaD3 = Await.result(ES.searchAfter(SearchAfterParams(syndication, newestFirst.as[Seq[JsObject]], None, None)), fiveSeconds)
+        val aggregated = Await.result(ES.imageAggregations(ImageAggregationsParams(syndication, Nil, Seq("under-quota"), None)), fiveSeconds)
+
+        viaD3.total should be < expectedNumberOfImages.toLong
+        aggregated.result.isFilterCounts shouldBe Seq("under-quota" -> viaD3.total)
+      }
+
+      describe("refusals") {
+        def refusal(body: JsObject): (Int, String) = {
+          val (status, json) = aggregate(body)
+          (status, (json \ "errorMessage").asOpt[String].getOrElse(""))
+        }
+
+        Seq(
+          "a field inside a nested path" -> (fields("usages.platform" -> 20), "nested"),
+          "a field Elasticsearch cannot aggregate" -> (fields("metadata.description" -> 10), "cannot be aggregated"),
+          "more than 50 fields" -> (fields((1 to 51).map(n => s"fileMetadata.xmp.field$n" -> 10): _*), "at most 50"),
+          "a size of 0" -> (fields("metadata.credit" -> 0), "between 1 and 10000"),
+          "a size above 10000" -> (fields("metadata.credit" -> 10001), "between 1 and 10000"),
+          "an empty field" -> (fields("" -> 10), "non-empty"),
+          "a duplicate field" -> (fields("metadata.credit" -> 10, "metadata.credit" -> 20), "duplicate"),
+          "more than 20 is: filters" -> (Json.obj("isFilters" -> (1 to 21).map(n => s"filter-$n")), "at most 20"),
+          "a duplicate is: filter" -> (Json.obj("isFilters" -> Json.arr("deleted", "deleted")), "duplicate"),
+        ).foreach { case (what, (body, message)) =>
+          it(s"refuses $what with 422") {
+            val (status, errorMessage) = refusal(body)
+            status shouldBe 422
+            errorMessage should include(message)
+          }
+        }
+
+        it("accepts the largest sizes and counts") {
+          val (status, _) = aggregate(fields((1 to 50).map(n => s"fileMetadata.xmp.field$n" -> 10000): _*) ++
+            Json.obj("isFilters" -> (1 to 20).map(n => s"filter-$n")))
+          status shouldBe 200
+        }
+      }
+
+      it("reads through a size-0 _search without a total, one aggregation per field and is: filter") {
+        val params = ImageAggregationsParams(SearchParams(tier = Internal),
+          Seq(FieldAggregation("metadata.credit", 5), FieldAggregation("fileMetadata.iptc.Edit Status", 7)), Seq("deleted"), None)
+        val body = Json.parse(SearchBodyBuilderFn(ES.imageAggregationsRequest(params)).string)
+        (body \ "size").as[Int] shouldBe 0
+        (body \ "track_total_hits").as[Boolean] shouldBe false
+        val aggs = (body \ "aggs").as[JsObject]
+        aggs.keys should have size 3
+        aggs.values.flatMap(agg => (agg \ "terms" \ "field").asOpt[String]).toSet shouldBe Set("metadata.credit", "fileMetadata.iptc.Edit Status")
+        aggs.values.flatMap(agg => (agg \ "terms" \ "size").asOpt[Int]).toSet shouldBe Set(5, 7)
+        aggs.values.count(agg => (agg \ "filter").isDefined) shouldBe 1
+      }
+
+      it("aggregates identically under a PIT and returns it") {
+        withImages(aggFixtures) { base =>
+          val body = base ++ fields("metadata.credit" -> 10) ++ Json.obj("isFilters" -> Json.arr("GNM-owned-photo"))
+          val pitId = Await.result(client.execute(createPointInTime(Index(index)).keepAlive(1.minute)).map(_.result.id), fiveSeconds)
+          val (_, live) = aggregate(body)
+          val (status, pinned) = aggregate(body ++ Json.obj("pitId" -> pitId))
+
+          status shouldBe 200
+          pinned.as[JsObject] - "pitId" shouldBe live
+          (pinned \ "pitId").asOpt[String] shouldBe defined
+        }
+      }
+
+      it("returns the PIT expiry contract for a closed PIT") {
+        val controller = imageQueryControllerFor(uploader, ES, writer)
+        val response = for {
+          opened <- client.execute(createPointInTime(Index(index)).keepAlive(1.minute))
+          _ <- client.execute(deletePointInTime(opened.result.id))
+          result <- controller.aggregateImages().apply(FakeRequest("POST", "/images/aggregations")
+            .withBody(Json.obj("pitId" -> opened.result.id)))
+        } yield result
+
+        val (status, json) = statusAndJson(response)
+        status shouldBe 410
+        (json \ "errorKey").as[String] shouldBe "search-after-pit-expired"
+      }
+
+      describe("completeness") {
+        val params = ImageAggregationsParams(SearchParams(tier = Internal), Nil, Nil, None)
+        def response(timedOut: Boolean, failedShards: Int) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+            SearchHits(Total(0L, "eq"), 0.0, Array.empty))
+
+        it("reads the counts when every shard completed in time") {
+          ES.readImageAggregations(params, response(timedOut = false, failedShards = 0)) shouldBe ImageAggregationsResult(Nil, Nil)
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
+          it(s"refuses to publish counts when $reason") {
+            the[Exception] thrownBy ES.readImageAggregations(params, incomplete) shouldBe ImageAggregationsIncomplete
           }
         }
       }

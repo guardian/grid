@@ -288,6 +288,80 @@ object ImageCountParamsBody {
     refuseCursorField(body).toLeft(ImageCountParams(searchParams, pitId = (body \ "pitId").asOpt[String]))
 }
 
+// Params for POST /images/aggregations: per-field value counts and named is: filter counts over the admitted images.
+case class FieldAggregation(field: String, size: Int)
+
+case class ImageAggregationsParams(
+  searchParams: SearchParams,
+  fields:       Seq[FieldAggregation],
+  isFilters:    Seq[String],
+  pitId:        Option[String],
+)
+
+object ImageAggregationsParams {
+  val MaxFields    = 50
+  val MaxSize      = 10000
+  val DefaultSize  = 10
+  val MaxIsFilters = 20
+}
+
+// Each bucket counts the admitted images holding that value; fields keep the requested order.
+case class ImageAggregationsResult(fields: Seq[(String, Seq[BucketResult])], isFilterCounts: Seq[(String, Long)])
+
+case class ImageAggregationsRawResults(result: ImageAggregationsResult, pitId: Option[String])
+
+case object ImageAggregationsIncomplete extends Exception("The aggregations did not complete on every shard")
+
+object ImageAggregationsParamsBody {
+  // Aggregations cover the whole admitted scope, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by aggregations" }
+  }
+
+  private def fieldAggregation(entry: JsObject): Option[FieldAggregation] =
+    for {
+      field <- (entry \ "field").asOpt[String]
+      size  <- (entry \ "size").toOption.filter(_ != JsNull) match {
+        case None                                        => Some(ImageAggregationsParams.DefaultSize)
+        case Some(JsNumber(number)) if number.isValidInt => Some(number.toInt)
+        case Some(_)                                     => None
+      }
+    } yield FieldAggregation(field, size)
+
+  private def fieldsFrom(body: JsValue): Either[String, Seq[FieldAggregation]] =
+    (body \ "fields").toOption.filter(_ != JsNull) match {
+      case None => scala.util.Right(Nil)
+      case Some(value) =>
+        value.asOpt[Seq[JsObject]]
+          .flatMap(entries => entries.foldRight(Option(List.empty[FieldAggregation])) { (entry, acc) =>
+            for { rest <- acc; aggregation <- fieldAggregation(entry) } yield aggregation :: rest
+          })
+          .toRight("fields must be an array of {field, size} objects with a string field and an optional integer size")
+    }
+
+  private def isFiltersFrom(body: JsValue): Either[String, Seq[String]] =
+    (body \ "isFilters").toOption.filter(_ != JsNull) match {
+      case None        => scala.util.Right(Nil)
+      case Some(value) => value.asOpt[Seq[String]].toRight("isFilters must be an array of strings")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageAggregationsParams] =
+    for {
+      _         <- refuseCursorField(body).toLeft(())
+      fields    <- fieldsFrom(body)
+      isFilters <- isFiltersFrom(body)
+    } yield ImageAggregationsParams(
+      searchParams = searchParams,
+      fields       = fields,
+      isFilters    = isFilters,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+
 // Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
 sealed trait SortProfileOperation
 case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation

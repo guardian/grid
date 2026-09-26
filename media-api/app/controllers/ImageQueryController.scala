@@ -35,6 +35,7 @@ class ImageQueryController(
   private def SortProfileIncompleteResponse = respondError(ServiceUnavailable, "sort-profile-incomplete", SortProfileIncomplete.getMessage)
   private def KeysIncompleteResponse = respondError(ServiceUnavailable, "keys-incomplete", ImageKeysIncomplete.getMessage)
   private def CountIncompleteResponse = respondError(ServiceUnavailable, "count-incomplete", ImageCountIncomplete.getMessage)
+  private def AggregationsIncompleteResponse = respondError(ServiceUnavailable, "aggregations-incomplete", ImageAggregationsIncomplete.getMessage)
   private def InvalidParamsResponse(message: String) = respondError(BadRequest, "invalid-params", message)
 
   private val readFailureResponses: PartialFunction[Throwable, Result] = {
@@ -183,6 +184,26 @@ class ImageQueryController(
           val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
           Ok(Json.obj("total" -> raw.total, "tickerCounts" -> raw.tickerCounts) ++ pit).as(ArgoMediaType)
         }.recover(readFailureResponses.orElse { case ImageCountIncomplete => CountIncompleteResponse })
+      )
+    }
+  }
+
+  def aggregateImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-aggregations",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    admitSearchParams(request) { validParams =>
+      ImageAggregationsParamsBody.fromJson(request.body, validParams).fold(
+        err => Future.successful(InvalidParamsResponse(err)),
+        params => elasticSearch.imageAggregations(params).map { raw =>
+          val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
+          Ok(Json.obj(
+            "fields"         -> JsObject(raw.result.fields.map { case (field, buckets) => field -> Json.obj("buckets" -> buckets) }),
+            "isFilterCounts" -> JsObject(raw.result.isFilterCounts.map { case (name, count) => name -> JsNumber(count) }),
+          ) ++ pit).as(ArgoMediaType)
+        }.recover(readFailureResponses.orElse { case ImageAggregationsIncomplete => AggregationsIncompleteResponse })
       )
     }
   }

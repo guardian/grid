@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
 import com.gu.mediaservice.lib.argo.model.ExtraCount
-import lib.elasticsearch.{DateStats, DateStatsResult, ElasticSearch, ImageCountIncomplete, ImageCountParams, ImageCountRawResults, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
+import lib.elasticsearch.{BucketResult, DateStats, DateStatsResult, ElasticSearch, FieldAggregation, ImageAggregationsIncomplete, ImageAggregationsParams, ImageAggregationsRawResults, ImageAggregationsResult, ImageCountIncomplete, ImageCountParams, ImageCountRawResults, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -106,7 +106,10 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
   private def windowRequest(body: JsObject) = FakeRequest("POST", "/images/window").withBody(body)
 
   private def jsonOf(result: Result): JsValue =
-    Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String)
+    Json.parse(contentOf(result))
+
+  private def contentOf(result: Result): String =
+    result.body.asInstanceOf[HttpEntity.Strict].data.utf8String
 
   describe("window admission") {
     val body = Json.obj("sort" -> Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc")))
@@ -716,6 +719,168 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       result.header.status shouldBe 503
       (jsonOf(result) \ "errorKey").as[String] shouldBe "count-incomplete"
+    }
+  }
+
+  private case class AggregationsHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[ImageAggregationsParams])
+
+  private def aggregationsHarness(
+    principal: Principal,
+    privileged: Boolean = false,
+    result: Future[ImageAggregationsRawResults] = Future.successful(ImageAggregationsRawResults(ImageAggregationsResult(Nil, Nil), None)),
+  ): AggregationsHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[ImageAggregationsParams]()
+    when(search.imageAggregations(any[ImageAggregationsParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[ImageAggregationsParams](0))
+      result
+    }
+    AggregationsHarness(imageQueryControllerFor(principal, search, mock[ImageResponse], privileged), search, captured.future)
+  }
+
+  private def aggregationsRequest(body: JsObject) = FakeRequest("POST", "/images/aggregations").withBody(body)
+
+  describe("aggregations admission") {
+    val body = Json.obj("q" -> "keyword:fixture", "fields" -> Json.arr(Json.obj("field" -> "metadata.credit")))
+
+    Seq(ordinaryUser, otherUser).foreach { principal =>
+      it(s"scopes is:deleted to the uploader ${principal.firstName} ${principal.lastName}, as D3 does") {
+        val harness = aggregationsHarness(principal)
+        val request = aggregationsRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> "someone-else@example.test"))
+
+        harness.controller.aggregateImages().apply(request).futureValue.header.status shouldBe 200
+        harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(principal.email)
+      }
+    }
+
+    it("preserves a privileged user's requested uploader") {
+      val harness = aggregationsHarness(ordinaryUser, privileged = true)
+      val request = aggregationsRequest(body ++ Json.obj("q" -> "is:deleted", "uploadedBy" -> otherUser.email))
+
+      harness.controller.aggregateImages().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue.searchParams.uploadedBy shouldBe Some(otherUser.email)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = aggregationsHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.aggregateImages().apply(aggregationsRequest(body)).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq(
+      "sortValues" -> Json.obj("sortValues" -> Json.arr(1700000000000L, "an-id")),
+      "reverse" -> Json.obj("reverse" -> true),
+      "seekToEnd" -> Json.obj("seekToEnd" -> true),
+    ).foreach { case (field, cursorField) =>
+      it(s"refuses the cursor field $field before reaching Elasticsearch") {
+        val harness = aggregationsHarness(ordinaryUser)
+        val result = harness.controller.aggregateImages().apply(aggregationsRequest(body ++ cursorField)).futureValue
+
+        result.header.status shouldBe 400
+        (jsonOf(result) \ "errorMessage").as[String] should include(field)
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq(
+      "fields that are not an array" -> Json.obj("fields" -> "metadata.credit"),
+      "a field entry that is not an object" -> Json.obj("fields" -> Json.arr("metadata.credit")),
+      "a field entry without a field" -> Json.obj("fields" -> Json.arr(Json.obj("size" -> 5))),
+      "a non-string field" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> 42))),
+      "a fractional size" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "size" -> 1.5))),
+      "a string size" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "size" -> "10"))),
+      "isFilters that are not an array" -> Json.obj("isFilters" -> "deleted"),
+      "a non-string is: filter" -> Json.obj("isFilters" -> Json.arr("deleted", 7)),
+    ).foreach { case (shape, invalid) =>
+      it(s"refuses $shape with 400 before reaching Elasticsearch") {
+        val harness = aggregationsHarness(ordinaryUser)
+        val result = harness.controller.aggregateImages().apply(aggregationsRequest(Json.obj("q" -> "keyword:fixture") ++ invalid)).futureValue
+
+        result.header.status shouldBe 400
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    it("accepts the default values of cursor fields and ignores a sort") {
+      val harness = aggregationsHarness(ordinaryUser)
+      val request = aggregationsRequest(body ++ Json.obj("sortValues" -> JsNull, "reverse" -> false, "seekToEnd" -> false,
+        "sort" -> Json.arr(Json.obj("uploadTime" -> "desc"))))
+
+      harness.controller.aggregateImages().apply(request).futureValue.header.status shouldBe 200
+    }
+
+    it("validates length exactly as D3 and window do, although aggregations do not use it") {
+      val harness = aggregationsHarness(ordinaryUser)
+
+      harness.controller.aggregateImages().apply(aggregationsRequest(body ++ Json.obj("length" -> 201))).futureValue.header.status shouldBe 422
+      verifyNoInteractions(harness.search)
+    }
+
+    it("passes the query scope, fields in order with their sizes, is: filters and PIT to Elasticsearch") {
+      val harness = aggregationsHarness(ordinaryUser)
+      val request = aggregationsRequest(Json.obj(
+        "q" -> "keyword:fixture",
+        "since" -> "2020-06-15T00:00:00.000Z",
+        "fields" -> Json.arr(Json.obj("field" -> "uploadedBy", "size" -> 3), Json.obj("field" -> "fileMetadata.iptc.Edit Status")),
+        "isFilters" -> Json.arr("deleted", "GNM-owned-photo"),
+        "pitId" -> "a-pit"))
+
+      harness.controller.aggregateImages().apply(request).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.searchParams.query shouldBe Some("keyword:fixture")
+      params.searchParams.since.map(_.getMillis) shouldBe Some(1592179200000L)
+      params.fields shouldBe Seq(FieldAggregation("uploadedBy", 3), FieldAggregation("fileMetadata.iptc.Edit Status", 10))
+      params.isFilters shouldBe Seq("deleted", "GNM-owned-photo")
+      params.pitId shouldBe Some("a-pit")
+    }
+
+    it("requests no fields, no is: filters and no PIT when none are sent") {
+      val harness = aggregationsHarness(ordinaryUser)
+
+      harness.controller.aggregateImages().apply(aggregationsRequest(Json.obj())).futureValue.header.status shouldBe 200
+      val params = harness.captured.futureValue
+      params.fields shouldBe Nil
+      params.isFilters shouldBe Nil
+      params.pitId shouldBe None
+    }
+  }
+
+  describe("aggregations response") {
+    it("reports each field's buckets in request order, is: filter counts, and a PIT when one is returned") {
+      val result = ImageAggregationsResult(
+        fields = Seq(
+          "uploadedBy" -> Seq(BucketResult("a@example.test", 4L), BucketResult("b@example.test", 1L)),
+          "metadata.credit" -> Nil),
+        isFilterCounts = Seq("deleted" -> 0L, "GNM-owned-photo" -> 2L))
+      val harness = aggregationsHarness(ordinaryUser, result = Future.successful(ImageAggregationsRawResults(result, Some("refreshed-pit"))))
+
+      val text = contentOf(harness.controller.aggregateImages().apply(aggregationsRequest(Json.obj())).futureValue)
+      Json.parse(text) shouldBe Json.obj(
+        "fields" -> Json.obj(
+          "uploadedBy" -> Json.obj("buckets" -> Json.arr(
+            Json.obj("key" -> "a@example.test", "count" -> 4L), Json.obj("key" -> "b@example.test", "count" -> 1L))),
+          "metadata.credit" -> Json.obj("buckets" -> Json.arr())),
+        "isFilterCounts" -> Json.obj("deleted" -> 0L, "GNM-owned-photo" -> 2L),
+        "pitId" -> "refreshed-pit")
+      text.indexOf("uploadedBy") should be < text.indexOf("metadata.credit")
+    }
+
+    it("reports empty fields and is: filter counts and omits pitId without them") {
+      val harness = aggregationsHarness(ordinaryUser)
+
+      jsonOf(harness.controller.aggregateImages().apply(aggregationsRequest(Json.obj())).futureValue) shouldBe
+        Json.obj("fields" -> Json.obj(), "isFilterCounts" -> Json.obj())
+    }
+
+    it("responds 503 rather than publishing incomplete counts") {
+      val harness = aggregationsHarness(ordinaryUser, result = Future.failed(ImageAggregationsIncomplete))
+      val result = harness.controller.aggregateImages().apply(aggregationsRequest(Json.obj())).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "aggregations-incomplete"
     }
   }
 }

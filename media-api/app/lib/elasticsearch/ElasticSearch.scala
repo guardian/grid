@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, Mappings, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, ElasticSearchError, Mappings, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
@@ -29,7 +29,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryB
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
 import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, Sort, SortMode, SortOrder}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
-import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
+import lib.querysyntax.{Condition, DateRange, HierarchyField, IsField, IsValue, Match, Nested, Parser, Phrase, SingleField}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
 import play.api.libs.json.{JsError, JsNull, JsNumber, JsObject, JsString, JsSuccess, JsValue, Json}
 import play.api.mvc.AnyContent
@@ -1148,6 +1148,81 @@ class ElasticSearch(
                                            (implicit logMarker: LogMarker): (Long, Map[String, ExtraCount]) = {
     requireCompleteExecution(result, ImageCountIncomplete, "image count")
     (result.totalHits, extraCountsFrom(result.aggregations).tickerCounts)
+  }
+
+  def imageAggregations(params: ImageAggregationsParams)
+                       (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageAggregationsRawResults] =
+    try imageAggregationsQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageAggregationsQuery(params: ImageAggregationsParams)
+                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageAggregationsRawResults] =
+    executeAndLog(imageAggregationsRequest(params), "image-aggregations", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageAggregationsRawResults(
+        result = readImageAggregations(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }.recoverWith {
+      // Aggregating a field without doc values (for example a text field) fails the whole search this way.
+      case e: ElasticSearchError if e.error.rootCause.exists(_.`type` == "illegal_argument_exception") =>
+        Future.failed(InvalidUriParams("a requested field cannot be aggregated"))
+    }
+
+  private def fieldAggregationName(position: Int) = s"field-$position"
+  private def isFilterAggregationName(position: Int) = s"is-$position"
+
+  private def admitAggregations(params: ImageAggregationsParams): Unit = {
+    import ImageAggregationsParams._
+    def duplicates(values: Seq[String]) = values.groupBy(identity).collect { case (value, seen) if seen.size > 1 => value }.toSeq.sorted
+
+    if (params.fields.size > MaxFields)
+      throw InvalidUriParams(s"at most $MaxFields fields can be aggregated, got ${params.fields.size}")
+    if (params.isFilters.size > MaxIsFilters)
+      throw InvalidUriParams(s"at most $MaxIsFilters is: filters can be counted, got ${params.isFilters.size}")
+    params.fields.foreach { case FieldAggregation(field, size) =>
+      if (field.isEmpty)
+        throw InvalidUriParams("aggregated fields must be non-empty paths")
+      if (size < 1 || size > MaxSize)
+        throw InvalidUriParams(s"aggregation size must be between 1 and $MaxSize, got $size for $field")
+      MappedNestedPaths.find(path => field.startsWith(s"$path.")).foreach { path =>
+        throw InvalidUriParams(s"$field is inside the nested path $path; a root aggregation would count none of its values")
+      }
+    }
+    val duplicateFields = duplicates(params.fields.map(_.field))
+    if (duplicateFields.nonEmpty)
+      throw InvalidUriParams(s"duplicate aggregated fields are unsupported: ${duplicateFields.mkString(", ")}")
+    val duplicateIsFilters = duplicates(params.isFilters)
+    if (duplicateIsFilters.nonEmpty)
+      throw InvalidUriParams(s"duplicate is: filters are unsupported: ${duplicateIsFilters.mkString(", ")}")
+  }
+
+  // Positional names, because field paths may contain characters aggregation names cannot.
+  private[elasticsearch] def imageAggregationsRequest(params: ImageAggregationsParams): SearchRequest = {
+    admitAggregations(params)
+    val fieldAggregations = params.fields.zipWithIndex.map { case (FieldAggregation(field, size), position) =>
+      termsAgg(fieldAggregationName(position), field).size(size)
+    }
+    val isFilterAggregations = params.isFilters.zipWithIndex.map { case (name, position) =>
+      filterAgg(isFilterAggregationName(position), queryBuilder.makeQuery(List(Match(IsField, IsValue(name)))))
+    }
+    admittedSearch(params.searchParams, params.pitId)
+      .size(0)
+      .trackTotalHits(false)
+      .aggregations(fieldAggregations ++ isFilterAggregations)
+  }
+
+  private[elasticsearch] def readImageAggregations(params: ImageAggregationsParams, result: SearchResponse)
+                                                  (implicit logMarker: LogMarker): ImageAggregationsResult = {
+    requireCompleteExecution(result, ImageAggregationsIncomplete, "aggregations")
+    val aggregations = result.aggregations
+    ImageAggregationsResult(
+      fields = params.fields.zipWithIndex.map { case (FieldAggregation(field, _), position) =>
+        field -> aggregations.result[Terms](fieldAggregationName(position)).buckets.map(b => BucketResult(b.key, b.docCount))
+      },
+      isFilterCounts = params.isFilters.zipWithIndex.map { case (name, position) =>
+        name -> aggregations.filter(isFilterAggregationName(position)).docCount
+      },
+    )
   }
 
   def sortProfile(params: SortProfileParams)
