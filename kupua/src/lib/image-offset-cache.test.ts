@@ -92,20 +92,28 @@ describe("retained sort values", () => {
   });
 
   it("prefers the authoritative tuple for an API-shaped image in the same search", () => {
-    retainSortValues(searchKey, [image], [cursor]);
-    expect(extractSortValues(image, alias.alias, searchKey)).toEqual(cursor);
-    expect(extractSortValues(image, alias.alias)).toEqual([null, cursor[1], image.id]);
+    const retained: SortValues = ["retained-value", cursor[1], image.id];
+    retainSortValues(searchKey, [image], [retained]);
+    expect(extractSortValues(image, alias.alias, searchKey)).toEqual(retained);
+    expect(extractSortValues(image, alias.alias)).toEqual(cursor);
+  });
+
+  it("reads a configured alias from an API-shaped image without a tuple, and null when it is missing", () => {
+    expect(extractSortValues(image, alias.alias)).toEqual(cursor);
+    expect(extractSortValues(image, `-${alias.alias}`)?.[0]).toBe("fixture-value");
+    expect(extractSortValues({ ...SPARSE_IMAGE, aliases: {} }, alias.alias)).toEqual([null, cursor[1], image.id]);
+    expect(extractSortValues({ ...SPARSE_IMAGE, aliases: { [alias.alias]: false } }, alias.alias)?.[0]).toBeNull();
   });
 
   it("does not reuse a tuple from another query or sort", () => {
-    retainSortValues(searchKey, [image], [cursor]);
+    retainSortValues(searchKey, [image], [["retained-value", cursor[1], image.id]]);
     for (const params of [
       { query: "other", orderBy: alias.alias },
       { query: "fixture", orderBy: `-${alias.alias}` },
     ]) {
       const otherKey = buildSearchKey(params);
       expect(getRetainedSortValues(image.id, otherKey)).toBeNull();
-      expect(extractSortValues(image, params.orderBy, otherKey)?.[0]).toBeNull();
+      expect(extractSortValues(image, params.orderBy, otherKey)?.[0]).toBe("fixture-value");
     }
   });
 

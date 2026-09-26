@@ -1,6 +1,6 @@
 /**
  * Request mapping and transport for media-api's image reads
- * (POST /images/search-after, /window, /rank, /sort-profile, /keys; GET /images/:id).
+ * (POST /images/search-after, /window, /rank, /sort-profile, /keys, /mget; GET /images/:id).
  *
  * Used by ApiDataSource when VITE_USE_MEDIA_API=true.
  */
@@ -11,6 +11,7 @@ import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData } from "./grid-api/types";
+import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
 
 type ImagePageResponse = {
   data: Array<{ data?: unknown; actions?: unknown }>;
@@ -161,6 +162,39 @@ export async function apiGetImage(id: string, signal?: AbortSignal): Promise<Ima
   const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown };
   if (json.data?.id !== id) return undefined;
   return { image: mapApiImageToImage(json.data), enrichment: extractEnrichment(json)?.[1] };
+}
+
+/**
+ * Reads images by ID through POST /images/mget, a bounded number of requests at a time. Missing and
+ * hidden IDs are simply absent; any failed request fails the whole lookup, so absence is never
+ * inferred from a partial read.
+ */
+export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<Image[]> {
+  signal?.throwIfAborted();
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += MGET_CHUNK_SIZE) chunks.push(ids.slice(i, i + MGET_CHUNK_SIZE));
+
+  const controller = new AbortController();
+  const cancel = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", cancel, { once: true });
+  const images: Image[] = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < chunks.length && !controller.signal.aborted) {
+      const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown }> };
+      for (const entity of json.data) if (entity.data != null) images.push(mapApiImageToImage(entity.data));
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(MGET_CONCURRENCY, chunks.length) }, worker));
+  } catch (error) {
+    controller.abort();
+    signal?.throwIfAborted();
+    throw error;
+  } finally {
+    signal?.removeEventListener("abort", cancel);
+  }
+  return images;
 }
 
 async function fetchImageRead(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {

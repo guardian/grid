@@ -24,6 +24,7 @@ function captureBodies(): Body[] {
       : url.endsWith("/count") ? { total: 0, tickerCounts: {} }
       : url.endsWith("/aggregations") ? { fields: {}, isFilterCounts: {} }
       : url.endsWith("/keys") ? { keys: [], after: null }
+      : url.endsWith("/mget") ? { data: [] }
       : url.endsWith("/sort-profile") ? (
         body.operation === "date-stats" ? { valueCount: 2, min: T, max: T + 30 * DAY }
         : body.operation === "keyword-page" ? { buckets: [], after: null }
@@ -64,6 +65,7 @@ const cases: Array<{ name: string; read: () => Promise<unknown> }> = [
       [{ name: "digital", subField: "platform", value: "digital" }, { name: "published", subField: "status", value: "published" }]),
   },
   { name: "aggregations-collections", read: () => ds.getAggregations({}, [{ field: "collections.pathId", size: 6000 }]) },
+  { name: "mget-selection", read: () => ds.getByIds(["fixture-id", "missing-id"]) },
 ];
 
 afterEach(() => vi.unstubAllGlobals());

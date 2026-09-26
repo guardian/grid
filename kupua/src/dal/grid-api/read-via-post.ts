@@ -10,6 +10,7 @@ export const GRID_API_READ_VIA_POST = [
   "/images/keys",
   "/images/count",
   "/images/aggregations",
+  "/images/mget",
 ];
 
 /** `url` is the request path below the /api proxy prefix. Exact paths only: a prefix would admit write routes such as `/images/:id/...`. */

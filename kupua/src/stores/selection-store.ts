@@ -23,7 +23,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Image } from "@/types/image";
 import type { ImageDataSource } from "@/dal/types";
-import { ElasticsearchDataSource } from "@/dal";
+import { useSearchStore } from "@/stores/search-store";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import type { FieldDefinition } from "@/lib/field-registry";
 import {
@@ -355,7 +355,7 @@ export const useSelectionStore = create<SelectionState>()(
       isReconciling: false,
       isRangeWalking: false,
       rangeWalkTime: null,
-      dataSource: new ElasticsearchDataSource(),
+      dataSource: useSearchStore.getState().dataSource,
 
       // --- Actions ---
 

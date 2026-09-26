@@ -13,6 +13,10 @@ describe("Grid API read-via-POST allowlist", () => {
     expect(isGridApiReadViaPost("POST", `${path}x`)).toBe(false);
   });
 
+  it("admits the image lookup by ID", () => {
+    expect(isGridApiReadViaPost("POST", "/images/mget")).toBe(true);
+  });
+
   it("refuses other methods and unlisted paths", () => {
     expect(isGridApiReadViaPost("PUT", "/images/count")).toBe(false);
     expect(isGridApiReadViaPost("DELETE", "/images/keys")).toBe(false);

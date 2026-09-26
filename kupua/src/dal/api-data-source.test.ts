@@ -56,7 +56,7 @@ describe("ApiDataSource development fallback", () => {
   });
   it("lists exactly the reads that still use the development fallback", () => {
     expect([...DEVELOPMENT_FALLBACK_METHODS].sort()).toEqual(
-      ["getByIds", "searchByAi"],
+      ["searchByAi"],
     );
   });
 
@@ -98,6 +98,7 @@ describe("ApiDataSource development fallback", () => {
       ds.fetchPositionIndex(params, signal),
       ds.getIdRange(params, cursor, cursor, signal),
       ds.getById("img-1", signal),
+      ds.getByIds(["img-1", "img-2"], signal),
       ds.count(params),
       ds.countWithTickers(params),
       ds.getAggregations(params, [{ field: "metadata.credit" }], signal, [{ name: "deleted", isFilter: "deleted" }]),
@@ -106,7 +107,7 @@ describe("ApiDataSource development fallback", () => {
     ]);
 
     const migrated = ALL_METHODS.filter((m) => !(DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m));
-    expect(migrated).toHaveLength(15);
+    expect(migrated).toHaveLength(16);
     for (const method of migrated) expect(fallback[method], method).not.toHaveBeenCalled();
   });
 });
@@ -289,6 +290,60 @@ describe("ApiDataSource standalone image", () => {
     await expect(new ApiDataSource(makeFallback()).getById("img-1", controller.signal))
       .rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+  });
+});
+
+describe("ApiDataSource images by ID", () => {
+  const ids = (n: number, from = 0) => Array.from({ length: n }, (_, i) => `img-${from + i}`);
+  const found = (body: Body) => ({ data: (body.ids as string[]).map(entity) });
+
+  it("posts 200-ID requests, at most four at a time, and returns every found image, normalized", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const calls = stubMediaApi({
+      "/images/mget": async (body) => {
+        peak = Math.max(peak, ++inFlight);
+        await new Promise((r) => setTimeout(r, 5));
+        inFlight--;
+        return { data: (body.ids as string[]).filter((id) => id !== "img-7").map((id) => ({
+          data: { id, uploadTime: "2026-01-01T00:00:00Z", usages: { data: [{ data: { id: `usage-${id}` } }] } },
+        })) };
+      },
+    });
+    const fallback = makeFallback();
+    const result = await new ApiDataSource(fallback).getByIds(ids(1050));
+
+    expect(calls.map((c) => (c.body.ids as string[]).length)).toEqual([200, 200, 200, 200, 200, 50]);
+    expect(calls.flatMap((c) => c.body.ids as string[])).toEqual(ids(1050));
+    expect(calls.every((c) => Object.keys(c.body).join() === "ids")).toBe(true);
+    expect(peak).toBe(4);
+    expect(result.map((image) => image.id).sort()).toEqual(ids(1050).filter((id) => id !== "img-7").sort());
+    expect(result.find((image) => image.id === "img-3")?.usages).toEqual([{ id: "usage-img-3" }]);
+    expect(fallback.getByIds).not.toHaveBeenCalled();
+  });
+
+  it("asks nothing for no IDs", async () => {
+    const calls = stubMediaApi({ "/images/mget": found });
+    await expect(new ApiDataSource(makeFallback()).getByIds([])).resolves.toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each([
+    { name: "refuses a request", respond: () => failure(503, "mget-incomplete"), expected: { kind: "refused", status: 503 } },
+    { name: "is unreachable", respond: () => { throw new TypeError("Failed to fetch"); }, expected: { kind: "unavailable" } },
+  ])("fails the whole lookup, never reporting IDs as missing, when media-api $name for one request", async ({ respond, expected }) => {
+    const calls = stubMediaApi({
+      "/images/mget": (body) => (body.ids as string[]).includes("img-200") ? respond() : found(body),
+    });
+    await expect(new ApiDataSource(makeFallback()).getByIds(ids(2000))).rejects.toMatchObject(expected);
+    expect(calls.length).toBeLessThan(10);
+  });
+
+  it("rejects when cancelled, rather than resolving to no images", async () => {
+    const controller = new AbortController();
+    stubMediaApi({ "/images/mget": (body) => { controller.abort(); return found(body); } });
+    await expect(new ApiDataSource(makeFallback()).getByIds(ids(3), controller.signal))
+      .rejects.toMatchObject({ name: "AbortError" });
   });
 });
 

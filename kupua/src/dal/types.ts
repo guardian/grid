@@ -501,8 +501,8 @@ export interface ImageDataSource {
   /**
    * Fetch multiple images by ID (multi-get).
    *
-   * Internally batches into chunks of 1,000 IDs and runs chunks in PARALLEL
-   * (`Promise.all`) — do NOT call sequentially, it's already parallelised.
+   * Batches internally (direct ES: 1,000-ID chunks all in parallel; media-api: 200-ID chunks, four
+   * at a time) — do NOT call sequentially. A failed chunk rejects the whole call.
    * Missing IDs (deleted or never existed) are silently absent from the
    * returned array. Result order is not guaranteed to match `ids` order.
    *

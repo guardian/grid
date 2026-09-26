@@ -21,6 +21,7 @@ import type { Image } from "@/types/image";
 import type { SearchParams, SortValues } from "@/dal";
 import { buildSortClause, parseSortField, DATE_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "@/dal";
 import { BUFFER_CAPACITY } from "@/constants/tuning";
+import { gridConfig } from "@/lib/grid-config";
 
 const PREFIX = "kupua:imgOffset:";
 type RetainedCursor = { searchKey: string; values: SortValues };
@@ -107,6 +108,13 @@ function readFieldPath(image: Image, path: string): string | number | null {
   return null;
 }
 
+// media-api images carry configured fileMetadata values under `aliases`, not at their raw path.
+function readAliasValue(image: Image, path: string): string | number | null {
+  const alias = gridConfig.fieldAliases.find((entry) => entry.elasticsearchPath === path)?.alias;
+  const value = alias === undefined ? undefined : image.aliases?.[alias];
+  return typeof value === "string" || typeof value === "number" ? value : null;
+}
+
 /**
  * Prefer the retained response tuple for a supplied search key, otherwise
  * extract sort values from the image under the current sort clause.
@@ -148,7 +156,7 @@ export function extractSortValues(
       }
       continue;
     }
-    const val = readFieldPath(image, field);
+    const val = readFieldPath(image, field) ?? readAliasValue(image, field);
     if (val == null) {
       // Missing field — ES returns null in sort values. We can still use
       // this cursor for search_after (ES handles null sort values), but

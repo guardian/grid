@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSearchStore } from "./search-store";
+import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource, DEVELOPMENT_FALLBACK_METHODS } from "@/dal/api-data-source";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
@@ -64,6 +65,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
       return { data: images(r.hits), offset: b.offset, ...(b.countAll ? { total: r.total } : {}), sortValues: r.sortValues, rawHitCount: r.hits.length };
     },
     "/images/rank": async (b) => ({ rank: await corpus.countBefore(toParams(b), b.sortValues as SortValues) }),
+    "/images/mget": async (b) => ({ data: images(await corpus.getByIds(b.ids as string[])) }),
     "/images/count": async () => ({
       total: (await corpus.countWithTickers()).count,
       tickerCounts: { "GNM-owned": { value: 7, searchClause: "is:GNM-owned", backgroundColour: "#005689" } },
@@ -131,7 +133,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
 const MIGRATED = [
   "searchRange", "openPit", "closePit", "searchAfter", "countBefore", "estimateSortValue", "findKeywordSortValue",
   "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById", "count", "countWithTickers",
-  "getAggregations",
+  "getAggregations", "getByIds",
 ];
 
 /** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */
@@ -431,6 +433,36 @@ describe("API mode: range walks", () => {
     expect(viaApi.ids).toHaveLength(250);
     expect(from[0]).not.toBeNull();
     expect(to[0]).toBeNull();
+  });
+});
+
+describe("API mode: selection hydration", () => {
+  const selection = () => useSelectionStore.getState();
+  function selectInApiMode(ids: string[], routes?: Record<string, Route>) {
+    useApiMode(500, { routes });
+    _resetMetadataCache();
+    _resetHydrationToastShown();
+    useSelectionStore.setState({ dataSource: state().dataSource, selectedIds: new Set(ids), anchorId: ids[ids.length - 1] });
+  }
+
+  it("reads selected images through media-api and drops only the IDs a complete lookup did not find", async () => {
+    selectInApiMode(["img-1", "img-2", "img-gone"]);
+    await selection().hydrate();
+
+    expect(paths()).toEqual(["/images/mget"]);
+    expect(bodiesFor("/images/mget")[0]).toEqual({ ids: ["img-1", "img-2", "img-gone"] });
+    expect([...selection().selectedIds]).toEqual(["img-1", "img-2"]);
+    expect(selection().anchorId).toBe("img-2");
+    expect(selection().metadataCache.get("img-1")?.id).toBe("img-1");
+  });
+
+  it("keeps the whole selection when the lookup is incomplete", async () => {
+    selectInApiMode(["img-1", "img-gone"], { "/images/mget": () => refusal(503, "mget-incomplete") });
+    await selection().hydrate();
+
+    expect([...selection().selectedIds]).toEqual(["img-1", "img-gone"]);
+    expect(selection().anchorId).toBe("img-gone");
+    expect(selection().metadataCache.has("img-1")).toBe(false);
   });
 });
 

@@ -313,6 +313,14 @@ export const SELECTION_PERSIST_DEBOUNCE_MS = 250;
  */
 export const SELECTION_METADATA_LRU_CAP = 5_000;
 
+/**
+ * API mode: IDs per POST /images/mget request (media-api refuses more than 200) and requests in
+ * flight at once when fetching selected images. Four measured about 2x faster than two for 5,000
+ * IDs on TEST; six added little (API build U6d).
+ */
+export const MGET_CHUNK_SIZE = 200;
+export const MGET_CONCURRENCY = 4;
+
 // ---------------------------------------------------------------------------
 // Selections -- lifecycle (Phase S6)
 // ---------------------------------------------------------------------------

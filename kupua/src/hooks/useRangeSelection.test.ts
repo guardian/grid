@@ -11,7 +11,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Image } from "@/types/image";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
+import { ApiDataSource } from "@/dal/api-data-source";
 import type { SortValues } from "@/dal/types";
+import { gridConfig } from "@/lib/grid-config";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, _resetMetadataCache, _resetDebounceState, _resetReconcileQueue } from "@/stores/selection-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -451,6 +453,32 @@ describe("mounted range ownership", () => {
       expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
       expect(useSelectionStore.getState().isRangeWalking).toBe(false);
     }
+  });
+
+  it.each([
+    { name: "populated", aliasValue: "fixture-status" as string | undefined },
+    { name: "missing", aliasValue: undefined },
+  ])("walks from a media-api-hydrated off-buffer anchor's $name alias without a retained tuple", async ({ aliasValue }) => {
+    const alias = gridConfig.fieldAliases.find((field) => field.elasticsearchPath.startsWith("fileMetadata."))!;
+    const uploadTime = "2026-01-01T00:00:00Z";
+    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [{ data: {
+      id: "img-0", uploadTime, ...(aliasValue === undefined ? {} : { aliases: { [alias.alias]: aliasValue } }),
+    } }] })));
+    const apiSource = new ApiDataSource(source);
+    _resetMetadataCache();
+    useSearchStore.setState({ params: { orderBy: alias.alias } });
+    useSelectionStore.setState({ dataSource: apiSource });
+    await useSelectionStore.getState().ensureMetadata(["img-0"]);
+    expect(transport.mock.calls.map(([url]) => url)).toEqual(["/api/images/mget"]);
+
+    const walk = vi.spyOn(apiSource, "getIdRange").mockResolvedValue(completed);
+    const { result } = renderHook(() => useRangeSelection());
+    await result.current({ ...effect, anchorGlobalIndex: null, anchorSortValues: null });
+
+    const fromCursor = walk.mock.calls[0][1];
+    expect(fromCursor[0]).toBe(aliasValue ?? null);
+    expect(fromCursor.at(-1)).toBe("img-0");
+    expect(fromCursor).toContain(Date.parse(uploadTime));
   });
 
   it("does not retry an empty known-direction collector result", async () => {

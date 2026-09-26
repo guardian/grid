@@ -19,6 +19,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useSelectionStore, _resetReconcileQueue, _resetDebounceState, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
 import { useToastStore } from "./toast-store";
+import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { buildSearchKey, getRetainedSortValues, retainSortValues, setRetainedCursorAnchor } from "@/lib/image-offset-cache";
 import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuning";
@@ -112,6 +113,10 @@ describe("initial state", () => {
   it("inSelectionMode is false when selection is empty", () => {
     const { selectedIds } = useSelectionStore.getState();
     expect(selectedIds.size > 0).toBe(false);
+  });
+
+  it("reads through the app's data source rather than constructing its own", () => {
+    expect(useSelectionStore.getInitialState().dataSource).toBe(useSearchStore.getState().dataSource);
   });
 });
 
