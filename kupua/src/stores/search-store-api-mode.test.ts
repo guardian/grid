@@ -15,6 +15,8 @@ import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache"
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { ImageDataSource, SearchParams, SortValues } from "@/dal/types";
+import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
+import { deriveImage } from "@/lib/derive-enriched-image";
 
 vi.mock("@/dal/es-config", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/dal/es-config")>(),
@@ -42,6 +44,11 @@ async function waitFor(predicate: () => boolean, label: string, timeoutMs = 10_0
 }
 
 const refusal = (status: number, errorKey = "fixture") => new Response(JSON.stringify({ errorKey }), { status });
+const FAILURE_KINDS = ["refused", "unavailable", "incomplete"] as const;
+function failedRead(kind: typeof FAILURE_KINDS[number], endpoint: string): Response {
+  if (kind === "unavailable") throw new TypeError("synthetic transport unavailable");
+  return refusal(kind === "incomplete" ? 503 : 403, kind === "incomplete" ? `${endpoint}-incomplete` : "forbidden");
+}
 
 function toParams(body: Body): SearchParams {
   return {
@@ -126,7 +133,7 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
   const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
     init.signal?.throwIfAborted();
     const path = url.replace(/^\/api/, "");
-    const body = JSON.parse(init.body as string) as Body;
+    const body = init.body ? JSON.parse(init.body as string) as Body : {};
     calls.push({ path, body, signal: init.signal });
     const out = await (routes[path] ?? defaults[path])?.(body);
     init.signal?.throwIfAborted();
@@ -144,7 +151,7 @@ const MIGRATED = [
 ];
 
 /** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */
-function developmentFallback(corpus: MockDataSource, rescues: string[]): ImageDataSource {
+function developmentFallback(corpus: ImageDataSource, rescues: string[]): ImageDataSource {
   return new Proxy(corpus, {
     get(target, prop, receiver) {
       if (typeof prop === "string" && MIGRATED.includes(prop)) {
@@ -692,8 +699,8 @@ describe("API mode: position maps and the null tail", () => {
     expect(bodiesFor("/images/search-after").some((b) => (b.sortValues as SortValues | undefined)?.[0] === null)).toBe(true);
   });
 
-  it("keeps browsing usable when the map read is incomplete", async () => {
-    useApiMode(20_000, { routes: { "/images/keys": () => refusal(503, "keys-incomplete") } });
+  it.each(FAILURE_KINDS)("U6z keeps browsing usable when the map read is %s", async (kind) => {
+    useApiMode(20_000, { routes: { "/images/keys": () => failedRead(kind, "keys") } });
     await state().search();
     await waitFor(() => !state().positionMapLoading && paths().includes("/images/keys"), "map attempt");
 
@@ -747,8 +754,8 @@ describe("API mode: finding and restoring an image", () => {
 });
 
 describe("API mode: failures", () => {
-  it("KUP-036 does not turn an incomplete first page into empty success", async () => {
-    useApiMode(120_000, { routes: { "/images/search-after": () => refusal(503, "search-after-incomplete") } });
+  it.each(FAILURE_KINDS)("U6z/KUP-036 does not turn a %s first page into empty success", async (kind) => {
+    useApiMode(120_000, { routes: { "/images/search-after": () => failedRead(kind, "search-after") } });
     await state().search();
     await flush();
 
@@ -760,7 +767,9 @@ describe("API mode: failures", () => {
     expect(state().pitId).toBeNull();
   });
 
-  it.each(["forward", "backward", "window"] as const)("KUP-036 retains the committed buffer on incomplete %s reads", async (operation) => {
+  it.each(FAILURE_KINDS.flatMap(kind =>
+    (["forward", "backward", "window", "deep rank"] as const).map(operation => ({ kind, operation })),
+  ))("U6z/KUP-036 retains the committed buffer on $kind $operation reads", async ({ kind, operation }) => {
     useApiMode(120_000);
     await state().search();
     if (operation === "backward") await state().seek(60_000);
@@ -768,12 +777,13 @@ describe("API mode: failures", () => {
     await waitPastCooldown();
     const before = state();
     const enrichment = useEnrichmentStore.getState().data;
-    const endpoint = operation === "window" ? "window" : "search-after";
-    calls = standInMediaApi(corpus, { [`/images/${endpoint}`]: () => refusal(503, `${endpoint}-incomplete`) });
+    const endpoint = operation === "window" ? "window" : operation === "deep rank" ? "rank" : "search-after";
+    calls = standInMediaApi(corpus, { [`/images/${endpoint}`]: () => failedRead(kind, endpoint) });
     const publications: unknown[] = [];
     const unsubscribe = useSearchStore.subscribe((next) => { publications.push(next.results); });
     try {
       if (operation === "window") await state().seek(5_000);
+      else if (operation === "deep rank") await state().seek(60_000);
       else if (operation === "forward") await state().extendForward();
       else await state().extendBackward();
       await flush();
@@ -796,19 +806,26 @@ describe("API mode: failures", () => {
     expect(bodiesFor(`/images/${endpoint}`)).toHaveLength(1);
   });
 
-  it.each(["target", "forward", "backward"] as const)("KUP-036 recovers an incomplete restore %s through the API without partial publication", async (failedRead) => {
+  it.each(FAILURE_KINDS.flatMap(kind =>
+    (["rank", "target", "forward", "backward"] as const).flatMap(stage =>
+      [false, true].map(recoveryFails => ({ kind, stage, recoveryFails }))),
+  ))("U6z/KUP-036 restore $stage $kind with recovery failure=$recoveryFails stays on API without partial publication", async ({ kind, stage, recoveryFails }) => {
     useApiMode(120_000);
     await state().search();
     await flush();
     const before = state();
     const target = await corpus.searchAfter({ orderBy: "-uploadTime", nonFree: "true", ids: "img-5000", length: 1 }, null);
     calls = standInMediaApi(corpus, {
+      "/images/rank": async (body) => stage === "rank"
+        ? failedRead(kind, "rank")
+        : { rank: await corpus.countBefore(toParams(body), body.sortValues as SortValues) },
+      ...(recoveryFails ? { "/images/window": () => failedRead(kind, "window") } : {}),
       "/images/search-after": async (body) => {
         const isTarget = body.ids === "img-5000";
-        if ((failedRead === "target" && isTarget)
-          || (failedRead === "forward" && !isTarget && !body.reverse)
-          || (failedRead === "backward" && !isTarget && body.reverse)) {
-          return refusal(503, "search-after-incomplete");
+        if ((stage === "target" && isTarget)
+          || (stage === "forward" && !isTarget && !body.reverse)
+          || (stage === "backward" && !isTarget && body.reverse)) {
+          return failedRead(kind, "search-after");
         }
         const page = await corpus.searchAfter(toParams(body), (body.sortValues as SortValues | undefined) ?? null,
           null, undefined, body.reverse as boolean);
@@ -826,27 +843,37 @@ describe("API mode: failures", () => {
       unsubscribe();
     }
 
-    expect(state().error).toBeNull();
     expect(state().loading).toBe(false);
-    expect(state().results).not.toBe(before.results);
-    expect(publications).toEqual([state().results]);
     expect(bodiesFor("/images/window").map((body) => body.offset)).toEqual([4_900]);
-    expect(bodiesFor("/images/search-after")).toHaveLength(failedRead === "target" ? 1 : 3);
+    expect(bodiesFor("/images/search-after")).toHaveLength(stage === "target" || stage === "rank" ? 1 : 3);
     expect(calls.every((call) => call.path.startsWith("/images/") && !("pitId" in call.body))).toBe(true);
+    if (recoveryFails) {
+      expect(state().error).not.toBeNull();
+      expect(state().results).toBe(before.results);
+      expect(state().imagePositions).toBe(before.imagePositions);
+      expect(state().bufferOffset).toBe(before.bufferOffset);
+      expect(publications).toEqual([]);
+    } else {
+      expect(state().error).toBeNull();
+      expect(state().results).not.toBe(before.results);
+      expect(publications).toEqual([state().results]);
+    }
     await expectCoherentBuffer();
   });
 
-  it("shows the error state when a core read is refused", async () => {
-    useApiMode(120_000, { routes: { "/images/search-after": () => refusal(403, "forbidden") } });
+  it("U6z publishes successful empty search without a core-read error", async () => {
+    useApiMode(0);
     await state().search();
     await flush();
 
-    expect(state().error).not.toBeNull();
+    expect(state().error).toBeNull();
+    expect(state().loading).toBe(false);
+    expect(state().total).toBe(0);
     expect(state().results).toEqual([]);
   });
 
-  it("leaves optional profile data quietly absent when profiles are refused", async () => {
-    useApiMode(120_000, { orderBy: "-credit", skewed: true, routes: { "/images/sort-profile": () => refusal(403, "forbidden") } });
+  it.each(FAILURE_KINDS)("U6z leaves optional profile data absent when profiles are %s", async (kind) => {
+    useApiMode(120_000, { orderBy: "-credit", skewed: true, routes: { "/images/sort-profile": () => failedRead(kind, "sort-profile") } });
     await state().search();
     await state().fetchSortDistribution();
     await flush();
@@ -894,8 +921,8 @@ describe("API mode: selection hydration", () => {
     expect(selection().metadataCache.get("img-1")?.id).toBe("img-1");
   });
 
-  it("keeps the whole selection when the lookup is incomplete", async () => {
-    selectInApiMode(["img-1", "img-gone"], { "/images/mget": () => refusal(503, "mget-incomplete") });
+  it.each(FAILURE_KINDS)("U6z keeps the whole selection when the lookup is %s", async (kind) => {
+    selectInApiMode(["img-1", "img-gone"], { "/images/mget": () => failedRead(kind, "mget") });
     await selection().hydrate();
 
     expect([...selection().selectedIds]).toEqual(["img-1", "img-gone"]);
@@ -934,5 +961,176 @@ describe("API mode: facet aggregations", () => {
 
     expect(state().aggregations).toBe(published);
     expect(state().aggLoading).toBe(false);
+  });
+});
+
+describe("U6z API recovery lifetime", () => {
+  it("treats a successful empty restore target as absence, not a failed-read seek", async () => {
+    useApiMode(120_000);
+    await state().search();
+    const before = state();
+    const target = await corpus.searchAfter({ ...before.params, ids: "img-5000", length: 1 }, null);
+    calls = standInMediaApi(corpus, { "/images/search-after": () => ({ data: [], sortValues: [] }) });
+    await state().restoreAroundCursor("img-5000", target.sortValues[0], 5_000);
+    expect(state().loading).toBe(false);
+    expect(state().error).toBeNull();
+    expect(state().results).toBe(before.results);
+    expect(state().imagePositions).toBe(before.imagePositions);
+    expect(paths().sort()).toEqual(["/images/rank", "/images/search-after"]);
+  });
+
+  it.each(FAILURE_KINDS)("does not publish a pending recovery after a %s rank is superseded by a new search", async (kind) => {
+    useApiMode(120_000);
+    await state().search();
+    const target = await corpus.searchAfter({ ...state().params, ids: "img-5000", length: 1 }, null);
+    let release!: () => void;
+    let entered!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    calls = standInMediaApi(corpus, {
+      "/images/rank": () => failedRead(kind, "rank"),
+      "/images/window": async (body) => {
+        entered();
+        await held;
+        const page = await corpus.searchAfter({ ...toParams(body), offset: body.offset as number }, null);
+        return { data: page.hits.map(data => ({ data })), sortValues: page.sortValues };
+      },
+    });
+    const pending = state().restoreAroundCursor("img-5000", target.sortValues[0], 5_000);
+    await started;
+    state().setParams({ query: "replacement" });
+    await state().search();
+    const current = state();
+    const overlay = useEnrichmentStore.getState().data;
+    release();
+    await pending;
+    expect(calls.find(call => call.path === "/images/window")?.signal?.aborted).toBe(true);
+    expect(state().results).toBe(current.results);
+    expect(state().imagePositions).toBe(current.imagePositions);
+    expect(state().bufferOffset).toBe(0);
+    expect(state().params.query).toBe("replacement");
+    expect(state().loading).toBe(false);
+    expect(state().error).toBeNull();
+    expect(useEnrichmentStore.getState().data).toBe(overlay);
+    await expectCoherentBuffer();
+  });
+});
+
+describe("U6z API polling", () => {
+  it.each(FAILURE_KINDS)("retains accepted values after %s, but accepts a later successful zero", async (kind) => {
+    vi.useFakeTimers();
+    let outcome: "baseline" | "arrival" | "failure" | "zero" = "baseline";
+    useApiMode(120_000, { routes: {
+      "/images/count": () => {
+        if (outcome === "failure") return failedRead(kind, "count");
+        const value = outcome === "baseline" ? 7 : outcome === "arrival" ? 2 : 0;
+        return { total: value, tickerCounts: { "GNM-owned": { value } } };
+      },
+    } });
+    await state().search();
+    const initial = state();
+    outcome = "arrival";
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
+    expect(state().newCount).toBe(2);
+    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 9 } });
+    const accepted = state();
+    outcome = "failure";
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
+    expect(state().newCount).toBe(2);
+    expect(state().tickerCounts).toBe(accepted.tickerCounts);
+    expect(state().tickersLastUpdated).toBe(accepted.tickersLastUpdated);
+    outcome = "zero";
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
+    expect(state().newCount).toBe(0);
+    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
+    expect(state().results).toBe(initial.results);
+    expect(state().total).toBe(initial.total);
+    expect(state().error).toBeNull();
+    expect(bodiesFor("/images/count")).toHaveLength(4);
+    expect(bodiesFor("/images/count").slice(1).map(body => body.since)).toEqual(Array(3).fill(initial.newCountSince));
+    vi.clearAllTimers();
+  });
+});
+
+describe("U6z existing AI exception and enrichment", () => {
+  it("keeps AI delegation and scoped API reads through ordinary/AI/ordinary, characterizing retained same-ID enrichment", async () => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    useApiMode(120_000);
+    const es = new ElasticsearchDataSource();
+    const aiDelegate = vi.spyOn(es, "searchByAi");
+    const source = new ApiDataSource(developmentFallback(es, rescues));
+    useSearchStore.setState({ dataSource: source, aggregations: null, _aggCacheKey: null, aggCircuitOpen: false });
+    const selected = (await corpus.getByIds(["img-0", "img-1"]))
+      .map(image => ({ ...image, usageRights: { category: "staff-photographer" } }));
+    let pageCost = "overquota";
+    calls = standInMediaApi(corpus, {
+      "/images/search-after": async (body) => {
+        const page = await corpus.searchAfter(toParams(body), null);
+        return { data: page.hits.map(image => ({ data: { ...image, cost: pageCost } })), total: page.total, sortValues: page.sortValues };
+      },
+      "/images/img-0": () => ({ data: { ...selected[0], cost: "pay" } }),
+    });
+    const apiFetch = globalThis.fetch;
+    const esBodies: Body[] = [];
+    let embeddings = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith("/bedrock/embed?")) {
+        embeddings++;
+        return Response.json({ embedding: Array(256).fill(0) });
+      }
+      if (url.startsWith("/es/")) {
+        esBodies.push(JSON.parse(String(init?.body)) as Body);
+        return Response.json({ hits: { hits: [
+          { _id: "img-1", _source: selected[1], _score: 0.9 },
+          { _id: "img-0", _source: selected[0], _score: 0.5 },
+        ] } });
+      }
+      return apiFetch(url, init);
+    }));
+
+    await state().search();
+    expect(esBodies).toEqual([]);
+    expect(useEnrichmentStore.getState().data.get("img-0")?.cost).toBe("overquota");
+    calls.length = 0;
+    state().setParams({ aiQuery: "fixture sky", query: "credit:Fixture", orderBy: "-relevance" });
+    await state().search();
+    await flush();
+    expect(aiDelegate).toHaveBeenCalledOnce();
+    expect(embeddings).toBe(1);
+    expect(esBodies).toHaveLength(1);
+    expect(esBodies[0]).toMatchObject({ knn: { k: 200, query_vector: Array(256).fill(0) }, size: 200 });
+    expect(state().error).toBeNull();
+    expect(state().results.map(image => image?.id)).toEqual(["img-1", "img-0"]);
+    expect(state().total).toBe(2);
+    expect(state().pitId).toBeNull();
+    expect(state().error).toBeNull();
+    const aiImage = state().results[1]!;
+    expect(deriveImage(aiImage, undefined).cost).toBe("free");
+    expect(deriveImage(aiImage, useEnrichmentStore.getState().data.get(aiImage.id)).cost).toBe("overquota");
+
+    await state().fetchAggregations("force");
+    expect(bodiesFor("/images/count")[0].ids).toBe("img-0,img-1");
+    expect(bodiesFor("/images/aggregations")[0].ids).toBe("img-0,img-1");
+    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
+    expect(state().aggregations?.fields["metadata.credit"].buckets).toEqual([{ key: "metadata.credit-top", count: 3 }]);
+    expect((await source.getById("img-0"))?.enrichment?.cost).toBe("pay");
+    _resetMetadataCache();
+    useSelectionStore.setState({ dataSource: source, selectedIds: new Set(["img-0"]), anchorId: "img-0" });
+    const overlay = useEnrichmentStore.getState().data;
+    await useSelectionStore.getState().hydrate();
+    expect(useSelectionStore.getState().metadataCache.get("img-0")?.id).toBe("img-0");
+    expect(useEnrichmentStore.getState().data).toBe(overlay);
+    expect(paths()).toEqual(["/images/count", "/images/aggregations", "/images/img-0", "/images/mget"]);
+
+    pageCost = "pay";
+    state().setParams({ aiQuery: undefined, query: undefined, orderBy: "-uploadTime" });
+    await state().search();
+    expect(state().total).toBe(120_000);
+    expect(state().results[0]?.id).toBe("img-0");
+    expect(deriveImage(state().results[0]!, useEnrichmentStore.getState().data.get("img-0")).cost).toBe("pay");
+    expect(esBodies).toHaveLength(1);
+    expect(aiDelegate).toHaveBeenCalledOnce();
+    expect(embeddings).toBe(1);
+    expect(state().error).toBeNull();
   });
 });

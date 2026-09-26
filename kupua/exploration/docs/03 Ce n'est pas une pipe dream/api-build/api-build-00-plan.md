@@ -132,7 +132,7 @@ maintained here by the executing agent at completion (section 8).
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | done |
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | done |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | done |
-| U6z | Non-AI media-api coverage and recovery verification; existing AI retained | Kupua | U6a-d | not started |
+| U6z | Non-AI media-api coverage and recovery verification; existing AI retained | Kupua | U6a-d | done |
 | U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U6z | not started |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
@@ -772,6 +772,65 @@ suite in API mode.
   rejection of individual undecodable images. No changes to AI, U7, PIT policy, accepted
   approximations, useful limits or unrelated section-11 observations follow from U6z.
 
+**U6z verification result (26 September 2026):** tests-only; no production repair needed.
+Base revision `c6df78b51`; the operator reported a clean cold review and approved the commit.
+The new changelog entry's indentation was corrected before committing.
+No Scala/Grid change, section-7 inventory addition, runtime guard, endpoint, datasource switching,
+AI behavior change or API-mode E2E configuration was introduced.
+- **Startup/CQL:** `src/main.test.tsx` selects API mode before imports, executes real main-module
+  initialization and checks factory/default selection ownership, collection loading and hydration.
+  Its top-level root render is held back; the actual CQL element and first registered resolver are
+  exercised across keyed wrapper remounts without resetting registration. Cold registered, alias
+  and dotted-field reads assert suggestions/counts, not just absence of fallback calls. Fully
+  mounted Home/Clear behavior is separately covered by the browser check below.
+- **Recovery/callers:** the existing `search-store-api-mode.test.ts` and `useRangeSelection.test.ts`
+  compose real stores, `ApiDataSource` and mapper over controlled responses. Refusal, unavailable
+  transport and 503 incomplete reads cover ordinary search, forward/backward extension, shallow
+  seek, deep-seek rank and restore rank/target/neighbour failures. Successful and failed follow-up
+  windows preserve the existing recovery/error contracts; obsolete recovery cannot overwrite a
+  newer search. Empty success is distinct from failure. Failed hydration retains selected IDs;
+  later-page range failure publishes no partial membership, including after Clear; maps/profiles
+  can be absent, polling retains previous values and collections retain their tree without counts.
+  Existing KUP-033/034 ordering and KUP-036 incomplete-page assertions remain covered.
+- **AI/enrichment:** the real existing ES AI method runs over stubbed Bedrock/ES responses during
+  ordinary -> AI -> ordinary transitions. Only `searchByAi` delegates; AI-scoped counts/facets,
+  standalone detail and selection hydration remain API reads. Bulk hydration adds no overlay.
+  KUP-030's ordinary unavailable-to-ES trigger is gone, but a same-ID AI image with a `free`
+  baseline still derives the earlier API `overquota` overlay; returning to ordinary API results
+  replaces it. This synthetic display residual stays open for a separate decision, not a U8 gate.
+- **Negative controls:** wrong aggregation routing failed all six startup/CQL/collection cases;
+  fabricated successful responses in place of failures failed 51 caller/recovery cases; wrong AI
+  dispatch and partial/stale range publication failed seven cases; wrong totals/order/target
+  absence failed five completion cases. Each probe was removed and its focused run passed again.
+  Production files used for probes were confirmed identical to HEAD.
+- **Gates:** baseline 2,028 tests; final 2,086 tests across 77 files (58 net additional cases),
+  TypeScript/Vite build and 299 normal direct-ES E2E tests passed. Agent commands were
+  `npm --prefix kupua test`, `npm --prefix kupua run build`, `npm --prefix kupua run test:e2e`,
+  from repo root, unsandboxed with `set -o pipefail` and `tee`. E2E ports 3000/3030 were confirmed
+  free and completion was awaited without competing commands. Existing bundle-size warning remains.
+- **Ordinary browser evidence:** operator-authorized read-only TEST, local modified media-api
+  through the tunnel, shared HTTPS embedded-browser tab, development build and existing local
+  image-delivery proxies. API mode and five served raw startup/routing source hashes matched the
+  local revision. Passive bounded resource observers were installed before stores existed on two
+  document loads. Startup/collection counts/default ownership; cold credit, alias and dotted-field
+  suggestions across Clear -> Home -> Clear with current `is:` counts; real deep scrubber navigation;
+  resident detail/two forward steps/visible return; bounded store-driven shallow setup followed by
+  a real 403-image Shift-click range; reload hydration/summary; and a nonresident saved-link detail
+  all completed. No browser ES request was observed and neither collector overflowed. Resident
+  traversal added no image reads. Reload had six successful mget chunks, consistent with StrictMode
+  replay; singleton had one status-0 attempt then 200. Probe state/identities were removed. Home
+  removed the initial date cap, so this is not a fixed-corpus comparison or performance measurement.
+- **Operator preflights:** operator reported both two-run API dry runs passed:
+  `npm --prefix kupua run test:perf -- P13,P14,P17,P18,P19 --use-media-api --dry-run --runs 2 --label "U6z API preflight"`
+  and `npm --prefix kupua run test:perf -- --use-media-api --long-perceived-only --dry-run --runs 2 --label "U6z API long preflight"`.
+  These are operator-reported results, not agent-run campaigns; M1 was not repeated.
+- **Closures/limits:** KUP-010 closes only current non-AI API recovery; KUP-026 closes fixed-mode
+  startup/first-registration/remount ownership alongside its earlier callback repair. Neither
+  required a production patch. No absolute zero-ES claim, hot-swap support, historical security
+  triage closure, live failure induction/interception, universal policy parity, snapshot guarantee
+  or live AI ranking certification follows. Server deployment/binary identity is not independently
+  fingerprinted by the client source checks. U8 and U7 remain separate; U8 is not executed here.
+
 **U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
 `/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
 approach. Keep the existing local `/s3` and `/imgproxy` image delivery for M2a; U7 is not a
@@ -962,6 +1021,7 @@ ignoring it.
 
 (One line per completed unit: date, unit, commits, notes.)
 
+- 26 Sep 2026, U6z: non-AI coverage/recovery verified with tests only on base `c6df78b51`; full local gates, bounded API browsing and operator-reported API preflights passed. Scoped KUP-010/026 closure; KUP-030 same-ID AI display residual remains. Operator reported a clean cold review and approved commit; changelog indentation corrected. U8 not started.
 - 26 Sep 2026, KUP-036: `ca38c5032` (Scala); client composition tests and closure docs accompany
   this record. D3/window now return 503 for explicit incomplete execution, with decode omission
   preserved. Full gates and ordinary read-only API-mode browsing passed; cold review resolved.

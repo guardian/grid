@@ -7,7 +7,8 @@ canonical bug index, not another migration plan or an assignment of work. P28 re
 query evidence. This record grants no new implementation, fuzzy-search or stronger-failure-policy authority.
 The [reproduction queue and evidence](bug-reproduction-evidence.md) accounts for the original 35 IDs,
 including conditional browser cases and bugs better checked outside the browser. The ten P32/P33
-integration additions below are source-supported only; none has an executed reproduction. GRID-014
+integration additions were source-supported at intake; later execution, including KUP-030's
+synthetic U6z characterization, is recorded per entry. GRID-014
 (24 September, API build U2) has its server side confirmed by a local ES test. KUP-033 and KUP-034
 (25 September, API build U5 review) have their server mechanism shown by local ES tests.
 KUP-033 was reproduced by live media-api wheel scrolling and repaired in the shared store on
@@ -16,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 26 September 2026.** The 24 entries below have an open defect,
-approval/integration/review task or explicit residual; 26 additional IDs have completed bounded repairs.
+**Current recorded status: 26 September 2026.** The 22 entries below have an open defect,
+approval/integration/review task or explicit residual; 28 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -31,7 +32,9 @@ media-api coverage, including recovery. Existing AI is the sole deliberate ES ex
 team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
 claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
 silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
-KUP-034 and KUP-036 are DONE as separate repairs; final U6z verification remains separate.
+KUP-034 and KUP-036 are DONE as separate repairs. U6z now verifies non-AI routing and recovery
+without a production change; KUP-010/026's demonstrated scopes are closed below. KUP-030 retains
+an executed same-ID AI display residual. The operator reported U6z's cold review clean.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -42,13 +45,11 @@ The detailed entries below remain authoritative for evidence, permissions and li
 
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
-| [KUP-010](#kup-010) | Refusal followed by another recovery transport | Open contract/verification; private triage | Prerequisite: S10 API-only recovery |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
 | [KUP-013](#kup-013) | Keyboard Home -> resident End | End-initiated repair DONE; reverse interleaving reproduced and UNFIXED | Independent UX follow-up |
-| [KUP-026](#kup-026) | CQL's first-registered datasource | Cache-callback repair DONE; initialization/rebinding boundary unresolved | Unresolved S8/S10 coupling; no hot-swap feature implied |
 | [KUP-028](#kup-028) | Invalid-date dropdown failure | Open; source-only | Independent robustness; valid-date policy unchanged |
 | [KUP-029](#kup-029) | Effective rights versus no-rights badge | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
-| [KUP-030](#kup-030) | Stale overlay after overlay-less fallback | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
+| [KUP-030](#kup-030) | Same-ID AI result retains an earlier API overlay | Original fallback removed; AI residual reproduced synthetically, repair deferred | Separate display decision; not a non-AI transport gate |
 | [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
@@ -73,7 +74,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
 
 <details>
-<summary>Completed bounded repairs: 26 other IDs</summary>
+<summary>Completed bounded repairs and verification: 28 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -85,11 +86,26 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Backward null-boundary crossing | [KUP-033](#kup-033) |
 | Near-top centred paging | [KUP-034](#kup-034) |
 | Explicitly incomplete API image pages | [KUP-036](#kup-036) |
+| Non-AI API recovery and fixed-mode CQL initialization, closed by U6z verification | [KUP-010](#kup-010), [KUP-026](#kup-026) |
 
-DONE refers to the repaired scope, not every adjacent behavior or future API acceptance.
+DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
-not automatically known bugs. KUP-013 and KUP-026 also have completed repairs, but their explicit
-remaining work is listed above. S1 normalization is complete and is not one of these bug IDs.
+not automatically known bugs. KUP-013 also has a completed repair, but its explicit remaining
+work is listed above. S1 normalization is complete and is not one of these bug IDs.
+
+#### KUP-010
+**Restore recovery can bypass the intended refusal boundary (E017)**
+- **Historical finding:** a refusal in the former transitional hybrid adapter could reach another store operation whose dispatch chose ES. P18 F3 / E017 was qualified source inference, not observed unauthorized access, a deployed incident or an exploit demonstration. The earlier [permission boundary](bug-reproduction-evidence.md#permission-blocked-routes) remains historical; expanded security investigation still requires private maintainer triage.
+- **Why closed now:** U5 removed the ordinary page fallback and U6a-d migrated the remaining non-AI methods. The current `ApiDataSource` has no non-AI ES rescue. Legitimate recovery through another admitted API read remains supported; no new refusal policy or store repair is needed.
+- **Executed evidence (U6z, 26 September):** [real store/adapter/mapper tests](../../src/stores/search-store-api-mode.test.ts) cover refusal, unavailable transport and 503 incomplete execution during search, seek and restore rank/target/forward/backward reads, successful and failed follow-up API windows, empty-target success and superseding searches. They assert final buffers, coordinates, errors, publication ownership and zero non-AI delegation. Deliberate wrong results fail the checks and are removed. Unit/build/direct-ES E2E gates, bounded ordinary API browsing and operator-reported API dry-run preflights passed; [the build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) records the evidence and limits.
+- **Disposition: CLOSED by verification (26 September).** The boundary is the current application's non-AI media-api-mode recovery, not absolute API-only operation: `searchByAi` remains the sole deliberate ES delegation. No runtime datasource switching, historical security-triage closure, live refusal probing or new authorization guarantee is claimed. U6z changes tests only; existing recovery behavior is preserved.
+
+#### KUP-026
+**CQL remount can retain the first resolver's callbacks and datasource**
+- **Historical repair:** the once-registered resolver retained wrapper-owned cache callbacks after Home/Clear unmounted that wrapper. The 20 September mounted reproduction and [bounded repair evidence](bug-reproduction-evidence.md#bounded-client-repairs-kup-022023026012020021) remain valid. Commit `384855da3` (22 September) fixed cache callbacks with live-store getters; it did not implement datasource rebinding.
+- **Why closed now:** the mode is selected before app/store initialization and does not change during that app lifetime. The first CQL registration therefore captures the correct API datasource. Its continued use after a wrapper remount is valid; no rebinding feature or additional production repair is needed.
+- **Executed evidence (U6z, 26 September):** [cold-start tests](../../src/main.test.tsx) execute real main-module initialization with API mode selected before imports, preserving the first real CQL registration across keyed wrapper remounts. Cold registered, alias and dotted-field suggestions assert returned values/counts and API requests; cache counts change between remounts. The top-level app render is held back in this unit fixture. The fully mounted browser separately exercised cold credit/alias/dotted suggestions and current `is:` counts through Clear -> Home -> Clear in one document, with the same registered constructor and no ES traffic. The deliberate wrong aggregation route failed the tests before restoration; full gates and operator API preflights passed.
+- **Disposition: CLOSED for fixed-mode API initialization and remounts (26 September).** Together with the earlier callback repair, no current demonstrated defect remains in this scope. Registration is still first-datasource-bound; runtime switching is neither supported nor certified. This is not proof of every resolver's backend policy, every failure combination or eventual removal of AI's ES dependency.
 
 </details>
 
@@ -129,9 +145,10 @@ remaining work is listed above. S1 normalization is complete and is not one of t
 | S7 polling | [KUP-006](#kup-006) | Current-client baseline-plus-latest cumulative accounting is DONE; preserve lifetime/response ownership in API composition. |
 | S8 expanded / AI-scoped aggregates | [KUP-007](#kup-007), [KUP-005](#kup-005) | Current-client ownership/empty-membership repairs DONE; future API composition must preserve them. Ordinary-only work is not gated by AI. |
 | S9 AI publication | [KUP-005](#kup-005), [KUP-008](#kup-008) | Current-client loaded-set scope/current-sort repairs DONE; migrated producer and caller acceptance remain open. |
-| S10 API-only recovery | [KUP-010](#kup-010) | Verify composed recovery cannot select browser ES; pure API wiring may resolve this without a separate store fix. |
+| S10 current non-AI API recovery | [KUP-010](#kup-010) | CLOSED by U6z composition tests and existing API wiring; AI remains the sole ES exception, not absolute API-only completion. |
 
-CQL registration lifetime and preview-exit ownership remain dependency-unresolved below. P29's
+CQL fixed-mode initialization is closed by U6z; runtime rebinding is not supported. Preview-exit
+ownership retains its explicit limits below. P29's
 source-backed C2/C3 assessment narrows GRID-008 and E013/E014 to the activation gates named above;
 those gates remain open. The current usage-search dispositions below supersede P30's grouped-negative
 and browse-only repair direction; they do not approve wider API implementation or activation.
@@ -236,16 +253,6 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Dependency / resolution:** current collector correction complete; **S4** still requires endpoint-local execution/lifecycle policy and migrated acceptance. Grid's shared execution policy and future API schema are unchanged.
 - **Disposition: DONE (20 September)** for explicit-incompleteness handling. [Shared gates and independent review](bug-reproduction-evidence.md#bounded-client-repairs-kup-003006009). E033 needs the bounded coordinator qualification in that evidence, not unconditional snapshot/whole-file verification. No automatic retry or fallback redesign; fallback cost/parity is unmeasured.
 - **Commit:** `0efb6e225ea62a5bc33c7fdf9cd92726ccda7196` (KUP-009 only).
-
-#### KUP-010
-**Restore recovery can bypass the intended refusal boundary (E017)**
-- **Component / responsibility:** search-store restore recovery and datasource dispatch; human owner-to-confirm. **Private maintainer/security triage** before expanded reproduction or public issue.
-- **Trigger:** a primary read refusal reaches generic restore recovery in transitional hybrid mode.
-- **Expected / actual:** refusal classification should survive the complete recovery chain. The store can start a different operation whose hybrid dispatch selects another transport, despite correct adapter-local refusal handling.
-- **Evidence / reproduction:** [restore recovery](../../src/stores/search-store.ts#L3967), [dispatch](../../src/dal/strangler-adapter.ts#L47), [P18 F3][p18], E017; **qualified source inference only**. Hybrid D3 later became available, but explicit private refusal-test scope did not; no probe was run. [Current blocker](bug-reproduction-evidence.md#permission-blocked-routes). No observed unauthorized access, deployed failure or exploit demonstration.
-- **Smallest test:** isolated composed store/adapter refusal contract with transport spies, asserting the approved follow-up boundary. Keep detailed cases in the existing research/private triage; no live probing.
-- **Dependency / resolution:** before **S10 API-only activation**, which explicitly promises zero browser ES. Pure API construction/dispatch may satisfy the gate without a separate store fix; characterize rather than assume a code repair is mandatory. Current hybrid disposition remains separately scoped.
-- **Disposition:** prerequisite verification/contract resolution pending; no weakening of authorization or automatic shared repair.
 
 #### KUP-011
 **Raw substring defaults do not follow parsed query intent**
@@ -406,12 +413,12 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Dependency / disposition:** OPEN, independent display correction. **Operator-deferred, 23 September:** address after a working API-backed app, not as a gate on query alignment, core browsing or initial image-read integration. Effective-display consistency remains a later ownership decision; server authorization is unchanged. Not an S1 reopening.
 
 #### KUP-030
-**Overlay-less hybrid fallback can retain stale same-ID enrichment**
-- **Component / owner:** search-store publication, enrichment-store and hybrid adapter; human owner-to-confirm.
-- **Trigger / expected / actual:** a prior API result supplied an overlay; a fresh same-ID result is returned by the existing unavailable-to-ES fallback without enrichment. Under baseline fallback the fresh result should not silently retain unrelated prior policy; the truthy-only commit leaves the old map entry active.
-- **Evidence:** P32-B3 and the pre-existing candidate overlay question; [real fallback](../../src/dal/strangler-adapter.ts#L77), [fresh publication](../../src/stores/search-store.ts#L2461), [per-ID consumption](../../src/hooks/useEnrichedImage.ts#L26). High-confidence source path, not execution; no runtime datasource hot-swap is required.
-- **Smallest discriminator:** seed API enrichment, resolve an ordinary fresh hybrid read via unavailable fallback with changed same-ID baseline, inspect effective display; preserve off-buffer selected overlays and current-overlay controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent current-hybrid defect. **Operator-deferred, 23 September:** address after a working API-backed app, not as a gate on query alignment, core browsing or initial image-read integration. Later image-result work must decide per-result ownership without blindly clearing selected overlays; no TTL/LRU system or universal freshness requirement follows. Server authorization is unchanged. **25 September (API build U5):** the described trigger no longer exists in current code: `StranglerAdapter` (linked above, as it was before `3fdfeece2`) was deleted and `ApiDataSource` pages never fall back to ES. Closure is the operator's decision; U6 fallback removal should be checked against the same question.
+**Same-ID AI results can retain enrichment from an earlier ordinary API result**
+- **Component / owner:** search-store publication, enrichment-store and [per-ID consumption](../../src/hooks/useEnrichedImage.ts#L26); human owner-to-confirm.
+- **Original trigger removed:** P32-B3 described unavailable ordinary API reads falling back to ES without an overlay. U5 deleted `StranglerAdapter` in `3fdfeece2`; current ordinary pages never rescue through ES. Failure now preserves the committed state instead of publishing a new overlay-less page. That historical trigger no longer applies.
+- **Executed residual (U6z, 26 September):** [the composed ordinary/AI/ordinary test](../../src/stores/search-store-api-mode.test.ts) uses the real store, mapper, `ApiDataSource` and existing ES AI delegate over controlled transport. An ordinary same-ID API result publishes `overquota`; a subsequent AI image whose derived baseline is `free` still derives `overquota` through the retained shared overlay. Returning to ordinary API search replaces it with the new response's `pay` overlay. This is synthetic effective-display evidence, not a live policy mismatch or authorization failure.
+- **Selection boundary:** bulk hydration deliberately has no enrichment and leaves the shared overlay map untouched. U6z does not add enrichment, clear selected overlays or introduce freshness policy to manufacture closure.
+- **Disposition: OPEN, separate display decision.** The original ordinary fallback is gone, but the AI transition residual prevents broad closure. The operator-deferred display scope remains separate from U6z's non-AI transport milestone and U8 deployment preparation; no repair or stronger freshness guarantee is authorized here. KUP-029 is unchanged.
 
 #### KUP-031
 **Acknowledgement metric is described as DOM-visible latency**
@@ -469,16 +476,6 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Disposition / limits:** DONE (26 September), implemented and verified locally. Fresh read-only subagent cold review found no S1/S2 issues; its sole S3 changelog-formatting finding is corrected. The reviewer inspected source, tests and recorded Scala summaries, not new test/live executions. Separate migration repair before final U6z verification, with media-api edit permission confirmed. Legacy `GET /images`, shared Grid execution, timeout settings, targets, PIT policy/expiry, sort/tuples, decode omission, retries, AI and other parked issues are unchanged. M1 remains accepted; U7 and operator API perf preflights remain separate, not run here.
 
 ### Dependency Unresolved
-
-#### KUP-026
-**CQL remount can retain the first resolver's callbacks and datasource**
-- **Component / responsibility:** CqlSearchInput custom-element registration and LazyTypeahead binding; human owner-to-confirm.
-- **Trigger:** Home/Clear remounts the wrapper after cached values change, or a later integration expects datasource replacement to rebind the registered element.
-- **Expected / actual:** resolver ownership should match the active wrapper's intended scope. Before repair, the once-registered first resolver retained cache callback refs that stopped updating after wrapper unmount. The live query ref still updated, so not every query string froze.
-- **Evidence / reproduction:** [registration](../../src/components/CqlSearchInput.tsx#L85), [P22 F4][p22]. **20 September controlled mounted reproduction in Kupua:** after remount, the is-suggestion showed agency count zero against current ticker 6,440; own-chip credit control used new data. [Evidence](bug-reproduction-evidence.md#kup-026). Baseline used direct-ES/TEST and selected aggregation reads were synthetic. Datasource hot-swap/API-only binding and every-resolver failure are not established.
-- **Regression coverage:** actual one-time browser registration across repeated Clear/Home remounts, changed ticker/category/filter state and visible fresh menu counts, own-chip/dynamic live-AST controls and obsolete pending Clear work. No registration reset or dependency monkey-patch is used.
-- **Dependency / resolution:** **unresolved S8/S10 coupling**. An API-only first registration may satisfy zero browser ES without a hot-swap fix. Do not invent a runtime hot-swap feature; decide whether the actual migrated lifecycle relies on rebinding.
-- **Disposition: DONE (22 September), committed as `384855da3`** for current-client stale cache callbacks using direct live-store getters. [Batch validation and limits](bug-reproduction-evidence.md#bounded-client-repairs-kup-022023026012020021). Datasource initialization remains first-registration-bound; API-only coupling is unresolved, not certified by this repair.
 
 #### KUP-027
 **Preview-exit centering can move a newer session's retained list**

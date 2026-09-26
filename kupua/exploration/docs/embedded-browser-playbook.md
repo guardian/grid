@@ -42,6 +42,19 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 26 September 2026, U6z startup attribution:** navigate/reload with
+`waitUntil: "commit"`, then immediately install a bounded, buffered resource
+`PerformanceObserver` in `page.evaluate`; assert the app store does not yet exist.
+This captured startup and reload hydration before initialization without fetch patches,
+response interception or a persistent init script. Increase the resource buffer first,
+classify only endpoint names/statuses, cap the collector and report overflow. Status 0
+is not a successful response; retain it separately from 200 (Clear cancellation and
+development singleton replay can produce it). Keep the same document and registered
+constructor reference across CQL Clear/Home checks. For served-source identity, Vite
+`?raw` module contents can be SHA-256 compared with local source, without returning
+code or URLs; this verifies those client files, not the server binary. Disconnect the
+observer, delete probe state/identities and restore the resource-buffer size at the end.
+
 **[V] 26 September 2026, KUP-036 ordinary API browsing:** the shared tab's
 `page.on("response")` collector saw no API events across navigation, but resource timing
 reported the initial search-after/count/aggregation reads and subsequent window/deep reads.

@@ -17,6 +17,20 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Non-AI API ownership and recovery verification (U6z)
+
+  Cold-start coverage selects media-api mode before imports and exercises real main-module
+  initialization, factory/default selection ownership, collection loading and the first CQL
+  registration across wrapper remounts. Existing composed store and range-hook tests now cover
+  refusal, unavailable transport and incomplete execution through recovery and caller-specific
+  outcomes, including retained selection, atomic ranges, optional absence and unchanged polling.
+
+  A real AI delegate over controlled transport verifies ordinary/AI transitions while counts,
+  facets, detail and selection stay on migrated methods. The tests characterize retained same-ID
+  API enrichment on AI results without altering that deferred display behavior. Isolated wrong
+  routes and results demonstrate that the new assertions discriminate; no probes remain.
+  No production routing change was needed. Existing AI, recovery and KUP-033/034/036 repairs remain.
+
   ### 26 September 2026 - Faster causal test readiness
 
   Playwright coverage now waits on the behavior each scenario needs instead of broad fixed

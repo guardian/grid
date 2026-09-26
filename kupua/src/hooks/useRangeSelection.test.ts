@@ -481,6 +481,48 @@ describe("mounted range ownership", () => {
     expect(fromCursor).toContain(Date.parse(uploadTime));
   });
 
+  it.each((["refused", "unavailable", "incomplete"] as const).flatMap(kind =>
+    (["current", "clear"] as const).map(owner => ({ kind, owner })),
+  ))("U6z publishes no partial API range after a later $kind page with $owner ownership", async ({ kind, owner }) => {
+    const fallbackWalk = vi.spyOn(source, "getIdRange");
+    const fallbackHydration = vi.spyOn(source, "getByIds");
+    useSelectionStore.setState({ dataSource: new ApiDataSource(source) });
+    useSearchStore.setState({ params: { orderBy: "-uploadTime", nonFree: "true" } });
+    const secondPage = deferred<Response>();
+    const secondStarted = deferred<void>();
+    const paths: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => {
+      paths.push(path);
+      expect(path).toBe("/api/images/keys");
+      if (paths.length === 1) return Response.json({
+        keys: [{ id: "img-1", sortValues: [200, "img-1"] }], after: [200, "img-1"],
+      });
+      secondStarted.resolve();
+      return secondPage.promise;
+    }));
+    const { result } = renderHook(() => useRangeSelection());
+    const initial = useSelectionStore.getState().selectedIds;
+    const pending = result.current({ ...effect, anchorSortValues: [300, "img-0"], targetSortValues: [100, "img-2"] });
+    await secondStarted.promise;
+    expect(useSelectionStore.getState().selectedIds).toBe(initial);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    if (owner === "clear") useSelectionStore.getState().clear();
+    const current = useSelectionStore.getState();
+    if (kind === "unavailable") secondPage.reject(new TypeError("synthetic transport unavailable"));
+    else secondPage.resolve(Response.json({ errorKey: kind === "incomplete" ? "keys-incomplete" : "forbidden" },
+      { status: kind === "incomplete" ? 503 : 403 }));
+    await pending;
+
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(current.anchorId);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useToastStore.getState().queue.map(toast => toast.category)).toEqual(owner === "current" ? ["error"] : []);
+    expect(paths).toEqual(["/api/images/keys", "/api/images/keys"]);
+    expect(fallbackWalk).not.toHaveBeenCalled();
+    expect(fallbackHydration).not.toHaveBeenCalled();
+  });
+
   it("does not retry an empty known-direction collector result", async () => {
     const realSource = new ElasticsearchDataSource();
     useSelectionStore.setState({ dataSource: realSource });

@@ -4,10 +4,10 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last refreshed: 26 September 2026.** API-build U6d routing and affected component contracts
-> checked against current source; this is not whole-system verification. The
+> **Last refreshed: 26 September 2026.** API-build U6z non-AI routing/startup/recovery verified;
+> tests-only changes passed operator-reported cold review. This is not whole-system verification. The
 > [active build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
-> owns sequencing and acceptance. AI remains unchanged; U6z verification and U7 delivery are pending.
+> owns sequencing and acceptance. AI remains unchanged; U8 deployment and U7 delivery remain separate.
 
 ---
 
@@ -51,8 +51,10 @@ maps return `null` without warning on media-api refusal, incompleteness or unrea
 Cancellation is preserved. Counts/aggregations reject failures for their callers to handle as
 absent or unchanged data. Bulk lookup rejects the whole logical read if any chunk fails, aborting
 the rest, so a partial response cannot authorize removal of selected IDs. Explicit execution
-incompleteness is rejected by rank, keys, profiles, count, aggregations and mget; search-after and
-window still lack that server check ([KUP-036](../bug-backlog.md#kup-036)).
+incompleteness is rejected by rank, keys, profiles, count, aggregations and mget, and now by
+search-after/window with 503 ([KUP-036](../bug-backlog.md#kup-036)); individual decode omission
+remains unchanged. U6z verifies that current non-AI recovery stays on API reads, including when
+the follow-up read fails; it adds tests, not another runtime routing mechanism.
 
 **Standalone detail:** `apiGetImage` uses the S1 normalizer and extracts envelope actions and
 enrichment once. Missing/hidden (404) or wrong-ID entities resolve `undefined`; other request
@@ -85,6 +87,9 @@ Fresh API pages and committed first-page fallbacks replace the overlay map. Fill
 focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
 only its selected probe entry; both backward seek paths include backward-page overlays. Discarded
 probes and cancelled pages do not publish, and direct-ES responses do not invent API enrichment.
+U6z's synthetic same-ID ordinary/AI/ordinary sequence confirms that an AI baseline can still use
+the previous ordinary API overlay until a new API result replaces it (KUP-030). That residual is
+separate from the removed ordinary unavailable-to-ES fallback; selection enrichment is unchanged.
 
 ## State (`src/stores/search-store.ts`)
 
@@ -135,6 +140,9 @@ CQL version and upstream fix before retiring it, rather than assuming historical
 The registered element retains its initial typeahead and datasource; cache callbacks read current
 aggregation, ticker and filter state without wrapper-owned subscriptions. The live-AST query ref
 is separate from those caches. Registration is not a runtime datasource-switching API.
+U6z verifies cold API-mode initialization and first-resolver ownership through repeated remounts,
+including fully mounted Clear/Home checks. KUP-026's fixed-mode integration scope is closed;
+runtime rebinding is neither required nor certified.
 
 Registered and arbitrary-path typeahead use the same AST source-span removal for self-exclusion.
 Only matching field nodes are removed, including empty chips and quoted deep keys; quoted literal

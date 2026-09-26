@@ -38,7 +38,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
 | **Grid API adapter / media-api integration** | **Active build: [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) + its session prompt.** Local-first, PIT-less, split into PRs late; U6z preserves existing AI as the sole ES exception. Candidate 11/inventory/workplan are background subject to the build plan's explicit overrides. Reuse sufficient existing endpoints, otherwise keep new reads isolated; existing Grid behavior changes need approval. PR #4957 alignment is parallel P1, not a pause on the build. |
 | **Capability-preserving API boundary research** | Candidate 11 sections 12/13 retain P29/P30/P31 and completed restore/accepted-cost limits; section 14 integrates P32 interaction/display/measurement and P33 Grid edit/delete/collection characterization with explicit corrections. Future editing is knowledge only, not scope; ten new source-only bugs are independently parked. Original reports/S1/history remain; whole-corpus readiness is false and no new implementation or campaign follows. |
-| **Canonical bugs / migration dependencies** | Start with the [backlog overview](exploration/docs/bug-backlog.md#at-a-glance): linked open/residual Kupua and Grid tables distinguish migration prerequisites, related obligations and independent work; completed repairs are collapsed. All 50 IDs retain their detailed evidence. [Execution evidence](exploration/docs/bug-reproduction-evidence.md#L1) preserves the original 35-ID history; P32/P33 additions are source-only. Reverse keyboard Home-to-resident-End remains UNFIXED; KUP-026 initialization and narrower density/native limits remain. KUP-036 tracks incomplete new API image pages (source-supported). S1, upstream and performance qualifications are unchanged. |
+| **Canonical bugs / migration dependencies** | Start with the [backlog overview](exploration/docs/bug-backlog.md#at-a-glance): open/residual tables and collapsed completed entries retain all 50 IDs. [Execution evidence](exploration/docs/bug-reproduction-evidence.md#L1) preserves the original 35-ID history; later execution is recorded per entry. U6z closes KUP-010 non-AI recovery and KUP-026 fixed-mode initialization by verification; KUP-030 retains a synthetic same-ID AI overlay residual. Reverse Home-to-resident-End and narrower density/native limits remain. KUP-036 rejects explicit incomplete API image pages with 503. S1, upstream and performance qualifications are unchanged. |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **Grid usage-search follow-up** | [Research and handoff](exploration/docs/grid-usage-search-investigation.md): PR #4957's last recorded status is awaiting human review/merge. Its independent negatives, positive same-record matching and print code/name support are P1 integration work; verify current merge state and inherited behavior before changing the prototype. GRID-001/008 remain accepted build limitations until integration, not gates on other units. |
 | **Scala / media-api review conventions** | [Reference section 16](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-90-conventions.md#16-reviewable-scala-recent-pr-evidence) and [instruction summary](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md). Tom/Andrew foundation with bounded Lindsey evidence; open versus merged status and review attribution are explicit. The local instruction mirror is synchronized. |
@@ -65,6 +65,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
 **Current snapshot: 26 September 2026.** U1-U5 and U6a-d are built; M1 is operator-accepted.
+U6z is complete with tests only; the operator reported a clean cold review. U8 has not started.
 The [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
 owns the sequence, decisions and endpoint contracts. Its progress log and the changelog retain
 implementation history; older candidate/research gates do not override it.
@@ -79,12 +80,14 @@ direct-ES/local modes and their PIT behavior remain supported.
 **Deliberate exception:** existing AI search still uses Bedrock plus direct ES in media-api mode.
 Preserve it unchanged pending team agreement; see the
 [AI workplan](exploration/docs/ai-search-catching-up-workplan.md) for compatibility questions,
-not approval of its older proposed compromises. U6z is not started: it will verify non-AI API
-coverage, startup ownership and recovery, not remove AI or require zero ES construction.
+not approval of its older proposed compromises. U6z verified non-AI API coverage, cold startup,
+first CQL registration/remounts and recovery. Full local gates, bounded API browser workflows and
+operator API preflights passed; no production change or zero-ES-construction requirement followed.
 
 **Boundaries:** keep browsing/position/traversal contracts, authoritative tuples, useful limits,
 authorization and accepted approximations. KUP-029/030 display corrections remain deferred;
-U6z reassesses KUP-030 without assuming closure. PR #4957 integration is parallel unit P1, not
+U6z confirmed KUP-030's same-ID AI transition residual; its original ordinary fallback is gone.
+No enrichment repair is bundled with transport verification. PR #4957 integration is parallel unit P1, not
 a pause on API work; GRID-001/008 limitations remain until integration. PR #4849 is abandoned;
 its legacy GET changes were removed. Index migrations are unsupported, PIT endpoints deferred
 to evidence-driven L1, and stronger snapshots/storage are not migration prerequisites.
