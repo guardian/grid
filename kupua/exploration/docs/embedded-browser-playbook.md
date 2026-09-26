@@ -236,6 +236,17 @@ returned 56 with zero ref-hunting — the most reliable way to enumerate/target 
 
 ## 3. Known traps
 
+**[V] 26 September 2026, backward null-boundary reproduction:** choose Last modified,
+toggle ascending, click the first grid cell to focus it, then toggle descending.
+This lands around the last valued image. Foreground the tab and wheel down until
+the buffer's start tuple is null (valued images have been evicted), then wheel up.
+Keep a pre-scroll identity-to-position map inside the page; report only overlap
+counts, equality, missing-value counts and visible-cell geometry. This reproduced
+KUP-033 in media-api mode without synthetic store setup; the same sequence verified
+post-fix crossing in both media-api and direct-ES modes. A served-source check
+alone was insufficient after editing: the running Zustand action was still old.
+Check the action itself, reload when stale, and verify it again before comparing.
+
 **[V] A temporary D-Center tolerance overlay can be injected without exposing
 image identity.** After a real FullscreenPreview traversal and app-owned
 Backspace exit, keep the target ID inside `page.evaluate`, measure the active

@@ -9,13 +9,15 @@ The [reproduction queue and evidence](bug-reproduction-evidence.md) accounts for
 including conditional browser cases and bugs better checked outside the browser. The ten P32/P33
 integration additions below are source-supported only; none has an executed reproduction. GRID-014
 (24 September, API build U2) has its server side confirmed by a local ES test. KUP-033 and KUP-034
-(25 September, API build U5 review) have their server mechanism shown by local ES tests; user-visible
-impact is not reproduced.
+(25 September, API build U5 review) have their server mechanism shown by local ES tests.
+KUP-033 was reproduced by live media-api wheel scrolling and repaired in the shared store on
+26 September; post-fix wheel checks passed in both modes. KUP-034 user-visible impact remains
+unreproduced.
 
 ## At a Glance
 
-**Current recorded status: 26 September 2026.** The 27 entries below have an open defect,
-approval/integration task or explicit residual; 23 additional IDs have completed bounded repairs.
+**Current recorded status: 26 September 2026.** The 26 entries below have an open defect,
+approval/integration/review task or explicit residual; 24 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -28,8 +30,8 @@ traversal or initial image-read integration. Authorization and data-protection o
 media-api coverage, including recovery. Existing AI is the sole deliberate ES exception pending
 team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
 claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
-silently broadening its deferred display-repair scope. Separate pitstop fixes: KUP-033, KUP-034
-if confirmed, then KUP-036 before final U6z verification.
+silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
+KUP-034 if confirmed, then KUP-036 remain separate before final U6z verification.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -49,7 +51,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-030](#kup-030) | Stale overlay after overlay-less fallback | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
 | [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
-| [KUP-033](#kup-033) | Backward paging cannot leave the null tail | Open; server mechanism shown by a local ES test, both modes; user impact unreproduced | Independent; null-tail browsing preserved by both modes equally |
 | [KUP-034](#kup-034) | Uncapped backward page around a near-top target | Open; latent, mechanism shown by a local ES test, both modes | Independent; no ordinary caller known to reach it |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-036](#kup-036) | Incomplete API image pages published as success | Open; source-supported, failure not runtime-reproduced | New D3/window correctness; separate repair before final U6z verification |
@@ -74,7 +75,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
 
 <details>
-<summary>Completed bounded client repairs: 23 other IDs</summary>
+<summary>Completed bounded client repairs: 24 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -83,6 +84,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Input, Home, indexed timer and pending traversal | [KUP-014](#kup-014), [KUP-015](#kup-015), [KUP-016](#kup-016), [KUP-019](#kup-019) |
 | Saved density, original detail return and cross-preview centering | [KUP-017](#kup-017), [KUP-018](#kup-018), [KUP-027](#kup-027) |
 | Restore coordinates and selected-tuple rank | [KUP-024](#kup-024), [KUP-025](#kup-025) |
+| Backward null-boundary crossing | [KUP-033](#kup-033) |
 
 DONE refers to the repaired scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -429,12 +431,14 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-033
 **Backward paging from the first null-tail image cannot reach the valued images before it**
-- **Component / owner:** null-zone cursor reads in both data sources (media-api `cursorRead`, direct-ES `_searchAfterImpl`) and the store's `extendBackward`; human owner-to-confirm.
+- **Component / owner:** the store's [extendBackward](../../src/stores/search-store.ts#L2715), consuming null-confined pages from media-api `cursorRead` and direct-ES `_searchAfterImpl`; human owner-to-confirm.
 - **Trigger:** a sort whose primary field is missing on some images (e.g. `-lastModified`, `-taken`, `-credit`) in the seek tier (over 65k results); the buffer starts inside the null tail (for example after a deep seek landing just past the boundary), and the user scrolls up across the boundary.
-- **Expected / actual:** scrolling up should continue from the first null-tail image into the last valued images. A null-primary cursor reads only images lacking the primary value, in both directions, so a reverse page from the first null-tail image returns nothing from the valued part. `extendBackward` then prepends only the null-tail images it got; the next call from the new `startCursor` returns none, and the buffer cannot extend further up although `bufferOffset > 0`. Coordinates stay correct (no mislabelled positions); the scrubber and Home still reach the valued part.
-- **Evidence:** [media-api null-zone read](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L862) (filter `must_not exists` on the primary, primary clause dropped, regardless of `reverse`); [direct-ES equivalent](../../src/dal/es-adapter.ts#L954) with the [null-zone filter](../../src/dal/null-zone.ts#L87); [store extend](../../src/stores/search-store.ts#L2739). **25 September, local ES (media-api `ElasticSearchTest`, recorded client body replay):** on a six-image fixture plus the base index under `-taken`, a reverse page of 21 from the tuple of a null-tail image at position 21 returned only null-tail images; the valued images at positions 0-3 were absent. The replay test now asserts this confined contract (backward pages stay within the part their tuple belongs to), so a fix will need to update it deliberately. **25 September, live TEST via `--use-media-api`:** a deep seek to 40 past the Last-modified boundary landed about 1,100 past it and repeated `extendBackward` from a full buffer did not reach the boundary within the bounded probe (tab not visible, so geometry may have skewed eviction); user-visible impact is therefore not confirmed. Indexed tier (1k-65k) is expected to be covered by position-map seeks and the scroll tier (≤1k) holds the whole result set; neither was verified here.
-- **Smallest discriminator:** a store test over `MockDataSource` with a sparse primary (e.g. 20% `lastModified`), seek-tier thresholds, buffer seeded to start at the first null-tail image, then `extendBackward`: assert the last valued images are prepended and coordinates match `countBefore`. Run it through both `ElasticsearchDataSource`-style and `ApiDataSource` routing (the composed API-mode suite's stand-in reproduces the confined read). Proposed, not run.
-- **Dependency / disposition:** OPEN, independent; affects direct-ES and API modes identically. A fix is likely client-side (continue from a valued-zone tuple when a null-primary reverse page returns fewer than asked and `bufferOffset` exceeds them) or a server option to cross the boundary in reverse; either needs its own decision. Not introduced by API build U5.
+- **Expected / former behavior:** scrolling up should continue into the last valued images. A null-primary cursor reads only images lacking the primary value, in both directions. Previously, `extendBackward` prepended only that page and stopped at its exhaustion although `bufferOffset > 0`. Coordinates stayed correct; the scrubber and Home still reached the valued part.
+- **Historical evidence:** [media-api cursorRead](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L862), [direct-ES read](../../src/dal/es-adapter.ts#L927), and [null-zone filter](../../src/dal/null-zone.ts#L87). On 25 September the local-ES recorded-body replay showed a reverse `-taken` page confined to nulls. That assertion remains unchanged: it describes the endpoint's page contract, not the composed browsing contract. The earlier background-tab/deep-seek live probe was inconclusive, not a refutation.
+- **26 September live reproduction and repair check:** with session-authorized read-only TEST access, Last modified ascending -> focus first rendered image -> descending landed across the boundary. Five real foreground downward wheels evicted the valued images; upward wheels then stopped at `scrollTop = 0`, buffer offset 127704, null-primary start, without an error. After the fix and reload, real upward wheels crossed into visible valued images in media-api and direct-ES modes. Each ended with 9 visible valued cells and 1000 unique, position-coherent buffered images; all 399 API-mode / 200 direct-mode overlap positions matched the pre-scroll references. API mode recorded 3 API pages and no ES reads; direct mode recorded 3 ES reads and no API pages. The live boundaries differed (127704 / 127726); this is not a cross-mode membership or timing comparison. Identities remained inside browser memory and probe state was removed.
+- **Implemented contract:** after a short null-primary backward page, request only the remainder with a cursor-less reverse read, offset 0, no `seekToEnd`, no exact count, the same search scope and cancellation signal, and the effective PIT. Reverse nulls-last order starts at the valued end. The existing `min(PAGE_SIZE, bufferOffset)` cap prevents requesting beyond the known prefix, including all-null results. Combine images, authoritative tuples and enrichment before the existing alignment, retention, eviction and one prepend publication. Cancellation or failure during either read publishes neither partial page. Ordinary full/valued pages keep one read; crossing adds at most one bounded serial read, not a walk, rank or profile query.
+- **Regression evidence:** [composed store suite](../../src/stores/search-store-api-mode.test.ts#L196) uses both real adapters over controlled transport responses, with the mock corpus only as an order/rank oracle. Four initial ascending/descending x mode regressions failed at runtime (24000 instead of 23840). The 38 added cases cover exact/partial/full null pages, within-zone/all-null/no-null controls, both sort directions, forward crossing, tied primary/secondary values, exact order/rank/positions, retained tuples, focus, enrichment, full-buffer aligned eviction, cancellation at either read and failed boundary reads. Existing assertions were preserved. Full gates: 1987 unit tests, build and 299 E2E tests passed; the normal E2E suite is direct-ES, not API-mode proof.
+- **Disposition / limits:** DONE (26 September), implemented and verified locally; fresh read-only subagent cold review accepted with no material findings, and the operator approved completion and commit. The reviewer inspected code/diff, not new test or live executions. Section 5 operator API preflights were not run in this session. No adapter/server contract, AI, PIT policy, useful limit, KUP-034/036 or U6z change. Live checks cover the Last modified seek-tier grid, not every sort/tier/device or concurrent metadata mutation. Existing incomplete-page and live-snapshot limitations remain; no universal exactness or measured latency guarantee is added. API preflights are a separate regression check, not a repeat of accepted M1.
 
 #### KUP-034
 **The restore/focus backward page is not capped at the target's offset**

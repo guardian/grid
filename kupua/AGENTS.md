@@ -82,12 +82,6 @@ Preserve it unchanged pending team agreement; see the
 not approval of its older proposed compromises. U6z is not started: it will verify non-AI API
 coverage, startup ownership and recovery, not remove AI or require zero ES construction.
 
-**Next:** separate KUP-033, confirmed KUP-034 and KUP-036 fixes, then final amended U6z
-verification. U8/M2a will deploy and measure the full new API on TEST while keeping local image
-delivery; U7/M2b later change/check canonical media delivery. These steps and hosting remain
-uncompleted. Existing D3 deployment history is not evidence that U8 is done. Current committed
-paired perf histories are the baseline; no repeat of M1 is required.
-
 **Boundaries:** keep browsing/position/traversal contracts, authoritative tuples, useful limits,
 authorization and accepted approximations. KUP-029/030 display corrections remain deferred;
 U6z reassesses KUP-030 without assuming closure. PR #4957 integration is parallel unit P1, not
@@ -100,7 +94,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 | System | Key entry points | What it does |
 |---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (17 methods, 5 optional; nullable `openPit`; optional `offsetReadLimit`). Factory selects API or direct ES. API mode sends every non-AI read through `grid-api-search-adapter.ts`; client walk loops remain, and `DEVELOPMENT_FALLBACK_METHODS` is exactly `searchByAi`. Selection/collections share the app datasource. API mget uses 200-ID chunks/four in flight; standalone lookup returns image plus optional enrichment. Non-local ES write protection remains. Date tuples use epoch ms, source fields ISO. |
-| Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Search-generation/range ownership guards publication/recovery. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
+| Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Search-generation/range ownership guards publication/recovery. A short null-tail backward page gets one bounded valued-end read before atomic prepend; ordinary page costs stay unchanged. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from an aggregation on the app's data source (media-api in API mode). Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
@@ -116,7 +110,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 ### Testing Summary
 
-- **1949 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
+- **1987 Vitest** unit/integration tests (~1min) -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~7min, 2 workers) -- `npm --prefix kupua run test:e2e`

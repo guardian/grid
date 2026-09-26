@@ -17,6 +17,24 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Backward scrolling crosses the null boundary (KUP-033)
+
+  `extendBackward` now fills a short null-primary reverse page with one bounded reverse read
+  from the valued end, requesting only the unfilled page capacity. This fixes scrolling up
+  after downward eviction leaves the buffer entirely inside the null tail, in direct-ES and
+  media-api modes. The read uses no cursor, offset, exact count or `seekToEnd` override; ordinary
+  pages keep their existing request count. The existing prefix cap prevents overshooting the
+  start, and no rank/profile query or unbounded walk is introduced.
+
+  Images, authoritative response tuples and enrichment are combined before the existing aligned
+  prepend and eviction. A cancellation or failed second read publishes neither partial page.
+  Regression coverage includes both adapters and sort directions, tied values, exact order and
+  positions, all-null/no-null controls, forward crossing, focus, enrichment, cancellation and
+  full-buffer eviction. Foreground wheel scrolling verified rendered crossing in both modes.
+  The server's null-confined replay assertion remains correct and unchanged: the repair composes
+  pages in the consumer rather than changing endpoint behavior. AI, U6z and other pitstops are
+  untouched; live snapshot and incomplete-page guarantees are not broadened.
+
   ### 26 September 2026 - Selection details and ranges through media-api (API build U6d)
 
   media-api gains `POST /images/mget`: body `{ids}` (1-200 distinct IDs), one `_search` of an `ids`

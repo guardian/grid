@@ -2750,7 +2750,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
       const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
-      const result = await createExpiryAwareSearchAfter(dataSource, get, set)(
+      let result = await createExpiryAwareSearchAfter(dataSource, get, set)(
         { ...params, length: fetchCount },
         startCursor,
         effectivePitId,
@@ -2760,6 +2760,25 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       if (signal.aborted) return;
       if (result.pitId === null) set({ pitId: null });
+      if (startCursor[0] === null && result.hits.length < fetchCount) {
+        const valuedPage = await createExpiryAwareSearchAfter(dataSource, get, set)(
+          { ...params, offset: 0, length: fetchCount - result.hits.length, trackTotalHits: false },
+          null,
+          result.pitId === undefined ? effectivePitId : result.pitId,
+          signal,
+          true,
+        );
+        if (signal.aborted) return;
+        if (valuedPage.pitId === null) set({ pitId: null });
+        result = {
+          ...result,
+          hits: [...valuedPage.hits, ...result.hits],
+          sortValues: [...valuedPage.sortValues, ...result.sortValues],
+          enrichment: result.enrichment || valuedPage.enrichment
+            ? new Map([...valuedPage.enrichment ?? [], ...result.enrichment ?? []])
+            : undefined,
+        };
+      }
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false });
         return;

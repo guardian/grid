@@ -9,6 +9,10 @@ import { useSearchStore } from "./search-store";
 import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource, DEVELOPMENT_FALLBACK_METHODS } from "@/dal/api-data-source";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
+import { useEnrichmentStore } from "./enrichment-store";
+import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
+import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { ImageDataSource, SearchParams, SortValues } from "@/dal/types";
 
@@ -186,6 +190,219 @@ async function expectCoherentBuffer() {
 
 const paths = () => calls.map((c) => c.path);
 const bodiesFor = (path: string) => calls.filter((c) => c.path === path).map((c) => c.body);
+
+describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary", (mode) => {
+  const originalGeometry = getScrollGeometry();
+
+  afterEach(() => {
+    state().abortExtends();
+    vi.useRealTimers();
+    registerScrollGeometry(originalGeometry);
+  });
+
+  async function setup(orderBy: string, offset: number, ratio = 0.2, length = 200, columns = 1) {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    useApiMode(120_000, { orderBy, sparse: true });
+    if (ratio !== 0.2) corpus = new MockDataSource(120_000, [{ field: "lastModified", ratio }]);
+    if (ratio === 0) delete (await corpus.getByIds(["img-0"]))[0].lastModified;
+    registerScrollGeometry({ rowHeight: 100, columns });
+    useEnrichmentStore.getState().setEnrichment(new Map());
+    const boundary = 120_000 * ratio;
+    const params = state().params;
+    if (ratio > 0 && ratio < 1) {
+      const tied = await corpus.searchAfter({ ...params, length: 3 }, null);
+      for (const image of tied.hits) {
+        image.lastModified = orderBy.startsWith("-") ? "1900-01-01T00:00:00Z" : "2100-01-01T00:00:00Z";
+        image.uploadTime = "2026-01-01T00:00:00Z";
+      }
+    }
+    const initial = await corpus.searchAfter({ ...params, offset, length }, null);
+    const fetchCount = Math.min(200, offset);
+    const firstPage = await corpus.searchAfter({ ...params, length: fetchCount }, initial.sortValues[0], null, undefined, true);
+    const remaining = fetchCount - firstPage.hits.length;
+    const valuedPage = await corpus.searchAfter({ ...params, offset: boundary - remaining, length: remaining }, null);
+
+    const requests: Body[] = [];
+    const transport: { beforeReply?: (number: number, signal: AbortSignal | null | undefined) => Promise<void>; failBoundary?: boolean } = {};
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as Body;
+      requests.push(body);
+      expect(requests.length).toBeLessThanOrEqual(2);
+      await transport.beforeReply?.(requests.length, init.signal);
+      if (requests.length === 2 && transport.failBoundary) return refusal(503);
+      const page = requests.length === 1 ? firstPage : valuedPage;
+      if (mode === "media-api") {
+        return new Response(JSON.stringify({ data: page.hits.map((image) => ({ data: { ...image, valid: true } })), sortValues: page.sortValues }));
+      }
+      const hits = page.hits.map((image, index) => ({
+        _id: image.id, _source: image,
+        sort: requests.length === 1 && initial.sortValues[0][0] === null ? page.sortValues[index].slice(1) : page.sortValues[index],
+      })).reverse();
+      return new Response(JSON.stringify({ hits: { hits } }));
+    }));
+    useSearchStore.setState({
+      dataSource: mode === "direct-ES" ? new ElasticsearchDataSource() : state().dataSource,
+      results: initial.hits, bufferOffset: offset, total: 120_000,
+      startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+      imagePositions: new Map(initial.hits.map((image, index) => [image.id, offset + index])),
+      focusedImageId: initial.hits[50].id,
+    });
+    vi.useFakeTimers();
+    state().abortExtends();
+    vi.setSystemTime(Date.now() + 10_000);
+    return { initial, firstPage, valuedPage, requests, transport, fetchCount, remaining, params };
+  }
+
+  async function expectBuffer(offset: number, length: number) {
+    const expected = await corpus.searchAfter({ ...state().params, offset, length }, null);
+    expect(state().error).toBeNull();
+    expect(state().bufferOffset).toBe(offset);
+    expect(state().results.map((image) => image?.id)).toEqual(expected.hits.map((image) => image.id));
+    expect(new Set(state().results.map((image) => image?.id)).size).toBe(length);
+    expect(state().startCursor).toEqual(expected.sortValues[0]);
+    expect(state().endCursor).toEqual(expected.sortValues.at(-1));
+    expect(await corpus.countBefore(state().params, state().startCursor!)).toBe(offset);
+    for (const [index, image] of state().results.entries()) {
+      expect(image).toBeDefined();
+      expect(state().imagePositions.get(image!.id)).toBe(offset + index);
+    }
+    return expected;
+  }
+
+  it.each(["lastModified", "-lastModified"].flatMap((orderBy) => [0, 40, 200, 400].map((distance) => ({ orderBy, distance }))))(
+    "preserves exact order and tied tuples at null distance $distance under $orderBy", async ({ orderBy, distance }) => {
+    const offset = 24_000 + distance;
+    const { initial, firstPage, valuedPage, requests, remaining, params } = await setup(orderBy, offset);
+    expect(firstPage.hits).toHaveLength(Math.min(200, distance));
+    expect(firstPage.sortValues.every((tuple) => tuple[0] === null)).toBe(true);
+
+    await state().extendBackward();
+
+    await expectBuffer(offset - 200, 400);
+    expect(state().focusedImageId).toBe(initial.hits[50].id);
+    expect(state()._lastPrependCount).toBe(200);
+    expect(state()._prependGeneration).toBe(1);
+    expect(state()._extendBackwardInFlight).toBe(false);
+    expect(requests).toHaveLength(remaining ? 2 : 1);
+    for (const page of [valuedPage, firstPage]) {
+      for (const [index, image] of page.hits.entries()) {
+        expect(getRetainedSortValues(image.id, buildSearchKey(params))).toEqual(page.sortValues[index]);
+        if (mode === "media-api") expect(useEnrichmentStore.getState().data.get(image.id)?.valid).toBe(true);
+      }
+    }
+    if (mode === "media-api") {
+      expect(requests[0]).toMatchObject({ sortValues: initial.sortValues[0], reverse: true, length: 200, countAll: false });
+    } else {
+      expect(requests[0]).toMatchObject({ search_after: initial.sortValues[0].slice(1), size: 200, track_total_hits: false });
+      expect(JSON.stringify(requests[0].query)).toContain('"must_not"');
+    }
+    if (remaining) {
+      expect(valuedPage.sortValues.slice(-3).map((tuple) => tuple.slice(0, 2))).toEqual(
+        Array.from({ length: 3 }, () => valuedPage.sortValues.at(-1)!.slice(0, 2)),
+      );
+      if (mode === "media-api") {
+        expect(requests[1]).toMatchObject({ reverse: true, seekToEnd: false, length: remaining, countAll: false });
+        expect(requests[1]).not.toHaveProperty("sortValues");
+      } else {
+        expect(requests[1]).toMatchObject({ size: remaining, track_total_hits: false });
+        expect(requests[1]).not.toHaveProperty("search_after");
+        expect(requests[1]).not.toHaveProperty("from");
+        const primary = (requests[1].sort as Body[])[0].lastModified;
+        expect(primary).toBe(orderBy.startsWith("-") ? "asc" : "desc");
+      }
+    }
+  });
+
+  it.each([0, 1].flatMap((ratio) => [50, 500].map((offset) => ({ ratio, offset }))))(
+    "keeps all-null/no-null ratio $ratio at offset $offset to one read", async ({ ratio, offset }) => {
+    const { requests, fetchCount } = await setup("-lastModified", offset, ratio);
+    await state().extendBackward();
+    await expectBuffer(offset - fetchCount, 200 + fetchCount);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("keeps full-buffer eviction, column alignment and focus coherent across the boundary", async () => {
+    const { initial } = await setup("-lastModified", 24_040, 0.2, 1000, 3);
+    await state().extendBackward();
+    const expected = await expectBuffer(23_841, 1000);
+    expect(state().focusedImageId).toBe(initial.hits[50].id);
+    expect(state()._lastPrependCount).toBe(199);
+    for (const image of initial.hits.slice(-199)) expect(state().imagePositions.has(image.id)).toBe(false);
+    expect(state().endCursor).toEqual(expected.sortValues.at(-1));
+  });
+
+  it.each(["lastModified", "-lastModified"])("keeps forward valued-to-null crossing under %s to one read", async (orderBy) => {
+    const { initial, params } = await setup(orderBy, 23_800);
+    const nextPage = await corpus.searchAfter({ ...params, length: 200 }, initial.sortValues.at(-1)!, null, undefined, false);
+    expect(initial.sortValues.at(-1)![0]).not.toBeNull();
+    expect(nextPage.sortValues.every((tuple) => tuple[0] === null)).toBe(true);
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as Body;
+      if (mode === "media-api") {
+        expect(body).toMatchObject({ sortValues: initial.sortValues.at(-1), reverse: false, countAll: false, length: 200 });
+        return new Response(JSON.stringify({ data: nextPage.hits.map((data) => ({ data })), sortValues: nextPage.sortValues }));
+      }
+      expect(body).toMatchObject({ search_after: initial.sortValues.at(-1), size: 200, track_total_hits: false });
+      return new Response(JSON.stringify({ hits: { hits: nextPage.hits.map((image, index) => ({
+        _id: image.id, _source: image, sort: nextPage.sortValues[index],
+      })) } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await state().extendForward();
+
+    await expectBuffer(23_800, 400);
+    expect(state().focusedImageId).toBe(initial.hits[50].id);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a mixed corpus's valued-zone reverse page to one read", async () => {
+    const { requests } = await setup("-lastModified", 23_500);
+    await state().extendBackward();
+    await expectBuffer(23_300, 400);
+    expect(requests).toHaveLength(1);
+  });
+
+  it.each([1, 2])("cancels request %s without publishing either part of the prepend", async (requestNumber) => {
+    const { initial, transport, requests } = await setup("-lastModified", 24_040);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    let capturedSignal: AbortSignal | null | undefined;
+    transport.beforeReply = async (number, signal) => {
+      if (number !== requestNumber) return;
+      capturedSignal = signal;
+      entered();
+      await held;
+    };
+    const pending = state().extendBackward();
+    await started;
+    state().abortExtends();
+    release();
+    await pending;
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(requests).toHaveLength(requestNumber);
+    expect(state().results).toBe(initial.hits);
+    expect(state().bufferOffset).toBe(24_040);
+    expect(state()._prependGeneration).toBe(0);
+    expect(state()._extendBackwardInFlight).toBe(false);
+    expect(useEnrichmentStore.getState().data.size).toBe(0);
+  });
+
+  it("keeps the original buffer when the boundary read fails", async () => {
+    const { initial, transport, requests } = await setup("-lastModified", 24_040);
+    transport.failBoundary = true;
+    await state().extendBackward();
+    expect(requests).toHaveLength(2);
+    expect(state().results).toBe(initial.hits);
+    expect(state().bufferOffset).toBe(24_040);
+    expect(state().error).not.toBeNull();
+    expect(state()._prependGeneration).toBe(0);
+    expect(state()._extendBackwardInFlight).toBe(false);
+    expect(useEnrichmentStore.getState().data.size).toBe(0);
+  });
+});
 
 beforeEach(() => {
   rescues = [];
