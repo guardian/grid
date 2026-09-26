@@ -1364,7 +1364,11 @@ async function _loadBufferAroundImage(
   signal: AbortSignal,
   searchAfter: ImageDataSource["searchAfter"],
   targetEnrichment?: EnrichmentFields,
+  offsetIsEstimate = false,
 ): Promise<BufferAroundImage | null> {
+  const backwardCount = offsetIsEstimate
+    ? Math.floor(PAGE_SIZE / 2)
+    : Math.min(Math.floor(PAGE_SIZE / 2), exactOffset);
   // Forward + backward pages are independent ES requests against the same
   // cursor/PIT — run in parallel (same pattern as seek() position-map path).
   const [forwardResult, backwardResult] = await Promise.all([
@@ -1374,13 +1378,15 @@ async function _loadBufferAroundImage(
       pitId,
       signal,
     ),
-    searchAfter(
-      { ...params, length: Math.floor(PAGE_SIZE / 2) },
-      sortValues,
-      pitId,
-      signal,
-      true, // reverse
-    ),
+    backwardCount > 0
+      ? searchAfter(
+          { ...params, length: backwardCount },
+          sortValues,
+          pitId,
+          signal,
+          true,
+        )
+      : Promise.resolve({ hits: [], sortValues: [], total: 0, pitId: undefined, enrichment: undefined }),
   ]);
   if (signal.aborted) return null;
 
@@ -1833,6 +1839,7 @@ async function _findAndFocusImage(
         targetHit, imageSortValues, offset, fp,
         get().pitId, combinedSignal, createExpiryAwareSearchAfter(dataSource, get, set),
         sortResult.enrichment?.get(targetHit.id),
+        offsetIsEstimate,
       );
       if (!buf) return; // aborted
 
@@ -1844,18 +1851,20 @@ async function _findAndFocusImage(
       let finalBufferOffset = buf.bufferStart;
       let finalStartCursor = buf.startCursor;
       if (exactOffset != null) {
+        const excessPreceding = Math.max(0, buf.targetLocalIndex - exactOffset);
         const rawCorrectedOffset = Math.max(0, exactOffset - buf.targetLocalIndex);
         const { columns } = getScrollGeometry();
         const { alignedOffset, trimCount } = alignBufferStart(
           rawCorrectedOffset,
-          finalResults.length,
+          finalResults.length - excessPreceding,
           columns,
-          buf.targetLocalIndex,
+          buf.targetLocalIndex - excessPreceding,
         );
         finalBufferOffset = alignedOffset;
-        if (trimCount > 0) {
-          finalResults = finalResults.slice(trimCount);
-          finalSortValues = finalSortValues.slice(trimCount);
+        const totalTrim = excessPreceding + trimCount;
+        if (totalTrim > 0) {
+          finalResults = finalResults.slice(totalTrim);
+          finalSortValues = finalSortValues.slice(totalTrim);
           if (finalResults[0]) {
             finalStartCursor = finalSortValues[0]
               ?? extractSortValues(finalResults[0], fp.orderBy)

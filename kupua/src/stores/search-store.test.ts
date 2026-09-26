@@ -2636,7 +2636,7 @@ describe("restoreAroundCursor", () => {
         const pages = vi.spyOn(mock, "searchAfter");
         await actions().restoreAroundCursor(targetId, target.sortValues[0], 123, true);
         const restored = state();
-        expect(pages).toHaveBeenCalledTimes(3);
+        expect(pages).toHaveBeenCalledTimes(ordinal === 0 ? 2 : 3);
         expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe(targetId);
         expect(restored.bufferOffset % columns).toBe(0);
         expect(restored._seekTargetLocalIndex % columns).toBe(ordinal % columns);
@@ -2706,10 +2706,11 @@ describe("restoreAroundCursor", () => {
     }
   });
 
-  it("KUP-024 names the inserted target when the helper clamps its origin", async () => {
+  it("KUP-024 names the inserted target when the supplied rank caps its prefix", async () => {
     await actions().search();
     const target = await mock.searchAfter({ ...state().params, ids: "img-500", length: 1 }, null, null);
     vi.spyOn(mock, "countBefore").mockResolvedValue(5);
+    const pages = vi.spyOn(mock, "searchAfter");
     useSearchStore.setState({ total: 30_000, positionMap: null });
 
     await actions().restoreAroundCursor("img-500", target.sortValues[0], 999, true);
@@ -2717,7 +2718,8 @@ describe("restoreAroundCursor", () => {
     const restored = state();
     const actualOrdinal = restored.bufferOffset + restored._seekTargetLocalIndex;
     expect(restored.results[restored._seekTargetLocalIndex]?.id).toBe("img-500");
-    expect(actualOrdinal).toBe(100);
+    expect(actualOrdinal).toBe(5);
+    expect(pages.mock.calls.filter(call => call[4]).map(call => call[0].length)).toEqual([5]);
     expect(restored._seekTargetGlobalIndex).toBe(actualOrdinal);
     expect(restored._focusedImageKnownOffset).toBe(actualOrdinal);
     expect(restored.imagePositions.get("img-500")).toBe(actualOrdinal);

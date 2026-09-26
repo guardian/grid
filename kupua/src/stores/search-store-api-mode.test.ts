@@ -191,6 +191,132 @@ async function expectCoherentBuffer() {
 const paths = () => calls.map((c) => c.path);
 const bodiesFor = (path: string) => calls.filter((c) => c.path === path).map((c) => c.body);
 
+describe.each(["direct-ES", "media-api"] as const)("KUP-034 %s centred prefix", (mode) => {
+  const originalGeometry = getScrollGeometry();
+
+  afterEach(() => {
+    state().abortExtends();
+    registerScrollGeometry(originalGeometry);
+  });
+
+  async function setup(offset: number, orderBy = "-lastModified") {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    useApiMode(70_000, { orderBy, sparse: true });
+    registerScrollGeometry({ rowHeight: 100, columns: 3 });
+    useEnrichmentStore.getState().setEnrichment(new Map());
+    const params = state().params;
+    const target = await corpus.searchAfter({ ...params, offset, length: 1 }, null);
+    const initial = await corpus.searchAfter({ ...params, offset: 1002, length: 200 }, null);
+    const requests: Array<{ length: number; reverse: boolean; lookup: boolean }> = [];
+    const transport: { beforeRank?: () => Promise<void>; beforePage?: () => Promise<void> } = {};
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string) as Body;
+      init.signal?.throwIfAborted();
+      if (url.endsWith("/rank") || url.endsWith("/_count")) {
+        await transport.beforeRank?.();
+        init.signal?.throwIfAborted();
+        return new Response(JSON.stringify(mode === "media-api" ? { rank: offset } : { count: offset }));
+      }
+      const cursor = mode === "media-api" ? body.sortValues : body.search_after;
+      const length = (mode === "media-api" ? body.length : body.size) as number;
+      const reverse = mode === "media-api" ? body.reverse === true
+        : parseSortField((body.sort as Body[])[0]).direction !== (orderBy.startsWith("-") ? "desc" : "asc");
+      const lookup = !cursor;
+      requests.push({ length, reverse, lookup });
+      if (!lookup) await transport.beforePage?.();
+      init.signal?.throwIfAborted();
+      let page = target;
+      if (cursor && reverse) {
+        const count = Math.min(offset, length);
+        page = count > 0
+          ? await corpus.searchAfter({ ...params, offset: offset - count, length: count }, null)
+          : { ...target, hits: [], sortValues: [] };
+        if (count < length) {
+          const nulls = await corpus.searchAfter({ ...params, offset: 70_000 - (length - count), length: length - count }, null);
+          page = { ...page, hits: [...nulls.hits, ...page.hits], sortValues: [...nulls.sortValues, ...page.sortValues] };
+        }
+      } else if (cursor) {
+        page = await corpus.searchAfter({ ...params, length }, target.sortValues[0]);
+      }
+      if (mode === "media-api") {
+        return new Response(JSON.stringify({ data: page.hits.map(image => ({ data: { ...image, valid: true } })), sortValues: page.sortValues }));
+      }
+      const hits = page.hits.map((image, index) => ({ _id: image.id, _source: image, sort: page.sortValues[index] }));
+      return new Response(JSON.stringify({ hits: { hits: reverse ? hits.reverse() : hits } }));
+    }));
+    useSearchStore.setState({
+      dataSource: mode === "direct-ES" ? new ElasticsearchDataSource() : state().dataSource,
+      total: 70_000, results: initial.hits, bufferOffset: 1002,
+      imagePositions: new Map(initial.hits.map((image, index) => [image.id, 1002 + index])),
+      startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
+      focusedImageId: null, _focusedImageKnownOffset: null,
+    });
+    return { target, initial, requests, transport, params };
+  }
+
+  async function expectLanding(offset: number, targetId: string) {
+    const expectedStart = Math.ceil(Math.max(0, offset - 100) / 3) * 3;
+    const expected = await corpus.searchAfter({ ...state().params, offset: expectedStart, length: offset - expectedStart + 101 }, null);
+    expect(state().bufferOffset).toBe(expectedStart);
+    expect(state().results.map(image => image?.id)).toEqual(expected.hits.map(image => image.id));
+    expect(state().imagePositions.get(targetId)).toBe(offset);
+    expect(state()._focusedImageKnownOffset).toBe(offset);
+    expect(state().total).toBe(70_000);
+    expect(state().startCursor).toEqual(expected.sortValues[0]);
+    expect(state().endCursor).toEqual(expected.sortValues.at(-1));
+    for (const [index, image] of expected.hits.entries()) {
+      expect(state().imagePositions.get(image.id)).toBe(expectedStart + index);
+      expect(getRetainedSortValues(image.id, buildSearchKey(state().params))).toEqual(expected.sortValues[index]);
+      if (mode === "media-api") expect(useEnrichmentStore.getState().data.get(image.id)?.valid).toBe(true);
+    }
+  }
+
+  it.each(["lastModified", "-lastModified"].flatMap(orderBy => [0, 5, 99, 100, 500].map(offset => ({ orderBy, offset }))))(
+    "restores exact ordered IDs at $offset under $orderBy without reading beyond the prefix", async ({ offset, orderBy }) => {
+      const { target, requests } = await setup(offset, orderBy);
+      await state().restoreAroundCursor(target.hits[0].id, target.sortValues[0], 999, true);
+      await expectLanding(offset, target.hits[0].id);
+      expect(state()._seekTargetLocalIndex).toBe(offset - state().bufferOffset);
+      expect(requests.filter(request => request.reverse)).toEqual(offset === 0 ? [] : [{ length: Math.min(100, offset), reverse: true, lookup: false }]);
+      expect(requests).toHaveLength(offset === 0 ? 2 : 3);
+    },
+  );
+
+  it.each([0, 5, 500].flatMap(offset => [null, 5].map(hint => ({ offset, hint }))))(
+    "keeps rank and pages parallel with provisional hint $hint and exact offset $offset", async ({ offset, hint }) => {
+      const { target, initial, requests, transport } = await setup(offset);
+      let release!: () => void;
+      transport.beforeRank = () => new Promise<void>(resolve => { release = resolve; });
+      useSearchStore.setState({ focusedImageId: target.hits[0].id, _focusedImageKnownOffset: hint });
+      const pending = state().seekToFocused();
+      try {
+        await waitFor(() => requests.filter(request => !request.lookup).length === 2, "parallel neighbour requests");
+        expect(state().results).toBe(initial.hits);
+      } finally {
+        release();
+        await pending;
+      }
+      await expectLanding(offset, target.hits[0].id);
+      expect(requests.filter(request => request.reverse)).toEqual([{ length: 100, reverse: true, lookup: false }]);
+    },
+  );
+
+  it("does not publish an aborted near-top restore or its enrichment", async () => {
+    const { target, initial, requests, transport } = await setup(5);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    transport.beforePage = () => held;
+    const pending = state().restoreAroundCursor(target.hits[0].id, target.sortValues[0], 5, true);
+    await waitFor(() => requests.filter(request => !request.lookup).length === 2, "held restore pages");
+    state().abortExtends();
+    release();
+    await pending;
+    expect(state().results).toBe(initial.hits);
+    expect(state().bufferOffset).toBe(1002);
+    expect(useEnrichmentStore.getState().data.size).toBe(0);
+  });
+});
+
 describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary", (mode) => {
   const originalGeometry = getScrollGeometry();
 

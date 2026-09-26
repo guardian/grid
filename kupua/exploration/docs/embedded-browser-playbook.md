@@ -42,6 +42,14 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 26 September 2026, KUP-034 intake:** a shared tab retained `ApiDataSource`
+after the operator switched the server to direct mode; reloading changed it to
+`ElasticsearchDataSource`. In this session, both reused and forced-new tabs still
+reported `document.visibilityState === "hidden"` after `page.bringToFront()`.
+Creating a fresh tab established offset zero but did not solve foregrounding.
+Ask the operator to make the browser editor visible before geometry checks;
+neither a successful bring-to-front call nor nonzero DOM rectangles proves visibility.
+
 **[!] Check `kupua/e2e/shared/helpers.ts` BEFORE hand-rolling any interaction
 helper (scrubber clicks/drags, seeks, density switches, sort changes, etc.).**
 This was found late (M10 session) after already re-deriving several pieces of
@@ -235,6 +243,26 @@ returned 56 with zero ref-hunting — the most reliable way to enumerate/target 
 ---
 
 ## 3. Known traps
+
+**[V] 26 September 2026, near-top restore investigation:** making the browser editor
+visible resolved the hidden-state blocker above. Establish actual grid visibility with
+cell/container rectangles, not DOM presence alone. For a continuous detail/reload/close
+control, carry reference IDs in the Playwright call's local memory across `page.reload()`,
+then return only equality, counts and geometry. Backspace closes detail as in the shared
+helper. A direct `restoreAroundCursor` invocation for an already resident image is synthetic:
+the ordinary detail component skips that call. A temporary datasource observer restored in
+`finally` can record page lengths, reverse flags and null counts without returning tuples or
+IDs. Real wheel-to-top afterward distinguishes an internally wrong ordinal from visibly
+misordered images. Delete the in-page probe and reset the synthetic buffer before finishing.
+
+**[V] 26 September 2026, post-repair check:** after the E2E/server handoff, a full
+navigation plus a no-store source fetch confirmed the new cap and provisional-rank trim;
+actual observed backward request lengths then established that the running action used the
+repair. Retain a first-page ID array only in page memory, compare every restored ID and global
+position against it, then check the target rectangle separately after rendering. Position-zero
+and position-five restores can share that reference without manufacturing data or cache entries.
+A subsequent ordinary detail/reload/Backspace journey both checks preservation and replaces
+the synthetic buffer with normal results. Delete the carried reference afterward.
 
 **[V] 26 September 2026, backward null-boundary reproduction:** choose Last modified,
 toggle ascending, click the first grid cell to focus it, then toggle descending.

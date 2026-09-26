@@ -11,13 +11,13 @@ integration additions below are source-supported only; none has an executed repr
 (24 September, API build U2) has its server side confirmed by a local ES test. KUP-033 and KUP-034
 (25 September, API build U5 review) have their server mechanism shown by local ES tests.
 KUP-033 was reproduced by live media-api wheel scrolling and repaired in the shared store on
-26 September; post-fix wheel checks passed in both modes. KUP-034 user-visible impact remains
-unreproduced.
+26 September; post-fix wheel checks passed in both modes. KUP-034 is also repaired;
+synthetic direct-TEST reproduction and verification passed, but natural-workflow incidence is unproved.
 
 ## At a Glance
 
-**Current recorded status: 26 September 2026.** The 26 entries below have an open defect,
-approval/integration/review task or explicit residual; 24 additional IDs have completed bounded repairs.
+**Current recorded status: 26 September 2026.** The 25 entries below have an open defect,
+approval/integration/review task or explicit residual; 25 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -31,7 +31,7 @@ media-api coverage, including recovery. Existing AI is the sole deliberate ES ex
 team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
 claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
 silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
-KUP-034 if confirmed, then KUP-036 remain separate before final U6z verification.
+KUP-034 is DONE; KUP-036 remains separate before final U6z verification.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -51,7 +51,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-030](#kup-030) | Stale overlay after overlay-less fallback | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
 | [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
-| [KUP-034](#kup-034) | Uncapped backward page around a near-top target | Open; latent, mechanism shown by a local ES test, both modes | Independent; no ordinary caller known to reach it |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-036](#kup-036) | Incomplete API image pages published as success | Open; source-supported, failure not runtime-reproduced | New D3/window correctness; separate repair before final U6z verification |
 
@@ -75,7 +74,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
 
 <details>
-<summary>Completed bounded client repairs: 24 other IDs</summary>
+<summary>Completed bounded client repairs: 25 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -85,6 +84,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Saved density, original detail return and cross-preview centering | [KUP-017](#kup-017), [KUP-018](#kup-018), [KUP-027](#kup-027) |
 | Restore coordinates and selected-tuple rank | [KUP-024](#kup-024), [KUP-025](#kup-025) |
 | Backward null-boundary crossing | [KUP-033](#kup-033) |
+| Near-top centred paging | [KUP-034](#kup-034) |
 
 DONE refers to the repaired scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -442,12 +442,11 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-034
 **The restore/focus backward page is not capped at the target's offset**
-- **Component / owner:** `_loadBufferAroundImage` (sort-around-focus and `restoreAroundCursor`); human owner-to-confirm.
-- **Trigger:** a buffer is loaded around a target whose exact offset is below 100, under a sort with a null tail (missing primary values).
-- **Expected / actual:** the backward page should contain only the `exactOffset` images before the target. It always asks for 100; because missing values sort last in both directions, a reverse page longer than the images before a valued target runs on into the null tail. Those null-tail images would be prepended ahead of position 0 in the combined buffer and every position before the target would be mislabelled. `extendBackward` already caps its page at `bufferOffset`; this caller does not.
-- **Evidence:** [uncapped backward page](../../src/stores/search-store.ts#L1378); contrast [extend cap](../../src/stores/search-store.ts#L2739). **25 September, local ES (media-api `ElasticSearchTest`, recorded client body replay):** under `-taken`, a reverse page of 200 from the first image returned null-tail images although nothing sorts before position 0. Same ES semantics apply to direct ES. No ordinary flow is known to reach the store path: sort-around-focus loads around a target only when it is not in the 200-image first page, and restore normally finds such a target already buffered.
-- **Smallest discriminator:** call `restoreAroundCursor` (or the sort-around-focus path with a small `hintOffset`) for a target at position 5 under a sparse-primary sort over `MockDataSource`; assert buffer ids and `imagePositions` equal the corpus at their global positions. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent latent defect in both modes. Smallest fix: cap the backward length at `exactOffset` (skip it at 0), as `extendBackward` does. Not introduced by API build U5.
+- **Defect:** [the centred loader](../../src/stores/search-store.ts#L1358), shared by restore and sort-around-focus, always requested 100 predecessors. Below rank 100, reverse nulls-last ordering could pull null-tail images ahead of the beginning. KUP-033 changed only `extendBackward` and did not fix this path.
+- **Evidence:** local ES replay established the mechanism. A synthetic direct-TEST `restoreAroundCursor` call at rank 5 returned 95 nulls plus five real predecessors, published rank 100, and showed nine null-primary cells at the false beginning. Ordinary near-top detail/reload/close passed before and after; natural-workflow incidence remains unproved.
+- **Fix:** known ranks cap backward reads at `min(100, rank)`, skipping zero. Provisional focus retains parallel rank/pages and removes excess predecessors with their tuples before alignment/publication. No added request or serial wait; selected-tuple ranking, retained totals, enrichment and ownership are preserved.
+- **Validation:** [34 composed tests](../../src/stores/search-store-api-mode.test.ts#L194), both adapters, sparse sort directions and ranks 0/5/99/100/500; exact order/positions/tuples, alignment, enrichment, deferred rank and cancellation. Failing-first: 20 ordering failures, 14 controls passed; all pass after repair. Two old assertions now require the zero-rank request skip and supplied-rank prefix cap. Full unit/build/E2E gates passed (2,021/299 tests). Direct-TEST restores at 0/5 now preserve exact order and visible placement without leading nulls; ordinary reload also passes.
+- **Disposition / limits:** DONE (26 September), cold review found no material issues; its formatting-only S3 is corrected. No API-mode live checks or operator preflights were run; ordinary E2E is direct/local. No broader snapshot guarantee, performance campaign, server change or AI/U6z/U7 work follows.
 
 #### KUP-035
 **A full selection reconcile runs in one idle callback and blocks a frame at large selections**

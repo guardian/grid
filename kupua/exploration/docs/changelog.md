@@ -17,6 +17,22 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Near-top centred paging respects the available prefix (KUP-034)
+
+  `_loadBufferAroundImage` now caps known-rank backward reads at the target's position and
+  skips the request at zero. This prevents reverse nulls-last pages from pulling null-tail
+  images ahead of the beginning. Provisional focus offsets are explicitly distinguished:
+  rank and neighbour reads remain parallel, with excess predecessors and paired tuples
+  removed before the existing column alignment and publication when exact rank resolves.
+  Selected-tuple ranking, retained session totals, enrichment and ownership remain unchanged.
+
+  Composed regressions exercise both real adapters, sparse sort directions, near-top and deeper
+  positions, exact order/tuples/coordinates, parallel rank resolution and cancellation. Existing
+  edge request-count and supplied-rank assertions now require the bounded prefix. A synthetic
+  direct-TEST restore confirmed visible misordering before the repair and correct placement
+  afterward; ordinary detail/reload/close remained correct. Natural-workflow incidence is still
+  unproved. No server contract, AI, U6z, U7 or other repair was changed.
+
   ### 26 September 2026 - Backward scrolling crosses the null boundary (KUP-033)
 
   `extendBackward` now fills a short null-primary reverse page with one bounded reverse read
