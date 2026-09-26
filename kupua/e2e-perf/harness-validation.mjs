@@ -43,6 +43,17 @@ export const JANK_SCENARIO_AGGREGATION = {
       "selectionVisualSettledMs", "idleCallbackMaxMs",
     ],
   },
+  P19: {
+    invariantFields: [
+      "scenarioRevision", "completionBoundary", "cacheClass", "routes", "targetIndex",
+      "selectedAdded", "metadataCacheWarmBefore", "selectedCount",
+      "metadataCacheWarmAfter", "rangeWalked",
+    ],
+    medianFields: [
+      "rangeWalkMs", "selectionPublishMs", "metadataSettleMs", "reconcileSettleMs",
+      "selectionVisualSettledMs", "idleCallbackCount", "idleCallbackMaxMs",
+    ],
+  },
 };
 
 export const REQUIRED_JANK_NUMERIC_FIELDS = [
@@ -219,6 +230,7 @@ const JANK_METRIC_MANIFEST = [
   ["P16: table column resize", ["P16a", "P16b"]],
   ["P17: reverse grid scroll", ["P17"]],
   ["P18: selection details", ["P18"]],
+  ["P19: selection range", ["P19"]],
 ];
 
 export const PERCEIVED_METRIC_IDS = {

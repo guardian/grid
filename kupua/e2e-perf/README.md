@@ -89,7 +89,7 @@ node e2e-perf/run-audit.mjs --perceived --label "Full audit" --runs 4
 ./scripts/start.sh --use-media-api
 
 # Terminal 2 — required fast preflight before any recorded campaign
-node e2e-perf/run-audit.mjs P14d,P17,P18 --use-media-api --dry-run --runs 2 --label "media-api jank invariant preflight"
+node e2e-perf/run-audit.mjs P14d,P17,P18,P19 --use-media-api --dry-run --runs 2 --label "media-api jank invariant preflight"
 node e2e-perf/run-audit.mjs --use-media-api --long-perceived-only --dry-run --runs 2 --label "media-api long invariant preflight"
 
 # Record only after both preflights pass
@@ -170,7 +170,7 @@ cadence or observation windows are not completion proofs and were not removed by
 
 For a strictly isolated diagnostic, use an exact title filter and preview it with
 `--list` through the direct Playwright config. Runner filters differ: jank's `P1`
-also matches P11-P18, while the perceived selector does not accept `PP1:`. An
+also matches P11-P19, while the perceived selector does not accept `PP1:`. An
 unrecognized perceived selection currently constructs an empty alternation that
 runs the full suite before metric validation rejects it. Do not use that path for
 bounded diagnostics. From repo root:
@@ -403,7 +403,7 @@ Tests fall into three categories. This matters for result stability:
 | Category | Tests | Single-run noise | Notes |
 |----------|-------|-------------------|-------|
 | **Client-only** | P4a, P4b, P5a/b/c, P7, P13a/b, P14a/b/c/d, P15a/b/c, P16a/b | **Low** (±5%) | No ES requests inside the measured action. P7 preloads lazy distribution setup and excludes pointer release/seek. |
-| **Mixed** (client work triggered by data response) | P2, P8, P17, P18 | **Medium** (±15%) | Scroll can trigger buffer requests. P18 hydrates 99 selected images through direct-ES `_mget` in both app modes; its route attribution deliberately ignores unrelated `/api` responses. Jank spikes may correlate with response timing. |
+| **Mixed** (client work triggered by data response) | P2, P8, P17, P18, P19 | **Medium** (±15%) | Scroll can trigger buffer requests. P18 hydrates 99 selected images through direct-ES `_mget`, or media-api `POST /images/mget` in `--use-media-api` mode; P19 adds a server range walk and 999 hydrated images on the same routes. Their route attribution deliberately ignores unrelated `/api` responses. Jank spikes may correlate with response timing. |
 | **ES-dominated** | P1, P3, P3b, P6, P9, P11, P11b | **High** (±20%+) | Test measures the full round-trip: ES query → response processing → render. SSH tunnel latency and cluster load dominate. |
 
 **Practical guidance:**
@@ -458,6 +458,7 @@ signed vertical and horizontal pixel drift plus final visibility.
 | **P16a/b** | Column drag-resize + double-click fit | ~3s | maxFrame, domChurn. CSS-variable path. Should be near-zero. |
 | **P17** | Reverse grid scroll from first backward-prepend trigger through 200ms quiescence | ~5s | severe, p95Frame, LoAF, DOM churn, route class, prepend count, direction violations. Includes any natural causally-following prepend cascade rather than suppressing it. |
 | **P18** | Shift-click result 99 from a settled result-0 anchor with Details open | ~2s | maxFrame, LoAF, selection publication, metadata/reconcile/visual settlement. Cold-except-anchor, exactly 100 selected. |
+| **P19** | Tick result 0 with Details open, seek to 999 (anchor leaves the buffer), shift-click result 999 | ~5s | As P18 plus range-walk time. Cold-except-anchor, exactly 1,000 selected. |
 
 ### Image-read probes (P13c and P14)
 

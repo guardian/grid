@@ -99,8 +99,217 @@ function captureSuccessfulDataRoutes(
   };
 }
 
-const isP18SelectionMetadataPath = (path: string) =>
-  path.startsWith("/es/") && path.endsWith("/_mget");
+const isSelectionMetadataPath = (path: string) =>
+  (path.startsWith("/es/") && path.endsWith("/_mget")) || path === "/api/images/mget";
+
+async function selectionMetadataRoute(kupua: any): Promise<string> {
+  return kupua.page.evaluate(() =>
+    (window as any).__kupua_store__.getState().dataSource.constructor.name === "ApiDataSource"
+      ? "media-api" : "direct-es");
+}
+
+/** From a settled result-0 buffer with nothing selected: open Details and tick result 0 as anchor. */
+async function prepareSelectionAnchor(kupua: any) {
+  await gotoPerfSearch(kupua);
+
+  const setupReady = await kupua.page.evaluate(() => {
+    const search = (window as any).__kupua_store__?.getState?.();
+    const selection = (window as any).__kupua_selection_store__?.getState?.();
+    const firstRendered = document.querySelector<HTMLElement>("[data-grid-cell]")?.dataset.imageId;
+    return Boolean(
+      search && selection
+      && search.bufferOffset === 0
+      && search.results.length >= 100
+      && search.results[0]?.id === firstRendered
+      && selection.selectedIds.size === 0,
+    );
+  });
+  expect(setupReady).toBe(true);
+
+  await kupua.page.getByRole("button", { name: "Show Details panel" }).click();
+  await expect(
+    kupua.page.getByRole("separator", { name: "Resize right panel (double-click to close)" }),
+  ).toHaveCount(1);
+
+  const firstCell = kupua.page.locator("[data-grid-cell]").first();
+  await firstCell.hover();
+  await firstCell.getByRole("button", { name: "Select image" }).click();
+  await kupua.page.waitForFunction(() => {
+    const state = (window as any).__kupua_selection_store__?.getState?.();
+    return state?.selectedIds.size === 1
+      && state.pendingFetchIds.size === 0
+      && !state.isReconciling
+      && state.reconciledView !== null;
+  }, null, { timeout: 15_000 });
+}
+
+/**
+ * Shift-clicks the cell marked `data-perf-selection-target` and times selection publication,
+ * metadata, reconciliation and a visibly stable Details panel.
+ */
+async function measureRangeSelection(kupua: any, label: string, expectedCount: number) {
+  const targetCell = kupua.page.locator('[data-perf-selection-target="true"]');
+  await injectPerfProbes(kupua);
+  await kupua.page.waitForTimeout(300);
+  // Selection metadata follows the app's data source (direct-ES _mget or
+  // media-api /images/mget). Ignore unrelated /api responses that happen to
+  // complete during this window (for example delayed service discovery).
+  const finishRouteCapture = captureSuccessfulDataRoutes(
+    kupua,
+    isSelectionMetadataPath,
+  );
+
+  let phases: any;
+  let routes: string[] = ["client-only"];
+  try {
+    await kupua.page.evaluate(({ label, expectedCount }: { label: string; expectedCount: number }) => {
+      const globalObject = window as any;
+      const store = globalObject.__kupua_selection_store__;
+      if (!store) throw new Error(`${label} selection store unavailable`);
+
+      const originalRequestIdleCallback = window.requestIdleCallback?.bind(window);
+      const timings: any = {
+        actionStart: null,
+        selectionPublished: null,
+        metadataSettled: null,
+        reconcileStarted: null,
+        reconcileSettled: null,
+        idleCallbacks: [],
+      };
+      const target = document.querySelector<HTMLElement>('[data-perf-selection-target="true"]');
+      if (!target) throw new Error(`${label} selection target unavailable while arming probe`);
+      target.addEventListener("click", () => {
+        timings.actionStart = performance.now();
+      }, { capture: true, once: true });
+      let previous = store.getState();
+      const unsubscribe = store.subscribe((state: any) => {
+        const now = performance.now();
+        if (state.selectedIds.size === expectedCount && timings.selectionPublished === null) {
+          timings.selectionPublished = now;
+        }
+        if (previous.pendingFetchIds.size > 0 && state.pendingFetchIds.size === 0) {
+          timings.metadataSettled = now;
+        }
+        if (!previous.isReconciling && state.isReconciling) timings.reconcileStarted = now;
+        if (previous.isReconciling && !state.isReconciling) timings.reconcileSettled = now;
+        previous = state;
+      });
+
+      if (originalRequestIdleCallback) {
+        window.requestIdleCallback = ((callback: IdleRequestCallback, options?: IdleRequestOptions) =>
+          originalRequestIdleCallback((deadline) => {
+            const started = performance.now();
+            try {
+              callback(deadline);
+            } finally {
+              timings.idleCallbacks.push(performance.now() - started);
+            }
+          }, options)) as typeof window.requestIdleCallback;
+      }
+
+      globalObject.__selectionRangeProbe__ = {
+        originalRequestIdleCallback,
+        timings,
+        unsubscribe,
+      };
+    }, { label, expectedCount });
+
+    await resetPerfProbes(kupua);
+
+    await targetCell.click({ modifiers: ["Shift"] });
+    await kupua.page.waitForFunction((count: number) => {
+      const state = (window as any).__kupua_selection_store__?.getState?.();
+      return state?.selectedIds.size === count
+        && state.pendingFetchIds.size === 0
+        && !state.isReconciling
+        && state.reconciledView !== null;
+    }, expectedCount, { timeout: 30_000 });
+
+    phases = await kupua.page.evaluate(async ({ label, expectedCount }: { label: string; expectedCount: number }) => {
+      const globalObject = window as any;
+      const probe = globalObject.__selectionRangeProbe__;
+      if (!probe) throw new Error(`${label} selection probe unavailable`);
+
+      let previousGeometry: { width: number; height: number; scrollHeight: number } | null = null;
+      let visualSettled = 0;
+      for (let attempt = 0; attempt < 120; attempt++) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        const state = globalObject.__kupua_selection_store__?.getState?.();
+        const separator = document.querySelector<HTMLElement>(
+          '[role="separator"][aria-label="Resize right panel (double-click to close)"]',
+        );
+        const panel = separator?.nextElementSibling as HTMLElement | null;
+        if (
+          !state || state.selectedIds.size !== expectedCount || state.pendingFetchIds.size !== 0
+          || state.isReconciling || state.reconciledView === null || !panel
+        ) {
+          previousGeometry = null;
+          continue;
+        }
+        const rect = panel.getBoundingClientRect();
+        const currentGeometry = {
+          width: rect.width,
+          height: rect.height,
+          scrollHeight: panel.scrollHeight,
+        };
+        if (
+          previousGeometry
+          && Math.abs(previousGeometry.width - currentGeometry.width) <= 1
+          && Math.abs(previousGeometry.height - currentGeometry.height) <= 1
+          && Math.abs(previousGeometry.scrollHeight - currentGeometry.scrollHeight) <= 1
+        ) {
+          visualSettled = performance.now();
+          break;
+        }
+        previousGeometry = currentGeometry;
+      }
+      if (!visualSettled) throw new Error(`${label} Details panel did not become visibly stable`);
+
+      const state = globalObject.__kupua_selection_store__.getState();
+      const metadataCacheWarmAfter = [...state.selectedIds].filter(
+        (id: string) => state.metadataCache.has(id),
+      ).length;
+      if (probe.timings.actionStart === null) {
+        throw new Error(`${label} real click boundary was not captured`);
+      }
+      const elapsed = (value: number | null) => value === null
+        ? null
+        : Math.round(value - probe.timings.actionStart);
+      const idleCallbacks = probe.timings.idleCallbacks as number[];
+
+      probe.unsubscribe();
+      if (probe.originalRequestIdleCallback) {
+        window.requestIdleCallback = probe.originalRequestIdleCallback;
+      }
+      delete globalObject.__selectionRangeProbe__;
+
+      return {
+        selectedCount: state.selectedIds.size,
+        metadataCacheWarmAfter,
+        rangeWalked: state.rangeWalkTime !== null,
+        selectionPublishMs: elapsed(probe.timings.selectionPublished),
+        metadataSettleMs: elapsed(probe.timings.metadataSettled),
+        reconcileSettleMs: elapsed(probe.timings.reconcileSettled),
+        selectionVisualSettledMs: Math.round(visualSettled - probe.timings.actionStart),
+        idleCallbackCount: idleCallbacks.length,
+        idleCallbackMaxMs: idleCallbacks.length ? Math.round(Math.max(...idleCallbacks)) : 0,
+      };
+    }, { label, expectedCount });
+    routes = finishRouteCapture();
+  } finally {
+    routes = finishRouteCapture();
+    await kupua.page.evaluate(() => {
+      const globalObject = window as any;
+      const probe = globalObject.__selectionRangeProbe__;
+      probe?.unsubscribe?.();
+      if (probe?.originalRequestIdleCallback) {
+        window.requestIdleCallback = probe.originalRequestIdleCallback;
+      }
+      delete globalObject.__selectionRangeProbe__;
+    });
+  }
+  return { phases, routes };
+}
 
 function captureImageLookups(page: any) {
   const requests: Array<{ route: string; request: any }> = [];
@@ -1923,37 +2132,7 @@ test.describe("Rendering Performance Smoke", () => {
 
   // ─── P18: In-buffer range selection with Details open ───────────
   test("P18: selection details — 100-item in-buffer range reconciliation", async ({ kupua }) => {
-    await gotoPerfSearch(kupua);
-
-    const setupReady = await kupua.page.evaluate(() => {
-      const search = (window as any).__kupua_store__?.getState?.();
-      const selection = (window as any).__kupua_selection_store__?.getState?.();
-      const firstRendered = document.querySelector<HTMLElement>("[data-grid-cell]")?.dataset.imageId;
-      return Boolean(
-        search && selection
-        && search.bufferOffset === 0
-        && search.results.length >= 100
-        && search.results[0]?.id === firstRendered
-        && selection.selectedIds.size === 0,
-      );
-    });
-    expect(setupReady).toBe(true);
-
-    await kupua.page.getByRole("button", { name: "Show Details panel" }).click();
-    await expect(
-      kupua.page.getByRole("separator", { name: "Resize right panel (double-click to close)" }),
-    ).toHaveCount(1);
-
-    const firstCell = kupua.page.locator("[data-grid-cell]").first();
-    await firstCell.hover();
-    await firstCell.getByRole("button", { name: "Select image" }).click();
-    await kupua.page.waitForFunction(() => {
-      const state = (window as any).__kupua_selection_store__?.getState?.();
-      return state?.selectedIds.size === 1
-        && state.pendingFetchIds.size === 0
-        && !state.isReconciling
-        && state.reconciledView !== null;
-    }, null, { timeout: 15_000 });
+    await prepareSelectionAnchor(kupua);
 
     const setup = await kupua.page.evaluate(
       ({ targetIndex, minCellWidth, rowHeight }) => {
@@ -1994,170 +2173,9 @@ test.describe("Rendering Performance Smoke", () => {
       cell.dataset.perfSelectionTarget = "true";
       return true;
     }, 99, { timeout: 5_000 });
-    const targetCell = kupua.page.locator('[data-perf-selection-target="true"]');
-    await expect(targetCell).toBeVisible();
+    await expect(kupua.page.locator('[data-perf-selection-target="true"]')).toBeVisible();
 
-    await injectPerfProbes(kupua);
-    await kupua.page.waitForTimeout(300);
-    // Selection metadata is still owned by ElasticsearchDataSource.getByIds
-    // in both app modes. Ignore unrelated /api responses that happen to
-    // complete during this window (for example delayed service discovery).
-    const finishRouteCapture = captureSuccessfulDataRoutes(
-      kupua,
-      isP18SelectionMetadataPath,
-    );
-
-    let phases: any;
-    let routes: string[] = ["client-only"];
-    try {
-      await kupua.page.evaluate(() => {
-        const globalObject = window as any;
-        const store = globalObject.__kupua_selection_store__;
-        if (!store) throw new Error("P18 selection store unavailable");
-
-        const originalRequestIdleCallback = window.requestIdleCallback?.bind(window);
-        const timings: any = {
-          actionStart: null,
-          selectionPublished: null,
-          metadataSettled: null,
-          reconcileStarted: null,
-          reconcileSettled: null,
-          idleCallbacks: [],
-        };
-        const target = document.querySelector<HTMLElement>('[data-perf-selection-target="true"]');
-        if (!target) throw new Error("P18 selection target unavailable while arming probe");
-        target.addEventListener("click", () => {
-          timings.actionStart = performance.now();
-        }, { capture: true, once: true });
-        let previous = store.getState();
-        const unsubscribe = store.subscribe((state: any) => {
-          const now = performance.now();
-          if (state.selectedIds.size === 100 && timings.selectionPublished === null) {
-            timings.selectionPublished = now;
-          }
-          if (previous.pendingFetchIds.size > 0 && state.pendingFetchIds.size === 0) {
-            timings.metadataSettled = now;
-          }
-          if (!previous.isReconciling && state.isReconciling) timings.reconcileStarted = now;
-          if (previous.isReconciling && !state.isReconciling) timings.reconcileSettled = now;
-          previous = state;
-        });
-
-        if (originalRequestIdleCallback) {
-          window.requestIdleCallback = ((callback: IdleRequestCallback, options?: IdleRequestOptions) =>
-            originalRequestIdleCallback((deadline) => {
-              const started = performance.now();
-              try {
-                callback(deadline);
-              } finally {
-                timings.idleCallbacks.push(performance.now() - started);
-              }
-            }, options)) as typeof window.requestIdleCallback;
-        }
-
-        globalObject.__p18SelectionProbe__ = {
-          originalRequestIdleCallback,
-          timings,
-          unsubscribe,
-        };
-      });
-
-      await resetPerfProbes(kupua);
-
-      await targetCell.click({ modifiers: ["Shift"] });
-      await kupua.page.waitForFunction(() => {
-        const state = (window as any).__kupua_selection_store__?.getState?.();
-        return state?.selectedIds.size === 100
-          && state.pendingFetchIds.size === 0
-          && !state.isReconciling
-          && state.reconciledView !== null;
-      }, null, { timeout: 15_000 });
-
-      phases = await kupua.page.evaluate(async () => {
-      const globalObject = window as any;
-      const probe = globalObject.__p18SelectionProbe__;
-      if (!probe) throw new Error("P18 selection probe unavailable");
-
-      let previousGeometry: { width: number; height: number; scrollHeight: number } | null = null;
-      let visualSettled = 0;
-      for (let attempt = 0; attempt < 120; attempt++) {
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        const state = globalObject.__kupua_selection_store__?.getState?.();
-        const separator = document.querySelector<HTMLElement>(
-          '[role="separator"][aria-label="Resize right panel (double-click to close)"]',
-        );
-        const panel = separator?.nextElementSibling as HTMLElement | null;
-        if (
-          !state || state.selectedIds.size !== 100 || state.pendingFetchIds.size !== 0
-          || state.isReconciling || state.reconciledView === null || !panel
-        ) {
-          previousGeometry = null;
-          continue;
-        }
-        const rect = panel.getBoundingClientRect();
-        const currentGeometry = {
-          width: rect.width,
-          height: rect.height,
-          scrollHeight: panel.scrollHeight,
-        };
-        if (
-          previousGeometry
-          && Math.abs(previousGeometry.width - currentGeometry.width) <= 1
-          && Math.abs(previousGeometry.height - currentGeometry.height) <= 1
-          && Math.abs(previousGeometry.scrollHeight - currentGeometry.scrollHeight) <= 1
-        ) {
-          visualSettled = performance.now();
-          break;
-        }
-        previousGeometry = currentGeometry;
-      }
-      if (!visualSettled) throw new Error("P18 Details panel did not become visibly stable");
-
-      const state = globalObject.__kupua_selection_store__.getState();
-      const search = globalObject.__kupua_store__.getState();
-      const targetImages = search.results.slice(0, 100).filter(Boolean);
-      const metadataCacheWarmAfter = targetImages.filter(
-        (image: any) => state.metadataCache.has(image.id),
-      ).length;
-      if (probe.timings.actionStart === null) {
-        throw new Error("P18 real click boundary was not captured");
-      }
-      const elapsed = (value: number | null) => value === null
-        ? null
-        : Math.round(value - probe.timings.actionStart);
-      const idleCallbacks = probe.timings.idleCallbacks as number[];
-
-      probe.unsubscribe();
-      if (probe.originalRequestIdleCallback) {
-        window.requestIdleCallback = probe.originalRequestIdleCallback;
-      }
-      delete globalObject.__p18SelectionProbe__;
-
-        return {
-        selectedCount: state.selectedIds.size,
-        metadataCacheWarmAfter,
-        rangeWalked: state.rangeWalkTime !== null,
-        selectionPublishMs: elapsed(probe.timings.selectionPublished),
-        metadataSettleMs: elapsed(probe.timings.metadataSettled),
-        reconcileSettleMs: elapsed(probe.timings.reconcileSettled),
-        selectionVisualSettledMs: Math.round(visualSettled - probe.timings.actionStart),
-        idleCallbackCount: idleCallbacks.length,
-        idleCallbackMaxMs: idleCallbacks.length ? Math.round(Math.max(...idleCallbacks)) : 0,
-        };
-      });
-      routes = finishRouteCapture();
-    } finally {
-      routes = finishRouteCapture();
-      await kupua.page.evaluate(() => {
-        const globalObject = window as any;
-        const probe = globalObject.__p18SelectionProbe__;
-        probe?.unsubscribe?.();
-        if (probe?.originalRequestIdleCallback) {
-          window.requestIdleCallback = probe.originalRequestIdleCallback;
-        }
-        delete globalObject.__p18SelectionProbe__;
-      });
-    }
+    const { phases, routes } = await measureRangeSelection(kupua, "P18", 100);
 
     const snap = await collectPerfSnapshot(kupua, "P18: 100-item selection with Details open");
     logPerfReport("P18: In-Buffer Selection with Details Open", snap);
@@ -2178,7 +2196,85 @@ test.describe("Rendering Performance Smoke", () => {
       rangeWalked: false,
       idleCallbackCount: 1,
     });
-    expect(routes).toEqual(["direct-es"]);
+    expect(routes).toEqual([await selectionMetadataRoute(kupua)]);
+    expect(phases.selectionPublishMs).not.toBeNull();
+    expect(phases.metadataSettleMs).not.toBeNull();
+    expect(phases.reconcileSettleMs).not.toBeNull();
+  });
+
+  // ─── P19: Out-of-buffer range selection with Details open ───────
+  test("P19: selection range — 1,000-item out-of-buffer walk and hydration", async ({ kupua }) => {
+    const targetIndex = 999;
+    await prepareSelectionAnchor(kupua);
+
+    const seekGeneration = await kupua.page.evaluate((target: number) => {
+      const store = (window as any).__kupua_store__;
+      const generation = store.getState()._seekGeneration;
+      store.getState().seek(target);
+      return generation;
+    }, targetIndex);
+    await kupua.page.waitForFunction((generation: number) => {
+      const state = (window as any).__kupua_store__?.getState?.();
+      return state && state._seekGeneration !== generation && !state.loading;
+    }, seekGeneration, { timeout: 15_000 });
+
+    await kupua.page.waitForFunction((target: number) => {
+      const search = (window as any).__kupua_store__?.getState?.();
+      if (!search || search.loading) return false;
+      const targetId = search.results[target - search.bufferOffset]?.id;
+      const cell = targetId
+        ? document.querySelector<HTMLElement>(`[data-grid-cell][data-image-id="${CSS.escape(targetId)}"]`)
+        : null;
+      const gridRect = document.querySelector<HTMLElement>('[aria-label="Image results grid"]')?.getBoundingClientRect();
+      if (!cell || !gridRect) return false;
+      const cellRect = cell.getBoundingClientRect();
+      if (cellRect.top < gridRect.top || cellRect.bottom > gridRect.bottom) {
+        cell.scrollIntoView({ block: "center" });
+        return false;
+      }
+      cell.dataset.perfSelectionTarget = "true";
+      return true;
+    }, targetIndex, { timeout: 5_000 });
+    await expect(kupua.page.locator('[data-perf-selection-target="true"]')).toBeVisible();
+
+    const setup = await kupua.page.evaluate((target: number) => {
+      const search = (window as any).__kupua_store__.getState();
+      const selection = (window as any).__kupua_selection_store__.getState();
+      const inRange = search.results.slice(0, target - search.bufferOffset + 1).filter(Boolean);
+      return {
+        anchorOutsideBuffer: search.bufferOffset > 0,
+        metadataCacheWarmBefore: [selection.anchorId, ...inRange.map((image: any) => image.id)]
+          .filter((id: string | null) => id !== null && selection.metadataCache.has(id)).length,
+      };
+    }, targetIndex);
+    expect(setup).toEqual({ anchorOutsideBuffer: true, metadataCacheWarmBefore: 1 });
+
+    const { phases, routes } = await measureRangeSelection(kupua, "P19", targetIndex + 1);
+    const rangeWalkMs = await kupua.page.evaluate(
+      () => (window as any).__kupua_selection_store__.getState().rangeWalkTime,
+    );
+
+    const snap = await collectPerfSnapshot(kupua, "P19: 1,000-item range selection with Details open");
+    logPerfReport("P19: Out-of-Buffer Range Selection with Details Open", snap);
+    emitMetric("P19", snap, {
+      scenarioRevision: 1,
+      completionBoundary: "1000-selected-metadata-reconciled-details-two-stable-frames",
+      cacheClass: "cold-except-anchor",
+      routes,
+      targetIndex,
+      selectedAdded: targetIndex,
+      metadataCacheWarmBefore: setup.metadataCacheWarmBefore,
+      rangeWalkMs,
+      ...phases,
+    });
+
+    expect(phases).toMatchObject({
+      selectedCount: 1000,
+      metadataCacheWarmAfter: 1000,
+      rangeWalked: true,
+    });
+    expect(Number.isFinite(rangeWalkMs)).toBe(true);
+    expect(routes).toEqual([await selectionMetadataRoute(kupua)]);
     expect(phases.selectionPublishMs).not.toBeNull();
     expect(phases.metadataSettleMs).not.toBeNull();
     expect(phases.reconcileSettleMs).not.toBeNull();

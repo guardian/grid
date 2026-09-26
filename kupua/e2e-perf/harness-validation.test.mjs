@@ -779,11 +779,12 @@ test("rejects unbalanced long audits before suite execution", () => {
   assert.doesNotThrow(() => assertBalancedLongRuns({ runLong: true, runs: 1, dryRun: true }));
 });
 
-test("P18 route ownership includes only the direct-ES selection metadata request", () => {
+test("P18/P19 route ownership includes only the selection metadata request in either mode", () => {
   const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
-  assert.match(source, /const isP18SelectionMetadataPath = \(path: string\) =>/);
-  assert.match(source, /path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)/);
-  assert.match(source, /captureSuccessfulDataRoutes\(\s*kupua,\s*isP18SelectionMetadataPath/);
+  assert.match(source, /const isSelectionMetadataPath = \(path: string\) =>/);
+  assert.match(source, /\(path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)\) \|\| path === "\/api\/images\/mget"/);
+  assert.match(source, /captureSuccessfulDataRoutes\(\s*kupua,\s*isSelectionMetadataPath/);
+  assert.equal(source.match(/expect\(routes\)\.toEqual\(\[await selectionMetadataRoute\(kupua\)\]\)/g)?.length, 2);
 });
 
 test("rejects a malformed nonblank JSONL row with source and line", () => {
@@ -940,11 +941,11 @@ test("selects one isolated P14 cadence by title", () => {
   assert.deepEqual(expectedJankMetricIds("P14b"), ["P14b"]);
 });
 
-test("manifests account for all 56 maintained unique metric IDs", () => {
+test("manifests account for all 57 maintained unique metric IDs", () => {
   const jankIds = expectedJankMetricIds("");
 
-  assert.equal(jankIds.length, 33);
-  assert.equal(new Set(jankIds).size, 33);
+  assert.equal(jankIds.length, 34);
+  assert.equal(new Set(jankIds).size, 34);
   assert.equal(PERCEIVED_METRIC_IDS.short.length, 15);
   assert.equal(new Set(PERCEIVED_METRIC_IDS.short).size, 15);
   assert.equal(PERCEIVED_METRIC_IDS.long.length, 8);
