@@ -362,6 +362,22 @@ object ImageAggregationsParamsBody {
     )
 }
 
+// Params for POST /images/mget: images by ID, independent of any search scope.
+case class ImageMgetParams(ids: Seq[String], tier: Tier)
+
+object ImageMgetParams {
+  val MaxIds = 200
+}
+
+case object ImageMgetIncomplete extends Exception("The image lookup did not complete on every shard")
+
+object ImageMgetParamsBody {
+  def fromJson(body: JsValue, tier: Tier): Either[String, ImageMgetParams] =
+    (body \ "ids").asOpt[Seq[String]]
+      .toRight("ids must be an array of strings")
+      .map(ImageMgetParams(_, tier))
+}
+
 // Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
 sealed trait SortProfileOperation
 case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation

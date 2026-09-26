@@ -36,6 +36,7 @@ class ImageQueryController(
   private def KeysIncompleteResponse = respondError(ServiceUnavailable, "keys-incomplete", ImageKeysIncomplete.getMessage)
   private def CountIncompleteResponse = respondError(ServiceUnavailable, "count-incomplete", ImageCountIncomplete.getMessage)
   private def AggregationsIncompleteResponse = respondError(ServiceUnavailable, "aggregations-incomplete", ImageAggregationsIncomplete.getMessage)
+  private def MgetIncompleteResponse = respondError(ServiceUnavailable, "mget-incomplete", ImageMgetIncomplete.getMessage)
   private def InvalidParamsResponse(message: String) = respondError(BadRequest, "invalid-params", message)
 
   private val readFailureResponses: PartialFunction[Throwable, Result] = {
@@ -206,6 +207,22 @@ class ImageQueryController(
         }.recover(readFailureResponses.orElse { case ImageAggregationsIncomplete => AggregationsIncompleteResponse })
       )
     }
+  }
+
+  def mgetImages() = auth.async(parse.json) { implicit request =>
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "image-mget",
+      "requestId"   -> RequestLoggingFilter.getRequestId(request),
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    val include = includedFrom(request)
+
+    ImageMgetParamsBody.fromJson(request.body, request.user.accessor.tier).fold(
+      err => Future.successful(InvalidParamsResponse(err)),
+      params => elasticSearch.imageMget(params).map { found =>
+        Ok(Json.obj("data" -> found.map((hitToImageEntity(request, include) _).tupled))).as(ArgoMediaType)
+      }.recover(readFailureResponses.orElse { case ImageMgetIncomplete => MgetIncompleteResponse })
+    )
   }
 
   private def admitSearchParams(request: Authentication.Request[JsValue])(read: SearchParams => Future[Result]): Future[Result] =

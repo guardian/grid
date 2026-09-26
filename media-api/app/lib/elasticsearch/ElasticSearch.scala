@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.{Syndication, Tier}
 import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, ElasticSearchError, Mappings, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
@@ -1224,6 +1225,37 @@ class ElasticSearch(
         name -> aggregations.filter(isFilterAggregationName(position)).docCount
       },
     )
+  }
+
+  def imageMget(params: ImageMgetParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[(String, SourceWrapper[Image])]] =
+    try imageMgetQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageMgetQuery(params: ImageMgetParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[(String, SourceWrapper[Image])]] =
+    executeAndLog(imageMgetRequest(params), "image-mget").map(r => readImageMget(params, r.result))
+
+  // IDs only: no search scope applies, as when a single image is read by ID.
+  private[elasticsearch] def imageMgetRequest(params: ImageMgetParams): SearchRequest = {
+    val ids = params.ids.distinct
+    if (ids.isEmpty || ids.size > ImageMgetParams.MaxIds)
+      throw InvalidUriParams(s"ids must hold between 1 and ${ImageMgetParams.MaxIds} distinct IDs, got ${ids.size}")
+    withLeanImageSource(readTarget(idsQuery(ids), None).size(ids.size).trackTotalHits(false))
+  }
+
+  // An incomplete search would report found images as missing. Unreadable and hidden images read
+  // as missing, as they do for a single image read by ID.
+  private[elasticsearch] def readImageMget(params: ImageMgetParams, result: SearchResponse)
+                                          (implicit logMarker: LogMarker): Seq[(String, SourceWrapper[Image])] = {
+    requireCompleteExecution(result, ImageMgetIncomplete, "image mget")
+    val found = result.hits.hits.toSeq.flatMap(hit => resolveLeanHit(hit).map(hit.id -> _)).toMap
+    params.ids.distinct.flatMap(id => found.get(id).filter(image => isVisibleToTier(params.tier, image.instance)).map(id -> _))
+  }
+
+  // Same rule as MediaApi.isVisibleToAccessor for a single image read by ID.
+  private def isVisibleToTier(tier: Tier, image: Image): Boolean = tier match {
+    case Syndication => image.syndicationRights.exists(_.isAvailableForSyndication)
+    case _ => true
   }
 
   def sortProfile(params: SortProfileParams)

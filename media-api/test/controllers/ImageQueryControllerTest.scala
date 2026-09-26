@@ -5,7 +5,8 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ImageResponse
 import com.gu.mediaservice.lib.argo.model.ExtraCount
-import lib.elasticsearch.{BucketResult, DateStats, DateStatsResult, ElasticSearch, FieldAggregation, ImageAggregationsIncomplete, ImageAggregationsParams, ImageAggregationsRawResults, ImageAggregationsResult, ImageCountIncomplete, ImageCountParams, ImageCountRawResults, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults}
+import lib.elasticsearch.{BucketResult, DateStats, DateStatsResult, ElasticSearch, FieldAggregation, ImageAggregationsIncomplete, ImageAggregationsParams, ImageAggregationsRawResults, ImageAggregationsResult, ImageCountIncomplete, ImageCountParams, ImageCountRawResults, ImageKey, ImageKeysIncomplete, ImageKeysParams, ImageKeysRawResults, ImageKeysResult, ImageMgetIncomplete, ImageMgetParams, ImageRankIncomplete, ImageRankParams, ImageRankRawResults, ImageWindowParams, ImageWindowRawResults, InvalidUriParams, KeywordPage, ScalarAnchor, SearchAfterParams, SearchAfterRawResults, SortProfileIncomplete, SortProfileParams, SortProfileRawResults, SourceWrapper}
+import com.gu.mediaservice.model.Image
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{verifyNoInteractions, when}
 import org.scalatest.concurrent.ScalaFutures
@@ -881,6 +882,70 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
 
       result.header.status shouldBe 503
       (jsonOf(result) \ "errorKey").as[String] shouldBe "aggregations-incomplete"
+    }
+  }
+
+  private case class MgetHarness(controller: ImageQueryController, search: ElasticSearch, captured: Future[ImageMgetParams])
+
+  private def mgetHarness(
+    principal: Principal,
+    result: Future[Seq[(String, SourceWrapper[Image])]] = Future.successful(Nil),
+  ): MgetHarness = {
+    val search = mock[ElasticSearch]
+    val captured = Promise[ImageMgetParams]()
+    when(search.imageMget(any[ImageMgetParams])(any[ExecutionContext], any[LogMarker])).thenAnswer { invocation =>
+      captured.success(invocation.getArgument[ImageMgetParams](0))
+      result
+    }
+    MgetHarness(imageQueryControllerFor(principal, search, mock[ImageResponse]), search, captured.future)
+  }
+
+  private def mgetRequest(body: JsValue) = FakeRequest("POST", "/images/mget").withBody(body)
+
+  describe("mget") {
+    it("passes the requested IDs, as sent, and the caller's tier to Elasticsearch, ignoring search fields") {
+      val harness = mgetHarness(ordinaryUser)
+      val request = mgetRequest(Json.obj("ids" -> Json.arr("b", "a", "b"), "q" -> "is:deleted", "free" -> true))
+
+      harness.controller.mgetImages().apply(request).futureValue.header.status shouldBe 200
+      harness.captured.futureValue shouldBe ImageMgetParams(Seq("b", "a", "b"), Internal)
+    }
+
+    Seq(ReadOnly, Syndication).foreach { tier =>
+      it(s"preserves POST denial for the $tier machine tier") {
+        val harness = mgetHarness(MachinePrincipal(ApiAccessor("test-machine", tier)))
+
+        harness.controller.mgetImages().apply(mgetRequest(Json.obj("ids" -> Json.arr("a")))).futureValue.header.status shouldBe 403
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    Seq(
+      "no ids" -> Json.obj(),
+      "ids that are not an array" -> Json.obj("ids" -> "a,b"),
+      "a non-string id" -> Json.obj("ids" -> Json.arr("a", 7)),
+    ).foreach { case (shape, invalid) =>
+      it(s"refuses $shape with 400 before reaching Elasticsearch") {
+        val harness = mgetHarness(ordinaryUser)
+
+        harness.controller.mgetImages().apply(mgetRequest(invalid)).futureValue.header.status shouldBe 400
+        verifyNoInteractions(harness.search)
+      }
+    }
+
+    it("responds 422 to an ID count Elasticsearch refuses") {
+      val harness = mgetHarness(ordinaryUser, Future.failed(InvalidUriParams("ids must hold between 1 and 200 IDs, got 0")))
+      val result = harness.controller.mgetImages().apply(mgetRequest(Json.obj("ids" -> Json.arr()))).futureValue
+
+      result.header.status shouldBe 422
+    }
+
+    it("responds 503 rather than reporting a partial lookup") {
+      val harness = mgetHarness(ordinaryUser, Future.failed(ImageMgetIncomplete))
+      val result = harness.controller.mgetImages().apply(mgetRequest(Json.obj("ids" -> Json.arr("a")))).futureValue
+
+      result.header.status shouldBe 503
+      (jsonOf(result) \ "errorKey").as[String] shouldBe "mget-incomplete"
     }
   }
 }

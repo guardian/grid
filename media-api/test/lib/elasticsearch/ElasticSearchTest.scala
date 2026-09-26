@@ -941,6 +941,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           case "/images/keys"         => reader.imageKeys().apply(request)
           case "/images/count"        => reader.countImages().apply(request)
           case "/images/aggregations" => reader.aggregateImages().apply(request)
+          case "/images/mget"         => reader.mgetImages().apply(request)
           case other                  => fail(s"no ordered read at $other")
         }
       }
@@ -948,7 +949,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       it("cover every ordered-read endpoint") {
         recordings.flatMap(calls).map(call => (call \ "path").as[String]).toSet shouldBe
           Set("/images/search-after", "/images/window", "/images/rank", "/images/sort-profile", "/images/keys", "/images/count",
-            "/images/aggregations")
+            "/images/aggregations", "/images/mget")
       }
 
       recordings.foreach { file =>
@@ -1212,6 +1213,16 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             val value = (respond("/images/sort-profile",
               body ++ Json.obj("scope" -> Json.arr(Json.obj("field" -> "metadata.credit", "value" -> "AAP")))) \ "value").as[Double]
             value should (be >= scoped.min.toDouble and be <= scoped.max.toDouble)
+          }
+        }
+
+        it("mget: exactly the requested images that exist, in request order, without a search scope") {
+          withFixtures {
+            val body = bodyOf(recorded("mget-selection").head)
+            body.keys shouldBe Set("ids")
+            val requested = fixtures.map(_.id).reverse ++ (body \ "ids").as[Seq[String]]
+            val json = respond("/images/mget", body ++ Json.obj("ids" -> requested))
+            (json \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String]) shouldBe fixtures.map(_.id).reverse
           }
         }
       }
@@ -2080,6 +2091,130 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
           it(s"refuses to publish counts when $reason") {
             the[Exception] thrownBy ES.readImageAggregations(params, incomplete) shouldBe ImageAggregationsIncomplete
+          }
+        }
+      }
+    }
+
+    describe("mget") {
+      implicit val logMarker: LogMarker = MarkerMap()
+
+      val live = createImage("mget-live", Handout(), uploadedBy = uploader.email)
+      val deletedByOther = createImage("mget-deleted", Handout(), uploadedBy = otherUploader.email,
+        softDeletedMetadata = Some(deletionData(otherUploader.email)))
+      val replaced = createImage("mget-replaced", Handout(), uploadedBy = uploader.email,
+        usages = List(createUsage(ComposerUsageReference, DigitalUsage,
+          com.gu.mediaservice.model.usage.ReplacedUsageStatus, DateTime.parse("2020-06-15T00:00:00Z"))))
+      val mgetFixtures = Seq(live, deletedByOther, replaced)
+
+      def statusAndJson(response: Future[Result]): (Int, JsValue) = whenReady(response, timeout, interval) { result =>
+        (result.header.status, Json.parse(result.body.asInstanceOf[HttpEntity.Strict].data.utf8String))
+      }
+      def mget(body: JsValue, principal: Principal = uploader): (Int, JsValue) =
+        statusAndJson(imageQueryControllerFor(principal, ES, writer).mgetImages()
+          .apply(FakeRequest("POST", "/images/mget").withBody(body)))
+      def idsOf(json: JsValue): Seq[String] =
+        (json \ "data").as[Seq[JsValue]].map(entity => (entity \ "data" \ "id").as[String])
+      def singletonStatus(id: String): Int =
+        whenReady(mediaApiFor(uploader, ES, writer).getImage(id).apply(FakeRequest("GET", s"/images/$id")), timeout, interval)(_.header.status)
+
+      it("returns each found image once, in request order, and omits missing IDs") {
+        withImages(mgetFixtures) { _ =>
+          val (status, json) = mget(Json.obj("ids" -> Seq("mget-replaced", "mget-missing", "mget-live", "mget-replaced", "mget-deleted")))
+
+          status shouldBe 200
+          idsOf(json) shouldBe Seq("mget-replaced", "mget-live", "mget-deleted")
+        }
+      }
+
+      it("finds exactly the images GET /images/:id finds, including those a search hides by default") {
+        withImages(mgetFixtures) { base =>
+          val requested = mgetFixtures.map(_.id) :+ "mget-missing"
+          val (_, json) = mget(Json.obj("ids" -> requested))
+
+          idsOf(json).toSet shouldBe requested.filter(id => singletonStatus(id) == 200).toSet
+          idsOf(json).toSet shouldBe mgetFixtures.map(_.id).toSet
+          assertViaD3(base, Set(live.id))
+        }
+      }
+
+      it("returns to a syndication-tier caller only images available for syndication, as GET /images/:id does") {
+        val requested = images.map(_.id)
+        val available = images.filter(_.syndicationRights.exists(_.isAvailableForSyndication)).map(_.id)
+        val forSyndication = Await.result(ES.imageMget(ImageMgetParams(requested, Syndication)), fiveSeconds).map(_._1)
+        val forInternal = Await.result(ES.imageMget(ImageMgetParams(requested, Internal)), fiveSeconds).map(_._1)
+
+        available should not be empty
+        available.size should be < requested.size
+        forSyndication shouldBe available
+        forInternal shouldBe requested
+      }
+
+      it("keeps alias leaves in the source and parses the lean image, as the other image reads do") {
+        whenReady(ESWithFieldAliases.imageMget(ImageMgetParams(Seq("test-image-8"), Internal)), timeout, interval) { found =>
+          found.map(_._1) shouldBe Seq("test-image-8")
+          val wrapper = found.head._2
+          (wrapper.source \ "fileMetadata" \ "xmp" \ "org:ProgrammeMaker").asOpt[String] shouldBe Some("xmp programme maker")
+          (wrapper.source \ "fileMetadata" \ "iptc" \ "Caption/Abstract").asOpt[String] shouldBe None
+          wrapper.instance.fileMetadata.iptc shouldBe empty
+        }
+      }
+
+      it("keeps every usage and collection date of an image, so callers can take the latest") {
+        val t0 = DateTime.parse("2020-01-01T00:00:00Z")
+        val image = createImage("mget-dates", Handout(), usages = List(createDigitalUsage(t0.plusDays(2)), createDigitalUsage(t0.plusDays(9))))
+          .copy(collections = List(3, 7).map(day => Collection.build(List(s"mget-$day"), ActionData("mget-test", t0.plusDays(day)))))
+        withImages(Seq(image)) { _ =>
+          val found = Await.result(ES.imageMget(ImageMgetParams(Seq(image.id), Internal)), fiveSeconds)
+
+          found.map(_._1) shouldBe Seq(image.id)
+          found.head._2.instance.usages.map(_.dateAdded.map(_.getMillis)) shouldBe image.usages.map(_.dateAdded.map(_.getMillis))
+          found.head._2.instance.collections.map(_.actionData.date.getMillis) shouldBe image.collections.map(_.actionData.date.getMillis)
+        }
+      }
+
+      it("reads one _search of exactly the distinct requested IDs, lean and without a total") {
+        val body = Json.parse(SearchBodyBuilderFn(ES.imageMgetRequest(ImageMgetParams(Seq("b", "a", "b"), Internal))).string)
+
+        (body \ "query" \ "ids" \ "values").as[Seq[String]] shouldBe Seq("b", "a")
+        (body \ "size").as[Int] shouldBe 2
+        (body \ "track_total_hits").as[Boolean] shouldBe false
+        (body \ "_source" \ "includes").as[Seq[String]] should not contain "fileMetadata"
+        (body \ "timeout").asOpt[String] shouldBe defined
+      }
+
+      describe("refusals") {
+        Seq(
+          "no IDs" -> (Json.obj("ids" -> Json.arr()), 422),
+          "more than 200 IDs" -> (Json.obj("ids" -> (1 to 201).map(n => s"mget-$n")), 422),
+          "no ids field" -> (Json.obj(), 400),
+          "ids that are not strings" -> (Json.obj("ids" -> Json.arr(1, 2)), 400),
+          "ids as a comma-separated string" -> (Json.obj("ids" -> "a,b"), 400),
+        ).foreach { case (what, (body, expected)) =>
+          it(s"refuses $what with $expected") {
+            mget(body)._1 shouldBe expected
+          }
+        }
+
+        it("accepts 200 IDs") {
+          mget(Json.obj("ids" -> (1 to 200).map(n => s"mget-$n")))._1 shouldBe 200
+        }
+      }
+
+      describe("completeness") {
+        val params = ImageMgetParams(Seq("a"), Internal)
+        def response(timedOut: Boolean, failedShards: Int) =
+          SearchResponse(1L, timedOut, false, Map.empty, Shards(2, failedShards, 2 - failedShards), None, None, Map.empty,
+            SearchHits(Total(0L, "eq"), 0.0, Array.empty))
+
+        it("reads no images as none found when every shard completed in time") {
+          ES.readImageMget(params, response(timedOut = false, failedShards = 0)) shouldBe empty
+        }
+
+        Seq("the search timed out" -> response(timedOut = true, failedShards = 0),
+          "a shard failed" -> response(timedOut = false, failedShards = 1)).foreach { case (reason, incomplete) =>
+          it(s"refuses to report IDs as missing when $reason") {
+            the[Exception] thrownBy ES.readImageMget(params, incomplete) shouldBe ImageMgetIncomplete
           }
         }
       }
