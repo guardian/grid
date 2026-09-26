@@ -11,7 +11,7 @@
  * 3. _pitGeneration bumps synchronously before the first await.
  */
 
-import { vi, describe, it, expect, beforeEach } from "vitest";
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 // Override IS_LOCAL_ES before search-store.ts is loaded so the openPit
 // branch is exercised. Hoisted by Vitest, runs before all imports.
@@ -30,7 +30,10 @@ import type { SearchAfterResult } from "@/dal";
 
 const state = () => useSearchStore.getState();
 const actions = () => useSearchStore.getState();
-const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
+const waitPastCooldown = async () => {
+  vi.setSystemTime(Date.now() + 2100);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 function deferredPage() {
   let resolve!: (result: SearchAfterResult) => void;
@@ -83,6 +86,10 @@ function resetStore(ds: MockDataSource) {
 beforeEach(() => {
   mock = new MockDataSource(10_000);
   resetStore(mock);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PIT expiry recovery", () => {

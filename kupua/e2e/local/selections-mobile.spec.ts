@@ -210,10 +210,12 @@ test("StatusBar remains at top (not repositioned) when in selection mode on coar
 // ===========================================================================
 
 test("long-press-tap selects the exact visible range", async ({ page }) => {
-  await page.locator('[aria-label="Image results grid"]').evaluate((grid) => {
-    grid.scrollBy({ top: 150 });
+  const grid = page.locator('[aria-label="Image results grid"]');
+  const scrollBefore = await grid.evaluate((element) => element.scrollTop);
+  await grid.evaluate((element) => {
+    element.scrollBy({ top: 150 });
   });
-  await page.waitForTimeout(100);
+  await expect.poll(() => grid.evaluate((element) => element.scrollTop)).toBeGreaterThan(scrollBefore);
 
   const range = await page.locator("[data-grid-cell]").evaluateAll((cells) => {
     const touchable = cells.flatMap((cell, index) => {

@@ -12,6 +12,9 @@
  */
 
 import { test, expect } from "../shared/helpers";
+import { GRID_MIN_CELL_WIDTH } from "@/constants/layout";
+
+test.describe.configure({ mode: "parallel" });
 
 // Pin to explicit focus mode — tests validate focus ring, Enter-to-open,
 // return-from-detail with focus, and fullscreen entry which are explicit-only.
@@ -268,8 +271,9 @@ test.describe("Image detail — closing", () => {
     await kupua.goto();
 
     // Scroll down a bit so the focused image isn't at scrollTop=0
+    const scrollBefore = await kupua.getScrollTop();
     await kupua.scrollBy(600);
-    await kupua.page.waitForTimeout(200);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollBefore);
 
     // Open image detail for the 5th item
     await kupua.focusNthItem(4);
@@ -428,6 +432,42 @@ test.describe("Image detail — position counter", () => {
 // ===========================================================================
 
 test.describe("Panel toggles", () => {
+  const panelTransitions = {
+    "Show Details panel": { selector: '[aria-label*="Resize right panel"]', visible: true },
+    "Show Browse panel": { selector: '[aria-label*="Resize left panel"]', visible: true },
+    "Hide Details panel": { selector: '[aria-label*="Resize right panel"]', visible: false },
+    "Hide Browse panel": { selector: '[aria-label*="Resize left panel"]', visible: false },
+  } as const;
+
+  async function waitForGridLayoutAfterResize(kupua: any, beforeWidth: number) {
+    await kupua.page.waitForFunction(
+      ({ previousWidth, minCellWidth }) => {
+        const grid = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+        if (!grid || grid.clientWidth === previousWidth) return false;
+        const renderedRow = grid.querySelector<HTMLElement>("[data-grid-cell]")?.parentElement;
+        const expectedColumns = Math.max(1, Math.floor(grid.clientWidth / minCellWidth));
+        return renderedRow?.children.length === expectedColumns;
+      },
+      { previousWidth: beforeWidth, minCellWidth: GRID_MIN_CELL_WIDTH },
+    );
+  }
+
+  async function togglePanelAndWait(kupua: any, action: keyof typeof panelTransitions) {
+    const beforeWidth = await kupua.page.locator('[aria-label="Image results grid"]').evaluate((grid) => grid.clientWidth);
+    await kupua.page.getByRole("button", { name: action, exact: true }).click();
+    const transition = panelTransitions[action];
+    const separator = kupua.page.locator(transition.selector);
+    if (transition.visible) await expect(separator).toBeVisible();
+    else await expect(separator).toBeHidden();
+    await waitForGridLayoutAfterResize(kupua, beforeWidth);
+  }
+
+  async function resizeAndWait(kupua: any, width: number) {
+    const beforeWidth = await kupua.page.locator('[aria-label="Image results grid"]').evaluate((grid) => grid.clientWidth);
+    await kupua.page.setViewportSize({ width, height: 960 });
+    await waitForGridLayoutAfterResize(kupua, beforeWidth);
+  }
+
   for (const focusSetup of ["no focus", "older focus"] as const) {
     test(`keeps the selected anchor through panel and window resizing (${focusSetup})`, async ({ kupua }) => {
       await kupua.page.setViewportSize({ width: 1720, height: 960 });
@@ -500,13 +540,11 @@ test.describe("Panel toggles", () => {
       };
 
       for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
-        await kupua.page.getByRole("button", { name: button, exact: true }).click();
-        await kupua.page.waitForTimeout(250);
+        await togglePanelAndWait(kupua, button);
         await assertPreserved(button);
       }
       for (const width of [1123, 1720]) {
-        await kupua.page.setViewportSize({ width, height: 960 });
-        await kupua.page.waitForTimeout(250);
+        await resizeAndWait(kupua, width);
         await assertPreserved(`window width ${width}`);
       }
 
@@ -532,8 +570,7 @@ test.describe("Panel toggles", () => {
       if (!nextBefore) throw new Error("New selection anchor is not rendered");
       expect(nextBefore.fullyVisible).toBe(true);
       for (const button of ["Show Details panel", "Show Browse panel", "Hide Details panel", "Hide Browse panel"]) {
-        await kupua.page.getByRole("button", { name: button, exact: true }).click();
-        await kupua.page.waitForTimeout(250);
+        await togglePanelAndWait(kupua, button);
         await assertPreserved(`new selection: ${button}`, nextAnchorId, nextBefore.top);
       }
 
@@ -634,11 +671,6 @@ test.describe("Panel toggles", () => {
   test("repeated panel toggles without explicit focus do not progressively shift the viewport", async ({ kupua }) => {
     await kupua.goto();
 
-    // No click — no explicit focus. Scroll down so there's room to drift.
-    await kupua.scrollBy(1500);
-    await kupua.page.waitForTimeout(300);
-    expect(await kupua.getFocusedImageId()).toBeNull();
-
     const readAnchor = () =>
       kupua.page.evaluate(() => {
         const store = (window as any).__kupua_store__;
@@ -653,6 +685,11 @@ test.describe("Panel toggles", () => {
         };
       });
 
+    // No click — no explicit focus. Scroll down so there's room to drift.
+    await kupua.scrollBy(1500);
+    await expect.poll(readAnchor).toMatchObject({ anchorId: expect.any(String) });
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
     const initial = await readAnchor();
     expect(initial.anchorId).not.toBeNull();
 
@@ -660,14 +697,10 @@ test.describe("Panel toggles", () => {
     const browseButton = kupua.page.locator('button[aria-label*="Browse panel"]');
 
     for (let i = 0; i < 3; i++) {
-      await detailsButton.click(); // open RHS
-      await kupua.page.waitForTimeout(200);
-      await detailsButton.click(); // close RHS
-      await kupua.page.waitForTimeout(200);
-      await browseButton.click(); // open LHS
-      await kupua.page.waitForTimeout(200);
-      await browseButton.click(); // close LHS
-      await kupua.page.waitForTimeout(200);
+      await togglePanelAndWait(kupua, "Show Details panel");
+      await togglePanelAndWait(kupua, "Hide Details panel");
+      await togglePanelAndWait(kupua, "Show Browse panel");
+      await togglePanelAndWait(kupua, "Hide Browse panel");
 
       const after = await readAnchor();
       expect(after.anchorId, `cycle ${i}: anchor identity must not drift`).toBe(initial.anchorId);
@@ -1813,7 +1846,9 @@ test.describe("Click-to-search", () => {
     // both interactions proves the latch was cleared for subsequent typing.
     const searchArea = kupua.page.locator('[role="search"]');
     await searchArea.click();
-    await kupua.page.waitForTimeout(100);
+    await expect.poll(() => searchArea.evaluate(
+      (element) => element.contains(document.activeElement),
+    )).toBe(true);
     await kupua.page.keyboard.press("Meta+a");
     await kupua.page.keyboard.type("nonFree:true", { delay: 30 });
 

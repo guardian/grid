@@ -294,7 +294,8 @@ test.describe("Drag seek", () => {
     const bottomStore = await kupua.getStoreState();
 
     await kupua.dragScrubberTo(0.05);
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => (await kupua.getStoreState()).bufferOffset)
+      .toBeLessThan(bottomStore.bufferOffset);
 
     const topStore = await kupua.getStoreState();
     expect(topStore.bufferOffset).toBeLessThan(bottomStore.bufferOffset);
@@ -990,19 +991,26 @@ test.describe("Buffer extension", () => {
 
     const store1 = await kupua.getStoreState();
     const endBefore = store1.bufferOffset + store1.resultsLength;
+    const seekGenerationBefore = store1.seekGeneration;
 
     // Scroll down aggressively to trigger extend
     for (let i = 0; i < 10; i++) {
       await kupua.scrollBy(2000);
       await kupua.page.waitForTimeout(200);
     }
-    await kupua.page.waitForTimeout(1500); // Let extend complete
+    await kupua.page.waitForFunction((previousEnd) => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state
+        && !state._extendForwardInFlight
+        && state.bufferOffset + state.results.length > previousEnd;
+    }, endBefore, { timeout: 10_000 });
 
     const store2 = await kupua.getStoreState();
     const endAfter = store2.bufferOffset + store2.resultsLength;
 
     // Buffer should have extended forward — end is further
     expect(endAfter).toBeGreaterThan(endBefore);
+    expect(store2.seekGeneration, "Scrolling should extend the resident buffer, not seek").toBe(seekGenerationBefore);
     expect(store2.error).toBeNull();
     await kupua.assertPositionsConsistent();
   });
@@ -1311,14 +1319,12 @@ test.describe("Sort-around-focus", () => {
     // Change sort to Credit — triggers sort-around-focus
     await kupua.selectSort("Credit");
     await kupua.waitForSortAroundFocus(15_000);
-    // Extra settle for scroll positioning
-    await kupua.page.waitForTimeout(500);
 
     // Same image still focused
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
 
     // Assert: the focused image's DOM element is within the viewport
-    const isVisible = await kupua.page.evaluate((fid) => {
+    await expect.poll(() => kupua.page.evaluate((fid) => {
       // Find the focused row/cell by checking the store for its position,
       // then checking if the virtualised element is in view.
       //
@@ -1358,9 +1364,7 @@ test.describe("Sort-around-focus", () => {
         const rowTop = virtualizerIdx * 32 + 45;
         return rowTop >= viewportTop - 32 && rowTop <= viewportBottom;
       }
-    }, focusedId);
-
-    expect(isVisible).toBe(true);
+    }, focusedId)).toBe(true);
   });
 });
 
@@ -2163,12 +2167,18 @@ test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction"
       if (density === "table") await kupua.switchToTable();
       else await kupua.switchToGrid();
 
+      const beforeFill = await kupua.getStoreState();
       const afterFill = await kupua.scrollToBufferCapacity();
 
       if (afterFill.resultsLength < 800) {
         test.skip();
         return;
       }
+
+      expect(
+        afterFill.forwardEvictGeneration,
+        "capacity preparation should complete a forward eviction before observing runaway drift",
+      ).toBeGreaterThan(beforeFill.forwardEvictGeneration);
 
       const offsetBefore = afterFill.bufferOffset;
 
@@ -2276,7 +2286,12 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Table → grid
     await kupua.switchToGrid();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const gridState = await getViewState(kupua.page);
+      return gridState !== null
+        && gridState.scrollTop > 0
+        && Math.abs(gridState.centreGlobalPos - tableBefore!.centreGlobalPos) < gridState.cols * 2;
+    }, { message: "grid should restore the table viewport anchor" }).toBe(true);
 
     const gridState = await getViewState(kupua.page);
     expect(gridState!.scrollTop).toBeGreaterThan(0);
@@ -2295,7 +2310,12 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Grid → table
     await kupua.switchToTable();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const tableState = await getViewState(kupua.page);
+      return tableState !== null
+        && tableState.scrollTop > 0
+        && Math.abs(tableState.centreGlobalPos - gridAfterPgDown!.centreGlobalPos) < gridAfterPgDown!.cols * 2 + 5;
+    }, { message: "table should restore the grid viewport anchor" }).toBe(true);
 
     const tableAfter = await getViewState(kupua.page);
     expect(tableAfter!.scrollTop).toBeGreaterThan(0);
@@ -2321,7 +2341,10 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Table → grid: should be near bottom
     await kupua.switchToGrid();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const gridState = await getViewState(kupua.page);
+      return gridState !== null && gridState.scrollTop > gridState.maxScroll * 0.5;
+    }, { message: "grid should restore the near-bottom table viewport" }).toBe(true);
 
     const gridState = await getViewState(kupua.page);
     expect(gridState!.scrollTop).toBeGreaterThan(gridState!.maxScroll * 0.5);
@@ -2336,7 +2359,10 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Grid → table: should be AT the bottom (can't scroll further)
     await kupua.switchToTable();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const tableState = await getViewState(kupua.page);
+      return tableState !== null && tableState.scrollTop >= tableState.maxScroll - 1;
+    }, { message: "table should restore the grid viewport at the bottom" }).toBe(true);
 
     const tableAfter = await getViewState(kupua.page);
     expect(tableAfter!.scrollTop).toBeGreaterThanOrEqual(tableAfter!.maxScroll - 1);
@@ -2349,7 +2375,10 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Seek to 50%
     await kupua.seekTo(0.5);
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const tableState = await getViewState(kupua.page);
+      return tableState !== null && tableState.scrollTop > 0;
+    }, { message: "table should render the seeked viewport" }).toBe(true);
 
     const tableBefore = await getViewState(kupua.page);
     expect(tableBefore!.scrollTop).toBeGreaterThan(0);
@@ -2357,7 +2386,12 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Switch to grid
     await kupua.switchToGrid();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const gridState = await getViewState(kupua.page);
+      return gridState !== null
+        && gridState.scrollTop > 0
+        && Math.abs(gridState.centreGlobalPos - refGlobalPos) < gridState.cols * 2;
+    }, { message: "grid should restore the seeked table viewport" }).toBe(true);
 
     const gridState = await getViewState(kupua.page);
     expect(gridState!.scrollTop).toBeGreaterThan(0);
@@ -2367,7 +2401,12 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Switch back to table
     await kupua.switchToTable();
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const tableState = await getViewState(kupua.page);
+      return tableState !== null
+        && tableState.scrollTop > 0
+        && Math.abs(tableState.centreGlobalPos - refGlobalPos) < 10;
+    }, { message: "table should restore the seeked grid viewport" }).toBe(true);
 
     const tableAfter = await getViewState(kupua.page);
     expect(tableAfter!.scrollTop).toBeGreaterThan(0);
@@ -2391,7 +2430,10 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Seek to ~50% in grid
     await kupua.seekTo(0.5);
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const gridState = await getViewState(kupua.page);
+      return gridState !== null && gridState.scrollTop > 0;
+    }, { message: "grid should render the first deep seek" }).toBe(true);
 
     // Click Home logo — stays in grid, goes to top
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
@@ -2404,7 +2446,10 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
     // Now seek to ~50% again
     await kupua.seekTo(0.5);
-    await kupua.page.waitForTimeout(800);
+    await expect.poll(async () => {
+      const gridState = await getViewState(kupua.page);
+      return gridState !== null && gridState.scrollTop > 0;
+    }, { message: "grid should render the second deep seek" }).toBe(true);
 
     const gridBefore = await getViewState(kupua.page);
     expect(gridBefore!.scrollTop).toBeGreaterThan(0);
@@ -2477,8 +2522,14 @@ test.describe("Home button — sort reset", () => {
 
     // Click Home logo
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-    await kupua.page.waitForTimeout(1000);
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy === undefined
+        && state.bufferOffset === 0
+        && state.error === null
+        && state.firstImageId === defaultFirstId
+        && await kupua.getScrubberThumbTop() < 10;
+    }, { message: "Home should restore the default sort at the top of the result set" }).toBe(true);
 
     // orderBy must be reset to undefined (default sort)
     const afterHome = await kupua.getStoreState();
@@ -2504,8 +2555,14 @@ test.describe("Home button — sort reset", () => {
 
     // Click Home
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-    await kupua.page.waitForTimeout(1000);
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return state.orderBy === undefined
+        && state.bufferOffset === 0
+        && state.error === null
+        && state.firstImageId === defaultFirstId
+        && await kupua.getScrubberThumbTop() < 10;
+    }, { message: "Home should restore the default sort at the top of the result set" }).toBe(true);
 
     const afterHome = await kupua.getStoreState();
     expect(afterHome.orderBy).toBeUndefined();
@@ -2528,13 +2585,22 @@ test.describe("Home button — sort reset", () => {
 
     // Click Home (from table — triggers density switch to grid)
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-    await kupua.page.waitForTimeout(1000);
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return await kupua.isGridView()
+        && state.orderBy === undefined
+        && state.bufferOffset === 0
+        && state.error === null
+        && state.firstImageId === defaultFirstId
+        && await kupua.getScrubberThumbTop() < 10;
+    }, { message: "Home should restore grid mode and the default sort at the top of the result set" }).toBe(true);
 
     const afterHome = await kupua.getStoreState();
     expect(afterHome.orderBy).toBeUndefined();
+    expect(afterHome.bufferOffset).toBe(0);
     expect(afterHome.firstImageId).toBe(defaultFirstId);
     expect(afterHome.error).toBeNull();
+    expect(await kupua.isGridView()).toBe(true);
     expect(await kupua.getScrubberThumbTop(), "thumb at top").toBeLessThan(10);
   });
 });
@@ -2557,8 +2623,9 @@ test.describe("Scroll mode — buffer fill", () => {
     await kupua.waitForScrollMode();
 
     // Click scrubber at 50% — should scroll content without a seek
+    const scrollBefore = await kupua.getScrollTop();
     await kupua.clickScrubberAt(0.5);
-    await kupua.page.waitForTimeout(300);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollBefore);
 
     // bufferOffset should still be 0 (no seek happened, just scroll)
     const stateAfter = await kupua.getStoreState();
@@ -2897,9 +2964,11 @@ test.describe("Two-tier virtualisation", () => {
     // of 10k = position ~8000, way outside the buffer
     await kupua.dragScrubberTo(0.8);
 
-    // Give scroll-triggered seek time to fire and complete
-    // (debounce 200ms + seek latency + render)
-    await kupua.page.waitForTimeout(2000);
+    await kupua.waitForResults();
+    await expect.poll(async () => {
+      const state = await kupua.getStoreState();
+      return !state.loading && state.bufferOffset > 1000 && state.resultsLength > 50;
+    }).toBe(true);
 
     // Buffer should have repositioned to cover the viewport area
     const storeAfter = await kupua.getStoreState();
@@ -3007,7 +3076,7 @@ test.describe("Scroll mode — scrubber sync (Bug F regression)", () => {
 
     // Scroll all the way to the bottom via End key
     await kupua.page.keyboard.press("End");
-    await kupua.page.waitForTimeout(500);
+    await expect.poll(() => kupua.getScrollRatio()).toBeGreaterThan(0.95);
 
     const scrollRatio = await kupua.getScrollRatio();
     // Should be at or very near the bottom
@@ -3015,7 +3084,13 @@ test.describe("Scroll mode — scrubber sync (Bug F regression)", () => {
 
     // Now scroll back to top
     await kupua.page.keyboard.press("Home");
-    await kupua.page.waitForTimeout(500);
+    await expect.poll(async () => {
+      const [scrollTop, thumbTop] = await Promise.all([
+        kupua.getScrollTop(),
+        kupua.getScrubberThumbTop(),
+      ]);
+      return scrollTop === 0 && thumbTop < 2;
+    }).toBe(true);
 
     const thumbAtTop = await kupua.getScrubberThumbTop();
     const scrollTopAfterHome = await kupua.getScrollTop();

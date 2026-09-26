@@ -38,6 +38,21 @@ async function spaNavigate(page: import("@playwright/test").Page, path: string) 
   }, path);
 }
 
+async function waitForViewportAnchorWithCredit(page: import("@playwright/test").Page) {
+  const anchorHandle = await page.waitForFunction(() => {
+    const store = (window as any).__kupua_store__;
+    const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+    if (!store || typeof getAnchor !== "function") return false;
+    const state = store.getState();
+    const anchorId = getAnchor();
+    const image = state.results.find((candidate: any) => candidate?.id === anchorId);
+    return anchorId && image?.metadata?.credit
+      ? { id: anchorId, credit: image.metadata.credit }
+      : false;
+  }, { timeout: 10_000 });
+  return await anchorHandle.jsonValue() as { id: string; credit: string };
+}
+
 test.describe("Focus survives search context change", () => {
   test("focus preserved when query changes and image is in new results", async ({
     kupua,
@@ -273,7 +288,7 @@ test.describe("Arrow snap-back after seek", () => {
 
     // Now press ArrowDown again — should move focus normally (no seek)
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(200);
+  await expect.poll(() => kupua.getFocusedImageId()).not.toBe(focusAfterFirst);
 
     const focusAfterSecond = await kupua.getFocusedImageId();
     expect(focusAfterSecond).not.toBeNull();
@@ -344,30 +359,19 @@ test.describe("Phantom focus promotion", () => {
 
     // No click — no explicit focus. Scroll down to build a viewport anchor.
     await kupua.scrollBy(1500);
-    await kupua.page.waitForTimeout(300);
 
     // Confirm no explicit focus yet
     expect(await kupua.getFocusedImageId()).toBeNull();
 
     // Query for the app-elected anchor's own credit so the target is known to
     // survive while still exercising phantom position preservation.
-    const anchor = await kupua.page.evaluate(() => {
-      const store = (window as any).__kupua_store__;
-      const s = store.getState();
-      const getAnchor = (window as any).__kupua_getViewportAnchorId__;
-      const anchorId = typeof getAnchor === "function" ? getAnchor() : null;
-      const image = s.results.find((candidate: any) => candidate?.id === anchorId);
-      return anchorId && image?.metadata?.credit
-        ? { id: anchorId, credit: image.metadata.credit }
-        : null;
-    });
-    expect(anchor).not.toBeNull();
+    const anchor = await waitForViewportAnchorWithCredit(kupua.page);
 
     // Change query — the viewport anchor should be used for position
     // preservation but NOT promoted to explicit focus
     await spaNavigate(
       kupua.page,
-      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${anchor!.credit}"`)}`,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${anchor.credit}"`)}`,
     );
 
     // Wait for search to complete
@@ -402,7 +406,7 @@ test.describe("Phantom focus promotion", () => {
         stable: Math.abs(first.top - second.top) <= 1
           && Math.abs(first.left - second.left) <= 1,
       };
-    }, anchor!.id);
+    }, anchor.id);
     expect(placement).toEqual({ visible: true, stable: true });
   });
 
@@ -413,7 +417,7 @@ test.describe("Phantom focus promotion", () => {
 
     // Scroll down — build a viewport anchor
     await kupua.scrollBy(1500);
-    await kupua.page.waitForTimeout(300);
+  await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(0);
 
     // Confirm no explicit focus
     expect(await kupua.getFocusedImageId()).toBeNull();
@@ -425,24 +429,27 @@ test.describe("Phantom focus promotion", () => {
     // Change only sort order — this should reset to top (relaxation)
     await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=uploadTime`);
 
-    // Wait for search to complete
+    // Wait for this navigation's search to complete at the top.
     await kupua.page.waitForFunction(
       () => {
         const store = (window as any).__kupua_store__;
         if (!store) return false;
         const s = store.getState();
-        return s.sortAroundFocusStatus === null && !s.loading;
+        return new URL(window.location.href).searchParams.get("orderBy") === "uploadTime"
+          && s.params.orderBy === "uploadTime"
+          && s.bufferOffset === 0
+          && s.sortAroundFocusStatus === null
+          && !s.loading;
       },
+      undefined,
       { timeout: 10_000 },
     );
-    await kupua.page.waitForTimeout(200);
 
     // Buffer offset should be 0 (reset to top)
-    const offset = await kupua.page.evaluate(() => {
+    expect(await kupua.page.evaluate(() => {
       const store = (window as any).__kupua_store__;
       return store.getState().bufferOffset;
-    });
-    expect(offset).toBe(0);
+    })).toBe(0);
 
     // Focus should still be null
     expect(await kupua.getFocusedImageId()).toBeNull();

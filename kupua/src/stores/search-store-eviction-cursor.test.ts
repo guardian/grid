@@ -62,6 +62,19 @@ const waitPastSearchCooldown = () => new Promise((r) => setTimeout(r, 2100));
 /** Wait past the 50ms POST_EXTEND_COOLDOWN_MS set by extendBackward(). */
 const waitPastExtendCooldown = () => new Promise((r) => setTimeout(r, 60));
 
+async function withVirtualCooldowns<T>(
+  action: (advance: (milliseconds: number) => void) => Promise<T>,
+): Promise<T> {
+  vi.useFakeTimers();
+  const advance = (milliseconds: number) => vi.setSystemTime(new Date(Date.now() + milliseconds));
+  advance(2100);
+  try {
+    return await action(advance);
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 let mock: MockDataSource;
 
 beforeEach(() => {
@@ -137,16 +150,17 @@ describe("authoritative alias cursors", () => {
       const responseCursors = mockApiAliasPages();
 
       await actions().search();
-      await waitPastSearchCooldown();
-      if (direction === "backward") {
-        await actions().seek(5000);
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
-      for (let page = 0; page < 5; page++) {
-        if (direction === "forward") await actions().extendForward();
-        else await actions().extendBackward();
-        await waitPastExtendCooldown();
-      }
+      await withVirtualCooldowns(async (advance) => {
+        if (direction === "backward") {
+          await actions().seek(5000);
+          advance(200);
+        }
+        for (let page = 0; page < 5; page++) {
+          if (direction === "forward") await actions().extendForward();
+          else await actions().extendBackward();
+          if (direction === "backward") advance(60);
+        }
+      });
 
       expect(state().results).toHaveLength(1000);
       expect(state().bufferOffset).toBeGreaterThan(0);

@@ -476,21 +476,28 @@ test.describe("Extends recover after cooldown", () => {
 
     // Scroll down to trigger extendForward
     for (let i = 0; i < 5; i++) {
-      await kupua.page.evaluate(() => {
+      await kupua.page.evaluate(async (bufferEnd) => {
+        const geometryPath = "/src/lib/scroll-geometry-ref.ts";
+        const { getScrollGeometry } = await import(geometryPath);
+        const { columns, rowHeight } = getScrollGeometry();
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
         const el = grid ?? table;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
+        if (!el) throw new Error("Results viewport is not mounted");
+        el.scrollTop = Math.max(0, Math.ceil(bufferEnd / columns) * rowHeight - el.clientHeight);
+      }, beforeScroll.bufferOffset + beforeScroll.resultsLength);
       await kupua.page.waitForTimeout(500);
     }
 
-    // Wait for extends to complete
-    await kupua.page.waitForTimeout(1000);
+    await kupua.page.waitForFunction((previousLength) => {
+      const state = (window as any).__kupua_store__?.getState();
+      return state && !state._extendForwardInFlight && state.results.length > previousLength;
+    }, beforeScroll.resultsLength, { timeout: 10_000 });
 
     const afterScroll = await kupua.getStoreState();
 
     // If total > 200, the buffer should have grown via extendForward
+    expect(afterScroll.seekGeneration, "Scrolling should extend the resident buffer, not seek").toBe(beforeScroll.seekGeneration);
     if (beforeScroll.total > 200) {
       expect(
         afterScroll.resultsLength,
@@ -576,7 +583,7 @@ test.describe("Logo click resets scroll without prior deep seek", () => {
 
     // Click the Home logo
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.page.waitForTimeout(500);
+  await expect.poll(() => kupua.getScrollTop()).toBeLessThan(50);
 
     // Scroll must be at or very near 0
     const scrollAfter = await kupua.getScrollTop();
@@ -602,7 +609,7 @@ test.describe("Logo click resets scroll without prior deep seek", () => {
 
     // Click the Home logo
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.page.waitForTimeout(500);
+  await expect.poll(() => kupua.getScrollTop()).toBeLessThan(50);
 
     const scrollAfter = await kupua.getScrollTop();
     expect(scrollAfter, "scrollTop after logo click").toBeLessThan(50);

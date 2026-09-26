@@ -73,6 +73,16 @@ interface DensityFocusState {
 }
 
 let _densityFocusSaved: DensityFocusState | null = null;
+let _densityRestoreGeneration = 0;
+
+function markDensityRestoreComplete(): void {
+  if (import.meta.env.DEV) _densityRestoreGeneration += 1;
+}
+
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__kupua_getDensityRestoreGeneration__ =
+    () => _densityRestoreGeneration;
+}
 
 /**
  * When true, the unmount save in effect #10 is suppressed. Set by
@@ -964,6 +974,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
             devLog(`[density-focus RESTORE] extremum snap → 0 (source was at top)`);
             el.scrollTop = 0;
             clearDensityFocusRatio();
+            markDensityRestoreComplete();
             return;
           }
 
@@ -979,6 +990,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
             devLog(`[density-focus RESTORE] extremum snap → maxScroll=${targetMaxScroll} (source was at bottom: scrollTop=${saved.sourceScrollTop} maxScroll=${saved.sourceMaxScroll} gap=${saved.sourceMaxScroll - saved.sourceScrollTop})`);
             virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
             clearDensityFocusRatio();
+            markDensityRestoreComplete();
             return;
           }
 
@@ -1037,6 +1049,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           // syncs via effect #3 (buffer-change re-fire) and the next real user scroll,
           // so this event was always redundant. Removing it eliminates the drift.
           clearDensityFocusRatio();
+          markDensityRestoreComplete();
         });
       });
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); stopWatchingInput(); };
@@ -1076,6 +1089,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
         }
         clearDensityFocusRatio();
+        markDensityRestoreComplete();
       });
     });
     return () => { cancelAnimationFrame(raf1b); cancelAnimationFrame(raf2b); };

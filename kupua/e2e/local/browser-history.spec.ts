@@ -1786,7 +1786,7 @@ test.describe("Reload survival — position restoration on reload", () => {
     for (let i = 0; i < 5; i++) {
       await kupua.scrollBy(2000);
     }
-    await kupua.page.waitForTimeout(500);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollAfterRestore + 3000);
 
     // The scroll position should be well past the restore point.
     const scrollAfterScroll = await kupua.getScrollTop();
@@ -1845,7 +1845,15 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
       await kupua.page.mouse.wheel(0, 400);
       await kupua.page.waitForTimeout(100);
     }
-    await kupua.page.waitForTimeout(500);
+    await kupua.page.waitForFunction((previousAnchor) => {
+      const getAnchor = (window as Window & {
+        __kupua_getViewportAnchorId__?: () => string | null;
+      }).__kupua_getViewportAnchorId__;
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const anchorId = typeof getAnchor === "function" ? getAnchor() : null;
+      if (!previousAnchor || !anchorId || anchorId === previousAnchor || !grid) return false;
+      return grid.scrollTop > 200;
+    }, originalAnchor, { timeout: 10_000 });
     expect(await kupua.getScrollTop()).toBeGreaterThan(200);
 
     // Forward to B — this is the popstate that should update A's
@@ -1919,14 +1927,26 @@ test.describe("Snapshot restore — phantom mode departure update", () => {
       const store = (window as any).__kupua_store__;
       await store.getState().seek(2500, "test-seek");
     });
-    await kupua.page.waitForTimeout(500);
 
     // The buffer should now be centred around offset 2500. Verify a rendered
     // viewport anchor can be elected lazily from the new buffer.
-    const anchorAtSeek = await kupua.page.evaluate(() => {
+    const anchorHandle = await kupua.page.waitForFunction(() => {
+      const store = (window as any).__kupua_store__;
       const getAnchor = (window as any).__kupua_getViewportAnchorId__;
-      return getAnchor ? getAnchor() : null;
-    });
+      if (!store || typeof getAnchor !== "function") return false;
+      const state = store.getState();
+      const anchorId = getAnchor();
+      if (state.loading || !anchorId || !state.imagePositions.has(anchorId)) return false;
+      const container = document.querySelector('[aria-label="Image results grid"]');
+      const cell = container?.querySelector(`[data-image-id="${CSS.escape(anchorId)}"]`);
+      if (!container || !cell) return false;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return cellRect.bottom > containerRect.top && cellRect.top < containerRect.bottom
+        ? anchorId
+        : false;
+    }, { timeout: 10_000 });
+    const anchorAtSeek = await anchorHandle.jsonValue() as string;
     expect(anchorAtSeek).not.toBeNull();
 
     // Back (sorted → initial) — departure should capture the seeked anchor

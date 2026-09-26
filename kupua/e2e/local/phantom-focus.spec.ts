@@ -125,9 +125,10 @@ test.describe("Phantom focus mode — return from detail", () => {
     await kupua.waitForResults();
 
     // Scroll down a bit
+    const scrollBefore = await kupua.getScrollTop();
     await kupua.page.keyboard.press("ArrowDown");
     await kupua.page.keyboard.press("ArrowDown");
-    await kupua.page.waitForTimeout(200);
+    await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(scrollBefore);
 
     // Find a cell that's visible and click it to enter detail
     const cells = kupua.page.locator(
@@ -178,15 +179,16 @@ test.describe("Explicit focus mode (default) — unchanged", () => {
       '[aria-label="Image results grid"] [data-grid-cell]',
     );
     await cells.first().click();
-    await kupua.page.waitForTimeout(200);
+
+    // A focus ring marks the explicit-mode click branch as committed.
+    const rings = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
+    await expect(rings).toHaveCount(1);
 
     // Should NOT navigate to detail
     const url = new URL(await kupua.page.url());
     expect(url.searchParams.has("image")).toBeFalsy();
 
     // Focus ring should appear on exactly one grid cell
-    const rings = kupua.page.locator('[data-grid-cell][class*="ring-2"]');
-    await expect(rings).toHaveCount(1);
 
     // focusedImageId should be set
     const focusedId = await kupua.getFocusedImageId();

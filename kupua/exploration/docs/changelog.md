@@ -17,6 +17,22 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Faster causal test readiness
+
+  Playwright coverage now waits on the behavior each scenario needs instead of broad fixed
+  settling delays: completed seeks and resident-buffer extends, elected and visible phantom
+  anchors, committed density and panel-resize restoration, scroll and scrubber synchronization,
+  focus transitions, selection scrolling and Home reset state. Explicit waits remain where time
+  is itself the contract, including cooldown expiry, delayed regression observation and sampled
+  scroll stability. New assertions distinguish resident extension from an unintended seek and
+  prevent readiness conditions from accepting stale pre-navigation state.
+
+  A development-only density-restore generation gives shared grid/table helpers a precise mount
+  completion signal. Store tests advance cooldown clocks without real multi-second sleeps, prove
+  repeated extends actually run and use a smaller equivalent sparse corpus. The browser suite now
+  uses three workers, parallelizes the independent UI-feature file and resolves the source alias
+  through `import.meta.dirname`; test semantics and production behavior are otherwise unchanged.
+
   ### 26 September 2026 - Incomplete API image pages fail explicitly (KUP-036)
 
   The new media-api search-after and window reads now reject explicit Elasticsearch timeouts

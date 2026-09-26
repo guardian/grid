@@ -58,6 +58,16 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
  */
 const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
 
+async function runAfterCooldown<T>(action: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers();
+  vi.setSystemTime(Date.now() + 2100);
+  try {
+    return await action();
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 /**
  * Wait for a condition to become true, with a timeout.
  * Polls every 10ms. Useful for async operations like sort-around-focus.
@@ -772,11 +782,9 @@ describe("seek", () => {
 describe("extendForward", () => {
   it("appends more images and updates cursors", async () => {
     await actions().search();
-    await waitPastCooldown(); // ensure no cooldown from prior tests
     const lenBefore = state().results.length;
 
-    await actions().extendForward();
-    await flush();
+    await runAfterCooldown(() => actions().extendForward());
 
     expect(state().results.length).toBeGreaterThan(lenBefore);
     assertPositionsConsistent("after extendForward");
@@ -784,11 +792,9 @@ describe("extendForward", () => {
 
   it("updates endCursor", async () => {
     await actions().search();
-    await waitPastCooldown();
     const cursorBefore = state().endCursor;
 
-    await actions().extendForward();
-    await flush();
+    await runAfterCooldown(() => actions().extendForward());
 
     expect(state().endCursor).not.toEqual(cursorBefore);
   });
@@ -813,14 +819,12 @@ describe("extendBackward", () => {
   it("prepends images after seek", async () => {
     await actions().search();
     await actions().seek(5000);
-    await waitPastCooldown(); // seek sets cooldown — wait for it
 
     const offsetBefore = state().bufferOffset;
     expect(offsetBefore).toBeGreaterThan(0);
     const genBefore = state()._prependGeneration;
 
-    await actions().extendBackward();
-    await flush();
+    await runAfterCooldown(() => actions().extendBackward());
 
     expect(state().bufferOffset).toBeLessThan(offsetBefore);
     expect(state()._prependGeneration).toBe(genBefore + 1);
@@ -831,11 +835,9 @@ describe("extendBackward", () => {
   it("bumps prependGeneration for scroll compensation", async () => {
     await actions().search();
     await actions().seek(5000);
-    await waitPastCooldown();
 
     const gen = state()._prependGeneration;
-    await actions().extendBackward();
-    await flush();
+    await runAfterCooldown(() => actions().extendBackward());
 
     expect(state()._prependGeneration).toBe(gen + 1);
     expect(state()._lastPrependCount).toBeGreaterThan(0);
@@ -2472,7 +2474,6 @@ describe("seekToFocused (arrow snap-back)", () => {
 
     // Seek far away — focused image leaves the buffer
     await actions().seek(800);
-    await waitPastCooldown();
     expect(state().imagePositions.has("img-50")).toBe(false);
     // Focus is still set (durable) but image is not in buffer
     expect(state().focusedImageId).toBe("img-50");
@@ -2480,7 +2481,7 @@ describe("seekToFocused (arrow snap-back)", () => {
     const genBefore = state().sortAroundFocusGeneration;
 
     // seekToFocused should bring it back
-    await actions().seekToFocused();
+    await runAfterCooldown(() => actions().seekToFocused());
     await waitFor(
       () => state().sortAroundFocusGeneration > genBefore,
       3000,
@@ -2502,13 +2503,12 @@ describe("seekToFocused (arrow snap-back)", () => {
 
     // Seek away
     await actions().seek(800);
-    await waitPastCooldown();
 
     // Simulate image deletion
     mock.removedIds.add("img-50");
 
     // seekToFocused should detect failure and clear focus
-    await actions().seekToFocused();
+    await runAfterCooldown(() => actions().seekToFocused());
     await waitFor(
       () => state().sortAroundFocusStatus === null,
       3000,
@@ -2566,7 +2566,6 @@ describe("seekToFocused (arrow snap-back)", () => {
     await actions().search();
     // Seek to position 500 so img-500 is in the buffer
     await actions().seek(500);
-    await waitPastCooldown();
     expect(state().imagePositions.has("img-500")).toBe(true);
 
     // Focus the image — should save its known offset
@@ -2576,12 +2575,11 @@ describe("seekToFocused (arrow snap-back)", () => {
 
     // Seek far away
     await actions().seek(100);
-    await waitPastCooldown();
     expect(state().imagePositions.has("img-500")).toBe(false);
     expect(state().focusedImageId).toBe("img-500");
 
     // seekToFocused should use hintOffset=500, not 0
-    await actions().seekToFocused();
+    await runAfterCooldown(() => actions().seekToFocused());
     await waitFor(
       () => state().imagePositions.has("img-500"),
       3000,
@@ -2604,10 +2602,9 @@ describe("seekToFocused (arrow snap-back)", () => {
 
     // Seek away and delete the image
     await actions().seek(800);
-    await waitPastCooldown();
     mock.removedIds.add("img-50");
 
-    await actions().seekToFocused();
+    await runAfterCooldown(() => actions().seekToFocused());
     await waitFor(
       () => state().sortAroundFocusStatus === null,
       3000,
@@ -2771,7 +2768,6 @@ describe("restoreAroundCursor", () => {
     const targetId = "img-500";
     // Seek to 500 so we can read img-500's sort values from the buffer
     await actions().seek(500);
-    await waitPastCooldown();
 
     const targetIdx = state().results.findIndex((img) => img?.id === targetId);
     expect(targetIdx).toBeGreaterThanOrEqual(0);
@@ -2828,7 +2824,6 @@ describe("restoreAroundCursor", () => {
 
     const seekGenBefore = state()._seekGeneration;
     await actions().restoreAroundCursor("img-500", null, 500);
-    await waitPastCooldown();
 
     // Should have used seek() fallback — seekGeneration bumped
     expect(state()._seekGeneration).toBeGreaterThan(seekGenBefore);
@@ -2846,7 +2841,6 @@ describe("restoreAroundCursor", () => {
 
     const targetId = "img-500";
     await actions().seek(500);
-    await waitPastCooldown();
 
     const targetIdx = state().results.findIndex((img) => img?.id === targetId);
     const targetImg = state().results[targetIdx]!;
@@ -2868,7 +2862,6 @@ describe("restoreAroundCursor", () => {
 
     const targetId = "img-500";
     await actions().seek(500);
-    await waitPastCooldown();
 
     const targetIdx = state().results.findIndex((img) => img?.id === targetId);
     const targetImg = state().results[targetIdx]!;

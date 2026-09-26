@@ -10,7 +10,7 @@
  * - Search → seek → extend → seek chains
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { GRID_ROW_HEIGHT, TABLE_ROW_HEIGHT } from "@/constants/layout";
@@ -26,7 +26,10 @@ import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 const state = () => useSearchStore.getState();
 const actions = () => useSearchStore.getState();
 const flush = () => new Promise((r) => setTimeout(r, 0));
-const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
+const waitPastCooldown = async () => {
+  vi.setSystemTime(Date.now() + 2100);
+  await flush();
+};
 
 async function waitFor(
   predicate: () => boolean,
@@ -101,6 +104,10 @@ beforeEach(() => {
       nonFree: "true",
     },
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -752,13 +759,18 @@ describe("large-scale consistency", () => {
     await waitPastCooldown();
 
     for (let i = 0; i < 5; i++) {
+      const endBefore = state().bufferOffset + state().results.length;
       await actions().extendForward();
       await flush();
+      expect(state().bufferOffset + state().results.length).toBeGreaterThan(endBefore);
       assertPositionsConsistent(`extend forward ${i}`);
 
+      const offsetBefore = state().bufferOffset;
       await actions().extendBackward();
       await flush();
+      expect(state().bufferOffset).toBeLessThan(offsetBefore);
       assertPositionsConsistent(`extend backward ${i}`);
+      await waitPastCooldown();
     }
   });
 });
@@ -921,9 +933,12 @@ describe("null-zone seek (sparse lastModified)", () => {
 
     // Extend backward 2 times
     for (let i = 0; i < 2; i++) {
+      const offsetBefore = state().bufferOffset;
       await actions().extendBackward();
       await flush();
       expect(state().error).toBeNull();
+      expect(state().bufferOffset).toBeLessThan(offsetBefore);
+      await waitPastCooldown();
     }
     assertPositionsConsistent("after 2x extendBackward in null zone");
   });

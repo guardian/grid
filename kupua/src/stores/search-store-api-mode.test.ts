@@ -28,7 +28,10 @@ type Route = (body: Body) => Promise<unknown> | unknown;
 const state = () => useSearchStore.getState();
 const flush = () => new Promise((r) => setTimeout(r, 0));
 // Extends are suppressed for up to 2s after a search or seek.
-const waitPastCooldown = () => new Promise((r) => setTimeout(r, 2100));
+const waitPastCooldown = async () => {
+  vi.setSystemTime(Date.now() + 2100);
+  await flush();
+};
 
 async function waitFor(predicate: () => boolean, label: string, timeoutMs = 10_000) {
   const start = Date.now();
@@ -319,6 +322,8 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-034 %s centred prefix", 
 
 describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary", (mode) => {
   const originalGeometry = getScrollGeometry();
+  const totalImages = 30_000;
+  const defaultBoundary = totalImages * 0.2;
 
   afterEach(() => {
     state().abortExtends();
@@ -328,12 +333,12 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
 
   async function setup(orderBy: string, offset: number, ratio = 0.2, length = 200, columns = 1) {
     vi.stubGlobal("scheduler", { yield: async () => {} });
-    useApiMode(120_000, { orderBy, sparse: true });
-    if (ratio !== 0.2) corpus = new MockDataSource(120_000, [{ field: "lastModified", ratio }]);
+    useApiMode(totalImages, { orderBy, sparse: true });
+    if (ratio !== 0.2) corpus = new MockDataSource(totalImages, [{ field: "lastModified", ratio }]);
     if (ratio === 0) delete (await corpus.getByIds(["img-0"]))[0].lastModified;
     registerScrollGeometry({ rowHeight: 100, columns });
     useEnrichmentStore.getState().setEnrichment(new Map());
-    const boundary = 120_000 * ratio;
+    const boundary = totalImages * ratio;
     const params = state().params;
     if (ratio > 0 && ratio < 1) {
       const tied = await corpus.searchAfter({ ...params, length: 3 }, null);
@@ -368,7 +373,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
     }));
     useSearchStore.setState({
       dataSource: mode === "direct-ES" ? new ElasticsearchDataSource() : state().dataSource,
-      results: initial.hits, bufferOffset: offset, total: 120_000,
+      results: initial.hits, bufferOffset: offset, total: totalImages,
       startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)!,
       imagePositions: new Map(initial.hits.map((image, index) => [image.id, offset + index])),
       focusedImageId: initial.hits[50].id,
@@ -397,7 +402,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
 
   it.each(["lastModified", "-lastModified"].flatMap((orderBy) => [0, 40, 200, 400].map((distance) => ({ orderBy, distance }))))(
     "preserves exact order and tied tuples at null distance $distance under $orderBy", async ({ orderBy, distance }) => {
-    const offset = 24_000 + distance;
+    const offset = defaultBoundary + distance;
     const { initial, firstPage, valuedPage, requests, remaining, params } = await setup(orderBy, offset);
     expect(firstPage.hits).toHaveLength(Math.min(200, distance));
     expect(firstPage.sortValues.every((tuple) => tuple[0] === null)).toBe(true);
@@ -448,9 +453,9 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
   });
 
   it("keeps full-buffer eviction, column alignment and focus coherent across the boundary", async () => {
-    const { initial } = await setup("-lastModified", 24_040, 0.2, 1000, 3);
+    const { initial } = await setup("-lastModified", defaultBoundary + 40, 0.2, 1000, 3);
     await state().extendBackward();
-    const expected = await expectBuffer(23_841, 1000);
+    const expected = await expectBuffer(defaultBoundary - 159, 1000);
     expect(state().focusedImageId).toBe(initial.hits[50].id);
     expect(state()._lastPrependCount).toBe(199);
     for (const image of initial.hits.slice(-199)) expect(state().imagePositions.has(image.id)).toBe(false);
@@ -458,7 +463,7 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
   });
 
   it.each(["lastModified", "-lastModified"])("keeps forward valued-to-null crossing under %s to one read", async (orderBy) => {
-    const { initial, params } = await setup(orderBy, 23_800);
+    const { initial, params } = await setup(orderBy, defaultBoundary - 200);
     const nextPage = await corpus.searchAfter({ ...params, length: 200 }, initial.sortValues.at(-1)!, null, undefined, false);
     expect(initial.sortValues.at(-1)![0]).not.toBeNull();
     expect(nextPage.sortValues.every((tuple) => tuple[0] === null)).toBe(true);
@@ -477,20 +482,20 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
 
     await state().extendForward();
 
-    await expectBuffer(23_800, 400);
+    await expectBuffer(defaultBoundary - 200, 400);
     expect(state().focusedImageId).toBe(initial.hits[50].id);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a mixed corpus's valued-zone reverse page to one read", async () => {
-    const { requests } = await setup("-lastModified", 23_500);
+    const { requests } = await setup("-lastModified", defaultBoundary - 500);
     await state().extendBackward();
-    await expectBuffer(23_300, 400);
+    await expectBuffer(defaultBoundary - 700, 400);
     expect(requests).toHaveLength(1);
   });
 
   it.each([1, 2])("cancels request %s without publishing either part of the prepend", async (requestNumber) => {
-    const { initial, transport, requests } = await setup("-lastModified", 24_040);
+    const { initial, transport, requests } = await setup("-lastModified", defaultBoundary + 40);
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let entered!: () => void;
@@ -510,19 +515,19 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-033 %s backward boundary
     expect(capturedSignal?.aborted).toBe(true);
     expect(requests).toHaveLength(requestNumber);
     expect(state().results).toBe(initial.hits);
-    expect(state().bufferOffset).toBe(24_040);
+    expect(state().bufferOffset).toBe(defaultBoundary + 40);
     expect(state()._prependGeneration).toBe(0);
     expect(state()._extendBackwardInFlight).toBe(false);
     expect(useEnrichmentStore.getState().data.size).toBe(0);
   });
 
   it("keeps the original buffer when the boundary read fails", async () => {
-    const { initial, transport, requests } = await setup("-lastModified", 24_040);
+    const { initial, transport, requests } = await setup("-lastModified", defaultBoundary + 40);
     transport.failBoundary = true;
     await state().extendBackward();
     expect(requests).toHaveLength(2);
     expect(state().results).toBe(initial.hits);
-    expect(state().bufferOffset).toBe(24_040);
+    expect(state().bufferOffset).toBe(defaultBoundary + 40);
     expect(state().error).not.toBeNull();
     expect(state()._prependGeneration).toBe(0);
     expect(state()._extendBackwardInFlight).toBe(false);
@@ -536,6 +541,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   expect(rescues).toEqual([]);

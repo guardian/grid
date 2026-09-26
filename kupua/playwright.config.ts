@@ -38,9 +38,9 @@ export default defineConfig({
   /* Retry flaky tests once */
   retries: 1,
 
-  /* Two workers cut local feedback time without overloading the shared ES.
+  /* Three workers balance local throughput and shared browser/ES contention.
    * Higher counts remain an explicit measurement exercise. */
-  workers: 2,
+  workers: 3,
 
   /* Reporter */
   reporter: [["html", { open: "never" }], ["list"]],

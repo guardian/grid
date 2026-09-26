@@ -777,13 +777,12 @@ export class KupuaHelpers {
     const trackBox = await this.scrubber.boundingBox();
     if (!trackBox) throw new Error("Scrubber track not visible");
 
+    const before = await this.snapshotScrubberState();
     const x = trackBox.x + trackBox.width / 2;
     const y = trackBox.y + ratio * trackBox.height;
     await this.page.mouse.click(x, y);
 
-    // Wait for seek
-    await this.page.waitForTimeout(800);
-    await this.waitForResults();
+    await this.waitForScrubberSeekSettle(before);
   }
 
   // -------------------------------------------------------------------------
@@ -853,12 +852,32 @@ export class KupuaHelpers {
   // Density switch
   // -------------------------------------------------------------------------
 
+  private async getDensityRestoreGeneration(): Promise<number | null> {
+    return this.page.evaluate(() => {
+      const getGeneration = (window as any).__kupua_getDensityRestoreGeneration__ as (() => number) | undefined;
+      return getGeneration?.() ?? null;
+    });
+  }
+
+  private async waitForDensityRestore(previousGeneration: number | null) {
+    if (previousGeneration === null) return;
+    await this.page.waitForFunction(
+      (previous) => {
+        const getGeneration = (window as any).__kupua_getDensityRestoreGeneration__ as (() => number) | undefined;
+        return getGeneration !== undefined && getGeneration() > previous;
+      },
+      previousGeneration,
+      { timeout: 5_000 },
+    );
+  }
+
   /** Switch to grid view. */
   async switchToGrid() {
     const btn = this.page.locator('button[aria-label="Switch to grid view"]');
     if (await btn.count() > 0) {
+      const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
-      await this.page.waitForTimeout(300);
+      await this.waitForDensityRestore(previousGeneration);
       await this.waitForResults();
       await this.waitForExtendReady();
     }
@@ -868,8 +887,9 @@ export class KupuaHelpers {
   async switchToTable() {
     const btn = this.page.locator('button[aria-label="Switch to table view"]');
     if (await btn.count() > 0) {
+      const previousGeneration = await this.getDensityRestoreGeneration();
       await btn.click();
-      await this.page.waitForTimeout(300);
+      await this.waitForDensityRestore(previousGeneration);
       await this.waitForResults();
       await this.waitForExtendReady();
     }
