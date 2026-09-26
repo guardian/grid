@@ -11,6 +11,11 @@ then against the same media-api deployed to TEST. We measure and iterate on the 
 freely. Only once it works do we split the media-api code into small human-reviewable PRs.
 Hosting Kupua for other users is a later, separate decision.
 
+**Current milestone (operator, 26 September):** U6z verifies zero browser Elasticsearch traffic
+for non-AI operations, including recovery. Existing AI search remains unchanged as the sole
+explicit ES exception pending team agreement on its migration. The absolute zero-ES goal above
+is later, not a reason to disable AI. U7's media-delivery changes remain separate.
+
 ## 1. Decisions (operator, 23 September 2026)
 
 1. **Build locally first; split late.** No endpoint PR is opened while shapes are still changing.
@@ -96,9 +101,13 @@ long as existing handlers keep their behavior. Routes go before `GET /images/:id
 **Kupua datasource.** A new `ApiDataSource` implementing `ImageDataSource`, selected by a mode
 flag. Existing direct-ES and current hybrid (`VITE_USE_MEDIA_API=true`) modes must keep working.
 - **During the build:** API mode may use a *development fallback* ES datasource for methods not
-  yet migrated. A test lists exactly which methods still fall back; that list shrinks to empty by U6.
-- **At completion:** API mode constructs no `ElasticsearchDataSource` anywhere — factory,
-  selection, collections, or the CQL first-registered resolver — and never falls back (KUP-010).
+  yet migrated. After U6d the tested list is exactly `searchByAi`; retain that sole exception
+  through U6z. No non-AI operation may use ES, including after refusal or recovery (KUP-010).
+- **At U6z:** verify actual startup, selection/collection ownership and CQL first registration,
+  not only adapters injected into an already-imported store. ES construction needed by existing
+  AI is allowed; do not refactor or disable AI merely to remove that construction.
+- **At eventual full API-only completion:** remove the final AI ES dependency and prove no ES
+  construction or traffic across all owners. This is not U6z's present acceptance criterion.
 - **Store:** the store is not rewritten; method signatures stay.
 
 **Composed tests.** Capture real Kupua mapper request bodies (golden JSON) in Kupua unit tests
@@ -118,17 +127,17 @@ maintained here by the executing agent at completion (section 8).
 | U3b | sort-profile: keyword-page | Scala | U3a | done |
 | U4 | `POST /images/keys` (source-free, for maps and ranges) | Scala | U1 | done |
 | U5 | `ApiDataSource` for all ordered reads; PIT-less; mode flag | Kupua | U1-U4 | done |
-| M1 | Laptop measurement and iteration gate | Both | U5 | measured; operator decision pending |
+| M1 | Laptop measurement and iteration gate | Both | U5 | accepted by operator (confirmed 26 September) |
 | U6a | Standalone detail via existing `GET /images/:id` | Kupua | U5 | done |
 | U6b | `POST /images/count` (count + tickers) | Scala + Kupua | U1 | done |
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | done |
-| U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | not started |
-| U6z | Zero-ES verification: fallback list empty, no ES construction | Kupua | U6a-d | not started |
+| U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | done |
+| U6z | Non-AI media-api coverage and recovery verification; existing AI retained | Kupua | U6a-d | not started |
 | U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U6z | not started |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
-| U9 | AI compatibility endpoint + capability gate | Scala + Kupua | U6c | not started |
+| U9 | AI migration and capability contract, subject to team agreement | Scala + Kupua | U6c, team agreement | deferred; existing AI unchanged |
 | P1 | Import #4957 when merged; mapper default cleanup (KUP-011) | Both | merge | parallel |
 | L1 | PIT open/close (only if M1/M2a/M2b justify) | Both | M1 | deferred |
 | S | Split into reviewable PRs (section 7) | Both | M2b | later |
@@ -138,8 +147,18 @@ U7 -> M2b. Measure the deployed API before changing image delivery, so those eff
 assessed separately. M1 uses the modified branch's media-api on the laptop against TEST ES
 through the tunnel; U8/M2a use that branch deployed to TEST. Neither requires merging to main.
 U7 follows M2a by choice, not because deploying the API technically requires canonical media
-delivery. U9 can remain late while AI is reconsidered; at U6z, unfinished AI must stay absent
-in API mode rather than reintroduce an ES fallback.
+delivery. **Amended 26 September:** U9 remains deferred while AI is discussed with the team;
+U6z preserves today's working AI, including its ES path. Do not fold filter text into AI ranking,
+change result/count semantics, hide the controls or remove saved-URL support to satisfy a gate.
+[AI workplan](../../ai-search-catching-up-workplan.md) explains the compatibility gap; its older
+proposed compromises are not approval to change current AI behavior.
+
+**Pitstop order (operator, 26 September):** amend this plan, then investigate/fix
+[KUP-033](../../bug-backlog.md#kup-033) (backward null-zone crossing), separately
+[KUP-034](../../bug-backlog.md#kup-034) if confirmed (near-top backward-page sizing), then
+[KUP-036](../../bug-backlog.md#kup-036) (incomplete D3/window execution), before U6z's final
+verification. These are separate fixes, not permission to sweep section 11. Each session
+confirms its implementation scope and any required Scala write permission before editing.
 
 ### Unit notes (what "done" means)
 
@@ -473,8 +492,14 @@ suite in API mode.
   direct 285,238), confirming P23/P28's known Grid/Kupua free-text-policy difference and making
   PP8 a policy-plus-performance comparison rather than equal workload. P13c still used the direct
   ES singleton fallback in both modes, as expected before U6a. Carry the local latency delta and
-  query-policy decision explicitly to M2a/operator acceptance; no endpoint redesign is selected
-  by M1 alone.
+  query-policy context explicitly to M2a; no endpoint redesign is selected by M1 alone.
+- **Operator acceptance confirmed 26 September:** M1 was satisfactory and is complete. The
+  operator has also run and committed newer baselines in both modes; use the current
+  [jank history](../../../../e2e-perf/results/audit-log.md) and
+  [perceived history](../../../../e2e-perf/results/perceived-log.md), with their revisions and
+  topology qualifications, rather than treating the 25 September summary as the latest evidence.
+  No repeat baseline is required to reopen this accepted gate. This does not claim query-policy
+  equivalence or deployed-TEST measurement; M2a remains separate.
 
 **U6a-U6d.**
 - Detail reuses `GET /images/:id` through the S1 normalizer, bound to the requested ID
@@ -618,15 +643,109 @@ suite in API mode.
   Inject the datasource into selection and collections (today they construct ES directly:
   [selection-store.ts:358](../../../../src/stores/selection-store.ts#L358),
   [collection-store.ts:116](../../../../src/stores/collection-store.ts#L116)).
+- **U6d decisions (operator, 26 September 2026):**
+  - **Scope:** collections were already injected in U6c; U6d injects the app's data source into the
+    selection store, which moves both detail hydration (`getByIds`) and shift-click range walks
+    (`getIdRange`) onto media-api in API mode.
+  - **No server enrichment for selection (Q1):** `getByIds` keeps returning `Image[]`; selection's
+    Cost Summary keeps deriving off-screen images as in direct mode (KUP-029/030 stay deferred).
+  - **Unreadable image = not found (Q2),** as Grid's `GET /images/:id` does; the server logs it. A
+    restored selection then drops it with the existing "no longer available" toast.
+  - **Visibility (Q3):** the singleton rule (`isVisibleToAccessor`, as `GET /images/:id` and U6a
+    detail), not the search tier filter; hidden and missing IDs indistinguishable.
+  - **Batching (Q4):** 200 IDs per request, two in flight, as tunable constants; measure 1,000 and
+    5,000 selections in API mode in the browser before deciding any change.
+  - **Contract (agreed at intake):** body `{ids: [string]}`, 1-200 IDs (422 outside, 400 malformed);
+    duplicates allowed, each image once, request order; ID-only (no query scope, no `pitId`); one
+    `_search` through the shared target choice with the lean projection; 503 on timeout or failed
+    shard, never a partial list. Any failed chunk fails the whole `getByIds`; abort rejects.
+- **U6d as built:** `POST /images/mget` in `ImageQueryController` (no `admitSearchParams`: ID-only).
+  One `_search` of `ids` through `readTarget` (the helper's target choice, extracted from
+  `admittedSearch` in its own behaviour-preserving commit: live migration-aware `prepareSearch` with
+  the query timeout), `size` = distinct ID count, `track_total_hits: false`, lean projection and
+  `resolveLeanHit`.
+  - **Body/response:** `{ids: [string]}` → `{data: [entity]}`, each entity built by the controller's
+    `hitToImageEntity`, in request order, each found image once; `?include=` honoured as elsewhere.
+  - **Visibility:** applied in the ES layer from `ImageMgetParams.tier` with `MediaApi.isVisibleToAccessor`'s
+    rule. Note: `ApiAccessor.hasAccess` already refuses every POST from syndication and read-only
+    machine keys (403), so for mget, as for every other POST route, only internal callers arrive;
+    the rule is defence in depth, tested at the ES layer.
+  - **Refusals:** 400 `ids` absent or not an array of strings; 422 no IDs or more than 200 distinct
+    IDs; 503 `mget-incomplete` on timeout or failed shard. Search fields in the body are ignored.
+  - **Tests:** found images once in request order with missing omitted; membership equals
+    `GET /images/:id`'s for every requested ID, including deleted and replaced images a default search
+    hides (D3 control); syndication tier sees exactly the images available for syndication; alias
+    leaves survive the projection; every usage and collection date survives; request shape; refusals;
+    completeness; recorded body `mget-selection` replayed, and relationally (request order, no scope).
+  - **Kupua:** `ApiDataSource.getByIds` → `apiGetByIds` (`grid-api-search-adapter.ts`): chunks of
+    `MGET_CHUNK_SIZE` (200), at most `MGET_CONCURRENCY` (4, raised from 2 after the browser check) in flight, images normalized through S1,
+    no enrichment; any failed chunk aborts the rest and rejects; an aborted call rejects. The selection
+    store's default `dataSource` is the search store's, so hydration, `ensureMetadata` and range walks
+    use the app's data source (media-api in API mode) and it constructs no ES data source. The Vite
+    guard admits the path. Fallback list: `searchByAi`. Composed tests: hydration through the real
+    `ApiDataSource` drops only IDs a complete lookup omitted and keeps membership on 503.
+  - **Alias cursors (cold review S1, fixed):** media-api images carry configured fileMetadata values
+    only under `aliases`, so an mget-hydrated anchor with no retained tuple extracted a null primary
+    under an alias sort (such as Edit Status), and a range walk from it would have selected the wrong
+    images. `extractSortValues` now falls back to the configured alias value when the raw path is
+    absent (string or number only, as for raw paths). Tests: API hydration, then an off-buffer walk
+    with a populated alias and a genuinely missing one; alias fallback and tuple-preference unit
+    cases.
+  - **Perf harness:** P18's route attribution now also owns `/api/images/mget`, and its route
+    expectation follows the app mode. Before, it was hard-coded to `direct-es`, so it would have
+    failed in API mode. New P19 is a 1,000-item out-of-buffer range with Details open, which covers
+    the range walk and chunked hydration.
+  - **Browser check (TEST via local media-api, 26 September 2026, dev build, warm tab):** reload
+    hydration, range walks and the removal toast use only `/api/images/mget` and `/api/images/keys`,
+    with no ES `_mget`. A planted non-existent ID gives exactly one "1 item … no longer available"
+    message. Fetches happen whether or not Details is open, as before U6d. Dev StrictMode runs the
+    mount hydration twice, which does not happen in production. Timings for one `hydrate()` call:
+    1,003 IDs about 2.0 s; 4,953 IDs about 7.7-8.1 s (25 chunks, median about 560 ms per chunk);
+    direct-ES `getByIds` of the same 4,953 about 2.5 s. For 4,953 IDs at 200 per chunk, two in flight
+    took 7.2 s, four took 3.8 s and six took 3.3 s. A 1,003-image shift-click range settled in about
+    3.6 s (keys 1.2 s); a 4,953-image range settled in about 8.7 s (keys 1.7 s). Operator chose four
+    in flight (26 September 2026).
 
-**U6z.**
-- Spies prove zero `ElasticsearchDataSource` construction and zero fallback in API mode,
-  including refusal and restore recovery (KUP-010).
-- Core-read failures show the existing error state, never an empty result. Optional data
-  (collections tree, AI, leases) stays quietly absent.
-- Recheck [KUP-030](../../bug-backlog.md#kup-030) (stale same-ID enrichment from overlay-less
-  ES results): U5 removed its original page-fallback trigger; once the fallback list is empty,
-  confirm no remaining image-returning path lacks enrichment, then offer the operator closure.
+**U6z: non-AI media-api coverage and recovery verification.**
+- **Promise:** in media-api mode, every non-AI image-data operation uses media-api, including
+  recovery after failure. Existing `searchByAi` is the sole deliberate direct-ES exception.
+  Preserve its implementation, UI, availability checks, ranking/filter semantics and saved URLs.
+  Keep direct/local modes working; do not require zero ES construction while AI depends on it.
+- **Startup and ownership:** set API mode before importing/initializing the app in tests. Check
+  the real factory, search store, default selection owner, collection loading and CQL's first
+  registered resolver. Exercise cold suggestions (including aliases/dotted fields) and Home/Clear
+  remounts. Injecting an adapter after store import is not sufficient proof; no runtime hot-swap
+  framework is required. Resolve the API-initialization part of KUP-026 on that evidence.
+- **Recovery:** use the real store, adapter and mapper over controlled transport responses;
+  exercise ordinary search, seek, restore rank/target/neighbour failures and their follow-up reads.
+  Assert zero non-AI ES calls on refusal, unavailability and incomplete-read failure, plus the
+  resulting UI/store state. Test cancellation and stale completion where the touched paths need
+  it. Legitimate recovery through another admitted API read stays allowed. Scope KUP-010 closure
+  to this demonstrated boundary; do not claim absolute API-only completion or wider private triage.
+- **Failure is not empty success:** preserve existing caller-specific outcomes. Failed core reads
+  use their existing error/recovery path; failed hydration retains selection membership; failed
+  ranges publish no partial selection; maps/profiles may be absent; polling keeps previous values;
+  a collection tree may remain without counts. Preserve quiet optional satellite absence, not a
+  new global error policy. Keep successful empty results distinct from request failure.
+- **AI exception:** the fallback list remains exactly `searchByAi`. Test that existing AI still
+  dispatches there and that switching between AI and ordinary searches does not leak ES into
+  non-AI operations. Counts, facets, detail and selection still use their migrated methods even
+  when their scope originates in an AI result set. No AI migration or capability redesign here.
+- **Enrichment:** reassess KUP-030's original stale same-ID fallback trigger and relevant
+  AI/ordinary transitions, then offer only evidence-supported closure. U5 removed ordinary page
+  fallback, but retained AI still returns baseline images. U6d deliberately keeps `getByIds`
+  without enrichment: do not require every image read to carry an overlay, add selection
+  enrichment, or silently clear selected overlays. KUP-029 remains deferred; any newly confirmed
+  display repair needs a separate operator decision, not an automatic U6z blocker.
+- **Verification:** extend existing test homes; retain section 5's unit/build/direct-ES E2E gates
+  and operator API preflights. Include startup-to-completion request attribution for the selected
+  non-AI browser workflows; the perf report's scenario-scoped ES counters alone are not proof.
+  Preserve P13/P14 singleton/traversal and P19 selection coverage. A new general API-mode E2E
+  configuration remains separately deferred, not a gate added by this amendment.
+- **Separate fixes before final verification:** KUP-033, confirmed KUP-034 and KUP-036 follow
+  the pitstop order above. KUP-036 targets 503 on explicit timeout/failed shards only, not
+  rejection of individual undecodable images. No changes to AI, U7, PIT policy, accepted
+  approximations, useful limits or unrelated section-11 observations follow from U6z.
 
 **U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
 `/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
@@ -711,18 +830,18 @@ tests. Kupua client commits stay on the prototype branch.
 it, and the effect on existing callers (Kahuna, `GET /images`, other services), even when that
 effect is "none". Before opening any PR, rerun `git diff main -- media-api` and reconcile it with
 this table; a difference not listed here is a finding to resolve first. Executors update the
-table whenever a unit touches an existing file. State after U6c (26 September 2026):
+table whenever a unit touches an existing file. State after U6d (26 September 2026):
 
 | Existing file | Change | Effect on existing callers | Needed by | PR |
 |---|---|---|---|---|
 | `MediaApiComponents.scala` | Constructs `ImageQueryController` and adds it to the router list. | None: a new controller only. | Every Kupua endpoint | 1 |
-| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, `/count`, `/aggregations`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys, count, aggregations | 1, 2, 3, 4, 5, 6, 7 |
-| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results), keys (`ImageKeys*`, `ImageKey`), count (`ImageCount*`, importing common-lib's `ExtraCount`) and aggregations (`FieldAggregation`, `ImageAggregations*`, reusing the existing `BucketResult` unchanged). | None: new types only. | Their endpoint | 1-7 |
+| `conf/routes` | `POST /images/search-after`, `/window`, `/rank`, `/sort-profile`, `/keys`, `/count`, `/aggregations`, `/mget`, placed before `GET /images/:id`. | New paths only; the existing `POST /images/:id/...` route has more segments, so nothing is shadowed. | D3, window, rank, profiles, keys, count, aggregations, mget | 1, 2, 3, 4, 5, 6, 7, 8 |
+| `ElasticSearchModel.scala`: new types | Params, results, body parsers and errors for D3, window, rank, sort profiles (`SortProfile*`, `DateStats`/`DateBuckets`/`ScalarAnchor`/`KeywordPage` and their results), keys (`ImageKeys*`, `ImageKey`), count (`ImageCount*`, importing common-lib's `ExtraCount`), aggregations (`FieldAggregation`, `ImageAggregations*`, reusing the existing `BucketResult` unchanged) and mget (`ImageMget*`). | None: new types only. | Their endpoint | 1-8 |
 | `ElasticSearchModel.scala`: `SearchParams` | New field `hasRightsAcquired: Option[Boolean] = None`. `SearchParams.apply(request)` passes `None`, so `GET /images` never sets it. | None at runtime. Code that constructs `SearchParams` positionally must add the argument (compile-time only). | Kupua's rights filter, read from request bodies | 1 |
 | `QueryBuilder.buildFilterOpt` | Adds a `syndicationRights.rights.acquired` filter when `hasRightsAcquired` is set. | None for `GET /images` (the field is always `None` there). Applies to any caller that sets it; today only Kupua's reads. Kahuna's own ignored parameter is [GRID-014](../../bug-backlog.md#grid-014), deliberately not fixed here. | Kupua | 1 |
 | `sorts.scala` | Adds `jsonToSort` (client sort clause to elastic4s, refusing malformed shapes with 422) and `reverseSorts`. `createSort` and the collection-sort definitions are unchanged. | None. | D3, window, rank, profiles and keys sort admission | 1 |
-| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. U6c's aggregations import common-lib's `ElasticSearchError` (to classify an unaggregatable field) and `IsField`/`IsValue`, and call the existing `queryBuilder.makeQuery` with one `is:` condition. | None. | Every Kupua endpoint | 1 onward |
-| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration; U6c adds the aggregation recordings. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
+| `ElasticSearch.scala` | Import changes (`duration._` replaces `FiniteDuration`; aggregation imports, including composite aggregation for U3b, and U3b's read-only use of common-lib `Mappings.imageMapping` to find nested paths); new private methods appended after the existing ones. Existing methods are unchanged; the new code calls `prepareSearch`, `withSearchQueryTimeout`, `executeAndLog` and `queryBuilder` as they are. U3a generalized branch-only rank helpers (`admitNullsLastSortClause`, `requireCompleteExecution`) with identical rank messages. U4 moved D3's branch-only null-zone cursor handling into `cursorRead`, shared by D3 and keys, with D3's behavior and tests unchanged, and tightened the branch-only shared sort admission (`id` suffix, mapped nested path, special-date `mode: max`) for every ordered read. U6b's count calls the existing private ticker helpers `extraCountAggregations`/`extraCountsFrom` without changing them. U6c's aggregations import common-lib's `ElasticSearchError` (to classify an unaggregatable field) and `IsField`/`IsValue`, and call the existing `queryBuilder.makeQuery` with one `is:` condition. U6d extracted the branch-only target choice of `admittedSearch` into `readTarget` (behaviour unchanged) and adds mget, importing common-lib's `Syndication`/`Tier` for its visibility rule (a copy of `MediaApi`'s private `isVisibleToAccessor`, which is unchanged). | None. | Every Kupua endpoint | 1 onward |
+| Test support: `MediaApiTest.scala`, `SortsTest.scala`, `ElasticSearchTest.scala`, `ImageQueryControllerTest.scala` | Controller test helpers and new tests only. U5 adds a replay of recorded client request bodies (new `test/resources/ordered-read-bodies/`) through `ImageQueryController` against the Elasticsearch fixture; U6b adds the count recordings and a ticker-enabled test configuration; U6c adds the aggregation recordings; U6d adds the mget tests and recording. `ElasticSearchTestBase.scala` and all existing assertions are identical to `main`. | None. | Their endpoint's PR (the recorded bodies split by endpoint) | per PR |
 
 **Removed from the branch on 24 September** (U2 session, operator decision, `8a60f495d`): abandoned PR #4849's
 amendments to Kahuna's `GET /images` path. These were the `dateAddedToCollection` ascending sort,
@@ -780,7 +899,8 @@ superseded, not as gates:
 | Section 3 "ordered-path" and "mapped-field" activation dependencies; window row "shared browse consumer may not activate"; S2 row gated on #4957/GRID-001/GRID-008 | The shared helper makes all server reads agree. GRID-001/008 behavior in API mode is a known limitation until P1. It gates usage-query parity claims only. |
 | Sections 1-2: "ordinary PIT/map" work; maps use their own PIT; PIT opening parallel with page one | API mode runs without PIT. Maps are built live from keys. PIT is L1, after measurement. |
 | Section 3 PIT open/close row, "PIT admission" and lifecycle-interoperability paragraphs; keys row "map context required for a map attempt"; S4 row | Deferred to L1. Keys take an optional `pitId` only through the helper. |
-| Section 4 "do not expose a partially implemented API-only mode" | During the build, API mode may use a development fallback with a tested, shrinking list. It must be empty (U6z) before API mode counts as complete. |
+| Section 4 "do not expose a partially implemented API-only mode" | U6z proves non-AI API coverage with the tested `searchByAi` exception retained. Do not call this absolute API-only completion; zero ES construction/traffic waits for the separately agreed AI migration. |
+| Sections 5/6 AI migration and S10 full cutover | Existing AI behavior stays unchanged through U6z and the non-AI deployment/measurement sequence. U9 needs team agreement; older AI workplan compromises are not implementation approval. |
 | S10 bundles deployed delivery, bootstrap, hosting and API-only activation | U8/M2a deploy and measure the modified API on TEST with existing local image delivery; U7/M2b then integrate and check canonical media delivery. Hosting remains later. |
 | Section 3 execution policy: withholding windows on decode mismatch "requires explicit agreement" | U1 returns a raw hit count so drops are visible. Withholding stays a later decision; ask if a consumer needs it. |
 
@@ -841,6 +961,15 @@ ignoring it.
   review: accept, no findings. Operator API-mode dry-run preflights passed; `is:` filters and collections
   checked in the app. Deferred: facet circuit-breaker latency risk (M2a); two parked items (`ids: ""`
   500, error log on 422).
+- 26 Sep 2026, U6d: `7f5dc7862` (`readTarget` extracted from `admittedSearch`, behaviour-preserving;
+  media-api suite green at that commit in a temporary worktree), `4e021c655` (`POST /images/mget`),
+  `d7bfd5100` (`ApiDataSource.getByIds` via mget, 200 per request and four in flight; selection store
+  takes the app's data source; alias sort-cursor fallback), `2c615881f` (P18 mode-aware, new P19). No
+  merge needed (main's new commits touch no media-api or Kupua files). Operator: all recommendations
+  (Q1-Q4), then concurrency 4 after the browser check. Cold review: reject (S1: alias cursor of an
+  mget-hydrated anchor); fixed, and the re-review accepted. Operator dry-run preflights passed in both
+  modes. Deferred: KUP-035 (full reconcile stall, both modes); parked perf network metric, boolean
+  alias cursor, ES `getByIds` abort `[]`, stale controller comment.
 
 ## 11. Parked Observations
 
@@ -856,7 +985,7 @@ operator in chat instead, not here.
 - 25 Sep, U3b, keyword-page: each page is bounded by media-api's 10 s query timeout (503 on timeout), where direct ES has no per-page limit, only Kupua's 8 s walk cap. Risk at PROD cardinality; measure in M1.
 - 25 Sep, U4, `ElasticSearch.scala` `admitSortClause`: a nested field without `nested` passed D3/window/rank admission (500 on a first page; on a D3 null-zone cursor, valued images returned as null-zone hits), and a sort without a unique `id` suffix was accepted (ties skipped). **Resolved in U4:** shared admission refuses both for every ordered read.
 - 25 Sep, pre-U5 review, [e2e/shared/helpers.ts:27](../../../../e2e/shared/helpers.ts#L27): habitual E2E blocks `/api/**`, leaving a coverage risk. Consider an **additional API-mode test run** reusing selected core browsing scenarios under a second backend configuration, not a duplicate full suite; exercise the modified media-api on the laptop or deployed to TEST and verify expected API calls/no forbidden ES fallback. A fully local media-api + local ES arrangement would need a separate setup assessment. **Operator-deferred:** revisit only when the operator chooses after seeing API mode work and comparing its speed with direct ES; not a new U5, U6 or measurement gate. Existing section 5 preflights remain unchanged in scope.
-- 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: D3 and window publish partial pages when media-api's 10 s query timeout fires or a shard fails (rank/keys/profiles return 503); direct ES sets no timeout. Silent skipped images and shifted positions. Risk; operator decision after M1 (check media-api logs for `SearchQuery was TimedOut`). Undecodable hits should stay non-fatal: failing the page would make a corrupt image a permanent wall.
+- 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: explicit timeout/failed-shard responses can be published as complete image pages. **Moved to [KUP-036](../../bug-backlog.md#kup-036), 26 September:** separate bounded repair before final U6z verification; target 503, preserve non-fatal undecodable-hit omission. Source-supported, not a reproduced live incident; M1 is accepted.
 - 25 Sep, U5 intake, `search-store.ts:3312`: the 7 configured alias fields (e.g. Edit Status; sortable only by clicking their hidden-by-default table column header or via URL, not the sort dropdown) are not in `KEYWORD_SORT_ES_FIELDS`, so deep seek never uses the keyword walk and always takes the from/size fallback. The keyword-page endpoint could serve them. Clean-up/improvement for both modes.
 - 25 Sep, U5 intake, `search-store.ts:1597`: the phantom neighbour batch sends `length = visibleNeighbours.length`; above 200 visible images D3 refuses (422) and the fallback clears focus. Existing hybrid limit, direct ES unaffected. Risk, likely rare.
 - 25 Sep, U5 review, `ElasticSearch.scala` `cursorRead` and `es-adapter.ts` `_searchAfterImpl`: a reverse page from a null-primary tuple reads only the null tail, so a backward extend from the first null-tail image cannot cross back into the valued images before it (both modes; replay test asserts the confined contract). The live probe could not reach the boundary to confirm user impact (indexed tier likely covered by map seeks). Risk; needs a decision. **Moved to the backlog as [KUP-033](../../bug-backlog.md#kup-033).**
@@ -867,3 +996,8 @@ operator in chat instead, not here.
 - 25 Sep, U6b intake, [search-store.ts:2331](../../../../src/stores/search-store.ts#L2331): the ticker request fired with the first page computes an exact total nobody reads (the page supplies it), in both modes. Possible saving: an opt-out of the exact total for ticker-only reads. Unmeasured; filter aggregations already visit every match, so the gain may be small. Improvement.
 - 26 Sep, U6c, `SearchParamsBody.fromJson` `ids`: a body with `ids: ""` becomes an empty ids query, which Elasticsearch refuses ("Ids can't be empty"), so every body read answers 500 (fails closed, never widens). Kupua never sends it. Clean-up: refuse with 422, or read it as an explicitly empty scope.
 - 26 Sep, U6c, `executeAndLog`: an aggregation on an unaggregatable field (e.g. a `has:` facet on a text field) answers 422 but still logs an error-level Elasticsearch failure. Log noise, likely rare. Clean-up.
+- 26 Sep, U6d, [es-adapter.ts](../../../../src/dal/es-adapter.ts) `getByIds`: an aborted call (or chunk) resolves to `[]`, which `hydrate` would read as "every selected image is gone". No caller passes a signal today, so latent. The media-api path rejects instead. Risk/clean-up.
+- 26 Sep, U6d, `ImageQueryController.scala` header comment: "Every action admits its body through admitSearchParams" is no longer true (mget is ID-only). Left alone per the comment-pruning rule. Clean-up.
+- 26 Sep, U6d P19 preflight, [selection-store.ts:199](../../../../src/stores/selection-store.ts#L199) `requestFullReconcile`: the full reconcile over 1,000 selected images runs as one idle task of about 318 ms, a 360 ms frame, in both modes. It is client work, not media-api. It was already noted in the archived 13 September consolidation audit and the interaction catalogue L08. **Moved to the backlog as [KUP-035](../../bug-backlog.md#kup-035).**
+- 26 Sep, U6d, [image-offset-cache.ts](../../../../src/lib/image-offset-cache.ts) `readFieldPath`/`readAliasValue`: boolean alias values (e.g. `cutout`) give a `null` cursor in both modes, while ES sorts them as 1/0, so a range or restore from such an anchor under that sort starts in the wrong place. Latent. The media-api `false` for a missing `matchViaExistence` alias also reads as null, as [c2pa-matchViaExistence-support.md](../../c2pa-matchViaExistence-support.md) §3.4 requires. That workplan (not started) owns the rest; U6c's aggregation builder has no missing bucket yet (its C5).
+- 26 Sep, U6d P19 preflight, [perf.spec.ts](../../../../e2e-perf/perf.spec.ts) `esRequests`/`esBytes` (the "Network (ES requests)" report and metric): these count only `/es/` traffic, so in `--use-media-api` runs they read 0. No verdict, chart or assertion uses them. Clean-up: add media-api counts alongside them, keeping the ES fields' meaning for history. This changes the probe shared by every scenario, so validate it with a full operator run.

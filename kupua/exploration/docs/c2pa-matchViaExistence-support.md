@@ -103,26 +103,35 @@ Do not synthesize false sort values or alter cursor tuples.
 - raw `has:` / `-has:` can express C2PA presence and absence;
 - literal `:false` cannot match a field that is never indexed false.
 
-### Current hybrid media-api mode
+### Current media-api mode (`--use-media-api`, after API build U6d, 26 September 2026)
 
-- `searchAfter` sends CQL to media-api, where Grid already applies existence semantics;
-- media-api projects an absent configured alias as `aliases.c2paMetadataAvailable = false`;
-- Kupua preserves arbitrary JSON alias values, including Boolean false;
-- Kupua has no field definition or typeahead entry that consumes this alias;
-- every non-`searchAfter` method in `StranglerAdapter`, plus selection's independently
-  constructed ES datasource, still uses Kupua's direct-ES compiler;
-- media-api unavailability fallback also returns to the direct-ES compiler.
+- `ApiDataSource` sends pages, ranks, sort profiles, position maps, range walks, counts,
+  aggregations, selection hydration and images by ID to media-api. Selection uses the app's data
+  source. Only `searchByAi` still uses the direct-ES development fallback
+  (`DEVELOPMENT_FALLBACK_METHODS`), so any CQL it applies goes through Kupua's compiler.
+- Migrated reads never fall back to direct ES, including when media-api is unavailable.
+- Media-api's `QueryBuilder` applies existence semantics for every one of those reads, so
+  `alias:true` / `alias:false` membership already agrees across pages, maps, ranks, counts,
+  aggregations, ranges and selection.
+- Media-api projects an absent configured alias as `aliases.c2paMetadataAvailable = false`.
+  Kupua keeps arbitrary alias JSON, including Boolean false. The sort-cursor fallback added in U6d
+  (`image-offset-cache.ts`) reads Boolean alias values as null, which is consistent with §3.4.
+- Gaps: Kupua has no field definition or typeahead entry for the alias. `POST /images/aggregations`
+  (U6c, built) sends plain terms aggregations with no missing bucket
+  (`imageAggregationsRequest` in `media-api/app/lib/elasticsearch/ElasticSearch.scala`), so the
+  `false` count is absent in this mode too (see C5).
 
-This means manually typed API-backed searches can have correct pages and totals while maps,
-rank helpers, aggregations, ranges, selection, or fallback disagree. Direct-ES support is what
-closes that hybrid inconsistency.
+The old hybrid inconsistency is gone: pages and totals could be correct while maps, ranks,
+aggregations, ranges, selection or fallback disagreed. Direct-ES support (C2-C3) is now needed
+for direct-ES mode and the AI-search fallback, not to reconcile API mode.
 
-### Eventual API-only mode
+### API-only mode (after U6z empties the fallback list)
 
 - Query filtering is inherited from the API build plan's shared server helper.
 - Image-returning endpoints inherit media-api alias projection.
-- The aggregation endpoint needs one localized rule for presence-backed missing buckets; it
+- The aggregation endpoint needs one localized rule for presence-backed missing buckets (C5); it
   must not spread alias semantics across every endpoint.
+- Direct-ES mode remains a separately supported mode.
 
 ## 5. Implementation Units
 
@@ -252,13 +261,23 @@ Use an explicit missing bucket in the aggregation request. The smallest current 
 This is valid because the alias contract states that false is represented by absence. Do not set
 `missing: false` merely because an alias offers `true` and `false` options.
 
-For the eventual API aggregation endpoint, apply the equivalent missing-bucket rule in its one
-server aggregation builder by resolving the requested configured path. Do not send arbitrary ES
-aggregation DSL and do not teach window/rank/keys endpoints about the flag.
+**API mode (media-api, Scala, outside `kupua/`; needs operator approval):** U6c's
+`POST /images/aggregations` is already built, so the missing bucket must be added to
+`imageAggregationsRequest` in `media-api/app/lib/elasticsearch/ElasticSearch.scala`. When a
+requested field equals the `elasticsearchPath` of a configured `matchViaExistence` alias, add
+`missing = false` to its terms aggregation. The server derives this from its own `FieldAlias`
+config. Kupua sends no `missing` in the API body and `ApiDataSource.getAggregations` needs no alias
+knowledge. Check how the endpoint's `BucketResult` encodes a Boolean key: ES returns `1`/`0` with
+`key_as_string` `true`/`false`. The API bucket keys must match what the typeahead merge in step 4
+expects, in both modes. Do not send arbitrary ES aggregation DSL, and do not teach the window, rank
+or keys endpoints about the flag. Add one composed C2PA false-count witness to the aggregation
+server test and its golden body.
 
 **Tests:**
 
 - direct-ES request body includes `missing: false` only for the flagged alias;
+- API mode: the server aggregation request includes `missing` only for the flagged path, and
+  ordinary fields' aggregation bodies are unchanged;
 - scoped true and false counts are both displayed;
 - editing the active C2PA chip still self-excludes it from the scoped count query;
 - ordinary alias aggregation bodies are unchanged;
@@ -347,8 +366,8 @@ When implementation is complete:
 3. update `AGENTS.md` and append the code change plus validation to `changelog.md` under the
    current phase;
 4. retain this document as the concise contract and mark each implementation unit complete;
-5. do not copy this work into the API build sequence. Add only the single U6c cross-reference if
-   the future server aggregation unit needs the missing-bucket acceptance witness.
+5. do not copy this work into the API build sequence. U6c is already built, so C5's server
+   missing-bucket change is a separate, operator-approved media-api change, not a build unit.
 
 ## 9. What Done Looks Like
 

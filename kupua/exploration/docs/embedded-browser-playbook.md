@@ -192,6 +192,16 @@ wheel actions and the later settling wait: a wheel's immediate After snapshot ca
 precede the resulting scroll. Stop the local viewer after inspection. Keep any
 request-body comparisons in memory and report only counts/equality/statuses.
 
+**[V] 26 September 2026, selection hydration at scale (U6d):** a `page.on("request")`
+listener captured nothing for an in-page `getByIds`; resource timing
+(`performance.getEntriesByType("resource")`, filtered by pathname) worked. Call
+`performance.setResourceTimingBufferSize(1000)` before large runs: at the default 250,
+thumbnails pushed out some mget entries (a 25-chunk run showed 20). Tickboxes are
+hidden until hover: hover the tickbox's parent cell, then click. Hold Shift with
+`keyboard.down`/`up` for a range. Dev StrictMode runs mount-time `hydrate()` twice, so
+reload request counts double; time a single in-page `hydrate()` call instead. Plant a
+fake ID with `add([...])` and reload to check the removal toast; never mutate live images.
+
 **[?] `data-testid` coverage is sparse.** Only two are known in source:
 `scrubber-track` and `toast`. Do not expect a testid to exist; check first.
 

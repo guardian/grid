@@ -17,6 +17,32 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 26 September 2026 - Selection details and ranges through media-api (API build U6d)
+
+  media-api gains `POST /images/mget`: body `{ids}` (1-200 distinct IDs), one `_search` of an `ids`
+  query through the shared target choice (extracted from `admittedSearch` as `readTarget`, behaviour
+  unchanged) with the lean projection. Found images come back once each, in request order. Visibility
+  follows the single-image rule (`GET /images/:id`), not the search tier filter, and missing, hidden
+  and unreadable images are indistinguishable. An incomplete read answers 503, never a partial list.
+  No query scope or PIT applies.
+
+  In `--use-media-api` mode `getByIds` uses it in 200-ID chunks, four in flight. Two were measured at
+  about 7-8 s for 5,000 selected images on TEST, four at about 3.8 s. Any failed chunk fails the whole
+  lookup, so a restored selection never drops images on a transient error. The selection store now
+  takes the app's data source instead of constructing `ElasticsearchDataSource`, so hydration,
+  `ensureMetadata` and shift-click range walks all follow the app mode. Only `searchByAi` remains on
+  the development fallback.
+
+  Cold review found that media-api images carry configured fileMetadata values only under `aliases`.
+  An mget-hydrated off-buffer anchor with no retained tuple therefore gave a null primary under an
+  alias sort such as Edit Status, and a range walk from it would select the wrong images.
+  `extractSortValues` now falls back to the configured alias value when the raw path is absent
+  (string or number only). Direct mode is unchanged.
+
+  Perf harness: P18's route expectation follows the app mode (it was hard-coded to direct ES), and
+  new P19 measures a 1,000-image out-of-buffer range with Details open. P19 shows a 320 ms full
+  reconcile task in both modes, recorded as KUP-035.
+
   ### 26 September 2026 - Aggregations, typeahead and collection counts through media-api (API build U6c)
 
   media-api gains `POST /images/aggregations`: one size-0 `_search` over the shared admitted scope

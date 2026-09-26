@@ -1630,3 +1630,111 @@ Mode: direct-es | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browse
 | JB5 | fullscreen-exit | 4 | — | — | — | 128 | 135 | — |
 
 JB2 matched no-anchor control: first visible 1016ms; settled 1024ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] direct-to-ES baseline after U6d (4ead0187c, 2026-09-26)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: e3b0c44298fc1c14 | App source: e3b0c44298fc1c14
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 1 | — | 454 | 591 | 600 | — |
+| PP2 | sort-no-focus | 4 | 66 | — | 409 | 495 | 502 | — |
+| PP3 | sort-around-focus | 4 | 66 | — | 776 | 909 | 918 | — |
+| PP4 | sort-around-focus | 4 | 66 | — | 813 | 910 | 917 | — |
+| PP5 | filter-toggle | 4 | 63 | — | 775 | 787 | 796 | — |
+| PP6 | density-swap | 4 | — | — | — | 230 | 261 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 677 | 841 | 857 | — |
+| PP7b | scrubber-seek | 4 | 1 | — | 634 | 813 | 824 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 114 | 121 | — |
+| PP8 | search | 4 | 77 | — | 1027 | 1048 | 1056 | — |
+| PP9 | chip-remove | 4 | 408 | — | 689 | 882 | 899 | — |
+| PP11 | history-back | 4 | 44 | — | 838 | 1010 | 1024 | — |
+| PP6b | density-swap | 4 | — | — | — | 267 | 275 | — |
+| PP6c | density-swap | 4 | — | — | — | 242 | 271 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2321 | 21627 |
+
+---
+
+## [long] direct-to-ES baseline after U6d (4ead0187c, 2026-09-26)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: e3b0c44298fc1c14 | App source: e3b0c44298fc1c14
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 669 | 752 | 757 | — |
+| JA2 | open-detail | 4 | — | — | 139 | 827 | 835 | — |
+| JA3 | metadata-click | 4 | 57 | — | 866 | 981 | 999 | — |
+| JB1 | navigation-search | 4 | — | — | 703 | 805 | 811 | — |
+| JB2 | facet-click | 4 | 68 | — | 1103 | 1166 | 1182 | — |
+| JB3 | facet-click | 4 | 58 | — | 381 | 452 | 456 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 673 | 689 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 131 | 139 | — |
+
+JB2 matched no-anchor control: first visible 1228ms; settled 1236ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.
+
+---
+
+## [short] local media-api baseline after U6d (4ead0187c (dirty), 2026-09-26)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 41bdaeaea0d0c025 | App source: e3b0c44298fc1c14
+
+| Test | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| PP1 | home-logo | 4 | 2 | — | 1173 | 1307 | 1314 | — |
+| PP2 | sort-no-focus | 4 | 67 | — | 749 | 828 | 836 | — |
+| PP3 | sort-around-focus | 4 | 67 | — | 1248 | 1389 | 1397 | — |
+| PP4 | sort-around-focus | 4 | 64 | — | 1272 | 1370 | 1375 | — |
+| PP5 | filter-toggle | 4 | 64 | — | 1042 | 1055 | 1061 | — |
+| PP6 | density-swap | 4 | — | — | — | 196 | 223 | — |
+| PP7 | scrubber-seek | 4 | 2 | — | 1297 | 1454 | 1465 | — |
+| PP7b | scrubber-seek | 4 | 1 | — | 1070 | 1230 | 1239 | — |
+| PP7c | scrubber-scroll | 4 | — | — | — | 121 | 124 | — |
+| PP8 | search | 4 | 72 | — | 1365 | 1382 | 1391 | — |
+| PP9 | chip-remove | 4 | 403 | — | 1013 | 1204 | 1225 | — |
+| PP11 | history-back | 4 | 46 | — | 1570 | 1739 | 1766 | — |
+| PP6b | density-swap | 4 | — | — | — | 242 | 250 | — |
+| PP6c | density-swap | 4 | — | — | — | 235 | 243 | — |
+
+### Background diagnostics
+
+Not ranked against user-action latency targets.
+
+| Test | Action | Samples | Store ready (ms) | Map entries |
+|------|--------|---|---|---|
+| PP10 | position-map | 4 | 2033 | 21627 |
+
+---
+
+## [long] local media-api baseline after U6d (4ead0187c (dirty), 2026-09-26)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 41bdaeaea0d0c025 | App source: e3b0c44298fc1c14
+
+| Step | Action | Samples | Ack (ms) | Status (ms) | Store ready (ms) | First visible (ms) | Visual settled (ms) | Banner total (ms) |
+|------|--------|---|---|---|---|---|---|---|
+| JA1 | navigation-search | 4 | — | — | 1071 | 1164 | 1170 | — |
+| JA2 | open-detail | 4 | — | — | 142 | 681 | 688 | — |
+| JA3 | metadata-click | 4 | 57 | — | 1304 | 1413 | 1427 | — |
+| JB1 | navigation-search | 4 | — | — | 924 | 1020 | 1030 | — |
+| JB2 | facet-click | 4 | 84 | — | 1395 | 1461 | 1471 | — |
+| JB3 | facet-click | 4 | 63 | — | 813 | 888 | 899 | — |
+| JB4 | scrubber-scroll | 4 | — | — | — | 782 | 803 | — |
+| JB5 | fullscreen-exit | 4 | — | — | — | 135 | 143 | — |
+
+JB2 matched no-anchor control: first visible 1393ms; settled 1399ms; design alternating-ab-ba. Do not subtract sequential samples; compare balanced aggregates only.

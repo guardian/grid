@@ -14,7 +14,7 @@ impact is not reproduced.
 
 ## At a Glance
 
-**Current recorded status: 25 September 2026.** The 25 entries below have an open defect,
+**Current recorded status: 26 September 2026.** The 27 entries below have an open defect,
 approval/integration task or explicit residual; 23 additional IDs have completed bounded repairs.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -23,6 +23,13 @@ not a fresh remote check. Update this overview when a detailed disposition chang
 **Operator scheduling decision, 23 September:** KUP-029/030 remain open but are deferred until
 after a working API-backed app. They do not block query alignment, core search/scroll/position/
 traversal or initial image-read integration. Authorization and data-protection obligations remain.
+
+**Operator amendment, 26 September:** the active API build plan now scopes U6z to non-AI
+media-api coverage, including recovery. Existing AI is the sole deliberate ES exception pending
+team agreement; M1 is accepted. KUP-010/026 closure must name the demonstrated boundary, not
+claim absolute API-only completion. Reassess KUP-030 without changing selection enrichment or
+silently broadening its deferred display-repair scope. Separate pitstop fixes: KUP-033, KUP-034
+if confirmed, then KUP-036 before final U6z verification.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -44,6 +51,8 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
 | [KUP-033](#kup-033) | Backward paging cannot leave the null tail | Open; server mechanism shown by a local ES test, both modes; user impact unreproduced | Independent; null-tail browsing preserved by both modes equally |
 | [KUP-034](#kup-034) | Uncapped backward page around a near-top target | Open; latent, mechanism shown by a local ES test, both modes | Independent; no ordinary caller known to reach it |
+| [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
+| [KUP-036](#kup-036) | Incomplete API image pages published as success | Open; source-supported, failure not runtime-reproduced | New D3/window correctness; separate repair before final U6z verification |
 
 ### Open Grid Work
 
@@ -435,6 +444,24 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** [uncapped backward page](../../src/stores/search-store.ts#L1378); contrast [extend cap](../../src/stores/search-store.ts#L2739). **25 September, local ES (media-api `ElasticSearchTest`, recorded client body replay):** under `-taken`, a reverse page of 200 from the first image returned null-tail images although nothing sorts before position 0. Same ES semantics apply to direct ES. No ordinary flow is known to reach the store path: sort-around-focus loads around a target only when it is not in the 200-image first page, and restore normally finds such a target already buffered.
 - **Smallest discriminator:** call `restoreAroundCursor` (or the sort-around-focus path with a small `hintOffset`) for a target at position 5 under a sparse-primary sort over `MockDataSource`; assert buffer ids and `imagePositions` equal the corpus at their global positions. Proposed, not run.
 - **Dependency / disposition:** OPEN, independent latent defect in both modes. Smallest fix: cap the backward length at `exactOffset` (skip it at 0), as `extendBackward` does. Not introduced by API build U5.
+
+#### KUP-035
+**A full selection reconcile runs in one idle callback and blocks a frame at large selections**
+- **Component / owner:** `requestFullReconcile` in the selection store, and `recomputeAll`; human owner-to-confirm.
+- **Trigger:** metadata arrives for a large selection (range select, reload hydration) while Details is open.
+- **Expected / actual:** the multi-image Details summary should settle without a visible stall. Instead, one idle callback recomputes every field over every selected image. The callback's 2 s timeout lets it run as a single long task.
+- **Evidence:** [scheduler](../../src/stores/selection-store.ts#L199), [recomputeAll](../../src/lib/reconcile.ts#L328). **26 September, perf P19 on TEST, `--use-media-api`, 2 runs, 1,000 selected:** max frame about 358-367 ms, from one `IdleRequestCallback` of about 318 ms. P18 (100 selected) peaks at about 100 ms. The archived [13 September consolidation audit](zz%20Archive/performance-first-dry-consolidation-audit-2026-09-13.md#L232) already noted that the full scan is not chunked, and scoped its repair to exclude chunking. The [interaction catalogue L08](zz%20Archive/performance-harness-1-interaction-catalogue.md#L149) records 2,000-5,000 as product-gated. **Direct ES, same day, 2 runs:** max frame about 358-363 ms, from one `IdleRequestCallback` of about 319 ms, the same as media-api mode.
+- **Smallest discriminator:** the P19 scenario (`e2e-perf/perf.spec.ts`), comparing its max frame and LoAF blocking before and after a change.
+- **Dependency / disposition:** OPEN, independent client performance in both modes. It is not introduced by API build U6d, which only changes where the metadata comes from. A fix would split the scan across idle slices, or keep an incremental view, and needs its own decision and tests.
+
+#### KUP-036
+**New API image-page endpoints can publish incomplete Elasticsearch execution as success**
+- **Component / responsibility:** branch-added media-api `searchAfterQuery` and `imageWindowQuery`, their controller outcomes and Kupua's page consumers; human owner-to-confirm. This is Kupua migration work even though the repair is primarily Scala, not an independent legacy Grid defect.
+- **Trigger:** Elasticsearch returns an otherwise successful search response with `timed_out: true` or one or more failed shards. These flags describe incomplete execution, not an individual undecodable image.
+- **Expected / actual:** an explicitly incomplete page must not be published as a complete page. Both methods check request success, then decode and return surviving hits without `requireCompleteExecution`; other new reads already reject explicit incompleteness. Kupua can mistake a short page for exhaustion or assign consecutive positions to incomplete results, potentially skipping images or shifting positions.
+- **Evidence / reproduction:** [request-success check and search-after publication](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L921), [window publication](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L967), [existing completeness helper](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L1077), [client page decoding](../../src/dal/grid-api-search-adapter.ts#L272). Originally API build section 11, 25 September U5 intake; source rechecked 26 September. No timeout/shard failure was induced, and no live user-visible impact is claimed. Window's `rawHitCount` does not establish execution completeness and is not consumed by the client.
+- **Smallest discriminator:** synthetic ES responses for each endpoint: timeout only, failed shard only, short/empty/full-sized hits, and complete controls. Assert non-success at the controller boundary (target 503), not an empty/partial 200. Through the real Kupua adapter/store with controlled transport, verify no partial publication or ES rescue. Separately retain the accepted undecodable-hit omission control.
+- **Dependency / disposition:** OPEN. Operator selected a separate bounded repair before final amended U6z verification (26 September), with implementation scope confirmed at intake. Reuse endpoint-local completeness handling; leave legacy `GET /images`, shared Grid execution behavior, target selection, query timeout, PIT expiry, sort/tuple contracts and AI unchanged. Do not reject a page merely because an individual image cannot be decoded, introduce unbounded refill/automatic retries, or provoke failures/load against TEST/PROD. Confirm permission for media-api edits and use cold review before commit. M1 acceptance does not constitute a reproduction or settle this failure contract.
 
 ### Dependency Unresolved
 

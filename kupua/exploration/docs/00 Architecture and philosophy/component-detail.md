@@ -4,7 +4,10 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last updated: 16 June 2026.**.
+> **Last refreshed: 26 September 2026.** API-build U6d routing and affected component contracts
+> checked against current source; this is not whole-system verification. The
+> [active build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
+> owns sequencing and acceptance. AI remains unchanged; U6z verification and U7 delivery are pending.
 
 ---
 
@@ -12,7 +15,23 @@
 
 ## DAL (`src/dal/`)
 
-`ImageDataSource` interface (`dal/types.ts`). `createDataSource()` (`dal/index.ts`) returns `ApiDataSource` (`dal/api-data-source.ts`) when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`. `ApiDataSource` sends ordered reads to media-api (`search-after`/`window` pages, `rank`, `sort-profile` scalar anchor/date stats/date buckets/keyword pages, `keys` for position maps and range walks), keeping the walk loops and caps client-side; `openPit` resolves `null`, and `offsetReadLimit` (10,000) caps the deep-seek from/size fallback. Its remaining methods (`DEVELOPMENT_FALLBACK_METHODS`) delegate to an `ElasticsearchDataSource` until U6. `ElasticsearchDataSource` (`es-adapter.ts`): cursor-based pagination (PIT with 404/410 fallback), aggregations (terms + IS-filter in one request), percentile estimation, composite keyword walk, date/keyword distributions (adaptive interval selection), `getByIds` (mget, 1k-chunk parallel), `getIdRange` (search_after walk, hard cap 5k). Write protection on non-local ES. `MockDataSource` for tests (supports `sparseFields` + `extraFilter` for null-zone testing). `PositionMap` (`position-map.ts`) — lightweight cursor index for scrubber fast-path seek.
+`ImageDataSource` (`dal/types.ts`) is selected by `createDataSource()` (`dal/index.ts`):
+`ApiDataSource` when `VITE_USE_MEDIA_API=true`, otherwise `ElasticsearchDataSource`.
+
+**API mode:** pages use `search-after`/`window`; ranks use `rank`; scalar/date/keyword profiles
+use `sort-profile`; maps and range walks use `keys`. Walk loops and caps stay client-side.
+Counts/tickers use `count`; facets, typeahead and collection counts use `aggregations`;
+standalone detail uses `GET /images/:id`; selection hydration uses `mget` (200 IDs per request,
+at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | undefined`;
+`getByIds` deliberately returns `Image[]` without enrichment. `openPit` resolves `null`;
+`offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
+`DEVELOPMENT_FALLBACK_METHODS` contains only `searchByAi`, deliberately retained through U6z.
+The current factory still constructs ES for that delegation; no migrated read uses it as rescue.
+
+**Direct/local mode:** `ElasticsearchDataSource` retains cursor paging/PIT recovery, aggregations,
+rank/profiles, `getByIds` (1,000-ID parallel chunks), and `getIdRange` (cursor walk, cap 5,000).
+Write protection on non-local ES is unchanged. `MockDataSource` supports sparse-field/null-zone
+tests; `PositionMap` (`position-map.ts`) is the lightweight cursor index for indexed seeking.
 
 ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort clause builders (universal `uploadTime` fallback). Null-zone helpers in `dal/null-zone.ts` (`detectNullZoneCursor`, `remapNullZoneSortValues`) — shared across seek, extend, fill, and getIdRange paths.
 
@@ -29,9 +48,25 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 retried once without it (not reachable while `openPit` returns `null`). No migrated read falls back
 to ES: page, rank and range failures throw into the store's error paths; optional profiles and
 maps return `null` without warning on media-api refusal, incompleteness or unreachability.
-Cancellation is preserved.
+Cancellation is preserved. Counts/aggregations reject failures for their callers to handle as
+absent or unchanged data. Bulk lookup rejects the whole logical read if any chunk fails, aborting
+the rest, so a partial response cannot authorize removal of selected IDs. Explicit execution
+incompleteness is rejected by rank, keys, profiles, count, aggregations and mget; search-after and
+window still lack that server check ([KUP-036](../bug-backlog.md#kup-036)).
 
-**Single-image enrichment (intent-driven, not wired to UI):** `GridApiDataSource` (`grid-api/grid-api-adapter.ts`) — HATEOAS service discovery (`service-discovery.ts`). `getImageDetail(id)`: fetches full Argo-envelope single-image response, unwraps `EmbeddedEntity`. Error hierarchy: `AuthError`, `SessionExpiredError`, `ArgoError`, `WriteGuardBlockedError`. Argo helpers in `argo.ts`. All fetches are best-effort: network failure or non-2xx → `null` → caller degrades gracefully. Write protection: `gridApiWriteGuard()` Vite plugin blocks all non-GET methods on `/api` proxy prefixes (returns 403), unless `VITE_GRID_API_WRITES_ENABLED=true`. Module singleton at `lib/grid-api-instance.ts` — `initGridApi()` called once on search route mount.
+**Standalone detail:** `apiGetImage` uses the S1 normalizer and extracts envelope actions and
+enrichment once. Missing/hidden (404) or wrong-ID entities resolve `undefined`; other request
+failures reject. ImageDetail handles these quietly as unavailable and owns request cancellation.
+
+**Older HATEOAS adapter:** `GridApiDataSource.getImageDetail` remains unused by production callers;
+it is not the standalone-detail path. It uses `service-discovery.ts`/`argo.ts`, returns `null`
+for network/abort/404/permission-403, but throws auth/session/write-guard/other server errors.
+Do not describe it as universally nullable. `initGridApi()` still initializes the module singleton
+on search-route mount. Deletion/alignment of the unused method is parked in the build plan.
+
+**Write guard:** `gridApiWriteGuard()` blocks non-GET requests unless explicitly enabled, except
+the eight read-only POST routes listed in `grid-api/read-via-post.ts`. Admission matches the exact
+path (query string allowed), never an image-ID prefix; this prevents admitting nested write routes.
 
 ## Enrichment System (`lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`)
 
@@ -39,16 +74,19 @@ Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` fetches rights/leases/usages/labels/syndicationRights/XMP fields. Always available in direct-ES mode.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
-3. **API overlay** — `enrichment-store` (Zustand, no persistence). In `--use-media-api` mode, populated per search page from `apiSearchAfter` response (server-authoritative cost, validity, rights, actions per hit). In direct-ES mode, overlay stays `undefined`. `deriveImage(image, overlay?)` is the single merge point; API wins field-by-field; `undefined` overlay returns full baseline.
+3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed search-after/window page enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Standalone detail holds its own requested-ID-bound overlay rather than publishing into this store. AI and selection bulk lookup intentionally supply baseline images only; this is not universal effective-display/freshness parity (KUP-029/030 remain deferred).
 
-**Consuming enriched data:** Components use `useEnrichedImage(image)` — subscribes per-id to enrichment-store (O(1) `Map.get`), no search-store subscription. Non-React callers use `deriveImage` directly.
+**Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
+enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence. Non-React
+callers use `deriveImage` directly. ImageDetail passes its owned overlay to ImageMetadata only
+while displaying that standalone image. Selection bulk lookup does not add server enrichment.
 
 Fresh API pages and committed first-page fallbacks replace the overlay map. Fill, extensions,
 focus/restore buffers and seeks merge their contributing overlays. An inserted target contributes
 only its selected probe entry; both backward seek paths include backward-page overlays. Discarded
 probes and cancelled pages do not publish, and direct-ES responses do not invent API enrichment.
 
-## State (`src/stores/search-store.ts`, 3,750 lines)
+## State (`src/stores/search-store.ts`)
 
 Zustand. Windowed buffer (max 1000, cursor-based extend/evict/seek) — shared by all three scroll tiers (`03-scroll-architecture.md` §2). Scroll-mode fill (`_fillBufferForScrollMode`) loads all results when total ≤ SCROLL_MODE_THRESHOLD (1000). Background `positionMap` fetch (for SCROLL_MODE_THRESHOLD < total ≤ POSITION_MAP_THRESHOLD = 65k) enables indexed scroll tier. Above 65k, the scrubber falls back to seek-only. Bidirectional seek: deep paths add a backward `search_after` after the forward fetch, placing the user in the buffer middle. `imagePositions: Map` for O(1) lookup. Sort-around-focus ("Never Lost"). PIT lifecycle with generation counter (`_pitGeneration` — seek/extend skip stale PITs to avoid 404 round-trips, keepalive 1m). New-images ticker. Aggregation cache + circuit breaker (expanded agg requests have abort controllers). Sort distribution (`sortDistribution`) + null-zone uploadTime distribution (`nullZoneDistribution`) for scrubber labels/ticks. Separate `column-store` + `panel-store` (localStorage-persisted).
 
@@ -63,12 +101,15 @@ publish stale extension/neighbour results, and replacing navigation clears cance
 `createExpiryAwareSearchAfter` records explicit PIT invalidation when a still-owned paging
 response completes, including before a paired request fails. Following requests skip cleared
 IDs, and final commits cannot resurrect an ID cleared during a later await. Scroll-mode fill
-also stops reusing an expired ID. The existing parallel page-one/PIT-open split is unchanged;
-this does not introduce stronger snapshots, durable sessions or migration support.
+also stops reusing an expired ID. Direct ES retains parallel page-one/PIT opening; API-mode
+`openPit` returns `null`, so maps are built live. This introduces no stronger snapshots, durable
+sessions or migration support. Restore retains the session total and uses the selected full tuple
+for both rank and neighbours, with one conditional extra rank when the refreshed tuple changed.
+Polling retains the browse baseline plus the latest owned cumulative arrival contribution.
 
-## Field Registry (`lib/field-registry.tsx`, ~920 lines — renamed `.ts`→`.tsx` for JSX in `cellRenderer`)
+## Field Registry (`lib/field-registry.tsx`)
 
-Single source of truth for all image fields. 37+ hardcoded + config-driven aliases. Fields carry `multiSelectBehaviour` (`"scalar" | "chip-array" | "summary" | "always-suppress"`), `showWhenEmpty` (renders `<Dash />` placeholder), `visibleWhen` (config gate, e.g. `imageTypes?.length`), `summariser`. `RECONCILE_FIELDS` exported (non-`always-suppress` fields). Drives table columns, sort dropdown, facet filters, detail panel, multi-image metadata panel. `detailLayout`/`detailGroup`/`detailClickable` hints for metadata display. `pillVariant?: "default" | "accent"` for field-specific pill styling (accent = Guardian blue, used by `labels`). Exports `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` set for sort controls. `cost` field added (Cluster 1); `labels` field added (`userMetadata.labels`, `pillVariant: "accent"`).
+Single source of truth for static image fields and config-driven aliases. Fields carry `multiSelectBehaviour` (`"scalar" | "chip-array" | "summary" | "always-suppress"`), `showWhenEmpty` (renders `<Dash />` placeholder), `visibleWhen` (config gate, e.g. `imageTypes?.length`), `summariser`. `RECONCILE_FIELDS` exports non-`always-suppress` fields. The registry drives table columns, sort dropdown, facet filters and single/multi-image metadata. `detailLayout`/`detailGroup`/`detailClickable` control metadata display; `pillVariant` supports accent labels. `SORT_DROPDOWN_OPTIONS` and `DESC_BY_DEFAULT` supply sort controls.
 
 ## URL Sync
 
@@ -76,7 +117,20 @@ Single source of truth. `useUrlSearchSync` → store → search. Zod-validated p
 
 ## CQL
 
-`@guardian/cql` parser + custom CQL→ES translator (in `dal/adapters/elasticsearch/`). `<cql-input>` Web Component. `LazyTypeahead` (`lazy-typeahead.ts`) for non-blocking suggestions. `typeahead-fields.ts` configures which fields support typeahead and how suggestions are fetched — resolvers read from the search store's aggregation cache first (via live `getState()` callbacks that remain current across wrapper remounts), falling back to single-field ES calls. CQL's native `TextSuggestionOption.count` renders document counts flush-right in the dropdown. Structured queries, `fileType:jpeg` → MIME, `is:GNM-owned`, `is:agency-pick`, `is:under-quota` (wired to quota-store's `getOverQuotaSuppliers()`). `is:` resolver enriches the static option list with document counts: ticker-backed values from `tickerCounts` store, `gnm-owned-photo`/`gnm-owned-illustration` from category agg buckets, `deleted`/`under-quota`/photo/illustration from direct `getAggregations(..., [], undefined, filterRequests)` when store cache is cold. `IS_OPTIONS` hoisted to module level (built once from `buildIsOptions()`). `parseCql` used to derive filter agg queries — single source of truth in `cql.ts`. Arbitrary/unregistered field paths (e.g. `fileMetadata.*`, 2,452+ leaf paths, none individually registered) get value-typeahead via `buildDynamicFieldFallback` (`typeahead-fields.ts`) — an isolated single-field aggregation, tried only when no static resolver matches and the key contains a `.`; failures isolated per-field via `isolateAggregationFailure` (`lib/safe-aggregation.ts`) so one bad dynamic field never breaks the static aggregation batch. `LazyTypeahead` also exposes a `liveQueryRef`, kept in sync with the AST-serialized query before any resolver runs, so resolvers never read a one-keystroke-stale store value. `lib/cql-ast-serialize.ts` is a workaround for an upstream `@guardian/cql` quoting bug (see deviations.md §14a; upstream fix in `guardian/cql` PR #138, not yet merged) — delete it once merged and kupua upgrades.
+`@guardian/cql` supplies the `<cql-input>` Web Component; `LazyTypeahead` provides non-blocking
+suggestions. `typeahead-fields.ts` reads current aggregation/ticker/filter caches via live store
+getters, then issues scoped `getAggregations` reads through the captured app datasource: media-api
+in API mode, ES in direct mode. There is no separate `getAggregation` method after U6c.
+Native `TextSuggestionOption.count` renders the counts. `is:` uses ticker/category caches and
+named-filter aggregation reads when cold. API usage counts use Grid's root `usagesPlatform` and
+`usagesStatus` rollups, counting images per value rather than usage records.
+
+Arbitrary dotted fields use `buildDynamicFieldFallback` and isolated single-field reads;
+`isolateAggregationFailure` prevents an uncountable field from breaking the static batch.
+`liveQueryRef` carries the AST-serialized query before resolvers run, avoiding one-keystroke-old
+scope. Direct ES translates CQL locally; API bodies let Grid interpret the query. The quoting
+workaround in `lib/cql-ast-serialize.ts` is documented in deviations section 14a; check the installed
+CQL version and upstream fix before retiring it, rather than assuming historical PR status.
 
 The registered element retains its initial typeahead and datasource; cache callbacks read current
 aggregation, ticker and filter state without wrapper-owned subscriptions. The live-AST query ref
@@ -91,7 +145,7 @@ Direct-client `has:` and dynamic facet targets share `getHasFieldPath`: configur
 precedence, followed by static shorthand and raw-path passthrough. This is existence of the indexed
 leaf, not boolean truthiness or named-field multi-field expansion.
 
-## Image URLs (`lib/image-urls.ts`, ~250 lines)
+## Image URLs (`lib/image-urls.ts`)
 
 URL builders for thumbnails and full-size images. Thumbnails served from S3 via local proxy (`/s3/thumb/<id>`). Full-size images served via imgproxy: AVIF format by default, DPR-aware sizing (two-tier: 1× for standard displays, 1.5× for HiDPI > 1.3), EXIF orientation → explicit `rotate:N` (auto_rotate disabled), native-resolution cap to prevent upscale. `getFullImageUrl()` builds imgproxy processing URLs; `getThumbnailUrl()` returns proxied S3 paths. Both return `undefined` when the respective service is unavailable (local mode).
 
@@ -99,10 +153,16 @@ ImageDetail compares resolved absolute URLs before attempting its single thumbna
 Failure and load/error callbacks belong to the current image lifetime and current DOM element;
 traversal starts with fresh media state while retaining the detail/fullscreen containers. Terminal
 failure leaves metadata, Back and traversal available. This does not provide rendition URL renewal.
+API mode still uses these local media proxies. Canonical entity-link delivery and bounded expired-URL
+renewal are U7, not completed by the migration of metadata reads.
 
 ## Grid Config (`lib/grid-config.ts`)
 
-Hardcoded mock of Grid's runtime config (image types, usage rights categories, CQL typeahead field lists). Derived from `exploration/mock/grid-config.conf`. CQL parser and typeahead resolvers depend on this. **Known tech debt:** will be replaced by a real config endpoint in Phase 3 (Grid API integration).
+Vendored Grid configuration (image types, usage rights categories, aliases and CQL field lists),
+derived from `exploration/mock/grid-config.conf`. CQL and sort builders depend on it. Runtime
+server-authoritative configuration is not yet wired: local media-api aliases must match the client
+configuration, checked by the documented API preflights. A new config endpoint is not implicitly
+required or implemented by U6z.
 
 ---
 
@@ -122,7 +182,7 @@ Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descr
 - **Seek cooldowns** (constants in `tuning.ts`): post-arrival extend block, deferred scroll timer (fires synthetic scroll to trigger extends without causing swimming), search-fetch cooldown (blocks extends during in-flight search/abort).
 - **Post-extend cooldown:** prevents cascading prepend compensations (swimming).
 - **`seekGeneration` ref guard:** on seek, skips one stale `handleScroll` to prevent spurious `extendBackward`.
-- **End-seek focus guard:** `_pendingFocusAfterSeek: "last"` always set; actual `focusedImageId` write conditional on existing focus.
+- **End-seek focus guard:** pending End work retains its initiating focus permission; a later focus change cannot grant it new permission. Reverse Home-then-resident-End remains KUP-013, not a completed symmetric repair.
 - Module-level bridges for density-focus and sort-focus.
 
 ## List Navigation (`hooks/useListNavigation.ts`)
@@ -135,7 +195,11 @@ Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniform
 
 ## Return from Detail (`hooks/useReturnFromDetail.ts`)
 
-Restores focus and scroll position when the image detail overlay closes (the other half of architecture decision #7). When the `image` URL param transitions present → absent, scrolls the list to the previously-viewed image and restores keyboard focus. Extracted from duplicated logic in ImageTable and ImageGrid.
+Handles detail close for ImageTable and ImageGrid. The immutable detail-entry image is retained
+in history state across traversal/reload. Closing on that original image preserves native list
+placement; closing after traversal centres the last-viewed image with current geometry and the
+appropriate focus mode. Deferred work is guarded against newer navigation/search, and Home has
+an owned suppression path. It does not unconditionally re-centre every close.
 
 ## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
@@ -145,12 +209,6 @@ Each full-image loader captures its issuing in-flight map. Load/error/decode com
 tracking only when that map still holds the same loader for the ID, including cancellation/reissue
 within a session. Late successful decode can still warm the bounded cache; cache usefulness does
 not grant ownership of a newer loader's tracking.
-
-## Prepend Transform — DEAD CODE
-
-> **`lib/prepend-transform.ts` is dead code** (~140 lines, zero importers). Created for
-> the A+T CSS-transform experiment (April 2026), reverted, never deleted. See
-> `scroll-audit.md` §Q4 and `dead-code-audit-findings.md` #1. Delete when convenient.
 
 ## Orchestration (`lib/orchestration/search.ts`)
 
@@ -170,7 +228,12 @@ Centralised shortcut registry. Single-character shortcuts: bare key when not in 
 
 ## AI Search Params (`lib/ai-search-params.ts`)
 
-`decorateParamsForAggregations(params, resultIds)`: when `params.aiQuery` is present, injects `params.ids = resultIds` so ES aggregation/ticker queries scope to the ≤200 AI result set. No-op when AI inactive. Used by `fetchAggregations`, `fetchExpandedAgg`, and the AI branch's ticker call in `search-store.ts`.
+`decorateParamsForAggregations(params, resultIds)` scopes count/facet requests to the bounded
+loaded AI set using sorted, comma-joined IDs. It returns `null` for known-empty AI membership:
+callers publish empty counts/facets locally and invalidate obsolete work without a request.
+Inactive AI leaves params unchanged. Reads use the selected datasource, including media-api
+counts/aggregations while AI ranking itself still uses direct ES. Exploratory typeahead retains
+its separately owned scope.
 
 ## Browser History (`lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`)
 
@@ -189,7 +252,18 @@ Centralised shortcut registry. Single-character shortcuts: bare key when not in 
 
 ## Selection Store (`stores/selection-store.ts`)
 
-Zustand with `persist` middleware → sessionStorage, debounced 250ms. State: `selectedIds: Set<string>`, `anchorId: string | null`, `metadataCache: LRU<id, Image>` (cap 5000), lazy-computed `reconciledView`. Cohesion rules enforced in store: `toggle()` and `setAnchor()` both call `ensureMetadata()` (batched mget via `getByIds`). After mget resolves, reconciliation is enqueued if any fetched IDs overlap `selectedIds` — callers do NOT do `.then(enqueueReconcile)`. `electFallbackAnchor()` re-elects anchor on deselect/remove to the last remaining `Set` entry, keeping `anchorId` always pointing at a selected image (or null). `add(ids[])` is atomic (one persist write per call). `hydrate()` called on `/search` route mount — passes `fullRecompute: true` to prevent count inflation on top of persisted view. Hydration-drop toast fires when ES no longer returns stored IDs (deduplicated via module-level `_hydrationToastShown`, reset on `clear()`). `SELECTIONS_PERSIST_ACROSS_NAVIGATION = false` in `tuning.ts` gates clear-on-search.
+Zustand persists selected IDs and anchor to sessionStorage with debouncing; metadata and the
+reconciled view are runtime-only. The default datasource is the search store's, so hydration,
+`ensureMetadata` and range walks use media-api in API mode. Metadata lives in a revision-tracked
+mutable LRU (cap 5,000). Cached membership updates reconcile synchronously; arriving metadata
+requests a coalesced full reconciliation when it overlaps the current selection.
+
+`hydrate()` runs on search-route mount. A complete successful lookup can remove omitted IDs,
+repair the anchor and issue one unavailable-items toast only while the captured selected Set
+and anchor still own the request. Rejected reads retain membership; late successful metadata
+can still warm the cache. API mget uses 200-ID chunks/four in flight, rejects any failed logical
+lookup and supplies no enrichment. `electFallbackAnchor` uses the last remaining Set entry.
+Clear-on-navigation remains controlled by `SELECTIONS_PERSIST_ACROSS_NAVIGATION`.
 
 ## Click Interpreter (`lib/interpretClick.ts`)
 
@@ -197,11 +271,27 @@ Pure function `interpretClick(ctx) → ClickEffect[]`. Six-row rule table is the
 
 ## Reconciliation (`lib/reconcile.ts`)
 
-`recomputeAll(cache, selectedIds)` — O(N×F) full recompute, called on hydrate/clear/fullRecompute. Incremental: `reconcileAdd(view, image)` O(F) and `reconcileRemove(view, id)` O(F) with dirty-field marker on `mixed` remove. `chip-array` type uses `applyChipArrayAdd` (incremental, avoids O(N²)). `mixed` type stores `topValues: Array<{value, count}>` sorted by count desc (built via frequency `Map` during recomputeAll — zero extra iteration). `MultiValue.tsx` tooltip shows top 5 with counts (`Getty (31/47)`, `(+N others)` when >5). Idle-frame chunked scheduler in selection-store (~500 items/chunk via `requestIdleCallback`).
+`recomputeAll(images, fields)` computes the full view over cached selected images; incremental
+add/remove paths update already-loaded membership. Chip arrays use frequency-based accounting;
+mixed fields retain value counts for `MultiValue` tooltips. `requestFullReconcile` coalesces work
+into one `requestIdleCallback` (2 s scheduling timeout, `setTimeout` fallback). It does **not**
+chunk the full scan: the measured large-selection stall is open [KUP-035](../bug-backlog.md#kup-035)
+in both modes. Cached metadata may represent only part of the selection; do not promise that
+every selected image has loaded merely because a view is available.
 
 ## Range Selection (`hooks/useRangeSelection.ts`)
 
-Orchestrates shift-click range selection. In-buffer fast path: walks `imagePositions` directly. Out-of-buffer: server walk via `getIdRange`. AbortController + generation counter prevents stale results racing. Effect cursors and matching retained response tuples are preferred; raw `extractSortValues` is the fallback and converts ISO date strings to epoch ms for `DATE_SORT_FIELDS`. The active anchor's tuple survives recent-cache eviction independently of metadata hydration. Toasts on hard-cap truncation (warning at 5000) and soft-cap (info at 2000, non-destructive). Mounted once in `routes/search.tsx`; `handleRange` passed as prop to ImageGrid/ImageTable. Image cell + row whitespace dispatch range; field cells (`data-cql-cell`) keep click-to-search.
+Orchestrates shift-click and touch ranges. In-buffer selection uses `imagePositions`; otherwise
+`getIdRange` walks source-free API keys or direct-ES cursors, preserving `(from,to]` and the 5,000
+cap with lookahead. Unknown endpoint order permits one swapped attempt after an empty walk,
+including overshoot. Request ownership covers membership/anchor intent, query/order, supersession
+and unmount; obsolete success, rejection and finalization cannot affect a newer range.
+Metadata-only updates and same-search display changes do not cancel legitimate selection work.
+
+Retained response tuples take precedence over reconstruction. `extractSortValues` converts dates
+and falls back to configured string/number alias values when raw paths are absent (U6d); boolean
+alias cursors remain a parked limitation. The active anchor tuple survives recent-cache eviction.
+Existing truncation/soft-cap feedback stays; the route owns the hook and passes it to both views.
 
 ## Selection UI
 
@@ -258,7 +348,13 @@ Wraps the `<cql-input>` Web Component from `@guardian/cql`. Bridges React ↔ We
 
 ## Table View (`components/ImageTable.tsx`)
 
-TanStack Table + Virtual. Column defs from field-registry (37+ hardcoded + config-driven alias fields). `EnrichedTableRow` wrapper reads enriched data via `useEnrichedImage`. Badges column (cost badge), staff-photographer left border. Resize (CSS-variable injection avoids React re-renders during drag), auto-fit, visibility context menu (`ColumnContextMenu.tsx`, rendered outside scroll container to avoid `contain: strict` breaking `position: fixed`), sort on header click (shift for secondary), auto-reveal hidden columns on sort. Click-to-search (shift/alt modifiers, AST-based polarity flip) — field cells flagged with `data-cql-cell`; image cell + row whitespace dispatch range selection. Row focus, double-click to detail. Middle-click (`auxclick`, `button===1`) opens FullscreenPreview via `enterFullscreenPreview()`. ARIA roles (`grid`, `row`, `columnheader`, `gridcell`). Horizontal scrollbar via proxy div; vertical hidden (Scrubber replaces it). In selection mode: Left/Right arrows scroll container horizontally.
+TanStack Table + Virtual. Column defs come from static/configured registry fields.
+`EnrichedTableRow` uses `useEnrichedImage`; badges and photographer styling share enriched data.
+Resize uses CSS variables, with auto-fit and a visibility menu outside the contained scroll area.
+Header clicks select one semantic primary sort; Shift does not add a secondary sort. Field cells
+marked `data-cql-cell` keep modifier-aware click-to-search; image cells/row whitespace dispatch
+selection. Double-click opens detail; middle-click opens fullscreen preview. ARIA grid roles,
+the proxy horizontal scrollbar and selection-mode Left/Right scrolling remain.
 
 ## Grid View (`components/ImageGrid.tsx`)
 
@@ -272,6 +368,12 @@ Restoration tracks the last handled image ID. Finding that image in the buffer o
 attempting its cached-cursor restore suppresses repeat restoration when it later
 leaves the buffer. A distinct missing cached image can still restore during the same
 mounted overlay lifetime; the cached cursor and offset are passed through unchanged.
+
+For a non-resident ID, ImageDetail calls the app's `getById(id, signal)` and stores image,
+enrichment and failure together with that requested ID. Identity changes or becoming resident
+abort the read. Resident images take precedence and traversal uses the existing buffer/page
+extension, not per-image singleton hydration. Only standalone ImageMetadata receives the owned
+overlay; it is not written into the shared enrichment map.
 
 ## Fullscreen Preview (`components/FullscreenPreview.tsx`)
 
@@ -289,7 +391,7 @@ Shown in right panel when 2+ images selected. Dispatches per `multiSelectBehavio
 
 5 cost variants (free/pay/conditional/overquota/no-rights), 3 sizes (sm/md/lg). CSS custom property colours from `index.css` cost colour tokens.
 
-## Toast System (~350 lines: `stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx`)
+## Toast System (`stores/toast-store.ts`, `hooks/useToast.ts`, `components/ToastContainer.tsx`)
 
 Queue-backed toast notifications. BBC PR #4253 vocabulary (`ToastCategory`, `ToastLifespan`). `addToast()` imperative export for non-React callers (selection-store hydration drop, range-cap warnings). Single `<ToastContainer />` mounted in `routes/__root.tsx`. `toast-store.ts` has `typeof window !== "undefined"` guard at top level (Vitest compatibility).
 
@@ -307,13 +409,18 @@ Left panel, above Facet Filters. Reads tree + subtree counts from `collection-st
 
 ## Collection Store (`stores/collection-store.ts`)
 
-Zustand + persist (sessionStorage). Loads tree from collections service + unfiltered ES agg at boot (`main.tsx`). `buildSubtreeCounts` uses pathId-splitting (not tree walk) to handle orphan subcollections. `buildColourMap` exported for grid cell badge colours. Graceful-absence: fetch failure → `status: 'absent'` → panel section hidden.
+Zustand + sessionStorage persistence. `main.tsx` passes the search store's datasource to
+`loadCollections(dataSource)`: the tree and a 6,000-bucket `collections.pathId` aggregation start
+in parallel. Counts use media-api in API mode and retain the default free/deleted/replaced scope,
+not the current search or an unfiltered whole-library count. `buildSubtreeCounts` uses path-ID
+splitting; `buildColourMap` supplies badge colours. Tree absence hides the section; count failure
+leaves the tree visible without counts. Accepted ancestor/sibling overcount is unchanged.
 
 ---
 
 # UI Components — Scrubber & Sort
 
-## Scrubber (`components/Scrubber.tsx`, 1,222 lines)
+## Scrubber (`components/Scrubber.tsx`)
 
 Vertical track, proportional thumb. Three modes, auto-selected by result count (see `03-scroll-architecture.md` §2):
 
@@ -327,7 +434,7 @@ Deep seek details: direction-aware `search_after` cursor anchors (`buildSeekCurs
 
 Scrubber also handles the all-null-zone edge case: `getDateDistribution` returns `{ buckets: [], coveredCount: 0 }` (not `null`) when `stats.count === 0`; `computeTrackTicksWithNullZone` emits boundary tick at `position: 0`; top-edge overflow clamp renders it correctly.
 
-## Sort Context (`lib/sort-context.ts`, 1,038 lines)
+## Sort Context (`lib/sort-context.ts`)
 
 Sort-aware label computation for the scrubber tooltip and track ticks. `SORT_LABEL_MAP` maps sort keys to image field accessors and display formatters (date, keyword, numeric). Adaptive date granularity: total span < 28 days → show time (d Mon H:mm); ≥ 28 days → d Mon yyyy; viewport > 28 days → Mon yyyy. Fixed-width `<span>` elements prevent tooltip jitter during drag. `interpolateNullZoneSortLabel` handles null-zone tooltip labels (italic "Uploaded: {date}"). `computeTrackTicksWithNullZone` builds tick arrays with null-zone boundary and red-tinted null ticks. O(log n) binary search on distributions — zero network during drag.
 
@@ -341,6 +448,11 @@ When sorting by fields with many missing values (e.g. `lastModified`, `dateTaken
 
 ## Null-Zone Scrubber UX
 
+**Open paging limits:** [KUP-033](../bug-backlog.md#kup-033) prevents backward extension from
+crossing out of the null tail in both modes; [KUP-034](../bug-backlog.md#kup-034) concerns an
+uncapped near-top backward page in buffer-around-image. Null-zone seek support above does not
+mean those boundary cases are fixed.
+
 Visual feedback when the user enters the null zone: red boundary tick with vertical "No {field}" label (edge-clamped to track bounds), red-tinted uploadTime-based ticks, italic "Uploaded: {date}" tooltip. The boundary label uses a ref callback (`offsetHeight` measurement + pad) for overflow clamping. UX code split across `sort-context.ts` (`interpolateNullZoneSortLabel`, `computeTrackTicksWithNullZone`), `Scrubber.tsx` (rendering), `search.tsx` (wiring), `search-store.ts` (`fetchNullZoneDistribution`).
 
 ---
@@ -351,13 +463,20 @@ Test counts and surfaces: see `kupua/AGENTS.md` Testing Summary (single source o
 
 **Notable test strategies:** null-zone seek/extend with sparse `MockDataSource` (50k images, 20% coverage), reverse-compute edge cases (cold-start, sub-row, End key, buffer-shrink), selection reconciliation (chip-array, summary, mixed frequency, inflation bugs), cost/validity/graphic-blur. E2E: scrubber flash-prevention golden table with **0px scroll-drift tolerance**, **0 items CLS** settle-window, **rAF scrollTop monotonicity**, selections (desktop + mobile Pixel 5 emulation), browser history.
 
-Full reference: `e2e/README.md` (test modes, decision tree, env vars). npm scripts: `test`, `test:e2e`, `test:e2e:full`, `test:perf`, `test:experiment`, `test:diag`.
+Full reference: `e2e/README.md` and `e2e-perf/README.md`; use the current package scripts and
+repository runner rules. Habitual E2E is direct-ES, not API-mode proof. API contract/composed-store
+tests and Scala replay of actual mapper bodies complement operator API browsing/preflights.
+M1 is accepted; use current committed perf histories with revision/topology qualifications.
 
 ## Perceived-Performance Instrumentation (`lib/perceived-trace.ts`)
 
 Lightweight action-boundary tracer. **Zero production cost** — tree-shaken via `import.meta.env.DEV` guard. Off by default in dev; enabled via `localStorage.setItem("kupua_perceived_perf", "1")`. Playwright harness sets the flag before navigation.
 
-Usage: `trace("sort-around-focus", "t_0", { sort, focusedId })` / `trace("sort-around-focus", "t_settled")`. Reading: `await page.evaluate(() => window.__perceivedTrace__)`. ~10 call sites across stores/hooks/components. Action names and phase conventions in `e2e-perf/README.md`.
+Production call sites use `beginTraceInteraction` and `traceInteraction` to correlate the start
+and owned phases. Current boundaries include `t_store_ready`, `t_first_visible_frame` and
+`t_visual_settled`; historical `t_settled` metrics are not interchangeable with them. Read
+`window.__perceivedTrace__` in the browser. The perf handbook owns phase meanings and measurement
+rules; synchronous acknowledgement is not proof of visible paint (KUP-031).
 
 **Logging:** use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E via `KupuaHelpers.getConsoleLogs()`). Reserve bare `console.warn` for genuine error paths only.
 
