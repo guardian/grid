@@ -22,6 +22,7 @@ import {
   subMonths,
   subYears,
   format,
+  isValid,
   parseISO,
 } from "date-fns";
 
@@ -147,17 +148,19 @@ function getActiveDateRange(params: Record<string, string | undefined>): {
 
 /** Format an ISO date string to a short human-readable form */
 function formatDateShort(iso: string): string {
-  try {
-    return format(parseISO(iso), "dd MMM yyyy");
-  } catch {
-    return iso.slice(0, 10);
-  }
+  const date = parseISO(iso);
+  return isValid(date) ? format(date, "dd MMM yyyy") : "Invalid date";
 }
 
 /** Convert ISO (UTC) string to YYYY-MM-DD in local time for <input type="date"> */
 function toDateInputValue(iso?: string): string {
   if (!iso) return "";
-  return format(parseISO(iso), "yyyy-MM-dd");
+  const date = parseISO(iso);
+  return isValid(date) ? format(date, "yyyy-MM-dd") : "";
+}
+
+function isInvalidDateValue(iso?: string): boolean {
+  return !!iso && !isValid(parseISO(iso));
 }
 
 /** Short field labels for the collapsed button display */
@@ -358,6 +361,8 @@ export function DateFilter() {
   // ── Derived state ────────────────────────────────────────────────────
 
   const isActive = !!(active.since || active.until);
+  const hasInvalidActiveBound =
+    isInvalidDateValue(active.since) || isInvalidDateValue(active.until);
   const buttonLabel = buildButtonLabel(active.field, active.since, active.until);
   const presets = makePresets();
   const matchedPreset = findMatchingPreset(draftSince, draftUntil, presets);
@@ -382,9 +387,12 @@ export function DateFilter() {
             : "text-grid-text-muted"
         }`}
         aria-label={open ? "Hide date range filter" : "Show date range filter"}
+        aria-invalid={hasInvalidActiveBound || undefined}
       >
         <CalendarIcon className="w-4 h-4 shrink-0" />
-        <span className="hidden lg:inline">{buttonLabel}</span>
+        <span className={`hidden lg:inline ${hasInvalidActiveBound ? "text-red-400" : ""}`}>
+          {buttonLabel}
+        </span>
         {/* Chevron — matches the native <select> dropdown arrow */}
         <svg className="w-3 h-3 shrink-0 ml-0.5 hidden lg:block" viewBox="0 0 12 12" fill="currentColor">
           <path d={open ? "M3 8l3-3 3 3" : "M3 4l3 3 3-3"} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />

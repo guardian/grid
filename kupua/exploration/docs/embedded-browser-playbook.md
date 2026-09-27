@@ -1,7 +1,7 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** Maintained operating reference; latest live technique check 2026-09-22.
+> **Status:** Maintained operating reference; latest live technique check 2026-09-27.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
@@ -41,6 +41,14 @@ a throttled run.
 ---
 
 ## 1. Session setup
+
+**[V] 27 September 2026, KUP-028 invalid-date presentation:** inspect the current
+accessibility snapshot before clicking a toggle whose name changes with state. The shared
+date dropdown was already open, so selecting `Show date range filter` timed out while the
+actual button was named `Hide date range filter`. The same snapshot established the empty
+native date fields and enabled Clear/Cancel/Anytime controls; a targeted button screenshot
+was appropriate to verify the red invalid label. Cancel closed the client-only dropdown and
+preserved the malformed URL without navigation, response interception or another data read.
 
 **[V] 26 September 2026, U6z startup attribution:** navigate/reload with
 `waitUntil: "commit"`, then immediately install a bounded, buffered resource
