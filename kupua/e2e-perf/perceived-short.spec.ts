@@ -17,7 +17,7 @@
  * ╚══════════════════════════════════════════════════════════════════════╝
  *
  * What this measures (different from perf.spec.ts):
- *   - dt_ack_ms:        time from user action (t_0) to first DOM-visible change
+ *   - dt_ack_ms:        time from user action (t_0) to synchronous action acknowledgement
  *   - dt_status_ms:     time from t_0 to "Finding image…" / "Seeking…" / spinner
  *   - dt_first_visible_frame_ms: first browser frame with target content
  *   - dt_visual_settled_ms: target content stable over the scenario window

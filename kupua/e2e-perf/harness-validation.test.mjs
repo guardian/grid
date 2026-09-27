@@ -60,6 +60,17 @@ function runnerFunction(name) {
   return tail.slice(declaration.pos, declaration.end);
 }
 
+test("acknowledgement documentation stays distinct from visible-frame latency", () => {
+  const shortSpec = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
+  const handbook = readFileSync(join(import.meta.dirname, "README.md"), "utf8");
+  const shortAckDescription = shortSpec.match(/^ \*   - dt_ack_ms:.*$/m)?.[0];
+  const handbookAckDescription = handbook.match(/^- `t_ack` —.*$/m)?.[0];
+
+  assert.equal(shortAckDescription, " *   - dt_ack_ms:        time from user action (t_0) to synchronous action acknowledgement");
+  assert.equal(handbookAckDescription, "- `t_ack` — synchronous action acknowledgement by its current producer; not a DOM-visible boundary.");
+  assert.match(handbook, /`t_first_visible_frame` — the target context has real visible content/);
+});
+
 function waitForFunctionDefects() {
   const files = [
     "perf.spec.ts", "perceived-short.spec.ts", "perceived-long.spec.ts",
@@ -1342,6 +1353,88 @@ test("rejects duplicate or missing correlated phases", () => {
     }),
     /PP4.*missing.*t_store_ready/i,
   );
+});
+
+test("rejects non-finite correlated phase timestamps", () => {
+  const base = {
+    id: "PP4",
+    label: "focused direction",
+    action: "sort-around-focus",
+    requiredPhases: ["t_store_ready"],
+  };
+
+  for (const [phase, timestamp] of [
+    ["t_store_ready", Number.NaN],
+    ["t_status_visible", Number.POSITIVE_INFINITY],
+  ]) {
+    assert.throws(
+      () => computeCorrelatedMetrics({
+        ...base,
+        entries: [
+          { action: "sort-around-focus", phase: "t_0", t: 10, interactionId: "sort-1" },
+          { action: "sort-around-focus", phase: "t_store_ready", t: 20, interactionId: "sort-1" },
+          ...(phase === "t_store_ready" ? [] : [
+            { action: "sort-around-focus", phase, t: timestamp, interactionId: "sort-1" },
+          ]),
+        ].map((entry) => entry.phase === phase ? { ...entry, t: timestamp } : entry),
+      }),
+      new RegExp(`PP4.*${phase}.*finite`, "i"),
+    );
+  }
+});
+
+test("rejects negative correlated elapsed intervals", () => {
+  const base = {
+    id: "PP4",
+    label: "focused direction",
+    action: "sort-around-focus",
+    requiredPhases: ["t_store_ready"],
+  };
+
+  assert.throws(
+    () => computeCorrelatedMetrics({
+      ...base,
+      entries: [
+        { action: "sort-around-focus", phase: "t_0", t: 10, interactionId: "sort-1" },
+        { action: "sort-around-focus", phase: "t_store_ready", t: 9, interactionId: "sort-1" },
+      ],
+    }),
+    /PP4.*t_store_ready.*before.*t_0/i,
+  );
+
+  assert.throws(
+    () => computeCorrelatedMetrics({
+      ...base,
+      entries: [
+        { action: "sort-around-focus", phase: "t_0", t: 10, interactionId: "sort-1" },
+        { action: "sort-around-focus", phase: "t_status_visible", t: 30, interactionId: "sort-1" },
+        { action: "sort-around-focus", phase: "t_store_ready", t: 20, interactionId: "sort-1" },
+      ],
+    }),
+    /PP4.*t_store_ready.*before.*t_status_visible/i,
+  );
+});
+
+test("accepts zero durations without ordering independent phases", () => {
+  const metrics = computeCorrelatedMetrics({
+    id: "PP4",
+    label: "focused direction",
+    action: "sort-around-focus",
+    requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
+    entries: [
+      { action: "sort-around-focus", phase: "t_0", t: 10, interactionId: "sort-1" },
+      { action: "sort-around-focus", phase: "t_ack", t: 10, interactionId: "sort-1" },
+      { action: "sort-around-focus", phase: "t_first_visible_frame", t: 20, interactionId: "sort-1" },
+      { action: "sort-around-focus", phase: "t_store_ready", t: 30, interactionId: "sort-1" },
+      { action: "sort-around-focus", phase: "t_status_visible", t: 40, interactionId: "sort-1" },
+      { action: "sort-around-focus", phase: "t_visual_settled", t: 40, interactionId: "sort-1" },
+    ],
+  });
+
+  assert.equal(metrics.dt_ack_ms, 0);
+  assert.equal(metrics.dt_first_visible_frame_ms, 10);
+  assert.equal(metrics.dt_store_ready_ms, 20);
+  assert.equal(metrics.status_total_ms, 0);
 });
 
 test("reports correlated native fullscreen exit timing", () => {

@@ -34,6 +34,15 @@ export function computeCorrelatedMetrics({
 
   const t0 = starts[0][timeField];
   if (!Number.isFinite(t0)) throw new Error(`${id} correlated t_0 has no ${timeField}`);
+  for (const entry of correlated) {
+    const timestamp = entry[timeField];
+    if (!Number.isFinite(timestamp)) {
+      throw new Error(`${id} correlated ${entry.phase} has no finite ${timeField}`);
+    }
+    if (entry.phase !== "t_0" && timestamp < t0) {
+      throw new Error(`${id} correlated ${entry.phase} is before t_0`);
+    }
+  }
   const elapsed = (phase) => {
     const entry = phaseEntries.get(phase)?.[0];
     return entry ? Math.round(entry[timeField] - t0) : null;
@@ -42,6 +51,9 @@ export function computeCorrelatedMetrics({
     ?? phaseEntries.get("t_seeking")?.[0];
   const terminalEntry = phaseEntries.get("t_visual_settled")?.[0]
     ?? phaseEntries.get("t_store_ready")?.[0];
+  if (statusEntry && terminalEntry && terminalEntry[timeField] < statusEntry[timeField]) {
+    throw new Error(`${id} correlated ${terminalEntry.phase} is before ${statusEntry.phase}`);
+  }
   const firstVisible = elapsed("t_first_visible_frame");
   const visualSettled = elapsed("t_visual_settled");
 

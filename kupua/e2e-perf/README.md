@@ -619,10 +619,10 @@ export interface TraceEntry {
 export function trace(action: string, phase: string, payload?: unknown): void;
 ```
 
-Phase markers (in causal order):
+Phase markers (each measured from `t_0` where applicable; only declared causal intervals are ordered):
 - `t_0` — user-initiated event (click, key, navigation commit). The audit
   doc's "Trigger boundaries" table prescribes the exact site for each action.
-- `t_ack` — earliest visible response (loading state set, banner shown).
+- `t_ack` — synchronous action acknowledgement by its current producer; not a DOM-visible boundary.
 - `t_status_visible` — a status affordance (spinner, banner) became visible.
 - `t_seeking` — a sub-phase of multi-stage actions (e.g. sort-around-focus
   reaches the seek step).
