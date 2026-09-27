@@ -11,10 +11,11 @@ then against the same media-api deployed to TEST. We measure and iterate on the 
 freely. Only once it works do we split the media-api code into small human-reviewable PRs.
 Hosting Kupua for other users is a later, separate decision.
 
-**Current milestone (operator, 26 September):** U6z verifies zero browser Elasticsearch traffic
-for non-AI operations, including recovery. Existing AI search remains unchanged as the sole
-explicit ES exception pending team agreement on its migration. The absolute zero-ES goal above
-is later, not a reason to disable AI. U7's media-delivery changes remain separate.
+**Current milestone (operator, 27 September):** U6z verifies zero browser Elasticsearch traffic
+for non-AI operations, including recovery. Local U9-A and U9-B implementation is now authorized;
+U9-C remains deferred pending separate team approval. Existing AI search stays the sole explicit
+ES exception until U9-B is implemented and validated. Team review remains required before merging
+or deploying U9-A. U7's media-delivery changes remain separate.
 
 ## 1. Decisions (operator, 23 September 2026)
 
@@ -61,7 +62,10 @@ Read the linked sections when a unit touches them; this list is the checklist.
 - **Authorization:** caller tier, the deleted-search uploader restriction and syndication
   visibility are applied by Grid on every read. No client-supplied ES DSL, index or target.
 - **Grid callers unchanged:** no behavior change to `GET /images`, `createSort`, `prepareSearch`,
-  getters, `ImageResponse.create` or existing routes. New code is additive.
+  getters, `ImageResponse.create` or existing routes. New code is additive. **U9-A is the explicit
+  exception:** it may add an opt-in `aiQuery` branch and opt-in no-vector response projection to
+  `GET /images`/`ImageResponse.create`; requests without `aiQuery` must retain exact legacy
+  behavior and shape.
 - **Completed client repairs keep their contracts:** KUP-001/002/003/004/009/024/025 and the rest,
   as recorded in the [backlog](../../bug-backlog.md). The restore path keeps the accepted
   conditional-rank cost.
@@ -133,25 +137,79 @@ maintained here by the executing agent at completion (section 8).
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | done |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | done |
 | U6z | Non-AI media-api coverage and recovery verification; existing AI retained | Kupua | U6a-d | done |
-| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U6z | not started |
+| U9-A | Additive media-api text-AI contract, capability and opt-in projection | Scala | U6c, operator authorization | authorized; not started |
+| U9-B | Kupua media-api AI client and two-mode pool metadata parity | Kupua | U9-A | authorized; not started |
+| U9-C | Shared ordinary-search MLT contract and clients | Both | separate team approval | deferred; do not build |
+| U10-A | Characterize server-derived data/config ownership and duplicate computation | Docs/evidence | operator sequencing exception | done; source-only at `b2acc260f` |
+| U10-B | Consume proven existing server capabilities/data and remove safe duplication | Kupua | U9-B, U10-A, operator selection | provisional; scope from U10-A |
+| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B; U10-B if selected | not started |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
-| U9 | AI migration and capability contract, subject to team agreement | Scala + Kupua | U6c, team agreement | deferred; existing AI unchanged |
 | P1 | Import #4957 when merged; mapper default cleanup (KUP-011) | Both | merge | parallel |
 | L1 | PIT open/close (only if M1/M2a/M2b justify) | Both | M1 | deferred |
 | S | Split into reviewable PRs (section 7) | Both | M2b | later |
 
-**Sequencing amendment (operator, 25 September):** U5 -> M1 -> U6a-d/U6z -> U8 -> M2a ->
-U7 -> M2b. Measure the deployed API before changing image delivery, so those effects can be
-assessed separately. M1 uses the modified branch's media-api on the laptop against TEST ES
+**Sequencing amendment (operator, 27 September):** U10-A completed early as a source-only
+characterization exception. The remaining active sequence is U9-A -> U9-B -> U10-B if selected ->
+U8 -> M2a -> U7 -> M2b. U9-C remains adjacent in the table but is deferred and outside the active
+sequence. U10-A narrowed U10-B; characterization is not blanket implementation approval. Measure
+the deployed API after convergence and before changing
+image delivery, so those effects can be assessed separately. M1 uses the modified branch's
+media-api on the laptop against TEST ES
 through the tunnel; U8/M2a use that branch deployed to TEST. Neither requires merging to main.
 U7 follows M2a by choice, not because deploying the API technically requires canonical media
-delivery. **Amended 26 September:** U9 remains deferred while AI is discussed with the team;
-U6z preserves today's working AI, including its ES path. Do not fold filter text into AI ranking,
-change result/count semantics, hide the controls or remove saved-URL support to satisfy a gate.
-[AI workplan](../../ai-search-catching-up-workplan.md) explains the compatibility gap; its older
-proposed compromises are not approval to change current AI behavior.
+delivery. Local U9-A then U9-B implementation proceeds as two separate units before U8/M2a and
+U7/M2b. Team review remains a gate before merging or deploying U9-A. U6z preserves today's working
+AI, including its ES path, until the replacement is validated. Do not fold filter text into AI
+ranking, change established server
+pool semantics or hide the controls merely to satisfy a gate. Kupua has no AI URL compatibility
+obligation; U9-B may validate and canonicalize its AI parameters.
+[AI workplan](../../ai-search-catching-up-workplan.md) now recommends an additive `aiQuery`
+contract whose absence preserves Kahuna, plus a separately approved shared MLT path. It is the
+owning implementation contract for U9-A/B and does not authorize U9-C. KUP-030's evidenced overlay
+retention is an acceptance case for U9-B and must not be selected as a separate repair.
+
+**U9-A rights-filter decision (revised by operator, 27 September):** do not add an explicit-
+`aiQuery` escape hatch for `hasRightsAcquired`. Both legacy and explicit-AI requests continue
+ignoring the parameter through shared GET parsing; U9-B may serialize it generically but it has no
+effect in media-api AI mode. All new POST image-query endpoints already honor it. GRID-014 owns any
+future shared GET fix, which must cover ordinary GET, legacy AI and explicit-`aiQuery` AI together.
+Neither app exposes a normal control and no URL usage is measured, so this remains a deliberately
+accepted manual-URL correctness/parity issue, not an authorization or M2a gate. `syndicationStatus`
+is independent and sufficient. The eventual U9-A PR description must disclose this non-fix and the
+working POST contrast.
+
+**U9-A: additive media-api text AI.** The owning contract is the
+[AI workplan](../../ai-search-catching-up-workplan.md), especially sections 3, 6, 7.1 and 8-10.
+This unit may change the existing authenticated `GET /images` implementation only through the
+explicit opt-in `aiQuery` branch and its vector-free projection, plus the additive root
+`ai-search` capability. Requests without `aiQuery`, the ordinary `search` template, shared
+`SearchParams`, Kahuna behavior, existing pool-total/ticker computation and MLT remain unchanged.
+Write absent-param preservation tests before implementation and cover explicit empty/nonempty,
+conflict, filters, rights-flag non-effect, weights, capability and projection behavior. Run the
+Scala gate and
+complete the break-and-revert review protocol. The eventual main PR needs team review and the
+section-7 disclosure; local implementation is not merge/deploy approval.
+
+**U9-B: Kupua media-api AI client.** Depends on the locally working U9-A contract and follows
+AI-workplan sections 4, 6, 7.2 and 8-10. Add the media-api adapter, canonical image/enrichment
+publication, fixed-set/pool metadata contract, mode-aware capability and graceful absence; remove
+the final fallback only after composed tests prove no browser Bedrock/direct-ES AI traffic in API
+mode. Preserve direct/local ranking and Bedrock availability while aligning its one existing count
+request to the same prefilter-pool total/ticker semantics. KUP-008 and KUP-030 are acceptance cases.
+Root capability reads must await/coalesce discovery initialization; root failure is session-scoped
+graceful absence, never Bedrock fallback. Accepted API AI publication replaces enrichment exactly
+for nonempty, empty and absent current generations; aborted/superseded work cannot mutate it and
+selection hydration remains outside that policy.
+Run unit, build and E2E gates plus the named targeted completion-timing comparison; do not build
+MLT, change direct ranking or add per-ticker denominators.
+
+**U10-A result (27 September):** source-only characterization completed early against `b2acc260f`
+with no production edits, tests, browser or TEST access. The ownership matrix lives in
+[runtime configuration and data sources](../../runtime-configuration-and-data-sources.md). It
+routes discovery readiness and AI result-owned enrichment replacement into U9-B, and leaves
+field-wise lazy derivation plus ticker metadata as separately selectable U10-B work after U9-B.
 
 **Pitstop order (operator, 26 September):** amend this plan, then investigate/fix
 [KUP-033](../../bug-backlog.md#kup-033) (backward null-zone crossing), separately
@@ -844,6 +902,16 @@ from M1 are not attributable solely to deployment if U6 also changed the client/
 Label runs `TEST-media-api api-mode local-media-delivery`. These measurements include server
 response construction/signing, but do not establish correct use or renewal of canonical media URLs.
 
+Configuration and data ownership are a separate M2a axis; use the
+[runtime configuration and data-source map](../../runtime-configuration-and-data-sources.md). The local browser bundle
+still supplies `gridConfig.ts` vocabulary and presentation policy: organisation/typeahead labels,
+syndication UI assumptions, agency-pick presentation, ticker definitions and field aliases. The
+deployed TEST media-api supplies query/filter/admission semantics, alias parsing/projection,
+counts/ticker values/aggregations, enrichment, links/actions and AI capability/ranking. Root
+discovery supplies HATEOAS links, not Kahuna `clientConfig`. Record any client/server mismatch as
+an M2a finding; do not copy private TEST config into source. KUP-037's free-only collection-count
+scope is a separately parked correctness issue because both modes currently agree.
+
 **U7.** After M2a, thumbnails and full images come from entity links (signed URLs, imgops),
 replacing `/s3` and `/imgproxy` in API mode. Check the details that local imgproxy handles today:
 rotation, format, DPR, transparency. Renew by re-fetching the singleton when a signed URL has expired.
@@ -902,7 +970,7 @@ Provisional order (split large items or combine closely related small ones when 
 6. Count.
 7. Aggregations.
 8. mget.
-9. AI, only after its separately agreed design is implemented.
+9. U9-A AI, after team review of the locally validated contract. U9-C MLT is a separate future PR.
 
 - Keep each capability's implementation, routes, types, tests and fixtures together. Put shared
   prerequisites in the earliest PR needing them; fold later repairs into their owning PRs.
@@ -983,8 +1051,9 @@ planning documents.
 |---|---|
 | This plan + the session prompt, AGENTS.md, worklog | Always |
 | [Instructions](../media-api-work/media-api-91-instructions-for-agents.md), [conventions](../media-api-work/media-api-90-conventions.md) sections 14-16 | Any Scala unit |
-| Candidate 11 [section 2](../media-api-work/api-boundary-11-candidate-plan.md#2-ownership-and-invariants), [section 3](../media-api-work/api-boundary-11-candidate-plan.md#3-concrete-api-capabilities) row for the unit's endpoint, [section 5](../media-api-work/api-boundary-11-candidate-plan.md#5-workflow-preservation) | The unit's endpoint |
+| Candidate 11 [section 2](../media-api-work/api-boundary-11-candidate-plan.md#2-ownership-and-invariants), [section 3](../media-api-work/api-boundary-11-candidate-plan.md#3-concrete-api-capabilities) row for the unit's endpoint, [section 5](../media-api-work/api-boundary-11-candidate-plan.md#5-workflow-preservation) | U1-U6 endpoint units only; not U9-A/B |
 | Current source: `media-api` D3 path, `kupua/src/dal/es-adapter.ts` (algorithm source), `strangler-adapter.ts`, `grid-api-search-adapter.ts`, the consuming store code | Every unit |
+| [AI convergence workplan](../../ai-search-catching-up-workplan.md), its file map, current named source/tests and only KUP-008/KUP-030 from the backlog | U9-A and U9-B; this replaces candidate 11 as their implementation source |
 | Inventory 01 per-method sections and section 7 notes 11-13; workplan 02 section 4 (mget projection/visibility) | U3, U6c, U6d |
 | [Sort options](../media-api-work/d3-search-after-03-sort-options.md), D-6 review | Only if touching sort or tuples |
 | [Backlog](../../bug-backlog.md) entries named in the unit | Only those entries |
@@ -1008,7 +1077,7 @@ superseded, not as gates:
 | Sections 1-2: "ordinary PIT/map" work; maps use their own PIT; PIT opening parallel with page one | API mode runs without PIT. Maps are built live from keys. PIT is L1, after measurement. |
 | Section 3 PIT open/close row, "PIT admission" and lifecycle-interoperability paragraphs; keys row "map context required for a map attempt"; S4 row | Deferred to L1. Keys take an optional `pitId` only through the helper. |
 | Section 4 "do not expose a partially implemented API-only mode" | U6z proves non-AI API coverage with the tested `searchByAi` exception retained. Do not call this absolute API-only completion; zero ES construction/traffic waits for the separately agreed AI migration. |
-| Sections 5/6 AI migration and S10 full cutover | Existing AI behavior stays unchanged through U6z and the non-AI deployment/measurement sequence. U9 needs team agreement; older AI workplan compromises are not implementation approval. |
+| Sections 5/6 AI migration and S10 full cutover | Existing AI behavior stays unchanged through U6z. Local U9-A/B work is authorized under the AI convergence workplan; team review still gates merge/deployment and U9-C remains deferred. |
 | S10 bundles deployed delivery, bootstrap, hosting and API-only activation | U8/M2a deploy and measure the modified API on TEST with existing local image delivery; U7/M2b then integrate and check canonical media delivery. Hosting remains later. |
 | Section 3 execution policy: withholding windows on decode mismatch "requires explicit agreement" | U1 returns a raw hit count so drops are visible. Withholding stays a later decision; ask if a consumer needs it. |
 

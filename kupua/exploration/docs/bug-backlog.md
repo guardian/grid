@@ -17,15 +17,17 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 26 September 2026.** The 22 entries below have an open defect,
-approval/integration/review task or explicit residual; 28 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 27 September 2026.** The 18 entries below have an open defect,
+approval/integration/review task or explicit residual; 33 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
 
-**Operator scheduling decision, 23 September:** KUP-029/030 remain open but are deferred until
-after a working API-backed app. They do not block query alignment, core search/scroll/position/
-traversal or initial image-read integration. Authorization and data-protection obligations remain.
+**Operator scheduling decision, 23 September:** KUP-029/030 were deferred until after a working
+API-backed app. Post-U6z evidence now refutes KUP-029's independent ordinary-path premise while
+KUP-030 remains evidenced but is owned by U9 AI convergence, not a separate repair. Neither blocks
+query alignment, core search/scroll/position/traversal or initial image-read integration.
+Authorization and data-protection obligations remain.
 
 **Operator amendment, 26 September:** the active API build plan now scopes U6z to non-AI
 media-api coverage, including recovery. Existing AI is the sole deliberate ES exception pending
@@ -34,7 +36,9 @@ claim absolute API-only completion. Reassess KUP-030 without changing selection 
 silently broadening its deferred display-repair scope. KUP-033 is DONE as an independent pitstop.
 KUP-034 and KUP-036 are DONE as separate repairs. U6z now verifies non-AI routing and recovery
 without a production change; KUP-010/026's demonstrated scopes are closed below. KUP-030 retains
-an executed same-ID AI display residual. The operator reported U6z's cold review clean.
+a real-route same-ID AI overlay-lifetime residual; effective-value divergence remains synthetic
+and rendered divergence is unproved. The
+operator reported U6z's cold review clean.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -46,13 +50,9 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
-| [KUP-013](#kup-013) | Keyboard Home -> resident End | End-initiated repair DONE; reverse interleaving reproduced and UNFIXED | Independent UX follow-up |
-| [KUP-028](#kup-028) | Invalid-date dropdown failure | Open; source-only | Independent robustness; valid-date policy unchanged |
-| [KUP-029](#kup-029) | Effective rights versus no-rights badge | Deferred until a working API-backed app; source-only | Related follow-up, not an initial migration gate |
-| [KUP-030](#kup-030) | Same-ID AI result retains an earlier API overlay | Original fallback removed; AI residual reproduced synthetically, repair deferred | Separate display decision; not a non-AI transport gate |
-| [KUP-031](#kup-031) | Acknowledgement described as visible latency | Open; source-only measurement-description mismatch | Independent; affects interpretation of migration measurements |
-| [KUP-032](#kup-032) | Invalid timing values accepted | Open; source-only calculator defect | Independent; affects trust in future measurement rows |
+| [KUP-030](#kup-030) | Same-ID AI result retains an earlier API overlay | Real-route retention reproduced; effective-value divergence synthetic, rendered divergence unproved | Owned by U9 AI convergence; do not select separately |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
+| [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
 
 ### Open Grid Work
 
@@ -71,10 +71,10 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-011](#grid-011) | Collection membership lost update | Open; source-only | Independent Grid concurrency; useful future-editing contract |
 | [GRID-012](#grid-012) | Premature soft-delete acknowledgement | Open; source-only | Independent Grid handoff; useful future-editing contract |
 | [GRID-013](#grid-013) | Unawaited Thrall syndication updates | Open; source-only | Independent Grid consumer reliability |
-| [GRID-014](#grid-014) | Kahuna's rights-acquired filter ignored by `GET /images` | Open; server side confirmed by a local ES test | Independent Grid fix; Kupua's own filter works through its request bodies |
+| [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, future U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
 
 <details>
-<summary>Completed bounded repairs and verification: 28 other IDs</summary>
+<summary>Completed bounded repairs and verification: 33 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -87,11 +87,12 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Near-top centred paging | [KUP-034](#kup-034) |
 | Explicitly incomplete API image pages | [KUP-036](#kup-036) |
 | Non-AI API recovery and fixed-mode CQL initialization, closed by U6z verification | [KUP-010](#kup-010), [KUP-026](#kup-026) |
+| Date recovery, measurement trust and latest keyboard-edge ownership | [KUP-013](#kup-013), [KUP-028](#kup-028), [KUP-031](#kup-031), [KUP-032](#kup-032) |
+| Post-U6z ordinary effective-rights mismatch refuted | [KUP-029](#kup-029) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
-not automatically known bugs. KUP-013 also has a completed repair, but its explicit remaining
-work is listed above. S1 normalization is complete and is not one of these bug IDs.
+not automatically known bugs. S1 normalization is complete and is not one of these bug IDs.
 
 #### KUP-010
 **Restore recovery can bypass the intended refusal boundary (E017)**
@@ -304,7 +305,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence / reproduction:** [End owner](../../src/hooks/useListNavigation.ts), [consumer](../../src/hooks/useScrollEffects.ts), [P19 F4][p19], [P21 F5][p21]. The historical 20 September direct-ES/TEST witness is retained. A fresh 22 September trusted-key comparison in the shared non-local direct-ES app again retained focus for 820 resident results but replaced it at the indexed 13252-result tail. [Evidence](bug-reproduction-evidence.md#kup-013).
 - **Regression coverage:** actual mounted producer/store/consumer across resident, indexed and seek-tier coordinates; explicit, retained-hidden, phantom and no focus; pending mode/focus changes, newer seek/Home, failure/abort cleanup, native-input/fullscreen exclusions and actual grid/table End-selection-Clear placement.
 - **Disposition: DONE (22 September), committed as `4bb055c66`**, for initiating focus permission and pending-End ownership. [Validation and limits](bug-reproduction-evidence.md#bounded-focus-repairs-kup-013017018027). No focus clearing on selection entry or new data read is introduced; this is not a symmetric Home/End closure.
-- **Open follow-up: reproduced, unfixed (22 September).** With explicit focus at the loaded tail, hold one successful Home read, then press resident End. End leaves Home's signal and first-edge intent active; releasing the read moves focus and the viewport to the head. Ordinary Home/End and the repaired hidden-focus End passed. [Restarted-app evidence](bug-reproduction-evidence.md#restarted-app-browser-follow-up). This separately authorized validation changed no production code.
+- **Follow-up disposition: DONE (27 September).** The 22 September controlled browser reproduction remains the original witness. Windowed Home now records edge ownership independently from focus permission; resident End aborts and clears older edge/loading ownership before applying the already-resident tail. Mounted producer/store/consumer coverage first reproduced the explicit-focus signal and stuck-loading failures, then six selection/phantom/no-focus failures across indexed and seek coordinates. The settled 33-case slice retains hidden-focus policy, both supersession directions, failure/abort cleanup, input/fullscreen exclusions and zero successor reads. Three fresh reviews found and drove the loading and non-explicit repairs before a clean final review. [Current evidence](bug-reproduction-evidence.md#kup-013-reverse-edge-follow-up-repair). No generic navigation epoch, extra request or live after-check follows.
 
 #### KUP-014
 **Deferred query actions can replace a newer history intent**
@@ -400,41 +401,42 @@ and browse-only repair direction; they do not approve wider API implementation o
 **Malformed URL dates can throw when the date dropdown opens**
 - **Component / owner:** DateFilter and URL date admission; human owner-to-confirm.
 - **Trigger / expected / actual:** an active bound contains an invalid ISO string and the user opens the dropdown. It should remain usable or reject the value safely; unguarded `format(parseISO(...))` throws. The closed button has a catch, so this is not an unconditional initial-page crash.
-- **Evidence:** P32-A2; [date formatter and input](../../src/components/DateFilter.tsx#L158), [string-valued schema](../../src/lib/search-params-schema.ts#L29). High-confidence source path, not execution.
-- **Smallest discriminator:** mount with `since=not-a-date`, open the dropdown, and assert controlled invalid presentation plus usable Cancel/Clear; retain valid and absent bounds. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent client robustness. S2 must preserve valid instants, not reproduce a render exception; no global date-policy rewrite or new migration prerequisite.
+- **Evidence:** P32-A2; [date formatter and input](../../src/components/DateFilter.tsx), [string-valued schema](../../src/lib/search-params-schema.ts#L29). The original failure remained source-confirmed rather than executed because the regression and guard appeared together. The shared running UI then demonstrated the repaired state at `since=not-a-date`: a red `Uploaded: from Invalid date` label, empty native date inputs, usable recovery controls and Cancel preserving the URL. No response interception or server mutation occurred.
+- **Regression coverage:** six mounted cases cover malformed upload/taken/modified start/end bounds, empty calendar presentation, red and accessible invalid state, explicit Clear recovery and valid local-calendar values. The accessibility assertion failed before `aria-invalid` was added. Valid timezone serialization and top-level exclusive/CQL inclusive policies are unchanged.
+- **Dependency / disposition: DONE (27 September), committed as `2875bec44`.** Invalid raw bounds remain in URL/search state until explicit replacement or clearing; they are not silently discarded into a wider search. This is independent client robustness, not a global date-policy rewrite or migration prerequisite.
 
 #### KUP-029
 **Effective overlay rights and the no-rights badge can disagree**
 - **Component / owner:** deriveImage and grid/field badge consumers; human owner-to-confirm.
 - **Trigger / expected / actual:** baseline rights differ from supplied overlay rights with non-free cost. The effective rights label and badge should describe the same state; `usageRights` uses the overlay but `noRights` uses the baseline. Hiding a free-cost badge is ordinary behavior, not itself this defect.
-- **Evidence:** P32-B1; [merge](../../src/lib/derive-enriched-image.ts#L93), [baseline-only assertion](../../src/lib/derive-enriched-image.test.ts#L193), [badge consumer](../../src/components/CostBadge.tsx#L179). High-confidence conditional source/test-read inconsistency; no current same-response mismatch or authorization failure is claimed.
-- **Smallest discriminator:** baseline absent/present category versus opposite overlay category and pay/conditional cost through derive plus the real badge renderer. The existing baseline-only assertion needs an explicit contract decision, not silent weakening. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent display correction. **Operator-deferred, 23 September:** address after a working API-backed app, not as a gate on query alignment, core browsing or initial image-read integration. Effective-display consistency remains a later ownership decision; server authorization is unchanged. Not an S1 reopening.
+- **Historical source finding:** P32-B1; [merge](../../src/lib/derive-enriched-image.ts#L93), [baseline-only assertion](../../src/lib/derive-enriched-image.test.ts#L193), [badge consumer](../../src/components/CostBadge.tsx#L179). The pure merge can still express opposing baseline/overlay rights, but this does not establish a current producer of that pair.
+- **Post-U6z reachability:** ordinary search/window pages map `Image.usageRights` and overlay `usageRights` from the same media-api entity; standalone detail does the same from one GET response. Direct ES and selection mget supply no overlay. A bounded real media-api-mode check found identical baseline/overlay rights for 100/100 ordinary images and 20/20 controlled same-ID images. After a real AI transition, retained overlays changed rights and cost presentation for 0/20 sampled images.
+- **Dependency / disposition: CLOSED/REFUTED for the independent current ordinary path (27 September).** Differently sourced or retained overlays can still make the pure inconsistency reachable, but that cross-provenance lifetime is owned by KUP-030. No badge repair, authorization conclusion or universal data-parity claim follows.
 
 #### KUP-030
 **Same-ID AI results can retain enrichment from an earlier ordinary API result**
 - **Component / owner:** search-store publication, enrichment-store and [per-ID consumption](../../src/hooks/useEnrichedImage.ts#L26); human owner-to-confirm.
 - **Original trigger removed:** P32-B3 described unavailable ordinary API reads falling back to ES without an overlay. U5 deleted `StranglerAdapter` in `3fdfeece2`; current ordinary pages never rescue through ES. Failure now preserves the committed state instead of publishing a new overlay-less page. That historical trigger no longer applies.
 - **Executed residual (U6z, 26 September):** [the composed ordinary/AI/ordinary test](../../src/stores/search-store-api-mode.test.ts) uses the real store, mapper, `ApiDataSource` and existing ES AI delegate over controlled transport. An ordinary same-ID API result publishes `overquota`; a subsequent AI image whose derived baseline is `free` still derives `overquota` through the retained shared overlay. Returning to ordinary API search replaces it with the new response's `pay` overlay. This is synthetic effective-display evidence, not a live policy mismatch or authorization failure.
+- **Real-route reproduction (27 September):** in a read-only TEST media-api-mode tab, one real AI query used Bedrock/direct ES. Twenty of its IDs were then loaded through ordinary media-api reads and the same query was re-entered through the visible AI control. All 20 matching AI results retained and consumed their ordinary overlays. For this sample, overlay rights/cost matched the saved AI baseline and rendered presentation changed 0/20; natural incidence of wrong display remains unproved. The ID scope was controlled setup, no responses were intercepted, and Home cleanup removed the page-only probe.
 - **Selection boundary:** bulk hydration deliberately has no enrichment and leaves the shared overlay map untouched. U6z does not add enrichment, clear selected overlays or introduce freshness policy to manufacture closure.
-- **Disposition: OPEN, separate display decision.** The original ordinary fallback is gone, but the AI transition residual prevents broad closure. The operator-deferred display scope remains separate from U6z's non-AI transport milestone and U8 deployment preparation; no repair or stronger freshness guarantee is authorized here. KUP-029 is unchanged.
+- **Disposition: OPEN evidence, resolution owned by U9 AI convergence (27 September).** The original ordinary fallback is gone, but real same-ID AI retention prevents broad closure. Incorrect effective display, other overlay fields, selection consequences and naturally incidental overlap remain unproved. Do not investigate or repair KUP-030 separately: U9-B's canonical media-api AI response must publish the current result's complete enrichment map, eliminating cross-provenance retention by construction. Close this ID only with that composed evidence. It remains separate from U6z's non-AI milestone and U8 deployment preparation.
 
 #### KUP-031
 **Acknowledgement metric is described as DOM-visible latency**
 - **Component / owner:** perceived-short metric documentation and trace consumers; human owner-to-confirm.
 - **Trigger / expected / actual:** interpreting `dt_ack_ms` using the spec's first-DOM-visible definition. The label should describe its producer boundary; search emits `t_ack` before loading publication/render, while visible-frame latency is separately observed.
 - **Evidence:** P32-C1; [metric description](../../e2e-perf/perceived-short.spec.ts#L20), [producer ordering](../../src/stores/search-store.ts#L2110), [separate outputs](../../e2e-perf/perceived-metrics.mjs#L46). High-confidence source semantic mismatch; not a measured slowdown or corrupt canonical campaign.
-- **Smallest discriminator:** compare producer ordering with a delayed-render observer fixture, retaining distinct ack/store/first-visible/settled assertions. Proposed, not run; no campaign needed merely to establish the terminology error.
-- **Dependency / disposition:** OPEN, independent measurement-contract documentation defect. Current integration interprets ack as synchronous acknowledgement, not painted pixels. No metric rename/rewrite, canonical-row mutation or parity acceptance authorized.
+- **Executed discriminator:** the source ordering establishes `t_ack` as synchronous producer acknowledgement before loading publication/render, while the calculator fixture retains separate ack, store-ready, first-visible and settled outputs. A new harness guard failed against the old first-DOM-visible wording, then passed after the active short-suite header and perf handbook were corrected. Both dashboards' contract checks remained green.
+- **Dependency / disposition: DONE (27 September), committed as `c0a5ff76f`.** This is a terminology correction only. Trace sites, metric names, historical rows and campaign interpretation limits are unchanged; no campaign or parity claim follows.
 
 #### KUP-032
 **Correlated metrics can accept invalid phase timestamps and negative durations**
 - **Component / owner:** perceived-metrics calculator and validation boundary; human owner-to-confirm.
 - **Trigger / expected / actual:** a correlated required phase precedes its start, a terminal precedes its status, or a non-start timestamp is non-finite. Such timing is not valid elapsed evidence; the calculator validates finite `t_0` and phase cardinality only, then subtracts other timestamps without those guards.
 - **Evidence:** P32-C2, qualified: [calculator](../../e2e-perf/perceived-metrics.mjs#L24), [existing correlation assertions](../../e2e-perf/harness-validation.test.mjs#L737). High-confidence source mechanism; no canonical row is alleged affected and no arbitrary total ordering of independent phases is required.
-- **Smallest discriminator:** pure fixtures for negative elapsed/status durations and invalid non-start timestamps, beside unchanged duplicate/missing/cross-document controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent harness correctness. Before relying on future rows, validate the declared causal intervals; this neither explains PP6c/P8 nor authorizes metric changes or another campaign.
+- **Executed discriminator:** pure calculator fixtures first failed because non-finite required/optional timestamps, phase-before-start and terminal-before-status intervals were accepted. The calculator now rejects those rows after existing correlation/cardinality checks. Zero durations, cross-document timestamps and intentionally independent phase ordering remain accepted; missing/duplicate controls are unchanged.
+- **Dependency / disposition: DONE (27 September), committed as `c0a5ff76f`.** The emitted metric fields and both dashboard contracts are unchanged. No historical row is alleged corrupt, no total ordering is imposed, and this neither explains PP6c/P8 nor authorizes a campaign.
 
 #### KUP-033
 **Backward paging from the first null-tail image cannot reach the valued images before it**
@@ -474,6 +476,14 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Client evidence:** [seven composed tests](../../src/stores/search-store-api-mode.test.ts#L744) use the real adapter and store over controlled 503 responses. Failed startup is not empty success; forward/backward/window failure retains the committed buffer, coordinates, tuples and enrichment. Restore target/forward/backward failures publish only the successful API-window recovery, never the partial neighbourhood; no migrated method reaches the ES fallback. Full gates passed: 742 Scala tests, 2,028 Kupua unit tests, build and 299 local/direct-ES E2E tests.
 - **Ordinary live check (26 September):** operator-authorized read-only TEST through the modified local media-api and `--use-media-api`: pinned initial search, real scrubber deep navigation, resident detail traversal/return, bounded store-driven shallow navigation and wheel scrolling remained error-free and position-consistent. Shallow navigation used window (200); deep navigation used two search-after pages plus rank/profiles. The traversed image remained visible on return; observed image-data requests used media-api, with no browser ES traffic. This is bounded ordinary-behavior evidence, not a live failure reproduction, whole-workflow certification or performance comparison. No synthetic browser failure, induced ES timeout/shard failure or load campaign was run.
 - **Disposition / limits:** DONE (26 September), implemented and verified locally. Fresh read-only subagent cold review found no S1/S2 issues; its sole S3 changelog-formatting finding is corrected. The reviewer inspected source, tests and recorded Scala summaries, not new test/live executions. Separate migration repair before final U6z verification, with media-api edit permission confirmed. Legacy `GET /images`, shared Grid execution, timeout settings, targets, PIT policy/expiry, sort/tuples, decode omission, retries, AI and other parked issues are unchanged. M1 remains accepted; U7 and operator API perf preflights remain separate, not run here.
+
+#### KUP-037
+**Collection membership badges silently apply the free-only default scope**
+- **Component / responsibility:** collection-store startup count request and the shared direct/API request mappers; human owner-to-confirm.
+- **Trigger / expected / actual:** `loadCollections()` requests `getAggregations({})` for `collections.pathId` and describes the result as unfiltered membership volume. Missing `nonFree=true` activates Kupua's ordinary free-only default, so both direct ES and media-api requests count only free-eligible images. If the badges mean total collection membership, they undercount; if free-only counts are intended, the UI/comments do not disclose that scope.
+- **Evidence:** [collection request](../../src/stores/collection-store.ts#L123), [API mapper default](../../src/dal/grid-api-search-adapter.ts#L129), [direct builder](../../src/dal/es-adapter.ts#L548), and the [cold-start request assertion](../../src/main.test.tsx#L78), which explicitly requires `free: true`. This is source/test confirmation, not a browser comparison or measured user impact.
+- **Smallest discriminator:** create one free and one non-free image in the same collection, load counts through each datasource, and assert the intended badge total. First decide whether the product label means all membership or free-only membership; do not weaken direct/API parity.
+- **Dependency / disposition:** OPEN, independently parked. Both modes currently agree, so this does not block M2a routing or invalidate existing API comparisons. Resolve later as one client intent/label decision with failing-first direct and API tests.
 
 ### Dependency Unresolved
 
@@ -610,13 +620,13 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Dependency / disposition:** OPEN, independent Grid-only consumer reliability, distinct from metadata-editor [GRID-009](#grid-009). No new retry policy, durable outbox or current read-migration prerequisite.
 
 #### GRID-014
-**`GET /images` ignores Kahuna's `hasRightsAcquired` filter**
-- **Component / owner:** media-api `SearchParams.apply(request)` (GET search parsing); human owner-to-confirm.
-- **Trigger / expected / actual:** Kahuna search state carries `hasRightsAcquired` and its API client forwards it to `GET /images`. The result should be limited to images with (or without) acquired syndication rights. On `main` the parameter is never read and no such filter exists, so the result is unfiltered.
-- **Evidence:** Kahuna [state param](../../../kahuna/public/js/search/index.js#L191), [results](../../../kahuna/public/js/search/results.js#L592), [API client](../../../kahuna/public/js/services/api/media-api.js#L63); on `main`, `SearchParams.apply` has no such parameter and `QueryBuilder` no such filter. The branch's [GET parsing](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L434) deliberately keeps that behavior, and [the ES test](../../../media-api/test/lib/elasticsearch/ElasticSearchTest.scala#L875) asserts that `GET /images` returns every image for both values. Whether Kahuna exposes a visible control for it is source-unverified.
+**`GET /images` ignores the `hasRightsAcquired` filter**
+- **Component / owner:** media-api `SearchParams.apply(request)` (shared GET search parsing), including legacy AI and U9-A's future explicit-`aiQuery` branch; human owner-to-confirm.
+- **Trigger / expected / actual:** either app supplies `hasRightsAcquired=true|false` in a manually constructed or external search URL. Legacy Kahuna GET and the future U9-A explicit-AI path ignore it, so membership, AI pool total and tickers are unfiltered. Ordinary Kupua POST reads and all other new image-query endpoints already honor the boolean through request bodies; direct-ES Kupua also honors it.
+- **Evidence:** Kahuna [state param](../../../kahuna/public/js/search/index.js#L191), [results](../../../kahuna/public/js/search/results.js#L592), [API client](../../../kahuna/public/js/services/api/media-api.js#L63); Kupua retains the same URL field but neither app exposes a normal search control. The branch's [GET parsing](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L748) deliberately passes `None`, while [body parsing](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L578) and [filter construction](../../../media-api/app/lib/elasticsearch/QueryBuilder.scala#L180) support the field. The [ES test](../../../media-api/test/lib/elasticsearch/ElasticSearchTest.scala#L872) proves POST true/false filtering and GET non-effect, including mixed rights. No manually supplied URL usage or user impact is measured; this is a correctness/parity issue only.
 - **History:** abandoned PR #4849 (commit `b52d027da`) fixed it on Kahuna's path as a side effect of making `GET /images` and D3 agree. That part was removed on 24 September (API build U2) rather than ported, because #4849 is being closed.
-- **Smallest fix:** once the Kupua filter lands (split PR 1, plan section 7), read the parameter in `SearchParams.apply` (one line) and flip the ES test's GET assertions to the filtered sets. Needs its own Grid PR stating the Kahuna-visible change.
-- **Dependency / disposition:** OPEN, independent Grid-only fix. Not a migration prerequisite.
+- **Smallest fix:** read the parameter once in shared `SearchParams.apply`, so ordinary GET, legacy AI and explicit-`aiQuery` AI receive the same value; avoid a U9-only branch. Flip the GET assertions and add explicit-AI omitted/true/false coverage while retaining the POST endpoints as controls. This needs its own Grid PR stating the Kahuna/Kupua URL-visible change.
+- **Dependency / disposition:** OPEN, independent Grid-only fix. U9-A deliberately does not repair it, and U9-B accepts the media-api/direct-mode discrepancy for manually supplied URLs. It is not a migration or M2a prerequisite; if selected later, fix all shared GET modes together.
 
 Cross-component raw default intent is canonical at [KUP-011](#kup-011), not duplicated here.
 Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the legacy GET policy finding.
@@ -754,11 +764,19 @@ original 35 IDs and all their execution/completion states remain intact. No futu
 product fix, metric rewrite or new measurement is authorized. The reproduction evidence file remains
 the historical 35-ID record, not execution evidence for these additions.
 
-**Current handoff, 23 September:** Batch A/B's bounded outcomes and coordinator requests are integrated
+**Current handoff, 27 September:** KUP-013's reproduced reverse keyboard Home -> resident End race
+is repaired at the existing edge-intent boundary, and KUP-028/031/032 are complete at their bounded
+date-presentation and measurement-contract scopes. Their entries above retain execution, review and
+verification limits. No migration implementation, Grid fix, campaign, deferred display repair or
+additional bug selection follows. Those repairs are committed as `2875bec44`, `c0a5ff76f` and
+`ace53ac75`. The later KUP-029 refutation and KUP-030 real-route retention evidence are documentation
+only and remain unstaged pending operator review.
+
+**Historical handoff, 23 September:** Batch A/B's bounded outcomes and coordinator requests were integrated
 into existing 06/07, candidate/index and current routing, without repeating the earlier reconciliation.
 All 35 IDs, original reports and execution histories remain. The completed End-initiated repair does
-not close the controlled-live-data reproduced, UNFIXED reverse keyboard Home -> resident End case
-under KUP-013; its remote stage was not independently reidentified. CQL current cache callbacks are
+not at that time close the controlled-live-data reproduced reverse keyboard Home -> resident End case
+under KUP-013; its remote stage was not independently reidentified. CQL current cache callbacks were
 repaired, but first-registration datasource/API-only initialization remains unresolved. Saved-density,
 original-return and cross-preview centering repairs retain no-saved fallback, pre-native-entry,
 physical Esc/macOS and broader availability/API/deployment limits; uncertified does not mean known broken.

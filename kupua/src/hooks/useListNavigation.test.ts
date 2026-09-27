@@ -139,7 +139,7 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
       const original = source.searchAfter.bind(source);
       const read = vi.spyOn(source, "searchAfter").mockImplementationOnce(async (...args) => {
         await gate;
-        if (args[3]?.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
+        if (args[3]?.aborted) throw new DOMException("Aborted", "AbortError");
         return original(...args);
       });
       return { release, read };
@@ -255,6 +255,39 @@ describe("KUP-013 End producer and post-seek consumer", () => {
     expect(fixture.container.scrollTop).toBe(0);
     expect(useSearchStore.getState()._pendingFocusAfterSeek).toBeNull();
   });
+
+  for (const total of [12000, 70000]) {
+    for (const mode of ["explicit", "selection", "phantom", "none"] as const) {
+      it(`resident End supersedes pending Home with ${mode} focus at total ${total}`, async () => {
+        const fixture = await mountNavigation(true, mode, total);
+        await fixture.pressEnd();
+        const tailState = useSearchStore.getState();
+        const expectedFocus = tailState.focusedImageId;
+        const expectedScrollIndex = isTwoTierFromTotal(total) ? total - 1 : tailState.results.length - 1;
+        const held = fixture.holdRead();
+
+        act(() => fixture.dispatchKey("Home"));
+        expect(held.read).toHaveBeenCalledOnce();
+        act(() => fixture.dispatchKey("End"));
+
+        expect(held.read.mock.calls[0][3]?.aborted).toBe(true);
+        expect(fixture.seek).toHaveBeenCalledTimes(2);
+        expect(useSearchStore.getState()._pendingFocusAfterSeek).toBeNull();
+        expect(useSearchStore.getState().loading).toBe(false);
+        expect(useSearchStore.getState().error).toBeNull();
+        expect(useSearchStore.getState().focusedImageId).toBe(expectedFocus);
+        expect(fixture.scrollToIndex).toHaveBeenLastCalledWith(expectedScrollIndex, { align: "end" });
+
+        await act(async () => { held.release(); await fixture.finishSeek(); });
+        expect(useSearchStore.getState().bufferOffset + useSearchStore.getState().results.length).toBe(total);
+        expect(useSearchStore.getState().loading).toBe(false);
+        expect(useSearchStore.getState().error).toBeNull();
+        expect(useSearchStore.getState().focusedImageId).toBe(expectedFocus);
+        expect(fixture.scrollToIndex).toHaveBeenLastCalledWith(expectedScrollIndex, { align: "end" });
+        expect(fixture.seek).toHaveBeenCalledTimes(2);
+      });
+    }
+  }
 
   for (const outcome of ["failure", "abort"] as const) {
     it(`discards End focus intent after request ${outcome}`, async () => {

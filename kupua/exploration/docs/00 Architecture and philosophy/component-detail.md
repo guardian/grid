@@ -4,8 +4,8 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last refreshed: 26 September 2026.** API-build U6z non-AI routing/startup/recovery verified;
-> tests-only changes passed operator-reported cold review. This is not whole-system verification. The
+> **Last refreshed: 27 September 2026.** API-build U6z non-AI routing/startup/recovery verified;
+> KUP-029/030 reachability and retention were bounded in the browser. This is not whole-system verification. The
 > [active build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
 > owns sequencing and acceptance. AI remains unchanged; U8 deployment and U7 delivery remain separate.
 
@@ -76,7 +76,7 @@ Three-layer merge model:
 
 1. **ES baseline inputs** — `SOURCE_INCLUDES` in `es-config.ts` fetches rights/leases/usages/labels/syndicationRights/XMP fields. Always available in direct-ES mode.
 2. **TS cost+validity calculation** — `calculateCost` (port of Scala `CostCalculator`), `buildValidityMap` + `deriveValid` (mirrors Scala's two-pass override model), `isImagePotentiallyGraphic` (TS port, replaces Painless script field not in `_source`), quota-store (`fetchQuotas()` at startup, graceful absence). `guardian-config.json` is a vendored config snapshot.
-3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed search-after/window page enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Standalone detail holds its own requested-ID-bound overlay rather than publishing into this store. AI and selection bulk lookup intentionally supply baseline images only; this is not universal effective-display/freshness parity (KUP-029/030 remain deferred).
+3. **API overlay** — `enrichment-store` (Zustand, no persistence) receives committed search-after/window page enrichment. `deriveImage(image, overlay?)` merges server fields over the baseline; direct ES supplies no overlay. Ordinary API pages and standalone detail map baseline and overlay rights from the same response entity, so KUP-029's independent opposing-rights premise is refuted post-U6z. AI and selection bulk lookup intentionally supply baseline images only; same-ID AI results can retain a prior ordinary overlay (KUP-030), whose resolution belongs to U9's canonical AI response rather than a separate repair.
 
 **Consuming enriched data:** `useEnrichedImage(image, ownOverlay?)` subscribes per-ID to the
 enrichment store (O(1) `Map.get`); an owned standalone overlay takes precedence. Non-React
@@ -88,8 +88,11 @@ focus/restore buffers and seeks merge their contributing overlays. An inserted t
 only its selected probe entry; both backward seek paths include backward-page overlays. Discarded
 probes and cancelled pages do not publish, and direct-ES responses do not invent API enrichment.
 U6z's synthetic same-ID ordinary/AI/ordinary sequence confirms that an AI baseline can still use
-the previous ordinary API overlay until a new API result replaces it (KUP-030). That residual is
-separate from the removed ordinary unavailable-to-ES fallback; selection enrichment is unchanged.
+the previous ordinary API overlay until a new API result replaces it (KUP-030). A 27 September
+real-route browser check reproduced retention for 20/20 matching IDs but found no rights/cost
+presentation change in that sample. The residual is separate from the removed ordinary
+unavailable-to-ES fallback; selection enrichment is unchanged. Do not fix it independently:
+U9 must replace the overlay map with the current AI response's enrichment at commit time.
 
 ## State (`src/stores/search-store.ts`)
 
@@ -190,7 +193,7 @@ Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descr
 - **Seek cooldowns** (constants in `tuning.ts`): post-arrival extend block, deferred scroll timer (fires synthetic scroll to trigger extends without causing swimming), search-fetch cooldown (blocks extends during in-flight search/abort).
 - **Post-extend cooldown:** prevents cascading prepend compensations (swimming).
 - **`seekGeneration` ref guard:** on seek, skips one stale `handleScroll` to prevent spurious `extendBackward`.
-- **End-seek focus guard:** pending End work retains its initiating focus permission; a later focus change cannot grant it new permission. Reverse Home-then-resident-End remains KUP-013, not a completed symmetric repair.
+- **Keyboard edge ownership:** pending Home/End work owns its initiating edge independently from nullable explicit-focus permission. A later resident opposite edge aborts and clears obsolete edge/loading work before applying resident placement; no successor read is required.
 - Module-level bridges for density-focus and sort-focus.
 
 ## List Navigation (`hooks/useListNavigation.ts`)
@@ -484,7 +487,8 @@ Production call sites use `beginTraceInteraction` and `traceInteraction` to corr
 and owned phases. Current boundaries include `t_store_ready`, `t_first_visible_frame` and
 `t_visual_settled`; historical `t_settled` metrics are not interchangeable with them. Read
 `window.__perceivedTrace__` in the browser. The perf handbook owns phase meanings and measurement
-rules; synchronous acknowledgement is not proof of visible paint (KUP-031).
+rules: `t_ack` is synchronous producer acknowledgement, while first-visible and settled are the
+browser-observed boundaries.
 
 **Logging:** use `devLog()` from `src/lib/dev-log.ts` (DCE'd in prod, readable in E2E via `KupuaHelpers.getConsoleLogs()`). Reserve bare `console.warn` for genuine error paths only.
 

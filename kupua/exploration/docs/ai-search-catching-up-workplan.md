@@ -1,562 +1,746 @@
-# AI Search — Catching Up With Main (Workplan)
+# AI Search - Post-U6z Media-API Convergence Plan
 
-> **Status:** Plan. No code written yet. Awaiting execution.
-> **Audience:** Executing agents (Sonnet). Written by Opus after a read-only
-> analysis of kupua's AI client code and media-api `main` (2026-07-25).
-> **Companion / background:** [`00 Architecture and philosophy/08-ai-search.md`](00 Architecture and philosophy/08-ai-search.md)
-> (kupua's current AI design — note the staleness corrections in §10 below),
-> and the media-api migration plan
-> [`03 Ce n'est pas une pipe dream/media-api-work/media-api-01-capability-inventory.md`](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-01-capability-inventory.md).
+> **Status:** Local U9-A and U9-B implementation authorized by the operator on
+> 27 September 2026. U9-C remains deferred pending separate team approval; no
+> merge or deployment authorization follows from this plan.
+> **Revised:** 27 September 2026 against current Kupua, Guardian media-api `main`,
+> Kahuna, and the bounded `eelpie/grid` `thrall-embedding` draft evidence.
+> **Active build units:** U9-A then U9-B in the API build plan. Existing AI remains
+> unchanged until each replacement path is implemented and validated.
+>
+> Current architecture/background: [AI search guide](00%20Architecture%20and%20philosophy/08-ai-search.md).
+> Active migration sequence: [API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
 
----
+## 1. Decision Summary
 
-## §1 The one thing to understand first (the reframing)
+Kupua should route text AI search through media-api, but not by folding its two
+query inputs into media-api's single `q` string.
 
-Kupua added AI search early, while media-api's AI search was still in flux.
-Media-api has since **converged** on a materially better design, and both
-features we want are **already built, tested, and in production on `main`**:
+The minimal shared contract is an **additive `aiQuery` query parameter** on the
+existing authenticated `GET /images` AI path:
 
-- **Hybrid text search (two parallel requests + client-side score fusion)** —
-  [`fusedLexicalAndSemanticSearch`](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala)
-  + [`HybridResult.scala`](../../../media-api/app/lib/elasticsearch/HybridResult.scala).
-  Runs lexical + semantic in parallel, fills each hit's missing cosine score
-  client-side (`VectorUtils`), min-max normalises (arxiv 2210.11934),
-  `fuseAndRank`s. Default `vecWeight` **0.85**.
-- **More Like This (image-to-image KNN)** —
-  [`semanticSearchByImage`](../../../media-api/app/controllers/MediaApi.scala):
-  `getImageById` → pull `embedding.cohereEmbedV4.image` → pure KNN. Triggered by
-  a `similar:<imageId>` chip in `q`. **No Bedrock needed.**
+- `q` is the complete CQL/filter query.
+- `aiQuery` is the semantic ranking text.
+- `useAISearch=true` continues to engage the existing AI endpoint initially.
+- `vecWeight` continues to control lexical/semantic blending.
+- When `aiQuery` is absent, media-api executes today's legacy behavior unchanged.
 
-Both reach a client through **one existing endpoint**:
-`GET /images?useAISearch=true&q=…&vecWeight=…`.
+That absence rule is the Kahuna safety boundary. Kahuna cannot currently send
+`aiQuery`; it sends only `q`, `useAISearch` and `vecWeight`. Its text AI, empty-AI
+guidance, More Like This, totals, tickers and error behavior therefore stay on the
+existing path unless Kahuna later opts into a separate change.
 
-**Therefore: DO NOT port `HybridResult`/`semanticSearchByImage` into kupua's ES
-adapter.** That would be substantial new direct-to-ES code we are actively
-migrating away from (see the migration plan). Instead, **route kupua's AI search
-through media-api's existing endpoint.** Hybrid and MLT then arrive for free —
-zero new Scala, zero throwaway TypeScript.
+More Like This (MLT) is a **separate shared product slice**. Kupua has no MLT UI
+today. The useful idea from eelpie's draft is that `similar:<id>` is a
+self-identifying image-ranking signal and the rest of `q` is a hard filter. That
+model can make `similar:<id> text` useful instead of returning 422, but the fork's
+embedding pipeline, response shape and 1,000/5,000 KNN tuning must not be copied
+wholesale.
 
-This also means the whole workplan is **independent of media-api gap-closure
-ordering** (D3 search-after, PIT, aggregations, etc.). AI search uses a
-different, already-shipped endpoint. It works whether gap closure lands before
-or after this work.
+## 2. Current State After U6z
 
----
+### 2.1 Kupua
 
-## §2 Current state (both sides)
+In media-api mode, every non-AI read now uses `ApiDataSource`. `searchByAi` is the
+sole development fallback and still delegates to the direct-ES adapter:
 
-### Kupua client (today)
-- [`src/dal/strangler-adapter.ts`](../../src/dal/strangler-adapter.ts) routes
-  **only** `searchAfter` to media-api (`POST /images/search-after`). Everything
-  else — **including `searchByAi`** — binds to the direct-ES adapter.
-- [`src/dal/es-adapter.ts`](../../src/dal/es-adapter.ts) `searchByAi` (line ~1132):
-  Bedrock embedding via [`bedrock-proxy-client.ts`](../../src/lib/bedrock-proxy-client.ts),
-  then a **single-request** probe-hybrid KNN directly against ES. Attaches
-  `__aiScore`. This is the diverged, older algorithm.
-- [`src/stores/search-store.ts`](../../src/stores/search-store.ts) AI branch
-  (line ~1840): engages when `!!params.aiQuery`; sets `total = hits.length`
-  (the invariant that suppresses pagination/PIT/position-map); calls
-  `decorateParamsForAggregations` + `countWithTickers` to scope tickers to the
-  ≤200 result IDs; `resortAiBuffer` (line ~3649) re-sorts in memory by `__aiScore`.
-- [`src/lib/ai-search-params.ts`](../../src/lib/ai-search-params.ts): the
-  aggregation **decorator** (scopes tickers/counts by `ids=`).
-- URL model: `aiQuery` (separate widget param), `query` (CQL), `vecWeight`,
-  `useAISearch` all exist in
-  [`src/lib/search-params-schema.ts`](../../src/lib/search-params-schema.ts).
+1. Kupua's Vite Bedrock proxy embeds `aiQuery`.
+2. The direct ES adapter runs the current single-request AI query.
+3. The store publishes a complete in-memory result set of at most 200 images.
+4. Counts/tickers/facets are scoped separately to those returned IDs.
 
-### Media-api `main` (today)
-- `GET /images?useAISearch=true` → [`performAiSearchAndRespond`](../../../media-api/app/controllers/MediaApi.scala).
-- Parses the single `q=` string into
-  [`AiQueryParts`](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala):
-  bare words → `semanticQuery` (ranking); `similar:<id>` → `similarImageId`
-  (ranking); **everything else → `filterConditions` (pre-filter)**.
-- `buildAiFilter` composes chip filters **and** request filters (date/cost/
-  validity) into the KNN pre-filter. **Filters ARE applied** (see §10 — the
-  migration doc's "filters ignored" note is stale).
-- Returns `total` = **full filtered pool** ("Best k of N"), `hits` = `k`
-  (`k = min(length, aiSearchResultLimit=200)`), plus `extraCounts` (tickers) and
-  `filterPoolCounts`, all computed over the whole pool via
-  [`countMatchingFilterWithExtraCounts`](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala) —
-  in parallel with the ranking search. **No pagination, no cursor.**
-- Three response shapes to handle:
-  - **Ranked** (`Right(parts)`): normal hits + total(pool) + extraCounts.
-  - **`NoRankingSignal`**: filters but no ranking → empty hits + pool count
-    (server prompts "add a query"). *Kupua avoids triggering this — see §5.*
-  - **`ConflictingRankingSignals`**: `similar:` + text together → **422**.
+Kupua deliberately has two independent URL inputs:
 
----
-
-## §3 Plan shape
-
-Three slices, executed in order. Each is independently shippable and testable.
-
-| Slice | What | Depends on | Bedrock? |
-|---|---|---|---|
-| **1 — MLT via media-api** | `similar:<id>` chip → `GET /images?useAISearch=true`. Kahuna-compatible. | StranglerAdapter (exists), endpoint (exists) | **No** |
-| **2 — Text hybrid via media-api** | route `aiQuery` text through the same endpoint; get two-request fusion for free | Slice 1 plumbing | Yes (embedding) |
-| **3 — Free-text pre-filter gap** | decision + (maybe) a media-api enhancement so free text can pre-filter *and* AI-rank simultaneously | Slice 2 | — |
-
-**Why MLT first:** it needs no Bedrock (higher availability), and — crucially —
-its ranking signal (`similar:` chip) lives *inside* `q`, so there is **no
-separate AI text to reconcile against the filter query**. Slice 1 therefore
-sidesteps the entire §3-slice-3 gap. Text hybrid (Slice 2) is where the
-ranking-vs-filter ambiguity first bites.
-
----
-
-## §4 Slice 1 — More Like This via media-api
-
-**Goal:** clicking "more like this" on an image runs an image-KNN search via
-media-api, Kahuna-URL-compatible, no Bedrock.
-
-### 4.1 URL / chip model (Kahuna-compatible)
-- MLT is represented as a **`similar:<imageId>` CQL chip inside `query`**, plus
-  `useAISearch=true` — matching Kahuna
-  ([`gr-more-like-this.html`](../../../kahuna/public/js/components/gr-more-like-this/gr-more-like-this.html):
-  `query: similar:<id>, useAISearch: true`). A Kahuna MLT link must open in kupua.
-- This is a deliberate exception to §5 of `08-ai-search.md` ("AI is not a CQL
-  chip"). That rule was about the **typed** AI query (cursor placement,
-  composition mode, live editing). A `similar:` chip is **atomic and never
-  edited** — you click to get it, you remove it. None of the §5 objections apply.
-- Result: text AI stays a kupua param (`aiQuery`); image AI is a Kahuna-compatible
-  chip. This asymmetry (typed=param, atomic=chip) is intentional and consistent.
-
-### 4.2 Steps
-
-1. **Verify the CQL grammar exposes `similar:`.** Check kupua's CQL editor/parser
-   (the `cql` lib used by [`SearchBar.tsx`](../../src/components/SearchBar.tsx))
-   recognises `similar:<value>` as a chip field. It should, via shared common-lib
-   (media-api's `SimilarField` implies the grammar knows it). If not, add it as a
-   recognised field. *No free-text-in-chip editing is required — it is set
-   programmatically.*
-
-2. **AI-engage detection.** In
-   [`search-store.ts`](../../src/stores/search-store.ts) the AI branch currently
-   triggers on `!!params.aiQuery` (line ~1845). Extend to
-   `!!params.aiQuery || hasSimilarChip(params.query)`. Add a small
-   `hasSimilarChip(query)` helper (targeted parse of the CQL string / reuse the
-   CQL parser). **Guard the conflict:** if both an `aiQuery` text and a `similar:`
-   chip are present, block client-side (disable/clear one) — the server returns
-   422 `ConflictingRankingSignals`.
-
-3. **`searchByAi` override in the strangler.** In
-   [`strangler-adapter.ts`](../../src/dal/strangler-adapter.ts), stop binding
-   `searchByAi` from the ES adapter when in media-api mode; instead assign a new
-   `apiSearchByAi` (see step 4). (Standalone/direct-ES behaviour is the deferred
-   decision in §7 — for now, keep the ES `searchByAi` as the fallback when
-   `VITE_USE_MEDIA_API` is false.)
-
-4. **New client: `apiSearchByAi`** in
-   [`grid-api-search-adapter.ts`](../../src/dal/grid-api-search-adapter.ts),
-   mirroring `apiSearchAfter`:
-   - Build `q` = `params.query` (which already contains the `similar:<id>` chip)
-     **plus** the two default-hide clauses (`-is:deleted`,
-     `-usages@status:replaced`) exactly as `apiSearchAfter` does.
-   - Call `GET /api/images?useAISearch=true&q=<q>&length=<k>` with the standard
-     filter params (date range, uploadedBy, syndicationStatus, free/nonFree,
-     hasRightsAcquired, hasExports) as query-string params. **GET passes the
-     `/api` write-guard unchanged** (confirmed in
-     [`vite.config.ts`](../../vite.config.ts) — only non-GET is gated).
-   - `vecWeight`: omit for MLT (pure image KNN; server ignores it for
-     `similar:`).
-   - Map the Argo response with the **same** `mapApiImageToImage` +
-     `extractEnrichment` helpers already in that file (the AI endpoint uses the
-     same `hitToImageEntity` shape).
-   - Return a `SearchAfterResult` with `hits` = the `k` results, and:
-     - `total` — **see §6 (the "k of N" invariant).** For Slice 1, use the
-       **adapter-clamp**: return `total = hits.length` and stash the pool `N`
-       separately (new optional field, e.g. `aiPoolTotal`).
-     - `tickerCounts` — read from the response `extraCounts` (already
-       pool-scoped). Surface them on the result so the store can use them
-       **directly**, skipping the decorator/`countWithTickers` round-trip (§6.2).
-     - `sortValues` — synthetic, as today (never fed back to ES; safe under the
-       `total === hits.length` clamp).
-
-5. **Store: consume server tickers, skip the decorator in media-api mode.** In
-   the AI branch (line ~1913), when the AI result already carries
-   `tickerCounts` (media-api path), set them directly and **do not** call
-   `decorateParamsForAggregations` + `countWithTickers`. Keep the decorator path
-   only for the direct-ES fallback. (This is the first concrete retirement of the
-   decorator concern — see §6.2 and §8.)
-
-6. **MLT UI affordance.** Add a "more like this" control on the image detail
-   view ([`ImageDetail.tsx`](../../src/components/ImageDetail.tsx)) — and
-   optionally a hover action on the grid tile — that navigates to
-   `query = "<existing filters> similar:<id>"`, `useAISearch = true`, clearing any
-   `aiQuery` text (conflict guard, step 2). Gate visibility on media-api mode
-   (MLT does not exist in standalone/direct-ES — §7).
-
-### 4.3 Slice 1 acceptance
-- Clicking MLT on an image shows visually-similar images, ranked.
-- Existing CQL chips + date/cost filters narrow the MLT pool (server pre-filter).
-- A Kahuna URL `?query=similar:<id>&useAISearch=true` opens and works in kupua.
-- "Best k of N matches" shows `N` = pool (from `aiPoolTotal`), `k` = hits.
-- Tickers reflect the pool (server `extraCounts`) — no client decorator call.
-- No pagination/PIT/position-map is triggered (invariant preserved via clamp).
-
----
-
-## §5 The empty-page UX — preserved, for free
-
-We keep kupua's UX (and reject Kahuna's "stare at an empty page"):
-
-- **AI widget open, no text, no `similar:`** → kupua does **not** engage AI; it
-  runs a normal search. Images stay on screen.
-- **Add a CQL filter, still no AI ranking signal** → normal filtered search.
-  Images stay on screen.
-- Kupua only calls `useAISearch=true` when there **is** a ranking signal
-  (`aiQuery` text or a `similar:` chip). Consequently the server's
-  `NoRankingSignal` branch (the source of Kahuna's empty page) is **unreachable
-  from kupua by construction.** Nothing to implement — it falls out of the
-  "engage AI only with a ranking signal" rule already in §4.2 step 2.
-
----
-
-## §6 The "k of N" invariant (the real integration work)
-
-Media-api returns `total = pool (N)` but `hits = k` with **no pagination**.
-Kupua's store gates scroll-tier / extend-seek / position-map / new-images-poll on
-the invariant **`total === hits.length`**. The server response **breaks that
-invariant directly** (N ≫ k). Two ways to handle it:
-
-- **(i) Adapter-clamp (Slice 1 default).** The adapter reports
-  `total = hits.length` to the store (invariant untouched, **zero store
-  pagination changes**) and stashes the pool `N` on a separate field
-  (`aiPoolTotal`) for the "Best k of N" label. Smallest possible first step.
-- **(ii) Minimal `isComplete` / id-set flag (promote when justified).** Introduce
-  an explicit "this result set is complete, do not paginate" signal on the
-  result; the store gates on **that** instead of `total === hits.length`, and
-  `total` can carry the true pool `N`. Cleaner, but only worth it once a **second
-  caller** (text hybrid, Slice 2) shares the need.
-
-**Recommendation:** ship Slice 1 with **(i)**. Promote to **(ii)** in Slice 2
-when text hybrid arrives and a second call site justifies the abstraction. This
-keeps "does the flag earn its place?" honest.
-
-### 6.2 What this means for the decorator and SearchContext
-- The aggregation **decorator** ([`ai-search-params.ts`](../../src/lib/ai-search-params.ts))
-  exists to re-query ES with `ids=` to scope tickers to the ≤200 hits. In
-  media-api mode the server returns `extraCounts` over the full pool **in the AI
-  response** — so the decorator's whole job evaporates. Slice 1 stops calling it
-  in the media-api path (§4.2 step 5). It stays only for the direct-ES fallback.
-- The **full `SearchContext` refactor** documented in
-  [`zz Archive/ai-searchContext-future-abstraction.md`](zz Archive/ai-searchContext-future-abstraction.md)
-  is **not** built. Its two justifications split under migration: (a) the
-  aggregation-scoping half is retired by migration itself (above); (b) the
-  synthetic-`sortValues` / non-paginatable-set half is covered by the far smaller
-  **(ii)** flag. The archived doc gets a one-line "superseded by media-api
-  migration; see this workplan" note — no more (it is already in Archive).
-
----
-
-## §7 Slice 2 — Text hybrid via media-api
-
-**Goal:** `aiQuery` text runs the two-request hybrid on the server (default
-`vecWeight` 0.85), replacing kupua's diverged single-request probe hybrid.
-
-### 7.1 Steps
-1. Extend `apiSearchByAi` to send the AI text. **This is where the
-   ranking-vs-filter ambiguity appears** — see §8 for the exact `q` construction
-   and its trade-off. MVP: fold `aiQuery` text into `q` as the ranking query
-   (documented degradation for free-text pre-filter — §8).
-2. Thread `vecWeight` through (`params.vecWeight ?? 0.85` — note the default
-   changes from kupua's current 1.0 to match `main`).
-3. **Promote the invariant handling to (ii)** (§6): introduce the `isComplete`
-   flag now that text hybrid is a second caller.
-4. `resortAiBuffer` (store line ~3649) currently sorts by `__aiScore`. Server
-   hybrid results are pre-ranked; decide whether kupua still needs client-side
-   relevance re-sort (it does, for the sort dropdown's "Relevance" option, but
-   the score now comes from the server — carry a server-provided score onto the
-   hit instead of the ES `_score`).
-5. Consider retiring / dev-gating the Bedrock proxy + ES `searchByAi` per §7-below
-   standalone decision.
-
-### 7.2 Acceptance
-- `aiQuery` text returns server-side two-request hybrid results.
-- Sort dropdown "Relevance" re-sorts in memory correctly.
-- Filters (chips, date, cost) narrow the pool (server pre-filter).
-- `vecWeight` URL override still works (default 0.85).
-
----
-
-## §8 Slice 3 — Free-text pre-filtering (the gap) — DECISION REQUIRED
-
-### 8.1 The problem, precisely
-Kupua **today** (direct-ES) lets free text in the CQL box act as a **pre-filter**
-on the AI pool (a BM25 `must`), *distinct* from the AI ranking query — this is
-one of kupua's UX advantages over Kahuna. But media-api's `AiQueryParts` splits
-ranking-vs-filter by **syntax**: bare words in `q` are **always** the ranking
-query; there is no channel for "free text that filters but does not rank." So
-routing via media-api **regresses** this capability: free text in the CQL box,
-while AI is active, would fold into the ranking query (semantics shift: hard
-narrow → soft influence) or be dropped.
-
-Note: this primarily affects **text hybrid** (Slice 2). MLT (Slice 1) is
-unaffected *as long as* `q` carries only the `similar:` chip + structured chips.
-But the same parser rule bites a plausible user action: bare text alongside a
-`similar:` chip is read as a *second ranking signal* and rejected with a **422**.
-This is not hypothetical — it reproduces live today:
-
-```
-?query=similar:b3c0d0e870259fdc09bae48ef40d6082011f40d8 maori&nonFree=true&useAISearch=true
-→ 422 Unprocessable Entity (ConflictingRankingSignals)
+```text
+query=<CQL and hard-filter text>
+aiQuery=<semantic ranking text>
 ```
 
-The server's own message is "the two *rankings* can't be merged" — it is
-treating `maori` as a competing ranking, not as a filter. See §8.4 for why
-Solution B dissolves this. For the MLT slice meanwhile, keep `q` to `similar:` +
-structured chips only; do not pass bare free text alongside a `similar:` chip.
+This distinction is useful and must survive migration.
 
-### 8.2 Two solutions — document BOTH in the eventual PR discussion
+### 2.2 Guardian media-api main
 
-**Solution A — `text:` filter chip (zero PROD impact).**
-Add a CQL field (e.g. `text:"wildlife"`) that `AiQueryParts` routes to
-`filterConditions` as a `multi_match`, instead of `semanticQuery`.
-- **Pros:** additive; Kahuna never emits it → zero prod behaviour change; ships
-  unilaterally.
-- **Cons:** inconsistent UX — the *same* text is sometimes a chip, sometimes not;
-  the chip has no natural UI affordance; two ways to type text.
+The existing AI endpoint is:
 
-**Solution B — separate `aiQuery=` ranking param (PROD-affecting, backward-compatible) — RECOMMENDED if the team agrees.**
-Move the ranking signal out of `q` into its own param. One generalised rule does it:
-> **When a ranking signal is explicitly designated — an `aiQuery=` param OR a
-> `similar:` chip — bare text in `q` is a filter (BM25 must). Only in the legacy
-> case (no `aiQuery`, no `similar:` chip) is bare text in `q` treated as the
-> ranking query, preserving today's behaviour.**
-- `aiQuery=<text>` → semantic ranking. `q` reverts to its normal meaning: the
-  full query (chips **and** free text) = the pre-filter pool.
-- `similar:<id>` stays a chip in `q` (Kahuna-compatible). Ranking =
-  `aiQuery` text **XOR** `similar:` chip; everything else — **including bare
-  text** — filters. (This is the clause that dissolves the 422; see §8.4.)
-- **Naming:** `aiQuery` — it is exactly kupua's existing URL param, so kupua and
-  media-api **converge** on one model (no adapter translation).
-- **This also fixes Kahuna's empty-page problem** — *if* Kahuna adopts it.
-- **This also retires two currently-degenerate states** — see §8.4.
+```text
+GET /images?useAISearch=true&q=...&vecWeight=...
+```
 
-#### 8.3 Solution B — explicit PROD-impact ledger (take this to the team)
+`AiQueryParts.from(structuredQuery)` currently classifies:
 
-| Change | Required to **not break** Kahuna? | Required for Kahuna to **gain** the empty-page fix? |
-|---|---|---|
-| media-api: parse `aiQuery`; when present, treat `q` bare text as filter; thread into hybrid/similar | **No** — additive, guarded by param presence; legacy `q`-only path retained verbatim | — |
-| Kahuna front-end: send filter text in `q` + ranking text in `aiQuery` | **No** (legacy path keeps working) | **Yes** — a Kahuna **JS** change (not an ES/contract change) |
+- unfielded words/phrases in `q` as semantic ranking text;
+- `similar:<id>` as image ranking;
+- all other CQL conditions as KNN pre-filters;
+- text plus `similar:` as conflicting ranking signals (422);
+- filters without ranking as `NoRankingSignal` and filter-pool guidance.
 
-**The honest pitch:** one additive, backward-compatible media-api param unlocks
-kupua's free-text pre-filtering **and** offers Kahuna a route out of the
-empty-page UX — but Kahuna only *benefits* if it also updates its front-end to
-split the two inputs. Nothing here forces a change on Kahuna; the legacy contract
-is preserved. Since PROD only just built AI search, the team may welcome this.
+Text AI uses the existing parallel lexical + semantic search and `HybridResult`
+fusion. The response already contains canonical image entities, server enrichment,
+pool total and pool-scoped ticker counts. The result set is fixed at at most
+`ai.search.resultLimit` (default 200), with no AI pagination.
 
-**Recommendation:** pursue **B** if the team agrees (cleaner, convergent,
-unlocks a Kahuna win); keep **A** as the fallback kupua can ship unilaterally.
-**Do not build either speculatively** — free-text-pre-filter-while-AI-active is
-likely a rare interaction. Slice 2 ships with the documented fold-into-ranking
-degradation; this slice is a separate decision on its own merits.
+### 2.3 Kahuna
 
-### 8.4 Robustness bonus: Solution B retires two degenerate states
+Kahuna has one query editor and an AI checkbox. Its media-api client sends:
 
-Beyond the free-text-pre-filter feature, the generalised reclassification rule
-(§8.2/B) turns two currently-broken interactions into predictable, useful ones.
-Both are reachable by a plausible user action — adding text while a `similar:`
-chip is active:
+```text
+q=<query editor contents>
+useAISearch=<checkbox>
+vecWeight=<optional value>
+```
 
-| State | Today | Under Solution B |
-|---|---|---|
-| `similar:` + text, **AI ON** | **422** `ConflictingRankingSignals` (server treats text as a second *ranking*) | Text reclassified as **filter** → image-similarity results, narrowed by text. No conflict — nothing to "merge". |
-| `similar:` + text, **AI OFF** | Silent **zero results** (`similar:` is an unrecognised field in normal search, matches nothing) | The self-identifying `similar:` chip (§8.5) engages image-KNN regardless of the flag → sensible results. |
+It does not know or send `aiQuery`. AI results are treated as one fixed set, and
+Kahuna displays the server's `Best k of N` total and pool tickers. MLT currently
+navigates to `q=similar:<id>&useAISearch=true`.
 
-Live repro of the first row (2026-07-25):
-`?query=similar:b3c0…40d8 maori&nonFree=true&useAISearch=true` → **422**.
+## 3. Minimal Non-Invasive Text-AI Contract
 
-**Why it dissolves rather than gets "handled":** the 422 exists because bare text
-is the *only* channel for text ranking today, so text-next-to-`similar:` looks
-like two rankings. Give ranking explicit homes and bare text is freed to always
-mean filter — the premise behind the error is gone, so the error ceases to exist.
+### 3.1 Request behavior matrix
 
-**Honest caveat for the team pitch:** the 422 today is *intentional* (a
-deliberate, message-bearing rejection), not a bug — the visible "bomb" is the
-client mishandling the 422, which a client could fix on its own. So frame this as
-**"B converts two deliberately-degenerate states into predictable behaviour,"**
-not as bug-fixing. The combo (image-similarity + text pre-filter) is niche, but
-"produces sensible results" beats "422 / silent zero." This is a
-**robustness/predictability** argument about the shared product — arguably
-stronger than the free-text-pre-filter feature argument, and independent of it.
+| Request | Required behavior |
+| --- | --- |
+| no `useAISearch=true` | Ordinary search. Ignore `aiQuery` for routing. |
+| AI on, `aiQuery` absent | Exact current legacy `AiQueryParts.from(q)` behavior. |
+| AI on, nonempty `aiQuery` | Rank by `aiQuery`; treat all non-`similar:` conditions parsed from `q`, including unfielded text, as hard filters. |
+| AI on, explicit empty `aiQuery=` | No explicit text ranking signal; return filter-pool guidance rather than silently reverting to legacy text ranking. |
+| `aiQuery` plus `similar:` | 422 conflicting ranking signals. |
+| `length=0` | Existing no-embedding/no-search short circuit. |
 
-### 8.5 Downstream of Solution B: `useAISearch` becomes retirable (future)
+The explicit branch means:
 
-`useAISearch=true` exists **only** to disambiguate one thing: bare text in `q`
-could mean a *normal* BM25 search OR a *semantic* search. That ambiguity is the
-flag's entire job. Solution B removes it structurally:
+```text
+q=credit:EPA storm&aiQuery=wildlife
+```
 
-- With `aiQuery=<text>`, `q=tigers` is unambiguously a normal search and
-  `aiQuery=tigers` is unambiguously AI. The server can **infer** AI-text mode
-  from `aiQuery` presence.
-- A `similar:<id>` chip is already self-describing (it is meaningless in normal
-  search). The server can infer image-KNN mode from the chip alone. This also
-  reinforces the framing that **MLT is a divorced feature**, not a sub-mode of
-  "AI search" — it has no text, no Bedrock, and self-identifies.
+ranks semantically by `wildlife` inside the hard-filtered pool matching both
+`credit:EPA` and ordinary text `storm`.
 
-So post-Solution-B, `useAISearch` is **derivable** as
-`!!aiQuery || hasSimilarChip(q)` and could be retired. Two caveats:
+### 3.2 Media-api implementation boundary
 
-1. **kupua doesn't need it even now.** kupua already infers engagement
-   client-side (§4.2 step 2) and sends `useAISearch=true` purely to satisfy the
-   *current* server contract. The moment the server infers, kupua just stops
-   sending it — no kupua-side cost.
-2. **Full retirement is coupled to Kahuna, via one residual job.** The flag's
-   *only* irreducible remaining function (post-B) is expressing "AI mode active,
-   **no** ranking signal yet" — which is precisely Kahuna's empty-page state
-   (`NoRankingSignal`). Kupua explicitly rejects that state (§5). So the flag can
-   be fully retired only once Kahuna abandons the empty-page mode — the **same**
-   Kahuna-JS coupling as Solution B's optional upgrade (§8.3). Kill the empty
-   page, and `useAISearch` has no job left.
+Keep the new parameter local to `MediaApi.imageSearch`:
 
-**Verdict:** a clean-up, not a capability; strictly downstream of Solution B; not
-scheduled. Recorded here so it isn't re-discovered later.
+- Read raw `aiQuery` from the authenticated GET request.
+- Do **not** add it to shared `SearchParams`.
+- Do **not** add it to POST body parsing used by Kupua's ordinary endpoints.
+- Do **not** add it to ordinary pagination links or the root HATEOAS search
+  template in the first change.
+- Keep the existing `AiQueryParts.from(conditions)` method unchanged for the
+  absent-param legacy branch.
+- Add a small explicit-ranking constructor/helper that accepts parsed `q`
+  conditions plus explicit text.
 
----
+For the explicit branch:
 
-## §9 What we explicitly do NOT do
+1. Trim `aiQuery`; nonempty text becomes `semanticQuery`.
+2. Preserve a valid `similar:<id>` as `similarImageId` so text+image remains a
+   deliberate conflict.
+3. Treat every other parsed `q` condition, including `AnyField` words and
+   phrases, as `filterConditions`.
+4. Reuse `buildAiFilter`, `semanticSearchByText`, hybrid fusion and count/ticker
+  calculation unchanged.
+5. Render explicit-`aiQuery` image entities without `embedding`; keep the
+  absent-param legacy renderer byte-compatible for Kahuna.
 
-- **Do not** port `HybridResult` / `fusedLexicalAndSemanticSearch` /
-  `semanticSearchByImage` into kupua's ES adapter (§1).
-- **Do not** expand the direct-ES `searchByAi` (no adding two-request hybrid or
-  image-KNN to [`es-adapter.ts`](../../src/dal/es-adapter.ts)).
-- **Do not** build the full `SearchContext` abstraction (§6.2).
-- **Do not** change Kahuna's AI behaviour or the media-api legacy `q`-only AI
-  contract (§8 Solution B is strictly additive).
-- **Do not** block hybrid+MLT on the free-text-pre-filter gap (§8).
+This is intentionally not a shared parser rewrite. One new optional parameter
+selects one new interpretation; absence preserves the production Kahuna path.
 
----
+### 3.3 Existing request filters
 
-## §10 Doc-staleness corrections (verified against `main`, 2026-07-25)
+Date, uploader, cost, validity, export and syndication filters continue through
+`SearchParams` and `buildAiFilter`.
 
-Do not trust these older docs on these points:
-1. **`08-ai-search.md` §3.1** describes media-api's hybrid as a "max-score probe"
-   (PR #4738). **Stale.** `main` is the **two-request parallel fusion** with
-   client-side cosine fill-in (`HybridResult`, arxiv 2210.11934), default
-   `vecWeight` **0.85**. Its advice to "align kupua's TS with the probe approach"
-   is now wrong: don't align in TS — use the server.
-2. **The migration findings doc** (and Phase 1 §6.1) say `useAISearch=true`
-   **ignores filters**. **Stale.** `main`'s `buildAiFilter` composes chip filters
-   **and** request filters into the KNN pre-filter. Filters are applied.
-3. **`08-ai-search.md`'s `total === hits.length`** description reflects kupua's
-   *direct-ES* implementation. Via media-api, `total` = **pool (N)** — see §6.
+Legacy GET `/images` ignores `hasRightsAcquired` (GRID-014), while Kupua's
+direct AI currently honors it. **Revised operator decision, 27 September:** U9-A
+does not add a branch-specific escape hatch. Both absent-`aiQuery` legacy
+requests and explicit-`aiQuery` requests continue ignoring the flag through the
+shared GET parser. U9-B may carry the generic URL parameter, but it has no effect
+in media-api AI mode. The new POST image-query endpoints already honor the field
+through their request bodies; GRID-014 owns any future shared GET fix and must
+cover ordinary GET, legacy AI and explicit-`aiQuery` AI together.
 
-Action for the executor: after Slice 1, add a short "superseded by
-`ai-search-catching-up-workplan.md`" banner to `08-ai-search.md` §3.1 and to the
-archived `ai-searchContext-future-abstraction.md`. Do not rewrite them.
+This is a manual/external-URL correctness and mode-parity limitation: neither
+Kahuna nor Kupua exposes a normal control for the parameter, and no usage is
+measured. `syndicationStatus` remains independent and sufficient by itself;
+clients must not derive or add the rights flag from a status. U9-A's eventual PR
+description must disclose the deliberate non-fix and the working POST contrast.
 
----
+### 3.4 `vecWeight` contract
 
-## §11 Testing
+`vecWeight` remains an optional float in `[0, 1]`:
 
-- **Unit:** adapter mapping (`apiSearchByAi` → hits/total-clamp/tickers), conflict
-  guard, `hasSimilarChip`, invariant clamp/flag. `npm --prefix kupua test`.
-- **e2e note:** MLT-via-media-api is **media-api-mode only** by construction
-  (we don't expand direct-ES). Playwright e2e runs standalone per the AGENTS
-  directive, so full MLT e2e needs either a **mocked** `apiSearchByAi` in the DAL
-  or a media-api-mode run (`--use-media-api`, gated, manual). Prefer a mock-level
-  test for CI; keep a manual media-api-mode smoke for real verification.
-- **Perf flag:** the AI `GET` path uses the **heavy Argo envelope**
-  (`imageResponse.create`), not D3's lean projection. Bounded for ≤200 hits, but
-  worth a perceived-perf check after Slice 2. See §11.1 for the AI-specific
-  detail.
+- `0` = lexical ranking;
+- `1` = semantic ranking;
+- intermediate values = existing server fusion.
 
-### 11.1 AI-specific perf notes (for Slice 2 + the team pitch)
+Kupua has no URL-compatibility obligation: there are no external users or
+bookmarked Kupua AI URLs to preserve. Validate/canonicalize at the URL boundary:
 
-> Context and measurements:
-> [`03 Ce n'est pas une pipe dream/media-api-work/d3-search-after-04-performance.md`](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md).
-> (Perf levers are currently scattered across that doc, the perf-review, and here
-> — acknowledged; consolidate later.)
+```text
+valid finite value in [0,1] -> forward unchanged
+absent, empty, non-numeric or out of range -> omit/remove the parameter
+```
 
-**AI is the heaviest server path in Grid, for two compounding reasons:**
-1. **2× the hits.** `fusedLexicalAndSemanticSearch` fires two ES requests
-   (lexical k=200 + semantic k=200) → up to **400 hits** fetched before fusion
-   trims to k.
-2. **Vectors on the wire.** Both sides run `resolveHitAndFillInSemanticScore`,
-   which reads each hit's `embedding.cohereEmbedV4.image` (256 floats, ~4–5 KB/hit
-   as JSON) to compute client-side cosine. So the AI path **must include the
-   embedding in `_source`** — the one field D3's lean projection deliberately
-   drops (`searchAfterDropFields = Set("embedding", …)`,
-   [`ElasticSearch.scala`](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala) ~596).
+When omitted, media-api's current default `0.85` is authoritative for Kupua and
+Kahuna. No client-side default or clamping is needed. Explicit valid values must
+continue to reach media-api unchanged and select lexical, semantic or fused
+ranking as they do today.
 
-> **Not a conflict — separate code paths.** The AI requests
-> (`semanticRequest`/`lexicalRequest`, ~202/225) apply **no** source projection
-> and fetch full `_source` (embeddings included); only the unrelated `searchAfter`
-> method applies `searchAfterDropFields`. D3's drop therefore **cannot** affect AI.
-> The AI embedding concern is the *opposite* one — over-inclusion in the
-> **browser** response (Consequence B), fixed at the render layer, not the fetch
-> layer. Do **not** make D3's projection request-configurable to "add embeddings
-> back": that would reintroduce the B1 ES-shape-leak and defeat the payload win,
-> and no client needs vectors anyway.
+`vecWeight=0` currently still reaches the embedding lookup before
+`hybridSearch` short-circuits to lexical search. Avoiding that unnecessary
+embedding is a useful server optimization, not a prerequisite for correctness.
 
-**Consequence A — ES-client gzip (PR #4784) favours AI most.** Because the
-media-api↔ES leg for AI is the fattest, most vector-laden transfer anywhere
-(~4–5 MB uncompressed; vectors gzip ~5–6×), the efficiency win (bandwidth/heap/GC)
-is largest here — consistent with the reviewer's own note on #4784. The **prod
-latency** win is still likely small (the intra-VPC link is fast), but AI is the
-one query shape whose payload might poke *above* the noise floor that swallowed
-the normal-search delta in the deep-dive's Arena B. Plausible, **unproven** — a
-targeted Arena-B run with an AI query shape would settle it. Not a blocker; a
-data point for the team.
+### 3.5 Why Kahuna is protected
 
-**Consequence B — candidate improvement: strip embeddings from the AI
-*browser* response.** The vectors are needed **server-side for fusion** but are
-useless to any client, yet `imageResponse.create` serialises them
-(`"embedding" -> writes(image.embedding)`,
-[`ImageResponse.scala`](../../../media-api/app/lib/ImageResponse.scala) ~353). So
-the AI response ships ~200 × ~4–5 KB of dead vectors to the browser — and once
-kupua routes AI via media-api, kupua downloads them too. Fix: drop `embedding` at
-the **response-render** layer for the AI path (keep it server-side for fusion) —
-the AI analogue of D3's fetch-level drop, applied at render instead. **Shared win
-(Kahuna + kupua), verify then propose.** Higher-value and more targeted than the
-gzip lever.
+No Kahuna code change is required for text-AI migration. The compatibility test
+is simple and falsifiable:
 
-**Consequence C — the envelope lever applies to AI too.** AI still runs
-`imageResponse.create` ×k, so the shared **lean `create()` transform-chain
-single-pass** fix (deep-dive F5, ~30–40 ms/page, benefits all bulk callers) helps
-AI as much as browse. Nothing AI-specific to do here beyond noting it stacks with
-Consequence B.
+> For every request without `aiQuery`, request parsing, selected AI mode,
+> response body/status and side effects are unchanged.
 
----
+In particular, preserve:
 
-## §12 Open decisions / checkpoints (for the human)
+- legacy unfielded `q` as ranking text;
+- filters-only `NoRankingSignal` guidance;
+- current `similar:` image search;
+- current text+`similar:` 422;
+- `length=0` short circuit;
+- Kahuna's `Best k of N` and pool ticker semantics;
+- media-api's default `vecWeight`.
 
-1. **Standalone/dev AI story** *(deferred, laid out both ways).* When AI routes
-   via media-api, does AI in standalone/dev (Setup C, Playwright, local
-   no-media-api) (a) **disappear** — retire the Bedrock proxy + ES `searchByAi`
-   (graceful-absence, cleanest, least code), or (b) **keep the existing
-   single-request direct-ES hybrid as a dev-only fallback** (do not expand it)?
-   Decide before Slice 2 finishes.
-2. **Invariant handling promotion (i)→(ii).** Confirm the promotion to the
-   `isComplete` flag happens in Slice 2 (§6).
-3. **Tickers scope** *(deferred).* Via media-api the default is **pool-scoped**
-   tickers (Kahuna's model, free). Kupua's current is 200-scoped. Keep the
-   free pool-scoped default, or recompute client-side to preserve 200-scoped?
-   Decide after main functionality is built.
-4. **Free-text pre-filter (§8).** Choose Solution A (unilateral) vs B
-   (recommended, needs team buy-in for the additive param; needs Kahuna JS change
-   only if Kahuna wants the empty-page fix). Separate decision, non-blocking.
-5. **Pre-flight safety check.** Before starting: confirm no in-flight AI PR
-   against `ElasticSearch.scala` / `MediaApi.scala` / `HybridResult.scala` on
-   `main` (divergence-from-main is what bit us last time). `main` currently looks
-   converged and tested.
+### 3.6 Media-api capability and explicit response projection
 
----
+Kupua cannot keep using the browser Bedrock health check after media-api owns AI.
+Advertise an additive HATEOAS `ai-search` capability from media-api's root/index
+response only when `config.aiSearchEnabled` and its embedding implementation are
+available. Existing Kahuna clients ignore an unknown relation; the ordinary
+`search` URI template remains unchanged.
 
-## §13 File map
+The capability tells Kupua whether to show text AI in media-api mode. It does not
+carry query text, model details or vectors.
 
-| File | Role in this work |
-|---|---|
-| [`src/dal/strangler-adapter.ts`](../../src/dal/strangler-adapter.ts) | Add `searchByAi` override → `apiSearchByAi` in media-api mode |
-| [`src/dal/grid-api-search-adapter.ts`](../../src/dal/grid-api-search-adapter.ts) | New `apiSearchByAi`; reuse `mapApiImageToImage` / `extractEnrichment` |
-| [`src/stores/search-store.ts`](../../src/stores/search-store.ts) | AI branch (~1840): similar-chip detection, conflict guard, server tickers, invariant clamp/flag; `resortAiBuffer` (~3649) |
-| [`src/lib/ai-search-params.ts`](../../src/lib/ai-search-params.ts) | Decorator — stop calling in media-api path (kept for direct-ES fallback) |
-| [`src/dal/types.ts`](../../src/dal/types.ts) | `SearchAfterResult` gains `aiPoolTotal?` (i) then `isComplete?` (ii); `tickerCounts?` on AI result |
-| [`src/components/ImageDetail.tsx`](../../src/components/ImageDetail.tsx) | MLT affordance → sets `similar:` chip + `useAISearch` |
-| [`src/components/SearchBar.tsx`](../../src/components/SearchBar.tsx) | Verify CQL grammar renders `similar:` chip |
-| [`src/lib/search-params-schema.ts`](../../src/lib/search-params-schema.ts) | `aiQuery`, `useAISearch`, `vecWeight` already present |
-| [`vite.config.ts`](../../vite.config.ts) | GET `/api?useAISearch=true` already allowed (no change) |
-| [`es-adapter.ts`](../../src/dal/es-adapter.ts) `searchByAi` (~1132) | Direct-ES fallback — do NOT expand; fate decided in §12.1 |
-| media-api (reference only, no changes for Slices 1–2) | [`MediaApi.scala`](../../../media-api/app/controllers/MediaApi.scala), [`ElasticSearch.scala`](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala), [`HybridResult.scala`](../../../media-api/app/lib/elasticsearch/HybridResult.scala), [`ElasticSearchModel.scala`](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala) (`AiQueryParts`) |
-| media-api (Slice 3, §8 only) | `AiQueryParts` (`text:` chip) **or** `SearchParams` + `performAiSearchAndRespond` (`aiQuery` param) |
+For explicit-`aiQuery` responses, extend the shared `ImageResponse` rendering
+boundary with a projection that omits `embedding` after server-side ranking and
+fusion. Do not delete fields ad hoc in the controller. The default renderer used
+by legacy Kahuna requests remains unchanged, so this payload improvement is opt-in
+with the new parameter.
+
+## 4. Kupua U9 Client Work
+
+### 4.1 Adapter ownership
+
+Implement `apiSearchByAi` in the current media-api adapter surface, reusing:
+
+- existing authenticated `/api/images` transport;
+- `mapApiImageToImage`;
+- `extractEnrichment`;
+- current query/filter serialization helpers where their GET semantics match.
+
+Bind it from `ApiDataSource` in media-api mode and remove `searchByAi` from
+`DEVELOPMENT_FALLBACK_METHODS` only after composed tests prove no Bedrock or ES
+browser request remains.
+
+Direct/local mode retains its existing direct-ES ranking implementation and
+Bedrock health gate. U9-B does align its result metadata with media-api mode:
+reuse the existing post-AI `countWithTickers` request without returned-ID
+decoration so it reports the prefilter pool total and pool-scoped tickers, then
+publish the same `aiPoolTotal`/`tickerCounts` contract in both modes. This
+replaces the current top-200-scoped count; it does not add another count request
+or change direct ranking. Any later retirement is a separate cleanup decision;
+do not expand the fallback in the meantime.
+
+### 4.2 Request mapping
+
+Kupua sends:
+
+```text
+GET /api/images
+  ?useAISearch=true
+  &q=<complete effective CQL query>
+  &aiQuery=<AI widget text>
+  [&vecWeight=<validated value in [0,1]>]
+  &length=200
+  &<supported request filters>
+```
+
+The effective `q` retains the two default-hide clauses used by ordinary reads.
+Encoding must preserve CQL punctuation and quoted text exactly.
+
+`hasRightsAcquired`, if present in generic URL/request serialization, remains an
+intentional no-op on this GET path until GRID-014 is fixed at the shared parser.
+Do not add U9-only parsing or filtering for it.
+
+### 4.3 Result mapping and enrichment
+
+The AI endpoint returns the same Argo envelope and enrichment fields as ordinary
+GET search, but the explicit branch omits the unused embedding vector. Map both
+image and enrichment from each entity and publish the AI result's complete
+enrichment map with the result commit. This removes KUP-030's
+cross-provenance overlay retention by construction: the current AI response owns
+both baseline and overlay for every returned ID.
+
+**KUP-030 is not a separate repair unit.** Retain its reproduction as acceptance
+evidence for U9-B, and close it only when the composed media-api AI path proves
+current-result enrichment ownership across ordinary -> AI -> ordinary transitions.
+
+A missing/hidden/unreadable result remains omitted according to media-api's
+existing response contract; do not infer absence from a partial failed request.
+
+In media-api mode the accepted AI search generation owns the shared enrichment
+map as a replacement, not an upsert. A nonempty success publishes exactly the
+returned IDs' current overlays; a successful empty result or current-generation
+null/refused/unavailable publication replaces it with an empty map. Aborted or
+superseded completion must not mutate it, and the next ordinary result replaces
+it normally. Direct/local AI has no API overlay to publish. This result-lifetime
+rule does not add enrichment to selection hydration or change its cache policy.
+
+### 4.4 Fixed-set invariant, total and tickers
+
+AI returns `k` ranked hits plus the full filtered pool total `N`, with no
+pagination. Preserve Kupua's fixed in-memory set without a broad SearchContext
+refactor:
+
+- publish store `total = hits.length` so no PIT, seek, extend, map or polling can
+  start;
+- add `aiPoolTotal?: number` and `tickerCounts?` to the AI result contract;
+- add `aiPoolTotal: number | null` to search-store state;
+- set it atomically with a successful AI result and clear it at the start of
+  every non-AI search, Home transition and failed/absent AI publication;
+- render `Best <total> of <aiPoolTotal> matches` when present, while ordinary
+  result wording remains unchanged;
+- consume server pool-scoped ticker counts directly;
+- suppress a ticker equal to `aiPoolTotal ?? total`, because AI tickers describe
+  the pool rather than only the returned hits;
+- stop the media-api AI path from issuing the current ID-decorated count request.
+
+Pool-scoped tickers differ from Kupua's current top-200-scoped tickers. Kupua has
+no compatibility burden here, and using the server result is simpler and avoids
+an extra request. Label the scope honestly; do not describe it as top-200 data.
+Status-bar reload caching must either store/restore both values together or avoid
+showing an AI pool label until the first post-reload search settles; never combine
+a cached ordinary total with a fresh/stale AI pool total.
+
+**Operator decision, 27 September:** U9-B aligns both API and direct/local modes
+with Kahuna's pool semantics. Render wording such as
+`Best 200 of 10,216,960 matches`; ticker badges show their absolute pool count.
+Do not add per-ticker denominators or wording such as
+`15 of 2,345,120 GNM-owned` in this unit. API mode consumes the values already
+returned by media-api and sends no ID-decorated count request. Direct mode
+repurposes its one existing post-AI count request to use the undecorated
+prefilter scope, so the store and StatusBar do not branch by mode. Because that
+direct count now aggregates over the pool rather than at most 200 IDs, include
+it in U9-B's targeted completion-timing comparison; do not add a second count or
+broader performance campaign.
+
+### 4.5 Relevance sorting
+
+Media-api returns the authoritative ranked order but no score. Kupua supports
+Uploaded -> Relevance in-memory re-sorting, so assign an internal ordinal score
+from response position (strictly descending, never sent back to the server).
+Relevance re-sort must reproduce the original server order exactly.
+
+Eelpie's draft does not provide an alternative score contract. Its MLT request
+sorts ES hits by `_score` and ID, then converts them to `(id, image)` before the
+normal image response; its hybrid path likewise drops fused, lexical and semantic
+scores when constructing `SearchResults`. Neither Guardian nor eelpie currently
+serializes ranking scores to clients. Do not attempt to reconstruct a meaningful
+cross-algorithm scalar from ES/fusion internals: response ordinal is the only
+authoritative client relevance key unless media-api later adds an explicit rank
+or score contract.
+
+Every mapped AI hit must receive the ordinal; a missing value is a contract
+failure, not `0`-score fallback behavior.
+
+Preserve the completed KUP-008 ownership rule. If Relevance/Uploaded changes
+while the same AI query is pending, completion keeps the captured query/result
+scope but applies the latest currently supported sort without another AI request.
+If query scope changed, the normal search-generation guard rejects the old
+completion. U9 must not restore captured `orderBy` or params over newer URL/store
+intent.
+
+Synthetic sort tuples remain non-pageable and are protected by
+`total === hits.length`. Do not feed them to cursor APIs.
+
+### 4.6 Mode-aware availability and graceful absence
+
+Replace the current global Bedrock-only gate with a mode-aware AI availability
+source:
+
+- media-api mode: consume the media-api `ai-search` capability relation;
+- direct/local mode: retain the existing `/bedrock/health` probe;
+- unavailable capability: hide the AI input without probing browser Bedrock.
+
+U9-B is the first real consumer of root discovery, so readiness is part of this
+unit. API-mode availability must await one shared in-flight initialization;
+concurrent callers cannot observe an empty relation map while the root request is
+still pending. A successful response without `ai-search` and a failed/non-2xx
+root request both hide AI, but tests distinguish those outcomes. Root failure is
+graceful absence for the current app lifetime and retries only on reload. Do not
+add a general discovery framework, fetch Kahuna `clientConfig` or fall through to
+Bedrock.
+
+The datasource contract becomes:
+
+```typescript
+searchByAi?(params, signal): Promise<SearchAfterResult | null>
+```
+
+`ApiDataSource.searchByAi` returns `null` for transport failure, refusal or any
+non-2xx response under the current graceful-API-absence rule. It never delegates
+to ES. The store owns null publication for the current search generation:
+
+- `results = []`, `total = 0`, `aiPoolTotal = null`;
+- counts/tickers/aggregations are empty;
+- the media-api result-owned enrichment map is empty;
+- `loading = false`, `error = null`;
+- no toast or console warning.
+
+Client-side conflict prevention should make an explicit 422 exceptional, but the
+development-phase non-2xx rule still maps it to absence rather than fallback.
+Direct/local `ElasticsearchDataSource.searchByAi` may continue to return only a
+real result or throw; it does not use the nullable absence path.
+
+## 5. More Like This: Separate Shared Improvement
+
+### 5.1 Current Guardian behavior and the Kahuna failure
+
+Guardian main routes MLT through AI mode:
+
+```text
+q=similar:<id>&useAISearch=true
+```
+
+A `similar:` chip plus unfielded text is parsed as image ranking plus text
+ranking and returns 422 `ConflictingRankingSignals`. Kahuna surfaces that server
+failure rather than presenting a useful controlled outcome. The server conflict
+is intentional under the current single-`q` model; the user experience is still
+poor.
+
+An immediate Kahuna-only containment can catch that 422 and show the server
+message clearly. That is independent of the better shared MLT design below.
+
+After U9-A/B, reproducing today's Kahuna-like MLT in Kupua requires only Kupua
+client work. Media-api already accepts
+`q=similar:<id>&useAISearch=true`, resolves the source image and its compatible
+embedding server-side, and returns an empty result when the image has no such
+embedding. Kupua needs an MLT control plus URL/store/adapter support for AI mode
+without `aiQuery`; it does not need an embedding vector in the image response.
+With Kahuna's current global feature gate, the control can therefore appear for
+an older unembedded image and lead to zero results, while adding unfielded text
+still produces the existing 422. Section 5.5 considers per-image capability
+signalling that avoids both exposing vectors and offering a known-empty control.
+
+### 5.2 What eelpie's draft does
+
+Evidence scope: `eelpie/grid` default `main` is 63 commits behind Guardian main
+and has no fork-only AI commits. The relevant code is draft PR #20 on
+`thrall-embedding`, based on another fork branch. It is not merged or production
+evidence.
+
+The draft makes MLT an ordinary-search ranking signal:
+
+- Kahuna navigates to `q=similar:<id>` without `useAISearch=true`.
+- media-api extracts the source image's active embedding.
+- `QueryBuilder` removes the `similar:` condition from the lexical query.
+- every remaining `q` condition becomes a hard KNN filter.
+- results sort by similarity score, then ID.
+- the MLT control appears only when the response contains a Gemini embedding.
+
+Consequently:
+
+```text
+similar:<id> maori
+```
+
+means image KNN filtered by `maori`; there are no two ranking signals and no
+422.
+
+The draft also changes MLT search tuning from Guardian's fixed AI path:
+
+| Concern | Guardian current MLT | eelpie draft MLT |
+| --- | --- | --- |
+| maximum returned set | 200 | KNN `k=1000` |
+| ANN candidates | about 400 at k=200 | 5000 |
+| minimum similarity | none | configurable, default 0.80 |
+| paging shape | fixed set | ordinary `from/size` within KNN set |
+| activation | `useAISearch=true` | `similar:` is self-identifying |
+
+Text AI remains capped at 200 and keeps the existing two-request fusion. The
+draft does not solve Kupua's separate text-ranking/filter-query contract, and it
+does not expose ES or fused scores in its API response.
+
+### 5.3 Potentially useful ideas
+
+The following ideas are worth carrying forward independently:
+
+1. `similar:` should be a self-identifying image-ranking signal.
+2. Remaining `q` conditions should filter the image-KNN pool.
+3. MLT availability should be image-specific, not only a global feature flag.
+4. A configurable minimum similarity can suppress obviously weak matches.
+5. Stable score/ID ordering is useful when equal scores occur.
+6. Embeddings can be persisted for reindex reuse rather than recomputed.
+7. A provider interface can separate search behavior from Bedrock/Gemini choice.
+
+The embedding model itself may also be promising: the draft uses Gemini
+Embedding 2 at 768 dimensions with retrieval query/document task types, and
+builds image embeddings from a normalized image plus title and description.
+That may improve semantic quality, but no relevance benchmark in the draft
+proves it.
+
+### 5.4 Problems and non-transferable choices
+
+Do not adopt the branch wholesale:
+
+- It is a large draft combining AI, Gemini/GCP, JDK 25, libvips, cropper,
+  ingestion, storage and reindex changes.
+- Its 1,000/5,000 MLT tuning is far more expensive than Guardian's 200/400 and
+  has no accepted latency/recall evidence.
+- Re-running approximate KNN for ordinary pages is not a proven stable snapshot.
+- Kahuna receives the full 768-value embedding merely to decide whether to show
+  MLT.
+- The new SQS consumer deletes/acknowledges the message before the asynchronous
+  embedding, persistence and update publication complete; failures can be lost.
+- It logs message bodies, metadata and full embeddings.
+- It requires a new 768-dimensional mapping and a full backfill.
+- Its testing checklist is empty and media-api MLT coverage is incomplete.
+- Switching providers and embedding dimensions is a separate production/model
+  decision, not a prerequisite for better MLT query semantics.
+
+### 5.5 Recommended shared MLT path
+
+Treat MLT as a later server/client slice after text AI migration:
+
+1. Add an ordinary-search `similar:` path that treats all remaining `q` as hard
+   filters, preserving authorization and current search filters.
+2. Start with the existing bounded result budget (at most 200, conservative
+   candidates). Raise it only after a specific recall/latency question is
+   measured.
+3. **Preferred capability contract:** emit a conditional HATEOAS
+  `more-like-this` link on a visible image entity only when media-api knows that
+  image has a usable embedding for the configured active similarity profile.
+  This is a link rather than an action because it describes safe GET/navigation.
+  Absence tells any client to hide the control.
+4. Keep the relation semantic and model-opaque. A small server-side descriptor
+  for each supported profile owns its ES vector field, expected dimensions and
+  extractor; one configuration value selects the active profile. Guardian can
+  select Cohere V4, eelpie can select Gemini Embedding 2, and another Grid
+  installation can select a later implementation without changing the relation
+  or either client.
+5. Do not require multi-model migration machinery. The cheapest model change is
+  to generate the new embeddings, add their supported server descriptor, then
+  switch the configured active profile when coverage is acceptable. Images
+  without a compatible vector simply omit the link until they are embedded.
+6. Do not send vectors, provider/model names, field paths or dimensions to
+  clients. Configuration alone proves only deployment support; the server must
+  also check the individual image's active-profile vector before adding the
+  link.
+7. Kahuna can follow the relation and stop setting `useAISearch=true` for MLT.
+  `similar:+text` then becomes useful rather than exceptional. Kupua uses the
+  same relation and URL/query contract; neither client implements model logic.
+8. Keep legacy `useAISearch=true&q=similar:<id>` working during transition so
+  old Kahuna URLs are not broken.
+
+Full image responses already load enough source state to make the capability
+decision before projecting the response. Lean Kupua endpoints deliberately omit
+embeddings, so they must obtain only a lightweight active-profile availability
+signal: initially a bounded detail/capability read when detail opens is the
+simplest choice. If list/grid controls are later justified, derive the signal in
+the lean hit or use one batched capability lookup; measure that path before adding
+cost to browsing. A materialized profile marker is a future optimization, not an
+index-migration prerequisite. A generic capability boolean is possible but less
+expressive than a server-owned link because it makes each client reconstruct the
+request.
+
+Kupua already receives existing per-image links and actions from the new
+media-api endpoints, but its adapter currently retains actions and drops links.
+U9-C must preserve `entity.links` alongside enrichment, surface the MLT control
+only when `rel=more-like-this` is present, and use the supplied href without
+interpreting embedding details. Resident search images need either the relation
+on their lean entity or the bounded detail/capability read above; direct URL entry
+must follow the same client contract.
+
+## 6. Delivery Sequence
+
+### U9-A - Additive media-api text contract
+
+Server-only; local implementation authorized, team review required before main:
+
+- smallest controller-local Scala change, isolated in its own independently
+  green commit; no adjacent parser/search/refactoring cleanup;
+- controller-local optional `aiQuery`;
+- explicit query-part classification;
+- deliberate `hasRightsAcquired` non-fix owned by GRID-014;
+- additive `ai-search` capability relation;
+- explicit-branch image projection without embeddings;
+- existing prefilter-pool total/ticker computation and response shape unchanged;
+- legacy absent-param behavior tests;
+- no Kahuna search behavior or legacy image-response change.
+
+### U9-B - Kupua media-api AI client
+
+Kupua-only plus composed API fixtures:
+
+- `apiSearchByAi` through `ApiDataSource`;
+- request mapping including validated optional `vecWeight`;
+- canonical image/enrichment mapping;
+- fixed-set/pool-total/ticker handling;
+- pool-total/ticker parity in direct/local mode without a ranking rewrite;
+- server-order relevance restoration;
+- mode-aware availability and nullable graceful absence;
+- no browser Bedrock/direct-ES traffic in media-api mode;
+- remove the final fallback only after validation.
+
+### U9-C - Shared MLT contract (separate approval)
+
+- ordinary `similar:` server semantics;
+- conditional HATEOAS capability;
+- conservative tuning and targeted performance/recall evidence;
+- Kahuna controlled error handling and later opt-in;
+- Kupua MLT UI only after the server contract is accepted.
+
+Do not combine U9-C with the text-AI server PR. Kahuna is live; keeping the
+backward-compatible text contract review small is the safest route.
+
+## 7. Discriminating Tests
+
+### 7.1 Media-api text contract
+
+- No `aiQuery`: unfielded `q` remains ranking text exactly as today.
+- No `aiQuery`: filters-only, MLT, text+MLT conflict and empty behavior retain
+  current status/body/side effects.
+- Explicit `aiQuery`: embeds only `aiQuery`.
+- Explicit `aiQuery`: unfielded words and phrases in `q` remain hard filters.
+- Explicit `aiQuery`: structured chips and request filters narrow the pool.
+- Explicit empty `aiQuery=` returns filter-pool guidance and does not embed.
+- Explicit `aiQuery` plus `similar:` returns 422 before embedding/search.
+- Missing `useAISearch=true` follows ordinary search despite `aiQuery`.
+- `length=0` performs no embedding, KNN or filter-count request.
+- `vecWeight` 0, 1 and an intermediate value retain their ranking modes.
+- Explicit `aiQuery` retains the existing prefilter-pool total and ticker scope;
+  U9-A adds no alternative top-200 count path.
+- Explicit-`aiQuery` image entities omit `embedding`; legacy absent-param image
+  entities retain their current response shape.
+- Root/index advertises `ai-search` only when server AI is usable; the existing
+  Kahuna search relation is unchanged.
+- Legacy, legacy-AI and explicit-`aiQuery` GET requests all ignore
+  `hasRightsAcquired`; the new POST endpoints remain the working control and
+  GRID-014 owns any future shared fix.
+
+### 7.2 Kupua client
+
+- The request preserves encoded `q`, sends separate `aiQuery`, and forwards an
+  explicit valid `vecWeight`; absent/invalid values are omitted and canonicalized
+  away so media-api owns the default.
+- Media-api mode issues no `/bedrock` or `/es` AI request.
+- Media-api mode uses server capability for visibility; direct mode still uses
+  `/bedrock/health`.
+- API capability reads await coalesced root initialization; delayed concurrent
+  callers cannot publish false absence, failed/non-2xx root is session absence,
+  and successful missing relation is covered separately.
+- Returned images and enrichment are current-result owned; old same-ID overlays
+  cannot survive.
+- Nonempty AI success replaces enrichment with exactly its returned map;
+  successful empty and current null/refusal/unavailability replace it with an
+  empty map; aborted/superseded completion leaves the current map untouched.
+- Server order survives Relevance -> Uploaded -> Relevance.
+- Every returned hit has an ordinal relevance key; missing rank metadata fails
+  the mapping/fixture instead of silently sorting as zero.
+- Pending same-query completion honors the latest Relevance/Uploaded choice
+  (KUP-008) without a second request; superseded-query completion cannot publish.
+- Pool total is displayed separately while store total remains `hits.length`;
+  AI -> ordinary/Home/failure transitions clear it atomically.
+- API and direct/local modes show the same `Best k of N matches` wording and
+  absolute pool-scoped ticker counts; no per-ticker denominator is rendered.
+- API mode issues no follow-up count request; direct mode replaces its existing
+  ID-decorated count with one undecorated prefilter-pool count rather than adding
+  another request.
+- Pool tickers are consumed without the old ID-decorated count request and use
+  pool total for equal-total suppression.
+- No PIT, polling, seek, extension or position-map work starts.
+- Refusal/unavailability returns null and publishes an empty, non-error AI state
+  without toast, warning or direct-ES fallback.
+
+### 7.3 MLT
+
+- Legacy `useAISearch=true&q=similar:<id>` remains valid during transition.
+- Ordinary `q=similar:<id>` ranks by image embedding.
+- Bare text and structured chips beside `similar:` are hard filters, not a
+  second ranking signal.
+- Missing/invisible source image or missing active embedding returns the agreed
+  empty/absence result without leaking existence.
+- HATEOAS relation appears only when MLT is actually usable.
+- Clients never receive the embedding vector merely to determine capability.
+- Candidate/result limits and minimum similarity are covered at their exact
+  configured boundaries.
+
+## 8. Performance, Privacy and Payload
+
+Performance remains a decision input, not an automatic campaign:
+
+- media-api text hybrid runs lexical and semantic searches plus a pool
+  count/ticker query;
+- AI response rendering uses the heavy Argo image envelope for at most 200 hits;
+- embeddings are needed server-side for fusion but are useless in the browser;
+- explicit-`aiQuery` rendering strips embedding fields at the shared
+  `ImageResponse` boundary; legacy Kahuna rendering remains unchanged;
+- do not make ordinary lean endpoint projection configurable to add vectors
+  back;
+- run a targeted perceived-performance comparison only after U9-B exists, with
+  a named question about end-to-end AI completion.
+
+Semantic query text currently appears in URLs and media-api logging/cache keys.
+The additive parameter does not create the general issue, but it makes the
+boundary explicit. Avoid logging raw query text and full vectors in any new code;
+cache normalization/expiry and response stripping should be reviewed with the
+server PR.
+
+## 9. Remaining Approval Gates
+
+U9-A and U9-B may be built and validated locally. The following gates still
+apply beyond that local implementation:
+
+1. Team agreement before merging or deploying the additive media-api `aiQuery`
+  parameter and its absence-preserves-Kahuna contract.
+2. Team agreement before merging or deploying the additive `ai-search`
+  capability relation and explicit-branch vector-free response projection.
+3. Separate approval for ordinary-search MLT semantics and Kahuna opt-in.
+4. A later, evidence-backed embedding-provider/model decision; eelpie's Gemini
+   draft is evidence to evaluate, not an implementation dependency.
+
+## 10. Anti-Goals
+
+- No global reinterpretation of `q` for existing clients.
+- No Kahuna code change in the text-AI server PR.
+- No `aiQuery` field in shared `SearchParams` or ordinary POST bodies.
+- No temporary folding of Kupua filter text into semantic ranking.
+- No batch hydration of direct-ES AI results as the target architecture.
+- No expansion of direct-ES ranking or embedding behavior; U9-B's bounded pool
+  metadata parity is the only direct-mode change.
+- No SearchContext framework.
+- No automatic `useAISearch` retirement.
+- No eelpie pipeline/model/tuning transplant.
+- No 1,000-result MLT without measured need.
+- No vector payload sent merely to expose availability.
+
+## 11. Current File Map
+
+| Surface | Current files |
+| --- | --- |
+| media-api AI controller | `media-api/app/controllers/MediaApi.scala` |
+| AI query classification / GET params | `media-api/app/lib/elasticsearch/ElasticSearchModel.scala` |
+| Hybrid/KNN/filter/count implementation | `media-api/app/lib/elasticsearch/ElasticSearch.scala`, `HybridResult.scala`, `QueryBuilder.scala` |
+| Server tests | `media-api/test/lib/elasticsearch/AiQueryPartsTest.scala`, `HybridSearchTest.scala`, controller tests |
+| Kupua API client | `kupua/src/dal/grid-api-search-adapter.ts` |
+| Kupua datasource binding | `kupua/src/dal/api-data-source.ts`, `kupua/src/dal/index.ts` |
+| Kupua AI store path | `kupua/src/stores/search-store.ts` |
+| Result contracts | `kupua/src/dal/types.ts` |
+| AI availability | `kupua/src/main.tsx`, `kupua/src/lib/grid-config.ts`, `kupua/src/components/AiSearchInput.tsx` |
+| Pool-total display | `kupua/src/components/StatusBar.tsx` |
+| Existing direct fallback | `kupua/src/dal/es-adapter.ts`, `kupua/src/lib/bedrock-proxy-client.ts` |
+| Current aggregation decorator | `kupua/src/lib/ai-search-params.ts` |
+| Kupua AI UI/URL | `kupua/src/components/AiSearchInput.tsx`, `kupua/src/lib/search-params-schema.ts` |
+| Kahuna AI request/UI | `kahuna/public/js/services/api/media-api.js`, `kahuna/public/js/search/query.js`, `kahuna/public/js/search/results.js` |
+| Kahuna MLT | `kahuna/public/js/components/gr-more-like-this/` |
+
+This plan supersedes the previous pre-U6z StranglerAdapter-based slicing and its
+proposed temporary free-text degradation. It authorizes local U9-A/U9-B work only
+under the active API build plan; it does not authorize U9-C, merge or deployment.

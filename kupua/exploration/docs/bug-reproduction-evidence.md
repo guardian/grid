@@ -51,7 +51,7 @@ remaining ambiguity or post-fix acceptance; the general campaign is complete.
 | [KUP-010](bug-backlog.md#kup-010) | Blocked: private refusal-test scope absent. [Blocker](#permission-blocked-routes). | Hybrid later became available; availability does not authorize sensitive probing. |
 | [KUP-011](bug-backlog.md#kup-011) | Reproduced: synthetic non-sensitive direct builder. [Evidence](#kup-011). | Live D3 comparison lacked a replaced witness; visibility variants were not tested. |
 | [KUP-012](bug-backlog.md#kup-012) | DONE: incremental empty-member accounting and cached panel publication. [Current validation](#bounded-client-repairs-kup-022023026012020021); [historical evidence](#kup-012). | Local oracle/store/panel checks; no cache ownership, bulk transport or API snapshot change. |
-| [KUP-013](bug-backlog.md#kup-013) | DONE: initiating focus permission and pending-End ownership. [Current validation](#bounded-focus-repairs-kup-013017018027); [historical evidence](#kup-013). | Reverse pending-Home then resident-End was subsequently [reproduced and remains unfixed](#restarted-app-browser-follow-up); no blanket keyboard-ownership closure. |
+| [KUP-013](bug-backlog.md#kup-013) | DONE: initiating focus permission, pending-End ownership and later resident-End supersession of pending Home. [Initial repair](#bounded-focus-repairs-kup-013017018027); [follow-up repair](#kup-013-reverse-edge-follow-up-repair); [historical evidence](#kup-013). | Latest edge intent is covered across explicit/selection/phantom/no focus and indexed/seek coordinates; no generic navigation epoch or live after-check. |
 | [KUP-014](bug-backlog.md#kup-014) | DONE: separate CQL, AI and header action ownership. [Current validation](#bounded-ux-repairs-kup-014015016019); [historical evidence](#kup-014). | Live cancellation and ordinary controls; AI completion synthetic. No model/API or measured performance claim. |
 | [KUP-015](bug-backlog.md#kup-015) | DONE: Home continuation, focus and suppression ownership. [Current validation](#bounded-ux-repairs-kup-014015016019); [historical evidence](#kup-015). | Both callers covered locally; live cancelled-read and ordinary Home passed. Existing await-before-density sequence retained. |
 | [KUP-016](bug-backlog.md#kup-016) | DONE: reporter-owned indexed timer. [Current validation](#bounded-ux-repairs-kup-014015016019); [historical evidence](#kup-016). | Mounted shared-hook and live cross-context controls; no changed coordinate regime or latency claim. |
@@ -96,11 +96,11 @@ Exactly 20 distinct source/test/guide/changelog/playbook files were committed; t
 playbook belongs to KUP-017. Shared-file partitions were index-only and final committed
 bytes match the tested working tree. Mixed AGENTS/backlog/evidence/worklog and unrelated
 research/configuration remain unstaged. No push, service change or additional validation
-run occurred during commit preparation; the reverse Home->End follow-up remains unfixed.
+run occurred during commit preparation; the reverse Home->End follow-up remained unfixed at this 22 September checkpoint.
 
 | ID | Demonstrated failure and bounded repair | Preserved controls and limits |
 | --- | --- | --- |
-| KUP-013 | Fresh trusted-key shared-app comparison: 820 resident results retained hidden focus; 13252 indexed results replaced it at the tail. Initiating focus permission is now separate from tail scrolling and bound to the existing seek signal. Newer seek/Home and uncommitted failure/abort cannot donate stale intent. | 25 mounted producer/real-store/consumer cases plus grid/table browser placement. Resident/indexed/seek coordinates, explicit/retained-hidden/phantom/no focus, pending mode/focus changes, selection/anchor, native input/fullscreen and one-shot consumption remain. Resident Home reuses the loaded head without another read. Reverse pending-Home then resident-End was subsequently reproduced by the restarted-app follow-up below and remains unfixed. |
+| KUP-013 | Fresh trusted-key shared-app comparison: 820 resident results retained hidden focus; 13252 indexed results replaced it at the tail. Initiating focus permission is now separate from tail scrolling and bound to the existing seek signal. Newer seek/Home and uncommitted failure/abort cannot donate stale intent. | 25 mounted producer/real-store/consumer cases plus grid/table browser placement. Resident/indexed/seek coordinates, explicit/retained-hidden/phantom/no focus, pending mode/focus changes, selection/anchor, native input/fullscreen and one-shot consumption remain. Resident Home reuses the loaded head without another read. Reverse pending-Home then resident-End was subsequently reproduced below and remained unfixed until the [27 September follow-up](#kup-013-reverse-edge-follow-up-repair). |
 | KUP-017 | Local actual leaf-frame query replacement moved the same table from 0 to 2564; a newer wheel position of 320 was overridden to 165029. Saved restoration now checks search generation, record ownership and pending-only scroll-input intent. | 16 queued geometry/lifetime controls and 7 real query/order/wheel/no-op-arrow/focused-arrow cases, plus existing density workflows. Fresh columns/header/viewport/origin, extrema, Strict Mode peek, map-independent coordinates and cooldown survive. Review caught and corrected cancellation by no-op grid Left/Right. No-saved mount fallback remains outside this certification. |
 | KUP-018 | Actual local traversal/close/reopen moved the same retained table from 0 to 644. Deferred return now belongs to the original image, search, history entry and post-close focus; valid work resolves current index/row/callbacks at execution. | 23 hook cases and actual reopen/query/resize plus ordinary close controls. Original-entry native placement, immutable entry identity, phantom pulse, Home suppression, callback replacement and missing-target behavior remain. No redirect to a newer focus or universal return guarantee. |
 | KUP-027 | Real native Chromium separated exit-promise delivery from the later frame: an old frame moved a newer preview's retained list from 0 to 100. A local preview-owner identity now makes old centering inert after reentry/disposal. | 8 native cases with isolated media; 9 helper/mounted cases distinguish mocked disposal and the 150 ms quiet period / 1000 ms cap from real API evidence. Same-exit latest-focus centering remains valid; the tested late-promise/new-active-preview path already preserved active state/history. The pre-native-entry promise gap, physical Esc and macOS animation remain unverified, not refuted. |
@@ -119,7 +119,7 @@ anchor while the actual key path and placement assertions remain. All 7 cases an
 gates passed without retries after correction. No second independent review was performed.
 The reviewer found no other material delta issue or weakened existing assertion and supported
 the other bounded dispositions. Its source-supported reverse Home/End concern was subsequently
-reproduced in the browser follow-up below and remains unfixed.
+reproduced in the browser follow-up below and repaired on 27 September.
 
 Invalid setup runs were not credited: chat/browser input interference, a document-target unit
 key event, missing jsdom fullscreen property, and an outer-rAF gate that only scheduled the leaf.
@@ -148,7 +148,8 @@ PP6c slowdown and P8 watchpoint are neither explained nor resolved by this batch
 - **E081:** qualify only stored-focus-only windowed End and its missing coverage with the
   initiating-permission/request-owner repair and real producer/consumer evidence. Retain the
   deliberate hidden-focus policy. Record the later controlled live-data reproduction of the
-  reverse pending-Home/resident-End boundary separately: it remains unfixed, not closed by Batch B.
+  reverse pending-Home/resident-End boundary separately: it was not closed by Batch B and was
+  repaired only by the later [27 September follow-up](#kup-013-reverse-edge-follow-up-repair).
 - **E068:** qualify saved density restoration and detail-return row/owner clauses separately.
   Preserve true unmount cancellation and fresh-geometry behavior; retain no-saved fallback and
   wider D032 joins. Do not promote this composite claim wholesale to closed/verified.
@@ -183,7 +184,7 @@ campaign followed from this check.
   and scroll position; the pending intent was consumed.
 - **Ordinary controls passed:** Home from the explicitly focused tail reached the visible head
   with first-image focus; subsequent End reached the visible tail with last-image focus.
-- **Reverse Home then resident End reproduced, still unfixed:** start at the explicitly
+- **Reverse Home then resident End reproduced, unfixed at this checkpoint:** start at the explicitly
   focused tail; hold delivery of one successful real Home `searchAfter` result. Both Home and End
   were trusted key events with tail focus and unchanged query. After End, the tail remained
   current, but pending edge was still `first`, the Home signal was not aborted, and no second
@@ -200,6 +201,29 @@ campaign followed from this check.
   and no loading work remained. The agent tab was closed and closure confirmed. No shared tab
   was changed, and no preference was intentionally changed. Native fullscreen was not repeated
   in the integrated browser; the existing local native evidence and its limits remain unchanged.
+
+### KUP-013 Reverse Edge Follow-Up Repair
+
+**27 September 2026: DONE in the current client; committed as `ace53ac75`.** The controlled browser
+reproduction above remains the original visible witness. No new live response interception or
+browser after-check was run. Mounted `useListNavigation` plus the real search store and
+`useScrollEffects` consumer supplied the deterministic repair evidence.
+
+Windowed Home now records first-edge ownership for every focus policy while carrying focus
+permission only for explicit unselected focus. A later resident End aborts and clears that older
+edge and its loading ownership before applying the existing resident tail placement. It starts no
+successor seek or read. The original explicit-focus regression failed on the un-aborted signal;
+a first cold review then exposed and reproduced stuck loading under the production `DOMException`
+abort path. A second review exposed six selection/phantom/no-focus viewport failures across
+12,000-result indexed and 70,000-result seek coordinates. The settled 33-case slice passed with
+signal, pending intent, loading/error, focus policy, tail placement, total and request-cardinality
+assertions before and after the obsolete Home settled. A final fresh review found no defect.
+
+The completed End-initiation/hidden-focus behavior, Home superseding pending End, failure/abort
+cleanup and native-input/fullscreen exclusions remain. The existing abort operation retains its
+short extend cooldown; the mounted fixture stubs `loadMore`, while production tail guards remain
+covered by the full application gates. No generic navigation-state framework, changed delay,
+performance claim or API/deployment guarantee follows.
 
 ## Bounded Client Repairs: KUP-022/023/026/012/020/021
 

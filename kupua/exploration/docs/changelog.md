@@ -17,6 +17,35 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 27 September 2026 - Latest keyboard edge owns resident placement (KUP-013)
+
+  Windowed Home now records first-edge ownership independently from its nullable
+  explicit-focus permission. A later resident End aborts and clears obsolete edge and
+  loading ownership before applying the existing tail focus/placement, without issuing
+  another seek. This preserves the earlier hidden-focus End repair while making latest
+  intent win for explicit, selection, phantom and no-focus modes in indexed and seek tiers.
+
+  ### 27 September 2026 - Reject invalid correlated timing intervals (KUP-032)
+
+  Perceived-metric calculation now rejects non-finite correlated timestamps, phases before
+  their own interaction start and the selected terminal phase before its status phase.
+  Existing correlation/cardinality behavior, valid zero durations, independent phase order,
+  emitted metric fields and both dashboard contracts remain unchanged.
+
+  ### 27 September 2026 - Acknowledgement terminology matches its producer (KUP-031)
+
+  The perceived-performance spec and handbook now describe `t_ack` as synchronous producer
+  acknowledgement rather than DOM-visible latency. Store-ready, first-visible-frame and
+  visual-settled boundaries remain distinct; trace sites, metric names and historical rows
+  are unchanged.
+
+  ### 27 September 2026 - Malformed date bounds remain recoverable (KUP-028)
+
+  DateFilter now presents malformed active URL bounds as a red, accessible `Invalid date`
+  label while leaving native date inputs empty and recovery controls usable. The raw bound
+  remains until explicit replacement or clearing, so the UI does not silently widen the
+  search. Valid local-calendar serialization and existing range policies are unchanged.
+
   ### 26 September 2026 - Non-AI API ownership and recovery verification (U6z)
 
   Cold-start coverage selects media-api mode before imports and exercises real main-module

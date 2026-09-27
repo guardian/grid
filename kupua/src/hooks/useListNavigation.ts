@@ -499,9 +499,12 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // scrollTop in the same render frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
             if (c.bufferOffset && c.bufferOffset > 0 && c.seek) {
-              if (hasFocus) {
-                useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "first", focusedImageId: c.focusedImageId } });
-              }
+              useSearchStore.setState({
+                _pendingFocusAfterSeek: {
+                  edge: "first",
+                  focusedImageId: hasFocus ? c.focusedImageId : null,
+                },
+              });
               c.seek(0);
               // After seek, focus first image only if something was focused
               // (seek resets buffer, so we can't focus immediately — the
@@ -534,6 +537,11 @@ export function useListNavigation(config: ListNavigationConfig): void {
               useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });
               c.seek(Math.max(0, c.total - 1));
             } else {
+              const store = useSearchStore.getState();
+              if (store._pendingFocusAfterSeek) {
+                store.abortExtends();
+                useSearchStore.setState({ _pendingFocusAfterSeek: null, loading: false });
+              }
               // Use virtualizer.scrollToIndex — raw el.scrollHeight includes
               // the in-flow sticky header height, causing max scroll to
               // overshoot past the last row.

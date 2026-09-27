@@ -42,6 +42,16 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 27 September 2026, KUP-029/030 same-ID transition:** for a bounded real
+media-api ordinary -> AI check, retain candidate IDs and baseline values only in page memory,
+use the in-page router for controlled ID scoping, and return aggregate comparisons. Playwright
+`page.goto()` requires an absolute URL; attempting a relative identity-scoped URL failed and
+surfaced the full target in tool output. Avoid `read_page` while such an ID list is in the current
+URL because snapshots repeat it. Real AI control entry plus route-class resource counts established
+Bedrock/direct-ES ownership; ordinary API rights matched overlays, while AI retained all matching
+ordinary overlays without sampled display divergence. Finish through the real Home control, await
+ordinary settled state, and delete the page-only probe.
+
 **[V] 27 September 2026, KUP-028 invalid-date presentation:** inspect the current
 accessibility snapshot before clicking a toggle whose name changes with state. The shared
 date dropdown was already open, so selecting `Show date range filter` timed out while the
