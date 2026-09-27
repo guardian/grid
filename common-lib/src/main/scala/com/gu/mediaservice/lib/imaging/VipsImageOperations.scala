@@ -148,6 +148,17 @@ class VipsImageOperations extends GridLogging with ImageOperations {
 
   def hasAlpha(image: VImage)(implicit arena: Arena): Boolean = image.hasAlpha
 
+  def isGraphic(image: VImage)(implicit arena: Arena): Boolean = {
+    // Indexed plus alpha would be 2 bands
+    val numberOfBands = VipsHelper.image_get_bands(image.getUnsafeStructAddress)
+    val format = VipsHelper.image_get_format(image.getUnsafeStructAddress)
+    val paletteType = VipsHelper.image_get_typeof(arena, image.getUnsafeStructAddress, "palette")
+
+    val isGraphic = paletteType > 0 || numberOfBands < 3
+    logger.info(s" isGraphic = $isGraphic: Number of bands: $numberOfBands, Format: $format, Palette type: $paletteType")
+    isGraphic
+  }
+
   private def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false): File = {
     logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath)
     mimeType match {
