@@ -221,6 +221,37 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
     }
   }
 
+  describe("graphic detection") {
+    it("should return not graphic for true colour jpeg") {
+      val arena = Arena.ofConfined
+      val image = VImage.newFromFile(arena, fileAt("exif-orientated-no-rotation.jpg").getAbsolutePath)
+      vipsImageOperations.isGraphic(image)(arena) should be(false)
+      arena.close()
+    }
+
+    it("should return is graphic for depth 2 tiff") {
+      val arena = Arena.ofConfined
+      val image = VImage.newFromFile(arena, fileAt("flower.tif").getAbsolutePath)
+      vipsImageOperations.isGraphic(image)(arena) should be(true)
+      arena.close()
+    }
+
+    it("should return not graphic for depth 4 png with alpha") {
+      val arena = Arena.ofConfined
+      val image = VImage.newFromFile(arena, fileAt("schaik.com_pngsuite/tbbn0g04.png").getAbsolutePath)
+      vipsImageOperations.isGraphic(image)(arena) should be(true)
+      arena.close()
+    }
+
+    it("should return is graphic for depth 8 indexed png") {
+      val arena = Arena.ofConfined
+      val image = VImage.newFromFile(arena, fileAt("schaik.com_pngsuite/basn3p08.png").getAbsolutePath)
+      vipsImageOperations.isGraphic(image)(arena) should be(true)
+      arena.close()
+    }
+
+  }
+
   def fileAt(resourcePath: String): File = {
     new File(getClass.getResource(s"/$resourcePath").toURI)
   }
