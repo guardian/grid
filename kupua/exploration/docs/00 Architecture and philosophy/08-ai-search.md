@@ -1,13 +1,14 @@
 # AI Search — Semantic Image Retrieval Without a Mode
 
-> ⚠️ **About to change.** This document describes kupua's *current, direct-ES*
-> AI search. That implementation is being reworked to route through media-api's
-> existing `useAISearch` endpoint (server-side two-request hybrid + More Like
-> This), per [`../ai-search-catching-up-workplan.md`](../ai-search-catching-up-workplan.md).
-> Several claims below are already superseded (notably §3.1's description of the
-> server hybrid algorithm, and the `total === hits.length` invariant). This doc
-> will be heavily amended when that work lands; treat the workplan as the current
-> source of truth until then.
+> ⚠️ **Partly superseded (U9-B, 27 September 2026).** This document describes kupua's
+> *direct-ES* AI search, which remains the direct/local mode. In media-api mode AI now
+> goes through one `GET /api/images` with `useAISearch=true` and a separate `aiQuery`
+> (no browser Bedrock or ES), gated by the root `ai-search` link; failure is quiet empty
+> absence. Both modes publish the prefilter pool total and tickers with the hits, so the
+> `total === hits.length` invariant describes the loaded set, not the status-bar pool.
+> §3.1's server hybrid description is also superseded. The
+> [workplan](../ai-search-catching-up-workplan.md) and the API build plan's U9-B note are
+> the current source of truth until this guide is amended.
 
 > **Audience:** Staff Engineers reviewing the approach, future agents, and
 > anyone inheriting this codebase.
@@ -319,9 +320,10 @@ React state, not a CQL chip.
 Key behaviours:
 
 - **Gating.** The widget renders `null` when
-  [`bedrockAvailable`](../../src/lib/grid-config.ts) is false. The
-  `subscribeBedrockAvailable` mini-store lets the widget re-render once
-  the startup health probe resolves.
+  [`aiSearchAvailable`](../../src/lib/grid-config.ts) is false. The
+  `subscribeAiSearchAvailable` mini-store lets the widget re-render once
+  the startup probe resolves (Bedrock health in direct mode, the root
+  `ai-search` link in API mode).
 - **Collapsed → expanded.** Sparkles toggle expands the input with
   content-aware width (auto-sized to typed text length, capped). Clicking
   sparkles while expanded stashes the text in module-level state and
@@ -481,9 +483,10 @@ have no credentials. AI search must disappear cleanly in all of these.
 |---|---|
 | `scripts/bedrock-embed-proxy.mjs` | `/bedrock/health` returns `{available: false}` after one info log. `/bedrock/embed` returns 503 with no error spam. No crash. |
 | [`bedrock-proxy-client.ts`](../../src/lib/bedrock-proxy-client.ts) | `checkBedrockHealth()` never throws; any failure resolves to `false`. |
-| `bedrockAvailable` global | Stays `false` (its initial value). `subscribeBedrockAvailable` listeners receive `false` once the probe resolves. |
+| `aiSearchAvailable` global | Stays `false` (its initial value). `subscribeAiSearchAvailable` listeners receive `false` once the probe resolves. |
 | `AiSearchInput` | Renders `null` — no widget appears in the search bar. |
-| If a 503 happens mid-session (creds expired during typing) | The AI branch's catch block surfaces a red toast: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." The chip stays in the URL so the user can retry; it is not auto-removed. |
+| If a 503 happens mid-session (creds expired during typing) | Direct mode: the AI branch's catch block surfaces a red toast: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." The chip stays in the URL so the user can retry; it is not auto-removed. |
+| API mode (U9-B) | A failed root read or missing `ai-search` link keeps the widget hidden for the session. A non-2xx, unreadable or unreachable AI response publishes an empty, error-free result with no toast. |
 
 The startup probe is fire-and-forget in
 [`main.tsx`](../../src/main.tsx) — kupua boots whether Bedrock answers
@@ -546,7 +549,7 @@ condition for being addressed.
 |---|---|
 | [`scripts/bedrock-embed-proxy.mjs`](../../scripts/bedrock-embed-proxy.mjs) | Vite middleware: `/bedrock/health`, `/bedrock/embed`. AWS SDK + LRU cache. |
 | [`src/lib/bedrock-proxy-client.ts`](../../src/lib/bedrock-proxy-client.ts) | Browser-side fetch wrappers, graceful-absent. |
-| [`src/lib/grid-config.ts`](../../src/lib/grid-config.ts) | `bedrockAvailable` flag + subscriber. |
+| [`src/lib/grid-config.ts`](../../src/lib/grid-config.ts) | `aiSearchAvailable` flag + subscriber. |
 | [`src/components/AiSearchInput.tsx`](../../src/components/AiSearchInput.tsx) | The widget. |
 | [`src/components/SearchBar.tsx`](../../src/components/SearchBar.tsx) | Reads/writes `aiQuery`, hosts the AI widget alongside CQL. |
 | [`src/components/SearchFilters.tsx`](../../src/components/SearchFilters.tsx) | `SortControls` — prepends Relevance when AI is active. |

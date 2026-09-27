@@ -12,10 +12,10 @@ freely. Only once it works do we split the media-api code into small human-revie
 Hosting Kupua for other users is a later, separate decision.
 
 **Current milestone (operator, 27 September):** U6z verifies zero browser Elasticsearch traffic
-for non-AI operations, including recovery. Local U9-A and U9-B implementation is now authorized;
-U9-C remains deferred pending separate team approval. Existing AI search stays the sole explicit
-ES exception until U9-B is implemented and validated. Team review remains required before merging
-or deploying U9-A. U7's media-delivery changes remain separate.
+for non-AI operations, including recovery. U9-A (`804ca1191`) and U9-B are built locally: API mode
+now sends AI search through media-api too and constructs no ES datasource, so the AI exception is
+gone in that mode. U9-C remains deferred pending separate team approval. Team review remains
+required before merging or deploying U9-A. U7's media-delivery changes remain separate.
 
 ## 1. Decisions (operator, 23 September 2026)
 
@@ -112,6 +112,8 @@ flag. Existing direct-ES and current hybrid (`VITE_USE_MEDIA_API=true`) modes mu
   AI is allowed; do not refactor or disable AI merely to remove that construction.
 - **At eventual full API-only completion:** remove the final AI ES dependency and prove no ES
   construction or traffic across all owners. This is not U6z's present acceptance criterion.
+  **Done by U9-B (27 September):** the fallback is removed and API mode constructs no
+  `ElasticsearchDataSource`; cold-start and composed tests assert no `/es` or `/bedrock` traffic.
 - **Store:** the store is not rewritten; method signatures stay.
 
 **Composed tests.** Capture real Kupua mapper request bodies (golden JSON) in Kupua unit tests
@@ -137,12 +139,12 @@ maintained here by the executing agent at completion (section 8).
 | U6c | `POST /images/aggregations` + typeahead + collection counts | Scala + Kupua | U1 | done |
 | U6d | `POST /images/mget` + selection injection (hydration and ranges) | Scala + Kupua | U1, U4 | done |
 | U6z | Non-AI media-api coverage and recovery verification; existing AI retained | Kupua | U6a-d | done |
-| U9-A | Additive media-api text-AI contract, capability and opt-in projection | Scala | U6c, operator authorization | authorized; not started |
-| U9-B | Kupua media-api AI client and two-mode pool metadata parity | Kupua | U9-A | authorized; not started |
+| U9-A | Additive media-api text-AI contract, capability and opt-in projection | Scala | U6c, operator authorization | done locally (`804ca1191`); team review before merge |
+| U9-B | Kupua media-api AI client and two-mode pool metadata parity | Kupua | U9-A | done locally (`887814ccc`); cold review accepted with fixes |
 | U9-C | Shared ordinary-search MLT contract and clients | Both | separate team approval | deferred; do not build |
-| U10-A | Characterize server-derived data/config ownership and duplicate computation | Docs/evidence | operator sequencing exception | done; source-only at `b2acc260f` |
-| U10-B | Consume proven existing server capabilities/data and remove safe duplication | Kupua | U9-B, U10-A, operator selection | provisional; scope from U10-A |
-| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B; U10-B if selected | not started |
+| U10-A | Characterize server-derived data/config ownership and duplicate computation | Docs/evidence | operator sequencing exception | done; post-U9 evidence rechecked at `2aad7ddba`; no new execution |
+| U10-B | Skip unused cost/validity/syndication fallback derivation | Kupua | U9-B, U10-A | narrow scope selected; not started; executor intake required |
+| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B, selected U10-B | not started |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
@@ -151,9 +153,10 @@ maintained here by the executing agent at completion (section 8).
 | S | Split into reviewable PRs (section 7) | Both | M2b | later |
 
 **Sequencing amendment (operator, 27 September):** U10-A completed early as a source-only
-characterization exception. The remaining active sequence is U9-A -> U9-B -> U10-B if selected ->
-U8 -> M2a -> U7 -> M2b. U9-C remains adjacent in the table but is deferred and outside the active
-sequence. U10-A narrowed U10-B; characterization is not blanket implementation approval. Measure
+characterization exception; U9-A/B are now built. The remaining active sequence is the
+[narrow U10-B below](#u10-b-skip-unused-fallback-derivation) -> U8 -> M2a -> U7 -> M2b.
+U9-C remains deferred and outside the active sequence. Only characterization proposal B1 is
+selected for U10-B; the rest is not a deployment prerequisite or blanket implementation approval. Measure
 the deployed API after convergence and before changing
 image delivery, so those effects can be assessed separately. M1 uses the modified branch's
 media-api on the laptop against TEST ES
@@ -169,47 +172,6 @@ obligation; U9-B may validate and canonicalize its AI parameters.
 contract whose absence preserves Kahuna, plus a separately approved shared MLT path. It is the
 owning implementation contract for U9-A/B and does not authorize U9-C. KUP-030's evidenced overlay
 retention is an acceptance case for U9-B and must not be selected as a separate repair.
-
-**U9-A rights-filter decision (revised by operator, 27 September):** do not add an explicit-
-`aiQuery` escape hatch for `hasRightsAcquired`. Both legacy and explicit-AI requests continue
-ignoring the parameter through shared GET parsing; U9-B may serialize it generically but it has no
-effect in media-api AI mode. All new POST image-query endpoints already honor it. GRID-014 owns any
-future shared GET fix, which must cover ordinary GET, legacy AI and explicit-`aiQuery` AI together.
-Neither app exposes a normal control and no URL usage is measured, so this remains a deliberately
-accepted manual-URL correctness/parity issue, not an authorization or M2a gate. `syndicationStatus`
-is independent and sufficient. The eventual U9-A PR description must disclose this non-fix and the
-working POST contrast.
-
-**U9-A: additive media-api text AI.** The owning contract is the
-[AI workplan](../../ai-search-catching-up-workplan.md), especially sections 3, 6, 7.1 and 8-10.
-This unit may change the existing authenticated `GET /images` implementation only through the
-explicit opt-in `aiQuery` branch and its vector-free projection, plus the additive root
-`ai-search` capability. Requests without `aiQuery`, the ordinary `search` template, shared
-`SearchParams`, Kahuna behavior, existing pool-total/ticker computation and MLT remain unchanged.
-Write absent-param preservation tests before implementation and cover explicit empty/nonempty,
-conflict, filters, rights-flag non-effect, weights, capability and projection behavior. Run the
-Scala gate and
-complete the break-and-revert review protocol. The eventual main PR needs team review and the
-section-7 disclosure; local implementation is not merge/deploy approval.
-
-**U9-B: Kupua media-api AI client.** Depends on the locally working U9-A contract and follows
-AI-workplan sections 4, 6, 7.2 and 8-10. Add the media-api adapter, canonical image/enrichment
-publication, fixed-set/pool metadata contract, mode-aware capability and graceful absence; remove
-the final fallback only after composed tests prove no browser Bedrock/direct-ES AI traffic in API
-mode. Preserve direct/local ranking and Bedrock availability while aligning its one existing count
-request to the same prefilter-pool total/ticker semantics. KUP-008 and KUP-030 are acceptance cases.
-Root capability reads must await/coalesce discovery initialization; root failure is session-scoped
-graceful absence, never Bedrock fallback. Accepted API AI publication replaces enrichment exactly
-for nonempty, empty and absent current generations; aborted/superseded work cannot mutate it and
-selection hydration remains outside that policy.
-Run unit, build and E2E gates plus the named targeted completion-timing comparison; do not build
-MLT, change direct ranking or add per-ticker denominators.
-
-**U10-A result (27 September):** source-only characterization completed early against `b2acc260f`
-with no production edits, tests, browser or TEST access. The ownership matrix lives in
-[runtime configuration and data sources](../../runtime-configuration-and-data-sources.md). It
-routes discovery readiness and AI result-owned enrichment replacement into U9-B, and leaves
-field-wise lazy derivation plus ticker metadata as separately selectable U10-B work after U9-B.
 
 **Pitstop order (operator, 26 September):** amend this plan, then investigate/fix
 [KUP-033](../../bug-backlog.md#kup-033) (backward null-zone crossing), separately
@@ -889,6 +851,272 @@ AI behavior change or API-mode E2E configuration was introduced.
   or live AI ranking certification follows. Server deployment/binary identity is not independently
   fingerprinted by the client source checks. U8 and U7 remain separate; U8 is not executed here.
 
+**U9-A: additive media-api text AI.** The owning contract is the
+[AI workplan](../../ai-search-catching-up-workplan.md), especially sections 3, 6, 7.1 and 8-10.
+This unit may change the existing authenticated `GET /images` implementation only through the
+explicit opt-in `aiQuery` branch and its vector-free projection, plus the additive root
+`ai-search` capability. Requests without `aiQuery`, the ordinary `search` template, shared
+`SearchParams`, Kahuna behavior, existing pool-total/ticker computation and MLT remain unchanged.
+Write absent-param preservation tests before implementation and cover explicit empty/nonempty,
+conflict, filters, rights-flag non-effect, weights, capability and projection behavior. Run the
+Scala gate and
+complete the break-and-revert review protocol. The eventual main PR needs team review and the
+section-7 disclosure; local implementation is not merge/deploy approval.
+
+**U9-A decisions (operator, 27 September 2026, intake):**
+- **U9-A rights-filter decision (revised by operator, 27 September):** do not add an explicit-
+  `aiQuery` escape hatch for `hasRightsAcquired`. Both legacy and explicit-AI requests continue
+  ignoring the parameter through shared GET parsing; U9-B may serialize it generically but it has no
+  effect in media-api AI mode. All new POST image-query endpoints already honor it. GRID-014 owns any
+  future shared GET fix, which must cover ordinary GET, legacy AI and explicit-`aiQuery` AI together.
+  Neither app exposes a normal control and no URL usage is measured, so this remains a deliberately
+  accepted manual-URL correctness/parity issue, not an authorization or M2a gate. `syndicationStatus`
+  is independent and sufficient. The eventual U9-A PR description must disclose this non-fix and the
+  working POST contrast.
+- **Zero production effect:** the Scala addition is minimal and changes nothing for Kahuna or any
+  request without `aiQuery`; routes, `SearchParams`, `createSort`, `prepareSearch`, getters and the
+  default `ImageResponse.create` output stay identical.
+- **`similar:` in the explicit branch:** whenever `aiQuery` is present (empty or not) and `q` has a
+  valid `similar:<id>`, return the existing 422 conflict before any embedding or search. MLT stays
+  out of the explicit branch (U9-C).
+- **Classifier placement:** `AiQueryParts.fromExplicitText(conditions, text)` sits beside the
+  unchanged `AiQueryParts.from`; the raw `aiQuery` parameter is read only in `MediaApi.imageSearch`.
+- **Capability:** root advertises `ai-search` only when `ai.search.enabled` is on and ES has dense
+  vector mappings (otherwise AI requests return empty results). Its href is the existing search
+  template plus `aiQuery`; the `search` link is unchanged.
+- **Inherited, not fixed:** both AI branches skip `SearchParams.validate` and the `is:deleted`
+  uploader restriction, as legacy AI does today (section 11).
+
+**U9-A as built (27 September 2026, base `fdeb35508`, committed `804ca1191`):** three production files; the
+reviewer-facing safety narrative is the AI workplan's [U9a PR notes](../../ai-search-catching-up-workplan.md#12-u9a-pr-notes).
+- **`MediaApi.imageSearch`:** reads raw `aiQuery` once. Present, the AI branch classifies `q` with
+  `AiQueryParts.fromExplicitText`; absent, it uses the unchanged `params.aiQueryParts`. Everything
+  after classification (`length=0` short-circuit, `buildAiFilter`, text/image search, `hybridSearch`,
+  pool count/tickers, 422 mapping) is shared and unchanged. Explicit-branch entities render without
+  `embedding`. Without `useAISearch=true` (or with AI disabled) `aiQuery` is ignored entirely.
+- **Classification:** trimmed nonempty `aiQuery` is the only ranking text; every `q` condition
+  except `similar:` (bare words, phrases, chips, negations) is a hard filter; empty or blank text
+  gives the existing filter-pool guidance without embedding; any valid `similar:<id>` gives the
+  existing 422 `invalid-uri-parameters` conflict before embedding or search. The explicit branch
+  parses an absent `q` as empty, so the parser's default deleted/replaced exclusions always apply
+  (cold-review S1 fix; without it `useAISearch=true&aiQuery=...` with no `q` returned deleted and
+  replaced images as ranked hits).
+- **Projection:** `ImageResponse.create` and `imageResponseWrites` take `includeEmbedding: Boolean =
+  true`; only the explicit branch passes `false`, which drops only the `embedding` key. Every other
+  caller keeps the default and byte-identical output.
+- **Capability:** root adds `ai-search` = `${rootUri}/images{?<existing search params>,aiQuery}`,
+  appended after the existing links, only when `ai.search.enabled` and dense-vector mappings.
+- **Unchanged:** routes, `SearchParams` (no `aiQuery` field), POST bodies, the `search` link,
+  `createSort`, `prepareSearch`, getters, `vecWeight` parsing and its 0.85 default, the 200-result
+  cap, `k`/candidate tuning, `hasRightsAcquired` ignored on every GET path (GRID-014).
+- **Tests:** new `MediaApiAiSearchTest` (21 cases, own ES container, real `ImageResponse`, recording
+  embedder, mocked ES where no ES work may happen, deleted and replaced fixtures ranked highly):
+  legacy text/filters-only/empty/omitted-q/MLT/conflict/
+  `length=0`/weights/pool/tickers/rights and projection; explicit hard filters/chips/empty/conflict/
+  omitted-versus-empty-q exclusions/`length=0`/weights/pool/tickers/rights/projection and
+  ignored-without-AI; POST rights control;
+  capability in all four enabled/dense combinations. Plus 3 `AiQueryPartsTest` and 1
+  `ImageResponseTest` cases. Failing-first: the 12 legacy/control cases passed and the 7
+  explicit/capability cases failed at runtime before implementation. The review fix also failed
+  first: omitted `q` returned deleted `e` and replaced `f` (2 failures), then passed.
+- **Gates:** Scala baseline 742/742 (14 suites); final `TZ=UTC sbt "media-api/test"` 767/767 (15).
+- **Break/revert** (each restored and `cmp`-verified identical, focused rerun 42/42): bare words not
+  filtering (6 failures), absent param through the explicit classifier (5), conflict removed (2),
+  explicit embeddings rendered (2), legacy embeddings dropped (2), capability without the dense
+  check (1), GET honouring `hasRightsAcquired` (2), total from returned hits (2); for the review
+  fix, reverting to unparsed absent `q` is the recorded failing-first run (2).
+- **Cold review (27 September):** reject with one new S1 (absent `q`, fixed above) and two inherited
+  S1s recorded in section 11 (deleted-search uploader restriction; syndication visibility on
+  search results), not fixed here by operator decision. Focused rerun after the fix 44/44. Fresh
+  re-review of the fix: accept, no material findings.
+
+**U9-B: Kupua media-api AI client.** Depends on the locally working U9-A contract and follows
+AI-workplan sections 4, 6, 7.2 and 8-10. Add the media-api adapter, canonical image/enrichment
+publication, fixed-set/pool metadata contract, mode-aware capability and graceful absence; remove
+the final fallback only after composed tests prove no browser Bedrock/direct-ES AI traffic in API
+mode. Preserve direct/local ranking and Bedrock availability while aligning its one existing count
+request to the same prefilter-pool total/ticker semantics. KUP-008 and KUP-030 are acceptance cases.
+Root capability reads must await/coalesce discovery initialization; root failure is session-scoped
+graceful absence, never Bedrock fallback. Accepted API AI publication replaces enrichment exactly
+for nonempty, empty and absent current generations; aborted/superseded work cannot mutate it and
+selection hydration remains outside that policy.
+Run unit, build and E2E gates plus the named targeted completion-timing comparison; do not build
+MLT, change direct ranking or add per-ticker denominators.
+
+**U9-B decisions (operator, 27 September 2026, intake):**
+- **Direct-mode pool count:** the direct adapter's `searchByAi` runs its one undecorated
+  `countWithTickers` in parallel with the embedding/KNN and awaits it, so hits, pool total and
+  tickers publish atomically in both modes. A failed count publishes no pool label or tickers.
+  The store issues no follow-up AI count in either mode.
+- **`vecWeight`:** validated only in the media-api request mapper (finite, 0-1, else omitted); the
+  URL is not rewritten. Direct mode keeps its own parsing, so invalid URL values may rank slightly
+  differently between modes (accepted; AI workplan section 3.4).
+- **Relevance ordinal:** the API mapper assigns every hit an ordinal from server order; a result
+  with a missing ordinal is a contract failure through the existing AI error path, not a 0 score.
+- **Naming:** the Bedrock-only availability flag becomes a mode-aware `aiSearchAvailable`.
+- **Fallback removal:** once tests prove no API-mode owner needs ES, the empty fallback list and
+  `ApiDataSource`'s fallback argument are removed and `ElasticsearchDataSource` is constructed only
+  in direct mode.
+- **Enrichment:** the replace-on-publish AI rule applies in both modes (direct mode's map holds no
+  API data). Facets remain scoped to returned IDs; only the total and tickers move to the pool.
+
+**U9-B as built (27 September 2026, on `804ca1191`, committed `887814ccc`):**
+- **Request:** `apiSearchByAi` sends one authenticated `GET /api/images` with `useAISearch=true`,
+  `q` (the same effective query ordinary reads build, including default clauses), separate
+  `aiQuery`, `length=200`, the admitted filters, and `vecWeight` only when it is a finite 0-1
+  number (canonical form; otherwise media-api's default applies). No Bedrock call from the browser.
+- **Result:** hits keep server order and get `__aiScore = n - i`; sort values are `[score, id]`.
+  The response's enrichment, `total` (as `aiPoolTotal`) and tickers (value/sub-counts only) come
+  back with the hits. Non-2xx, unreadable or unreachable responses return `null`; abort rethrows.
+- **Store:** `null` becomes an empty, error-free, quiet result (no toast or warning). A hit without
+  a finite `__aiScore` throws into the existing AI error path. Accepted publication replaces the
+  enrichment map (nonempty, empty or absent), then publishes hits, `aiPoolTotal`, tickers and
+  timestamp together. The follow-up AI `countWithTickers` is gone in both modes. `aiPoolTotal` is
+  cleared on every non-AI search. Aborted or superseded work publishes nothing.
+- **Direct mode:** `ElasticsearchDataSource.searchByAi` starts its one undecorated
+  `countWithTickers` before the embedding (and hybrid BM25 probe), so it overlaps all of them; a
+  failed count gives no pool label or tickers. The count takes no signal, so the adapter rethrows
+  an abort after awaiting it, and the store also refuses to publish once its captured signal is
+  aborted. Ranking, Bedrock use and health checks are unchanged. Cost: when Bedrock fails, that
+  one count has already been sent.
+- **Capability:** `ServiceDiscovery.init()` returns one shared `Promise<boolean>` (true when the
+  root loaded; failure is session-scoped absence, no retry). `apiAiSearchAvailable()` awaits it
+  and checks the `ai-search` link. `main.tsx` uses it in API mode and the Bedrock health check in
+  direct mode, feeding the renamed `aiSearchAvailable` flag.
+- **Fallback removed:** `DEVELOPMENT_FALLBACK_METHODS` and `ApiDataSource`'s fallback argument are
+  gone; `createDataSource` builds `ElasticsearchDataSource` only in direct mode.
+- **Status bar:** "Best {n} of {pool} matches" when a pool total is known; a ticker is hidden only
+  when it equals the pool total (or the page total when no pool is known).
+- **Tests:** new `service-discovery.test.ts`, `grid-api-instance.test.ts`, `StatusBar.test.tsx`;
+  `api-data-source.test.ts` routing (every read, AI included, goes only to `/api/`) and AI mapping,
+  `vecWeight`, empty, 403/422/500/503/unreachable/unreadable and abort; `search-store-api-mode`
+  KUP-030 ordinary -> AI -> ordinary replacement, successful empty, four absence cases,
+  cancelled/superseded, KUP-008 and direct/API parity, with any non-`/api` URL failing the test;
+  `main.test.tsx` cold start builds no ES datasource and makes no `/bedrock` call; direct
+  pool-count and store publication tests. Two browser-history E2E AI stubs lacked `__aiScore` and
+  were silently taking the new error path (tests still passed); they now supply it.
+- **Gates:** unit 2141/2141 (81 files; baseline 2100/78), build green, E2E 299/299, then the
+  corrected browser-history spec 72/72 with no AI error warnings. After the cold-review fixes:
+  unit 2145/2145, build green, E2E 299/299.
+- **Break/revert** (each restored and `cmp`-verified): upsert instead of replace (6 failures),
+  `null` unhandled (4), ordinal check removed (1), `aiPoolTotal` not cleared (1), direct count
+  serialized (initially uncaught; the test now holds the KNN response pending, 1), discovery
+  re-reading the root (2), failed root treated as loaded (4), wrong mode gate in `main.tsx` (1),
+  uncanonical `vecWeight` (7), `q` replaced by the raw query (2), ticker compared with the page
+  total (1).
+- **Cold review (27 September):** accept with fixes. Two S2s fixed failing-first (4 new tests
+  failed before the fix): an abort-only cancellation (no newer search) could still publish once
+  the pending direct count resolved; and the direct count started only after the embedding and
+  BM25 probe, overlapping just the final search. The two inherited S1s are now
+  [GRID-015](../../bug-backlog.md#grid-015) and [GRID-016](../../bug-backlog.md#grid-016),
+  deferred by operator decision.
+- **Not run:** no API-mode browser drive against TEST (no live access this session) — superseded
+  by the browser checks below.
+- **Browser check, `--use-media-api` on TEST (27 September, read-only):** only `/api` requests
+  from startup through AI entry, cold load with `aiQuery`, a filter plus AI text, `vecWeight`
+  "0.50" sent as "0.5" and "abc" omitted, local Relevance/Uploaded re-sorts (no requests),
+  detail traversal, return focus and a table switch. The enrichment overlay held exactly the 200
+  AI hits after an ordinary page (KUP-030 on real data) and was replaced on return. Status bar
+  "Best 200 of N matches", tickers present, no `embedding` on hits. A `similar:` conflict (422),
+  an intercepted 503 and a failed root read were all quiet (no toast or warning); the failed root
+  hid the widget with one read and no Bedrock call. Home cancelled a held AI request and nothing
+  published late. Timing: AI request about 2 s; its pool count alone about 0.1 s, so the count
+  does not delay publication in this mode. `is:deleted` without delete permission gave an AI pool
+  of 6,784 against an ordinary count of 8, which is GRID-015 on real data.
+- **Browser check, direct mode (`--use-TEST`, 27 September, read-only):** `ElasticsearchDataSource`
+  with a PIT and one Bedrock health check. On AI entry the pool-count `_search` starts at the
+  same moment as `/bedrock/embed`, then the KNN follows; publication about 0.5 s after typing,
+  label "Best 200 of N matches", overlay emptied, AI pool and tickers equal to the ordinary
+  count and tickers. An intercepted embed 503 kept the documented red toast; the pool count had
+  already been sent (accepted cost).
+- **Completion-timing comparison (27 September, three runs each, same query):** media-api AI
+  about 1.8-2.2 s against its pool count alone about 0.06-0.13 s; direct AI about 0.22-0.29 s
+  against its count about 0.08 s, broad and `credit:Reuters` alike. The pool count does not
+  delay publication in either mode on TEST. The media-api AI request is roughly 8x slower than
+  direct; that server-side cost is for M2a to measure, not a U9-B regression.
+- **Cross-mode ticker note:** "agency picks" is 6,443 in direct mode and 6,110 through media-api
+  (PA 4,339 against 4,095, AP 91 against 6; GNM-owned equal). Direct mode uses Kupua's compiled
+  agency ingredients, media-api TEST's deployed configuration. This is the configuration
+  difference U10-A already routes to M2a, not an AI defect.
+
+**U10-A result and post-U9 recheck (27 September):** initial source-only assessment
+at `b2acc260f`, rechecked against U9-A/B at `2aad7ddba`, lives in
+[runtime configuration and data sources](../../runtime-configuration-and-data-sources.md). The 38-row matrix now records
+implemented AI enrichment replacement, pool metadata and coalesced discovery. Existing U9
+browser/timing evidence is distinguished from that source-only recheck. The operator has since
+selected only its B1 proposal for U10-B below; other candidates remain separately selectable.
+
+#### U10-B: Skip Unused Fallback Derivation
+
+**Direction selected by the operator, 27 September; not implemented.** Stop calculating values
+that the merge will discard because an existing overlay already supplies them. This is the
+characterization's **B1 only**, not all of its section 8 or every possible client/server duplicate.
+Do it before U8; deployment is not needed to establish this local duplication. Confirm the
+executor's concrete file/test plan at intake before tests or code edits.
+
+- **Read first:** the [characterization](../../runtime-configuration-and-data-sources.md),
+  sections 1, 7.1 and B1 in 8.2; matrix rows 01-10 and 34; test ledger T1/T2/T7 and U9 preservation
+  evidence T10/T13. Section 5 explains the existing publication owners; consult only the relevant
+  workflow when a test needs it. Other matrix rows are context, not additional assignments.
+- **Owning code / expected edits:** [derive-enriched-image.ts](../../../../src/lib/derive-enriched-image.ts)
+  and its [existing tests](../../../../src/lib/derive-enriched-image.test.ts), plus required owning
+  documentation. Read the imported cost/validity/syndication helpers and the existing
+  [hook](../../../../src/hooks/useEnrichedImage.test.ts),
+  [extractor/merge](../../../../src/dal/grid-api-search-adapter.test.ts) and
+  [AI publication](../../../../src/stores/search-store-api-mode.test.ts) tests as preservation context.
+  Reuse those test homes; no new framework, new production module or production instrumentation.
+- **Behavior contract:** make fallback evaluation lazy per field, using the existing nullish
+  precedence, not an API-mode flag, whole-overlay test or truthiness. Keep function signatures,
+  returned fields and their values unchanged for the same inputs and controlled clock/quota state.
+
+  | Derived output | Required computation rule |
+  | --- | --- |
+  | `cost` | Use supplied overlay cost; evaluate its local fallback only when that field is nullish. |
+  | `valid` / `invalidReasons` | Build at most one validity map when either field needs fallback. Derive only the missing output(s); preserve supplied `false` and `{}` independently. |
+  | `syndicationStatus` | Calculate local status only when the overlay status is nullish. |
+  | Other fields | Preserve current `noRights`, rights, usages, leases, persisted state and actions handling. Empty arrays/objects and false values are not missing data. |
+
+- **Preserve fallback meaning:** feed the original image/config/quota inputs into any required
+  calculation. Do not start deriving fallback validity from overlay cost or overlay rights.
+  `buildValidityMap` has its own cost check; that remains legitimate when validity fallback is
+  needed, even when displayed cost came from an overlay. Do not change direct-mode policy, date-
+  based lease rules, quota loading, memoization/invalidation or the baseline-only `noRights` rule.
+- **Failing-first discriminator:** observe real helper implementations with spies/counters and
+  explicit output assertions. A complete cost/valid/reasons/status overlay must trigger zero
+  local cost, validity-map, validity/reasons-reduction and syndication calls; this must fail at
+  runtime against the eager implementation before the fix. Cover missing-field combinations,
+  absent/empty overlay, supplied false valid and empty reasons, and partial fallback with quota
+  and lease-date controls. Existing value assertions should not need weakening. A call-count
+  reduction without output-equivalence evidence is insufficient, and vice versa.
+- **Structural/performance budget:** zero added requests, waits, timers, subscriptions, cache
+  scans or result-copying passes. Preserve existing publication and request-count tests, including
+  U9 exact AI overlay replacement/absence/cancellation. Claim fewer calls/allocations if proved;
+  do not claim a measured browsing speedup or a fix for the larger API request time in report R5.
+  No new benchmark harness, broad perf campaign or repeat of U9 timing is required or authorized.
+- **Selection boundary:** a selected image that already has an overlay may benefit through this
+  shared helper, but do not add selection enrichment, retain new fields in its cache or change
+  hydration/reconciliation. Off-screen images without overlays keep current fallback behavior.
+  Reconsider reuse of already-returned selection fields during a separately commissioned
+  [KUP-035](../../bug-backlog.md#kup-035) investigation, without assuming it fixes the measured
+  full-reconcile stall. Different lifetimes and the repaired selection ownership rules remain.
+- **Not selected:** report B2 ticker metadata, B3 warning-copy precedence, M1's wider comment/type
+  cleanup, runtime config, links/actions, media delivery/U7, server endpoints, KUP-035 repair,
+  rights-policy changes, overlay lifetime redesign or removal of direct-ES support. Correct only
+  comments made misleading by this local edit. Other proposals may become later U10-C/D units
+  after explicit scope/behavior decisions; do not create or start those units automatically.
+- **Client-only executor override:** this note scopes the endpoint-oriented session prompt for
+  U10-B. Keep read-only HEAD/dirty-file and touched-Kupua/main checks, intake confirmation, safety
+  and Git approvals; no cross-project Grid-diff audit, Scala/helper implementation, endpoint-body
+  replay or per-endpoint commit split is needed. Use section 9's U10-B row, not its general D3
+  source route. After confirmation, run the Kupua unit baseline once, then the failing-first check.
+- **Completion:** run full Kupua unit, build and E2E gates after the change, with the prescribed
+  runner/port confirmation rules; no Scala gate because no Scala changes. Existing section 5
+  operator-run API preflights remain separate; the normal E2E suite is not API-mode proof.
+  Report preserved fallback/overlay outputs, demonstrated helper-call reduction, tests and limits.
+  No live access, automatic commit or U10-C follows. If current code no longer duplicates this
+  work, stop and report that; if the fix needs policy, ownership, transport or broader production
+  changes, stop for a scope decision rather than expanding the task.
+
 **U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
 `/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
 approach. Keep the existing local `/s3` and `/imgproxy` image delivery for M2a; U7 is not a
@@ -1013,6 +1241,15 @@ table whenever a unit touches an existing file. State after U6d (26 September 20
 | `ImageQueryController.scala` (branch-added) | Endpoint-local Argo 503 mappings, `search-after-incomplete` / `window-incomplete`. | D3/window failure instead of incomplete success; no change to Kahuna or `GET /images`. | 1, 2 |
 | `ElasticSearchTest.scala` | Synthetic response/controller matrix and complete-but-undecodable controls. | Tests only; existing assertions retained. | 1, 2 |
 
+**U9-A additions (27 September):**
+
+| File | Change | Effect on existing callers | PR |
+| --- | --- | --- | --- |
+| `MediaApi.scala` (first change on this branch; was identical to `main`) | `imageSearch` reads raw `aiQuery` and, when present, classifies `Parser.run` of `q` (absent read as empty, so default exclusions apply) with `AiQueryParts.fromExplicitText`; explicit-branch entities render without `embedding`; the two `hitToImageEntity` call sites use a case lambda (same behaviour) so it can take `includeEmbedding`; root appends a gated `ai-search` link. | None without `aiQuery`: same classification, queries, counts, status, body and embedding calls (tested). Root JSON gains one link when AI is enabled with dense vectors; Kahuna ignores unknown relations. | 9 |
+| `ElasticSearchModel.scala` | `AiQueryParts.fromExplicitText` beside the unchanged `from`; no `SearchParams` change. | None. | 9 |
+| `ImageResponse.scala` | `create` and `imageResponseWrites` gain trailing `includeEmbedding: Boolean = true`. | None: every existing caller uses the default and output is unchanged. | 9 |
+| Tests: `MediaApiTest.scala`, `ElasticSearchTest.scala`, `AiQueryPartsTest.scala`, `ImageResponseTest.scala`, new `MediaApiAiSearchTest.scala` | `mediaApiFor` takes optional `embedder`/`configure`; the one `writer.create` Mockito stub adds `anyBoolean()` for the new parameter; new cases only. | Tests only; no existing assertion changed. | 9 |
+
 The intake comparison with local `main` also contains unrelated pre-existing differences in
 build/CI, dev scripts, upload E2E, Kahuna and script documentation, plus the operator's dirty
 nginx template. They are outside this API inventory and KUP-036's edits; no reconciliation or
@@ -1052,7 +1289,8 @@ planning documents.
 | This plan + the session prompt, AGENTS.md, worklog | Always |
 | [Instructions](../media-api-work/media-api-91-instructions-for-agents.md), [conventions](../media-api-work/media-api-90-conventions.md) sections 14-16 | Any Scala unit |
 | Candidate 11 [section 2](../media-api-work/api-boundary-11-candidate-plan.md#2-ownership-and-invariants), [section 3](../media-api-work/api-boundary-11-candidate-plan.md#3-concrete-api-capabilities) row for the unit's endpoint, [section 5](../media-api-work/api-boundary-11-candidate-plan.md#5-workflow-preservation) | U1-U6 endpoint units only; not U9-A/B |
-| Current source: `media-api` D3 path, `kupua/src/dal/es-adapter.ts` (algorithm source), `strangler-adapter.ts`, `grid-api-search-adapter.ts`, the consuming store code | Every unit |
+| Current source: `media-api` D3 path, `kupua/src/dal/es-adapter.ts` (algorithm source), `strangler-adapter.ts`, `grid-api-search-adapter.ts`, the consuming store code | Every unit except U10-B, which uses its bounded row below |
+| [U10-B unit note](#u10-b-skip-unused-fallback-derivation), [characterization](../../runtime-configuration-and-data-sources.md) sections 1/7.1/8.2 B1, rows 01-10/34 and T1/T2/T7/T10/T13; current derive/helper source and named neighboring tests | U10-B only; no new report-wide audit or other section-8 implementation |
 | [AI convergence workplan](../../ai-search-catching-up-workplan.md), its file map, current named source/tests and only KUP-008/KUP-030 from the backlog | U9-A and U9-B; this replaces candidate 11 as their implementation source |
 | Inventory 01 per-method sections and section 7 notes 11-13; workplan 02 section 4 (mget projection/visibility) | U3, U6c, U6d |
 | [Sort options](../media-api-work/d3-search-after-03-sort-options.md), D-6 review | Only if touching sort or tuples |
@@ -1089,6 +1327,9 @@ ignoring it.
 ## 10. Progress Log
 
 (One line per completed unit: date, unit, commits, notes.)
+
+- 27 Sep 2026, U9-B: `887814ccc` (Kupua media-api AI client). API mode sends AI through `GET /api/images` with `aiQuery`, constructs no ES datasource and makes no browser Bedrock call; pool total/tickers publish with the hits in both modes; KUP-030 closed by composed replacement tests. Unit 2145/2145, build, E2E 299/299. Cold review: accept with fixes (two S2 abort/overlap fixes, failing-first); inherited S1s now GRID-015/016, deferred. Browser checks in both modes on TEST and the completion-timing comparison done (pool count never delays publication). New KUP-038 (code reading only).
+- 27 Sep 2026, U9-A: `804ca1191` (additive explicit `aiQuery` branch, `ai-search` capability, no-vector projection; media-api files only). No merge needed (0 behind `main`). Cold review: reject (S1, absent `q` skipped default exclusions); fixed failing-first and the re-review accepted. Scala 767/767. Two inherited S1s recorded in section 11, not fixed (operator). Team review still gates merge/deploy.
 
 - 26 Sep 2026, U6z: non-AI coverage/recovery verified with tests only on base `c6df78b51`; full local gates, bounded API browsing and operator-reported API preflights passed. Scoped KUP-010/026 closure; KUP-030 same-ID AI display residual remains. Operator reported a clean cold review and approved commit; changelog indentation corrected. U8 not started.
 - 26 Sep 2026, KUP-036: `ca38c5032` (Scala); client composition tests and closure docs accompany
@@ -1165,6 +1406,11 @@ operator in chat instead, not here.
 - 25 Sep, U3a, sbt test harness: a test failing with a raw `ElasticSearchException` can crash the forked test JVM (non-serializable throwable), truncating the run. Clean-up; seen only under deliberate breaks.
 - 25 Sep, U3a review, `ElasticSearch.scala` `admitNullsLastSortClause`: rank still admits a special-date clause without `mode: max` (ES then defaults to min for asc), so its max-mode predicates would not apply. Latent; Kupua always sends max. Profiles now refuse it. **Resolved in U4:** shared admission requires `mode: max` for every ordered read.
 - 25 Sep, U3b, keyword-page: each page is bounded by media-api's 10 s query timeout (503 on timeout), where direct ES has no per-page limit, only Kupua's 8 s walk cap. Risk at PROD cardinality; measure in M1.
+- 27 Sep, U9-A intake, `MediaApi.scala` `imageSearch`: the AI branch (`useAISearch=true`) skips both `SearchParams.validate` and the deleted-search uploader restriction that ordinary GET applies (`canViewDeletedImages`). A caller without delete permission therefore appears (source reading, not executed) able to see other users' deleted images through `useAISearch=true&q=is:deleted <text>` (and filter-pool counts for them), and `length` above 200 is not refused (k is still capped by `ai.search.resultLimit`). Current Grid/Kahuna behavior; U9-A's explicit branch inherits it unchanged. Looks like a Grid authorization bug; now [GRID-015](../../bug-backlog.md#grid-015). Operator confirms (related to https://github.com/guardian/grid/pull/4957#discussion_r4067552315). U9-A cold review independently reported it as inherited (S1 in the reviewer's grading, `q=is:deleted&aiQuery=wildlife`); not fixed, legacy change needs separate approval.
+- 27 Sep, U9-A cold review, `MediaApi.scala` `aiSearchResponseFromResults` / [SyndicationFilter.scala:75](../../../../../media-api/app/lib/elasticsearch/SyndicationFilter.scala#L75): for syndication-tier callers, search results rely on the tier filter, which treats a missing `syndicationRights.published` as allowed, while `isVisibleToAccessor` (`isAvailableForSyndication`: rights acquired and `published` present and past) rejects it. An image with acquired rights, an allow lease and no publication date can therefore appear, with signed URLs, in syndication-tier AI results (and apparently ordinary GET search results, which also skip the per-image check). Reviewer source reading, not executed; pre-existing for legacy AI, and the explicit branch inherits it unchanged. Looks like a Grid data-exposure bug; now [GRID-016](../../bug-backlog.md#grid-016).
+- 27 Sep, U9-A cold review follow-up, `SearchParams.apply` / `Parser.run`: the default `-is:deleted -usages@status:replaced` exclusions come only from parsing `q`, so a GET without `q` gets none. Ordinary `GET /images` without `q` is match-all, and legacy AI filter-pool counts without `q` include deleted and replaced images (pinned by a preservation test, count only). Pre-existing, not changed. The new explicit branch was fixed in U9-A to parse an absent `q` as empty, since it could otherwise have returned them as ranked hits (reviewer S1).
+- 27 Sep, U9-B cold review follow-up: a density switch or Home/End key during an in-flight search cancels it without a replacement; now [KUP-038](../../bug-backlog.md#kup-038) (code reading only).
+- 27 Sep, U9-B browser check, TEST with a paused index migration: one image is stored in both indices, so ordinary media-api reads (migration-aware `prepareSearch`) count and return it twice with different `fromIndex`, while the AI pool counts it once. Ordinary total is therefore one higher than the AI pool for broad queries. Accepted unsupported migration state (decision 5), not a U9 defect; any duplicate-ID handling in browsing is out of scope.
 - 25 Sep, U4, `ElasticSearch.scala` `admitSortClause`: a nested field without `nested` passed D3/window/rank admission (500 on a first page; on a D3 null-zone cursor, valued images returned as null-zone hits), and a sort without a unique `id` suffix was accepted (ties skipped). **Resolved in U4:** shared admission refuses both for every ordered read.
 - 25 Sep, pre-U5 review, [e2e/shared/helpers.ts:27](../../../../e2e/shared/helpers.ts#L27): habitual E2E blocks `/api/**`, leaving a coverage risk. Consider an **additional API-mode test run** reusing selected core browsing scenarios under a second backend configuration, not a duplicate full suite; exercise the modified media-api on the laptop or deployed to TEST and verify expected API calls/no forbidden ES fallback. A fully local media-api + local ES arrangement would need a separate setup assessment. **Operator-deferred:** revisit only when the operator chooses after seeing API mode work and comparing its speed with direct ES; not a new U5, U6 or measurement gate. Existing section 5 preflights remain unchanged in scope.
 - 25 Sep, U5 intake, `ElasticSearch.scala` `searchAfterQuery`/`imageWindowQuery`: explicit timeout/failed-shard responses could be published as complete image pages. **Resolved as [KUP-036](../../bug-backlog.md#kup-036), 26 September:** endpoint-local 503; complete responses and non-fatal undecodable-hit omission preserved. Synthetic failure contract and ordinary read-only TEST browsing verified separately; cold review resolved, no reproduced live incident. M1 remains accepted.

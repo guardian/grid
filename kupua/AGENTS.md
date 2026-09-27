@@ -22,7 +22,7 @@ Single entry point: `kupua/scripts/start.sh`. Three modes:
 |---|---|---|
 | **Local** (default) | `./kupua/scripts/start.sh` | Docker ES on port 9220 |
 | **TEST (direct-ES)** | `./kupua/scripts/start.sh --use-TEST` | SSH tunnel to TEST ES on port 9200 |
-| **TEST (media-api)** | `./kupua/scripts/start.sh --use-TEST --use-media-api` | Local media-api → tunnel → TEST ES for non-AI reads; existing AI remains direct ES |
+| **TEST (media-api)** | `./kupua/scripts/start.sh --use-TEST --use-media-api` | Local media-api → tunnel → TEST ES for ordinary and AI reads |
 
 Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunnel (via `ssm-scala` if available, falls back to raw AWS CLI + session-manager-plugin), auto-discovers index alias + S3 buckets, starts S3 proxy + imgproxy. Both independent of Grid's `dev/script/start.sh`. Docker Compose v1 and v2 supported.
 
@@ -36,13 +36,13 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Touch & desktop gestures (swipe, dismiss, zoom)** | `useSwipeCarousel.ts`, `useSwipeDismiss.ts`, `usePinchZoom.ts` (touch + mouse + wheel + keyboard zoom), `StableImg.tsx`, `image-prefetch.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx` |
 | **Scrubber (seek, ticks, tooltip, null zone)** | `Scrubber.tsx`, `sort-context.ts`, `search-store.ts` (seek paths, `buildSeekCursorAnchors`, `fetchNullZoneDistribution`), `dal/null-zone.ts`, `scrubber-ticks-and-labels.md` |
 | **Data layer / ES queries** | `dal/` directory, `dal/types.ts` (interface), `es-adapter.ts`, `dal/null-zone.ts`, `es-audit.md` |
-| **Grid API adapter / media-api integration** | **Active build: [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) + its session prompt.** Local-first, PIT-less, split into PRs late; U6z preserves existing AI as the sole ES exception until authorized U9-A/B replace it. Candidate 11/inventory/workplan are background subject to the build plan's explicit overrides. Reuse sufficient existing endpoints, otherwise keep new reads isolated; existing Grid behavior changes need approval. PR #4957 alignment is parallel P1, not a pause on the build. |
+| **Grid API adapter / media-api integration** | **Active build: [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) + its session prompt.** Local-first, PIT-less, split into PRs late; U9-A/B now route AI through media-api too, so API mode constructs no ES datasource. Candidate 11/inventory/workplan are background subject to the build plan's explicit overrides. Reuse sufficient existing endpoints, otherwise keep new reads isolated; existing Grid behavior changes need approval. PR #4957 alignment is parallel P1, not a pause on the build. |
 | **Capability-preserving API boundary research** | Candidate 11 sections 12/13 retain P29/P30/P31 and completed restore/accepted-cost limits; section 14 integrates P32 interaction/display/measurement and P33 Grid edit/delete/collection characterization with explicit corrections. Future editing is knowledge only, not scope; ten new source-only bugs are independently parked. Original reports/S1/history remain; whole-corpus readiness is false and no new implementation or campaign follows. |
 | **Canonical bugs / migration dependencies** | Start with the [backlog overview](exploration/docs/bug-backlog.md#at-a-glance). KUP-037 parks the free-only collection-count scope; both modes agree, so it is not an M2a routing gate. |
 | **CQL / search input** | `dal/adapters/elasticsearch/cql.ts`, `cql-query-edit.ts`, `CqlSearchInput.tsx`, `lazy-typeahead.ts`, `typeahead-fields.ts` |
 | **Grid usage-search follow-up** | [Research and handoff](exploration/docs/grid-usage-search-investigation.md): PR #4957's last recorded status is awaiting human review/merge. Its independent negatives, positive same-record matching and print code/name support are P1 integration work; verify current merge state and inherited behavior before changing the prototype. GRID-001/008 remain accepted build limitations until integration, not gates on other units. |
 | **Scala / media-api review conventions** | [Reference section 16](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-90-conventions.md#16-reviewable-scala-recent-pr-evidence) and [instruction summary](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/media-api-91-instructions-for-agents.md). Tom/Andrew foundation with bounded Lindsey evidence; open versus merged status and review attribution are explicit. The local instruction mirror is synchronized. |
-| **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (`searchByAi`); [post-U6z convergence workplan](exploration/docs/ai-search-catching-up-workplan.md). Local U9-A then U9-B implementation is authorized; team review still gates Scala merge/deploy. The additive controller-local `aiQuery` contract preserves absent-param Kahuna behavior; U9-C shared MLT remains deferred. |
+| **AI search** | `AiSearchInput.tsx`, `bedrock-proxy-client.ts`, `scripts/bedrock-embed-proxy.mjs`, `ai-search-params.ts`, `search-store.ts` (AI branch), `es-adapter.ts` (direct `searchByAi`), `grid-api-search-adapter.ts` (`apiSearchByAi`), `grid-api-instance.ts` (`apiAiSearchAvailable`); [post-U6z convergence workplan](exploration/docs/ai-search-catching-up-workplan.md). U9-A is committed (`804ca1191`; PR notes in workplan section 12) and U9-B is built; team review still gates Scala merge/deploy. The additive controller-local `aiQuery` contract preserves absent-param Kahuna behavior; U9-C shared MLT remains deferred. |
 | **Sort system** | `dal/adapters/elasticsearch/sort-builders.ts`, `search-store.ts` (sort-around-focus), `field-registry.tsx`, `exploration/docs/zz Archive/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md` |
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
@@ -65,9 +65,10 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
 **Current snapshot: 27 September 2026.** U1-U5 and U6a-d are built; M1 is operator-accepted.
-U6z is complete with tests only; the operator reported a clean cold review. Local U9-A/U9-B work
-is authorized but not started. U10-A's source-only characterization is complete; U10-B is
-provisional after U9-B. U9-C and U8 have not started.
+U6z is complete with tests only; the operator reported a clean cold review. U9-A is committed
+locally (`804ca1191`); U9-B is committed locally (`887814ccc`; cold review accepted with fixes). U10-A's
+source-only characterization is complete; U10-B's narrow lazy-fallback scope is selected but not
+started (executor intake required). U9-C and U8 have not started.
 The [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
 owns the sequence, decisions and endpoint contracts. Its progress log and the changelog retain
 implementation history; older candidate/research gates do not override it.
@@ -79,8 +80,10 @@ standalone detail and selection hydration through it. The new POST reads live in
 datasource. These migrated methods never fall back to ES. API mode opens no PIT; existing
 direct-ES/local modes and their PIT behavior remain supported.
 
-**Deliberate exception:** existing AI search still uses Bedrock plus direct ES in media-api mode
-until locally authorized U9-A/U9-B are implemented and validated. See the
+**AI search in API mode (U9-B):** one `GET /api/images` with `useAISearch=true` and a separate
+`aiQuery`; no browser Bedrock or ES call, and no ES datasource is constructed. Capability comes
+from the root `ai-search` link. Direct mode keeps Bedrock plus ES KNN. Both modes publish the
+prefilter pool total and tickers with the hits. See the
 [AI workplan](exploration/docs/ai-search-catching-up-workplan.md) for the owning compatibility
 contract; team review still gates Scala merge/deploy and U9-C MLT remains deferred. U6z verified non-AI API coverage, cold startup,
 first CQL registration/remounts and recovery. Full local gates, bounded API browser workflows and
@@ -88,7 +91,7 @@ operator API preflights passed; no production change or zero-ES-construction req
 
 **Boundaries:** keep browsing/position/traversal contracts, authoritative tuples, useful limits,
 authorization and accepted approximations. KUP-029's independent ordinary-path premise is refuted;
-KUP-030's same-ID AI overlay lifetime remains evidenced but its resolution is folded into U9-B.
+KUP-030's same-ID AI overlay retention is closed by U9-B's replace-on-publish enrichment.
 No enrichment repair is bundled with transport verification. PR #4957 integration is parallel unit P1, not
 a pause on API work; GRID-001/008 limitations remain until integration. PR #4849 is abandoned;
 its legacy GET changes were removed. Index migrations are unsupported, PIT endpoints deferred
@@ -98,7 +101,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 | System | Key entry points | What it does |
 |---|---|---|
-| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (17 methods, 5 optional; nullable `openPit`; optional `offsetReadLimit`). Factory selects API or direct ES. API mode sends every non-AI read through `grid-api-search-adapter.ts`; client walk loops remain, and `DEVELOPMENT_FALLBACK_METHODS` is exactly `searchByAi`. Selection/collections share the app datasource. API mget uses 200-ID chunks/four in flight; standalone lookup returns image plus optional enrichment. Non-local ES write protection remains. Date tuples use epoch ms, source fields ISO. |
+| DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (17 methods, 5 optional; nullable `openPit`; optional `offsetReadLimit`). Factory selects API or direct ES and constructs only the selected datasource. API mode sends every read, AI included, through `grid-api-search-adapter.ts`; client walk loops remain and there is no ES fallback. Selection/collections share the app datasource. API mget uses 200-ID chunks/four in flight; standalone lookup returns image plus optional enrichment. Non-local ES write protection remains. Date tuples use epoch ms, source fields ISO. |
 | Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Near-top centred reads cap known-rank predecessors; provisional focus keeps parallel rank/pages and trims excess predecessors before publication. Search-generation/range ownership guards publication/recovery. A short null-tail backward page gets one bounded valued-end read before atomic prepend; ordinary page costs stay unchanged. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
 | Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
@@ -107,15 +110,15 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 | URL & Routing | `hooks/useUrlSearchSync.ts`, `lib/search-params-schema.ts`, `router.ts`, `lib/orchestration/history-key.ts`, `lib/history-snapshot.ts` | URL = single source of truth. Zod-validated params. Sort-around-focus detection. Selection clear-on-navigation. `kupuaKey` per-entry identity → sessionStorage snapshots → popstate/reload restore; consumed dedupe transitions also refresh the departing key. Detail entries carry immutable entry-image identity so traversal centring survives reload. |
 | CQL | `dal/adapters/elasticsearch/cql.ts`, `CqlSearchInput.tsx` | `@guardian/cql` Web Component + CQL→ES translator. Has predicates/facets share configured-alias resolution. Registered and dotted-field typeahead share literal-safe AST self-exclusion and cancellation; live store getters survive wrapper remounts. `is:` enriches suggestions from ticker, category and cold aggregation counts. Datasource remains first-registration-bound. |
 | Selection | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `hooks/useRangeSelection.ts` | Set-based membership, unique deltas, revision-tracked mutable LRU, synchronous cached updates and coalesced idle reconciliation. Hydration repairs omissions/anchor/toast only for its captured Set/anchor; late metadata remains reusable. Pending ranges own publication/busy state and cancel on membership/anchor/query/order changes or unmount, not metadata/display updates. Selection survives sort/detail/density. Panel coherence, retained cursor fallback and grid anchor placement remain intact. |
-| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | `deriveImage()` merges baseline inputs, TS-derived policy and optional server overlay. Committed API pages populate the shared enrichment store; standalone ImageDetail owns its requested-ID-bound overlay and passes it to ImageMetadata. Ordinary API baseline/overlay rights share one entity, refuting independent KUP-029 reachability. AI/direct ES and selection mget supply no overlay; matching AI IDs can retain ordinary overlays (KUP-030), resolved only when U9 publishes current AI enrichment. |
-| AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs` | Bedrock KNN, dev-only proxy/health gate, `?aiQuery=`. All ≤200 hits stay in memory without PIT/pagination. Completion honors current same-query sort. Known-empty membership publishes empty counts/facets without requests and invalidates pending base work; expanded facets have single-request field/scope ownership. |
+| Enrichment | `lib/cost/`, `stores/enrichment-store.ts`, `lib/derive-enriched-image.ts`, `lib/syndication/` | `deriveImage()` merges baseline inputs, TS-derived policy and optional server overlay. Committed API pages populate the shared enrichment store; standalone ImageDetail owns its requested-ID-bound overlay and passes it to ImageMetadata. Ordinary API baseline/overlay rights share one entity, refuting independent KUP-029 reachability. Accepted AI publication replaces the enrichment map with the result's own (API overlay, or empty in direct mode/absence), closing KUP-030. Selection mget supplies no overlay. |
+| AI Search | `components/AiSearchInput.tsx`, `lib/bedrock-proxy-client.ts`, `lib/ai-search-params.ts`, `scripts/bedrock-embed-proxy.mjs`, `dal/grid-api-search-adapter.ts` (`apiSearchByAi`) | Direct: Bedrock KNN, dev-only proxy/health gate. API: media-api `aiQuery`, root `ai-search` capability; failure is quiet empty absence. `?aiQuery=`. All ≤200 hits stay in memory without PIT/pagination; pool total/tickers arrive with them. Completion honors current same-query sort. Known-empty membership publishes empty counts/facets without requests and invalidates pending base work; expanded facets have single-request field/scope ownership. |
 | Orchestration | `lib/orchestration/search.ts`, `lib/reset-to-home.ts` | Imperative coordination: debounce, shared CQL/AI typing-entry creation with predecessor capture and fresh keys, scroll-reset, go-home, fullscreen preview registration. Prevents components from reimplementing coordination logic. |
 
 > Full component inventory (views, gesture hooks, panels, toast, etc.): `exploration/docs/00 Architecture and philosophy/component-detail.md`
 
 ### Testing Summary
 
-- **2100 Vitest unit/integration tests across 78 files** -- `npm --prefix kupua test`
+- **2145 Vitest unit/integration tests across 81 files** -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~5min, 3 workers) -- `npm --prefix kupua run test:e2e`
@@ -150,7 +153,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 | Collections feature | `exploration/docs/00 Architecture and philosophy/06-collections.md` | Architecture: decisions, data flow, store, CQL, auto-sort, ES mechanics, component |
 | Deviations log | `exploration/docs/deviations.md` | Intentional departures from Grid/kahuna |
 | ES audit | `exploration/docs/es-audit.md` | 9 issues found, 4 fixed |
-| Runtime configuration and data | `exploration/docs/runtime-configuration-and-data-sources.md` | U10-A pre-U9 characterization: 38 field rows, workflow lifetimes, evidence limits and performance-first U10-B choices. Post-U9 evidence pending; no implementation approval. M2a checklist retained. |
+| Runtime configuration and data | `exploration/docs/runtime-configuration-and-data-sources.md` | U10-A post-U9 evidence; U10-B selects B1 lazy fallback only, under the build plan's unit note. Ticker/copy/config/selection proposals remain future decisions, not the executor's scope. M2a checklist retained. |
 | Current migration direction | [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md) | Active sequence and operator decisions; candidate 11 is background with explicit overrides. P1, U7 and AI remain separately scoped. |
 | Historical integration workplan | `exploration/docs/03 Ce n'est pas une pipe dream/integration-workplan-bread-and-butter.md` | Historical integration design; current routing is the media-api index and candidate 11. |
 | Historical API-first architecture | `exploration/docs/03 Ce n'est pas une pipe dream/integration-plan-api-first.md` | Historical integration design; current routing is the media-api index and candidate 11. |
@@ -199,7 +202,7 @@ The two-tier and seek totals below were observed on 17 September 2026.
 
    Extend at edges, evict to keep bounded. Full design: `03-scroll-architecture.md`.
 
-3. **DAL interface** — `ImageDataSource` with 17 methods (5 optional). `ApiDataSource` sends non-AI reads through media-api; only `searchByAi` uses the explicit ES exception, retained through amended U6z. Selection and the collection store take the app's data source. `GridApiDataSource.getImageDetail` is unused (U6a owns standalone detail). Write protection on non-local ES.
+3. **DAL interface** — `ImageDataSource` with 17 methods (5 optional). `ApiDataSource` sends every read, AI included, through media-api; API mode constructs no ES datasource (U9-B). Selection and the collection store take the app's data source. `GridApiDataSource.getImageDetail` is unused (U6a owns standalone detail). Write protection on non-local ES.
 
 4. **URL is single source of truth** — `useUpdateSearchParams` → URL → `useUrlSearchSync` → store → search. Custom `URLSearchParams` serialisation (not TanStack's, which coerces `"true"` → boolean).
 

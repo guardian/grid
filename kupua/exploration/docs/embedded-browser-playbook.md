@@ -42,6 +42,40 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 27 September 2026, U9-B media-api AI verification:** classify Resource Timing
+entries by path plus a marker for `useAISearch`; since U9-B a whole AI session in
+`--use-media-api` should show only `/api` entries (root, one AI GET per search, plus
+quotas/aggregations), never `/es` or `/bedrock`. Read stores that have no window hook
+through Vite's module URL (`const p = "/src/stores/enrichment-store.ts"; await import(p)`),
+which returns the app's live instance. To split latency, call `dataSource.searchByAi` and
+`countWithTickers` directly in the page: they don't publish to the store. For failure and
+cancellation checks, `page.route` in the shared tab works (fulfil 503/500, or delay then
+`route.continue()`); always `unroute` in `finally` and reload before trusting later results.
+The browser's own "Failed to load resource" and `requestFailed` lines appear in tool output
+even when the app stays quiet; check the toast store and a `console.warn` spy instead.
+
+**[V] Small count mismatches between two server paths: check `fromIndex` first.** A
+persistent off-by-one between ordinary counts and the AI pool on TEST came from one image
+stored in both indices of a paused migration. Ordinary reads return both copies, whose
+`fromIndex` values differ. Bisecting by date misled, because splitting exactly on an image's
+timestamp moves it between halves. Instead, list the small window's images and test a
+±500 ms window around each one. Index migrations are an accepted unsupported state, not a
+regression.
+
+**[F] A regex over `document.body.innerText` for "N of M" matched a stale element.** Query
+leaf elements that match the pattern and check `offsetParent` visibility before trusting a
+position counter.
+
+**[V] Compare the same ticker across modes before calling a count gap a bug.** Direct mode
+builds tickers from Kupua's compiled `gridConfig`; media-api from the deployed server config.
+On TEST "agency picks" differed by about 330 while GNM-owned matched exactly. Compare AI with
+ordinary *within* one mode for correctness, and treat cross-mode ticker gaps as configuration
+evidence for M2a.
+
+**[V] Direct-mode AI failure can be simulated with `page.route` on `/bedrock/embed`** (fulfil
+503). It exercises the real toast path without touching AWS credentials. The toast store's
+queue is at `window.__kupua_toast_store__._store.getState().queue`.
+
 **[V] 27 September 2026, KUP-029/030 same-ID transition:** for a bounded real
 media-api ordinary -> AI check, retain candidate IDs and baseline values only in page memory,
 use the in-page router for controlled ID scoping, and return aggregate comparisons. Playwright
@@ -885,17 +919,13 @@ contents out of the result. These are browser wall-clock timings, not server
 profiles, and `transferSize` retains normal browser cache semantics.
 
 **[V] Prove `--use-media-api` with both adapter identity and observed routes
-(updated 25 September 2026, API build U5).** A fresh tab should report
+(updated 27 September 2026, API build U9-B).** A fresh tab should report
 `dataSource.constructor.name === "ApiDataSource"` (with `offsetReadLimit === 10000`)
-and `/api/images/*` resources after settlement. Either signal alone is weaker: a stale
-tab can retain old served code. Since U5 every ordered read goes to media-api — pages
-(`search-after`, shallow offsets via `window`), `rank`, `sort-profile` (scalar anchor,
-date stats/buckets, keyword pages), position maps and range walks (`keys`). Counts,
-tickers, aggregations, detail `_mget` and selection still use direct ES (development
-fallback until U6), so the mode is still not "all search traffic through media-api".
-A sorted `/es/_search` in this mode is a leak; unsorted size-0 aggregation searches
-and `_mget` are the expected fallback. Before U5 (`StranglerAdapter`) only
-`searchAfter` went to media-api; do not compare pre- and post-U5 route counts.
+and only `/api` resources after settlement. Either signal alone is weaker: a stale
+tab can retain old served code. Since U9-B every read, AI included, goes to media-api
+(`/api/images/*` POST reads, `GET /api/images/:id`, `GET /api/images?useAISearch=true`),
+and no ES datasource is constructed. Any `/es` or `/bedrock` request in this mode is a leak.
+Do not compare route counts across U5, U6 or U9-B boundaries.
 
 **[V] Browser Resource Timing can prove browser-facing gzip, not the internal
 media-api↔ES hop (2026-09-08).** Capture the matching response and return only

@@ -1,12 +1,11 @@
 # AI Search - Post-U6z Media-API Convergence Plan
 
-> **Status:** Local U9-A and U9-B implementation authorized by the operator on
-> 27 September 2026. U9-C remains deferred pending separate team approval; no
-> merge or deployment authorization follows from this plan.
+> **Status:** U9-A (`804ca1191`) and U9-B are built locally (27 September 2026);
+> as-built notes live in the API build plan. U9-C remains deferred pending separate
+> team approval; no merge or deployment authorization follows from this plan.
 > **Revised:** 27 September 2026 against current Kupua, Guardian media-api `main`,
 > Kahuna, and the bounded `eelpie/grid` `thrall-embedding` draft evidence.
-> **Active build units:** U9-A then U9-B in the API build plan. Existing AI remains
-> unchanged until each replacement path is implemented and validated.
+> **Active build units:** U9-A then U9-B in the API build plan, both built locally.
 >
 > Current architecture/background: [AI search guide](00%20Architecture%20and%20philosophy/08-ai-search.md).
 > Active migration sequence: [API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
@@ -173,17 +172,21 @@ description must disclose the deliberate non-fix and the working POST contrast.
 - intermediate values = existing server fusion.
 
 Kupua has no URL-compatibility obligation: there are no external users or
-bookmarked Kupua AI URLs to preserve. Validate/canonicalize at the URL boundary:
+bookmarked Kupua AI URLs to preserve. **Operator decision, 27 September:**
+validate in the media-api request mapper, not by rewriting the URL:
 
 ```text
 valid finite value in [0,1] -> forward unchanged
-absent, empty, non-numeric or out of range -> omit/remove the parameter
+absent, empty, non-numeric or out of range -> omit from the media-api request
 ```
 
-When omitted, media-api's current default `0.85` is authoritative for Kupua and
-Kahuna. No client-side default or clamping is needed. Explicit valid values must
-continue to reach media-api unchanged and select lexical, semantic or fused
-ranking as they do today.
+When omitted, media-api's current default `0.85` is authoritative in media-api
+mode. Explicit valid values reach media-api unchanged and select lexical,
+semantic or fused ranking as they do today. The URL parameter itself is left
+as typed. Direct/local mode keeps its existing parsing (absent means `1.0`,
+out-of-range values clamp), so an invalid URL value ranks slightly differently
+in the two modes. That small divergence is accepted: direct mode is expected to
+retire, and no normal control produces invalid values.
 
 `vecWeight=0` currently still reaches the embedding lookup before
 `hybridSearch` short-circuits to lexical search. Avoiding that unnecessary
@@ -628,8 +631,8 @@ backward-compatible text contract review small is the safest route.
 ### 7.2 Kupua client
 
 - The request preserves encoded `q`, sends separate `aiQuery`, and forwards an
-  explicit valid `vecWeight`; absent/invalid values are omitted and canonicalized
-  away so media-api owns the default.
+  explicit valid `vecWeight`; absent/invalid values are omitted from the
+  request (the URL is not rewritten) so media-api owns the default.
 - Media-api mode issues no `/bedrock` or `/es` AI request.
 - Media-api mode uses server capability for visibility; direct mode still uses
   `/bedrock/health`.
@@ -733,9 +736,9 @@ apply beyond that local implementation:
 | Kupua datasource binding | `kupua/src/dal/api-data-source.ts`, `kupua/src/dal/index.ts` |
 | Kupua AI store path | `kupua/src/stores/search-store.ts` |
 | Result contracts | `kupua/src/dal/types.ts` |
-| AI availability | `kupua/src/main.tsx`, `kupua/src/lib/grid-config.ts`, `kupua/src/components/AiSearchInput.tsx` |
+| AI availability | `kupua/src/main.tsx`, `kupua/src/lib/grid-api-instance.ts` (`apiAiSearchAvailable`), `kupua/src/dal/grid-api/service-discovery.ts`, `kupua/src/lib/grid-config.ts`, `kupua/src/components/AiSearchInput.tsx` |
 | Pool-total display | `kupua/src/components/StatusBar.tsx` |
-| Existing direct fallback | `kupua/src/dal/es-adapter.ts`, `kupua/src/lib/bedrock-proxy-client.ts` |
+| Direct-mode AI (ranking and parallel pool count) | `kupua/src/dal/es-adapter.ts`, `kupua/src/lib/bedrock-proxy-client.ts` |
 | Current aggregation decorator | `kupua/src/lib/ai-search-params.ts` |
 | Kupua AI UI/URL | `kupua/src/components/AiSearchInput.tsx`, `kupua/src/lib/search-params-schema.ts` |
 | Kahuna AI request/UI | `kahuna/public/js/services/api/media-api.js`, `kahuna/public/js/search/query.js`, `kahuna/public/js/search/results.js` |
@@ -744,3 +747,118 @@ apply beyond that local implementation:
 This plan supersedes the previous pre-U6z StranglerAdapter-based slicing and its
 proposed temporary free-text degradation. It authorizes local U9-A/U9-B work only
 under the active API build plan; it does not authorize U9-C, merge or deployment.
+
+## 12. U9a PR notes
+
+Reviewer-facing material for the eventual media-api PR (build-plan section 7, PR 9). Built
+locally on 27 September 2026; team review still gates merge and deployment.
+
+### 12.1 What the PR does
+
+Adds one optional query parameter, `aiQuery`, to the existing authenticated `GET /images` AI
+path, plus a root `ai-search` link and a response option that omits the embedding vector. With
+`useAISearch=true`, `aiQuery` is the text to rank by and **everything** in `q`, including plain
+words, is a filter. Today `q` has to carry both, so a client cannot say "rank by *wildlife* among
+images matching *storm* and `credit:EPA`". Nothing else changes.
+
+### 12.2 Why it is safe for production
+
+The safety argument is structural: a request only reaches new code if it carries a parameter no
+current client sends.
+
+1. **Kahuna never sends `aiQuery`.** Its media-api client sends `q`, `useAISearch` and
+   `vecWeight` only. Without `aiQuery` the controller takes the exact line it takes today,
+   `params.aiQueryParts` (the unchanged `AiQueryParts.from`). After that point the two branches
+   share every existing step: the `length=0` short-circuit, filter building, text and
+   similar-image search, lexical/semantic fusion, the pool count and tickers, and the 422 mapping.
+2. **No shared model changes.** `SearchParams` has no new field. `aiQuery` is read directly from
+   the request inside `imageSearch`, so it cannot leak into POST bodies, pagination links,
+   ordinary search, `toStringMap` or any other controller.
+3. **Response shape is opt-in.** `ImageResponse.create` and `imageResponseWrites` take a trailing
+   `includeEmbedding` flag that defaults to `true`. Every existing caller (ordinary search,
+   legacy AI, `GET /images/:id`, `ImageQueryController`) keeps the default and produces
+   byte-identical JSON. Only the explicit branch passes `false`, which removes exactly one key.
+4. **The root response is additive.** `ai-search` is appended after the existing links, and only
+   when `ai.search.enabled` is on and Elasticsearch has dense-vector mappings (otherwise AI search
+   already returns empty results). The `search` link and its template are unchanged, and clients
+   look links up by name, so Kahuna ignores the new one.
+5. **No new query shapes, costs or limits.** The explicit branch builds its filter with the same
+   `buildAiFilter` and runs the same `hybridSearch`/pool-count requests. Embedding cache, `k`,
+   candidate counts, the 200-result cap and the 0.85 `vecWeight` default are untouched. The
+   request count per search is the same. Payload shrinks, because vectors are no longer sent.
+6. **Refusals happen before any work.** `aiQuery` with any valid `similar:<id>` returns the existing
+   422 before embedding or searching, so the new branch never runs image similarity (More Like
+   This stays a separate PR). An empty `aiQuery=` returns the existing filter-pool guidance
+   without embedding. `length=0` short-circuits exactly as before.
+7. **Authorization is unchanged.** Same `auth.async` action, same tier filtering through
+   `buildFilterOpt`, and the same `isVisibleToAccessor` check for the similar-image source (which
+   the explicit branch never reaches).
+8. **Default exclusions cannot be skipped.** Deleted and replaced images are hidden only by the
+   `-is:deleted -usages@status:replaced` clauses the parser adds to `q`. Legacy AI cannot return
+   ranked hits without `q`, but the new branch could, so it parses an absent `q` as empty and
+   always gets those clauses. A test with highly ranked deleted and replaced fixtures covers
+   omitted and empty `q`, for hits, pool total and tickers (found by cold review, fixed failing-first).
+
+### 12.3 Pre-existing defects preserved, not fixed
+
+Two existing `GET /images` AI-search authorization/visibility gaps were found during U9-A and
+confirmed as pre-existing by the independent cold review. Both are reachable today through legacy
+`useAISearch=true` requests from any client. The explicit branch reuses the same filter and
+rendering steps, so it **inherits them exactly**: it neither fixes nor widens them, and requests
+without `aiQuery` are unchanged. They were deliberately left alone. Fixing them changes live Grid
+behaviour for Kahuna, so it needs its own approval, tests and PR, and should cover legacy and
+explicit AI together rather than just the new parameter. Both are recorded in build-plan section 11
+and the backlog ([GRID-015](bug-backlog.md#grid-015), [GRID-016](bug-backlog.md#grid-016)) for
+triage. Neither has been reproduced by running code; both come from source reading.
+
+1. **Deleted-image search bypasses the uploader restriction in AI search.** Ordinary GET limits
+   `is:deleted` searches by callers without delete permission to their own uploads
+   (`canViewDeletedImages` sets `uploadedBy`). The AI branch never applies that restriction, and
+   also skips `SearchParams.validate`. A caller without delete permission could therefore rank
+   and count other users' deleted images, for example `useAISearch=true&q=is:deleted <text>`
+   (legacy) or `q=is:deleted&aiQuery=<text>` (explicit). A fix would apply the same deleted-search
+   admission before AI ranking and pool counts, with own/other/privileged-user tests.
+2. **Syndication-tier results skip the per-image visibility rule.** For syndication callers, search
+   results rely on the tier filter, which treats a missing `syndicationRights.published` as
+   allowed. `isVisibleToAccessor` (used by `GET /images/:id` and the similar-image source) requires
+   rights acquired **and** a past publication date. An image with acquired rights, an allow lease
+   and no publication date could therefore be returned, with signed URLs, in syndication-tier AI
+   results. From the source, ordinary GET search results share the same gap. A fix would align the
+   tier filter with `isAvailableForSyndication` (or re-check returned images), with a syndication
+   principal fixture for this case.
+
+### 12.4 Other deliberate non-changes
+
+- **`hasRightsAcquired` is still ignored on every `GET /images` path**, including the new branch
+  ([GRID-014](bug-backlog.md#grid-014)). No escape hatch was added; one shared GET fix should
+  cover ordinary, legacy-AI and explicit-AI requests together. The branch's POST image reads
+  already honour it, and a test shows that contrast.
+- Without `q`, ordinary `GET /images` and legacy AI filter-pool counts still include deleted and
+  replaced images, as today; only the new ranked branch adds the default exclusions.
+- `vecWeight=0` still requests an embedding before the lexical-only short-circuit, as today.
+
+### 12.5 How it was verified
+
+- **Preservation first.** Tests for every behaviour without `aiQuery` were written and passed
+  against unmodified code: text ranking, filters-only and empty-query guidance, similar-image
+  search, the text+similar 422, `length=0`, the three weight modes, pool total and tickers
+  independent of `length`, rights non-effect and embedding rendering. The recording embedder
+  checks the exact text embedded, or that nothing was embedded. Where no Elasticsearch work may
+  happen, a mocked client proves none did. The same tests still pass afterwards.
+- **New behaviour failed first.** The explicit-branch and capability tests failed at runtime
+  (ranked by `q`, ran similar-image search, no link) before the implementation.
+- **Mutation checks.** Eight deliberate breaks were each caught and then reverted byte-for-byte:
+  bare words not filtering, requests without `aiQuery` routed through the new classifier, the
+  conflict check removed, vectors rendered on the explicit branch, vectors dropped from legacy
+  responses, the link advertised without dense vectors, GET honouring `hasRightsAcquired`, and a
+  pool total replaced by the returned-hit count.
+- **Suite.** `TZ=UTC sbt "media-api/test"`: 767/767 across 15 suites (742 before, plus 25 new).
+  The new controller suite uses its own Elasticsearch container and a real `ImageResponse`. The only
+  change to existing tests is one Mockito stub gaining a matcher for the new optional argument;
+  no existing assertion changed.
+
+### 12.6 Reviewer-run checks
+
+`TZ=UTC sbt "media-api/testOnly controllers.MediaApiAiSearchTest lib.elasticsearch.AiQueryPartsTest lib.ImageResponseTest"`,
+then the full `TZ=UTC sbt "media-api/test"`. Reading the `MediaApi.scala` diff should confirm
+that an absent `aiQuery` selects `params.aiQueryParts` and the default renderer.

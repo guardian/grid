@@ -17,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 27 September 2026.** The 18 entries below have an open defect,
-approval/integration/review task or explicit residual; 33 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 27 September 2026.** The 20 entries below have an open defect,
+approval/integration/review task or explicit residual; 34 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -38,7 +38,8 @@ KUP-034 and KUP-036 are DONE as separate repairs. U6z now verifies non-AI routin
 without a production change; KUP-010/026's demonstrated scopes are closed below. KUP-030 retains
 a real-route same-ID AI overlay-lifetime residual; effective-value divergence remains synthetic
 and rendered divergence is unproved. The
-operator reported U6z's cold review clean.
+operator reported U6z's cold review clean. **U9-B (27 September)** closed KUP-030: accepted AI
+publication now replaces the enrichment map with the current result's own overlay.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
 Related obligations matter to the selected integration but do not automatically mandate a standalone
@@ -50,9 +51,9 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | ID | Topic | Current status | Migration relevance |
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
-| [KUP-030](#kup-030) | Same-ID AI result retains an earlier API overlay | Real-route retention reproduced; effective-value divergence synthetic, rendered divergence unproved | Owned by U9 AI convergence; do not select separately |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
+| [KUP-038](#kup-038) | Density switch and Home/End keys cancel an in-flight search | Open; code reading only (U9-B cold review follow-up) | Independent client lifetime bug, both modes; not an M2a gate |
 
 ### Open Grid Work
 
@@ -71,10 +72,12 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-011](#grid-011) | Collection membership lost update | Open; source-only | Independent Grid concurrency; useful future-editing contract |
 | [GRID-012](#grid-012) | Premature soft-delete acknowledgement | Open; source-only | Independent Grid handoff; useful future-editing contract |
 | [GRID-013](#grid-013) | Unawaited Thrall syndication updates | Open; source-only | Independent Grid consumer reliability |
-| [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, future U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
+| [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
+| [GRID-015](#grid-015) | AI search skips deleted-search admission | Open; source-only, confirmed by two U9-A reviews; private triage | Independent Grid authorization fix; blocks no local unit, must be assessed before deployment beyond TEST |
+| [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 
 <details>
-<summary>Completed bounded repairs and verification: 33 other IDs</summary>
+<summary>Completed bounded repairs and verification: 34 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -89,6 +92,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Non-AI API recovery and fixed-mode CQL initialization, closed by U6z verification | [KUP-010](#kup-010), [KUP-026](#kup-026) |
 | Date recovery, measurement trust and latest keyboard-edge ownership | [KUP-013](#kup-013), [KUP-028](#kup-028), [KUP-031](#kup-031), [KUP-032](#kup-032) |
 | Post-U6z ordinary effective-rights mismatch refuted | [KUP-029](#kup-029) |
+| Same-ID AI overlay retention, closed by U9-B replacement | [KUP-030](#kup-030) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -421,6 +425,8 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Real-route reproduction (27 September):** in a read-only TEST media-api-mode tab, one real AI query used Bedrock/direct ES. Twenty of its IDs were then loaded through ordinary media-api reads and the same query was re-entered through the visible AI control. All 20 matching AI results retained and consumed their ordinary overlays. For this sample, overlay rights/cost matched the saved AI baseline and rendered presentation changed 0/20; natural incidence of wrong display remains unproved. The ID scope was controlled setup, no responses were intercepted, and Home cleanup removed the page-only probe.
 - **Selection boundary:** bulk hydration deliberately has no enrichment and leaves the shared overlay map untouched. U6z does not add enrichment, clear selected overlays or introduce freshness policy to manufacture closure.
 - **Disposition: OPEN evidence, resolution owned by U9 AI convergence (27 September).** The original ordinary fallback is gone, but real same-ID AI retention prevents broad closure. Incorrect effective display, other overlay fields, selection consequences and naturally incidental overlap remain unproved. Do not investigate or repair KUP-030 separately: U9-B's canonical media-api AI response must publish the current result's complete enrichment map, eliminating cross-provenance retention by construction. Close this ID only with that composed evidence. It remains separate from U6z's non-AI milestone and U8 deployment preparation.
+- **Closure evidence (U9-B, 27 September):** accepted AI publication replaces the shared enrichment map with the result's own map (empty in direct mode and for an absent API result) before publishing hits. [The composed test](../../src/stores/search-store-api-mode.test.ts) now runs ordinary -> media-api AI -> ordinary over the real store, mapper and `ApiDataSource`: the AI step derives the AI response's overlay, not the retained `overquota`, and the return step derives the new ordinary overlay. Successful-empty, forbidden, conflict, unavailable and unreachable AI results leave an empty map; cancelled/superseded AI work changes nothing. Replacing with an upsert fails 6 tests. Selection hydration is unchanged and still supplies no overlay.
+- **Disposition: CLOSED (27 September, U9-B).** The scope is AI publication in both modes. No live rendered-divergence check was run, and selection-overlay freshness remains outside this ID.
 
 #### KUP-031
 **Acknowledgement metric is described as DOM-visible latency**
@@ -484,6 +490,15 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** [collection request](../../src/stores/collection-store.ts#L123), [API mapper default](../../src/dal/grid-api-search-adapter.ts#L129), [direct builder](../../src/dal/es-adapter.ts#L548), and the [cold-start request assertion](../../src/main.test.tsx#L78), which explicitly requires `free: true`. This is source/test confirmation, not a browser comparison or measured user impact.
 - **Smallest discriminator:** create one free and one non-free image in the same collection, load counts through each datasource, and assert the intended badge total. First decide whether the product label means all membership or free-only membership; do not weaken direct/API parity.
 - **Dependency / disposition:** OPEN, independently parked. Both modes currently agree, so this does not block M2a routing or invalidate existing API comparisons. Resolve later as one client intent/label decision with failing-first direct and API tests.
+
+#### KUP-038
+**Density switch and Home/End keys cancel an in-flight search without replacing it**
+- **Component / responsibility:** search-store abort lifetimes; human owner-to-confirm.
+- **Intended behaviour (operator, 27 September):** the Home button should cancel any search, and it does (`resetToHome` aborts, then starts the Home search). Home/End keys and a density switch should not cancel an in-flight search.
+- **Mechanism (code reading):** `search()` captures `_rangeAbortController.signal` for its first page ([search-store.ts:2163](../../src/stores/search-store.ts#L2163)). The same controller is aborted by `abortExtends()` ([search-store.ts:2719](../../src/stores/search-store.ts#L2719)), called on density switch ([useScrollEffects.ts:949](../../src/hooks/useScrollEffects.ts#L949)) and by End while a seek focus is pending ([useListNavigation.ts:542](../../src/hooks/useListNavigation.ts#L542)), and by `seek()` ([search-store.ts:2921](../../src/stores/search-store.ts#L2921)), which windowed Home/End keys use. The aborted search returns silently (ordinary and, since U9-B, AI), with no newer search to publish; `loading` is left to whatever runs next. A seek started during the pending search also works from the old buffer's total with the new params.
+- **Evidence:** code reading only; not reproduced in a browser or test. User-visible effect (stale results under new params, lingering spinner) is unconfirmed.
+- **Smallest discriminator:** store test holding a first page or AI result pending, then a density switch (or `abortExtends()`) and an End-key seek; assert the search still publishes. A Home-button control must still cancel it.
+- **Dependency / disposition:** OPEN, independent client bug in both modes. Likely fix direction: give `search()` its own controller aborted only by a newer search or Home, while extends/seeks keep the range controller. Check sort-around-focus and seek ownership before changing either lifetime.
 
 ### Dependency Unresolved
 
@@ -627,6 +642,22 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **History:** abandoned PR #4849 (commit `b52d027da`) fixed it on Kahuna's path as a side effect of making `GET /images` and D3 agree. That part was removed on 24 September (API build U2) rather than ported, because #4849 is being closed.
 - **Smallest fix:** read the parameter once in shared `SearchParams.apply`, so ordinary GET, legacy AI and explicit-`aiQuery` AI receive the same value; avoid a U9-only branch. Flip the GET assertions and add explicit-AI omitted/true/false coverage while retaining the POST endpoints as controls. This needs its own Grid PR stating the Kahuna/Kupua URL-visible change.
 - **Dependency / disposition:** OPEN, independent Grid-only fix. U9-A deliberately does not repair it, and U9-B accepts the media-api/direct-mode discrepancy for manually supplied URLs. It is not a migration or M2a prerequisite; if selected later, fix all shared GET modes together.
+
+#### GRID-015
+**AI search does not apply the deleted-search admission that ordinary GET applies**
+- **Component / owner:** media-api `MediaApi.imageSearch` AI branch (legacy and U9-A explicit `aiQuery`); human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
+- **Trigger / expected / actual:** an ordinary principal without delete permission sends a deleted-image AI search. Ordinary GET narrows such a search to the caller's own uploads before querying; the AI branch dispatches to ranking and pool counting without that narrowing, so hits, totals and tickers are not restricted. It also skips `SearchParams.validate`. Distinct from [GRID-002](#grid-002), which concerns which query forms the ordinary admission recognizes.
+- **Evidence:** [ordinary admission](../../../media-api/app/controllers/MediaApi.scala#L789) versus [AI dispatch](../../../media-api/app/controllers/MediaApi.scala#L782). Source reading by the U9-A intake and independently by both U9-A and U9-B cold reviews; not executed and no deployed incident claimed. Pre-existing for legacy AI; U9-A's explicit branch inherits it unchanged by operator decision. Related discussion on [PR #4957](https://github.com/guardian/grid/pull/4957).
+- **Smallest test:** controller ES test with an unprivileged principal, another user's deleted image and an owned deleted image, for legacy and explicit AI, asserting hits and pool counts; privileged and ordinary-GET controls. Proposed, not run.
+- **Dependency / disposition:** OPEN, independent Grid authorization fix, deliberately deferred (operator, 27 September). Apply the same admission before AI ranking and pool counting. Not a local U9/U10/U8 gate; assess it before any deployment that serves users beyond TEST.
+
+#### GRID-016
+**Search results admit syndication images that single-image reads reject**
+- **Component / owner:** media-api tier search filter and `MediaApi` search responses (AI and apparently ordinary GET); human owner-to-confirm. **Private maintainer/security triage** before additional reproduction detail or public issue.
+- **Trigger / expected / actual:** a syndication-tier caller searches while an image has acquired rights and an allow lease but no syndication publication date. Single-image reads reject it (`isVisibleToAccessor` requires a past publication date); the search-side filter treats a missing date as allowed, and search responses apply no per-image check, so the image and its signed URLs can be returned.
+- **Evidence:** [tier filter](../../../media-api/app/lib/elasticsearch/SyndicationFilter.scala#L75), [single-image rule](../../../media-api/app/controllers/MediaApi.scala#L172), [AI response](../../../media-api/app/controllers/MediaApi.scala#L659). U9-A cold-review source reading, repeated by the U9-B review; not executed, no deployed incident claimed. Whether a missing date is intended to mean "published" needs maintainer confirmation.
+- **Smallest test:** syndication-tier search fixture with acquired rights, an allow lease and no publication date, for ordinary and AI search, plus past/future-date controls. Proposed, not run.
+- **Dependency / disposition:** OPEN, independent Grid data-exposure fix, deliberately deferred (operator, 27 September). Make search and single-image visibility agree. Same deployment caveat as GRID-015.
 
 Cross-component raw default intent is canonical at [KUP-011](#kup-011), not duplicated here.
 Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the legacy GET policy finding.

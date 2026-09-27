@@ -25,8 +25,8 @@ standalone detail uses `GET /images/:id`; selection hydration uses `mget` (200 I
 at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | undefined`;
 `getByIds` deliberately returns `Image[]` without enrichment. `openPit` resolves `null`;
 `offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
-`DEVELOPMENT_FALLBACK_METHODS` contains only `searchByAi`, deliberately retained through U6z.
-The current factory still constructs ES for that delegation; no migrated read uses it as rescue.
+AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery` (U9-B). There is
+no ES fallback, and the factory constructs no ES datasource in API mode.
 
 **Direct/local mode:** `ElasticsearchDataSource` retains cursor paging/PIT recovery, aggregations,
 rank/profiles, `getByIds` (1,000-ID parallel chunks), and `getIdRange` (cursor walk, cap 5,000).
@@ -319,7 +319,7 @@ Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms 
 
 ## AI Search Input (`components/AiSearchInput.tsx`)
 
-Expandable semantic search widget inside the search bar border. Gated by `bedrockAvailable` (reactive subscription via `subscribeBedrockAvailable()`). Architecture:
+Expandable semantic search widget inside the search bar border. Gated by `aiSearchAvailable` (reactive subscription via `subscribeAiSearchAvailable()`; Bedrock health in direct mode, root `ai-search` link in API mode). Architecture:
 
 - **Toggle:** Sparkles icon. Click collapsed → expand + autofocus. Click expanded → stash text to module-level `_stashedAiText`, collapse, clear `aiQuery` from URL. Click collapsed with stash → restore.
 - **Local state decoupled from URL:** `localText` is not the URL param — prevents debounce from clobbering mid-keystroke. `selfCausedRef` guards against external changes overwriting local edits.

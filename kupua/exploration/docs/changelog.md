@@ -17,6 +17,44 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 27 September 2026 - AI search through media-api, pool metadata in both modes (U9-B)
+
+  API mode now sends AI search as one authenticated `GET /api/images` with
+  `useAISearch=true`, the ordinary effective `q`, a separate `aiQuery`, `length=200`, the
+  admitted filters and a canonical `vecWeight` only when it is a finite 0-1 number. Hits
+  keep server order with a `__aiScore` ordinal; the response's enrichment, pool total and
+  tickers come back with them. Refusal, unavailability and unreadable responses become an
+  empty, error-free result; aborts still propagate. The development ES fallback is gone and
+  the factory constructs `ElasticsearchDataSource` only in direct mode, so API mode makes no
+  browser Bedrock or ES call.
+
+  The store now replaces the enrichment map on every accepted AI publication (closing
+  KUP-030), treats a hit without a finite ordinal as a contract failure, and publishes hits,
+  `aiPoolTotal` and tickers together. Its follow-up AI count is removed in both modes. Direct
+  mode instead runs its one undecorated pool count alongside the embedding and KNN, so
+  both modes report the same prefilter pool. Direct mode starts that count before the
+  embedding, so it overlaps every step, and an abort that arrives while it is pending still
+  prevents publication. The status bar reads "Best {n} of {pool}
+  matches" and hides a ticker only when it equals the pool.
+
+  AI availability is mode-aware: `aiSearchAvailable` comes from the Bedrock health check in
+  direct mode and from the root `ai-search` link in API mode. `ServiceDiscovery.init()` now
+  shares one root read and reports whether it loaded, so early callers wait instead of
+  seeing absence. Two browser-history E2E AI stubs now supply the relevance ordinal that
+  real sources always provide.
+
+  ### 27 September 2026 - Additive explicit-AI contract in media-api (U9-A)
+
+  `GET /images?useAISearch=true` accepts an optional `aiQuery` (`804ca1191`). When it is
+  present, its trimmed text is the only ranking text and every `q` condition except
+  `similar:` is a hard filter. Empty text returns the existing filter-pool guidance, and a
+  valid `similar:` gives the existing 422 conflict before any embedding. An absent `q`
+  parses as empty so the default deleted/replaced exclusions still apply (cold-review fix).
+  Explicit-branch entities omit `embedding` through a new defaulted
+  `ImageResponse.create` parameter. The root advertises an `ai-search` link only when AI is
+  enabled with dense-vector mappings. Requests without `aiQuery` are unchanged; two
+  inherited authorization/visibility issues on the AI branch are recorded, not fixed.
+
   ### 27 September 2026 - Latest keyboard edge owns resident placement (KUP-013)
 
   Windowed Home now records first-edge ownership independently from its nullable

@@ -1995,3 +1995,18 @@ and the existing permissive treatment of unrelated body fields.
 **Trade-off:** D3 intentionally has safer query defaults than legacy GET. This is not a global
 CQL rewrite or broad request-validation policy; controller/ES fixtures pin the selected behavior.
 
+### 35. Media-api AI search sends its text as a separate `aiQuery` (U9-A/B, 27 September 2026)
+
+**What:** In API mode Kupua calls `GET /images?useAISearch=true` with the AI text in a separate
+`aiQuery` parameter. Every `q` condition, including bare words and phrases, is a hard filter;
+`similar:` in `q` is refused (422) and treated as quiet empty absence. Kahuna sends one `q` whose
+free text becomes the ranking text. Without `aiQuery`, media-api behaves exactly as before.
+
+**Why:** Kupua already keeps AI text and CQL filters in separate inputs and URL parameters.
+Folding the filter text into the ranking would change Kupua's existing AI semantics; the
+additive parameter preserves both apps.
+
+**Trade-off:** the same visible words rank differently in Kahuna and Kupua. MLT (`similar:`) is
+not available through Kupua's AI path until the separately approved U9-C. See the
+[AI workplan](ai-search-catching-up-workplan.md) sections 3 and 12.
+
