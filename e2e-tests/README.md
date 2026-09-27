@@ -12,7 +12,7 @@ This is what [`.github/workflows/playwright.yml`](../.github/workflows/playwrigh
 and how you reproduce a CI failure locally:
 
 ```bash
-# From the repo root: build the production image the harness runs.
+# From the repo root: build the CI image the harness runs.
 DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 
 cd e2e-tests
@@ -21,9 +21,12 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-`grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) stages the services with `sbt stage`
-and runs them under a production JRE, so it exercises the same code paths as a deployed
-Grid. There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bundled
+`grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) bind-mounts the repo over
+`/build`, builds Kahuna's production bundle once (`npm ci` + `npm run dist`), stages
+the services with `sbt e2eStage` and runs the staged applications in production mode,
+so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
+are baked into the image, so the build is quick and staging happens on first run.
+There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bundled
 Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
 `https://*.media.<domain>` browser origins.
 

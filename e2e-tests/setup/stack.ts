@@ -260,6 +260,37 @@ function imgopsContainer(image: GenericContainer, network: StartedNetwork): Gene
 }
 
 /**
+ * Reuse the host's npm and sbt dependency caches so the container does not re-download
+ * dependencies on every run. The devenv exposes persistent sbt cache dirs via env vars;
+ * we also accept the standard user locations. Mounts are skipped when the host dir is
+ * absent, so local runs without an existing cache remain unaffected.
+ */
+function dependencyCacheBindMounts(): { source: string; target: string; mode: 'rw' }[] {
+  const candidates: { host: string | undefined; target: string }[] = [
+    {
+      host: path.join(os.homedir(), '.npm'),
+      target: '/root/.npm',
+    },
+    {
+      host: process.env.DEVENV_COURSIER_CACHE_MOUNT_DIR ?? path.join(os.homedir(), '.cache', 'coursier', 'v1'),
+      target: '/root/.cache/coursier/v1',
+    },
+    {
+      host: process.env.DEVENV_IVY_CACHE_MOUNT_DIR ?? path.join(os.homedir(), '.ivy2', 'cache'),
+      target: '/root/.ivy2/cache',
+    },
+  ];
+
+  return candidates.flatMap(({ host, target }) => {
+    if (!host || !fs.existsSync(host)) {
+      return [];
+    }
+    const source = fs.realpathSync.native(host);
+    return [{ source, target, mode: 'rw' as const }];
+  });
+}
+
+/**
  * All Grid services under test run inside this single container and talk to each
  * other over its localhost. Each is published on the fixed host port its
  * dev-nginx mapping expects (dev/nginx-mappings.yml), so the developer's
@@ -279,12 +310,14 @@ function gridContainer(
       ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
     )
     .withBindMounts([
-      // DEV stage reads ~/.grid; /etc/grid is honoured for non-DEV stages. Mount both.
+      // Services read config from ~/.grid; /etc/grid is honoured too. Mount both.
       { source: configDir, target: '/root/.grid', mode: 'ro' },
       { source: configDir, target: '/etc/grid', mode: 'ro' },
-      // Outside CI the grid-e2e-dev image runs services under sbt; mount the repo
-      // over /build so host edits recompile live.
-      ...(process.env.CI ? [] : [{ source: REPO_ROOT, target: '/build', mode: 'rw' as const }]),
+      // Both images run the services from source with sbt, so mount the repo over
+      // /build. CI compiles once and runs; dev recompiles live on host edits.
+      { source: REPO_ROOT, target: '/build', mode: 'rw' as const },
+      // Reuse host dependency caches when present, so runs avoid re-downloading deps.
+      ...dependencyCacheBindMounts(),
     ])
     .withEnvironment({
       AWS_ACCESS_KEY_ID: 'test',
@@ -398,7 +431,7 @@ function localstackTasks(): ListrTask<BootContext>[] {
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
   const { proxy = !!process.env.CI, seed = true } = options;
 
-  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 120_000);
+  const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
 
   const tasks: ListrTask<BootContext>[] = [
