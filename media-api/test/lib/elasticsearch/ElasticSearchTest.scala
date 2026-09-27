@@ -761,7 +761,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     val sortClause = Json.arr(Json.obj("uploadTime" -> "desc"), Json.obj("id" -> "asc"))
     val writer = mock[ImageResponse]
     when(writer.create(any[String], any[SourceWrapper[Image]], anyBoolean(), anyBoolean(), anyBoolean(),
-      any[List[String]], any[Tier])(any[LogMarker])).thenAnswer { invocation =>
+      any[List[String]], any[Tier], anyBoolean())(any[LogMarker])).thenAnswer { invocation =>
       (Json.obj("id" -> invocation.getArgument[String](0)), List.empty[Link], List.empty[Action])
     }
 

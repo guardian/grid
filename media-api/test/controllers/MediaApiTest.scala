@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.auth.provider._
+import com.gu.mediaservice.lib.aws.Embedder
 import com.gu.mediaservice.lib.config.ServiceHosts
 import lib.{ImageResponse, MediaApiConfig}
 import lib.elasticsearch.ElasticSearch
@@ -45,10 +46,12 @@ trait MediaApiTestSupport extends MockitoSugar {
     ControllerDeps(config, components, auth, authorisation)
   }
 
-  protected def mediaApiFor(principal: Principal, search: ElasticSearch, imageResponse: ImageResponse, privileged: Boolean = false): MediaApi = {
+  protected def mediaApiFor(principal: Principal, search: ElasticSearch, imageResponse: ImageResponse, privileged: Boolean = false,
+                            embedder: Embedder = null, configure: MediaApiConfig => Unit = _ => ()): MediaApi = {
     val deps = controllerDeps(principal, privileged)
+    configure(deps.config)
     new MediaApi(deps.auth, null, null, search, imageResponse, deps.config, null, deps.components,
-      null, null, null, deps.authorisation, null)
+      null, null, null, deps.authorisation, embedder)
   }
 
   protected def imageQueryControllerFor(principal: Principal, search: ElasticSearch, imageResponse: ImageResponse, privileged: Boolean = false): ImageQueryController = {

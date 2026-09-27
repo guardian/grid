@@ -85,6 +85,24 @@ object AiQueryParts {
       parts.copy(semanticQuery = Some(semanticQuery))
     }
   }
+
+  // Explicit ranking text: every other condition, including bare words, filters the pool.
+  // A similar image always conflicts, so this path never runs an image search.
+  def fromExplicitText(conditions: List[Condition], text: String): Either[AiQueryError, AiQueryParts] = {
+    val hasSimilarImage = conditions.exists {
+      case Match(SimilarField, SimilarValue(imageId)) => imageId.trim.nonEmpty
+      case _ => false
+    }
+    val filterConditions = conditions.filterNot {
+      case Match(SimilarField, _) => true
+      case _ => false
+    }
+    val semanticQuery = Some(text.trim).filter(_.nonEmpty)
+
+    if (hasSimilarImage) Left(AiQueryError.ConflictingRankingSignals)
+    else if (semanticQuery.isEmpty) Left(AiQueryError.NoRankingSignal(filterConditions))
+    else Right(AiQueryParts(semanticQuery, filterConditions, similarImageId = None))
+  }
 }
 
 // Params for the POST /images/search-after cursor-pagination endpoint.

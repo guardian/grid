@@ -105,4 +105,30 @@ class AiQueryPartsTest extends AnyFunSpec with Matchers with ImageFields {
       }
     }
   }
+
+  describe("AiQueryParts with explicit ranking text") {
+
+    it("ranks by the trimmed explicit text and keeps every query condition, bare words included, as a filter") {
+      val conditions = Parser.run("fileType:jpeg keir starmer -angela")
+      AiQueryParts.fromExplicitText(conditions, "  wildlife  ") should be(
+        Right(AiQueryParts(semanticQuery = Some("wildlife"), filterConditions = conditions, similarImageId = None))
+      )
+      AiQueryParts.from(conditions).map(_.semanticQuery) should be(Right(Some("keir starmer")))
+    }
+
+    it("reports the filter pool for empty or blank explicit text, never falling back to text in the query") {
+      val conditions = Parser.run("keir starmer")
+      Seq("", "   ").foreach { text =>
+        AiQueryParts.fromExplicitText(conditions, text) should be(Left(AiQueryError.NoRankingSignal(conditions)))
+      }
+    }
+
+    it("conflicts with a similar image whether or not the explicit text is empty") {
+      Seq("wildlife", "").foreach { text =>
+        AiQueryParts.fromExplicitText(Parser.run("similar:abc123 fileType:jpeg"), text) should be(
+          Left(AiQueryError.ConflictingRankingSignals)
+        )
+      }
+    }
+  }
 }
