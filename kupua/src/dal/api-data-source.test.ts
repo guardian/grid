@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { ApiDataSource, DEVELOPMENT_FALLBACK_METHODS } from "./api-data-source";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiDataSource } from "./api-data-source";
 import type { ImageDataSource, SortValues } from "./types";
 
 type Body = Record<string, unknown>;
@@ -27,12 +27,6 @@ const everyMethod: Record<Exclude<keyof ImageDataSource, "offsetReadLimit">, tru
   countBefore: true, estimateSortValue: true, findKeywordSortValue: true, getKeywordDistribution: true,
   getDateDistribution: true, fetchPositionIndex: true, getByIds: true, getIdRange: true,
 };
-const ALL_METHODS = Object.keys(everyMethod) as Array<keyof typeof everyMethod>;
-
-function makeFallback() {
-  return Object.fromEntries(ALL_METHODS.map((m) => [m, vi.fn(async () => `fallback:${m}`)])) as unknown as
-    ImageDataSource & Record<keyof typeof everyMethod, Mock>;
-}
 
 const entity = (id: string) => ({ data: { id, uploadTime: "2026-01-01T00:00:00Z" } });
 const failure = (status: number, errorKey = "fixture") => new Response(JSON.stringify({ errorKey }), { status });
@@ -44,7 +38,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("ApiDataSource development fallback", () => {
+describe("ApiDataSource construction and routing", () => {
   it.each([
     { flag: "true", expected: "ApiDataSource" },
     { flag: "false", expected: "ElasticsearchDataSource" },
@@ -54,61 +48,42 @@ describe("ApiDataSource development fallback", () => {
     const { createDataSource } = await import("./index");
     expect(createDataSource().constructor.name).toBe(expected);
   });
-  it("lists exactly the reads that still use the development fallback", () => {
-    expect([...DEVELOPMENT_FALLBACK_METHODS].sort()).toEqual(
-      ["searchByAi"],
-    );
-  });
 
-  it("delegates each listed read to the fallback with its arguments", async () => {
-    const fallback = makeFallback();
-    const ds = new ApiDataSource(fallback) as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>;
-    for (const method of DEVELOPMENT_FALLBACK_METHODS) {
-      await expect(ds[method]("a", "b")).resolves.toBe(`fallback:${method}`);
-      expect(fallback[method]).toHaveBeenCalledWith("a", "b");
-    }
-  });
-
-  it("omits AI search when the fallback has none", () => {
-    const { searchByAi: _ai, ...withoutAi } = makeFallback();
-    expect(new ApiDataSource(withoutAi as ImageDataSource).searchByAi).toBeUndefined();
-  });
-
-  it.each(["unreachable", "refusing"] as const)("never rescues a migrated read through the fallback when media-api is %s", async (mode) => {
+  it.each(["unreachable", "refusing"] as const)("sends every read, AI search included, only to media-api when it is %s", async (mode) => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubGlobal("fetch", vi.fn(async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
       if (mode === "unreachable") throw new TypeError("Failed to fetch");
       return failure(503);
-    }));
-    const fallback = makeFallback();
-    const ds = new ApiDataSource(fallback);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const ds = new ApiDataSource();
     const cursor: SortValues = [1, "img-1"];
     const signal = new AbortController().signal;
+    const reads: Record<keyof typeof everyMethod, () => Promise<unknown>> = {
+      searchAfter: () => ds.searchAfter({ ...params, offset: 400 }, null, null, signal),
+      searchRange: () => ds.searchRange({ ...params, offset: 400 }, signal),
+      countBefore: () => ds.countBefore(params, cursor, signal),
+      estimateSortValue: () => ds.estimateSortValue(params, "uploadTime", 50, signal),
+      findKeywordSortValue: () => ds.findKeywordSortValue(params, "metadata.credit", 10, "asc", signal),
+      getKeywordDistribution: () => ds.getKeywordDistribution(params, "metadata.credit", "asc", signal),
+      getDateDistribution: () => ds.getDateDistribution(params, "uploadTime", "desc", signal),
+      fetchPositionIndex: () => ds.fetchPositionIndex(params, signal),
+      getIdRange: () => ds.getIdRange(params, cursor, cursor, signal),
+      getById: () => ds.getById("img-1", signal),
+      getByIds: () => ds.getByIds(["img-1", "img-2"], signal),
+      count: () => ds.count(params),
+      countWithTickers: () => ds.countWithTickers(params),
+      getAggregations: () => ds.getAggregations(params, [{ field: "metadata.credit" }], signal, [{ name: "deleted", isFilter: "deleted" }]),
+      searchByAi: () => ds.searchByAi({ ...params, aiQuery: "sky" }, signal),
+      openPit: () => ds.openPit("1m"),
+      closePit: () => ds.closePit("pit"),
+    };
 
-    await Promise.allSettled([
-      ds.searchAfter(params, null, null, signal),
-      ds.searchAfter(params, cursor, null, signal, true),
-      ds.searchAfter({ ...params, offset: 400 }, null, null, signal),
-      ds.searchRange({ ...params, offset: 400 }, signal),
-      ds.countBefore(params, cursor, signal),
-      ds.estimateSortValue(params, "uploadTime", 50, signal),
-      ds.findKeywordSortValue(params, "metadata.credit", 10, "asc", signal),
-      ds.getKeywordDistribution(params, "metadata.credit", "asc", signal),
-      ds.getDateDistribution(params, "uploadTime", "desc", signal),
-      ds.fetchPositionIndex(params, signal),
-      ds.getIdRange(params, cursor, cursor, signal),
-      ds.getById("img-1", signal),
-      ds.getByIds(["img-1", "img-2"], signal),
-      ds.count(params),
-      ds.countWithTickers(params),
-      ds.getAggregations(params, [{ field: "metadata.credit" }], signal, [{ name: "deleted", isFilter: "deleted" }]),
-      ds.openPit("1m"),
-      ds.closePit("pit"),
-    ]);
-
-    const migrated = ALL_METHODS.filter((m) => !(DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m));
-    expect(migrated).toHaveLength(16);
-    for (const method of migrated) expect(fallback[method], method).not.toHaveBeenCalled();
+    const outcomes = await Promise.allSettled(Object.values(reads).map((read) => read()));
+    expect(outcomes).toHaveLength(17);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(15);
+    for (const [url] of fetchMock.mock.calls) expect(url).toMatch(/^\/api\//);
+    await expect(reads.searchByAi()).resolves.toBeNull();
   });
 });
 
@@ -116,7 +91,7 @@ describe("ApiDataSource PIT", () => {
   it("opens no PIT and closes nothing", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const ds = new ApiDataSource(makeFallback());
+    const ds = new ApiDataSource();
 
     await expect(ds.openPit("1m")).resolves.toBeNull();
     await expect(ds.closePit("pit")).resolves.toBeUndefined();
@@ -129,7 +104,7 @@ describe("ApiDataSource PIT", () => {
         ? failure(410, "search-after-pit-expired")
         : { data: [entity("img-2")], total: 0, sortValues: [[2, "img-2"]] },
     });
-    const result = await new ApiDataSource(makeFallback()).searchAfter(params, [1, "img-1"], "old-pit");
+    const result = await new ApiDataSource().searchAfter(params, [1, "img-1"], "old-pit");
 
     expect(calls.map((c) => c.body.pitId)).toEqual(["old-pit", undefined]);
     expect(result.pitId).toBeNull();
@@ -142,7 +117,7 @@ describe("ApiDataSource page routing", () => {
 
   it("reads a cursor-less offset through the window, with the offset and without cursor fields", async () => {
     const calls = stubMediaApi({ "/images/window": () => ({ ...page, offset: 400 }) });
-    const result = await new ApiDataSource(makeFallback()).searchAfter({ ...params, offset: 400 }, null, null);
+    const result = await new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, null);
 
     expect(calls).toHaveLength(1);
     expect(calls[0].path).toBe("/images/window");
@@ -157,7 +132,7 @@ describe("ApiDataSource page routing", () => {
 
   it("reports the window's counted total when the caller asks", async () => {
     const calls = stubMediaApi({ "/images/window": () => ({ ...page, offset: 400, total: 1234 }) });
-    const result = await new ApiDataSource(makeFallback()).searchRange({ ...params, offset: 400, trackTotalHits: true });
+    const result = await new ApiDataSource().searchRange({ ...params, offset: 400, trackTotalHits: true });
 
     expect(calls[0].body.countAll).toBe(true);
     expect(result.total).toBe(1234);
@@ -165,7 +140,7 @@ describe("ApiDataSource page routing", () => {
 
   it("keeps both the offset and a supplied PIT on a window read", async () => {
     const calls = stubMediaApi({ "/images/window": () => ({ ...page, offset: 400, pitId: "refreshed-pit" }) });
-    const result = await new ApiDataSource(makeFallback()).searchAfter({ ...params, offset: 400 }, null, "pit");
+    const result = await new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, "pit");
 
     expect(calls.map((c) => c.path)).toEqual(["/images/window"]);
     expect(calls[0].body).toMatchObject({ offset: 400, pitId: "pit" });
@@ -176,7 +151,7 @@ describe("ApiDataSource page routing", () => {
     const calls = stubMediaApi({
       "/images/window": (body) => body.pitId ? failure(410, "search-after-pit-expired") : { ...page, offset: 400 },
     });
-    const result = await new ApiDataSource(makeFallback()).searchAfter({ ...params, offset: 400 }, null, "old-pit");
+    const result = await new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, "old-pit");
 
     expect(calls.map((c) => [c.path, c.body.offset, c.body.pitId])).toEqual([
       ["/images/window", 400, "old-pit"], ["/images/window", 400, undefined],
@@ -190,7 +165,7 @@ describe("ApiDataSource page routing", () => {
     { name: "End", cursor: null, reverse: true, seekToEnd: true },
   ])("reads a $name through search-after without an offset, even when params carry one", async ({ cursor, reverse, seekToEnd }) => {
     const calls = stubMediaApi({ "/images/search-after": () => ({ ...page, total: 0 }) });
-    await new ApiDataSource(makeFallback()).searchAfter({ ...params, offset: 400 }, cursor, null, undefined, reverse, seekToEnd);
+    await new ApiDataSource().searchAfter({ ...params, offset: 400 }, cursor, null, undefined, reverse, seekToEnd);
 
     expect(calls.map((c) => c.path)).toEqual(["/images/search-after"]);
     expect(calls[0].body).not.toHaveProperty("offset");
@@ -207,13 +182,13 @@ describe("ApiDataSource page routing", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(new ApiDataSource(makeFallback()).searchAfter({ ...params, offset: 400 }, null, null, controller.signal))
+    await expect(new ApiDataSource().searchAfter({ ...params, offset: 400 }, null, null, controller.signal))
       .rejects.toMatchObject({ name: "AbortError" });
     expect((fetchMock.mock.calls[0][1] as RequestInit).signal).toBe(controller.signal);
   });
 
   it("declares media-api's window limit for offset reads", () => {
-    expect(new ApiDataSource(makeFallback()).offsetReadLimit).toBe(10_000);
+    expect(new ApiDataSource().offsetReadLimit).toBe(10_000);
   });
 });
 
@@ -243,8 +218,7 @@ describe("ApiDataSource standalone image", () => {
 
   it("reads GET /images/:id and returns the normalized image with its overlay", async () => {
     const fetchMock = stubSingleton(() => singleton("img/1"));
-    const fallback = makeFallback();
-    const found = await new ApiDataSource(fallback).getById("img/1");
+    const found = await new ApiDataSource().getById("img/1");
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0];
@@ -258,19 +232,18 @@ describe("ApiDataSource standalone image", () => {
       persisted: { value: true, reasons: ["archived"] },
       actions: [{ name: "delete", href: "/images/img/1", method: "DELETE" }],
     });
-    expect(fallback.getById).not.toHaveBeenCalled();
   });
 
   it("reports a missing or hidden image as absent, quietly", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubSingleton(() => failure(404, "image-not-found"));
-    await expect(new ApiDataSource(makeFallback()).getById("img-1")).resolves.toBeUndefined();
+    await expect(new ApiDataSource().getById("img-1")).resolves.toBeUndefined();
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("treats an image answered under another ID as absent", async () => {
     stubSingleton(() => singleton("img-2"));
-    await expect(new ApiDataSource(makeFallback()).getById("img-1")).resolves.toBeUndefined();
+    await expect(new ApiDataSource().getById("img-1")).resolves.toBeUndefined();
   });
 
   it.each([
@@ -278,7 +251,7 @@ describe("ApiDataSource standalone image", () => {
     { name: "unreachable", respond: () => { throw new TypeError("Failed to fetch"); }, expected: { kind: "unavailable" } },
   ])("fails rather than reporting absence when media-api is $name", async ({ respond, expected }) => {
     stubSingleton(respond);
-    await expect(new ApiDataSource(makeFallback()).getById("img-1")).rejects.toMatchObject(expected);
+    await expect(new ApiDataSource().getById("img-1")).rejects.toMatchObject(expected);
   });
 
   it("passes cancellation to media-api", async () => {
@@ -287,7 +260,7 @@ describe("ApiDataSource standalone image", () => {
       controller.abort();
       return singleton("img-1");
     });
-    await expect(new ApiDataSource(makeFallback()).getById("img-1", controller.signal))
+    await expect(new ApiDataSource().getById("img-1", controller.signal))
       .rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
   });
@@ -310,8 +283,7 @@ describe("ApiDataSource images by ID", () => {
         })) };
       },
     });
-    const fallback = makeFallback();
-    const result = await new ApiDataSource(fallback).getByIds(ids(1050));
+    const result = await new ApiDataSource().getByIds(ids(1050));
 
     expect(calls.map((c) => (c.body.ids as string[]).length)).toEqual([200, 200, 200, 200, 200, 50]);
     expect(calls.flatMap((c) => c.body.ids as string[])).toEqual(ids(1050));
@@ -319,12 +291,11 @@ describe("ApiDataSource images by ID", () => {
     expect(peak).toBe(4);
     expect(result.map((image) => image.id).sort()).toEqual(ids(1050).filter((id) => id !== "img-7").sort());
     expect(result.find((image) => image.id === "img-3")?.usages).toEqual([{ id: "usage-img-3" }]);
-    expect(fallback.getByIds).not.toHaveBeenCalled();
   });
 
   it("asks nothing for no IDs", async () => {
     const calls = stubMediaApi({ "/images/mget": found });
-    await expect(new ApiDataSource(makeFallback()).getByIds([])).resolves.toEqual([]);
+    await expect(new ApiDataSource().getByIds([])).resolves.toEqual([]);
     expect(calls).toHaveLength(0);
   });
 
@@ -335,14 +306,14 @@ describe("ApiDataSource images by ID", () => {
     const calls = stubMediaApi({
       "/images/mget": (body) => (body.ids as string[]).includes("img-200") ? respond() : found(body),
     });
-    await expect(new ApiDataSource(makeFallback()).getByIds(ids(2000))).rejects.toMatchObject(expected);
+    await expect(new ApiDataSource().getByIds(ids(2000))).rejects.toMatchObject(expected);
     expect(calls.length).toBeLessThan(10);
   });
 
   it("rejects when cancelled, rather than resolving to no images", async () => {
     const controller = new AbortController();
     stubMediaApi({ "/images/mget": (body) => { controller.abort(); return found(body); } });
-    await expect(new ApiDataSource(makeFallback()).getByIds(ids(3), controller.signal))
+    await expect(new ApiDataSource().getByIds(ids(3), controller.signal))
       .rejects.toMatchObject({ name: "AbortError" });
   });
 });
@@ -351,7 +322,7 @@ describe("ApiDataSource rank", () => {
   it("sends the sort and tuple, without paging fields, and returns the rank", async () => {
     const calls = stubMediaApi({ "/images/rank": () => ({ rank: 4321 }) });
     const tuple: SortValues = [null, 1_700_000_000_000, "img-9"];
-    await expect(new ApiDataSource(makeFallback()).countBefore({ ...params, orderBy: "-taken", offset: 50 }, tuple)).resolves.toBe(4321);
+    await expect(new ApiDataSource().countBefore({ ...params, orderBy: "-taken", offset: 50 }, tuple)).resolves.toBe(4321);
 
     expect(calls[0].body.sortValues).toEqual(tuple);
     expect(calls[0].body.sort).toEqual([{ "metadata.dateTaken": "desc" }, { uploadTime: "desc" }, { id: "asc" }]);
@@ -360,7 +331,7 @@ describe("ApiDataSource rank", () => {
 
   it("fails rather than returning a count when rank is incomplete", async () => {
     stubMediaApi({ "/images/rank": () => failure(503, "rank-incomplete") });
-    await expect(new ApiDataSource(makeFallback()).countBefore(params, [1, "img-1"]))
+    await expect(new ApiDataSource().countBefore(params, [1, "img-1"]))
       .rejects.toMatchObject({ kind: "refused", status: 503 });
   });
 });
@@ -368,7 +339,7 @@ describe("ApiDataSource rank", () => {
 describe("ApiDataSource scalar anchor", () => {
   it("asks for one percentile with an optional scope", async () => {
     const calls = stubMediaApi({ "/images/sort-profile": () => ({ value: 1_650_000_000_000.5 }) });
-    const ds = new ApiDataSource(makeFallback());
+    const ds = new ApiDataSource();
     const scope = [{ field: "metadata.credit", value: "AAP" }];
 
     await expect(ds.estimateSortValue({ ...params, orderBy: "-credit" }, "uploadTime", 37.5, undefined, scope)).resolves.toBe(1_650_000_000_000.5);
@@ -385,14 +356,14 @@ describe("ApiDataSource scalar anchor", () => {
   ])("returns null quietly for $name, as optional profile data", async ({ route }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubMediaApi({ "/images/sort-profile": route });
-    await expect(new ApiDataSource(makeFallback()).estimateSortValue(params, "uploadTime", 50)).resolves.toBeNull();
+    await expect(new ApiDataSource().estimateSortValue(params, "uploadTime", 50)).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("still warns about an unexpected failure", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubMediaApi({ "/images/sort-profile": () => new Response("{") });
-    await expect(new ApiDataSource(makeFallback()).estimateSortValue(params, "uploadTime", 50)).resolves.toBeNull();
+    await expect(new ApiDataSource().estimateSortValue(params, "uploadTime", 50)).resolves.toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
@@ -402,7 +373,7 @@ describe("ApiDataSource scalar anchor", () => {
     controller.abort();
     stubMediaApi({ "/images/sort-profile": () => ({ value: 1 }) });
 
-    await expect(new ApiDataSource(makeFallback()).estimateSortValue(params, "uploadTime", 50, controller.signal)).resolves.toBeNull();
+    await expect(new ApiDataSource().estimateSortValue(params, "uploadTime", 50, controller.signal)).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 });
@@ -425,7 +396,7 @@ describe("ApiDataSource keyword walks", () => {
     vi.stubEnv("VITE_KEYWORD_SEEK_BUCKET_SIZE", "2");
     const calls = stubMediaApi({ "/images/sort-profile": keywordRoute });
 
-    await expect(new ApiDataSource(makeFallback()).findKeywordSortValue(credit, "metadata.credit", 10, "asc")).resolves.toBe("EPA");
+    await expect(new ApiDataSource().findKeywordSortValue(credit, "metadata.credit", 10, "asc")).resolves.toBe("EPA");
 
     expect(calls.map((c) => c.body.after)).toEqual([undefined, "AP"]);
     expect(calls[0].body).toMatchObject({ operation: "keyword-page", field: "metadata.credit", size: 2 });
@@ -436,7 +407,7 @@ describe("ApiDataSource keyword walks", () => {
     vi.stubEnv("VITE_KEYWORD_SEEK_BUCKET_SIZE", "2");
     const calls = stubMediaApi({ "/images/sort-profile": keywordRoute });
 
-    await expect(new ApiDataSource(makeFallback()).findKeywordSortValue(credit, "metadata.credit", 500, "asc")).resolves.toBe("PA");
+    await expect(new ApiDataSource().findKeywordSortValue(credit, "metadata.credit", 500, "asc")).resolves.toBe("PA");
     expect(calls).toHaveLength(3);
   });
 
@@ -448,7 +419,7 @@ describe("ApiDataSource keyword walks", () => {
         : { buckets: [{ key: 2048, count: 3 }], after: 2048 },
     });
 
-    await expect(new ApiDataSource(makeFallback()).findKeywordSortValue({ ...params, orderBy: "width" }, "source.dimensions.width", 4, "asc"))
+    await expect(new ApiDataSource().findKeywordSortValue({ ...params, orderBy: "width" }, "source.dimensions.width", 4, "asc"))
       .resolves.toBe("2048");
     expect(calls[1].body.after).toBe(1024);
   });
@@ -458,13 +429,13 @@ describe("ApiDataSource keyword walks", () => {
     vi.stubEnv("VITE_KEYWORD_SEEK_BUCKET_SIZE", "2");
     stubMediaApi({ "/images/sort-profile": (body) => body.after ? failure(503) : pages.start });
 
-    await expect(new ApiDataSource(makeFallback()).findKeywordSortValue(credit, "metadata.credit", 10, "asc")).resolves.toBe("AP");
+    await expect(new ApiDataSource().findKeywordSortValue(credit, "metadata.credit", 10, "asc")).resolves.toBe("AP");
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("builds a distribution with exact coverage from the first page only", async () => {
     const calls = stubMediaApi({ "/images/sort-profile": keywordRoute });
-    const dist = await new ApiDataSource(makeFallback()).getKeywordDistribution(credit, "metadata.credit", "asc");
+    const dist = await new ApiDataSource().getKeywordDistribution(credit, "metadata.credit", "asc");
 
     expect(calls.map((c) => c.body.includeCoveredCount)).toEqual([true, undefined, undefined, undefined]);
     expect(calls.every((c) => c.body.size === 10_000)).toBe(true);
@@ -483,7 +454,7 @@ describe("ApiDataSource keyword walks", () => {
   it("marks a distribution truncated after five pages", async () => {
     let n = 0;
     stubMediaApi({ "/images/sort-profile": () => ({ buckets: [{ key: `v${n}`, count: 1 }], after: `v${n++}`, coveredCount: 99 }) });
-    const dist = await new ApiDataSource(makeFallback()).getKeywordDistribution(credit, "metadata.credit", "asc");
+    const dist = await new ApiDataSource().getKeywordDistribution(credit, "metadata.credit", "asc");
 
     expect(dist?.buckets).toHaveLength(5);
     expect(dist).toMatchObject({ coveredCount: 99, representedCount: 5, complete: false });
@@ -492,7 +463,7 @@ describe("ApiDataSource keyword walks", () => {
   it("returns no distribution, quietly, when a page fails", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubMediaApi({ "/images/sort-profile": (body) => body.after ? failure(503) : pages.start });
-    await expect(new ApiDataSource(makeFallback()).getKeywordDistribution(credit, "metadata.credit", "asc")).resolves.toBeNull();
+    await expect(new ApiDataSource().getKeywordDistribution(credit, "metadata.credit", "asc")).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 });
@@ -510,7 +481,7 @@ describe("ApiDataSource date distribution", () => {
         ? { valueCount: 10, min: 0, max: 30 * day }
         : { buckets, positionKind: "exact-rank", evidenceCount: 10 },
     });
-    const dist = await new ApiDataSource(makeFallback()).getDateDistribution({ ...params, orderBy: "-lastModified" }, "uploadTime", "desc", undefined, "lastModified");
+    const dist = await new ApiDataSource().getDateDistribution({ ...params, orderBy: "-lastModified" }, "uploadTime", "desc", undefined, "lastModified");
 
     expect(calls.map((c) => c.body.operation)).toEqual(["date-stats", "date-buckets"]);
     expect(calls[0].body).toMatchObject({ field: "uploadTime", missingField: "lastModified" });
@@ -525,7 +496,7 @@ describe("ApiDataSource date distribution", () => {
         ? { valueCount: 12, min: 0, max: 3 * 365 * day, coveredCount: 6 }
         : { buckets, positionKind: "approximate-evidence", evidenceCount: 9 },
     });
-    const dist = await new ApiDataSource(makeFallback()).getDateDistribution({ ...params, orderBy: "-usagesDateAdded" }, "usages.dateAdded", "desc");
+    const dist = await new ApiDataSource().getDateDistribution({ ...params, orderBy: "-usagesDateAdded" }, "usages.dateAdded", "desc");
 
     expect(dist).toEqual({ buckets, coveredCount: 6, bucketPositionKind: "approximate-evidence", evidenceCount: 9 });
   });
@@ -538,7 +509,7 @@ describe("ApiDataSource date distribution", () => {
     },
   ])("returns an empty $name distribution without asking for buckets", async ({ stats, expected }) => {
     const calls = stubMediaApi({ "/images/sort-profile": () => stats });
-    await expect(new ApiDataSource(makeFallback()).getDateDistribution(params, "uploadTime", "desc")).resolves.toEqual(expected);
+    await expect(new ApiDataSource().getDateDistribution(params, "uploadTime", "desc")).resolves.toEqual(expected);
     expect(calls).toHaveLength(1);
   });
 
@@ -549,7 +520,7 @@ describe("ApiDataSource date distribution", () => {
   ])("returns no distribution, quietly, for $name", async ({ route }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubMediaApi({ "/images/sort-profile": route });
-    await expect(new ApiDataSource(makeFallback()).getDateDistribution(params, "uploadTime", "desc")).resolves.toBeNull();
+    await expect(new ApiDataSource().getDateDistribution(params, "uploadTime", "desc")).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 });
@@ -575,7 +546,7 @@ describe("ApiDataSource key walks", () => {
         return { keys: pageKeys, after: start + 2 < keys.length ? pageKeys[pageKeys.length - 1].sortValues : null };
       },
     });
-    const map = await new ApiDataSource(makeFallback()).fetchPositionIndex(lastModified, new AbortController().signal);
+    const map = await new ApiDataSource().fetchPositionIndex(lastModified, new AbortController().signal);
 
     expect(map).toEqual({ length: 5, ids: keys.map((k) => k.id), sortValues: keys.map((k) => k.sortValues) });
     expect(calls.map((c) => c.body.sortValues)).toEqual([undefined, [40, 4, "b"], [null, 2, "d"]]);
@@ -584,7 +555,7 @@ describe("ApiDataSource key walks", () => {
 
   it("uses the map chunk size by default", async () => {
     const calls = stubMediaApi({ "/images/keys": keysRoute });
-    await new ApiDataSource(makeFallback()).fetchPositionIndex(lastModified, new AbortController().signal);
+    await new ApiDataSource().fetchPositionIndex(lastModified, new AbortController().signal);
     expect(calls[0].body.size).toBe(10_000);
   });
 
@@ -594,26 +565,26 @@ describe("ApiDataSource key walks", () => {
   ])("returns no map, quietly, for $name", async ({ route }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubMediaApi({ "/images/keys": route });
-    await expect(new ApiDataSource(makeFallback()).fetchPositionIndex(lastModified, new AbortController().signal)).resolves.toBeNull();
+    await expect(new ApiDataSource().fetchPositionIndex(lastModified, new AbortController().signal)).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("returns no map, quietly, when media-api is unreachable", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
-    await expect(new ApiDataSource(makeFallback()).fetchPositionIndex(lastModified, new AbortController().signal)).resolves.toBeNull();
+    await expect(new ApiDataSource().fetchPositionIndex(lastModified, new AbortController().signal)).resolves.toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("returns no map once cancelled", async () => {
     const controller = new AbortController();
     stubMediaApi({ "/images/keys": (body) => { controller.abort(); return keysRoute(body); } });
-    await expect(new ApiDataSource(makeFallback()).fetchPositionIndex(lastModified, controller.signal)).resolves.toBeNull();
+    await expect(new ApiDataSource().fetchPositionIndex(lastModified, controller.signal)).resolves.toBeNull();
   });
 
   it("walks a range (from, to] across the null tail and stops past the end cursor", async () => {
     const calls = stubMediaApi({ "/images/keys": keysRoute });
-    const result = await new ApiDataSource(makeFallback()).getIdRange(lastModified, keys[0].sortValues, keys[3].sortValues);
+    const result = await new ApiDataSource().getIdRange(lastModified, keys[0].sortValues, keys[3].sortValues);
 
     expect(result).toEqual({ ids: ["b", "c", "d"], truncated: false, walked: 4 });
     expect(calls[0].body).toMatchObject({ sortValues: keys[0].sortValues, size: 1_000 });
@@ -622,13 +593,13 @@ describe("ApiDataSource key walks", () => {
   it("truncates at the range cap with one image of lookahead", async () => {
     vi.stubEnv("VITE_RANGE_HARD_CAP", "2");
     stubMediaApi({ "/images/keys": keysRoute });
-    const result = await new ApiDataSource(makeFallback()).getIdRange(lastModified, keys[0].sortValues, keys[4].sortValues);
+    const result = await new ApiDataSource().getIdRange(lastModified, keys[0].sortValues, keys[4].sortValues);
     expect(result).toEqual({ ids: ["b", "c"], truncated: true, walked: 3 });
   });
 
   it("fails a range walk rather than returning a short selection", async () => {
     stubMediaApi({ "/images/keys": () => failure(503, "keys-incomplete") });
-    await expect(new ApiDataSource(makeFallback()).getIdRange(lastModified, keys[0].sortValues, keys[4].sortValues))
+    await expect(new ApiDataSource().getIdRange(lastModified, keys[0].sortValues, keys[4].sortValues))
       .rejects.toMatchObject({ status: 503 });
   });
 });
@@ -644,7 +615,7 @@ describe("ApiDataSource counts", () => {
 
   it("counts through media-api with the read scope and no sort, keeping each ticker's value and sub-counts", async () => {
     const calls = stubMediaApi({ "/images/count": () => counted });
-    const result = await new ApiDataSource(makeFallback()).countWithTickers({ ...params, since: "2026-09-25T10:00:00.000Z", offset: 0, length: 0 });
+    const result = await new ApiDataSource().countWithTickers({ ...params, since: "2026-09-25T10:00:00.000Z", offset: 0, length: 0 });
 
     expect(result).toEqual({
       count: 1234,
@@ -657,7 +628,7 @@ describe("ApiDataSource counts", () => {
 
   it("returns the total alone for a plain count", async () => {
     stubMediaApi({ "/images/count": () => counted });
-    await expect(new ApiDataSource(makeFallback()).count(params)).resolves.toBe(1234);
+    await expect(new ApiDataSource().count(params)).resolves.toBe(1234);
   });
 
   it.each([
@@ -665,12 +636,12 @@ describe("ApiDataSource counts", () => {
     { name: "a refusal", route: () => failure(422, "invalid-uri-parameters"), status: 422 },
   ])("rejects $name rather than reporting zero", async ({ route, status }) => {
     stubMediaApi({ "/images/count": route });
-    await expect(new ApiDataSource(makeFallback()).countWithTickers(params)).rejects.toMatchObject({ status });
+    await expect(new ApiDataSource().countWithTickers(params)).rejects.toMatchObject({ status });
   });
 
   it("rejects when media-api is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
-    await expect(new ApiDataSource(makeFallback()).countWithTickers(params)).rejects.toMatchObject({ kind: "unavailable" });
+    await expect(new ApiDataSource().countWithTickers(params)).rejects.toMatchObject({ kind: "unavailable" });
   });
 });
 
@@ -688,7 +659,7 @@ describe("ApiDataSource aggregations", () => {
   it("counts fields verbatim, named is: filters and usage values through media-api with the read scope and no sort", async () => {
     const calls = stubMediaApi({ "/images/aggregations": () => aggregated });
     const signal = new AbortController().signal;
-    const result = await new ApiDataSource(makeFallback()).getAggregations(
+    const result = await new ApiDataSource().getAggregations(
       { ...params, ids: "a,b" },
       [{ field: "metadata.credit", size: 10 }, { field: "fileMetadata.iptc.Edit Status" }],
       signal,
@@ -724,7 +695,7 @@ describe("ApiDataSource aggregations", () => {
 
   it("sends no is: filters and returns neither filter nor usage counts when none are asked for", async () => {
     const calls = stubMediaApi({ "/images/aggregations": () => ({ fields: { "metadata.credit": { buckets: [] } }, isFilterCounts: {} }) });
-    const result = await new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "metadata.credit", size: 100 }]);
+    const result = await new ApiDataSource().getAggregations(params, [{ field: "metadata.credit", size: 100 }]);
 
     expect(result).toEqual({ fields: { "metadata.credit": { buckets: [] } }, fetchDuration: expect.any(Number) });
     expect(calls[0].body.fields).toEqual([{ field: "metadata.credit", size: 100 }]);
@@ -733,7 +704,7 @@ describe("ApiDataSource aggregations", () => {
 
   it("reports a requested field media-api did not return as empty", async () => {
     stubMediaApi({ "/images/aggregations": () => ({ fields: {}, isFilterCounts: {} }) });
-    const result = await new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "collections.pathId", size: 6000 }]);
+    const result = await new ApiDataSource().getAggregations(params, [{ field: "collections.pathId", size: 6000 }]);
     expect(result.fields["collections.pathId"]).toEqual({ buckets: [] });
   });
 
@@ -742,11 +713,137 @@ describe("ApiDataSource aggregations", () => {
     { name: "a field that cannot be aggregated", route: () => failure(422, "invalid-uri-parameters"), status: 422 },
   ])("rejects $name rather than reporting empty buckets", async ({ route, status }) => {
     stubMediaApi({ "/images/aggregations": route });
-    await expect(new ApiDataSource(makeFallback()).getAggregations(params, [{ field: "metadata.title" }])).rejects.toMatchObject({ status });
+    await expect(new ApiDataSource().getAggregations(params, [{ field: "metadata.title" }])).rejects.toMatchObject({ status });
   });
 
   it("rejects when media-api is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
-    await expect(new ApiDataSource(makeFallback()).getAggregations(params, [])).rejects.toMatchObject({ kind: "unavailable" });
+    await expect(new ApiDataSource().getAggregations(params, [])).rejects.toMatchObject({ kind: "unavailable" });
+  });
+});
+
+describe("ApiDataSource AI search", () => {
+  const apiSource = () => new ApiDataSource();
+  const aiEntity = (id: string, data: Record<string, unknown> = {}) => ({
+    data: { id, uploadTime: "2026-01-01T00:00:00Z", cost: "free", valid: true, usages: { data: [] }, ...data },
+    actions: [{ name: "add-collection", href: `/images/${id}`, method: "POST" }],
+  });
+  const aiResponse = (data: unknown[], total = 12_345) => ({
+    offset: 0, length: data.length, total, data,
+    actions: { tickerCounts: {
+      "GNM-owned": { value: 4321, searchClause: "is:GNM-owned", backgroundColour: "#005689" },
+      "agency picks": { value: 17, searchClause: "is:agency-pick", backgroundColour: "#c70000", subCounts: { Reuters: 9, other: 8 } },
+    } },
+  });
+  function stubAi(respond: () => Response | Promise<Response>) {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      init?.signal?.throwIfAborted();
+      return respond();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const request = (i = 0) => {
+      const [url, init] = fetchMock.mock.calls[i];
+      const parsed = new URL(url, "http://localhost");
+      return { path: parsed.pathname, query: parsed.searchParams, init };
+    };
+    return { fetchMock, request };
+  }
+
+  it("sends the effective q, separate aiQuery, fixed length and the admitted filters as one GET", async () => {
+    const { fetchMock, request } = stubAi(() => Response.json(aiResponse([])));
+    await apiSource().searchByAi!({
+      query: 'credit:"Getty Images" storm -by:"A. N. Other"', aiQuery: "wildlife at dusk", orderBy: "-relevance",
+      since: "2026-01-01T00:00:00.000Z", until: "2026-02-01T00:00:00.000Z", uploadedBy: "uploader@example.test",
+      ids: "img-1,img-2", syndicationStatus: "queued", hasCrops: "true", hasRightsAcquired: "true", offset: 400, length: 10,
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const { path, query, init } = request();
+    expect(path).toBe("/api/images");
+    expect(init?.method ?? "GET").toBe("GET");
+    expect(Object.fromEntries(query)).toEqual({
+      useAISearch: "true",
+      q: 'credit:"Getty Images" storm -by:"A. N. Other" -is:deleted -usages@status:replaced',
+      aiQuery: "wildlife at dusk",
+      length: "200",
+      since: "2026-01-01T00:00:00.000Z",
+      until: "2026-02-01T00:00:00.000Z",
+      uploadedBy: "uploader@example.test",
+      ids: "img-1,img-2",
+      syndicationStatus: "queued",
+      hasExports: "true",
+      free: "true",
+      hasRightsAcquired: "true",
+    });
+  });
+
+  it.each([
+    ["0", "0"], ["1", "1"], ["0.50", "0.5"], [" 0.25 ", "0.25"],
+    ["", undefined], ["abc", undefined], ["1.5", undefined], ["-0.1", undefined], ["NaN", undefined], [undefined, undefined],
+  ] as const)("forwards vecWeight %j as %j, leaving the default to media-api", async (vecWeight, expected) => {
+    const { request } = stubAi(() => Response.json(aiResponse([])));
+    await apiSource().searchByAi!({ aiQuery: "sky", nonFree: "true", vecWeight });
+    expect(request().query.get("vecWeight") ?? undefined).toBe(expected);
+    expect(request().query.has("free")).toBe(false);
+  });
+
+  it("maps canonical images and their current overlays in server order, with the pool total and tickers", async () => {
+    stubAi(() => Response.json(aiResponse([
+      aiEntity("img-c", { valid: false, invalidReasons: { paid_image: "Paid imagery requires a lease" }, usages: { data: [{ data: { id: "usage-1", platform: "print" } }] } }),
+      { links: [] },
+      aiEntity("img-a", { cost: "overquota", persisted: { value: false, reasons: [] } }),
+      aiEntity("img-b"),
+    ])));
+    const result = await apiSource().searchByAi!({ aiQuery: "sky" });
+
+    expect(result).not.toBeNull();
+    expect(result!.hits.map((image) => image.id)).toEqual(["img-c", "img-a", "img-b"]);
+    expect(result!.hits.map((image) => image.__aiScore)).toEqual([3, 2, 1]);
+    expect(result!.sortValues).toEqual([[3, "img-c"], [2, "img-a"], [1, "img-b"]]);
+    expect(result!.hits[0].usages).toEqual([{ id: "usage-1", platform: "print" }]);
+    expect(result!.total).toBe(3);
+    expect(result!.pitId).toBeNull();
+    expect(result!.aiPoolTotal).toBe(12_345);
+    expect(result!.tickerCounts).toEqual({
+      "GNM-owned": { value: 4321 },
+      "agency picks": { value: 17, subCounts: { Reuters: 9, other: 8 } },
+    });
+    expect([...result!.enrichment!.keys()]).toEqual(["img-c", "img-a", "img-b"]);
+    expect(result!.enrichment!.get("img-c")).toMatchObject({
+      valid: false, invalidReasons: { paid_image: "Paid imagery requires a lease" }, usages: [{ id: "usage-1", platform: "print" }],
+    });
+    expect(result!.enrichment!.get("img-a")).toMatchObject({ cost: "overquota", persisted: { value: false, reasons: [] }, usages: [] });
+    expect(result!.enrichment!.get("img-b")?.actions).toEqual([{ name: "add-collection", href: "/images/img-b", method: "POST" }]);
+  });
+
+  it("reports an empty ranked result with its pool metadata, not absence", async () => {
+    stubAi(() => Response.json(aiResponse([], 0)));
+    const result = await apiSource().searchByAi!({ aiQuery: "sky" });
+    expect(result).toMatchObject({ hits: [], total: 0, sortValues: [], aiPoolTotal: 0 });
+    expect(result!.enrichment!.size).toBe(0);
+  });
+
+  it.each([
+    ["forbidden", () => failure(403)],
+    ["a conflicting query", () => failure(422, "invalid-uri-parameters")],
+    ["failing", () => failure(500)],
+    ["unavailable", () => new Response(null, { status: 503 })],
+    ["unreachable", () => { throw new TypeError("Failed to fetch"); }],
+    ["unreadable", () => new Response("not json")],
+  ] as const)("returns null, quietly and without another request, when media-api is %s", async (_label, respond) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { fetchMock } = stubAi(respond);
+    await expect(apiSource().searchByAi({ aiQuery: "sky" })).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("rejects with AbortError when cancelled", async () => {
+    const controller = new AbortController();
+    stubAi(() => {
+      controller.abort();
+      return Response.json(aiResponse([aiEntity("img-a")]));
+    });
+    await expect(apiSource().searchByAi!({ aiQuery: "sky" }, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
   });
 });

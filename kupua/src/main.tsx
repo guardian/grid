@@ -10,7 +10,8 @@ import { fetchQuotas } from "./lib/cost/quota-store";
 import { useCollectionStore } from "./stores/collection-store";
 import { useSearchStore } from "./stores/search-store";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
-import { setBedrockAvailable } from "./lib/grid-config";
+import { setAiSearchAvailable } from "./lib/grid-config";
+import { apiAiSearchAvailable } from "./lib/grid-api-instance";
 import "./index.css";
 
 // Populate quota map once at startup. Fire-and-forget — if the API is
@@ -18,10 +19,10 @@ import "./index.css";
 // "free". See kupua/src/lib/cost/quota-store.ts.
 fetchQuotas();
 
-// Probe Bedrock availability once at startup. Fire-and-forget — if unavailable
-// (no --use-TEST, expired creds, transient AWS error), bedrockAvailable stays false
-// and the AI search UI is hidden entirely. See ai-search-workplan.md §2.4.
-checkBedrockHealth().then(setBedrockAvailable).catch(() => {});
+// Probe AI availability once at startup: media-api's ai-search capability in media-api mode (never
+// Bedrock), the Bedrock proxy otherwise. Unavailable hides the AI input for this session.
+(import.meta.env.VITE_USE_MEDIA_API === "true" ? apiAiSearchAvailable() : checkBedrockHealth())
+  .then(setAiSearchAvailable).catch(() => {});
 
 // Load collection tree + counts once at startup. Fire-and-forget — if the
 // collections service is unavailable, the Collections panel section is hidden.

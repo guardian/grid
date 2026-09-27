@@ -341,7 +341,7 @@ describe("KUP-006 cumulative poll accounting", () => {
     documentEvents.dispatchEvent(new Event("visibilitychange"));
     await settle();
     expect(mock.countWithTickers).toHaveBeenCalledTimes(1);
-    expect(state().tickerCounts).toEqual({});
+    expect(state().tickerCounts).toBeNull();
     expect(state().newCount).toBe(0);
   });
 });
@@ -3720,7 +3720,7 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     const sortValues = hits.map((_, i) => [k - i, hits[i].id] as import("@/dal").SortValues);
 
     return Object.assign(base, {
-      searchByAi: async (_params: unknown, _signal?: AbortSignal) => ({
+      searchByAi: async (_params: unknown, _signal?: AbortSignal): Promise<import("@/dal").AiSearchResult> => ({
         hits,
         total: hits.length,
         sortValues,
@@ -3826,6 +3826,55 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     expect(state().params).toMatchObject({ aiQuery: "different-query", query: "credit:fixture", orderBy: "-uploadTime" });
     expect(state().loading).toBe(false);
     assertPositionsConsistent();
+  });
+
+  it("publishes the result's pool total and tickers with the hits, issues no follow-up count, and clears them for ordinary search", async () => {
+    const source = makeAiMock(3);
+    const result = await source.searchByAi({});
+    vi.spyOn(source, "searchByAi").mockResolvedValue({ ...result, aiPoolTotal: 9000, tickerCounts: { "GNM-owned": { value: 12 } } });
+    const counts = vi.spyOn(source, "countWithTickers");
+    useSearchStore.setState({ dataSource: source, aiPoolTotal: null });
+
+    await actions().search();
+    expect(state()).toMatchObject({ total: 3, aiPoolTotal: 9000, tickerCounts: { "GNM-owned": { value: 12 } } });
+    expect(counts).not.toHaveBeenCalled();
+
+    actions().setParams({ aiQuery: undefined });
+    const ordinary = actions().search();
+    expect(state().aiPoolTotal).toBeNull();
+    await ordinary;
+    expect(state().aiPoolTotal).toBeNull();
+  });
+
+  it("treats an AI hit without its relevance ordinal as a contract failure, not a zero score", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const source = makeAiMock(3);
+    const result = await source.searchByAi({});
+    const hits = result.hits.map((image, i) => i === 1 ? { ...image, __aiScore: undefined } : image);
+    vi.spyOn(source, "searchByAi").mockResolvedValue({ ...result, hits, aiPoolTotal: 9000 });
+    useSearchStore.setState({ dataSource: source, aiPoolTotal: 500 });
+
+    await actions().search();
+    expect(state().error).toMatch(/relevance/);
+    expect(state()).toMatchObject({ aiPoolTotal: null, loading: false });
+    expect(state().results.map((image) => image?.id)).not.toEqual(hits.map((image) => image.id));
+  });
+
+  it("publishes nothing from an AI result that resolves after an abort-only cancellation", async () => {
+    const source = makeAiMock(3);
+    const result = await source.searchByAi({});
+    let release!: (value: typeof result) => void;
+    vi.spyOn(source, "searchByAi").mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    useSearchStore.setState({ dataSource: source, aiPoolTotal: null, tickerCounts: null });
+    const before = state().results;
+
+    const operation = actions().search();
+    actions().abortExtends();
+    release({ ...result, aiPoolTotal: 9000, tickerCounts: { "GNM-owned": { value: 12 } } });
+    await operation;
+
+    expect(state().results).toBe(before);
+    expect(state()).toMatchObject({ aiPoolTotal: null, tickerCounts: null });
   });
 
   it("scrolls to top (no focus) when sortAroundFocusId is absent from AI results", async () => {

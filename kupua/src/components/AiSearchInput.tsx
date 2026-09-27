@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { bedrockAvailable, subscribeBedrockAvailable } from "@/lib/grid-config";
+import { aiSearchAvailable, subscribeAiSearchAvailable } from "@/lib/grid-config";
 
 let _stashedAiText: string | null = null;
 
@@ -34,7 +34,7 @@ export function AiSearchInput({
   onAiTextChange,
   collectionDisabled = false,
 }: AiSearchInputProps) {
-  const [available, setAvailable] = useState(bedrockAvailable);
+  const [available, setAvailable] = useState(aiSearchAvailable);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -78,8 +78,8 @@ export function AiSearchInput({
   }, [collectionDisabled]);
 
   useEffect(() => {
-    setAvailable(bedrockAvailable);
-    return subscribeBedrockAvailable(setAvailable);
+    setAvailable(aiSearchAvailable);
+    return subscribeAiSearchAvailable(setAvailable);
   }, []);
 
   // Auto-focus when expanding.

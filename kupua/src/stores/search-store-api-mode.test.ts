@@ -8,13 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSearchStore } from "./search-store";
 import { useSelectionStore, _resetMetadataCache, _resetHydrationToastShown } from "./selection-store";
 import { MockDataSource } from "@/dal/mock-data-source";
-import { ApiDataSource, DEVELOPMENT_FALLBACK_METHODS } from "@/dal/api-data-source";
+import { ApiDataSource } from "@/dal/api-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { useEnrichmentStore } from "./enrichment-store";
 import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
-import type { ImageDataSource, SearchParams, SortValues } from "@/dal/types";
+import type { SearchParams, SortValues } from "@/dal/types";
 import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
 
@@ -131,9 +131,13 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
     },
   };
   const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+    if (!url.startsWith("/api")) {
+      rescues.push(url);
+      throw new TypeError(`browser request outside media-api: ${url}`);
+    }
     init.signal?.throwIfAborted();
-    const path = url.replace(/^\/api/, "");
-    const body = init.body ? JSON.parse(init.body as string) as Body : {};
+    const [path, search = ""] = url.replace(/^\/api/, "").split("?");
+    const body = init.body ? JSON.parse(init.body as string) as Body : Object.fromEntries(new URLSearchParams(search));
     calls.push({ path, body, signal: init.signal });
     const out = await (routes[path] ?? defaults[path])?.(body);
     init.signal?.throwIfAborted();
@@ -144,27 +148,9 @@ function standInMediaApi(corpus: MockDataSource, routes: Record<string, Route> =
   return calls;
 }
 
-const MIGRATED = [
-  "searchRange", "openPit", "closePit", "searchAfter", "countBefore", "estimateSortValue", "findKeywordSortValue",
-  "getKeywordDistribution", "getDateDistribution", "fetchPositionIndex", "getIdRange", "getById", "count", "countWithTickers",
-  "getAggregations", "getByIds",
-];
-
-/** The development fallback: unmigrated reads answer from a mock; a migrated read reaching it fails loudly. */
-function developmentFallback(corpus: ImageDataSource, rescues: string[]): ImageDataSource {
-  return new Proxy(corpus, {
-    get(target, prop, receiver) {
-      if (typeof prop === "string" && MIGRATED.includes(prop)) {
-        return () => { rescues.push(prop); throw new Error(`development fallback used for ${prop}`); };
-      }
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
-}
-
 let corpus: MockDataSource;
 let calls: Call[];
+/** Browser requests outside media-api (for example /es or /bedrock); every test expects none. */
 let rescues: string[];
 
 function useApiMode(total: number, options: { orderBy?: string; sparse?: boolean; skewed?: boolean; routes?: Record<string, Route> } = {}) {
@@ -176,7 +162,7 @@ function useApiMode(total: number, options: { orderBy?: string; sparse?: boolean
   rescues = [];
   calls = standInMediaApi(corpus, options.routes);
   useSearchStore.setState({
-    dataSource: new ApiDataSource(developmentFallback(corpus, rescues)),
+    dataSource: new ApiDataSource(),
     results: [], bufferOffset: 0, total: 0, loading: false, error: null, imagePositions: new Map(),
     startCursor: null, endCursor: null, pitId: null, focusedImageId: null, sortAroundFocusStatus: null,
     sortAroundFocusGeneration: 0, sortDistribution: null, _sortDistCacheKey: null, nullZoneDistribution: null,
@@ -555,11 +541,6 @@ afterEach(() => {
 });
 
 describe("API mode: routing and counting", () => {
-  it("keeps the migrated-method list complementary to the development fallback", () => {
-    expect([...MIGRATED, ...DEVELOPMENT_FALLBACK_METHODS].sort()).toHaveLength(17);
-    expect(MIGRATED.some((m) => (DEVELOPMENT_FALLBACK_METHODS as readonly string[]).includes(m))).toBe(false);
-  });
-
   it("opens no PIT, counts the first page exactly and nothing else", async () => {
     useApiMode(120_000);
     await state().search();
@@ -1052,85 +1033,206 @@ describe("U6z API polling", () => {
   });
 });
 
-describe("U6z existing AI exception and enrichment", () => {
-  it("keeps AI delegation and scoped API reads through ordinary/AI/ordinary, characterizing retained same-ID enrichment", async () => {
+describe("U9-B media-api AI search", () => {
+  const tickerCounts = { "GNM-owned": { value: 42, searchClause: "is:GNM-owned", backgroundColour: "#005689" } };
+  const aiAnswer = (data: unknown[], total = 5000) => ({ offset: 0, length: data.length, total, data, actions: { tickerCounts } });
+  const staff = async (ids: string[]) => (await corpus.getByIds(ids)).map(image => ({ ...image, usageRights: { category: "staff-photographer" } }));
+  const aiParams = { aiQuery: "fixture sky", query: "credit:Fixture", orderBy: "-relevance" };
+  const toasts = async () => (await import("./toast-store")).useToastStore.getState().queue;
+
+  function useAiApiMode(ai: (query: Body) => unknown, pageCost = "overquota") {
     vi.stubGlobal("scheduler", { yield: async () => {} });
-    useApiMode(120_000);
-    const es = new ElasticsearchDataSource();
-    const aiDelegate = vi.spyOn(es, "searchByAi");
-    const source = new ApiDataSource(developmentFallback(es, rescues));
-    useSearchStore.setState({ dataSource: source, aggregations: null, _aggCacheKey: null, aggCircuitOpen: false });
-    const selected = (await corpus.getByIds(["img-0", "img-1"]))
-      .map(image => ({ ...image, usageRights: { category: "staff-photographer" } }));
-    let pageCost = "overquota";
-    calls = standInMediaApi(corpus, {
+    useApiMode(120_000, { routes: {
       "/images/search-after": async (body) => {
         const page = await corpus.searchAfter(toParams(body), null);
-        return { data: page.hits.map(image => ({ data: { ...image, cost: pageCost } })), total: page.total, sortValues: page.sortValues };
+        return { data: page.hits.map(image => ({ data: { ...image, cost: pageCost, valid: true } })), total: page.total, sortValues: page.sortValues };
       },
-      "/images/img-0": () => ({ data: { ...selected[0], cost: "pay" } }),
-    });
-    const apiFetch = globalThis.fetch;
-    const esBodies: Body[] = [];
-    let embeddings = 0;
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.startsWith("/bedrock/embed?")) {
-        embeddings++;
-        return Response.json({ embedding: Array(256).fill(0) });
-      }
-      if (url.startsWith("/es/")) {
-        esBodies.push(JSON.parse(String(init?.body)) as Body);
-        return Response.json({ hits: { hits: [
-          { _id: "img-1", _source: selected[1], _score: 0.9 },
-          { _id: "img-0", _source: selected[0], _score: 0.5 },
-        ] } });
-      }
-      return apiFetch(url, init);
-    }));
+      "/images": ai,
+      "/images/img-0": async () => ({ data: { ...(await staff(["img-0"]))[0], cost: "pay" } }),
+    } });
+    useSearchStore.setState({ aggregations: null, _aggCacheKey: null, aggCircuitOpen: false, aiPoolTotal: null });
+    useEnrichmentStore.getState().setEnrichment(new Map());
+  }
+
+  it("replaces same-ID overlays across ordinary -> AI -> ordinary, with pool metadata and no count, PIT or ES/Bedrock (KUP-030)", async () => {
+    let selected: Awaited<ReturnType<typeof staff>> = [];
+    const image = (id: string) => selected.find(candidate => candidate.id === id)!;
+    useAiApiMode(() => aiAnswer([
+      { data: { ...image("img-1"), cost: "free", valid: false, usages: { data: [] } }, actions: [] },
+      { data: { ...image("img-0"), cost: "free", valid: true, persisted: { value: false, reasons: [] } }, actions: [] },
+    ]));
+    selected = await staff(["img-0", "img-1"]);
+    const source = state().dataSource;
 
     await state().search();
-    expect(esBodies).toEqual([]);
     expect(useEnrichmentStore.getState().data.get("img-0")?.cost).toBe("overquota");
+    expect(state().aiPoolTotal).toBeNull();
     calls.length = 0;
-    state().setParams({ aiQuery: "fixture sky", query: "credit:Fixture", orderBy: "-relevance" });
+
+    state().setParams(aiParams);
     await state().search();
     await flush();
-    expect(aiDelegate).toHaveBeenCalledOnce();
-    expect(embeddings).toBe(1);
-    expect(esBodies).toHaveLength(1);
-    expect(esBodies[0]).toMatchObject({ knn: { k: 200, query_vector: Array(256).fill(0) }, size: 200 });
-    expect(state().error).toBeNull();
+    expect(paths()).toEqual(["/images"]);
+    expect(calls[0].body).toEqual({
+      useAISearch: "true", q: "credit:Fixture -is:deleted -usages@status:replaced", aiQuery: "fixture sky", length: "200",
+    });
+    expect(state()).toMatchObject({ total: 2, aiPoolTotal: 5000, tickerCounts: { "GNM-owned": { value: 42 } }, pitId: null, error: null, loading: false });
     expect(state().results.map(image => image?.id)).toEqual(["img-1", "img-0"]);
-    expect(state().total).toBe(2);
-    expect(state().pitId).toBeNull();
-    expect(state().error).toBeNull();
-    const aiImage = state().results[1]!;
-    expect(deriveImage(aiImage, undefined).cost).toBe("free");
-    expect(deriveImage(aiImage, useEnrichmentStore.getState().data.get(aiImage.id)).cost).toBe("overquota");
+    expect(state().positionMap).toBeNull();
+    const overlay = useEnrichmentStore.getState().data;
+    expect([...overlay.keys()]).toEqual(["img-1", "img-0"]);
+    expect(overlay.get("img-1")).toMatchObject({ cost: "free", valid: false, usages: [] });
+    expect(overlay.get("img-0")).toMatchObject({ cost: "free", valid: true, persisted: { value: false, reasons: [] } });
+    expect(deriveImage(state().results[1]!, overlay.get("img-0")).cost).toBe("free");
 
+    for (const orderBy of ["-uploadTime", "-relevance"]) {
+      state().setParams({ orderBy });
+      state().resortAiBuffer(orderBy);
+    }
+    expect(state().results.map(image => image?.id)).toEqual(["img-1", "img-0"]);
+    await waitPastCooldown();
+    await state().extendForward();
+    await state().extendBackward();
     await state().fetchAggregations("force");
-    expect(bodiesFor("/images/count")[0].ids).toBe("img-0,img-1");
     expect(bodiesFor("/images/aggregations")[0].ids).toBe("img-0,img-1");
-    expect(state().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
-    expect(state().aggregations?.fields["metadata.credit"].buckets).toEqual([{ key: "metadata.credit-top", count: 3 }]);
     expect((await source.getById("img-0"))?.enrichment?.cost).toBe("pay");
     _resetMetadataCache();
     useSelectionStore.setState({ dataSource: source, selectedIds: new Set(["img-0"]), anchorId: "img-0" });
-    const overlay = useEnrichmentStore.getState().data;
     await useSelectionStore.getState().hydrate();
-    expect(useSelectionStore.getState().metadataCache.get("img-0")?.id).toBe("img-0");
     expect(useEnrichmentStore.getState().data).toBe(overlay);
-    expect(paths()).toEqual(["/images/count", "/images/aggregations", "/images/img-0", "/images/mget"]);
+    expect(paths()).toEqual(["/images", "/images/aggregations", "/images/img-0", "/images/mget"]);
 
-    pageCost = "pay";
     state().setParams({ aiQuery: undefined, query: undefined, orderBy: "-uploadTime" });
     await state().search();
-    expect(state().total).toBe(120_000);
-    expect(state().results[0]?.id).toBe("img-0");
-    expect(deriveImage(state().results[0]!, useEnrichmentStore.getState().data.get("img-0")).cost).toBe("pay");
-    expect(esBodies).toHaveLength(1);
-    expect(aiDelegate).toHaveBeenCalledOnce();
-    expect(embeddings).toBe(1);
-    expect(state().error).toBeNull();
+    expect(state()).toMatchObject({ total: 120_000, aiPoolTotal: null, error: null });
+    expect(useEnrichmentStore.getState().data.get("img-0")).toMatchObject({ cost: "overquota", valid: true });
+    expect(useEnrichmentStore.getState().data.get("img-1")).toMatchObject({ valid: true });
+  });
+
+  it("publishes a successful empty result as an empty overlay with the pool metadata", async () => {
+    let empty = false;
+    useAiApiMode(async () => aiAnswer(empty ? [] : [{ data: (await staff(["img-3"]))[0], actions: [] }], empty ? 0 : 900));
+    state().setParams(aiParams);
+    await state().search();
+    expect(useEnrichmentStore.getState().data.size).toBe(1);
+
+    empty = true;
+    state().setParams({ aiQuery: "nothing matches" });
+    await state().search();
+    expect(state()).toMatchObject({ results: [], total: 0, aiPoolTotal: 0, tickerCounts: { "GNM-owned": { value: 42 } }, error: null, loading: false });
+    expect(useEnrichmentStore.getState().data.size).toBe(0);
+    expect(state().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+  });
+
+  it.each([
+    ["forbidden", () => refusal(403)],
+    ["a conflicting query", () => refusal(422, "invalid-uri-parameters")],
+    ["unavailable", () => new Response(null, { status: 503 })],
+    ["unreachable", () => { throw new TypeError("synthetic transport unavailable"); }],
+  ] as const)("publishes %s AI search as an empty, error-free, quiet absence", async (_label, fail) => {
+    let failing = false;
+    useAiApiMode(async () => failing ? fail() : aiAnswer([{ data: (await staff(["img-3"]))[0], actions: [] }], 900));
+    state().setParams(aiParams);
+    await state().search();
+    expect(state()).toMatchObject({ total: 1, aiPoolTotal: 900 });
+    vi.mocked(console.warn).mockClear();
+    (await import("./toast-store")).useToastStore.getState()._clearAll();
+
+    failing = true;
+    state().setParams({ aiQuery: "refused" });
+    await state().search();
+    expect(state()).toMatchObject({ results: [], total: 0, aiPoolTotal: null, tickerCounts: {}, error: null, loading: false, pitId: null });
+    expect(state().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
+    expect(useEnrichmentStore.getState().data.size).toBe(0);
+    expect(console.warn).not.toHaveBeenCalled();
+    expect(await toasts()).toEqual([]);
+    expect(paths()).toEqual(["/images", "/images"]);
+  });
+
+  it("lets neither a cancelled nor a superseded AI completion change the published result or overlay", async () => {
+    let releaseFirst!: () => void;
+    const firstHeld = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    useAiApiMode(async (query) => {
+      if (query.aiQuery === "first") await firstHeld;
+      return aiAnswer([{ data: (await staff([query.aiQuery === "first" ? "img-5" : "img-6"]))[0], actions: [] }], query.aiQuery === "first" ? 11 : 22);
+    });
+    state().setParams({ ...aiParams, aiQuery: "first" });
+    const first = state().search();
+    await flush();
+    state().setParams({ aiQuery: "second" });
+    await state().search();
+    const published = { results: state().results, overlay: useEnrichmentStore.getState().data };
+    expect(state()).toMatchObject({ total: 1, aiPoolTotal: 22 });
+
+    releaseFirst();
+    await first;
+    await flush();
+    expect(state().results).toBe(published.results);
+    expect(useEnrichmentStore.getState().data).toBe(published.overlay);
+    expect([...published.overlay.keys()]).toEqual(["img-6"]);
+    expect(calls.find(call => call.body.aiQuery === "first")?.signal?.aborted).toBe(true);
+  });
+
+  it("applies the latest sort to a pending same-query completion and restores server order without another request (KUP-008)", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let images: Awaited<ReturnType<typeof staff>> = [];
+    useAiApiMode(async () => {
+      await held;
+      return aiAnswer(images.map(data => ({ data, actions: [] })));
+    });
+    images = await staff(["img-7", "img-2", "img-9"]);
+    const byId = new Map(images.map(image => [image.id, image]));
+    images = ["img-7", "img-2", "img-9"].map(id => byId.get(id)!);
+    const order = images.map(image => image.id);
+    const uploaded = [...images].sort((a, b) => Date.parse(b.uploadTime) - Date.parse(a.uploadTime)).map(image => image.id);
+    expect(uploaded).not.toEqual(order);
+
+    state().setParams(aiParams);
+    const pending = state().search();
+    await flush();
+    state().setParams({ orderBy: "-uploadTime" });
+    state().resortAiBuffer("-uploadTime");
+    release();
+    await pending;
+    expect(state().params.orderBy).toBe("-uploadTime");
+    expect(state().results.map(image => image?.id)).toEqual(uploaded);
+
+    state().setParams({ orderBy: "-relevance" });
+    state().resortAiBuffer("-relevance");
+    expect(state().results.map(image => image?.id)).toEqual(order);
+    expect(paths().filter(path => path === "/images")).toHaveLength(1);
+  });
+
+  it("publishes the same fixed-set pool metadata from direct ES as from media-api", async () => {
+    const published = async () => {
+      await state().search();
+      const { total, aiPoolTotal, tickerCounts, results } = state();
+      return { total, aiPoolTotal, tickerCounts, ids: results.map(image => image?.id) };
+    };
+    const selected = async () => staff(["img-1", "img-0"]);
+
+    useAiApiMode(async () => aiAnswer((await selected()).map(data => ({ data, actions: [] })), 5000));
+    state().setParams(aiParams);
+    const viaApi = await published();
+
+    const images = await selected();
+    const es = new ElasticsearchDataSource();
+    const esBodies: Body[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith("/bedrock/embed?")) return Response.json({ embedding: Array(256).fill(0) });
+      const body = JSON.parse(String(init?.body)) as Body;
+      esBodies.push(body);
+      if (body.knn) return Response.json({ hits: { hits: images.map((image, i) => ({ _id: image.id, _source: image, _score: 1 - i / 10 })) } });
+      return Response.json({ hits: { total: { value: 5000 } }, aggregations: { "GNM-owned": { doc_count: 42 } } });
+    }));
+    useSearchStore.setState({ dataSource: es, aiPoolTotal: null, tickerCounts: null });
+    const viaDirect = await published();
+
+    expect(viaDirect).toEqual(viaApi);
+    expect(viaApi).toMatchObject({ total: 2, aiPoolTotal: 5000, tickerCounts: { "GNM-owned": { value: 42 } } });
+    const poolCount = esBodies.filter(body => body.size === 0);
+    expect(poolCount).toHaveLength(1);
+    expect(JSON.stringify(poolCount[0].query)).not.toContain("img-0");
   });
 });

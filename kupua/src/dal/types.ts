@@ -154,6 +154,16 @@ export interface ImageByIdResult {
   enrichment?: EnrichmentFields;
 }
 
+/**
+ * A fixed, fully loaded AI result (`total === hits.length`, never paged). Every hit carries its
+ * relevance ordinal in `__aiScore`. `aiPoolTotal` and `tickerCounts` describe the whole filtered
+ * pool the hits were ranked from; they are absent when the pool could not be counted.
+ */
+export interface AiSearchResult extends SearchAfterResult {
+  aiPoolTotal?: number;
+  tickerCounts?: Record<string, TickerCountResult>;
+}
+
 export interface AggregationBucket {
   key: string;
   count: number;
@@ -321,16 +331,12 @@ export interface ImageDataSource {
   readonly offsetReadLimit?: number;
 
   /**
-   * Semantic KNN search via Bedrock embeddings.
-   * Extracts `aiQuery:"..."` chip from params.query, fetches a vector from
-   * the Bedrock proxy, and runs a KNN query with the remaining CQL as a
-   * pre-filter. Returns a flat ≤200 result set (total === hits.length).
-   *
-   * Optional — only implemented by ElasticsearchDataSource when the Bedrock
-   * proxy is reachable. Other implementations (e.g. GridApiDataSource) may
-   * add this later or route AI search through a different backend.
+   * Semantic ranking by the separate `aiQuery` text, with the CQL query and URL filters as a hard
+   * pre-filter. Returns at most 200 ranked hits (total === hits.length) plus pool metadata.
+   * Direct ES embeds through the Bedrock proxy and resolves a result or throws. media-api mode
+   * resolves `null` when media-api refuses or is unreachable, so the caller publishes absence.
    */
-  searchByAi?(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult>;
+  searchByAi?(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null>;
 
   /**
    * Close a PIT. Fire-and-forget — errors are logged but not thrown.

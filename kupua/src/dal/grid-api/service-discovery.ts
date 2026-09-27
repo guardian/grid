@@ -37,25 +37,27 @@ const IMAGE_PATH_PREFIX = "/api/images/";
 export class ServiceDiscovery {
   private links = new Map<string, string>();
   private clientConfig: ClientConfig | undefined;
-  private initialised = false;
+  private loading: Promise<boolean> | null = null;
 
   /**
    * Fetches the media-api HATEOAS root and populates service links.
    *
-   * Safe to call multiple times — only fetches on the first call.
-   * On failure: silently swallows the error (graceful API absence directive).
-   * All URL helpers degrade to their default values.
+   * Every caller shares one read, started by the first call, and resolves once it settles:
+   * `true` when the root loaded (a missing relation is then genuinely absent), `false` when it
+   * failed. A failed read is not retried until reload (graceful API absence directive).
    */
-  async init(signal?: AbortSignal): Promise<void> {
-    if (this.initialised) return;
-    this.initialised = true;
+  init(signal?: AbortSignal): Promise<boolean> {
+    this.loading ??= this.load(signal);
+    return this.loading;
+  }
 
+  private async load(signal?: AbortSignal): Promise<boolean> {
     try {
       const resp = await fetch(ROOT_PROXY_PATH, {
         credentials: "include",
         signal,
       });
-      if (!resp.ok) return; // 401/403/5xx — leave links empty, graceful absence
+      if (!resp.ok) return false; // 401/403/5xx — leave links empty, graceful absence
 
       const root = (await resp.json()) as RootResponse;
       for (const link of root.links ?? []) {
@@ -66,8 +68,10 @@ export class ServiceDiscovery {
       // baked into the Play template. Phase A stubs this as undefined.
       // TODO (Cluster 1): determine the actual fetch source for clientConfig and
       // wire it up here. The PROD/TEST shapes are captured in types.ts.
+      return true;
     } catch {
-      // Network failure or AbortError — leave links empty, UI degrades gracefully.
+      // Network failure, unreadable body or AbortError — leave links empty, UI degrades gracefully.
+      return false;
     }
   }
 

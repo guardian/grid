@@ -30,6 +30,7 @@ import type {
   SortDistribution,
   SortDistBucket,
   SearchAfterResult,
+  AiSearchResult,
   TickerCountResult,
   FilterAggRequest,
   UsageFilterAggRequest,
@@ -76,6 +77,11 @@ import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-
 const AGG_FIELDS = FIELD_REGISTRY
   .filter((f) => f.aggregatable && f.esSearchPath && typeof f.esSearchPath === "string")
   .map((f) => ({ field: f.esSearchPath as string, size: AGG_DEFAULT_SIZE }));
+
+/** A refused or unreachable media-api AI search: publish an empty, error-free result with no pool or overlay. */
+function absentAiResult(): AiSearchResult {
+  return { hits: [], total: 0, sortValues: [], tickerCounts: {}, enrichment: new Map() };
+}
 
 function sortAiResults(results: Image[], orderBy: string): Image[] {
   const desc = orderBy.startsWith("-");
@@ -283,6 +289,11 @@ interface SearchState {
   tickerCounts: Record<string, TickerCountResult> | null;
   /** ISO timestamp of the last tickerCounts update. Drives tooltip "last updated X ago". */
   tickersLastUpdated: string | null;
+  /**
+   * Size of the filtered pool the current AI result was ranked from (`total` is the returned
+   * hit count). Null outside AI results and when the pool could not be counted.
+   */
+  aiPoolTotal: number | null;
 
   // Track in-flight extend operations to avoid duplicates
   _extendForwardInFlight: boolean;
@@ -2001,6 +2012,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   newCountSince: null,
   tickerCounts: null,
   tickersLastUpdated: null,
+  aiPoolTotal: null,
   _extendForwardInFlight: false,
   _extendBackwardInFlight: false,
   _lastPrependCount: 0,
@@ -2132,7 +2144,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // and would clobber the phantom snapshot with the leaked focus on
     // the next departure-capture. See
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
     if (import.meta.env.DEV) {
       _searchLifecycle = {
         ..._searchLifecycle,
@@ -2203,8 +2215,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
       try {
-        const aiResult = await dataSource.searchByAi(params, signal);
-        if (_searchGeneration !== myGeneration) return;
+        const aiResult = await dataSource.searchByAi(params, signal) ?? absentAiResult();
+        if (_searchGeneration !== myGeneration || signal.aborted) return;
+        if (aiResult.hits.some((image) => !Number.isFinite(image.__aiScore))) {
+          throw new Error("AI search result is missing its relevance order");
+        }
 
         const currentParams = get().params;
         const completionParams = aggCacheKey(currentParams) === aggCacheKey(params)
@@ -2232,12 +2247,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _searchLifecycle = { ..._searchLifecycle, orderBy: completionParams.orderBy ?? null };
         }
         if (aiHits.length === 0) cancelAggregationFetch();
+        // The AI result owns the overlay: exactly its images' current fields, or none.
+        useEnrichmentStore.getState().setEnrichment(aiResult.enrichment ?? new Map());
         set({
           results: aiHits,
           ...(aiHits.length === 0 ? emptyAggregationState() : {}),
           bufferOffset: 0,
           _bufferSelfCorrecting: false,
           total: aiHits.length, // KEY invariant: total === buffer size → no pagination
+          aiPoolTotal: aiResult.aiPoolTotal ?? null,
           loading: false,
           took: aiResult.took ?? null,
           seekTime: null,
@@ -2250,8 +2268,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _focusedImageKnownOffset: null,
           newCount: 0,
           newCountSince: now,
-          tickerCounts: null,
-          tickersLastUpdated: null,
+          tickerCounts: aiResult.tickerCounts ?? null,
+          tickersLastUpdated: aiResult.tickerCounts ? now : null,
           _arrivingImageIds: new Set(),
           _extendForwardInFlight: false,
           _extendBackwardInFlight: false,
@@ -2272,21 +2290,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
         }
 
-        // Ticker counts scoped to the AI result set (same path as normal search,
-        // but params are decorated to scope to the ≤200 result IDs).
-        const decorated = decorateParamsForAggregations(
-          params,
-          aiHits.map((h) => h.id),
-        );
-        if (decorated) {
-          dataSource.countWithTickers(decorated).then((result) => {
-            if (_searchGeneration !== myGeneration) return;
-            set({ tickerCounts: result.tickerCounts, tickersLastUpdated: new Date().toISOString() });
-          }).catch(() => { /* AbortError or network — tickers are non-critical */ });
-        } else {
-          set({ tickerCounts: {}, tickersLastUpdated: now });
-        }
-
         // Do NOT start new-images poll — AI results are ranked by relevance;
         // new uploads don't change the semantic ranking.
         _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
@@ -2298,7 +2301,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         if (errMsg.includes("503")) {
           addToast({ category: "error", message: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." });
         }
-        set({ loading: false, error: errMsg });
+        set({ loading: false, error: errMsg, aiPoolTotal: null });
       }
       return;
     }

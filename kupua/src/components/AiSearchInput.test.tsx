@@ -4,14 +4,14 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setBedrockAvailable } from "@/lib/grid-config";
+import { setAiSearchAvailable } from "@/lib/grid-config";
 import { AiSearchInput } from "./AiSearchInput";
 
 describe("AiSearchInput", () => {
-  beforeEach(() => setBedrockAvailable(true));
+  beforeEach(() => setAiSearchAvailable(true));
   afterEach(() => {
     cleanup();
-    setBedrockAvailable(false);
+    setAiSearchAvailable(false);
   });
 
   it("disables activation while a collection filter is active", () => {

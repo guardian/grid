@@ -245,23 +245,23 @@ export const gridConfig = {
 } as const;
 
 /**
- * Runtime availability flag for Bedrock AI search.
- * Set to true by the health check in main.tsx on app startup.
+ * Runtime availability flag for AI search, set once by main.tsx at startup: media-api's
+ * `ai-search` capability in media-api mode, the Bedrock proxy health check otherwise.
  * Readable by any UI component that needs to gate AI search features.
  */
-export let bedrockAvailable = false;
+export let aiSearchAvailable = false;
 
-const _bedrockListeners = new Set<(v: boolean) => void>();
+const _aiSearchListeners = new Set<(v: boolean) => void>();
 
-/** Subscribe to bedrockAvailable changes. Returns an unsubscribe function. */
-export function subscribeBedrockAvailable(fn: (v: boolean) => void): () => void {
-  _bedrockListeners.add(fn);
-  return () => _bedrockListeners.delete(fn);
+/** Subscribe to aiSearchAvailable changes. Returns an unsubscribe function. */
+export function subscribeAiSearchAvailable(fn: (v: boolean) => void): () => void {
+  _aiSearchListeners.add(fn);
+  return () => _aiSearchListeners.delete(fn);
 }
 
-/** Called once at startup by main.tsx after the health probe resolves. */
-export function setBedrockAvailable(value: boolean): void {
-  bedrockAvailable = value;
-  _bedrockListeners.forEach((fn) => fn(value));
+/** Called once at startup by main.tsx after the availability probe resolves. */
+export function setAiSearchAvailable(value: boolean): void {
+  aiSearchAvailable = value;
+  _aiSearchListeners.forEach((fn) => fn(value));
 }
 

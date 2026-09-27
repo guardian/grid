@@ -464,7 +464,7 @@ describe("mounted range ownership", () => {
     const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: [{ data: {
       id: "img-0", uploadTime, ...(aliasValue === undefined ? {} : { aliases: { [alias.alias]: aliasValue } }),
     } }] })));
-    const apiSource = new ApiDataSource(source);
+    const apiSource = new ApiDataSource();
     _resetMetadataCache();
     useSearchStore.setState({ params: { orderBy: alias.alias } });
     useSelectionStore.setState({ dataSource: apiSource });
@@ -486,7 +486,7 @@ describe("mounted range ownership", () => {
   ))("U6z publishes no partial API range after a later $kind page with $owner ownership", async ({ kind, owner }) => {
     const fallbackWalk = vi.spyOn(source, "getIdRange");
     const fallbackHydration = vi.spyOn(source, "getByIds");
-    useSelectionStore.setState({ dataSource: new ApiDataSource(source) });
+    useSelectionStore.setState({ dataSource: new ApiDataSource() });
     useSearchStore.setState({ params: { orderBy: "-uploadTime", nonFree: "true" } });
     const secondPage = deferred<Response>();
     const secondStarted = deferred<void>();

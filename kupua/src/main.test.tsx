@@ -13,7 +13,18 @@ vi.hoisted(() => {
   Object.defineProperty(document, "execCommand", { configurable: true, value: vi.fn(() => false) });
 });
 
-const startup = vi.hoisted(() => ({ render: vi.fn() }));
+const startup = vi.hoisted(() => ({ render: vi.fn(), esConstructed: 0 }));
+
+vi.mock("./dal/es-adapter", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./dal/es-adapter")>();
+  class CountedElasticsearchDataSource extends actual.ElasticsearchDataSource {
+    constructor() {
+      super();
+      startup.esConstructed++;
+    }
+  }
+  return { ...actual, ElasticsearchDataSource: CountedElasticsearchDataSource };
+});
 
 vi.mock("@guardian/cql", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@guardian/cql")>();
@@ -63,12 +74,15 @@ it("U6z initializes API ownership before imports, including main's collection lo
   const { useSearchStore } = await import("./stores/search-store");
   const { useSelectionStore } = await import("./stores/selection-store");
   const { useCollectionStore } = await import("./stores/collection-store");
-  const { ApiDataSource, DEVELOPMENT_FALLBACK_METHODS } = await import("./dal/api-data-source");
+  const { ApiDataSource } = await import("./dal/api-data-source");
   const source = useSearchStore.getState().dataSource;
 
   expect(source).toBeInstanceOf(ApiDataSource);
-  expect(DEVELOPMENT_FALLBACK_METHODS).toEqual(["searchByAi"]);
-  expect(source.searchByAi).toBeTypeOf("function");
+  expect(source.searchByAi).toBe(ApiDataSource.prototype.searchByAi);
+  expect(startup.esConstructed).toBe(0);
+  await vi.waitFor(() => expect(calls.filter(({ path }) => path === "/api")).toHaveLength(1));
+  expect(calls.filter(({ path }) => path.startsWith("/bedrock"))).toEqual([]);
+  expect((await import("./lib/grid-config")).aiSearchAvailable).toBe(false);
   expect(useSelectionStore.getState().dataSource).toBe(source);
   expect(startup.render).toHaveBeenCalledOnce();
   await vi.waitFor(() => expect(useCollectionStore.getState().status).toBe("ready"));

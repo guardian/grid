@@ -1,16 +1,16 @@
 /**
- * ApiDataSource — Kupua's ordered image reads through media-api (VITE_USE_MEDIA_API=true).
+ * ApiDataSource — Kupua's image reads through media-api (VITE_USE_MEDIA_API=true).
  *
  * Pages, ranks, sort profiles, position maps, range walks, counts, aggregations and images by ID use
- * media-api's POST endpoints; standalone images use GET /images/:id.
+ * media-api's POST endpoints; standalone images use GET /images/:id and AI search GET /images.
  * Walk loops and their caps stay here; each call is one bounded server read. No PIT is opened.
- * Migrated reads never fall back to Elasticsearch. Reads not yet migrated use the development
- * fallback listed in DEVELOPMENT_FALLBACK_METHODS, which shrinks to empty as the build proceeds.
+ * No read falls back to Elasticsearch or Bedrock.
  */
 
 import type {
   AggregationRequest,
   AggregationsResult,
+  AiSearchResult,
   CountWithTickersResult,
   FilterAggRequest,
   ImageDataSource,
@@ -29,16 +29,11 @@ import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { chooseDateHistogramInterval, sortValuesStrictlyAfter } from "./es-adapter";
-import { apiGetByIds, apiGetImage, apiImageWindow, apiSearchAfter, buildReadBody, postImageRead, SearchAfterApiError } from "./grid-api-search-adapter";
+import { apiGetByIds, apiGetImage, apiImageWindow, apiSearchAfter, apiSearchByAi, buildReadBody, postImageRead, SearchAfterApiError } from "./grid-api-search-adapter";
 import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 
 /** media-api's window refuses start offsets at or above this; deeper positions use cursor reads. */
 export const API_WINDOW_OFFSET_LIMIT = 10_000;
-
-/** Reads still served by the development fallback until later build units migrate them. */
-export const DEVELOPMENT_FALLBACK_METHODS = [
-  "searchByAi",
-] as const;
 
 type KeywordPage = { buckets: Array<{ key: string | number; count: number }>; after: string | number | null; coveredCount?: number };
 type KeyPage = { keys: Array<{ id: string; sortValues: SortValues }>; after: SortValues | null };
@@ -76,10 +71,9 @@ function yieldToMain(): Promise<void> {
 
 export class ApiDataSource implements ImageDataSource {
   readonly offsetReadLimit = API_WINDOW_OFFSET_LIMIT;
-  searchByAi?: ImageDataSource["searchByAi"];
 
-  constructor(developmentFallback: ImageDataSource) {
-    if (developmentFallback.searchByAi) this.searchByAi = developmentFallback.searchByAi.bind(developmentFallback);
+  searchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null> {
+    return apiSearchByAi(params, signal);
   }
 
   getByIds(ids: string[], signal?: AbortSignal) { return apiGetByIds(ids, signal); }

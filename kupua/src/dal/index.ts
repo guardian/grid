@@ -7,6 +7,7 @@ export type {
   ImageDataSource,
   SearchParams,
   SearchAfterResult,
+  AiSearchResult,
   SortValues,
   AggregationResult,
   AggregationBucket,
@@ -28,14 +29,13 @@ import { ElasticsearchDataSource } from "./es-adapter";
 import { ApiDataSource } from "./api-data-source";
 
 /**
- * Factory: returns an ApiDataSource (ordered reads through media-api, the rest through the
- * development fallback) when VITE_USE_MEDIA_API=true, otherwise a plain ElasticsearchDataSource.
+ * Factory: an ApiDataSource (every read through media-api) when VITE_USE_MEDIA_API=true,
+ * otherwise a plain ElasticsearchDataSource. API mode constructs no Elasticsearch data source.
  */
 export function createDataSource() {
-  const es = new ElasticsearchDataSource();
   if (import.meta.env.VITE_USE_MEDIA_API === "true") {
-    return new ApiDataSource(es);
+    return new ApiDataSource();
   }
-  return es;
+  return new ElasticsearchDataSource();
 }
 

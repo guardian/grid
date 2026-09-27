@@ -138,7 +138,8 @@ test.describe("KUP-014 deferred producer ownership", () => {
       let aiCalls = 0;
       source.searchByAi = async () => {
         aiCalls++;
-        const hits = await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`));
+        const hits = (await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`)))
+          .map((image: any, index: number) => ({ ...image, __aiScore: 20 - index }));
         return { hits, total: hits.length, sortValues: hits.map((image: any) => [1, image.id]) };
       };
       const store = (window as any).__kupua_store__;
@@ -1332,7 +1333,8 @@ test.describe("kupuaKey — per-entry identity", () => {
         const { MockDataSource } = await import(mockPath);
         const source = new MockDataSource(20);
         source.searchByAi = async () => {
-          const hits = await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`));
+          const hits = (await source.getByIds(Array.from({ length: 20 }, (_, index) => `img-${index}`)))
+            .map((image: any, index: number) => ({ ...image, __aiScore: 20 - index }));
           return {
             hits,
             total: hits.length,

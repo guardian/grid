@@ -27,3 +27,11 @@ export const gridApi = new GridApiDataSource(discovery);
 export async function initGridApi(signal?: AbortSignal): Promise<void> {
   await discovery.init(signal);
 }
+
+/**
+ * Whether media-api advertises text AI search (the root `ai-search` relation). Waits for the
+ * shared root read; a failed root reads as unavailable for the session.
+ */
+export async function apiAiSearchAvailable(): Promise<boolean> {
+  return (await discovery.init()) && discovery.getLink("ai-search") !== undefined;
+}

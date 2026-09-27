@@ -128,8 +128,8 @@ describe("KUP-005 result-scoped AI transport", () => {
   const originalState = useSearchStore.getState();
   const field = "metadata.credit";
   const stale = { buckets: [{ key: "outside-membership", count: 99 }], total: 99 };
-  const hits = ["img-1", "img-0"].map((id) => ({
-    id, uploadTime: "2026-01-01T00:00:00Z", _score: 1,
+  const hits = ["img-1", "img-0"].map((id, i) => ({
+    id, uploadTime: "2026-01-01T00:00:00Z", __aiScore: 2 - i,
   }) as unknown as Image);
 
   beforeEach(() => {
@@ -158,17 +158,16 @@ describe("KUP-005 result-scoped AI transport", () => {
 
   afterEach(() => useSearchStore.setState(originalState, true));
 
-  it("empty AI completion publishes no pool ticker counts and issues no count transport", async () => {
+  it("empty AI completion without pool metadata publishes no ticker counts and issues no count transport", async () => {
     vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
     await useSearchStore.getState().search();
     await Promise.resolve();
     expect(global.fetch).not.toHaveBeenCalled();
-    expect(useSearchStore.getState()).toMatchObject({ total: 0, tickerCounts: {}, loading: false });
+    expect(useSearchStore.getState()).toMatchObject({ total: 0, tickerCounts: null, aiPoolTotal: null, loading: false });
     expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
     expect(useSearchStore.getState().dynamicFacetBuckets).toEqual({});
     expect(useSearchStore.getState().isFilterCounts).toEqual({});
     expect(useSearchStore.getState().usageFilterCounts).toEqual({});
-    expect(useSearchStore.getState().tickerCounts).toEqual({});
   });
 
   it.each(["immediate", "force"] as const)("known-empty %s facets clear stale data without static or dynamic transport", async (mode) => {
@@ -197,12 +196,14 @@ describe("KUP-005 result-scoped AI transport", () => {
     expect(useSearchStore.getState().expandedAggsLoading.size).toBe(0);
   });
 
-  it("preserves membership through count, ordinary and expanded transports and reuses sorted-set cache", async () => {
+  it("preserves membership through ordinary and expanded facet transports, issues no AI count, and reuses sorted-set cache", async () => {
     vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits, total: hits.length, sortValues: [] });
+    const counts = vi.spyOn(ds, "countWithTickers");
     await useSearchStore.getState().search();
     await useSearchStore.getState().fetchAggregations("immediate");
     await useSearchStore.getState().fetchExpandedAgg(field);
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(counts).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
     for (const [, options] of vi.mocked(global.fetch).mock.calls) {
       const body = JSON.parse(options?.body as string);
       expect(JSON.stringify(body.query)).toContain('"img-0","img-1"');
@@ -210,7 +211,7 @@ describe("KUP-005 result-scoped AI transport", () => {
     useSearchStore.setState({ results: [...useSearchStore.getState().results].reverse() });
     await useSearchStore.getState().fetchAggregations("immediate");
     await useSearchStore.getState().fetchExpandedAgg(field);
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it("transitions nonempty to empty to non-AI without reusing stale scope or redefining ordinary empty ids", async () => {
@@ -223,7 +224,7 @@ describe("KUP-005 result-scoped AI transport", () => {
     await useSearchStore.getState().search();
     await useSearchStore.getState().fetchAggregations("immediate");
     expect(global.fetch).toHaveBeenCalledTimes(priorCalls);
-    expect(useSearchStore.getState().tickerCounts).toEqual({});
+    expect(useSearchStore.getState().tickerCounts).toBeNull();
     expect(useSearchStore.getState().aggregations?.fields).toEqual({});
     useSearchStore.getState().setParams({ aiQuery: undefined, ids: "" });
     await useSearchStore.getState().fetchAggregations("immediate");
@@ -235,33 +236,30 @@ describe("KUP-005 result-scoped AI transport", () => {
     expect(JSON.stringify(lastBody.query)).not.toContain('"img-0"');
   });
 
-  it("empty to nonempty membership resumes bounded counts and facets", async () => {
+  it("empty to nonempty membership resumes bounded facets, with tickers owned by the AI result", async () => {
     const ai = vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
     await useSearchStore.getState().search();
     await useSearchStore.getState().fetchAggregations("immediate");
     expect(global.fetch).not.toHaveBeenCalled();
-    ai.mockResolvedValue({ hits, total: 2, sortValues: [] });
+    ai.mockResolvedValue({ hits, total: 2, sortValues: [], aiPoolTotal: 99, tickerCounts: { "GNM-owned": { value: 7 } } });
     await useSearchStore.getState().search();
     await useSearchStore.getState().fetchAggregations("immediate");
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(useSearchStore.getState().aggregations?.fields[field]).toEqual(stale);
-    expect(useSearchStore.getState().tickerCounts?.["GNM-owned"].value).toBe(99);
+    expect(useSearchStore.getState().tickerCounts).toEqual({ "GNM-owned": { value: 7 } });
+    expect(useSearchStore.getState().aiPoolTotal).toBe(99);
   });
 
-  it("a late previous membership count cannot overwrite the empty completion", async () => {
-    let release!: (response: Response) => void;
-    const pending = new Promise<Response>((resolve) => { release = resolve; });
-    vi.mocked(global.fetch).mockReturnValueOnce(pending);
+  it("AI completions issue no membership count, so none can arrive late over a newer completion", async () => {
     const counts = vi.spyOn(ds, "countWithTickers");
     const ai = vi.spyOn(ds, "searchByAi").mockResolvedValue({ hits, total: 2, sortValues: [] });
     await useSearchStore.getState().search();
-    const oldCount = counts.mock.results[0].value;
     ai.mockResolvedValue({ hits: [], total: 0, sortValues: [] });
     await useSearchStore.getState().search();
-    release(okResponse({ hits: { total: { value: 99 } }, aggregations: { "GNM-owned": { doc_count: 99 } } }));
-    await oldCount;
-    expect(counts).toHaveBeenCalledTimes(1);
-    expect(useSearchStore.getState().tickerCounts).toEqual({});
+    await Promise.resolve();
+    expect(counts).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(useSearchStore.getState().tickerCounts).toBeNull();
   });
 
   it("a forced facet request started during pending AI cannot overwrite empty completion", async () => {
@@ -292,7 +290,7 @@ describe("KUP-005 result-scoped AI transport", () => {
     await refresh;
     expect(useSearchStore.getState().aggregations).toEqual({ fields: {}, filters: {}, usageFilters: {} });
     expect(useSearchStore.getState().dynamicFacetBuckets).toEqual({});
-    expect(useSearchStore.getState().tickerCounts).toEqual({});
+    expect(useSearchStore.getState().tickerCounts).toBeNull();
     expect(useSearchStore.getState().isFilterCounts).toEqual({});
     expect(useSearchStore.getState().usageFilterCounts).toEqual({});
     expect(useSearchStore.getState().aggLoading).toBe(false);
@@ -1248,6 +1246,7 @@ describe("searchByAi", () => {
   beforeEach(() => {
     vi.mocked(getEmbedding).mockClear();
     vi.mocked(getEmbedding).mockResolvedValue(FAKE_EMBEDDING);
+    vi.spyOn(ds, "countWithTickers").mockResolvedValue({ count: 0, tickerCounts: {} });
   });
 
   it("builds a KNN query with the AI text and returns mapped results", async () => {
@@ -1318,6 +1317,66 @@ describe("searchByAi", () => {
     expect(result.total).toBe(result.hits.length);
   });
 
+  it("counts the undecorated prefilter pool once, alongside the KNN, and returns it with the hits", async () => {
+    const pool = { count: 5000, tickerCounts: { "GNM-owned": { value: 42 } } };
+    let releaseCount!: (value: typeof pool) => void;
+    const counts = vi.spyOn(ds, "countWithTickers").mockReturnValue(new Promise((resolve) => { releaseCount = resolve; }));
+    let releaseKnn!: (response: Response) => void;
+    vi.mocked(global.fetch).mockReturnValueOnce(new Promise((resolve) => { releaseKnn = resolve; }));
+    const params = { orderBy: "-uploadTime", aiQuery: "storm", query: "credit:EPA" };
+
+    const pending = ds.searchByAi(params);
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(counts).toHaveBeenCalledOnce());
+    expect(counts).toHaveBeenCalledWith(params);
+    releaseKnn(okResponse(knnSearchResponse(["img-1", "img-2"])));
+    releaseCount(pool);
+
+    await expect(pending).resolves.toMatchObject({ total: 2, aiPoolTotal: 5000, tickerCounts: pool.tickerCounts });
+    expect(counts).toHaveBeenCalledOnce();
+  });
+
+  it.each(["1", "0.5"])("starts the pool count before the embedding resolves (vecWeight %s)", async (vecWeight) => {
+    const counts = vi.spyOn(ds, "countWithTickers").mockResolvedValue({ count: 5000, tickerCounts: {} });
+    let releaseEmbedding!: (value: number[]) => void;
+    vi.mocked(getEmbedding).mockReturnValueOnce(new Promise((resolve) => { releaseEmbedding = resolve; }));
+    if (vecWeight !== "1") vi.mocked(global.fetch).mockResolvedValueOnce(okResponse({ hits: { max_score: 2 } }));
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(knnSearchResponse(["img-1"])));
+
+    const pending = ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "storm", vecWeight });
+    await vi.waitFor(() => expect(getEmbedding).toHaveBeenCalledOnce());
+    expect(counts).toHaveBeenCalledOnce();
+    releaseEmbedding(FAKE_EMBEDDING);
+
+    await expect(pending).resolves.toMatchObject({ aiPoolTotal: 5000 });
+    expect(counts).toHaveBeenCalledOnce();
+  });
+
+  it("rejects as aborted when aborted while the pool count is still pending", async () => {
+    let releaseCount!: (value: { count: number; tickerCounts: Record<string, never> }) => void;
+    vi.spyOn(ds, "countWithTickers").mockReturnValue(new Promise((resolve) => { releaseCount = resolve; }));
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(knnSearchResponse(["img-1"])));
+    const controller = new AbortController();
+
+    const pending = ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "storm" }, controller.signal);
+    await vi.waitFor(() => expect(global.fetch).toHaveBeenCalledOnce());
+    controller.abort();
+    releaseCount({ count: 5000, tickerCounts: {} });
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("returns the hits without pool metadata when the pool count fails", async () => {
+    vi.spyOn(ds, "countWithTickers").mockRejectedValue(new Error("count unavailable"));
+    vi.mocked(global.fetch).mockResolvedValueOnce(okResponse(knnSearchResponse(["img-1"])));
+
+    const result = await ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "storm" });
+
+    expect(result.hits).toHaveLength(1);
+    expect(result).not.toHaveProperty("aiPoolTotal");
+    expect(result).not.toHaveProperty("tickerCounts");
+  });
+
   it("propagates getEmbedding errors (Bedrock unavailable)", async () => {
     vi.mocked(getEmbedding).mockRejectedValue(new Error("Bedrock 503"));
 
@@ -1325,8 +1384,9 @@ describe("searchByAi", () => {
       ds.searchByAi({ orderBy: "-uploadTime", aiQuery: "test" }),
     ).rejects.toThrow("Bedrock 503");
 
-    // No ES request should have been made
+    // No ranked ES request; the pool count has already started, by design
     expect(vi.mocked(global.fetch)).not.toHaveBeenCalled();
+    expect(ds.countWithTickers).toHaveBeenCalledOnce();
   });
 
   it("falls back to searchAfter when no aiQuery chip present", async () => {

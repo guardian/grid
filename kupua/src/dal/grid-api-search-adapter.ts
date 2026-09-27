@@ -1,12 +1,13 @@
 /**
  * Request mapping and transport for media-api's image reads
- * (POST /images/search-after, /window, /rank, /sort-profile, /keys, /mget; GET /images/:id).
+ * (POST /images/search-after, /window, /rank, /sort-profile, /keys, /mget; GET /images/:id;
+ * GET /images AI search).
  *
  * Used by ApiDataSource when VITE_USE_MEDIA_API=true.
  */
 
 import type { Image } from "@/types/image";
-import type { ImageByIdResult, SearchAfterResult, SearchParams, SortValues } from "./types";
+import type { AiSearchResult, ImageByIdResult, SearchAfterResult, SearchParams, SortValues, TickerCountResult } from "./types";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
@@ -22,6 +23,15 @@ type ImagePageResponse = {
 type SearchAfterApiResponse = ImagePageResponse & { total: number };
 
 type ImageWindowApiResponse = ImagePageResponse & { total?: number; offset: number; rawHitCount: number };
+
+type AiSearchApiResponse = {
+  data: ImagePageResponse["data"];
+  total: number;
+  actions?: { tickerCounts?: Record<string, TickerCountResult> };
+};
+
+/** Kupua's fixed AI result size, as in direct mode. */
+const AI_RESULT_LIMIT = 200;
 
 /**
  * Maps the API image response (ImageData with Argo-wrapped fields) to the
@@ -293,5 +303,63 @@ export async function apiImageWindow(params: SearchParams, pitId: string | null 
     pitId: json.pitId ?? null,
     fetchDuration: Date.now() - t0,
     enrichment,
+  };
+}
+
+/** A finite vecWeight in [0, 1], formatted canonically; anything else is omitted so media-api's default applies. */
+function canonicalVecWeight(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const weight = Number(raw);
+  return Number.isFinite(weight) && weight >= 0 && weight <= 1 ? String(weight) : undefined;
+}
+
+/** GET /images AI query: `q` (with the default-hide clauses) and the request filters filter; `aiQuery` ranks. */
+function aiSearchQuery(params: SearchParams): URLSearchParams {
+  const { q, orderBy: _orderBy, sort: _sort, ...filters } = buildReadBody(params);
+  const query = new URLSearchParams({
+    useAISearch: "true",
+    q: String(q),
+    aiQuery: params.aiQuery ?? "",
+    length: String(AI_RESULT_LIMIT),
+  });
+  for (const [name, value] of Object.entries(filters)) query.set(name, String(value));
+  const vecWeight = canonicalVecWeight(params.vecWeight);
+  if (vecWeight !== undefined) query.set("vecWeight", vecWeight);
+  return query;
+}
+
+/**
+ * Text AI search through media-api: canonical images and current overlays in server order, each
+ * given a descending relevance ordinal, with the filtered pool's total and tickers. Resolves
+ * `null` when media-api refuses (any non-2xx) or is unreachable; never falls back elsewhere.
+ */
+export async function apiSearchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null> {
+  const t0 = Date.now();
+  let json: AiSearchApiResponse;
+  try {
+    const res = await fetchImageRead(`/api/images?${aiSearchQuery(params)}`, {}, signal);
+    if (!res.ok) return null;
+    json = await readJson(res, signal) as AiSearchApiResponse;
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (error instanceof SearchAfterApiError || error instanceof SyntaxError) return null;
+    throw error;
+  }
+
+  const { hits, enrichment } = decodeImagePage(json.data);
+  const ranked = hits.map((image, index) => ({ ...image, __aiScore: hits.length - index }));
+  const tickerCounts: Record<string, TickerCountResult> = {};
+  for (const [name, { value, subCounts }] of Object.entries(json.actions?.tickerCounts ?? {})) {
+    tickerCounts[name] = subCounts ? { value, subCounts } : { value };
+  }
+  return {
+    hits: ranked,
+    total: ranked.length,
+    sortValues: ranked.map((image) => [image.__aiScore, image.id]),
+    pitId: null,
+    fetchDuration: Date.now() - t0,
+    enrichment,
+    aiPoolTotal: json.total,
+    tickerCounts,
   };
 }

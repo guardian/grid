@@ -7,7 +7,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiDataSource } from "./api-data-source";
-import type { ImageDataSource, SearchParams, SortValues } from "./types";
+import type { SearchParams, SortValues } from "./types";
 
 const GOLDEN_DIR = "../../../media-api/test/resources/ordered-read-bodies";
 const DAY = 86_400_000;
@@ -36,7 +36,7 @@ function captureBodies(): Body[] {
   return bodies;
 }
 
-const ds = new ApiDataSource({} as ImageDataSource);
+const ds = new ApiDataSource();
 const base = (orderBy?: string): SearchParams => ({ orderBy, nonFree: "true", until: "2030-01-01T00:00:00.000Z", length: 200 });
 const signal = () => new AbortController().signal;
 

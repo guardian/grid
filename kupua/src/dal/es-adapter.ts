@@ -16,6 +16,7 @@ import type {
   SearchParams,
   SearchResult,
   SearchAfterResult,
+  AiSearchResult,
   SortValues,
   AggregationResult,
   AggregationRequest,
@@ -1103,8 +1104,10 @@ export class ElasticsearchDataSource implements ImageDataSource {
    * Returns a flat ≤200 result set where `total === hits.length` (the critical
    * invariant that prevents the store from opening PITs or triggering
    * scroll-mode fill or position-map fetch). See zz Archive/ai-search-workplan.md §9.2.
+   * The whole pre-filter pool is counted (with tickers) from the start, alongside the
+   * embedding and ranked requests; a failed count leaves the pool metadata absent.
    */
-  async searchByAi(params: SearchParams, signal?: AbortSignal): Promise<SearchAfterResult> {
+  async searchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult> {
     const aiText = params.aiQuery;
 
     // If no aiQuery param, fall back to a regular first-page search.
@@ -1113,6 +1116,8 @@ export class ElasticsearchDataSource implements ImageDataSource {
     if (!aiText) {
       return this.searchAfter(params, null, null, signal);
     }
+
+    const poolRequest = this.countWithTickers(params).catch(() => null);
 
     // Parse vecWeight — default 1.0 (pure KNN, matches Kahuna default).
     const rawVec = parseFloat(params.vecWeight ?? "1");
@@ -1222,13 +1227,18 @@ export class ElasticsearchDataSource implements ImageDataSource {
       body._source = { includes: SOURCE_INCLUDES };
     }
 
-    const result = (await this.esRequest("_search", body, signal)) as {
-      took?: number;
-      hits: {
-        total?: { value: number };
-        hits: Array<{ _id: string; _source: Image; _score: number }>;
-      };
-    };
+    const [result, pool] = await Promise.all([
+      this.esRequest("_search", body, signal) as Promise<{
+        took?: number;
+        hits: {
+          total?: { value: number };
+          hits: Array<{ _id: string; _source: Image; _score: number }>;
+        };
+      }>,
+      poolRequest,
+    ]);
+    // The count takes no signal, so an abort during it must be honoured here.
+    signal?.throwIfAborted();
 
     const rawHits = result.hits.hits;
     // Attach __aiScore (kupua-internal; not from ES _source) for relevance sort in Phase 1c.
@@ -1248,6 +1258,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
       took: result.took,
       sortValues,
       pitId: null,
+      ...(pool ? { aiPoolTotal: pool.count, tickerCounts: pool.tickerCounts } : {}),
     };
   }
 

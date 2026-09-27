@@ -60,6 +60,7 @@ const SB_NEW_KEY = "kupua-sb-new";
 
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
+  const aiPoolTotal = useSearchStore((s) => s.aiPoolTotal);
   const newCount = useSearchStore((s) => s.newCount);
   const tickerCounts = useSearchStore((s) => s.tickerCounts);
   const tickersLastUpdated = useSearchStore((s) => s.tickersLastUpdated);
@@ -90,6 +91,8 @@ export function StatusBar() {
   const storeReady = !isInitialLoad;
   const displayTotal = storeReady ? total : cached.total;
   const displayNewCount = storeReady ? newCount : cached.newCount;
+  // AI results show the pool they were ranked from; never paired with a cached total.
+  const displayPool = storeReady && total > 0 ? aiPoolTotal : null;
   const newCountSince = useSearchStore((s) => s.newCountSince);
   const reSearch = useSearchStore((s) => s.search);
   const searchParams = useSearch({ from: "/search" });
@@ -157,7 +160,10 @@ export function StatusBar() {
            only if > 0 (avoids blank-then-number flash on first load). */}
       {(storeReady || displayTotal > 0) && (
         <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text">
-          {displayTotal.toLocaleString()}<span className="hidden @[500px]:inline">&nbsp;matches</span>
+          {displayPool !== null && "Best "}
+          {displayTotal.toLocaleString()}
+          {displayPool !== null && ` of ${displayPool.toLocaleString()}`}
+          <span className="hidden @[500px]:inline">&nbsp;matches</span>
         </span>
       )}
 
@@ -197,7 +203,7 @@ export function StatusBar() {
             Mirrors Kahuna's ng-repeat tickerCounts badges in results.html. */}
         {tickerCounts && gridConfig.tickerDefinitions.map((def) => {
           const ticker = tickerCounts[def.name];
-          if (!ticker || ticker.value === 0 || ticker.value === total) return null;
+          if (!ticker || ticker.value === 0 || ticker.value === (aiPoolTotal ?? total)) return null;
 
           // Extract the is: value from the searchClause (e.g. "is:GNM-owned" → "GNM-owned")
           const isValue = def.searchClause.startsWith("is:") ? def.searchClause.slice(3) : def.searchClause;
