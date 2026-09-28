@@ -17,7 +17,11 @@ export const OIDC_HOST = `oidc.media.${DOMAIN}`;
 export const OIDC_ISSUER = `http://${OIDC_HOST}:${OIDC_PORT}`;
 export const OIDC_CONTEXT = path.join(REPO_ROOT, 'dev', 'oidc-provider');
 export const OIDC_IMAGE = 'grid-e2e-oidc-provider';
-export const TEST_USER_EMAIL = `grid-e2e-account@${EMAIL_DOMAIN}`;
+export const TEST_ACCOUNTS = {
+  fullAccess: `grid-e2e-account@${EMAIL_DOMAIN}`,
+  restricted: `grid-e2e-restricted-account@${EMAIL_DOMAIN}`,
+} as const;
+export type TestAccount = (typeof TEST_ACCOUNTS)[keyof typeof TEST_ACCOUNTS];
 
 /** Pre-built application image (see e2e-tests/images/Dockerfile). Assumed to exist. */
 export const GRID_IMAGE = process.env.CI ? 'grid-e2e-ci' : 'grid-e2e-dev';
