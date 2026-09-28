@@ -292,6 +292,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
     },
     "ImageCachePurgerHandlerSqsEventSourceImageCachePurgerLambdaImageCachePurgerQueue7CA6614D95200C65": {
       "Properties": {
+        "Enabled": true,
         "EventSourceArn": "arn:aws:sqs:eu-west-1:563563610310:test",
         "FunctionName": {
           "Ref": "ImageCachePurgerHandlerB25627D9",
