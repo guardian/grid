@@ -42,6 +42,8 @@ export class ImageCachePurger extends GuStack {
       'ImageCachePurgerQueue',
       props.queueArn
     );
-		imagePurgerHandler.addEventSource(new eventsources.SqsEventSource(queue));
+		imagePurgerHandler.addEventSource(new eventsources.SqsEventSource(queue, {
+      enabled: true,
+    }));
 	}
 }
