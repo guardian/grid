@@ -1576,7 +1576,7 @@ textarea.ng-invalid {
     color: #999;
 }
 
-/* "No matches — try AI search instead" prompt (prototype variants a–e) */
+/* "No matches — try AI search instead" prompt */
 .ai-search-prompt {
     display: flex;
     flex-direction: column;
@@ -1589,62 +1589,12 @@ textarea.ng-invalid {
     font-size: 3rem;
 }
 
-.ai-search-prompt__note {
-    font-size: 1.4rem;
-    color: #999;
-}
-
-.ai-search-prompt__link {
-    font-size: 2rem;
-    color: #00adee;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.ai-search-prompt__link:hover {
-    color: #4fc9f5;
-}
-
-.ai-search-prompt__button-primary {
-    font-size: 1.8rem;
-    padding: 10px 20px;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-.ai-search-prompt__pill {
-    font-size: 1.4rem;
-    padding: 4px 10px;
-    border-radius: 2px;
-    background-color: #222;
-    color: #aaa;
-    border: 1px solid #555;
-    cursor: pointer;
-}
-.ai-search-prompt__pill:hover {
-    background-color: white;
-    color: #717171;
-}
-
-.ai-search-prompt__action {
-    font-size: 1.6rem;
-    display: inline-flex;
-    padding: 8px 12px;
-    border-radius: 2px;
-    background-color: #333;
-    color: #ccc;
-    cursor: pointer;
-}
-.ai-search-prompt__action:hover {
-    background-color: #666666;
-    color: white;
-}
-
 .ai-search-preview {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
-    padding: 12px;
+    padding: 12px 12px 0;
     background-color: #393939;
     border: 1px solid #555;
     cursor: pointer;
@@ -1661,64 +1611,11 @@ textarea.ng-invalid {
 .ai-search-preview__loading {
     font-size: 1.6rem;
     color: #999;
+    padding-bottom: 12px;
 }
 
 .ai-search-preview__heading {
     font-size: 2rem;
-}
-
-.ai-search-preview__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem 2rem;
-}
-
-/* e1: heading left, CTA right; wraps to heading-over-CTA when narrow, still above the fold */
-.ai-search-preview--e1 .ai-search-preview__header {
-    align-self: stretch;
-    justify-content: space-between;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #555;
-}
-
-/* e2 and e3: the footer sticks to the bottom of the box's visible area once it scrolls */
-.ai-search-preview--e2,
-.ai-search-preview--e3 {
-    padding-bottom: 0;
-}
-
-.ai-search-preview__footer {
-    position: sticky;
-    bottom: 0;
-    align-self: stretch;
-    display: flex;
-    justify-content: center;
-    margin: 0 -12px;
-}
-
-.ai-search-preview--e2 .ai-search-preview__footer {
-    padding: 10px 12px 12px;
-    background-color: #393939;
-    border-top: 1px solid #555;
-}
-.ai-search-preview--e2:hover .ai-search-preview__footer {
-    background-color: #404040;
-}
-
-/* e3 takes no vertical space: pulled up over the last line of thumbnails */
-.ai-search-preview--e3 .ai-search-preview__footer {
-    align-items: flex-end;
-    height: 70px;
-    margin-top: calc(-70px - 1.5rem);
-    padding: 0 12px 12px;
-    box-sizing: border-box;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
-}
-
-.ai-search-preview--e3 .ai-search-preview__cta {
-    background-color: rgba(34, 34, 34, 0.9);
 }
 
 .ai-search-preview__row {
@@ -1738,12 +1635,36 @@ textarea.ng-invalid {
     object-fit: cover;
 }
 
+/* Sticks to the bottom of the box's visible area once it scrolls, and is pulled up
+   over the last line of thumbnails so it takes no vertical space */
+.ai-search-preview__footer {
+    position: sticky;
+    bottom: 0;
+    align-self: stretch;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 70px;
+    margin: calc(-70px - 1.5rem) -12px 0;
+    padding: 0 12px 12px;
+    box-sizing: border-box;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
+}
+
+/* Pill as per the Subjects pills in the info panel */
 .ai-search-preview__cta {
     flex: 0 0 auto;
+    font-size: 1.4rem;
+    padding: 4px 10px;
+    border-radius: 2px;
+    background-color: rgba(34, 34, 34, 0.9);
+    color: #aaa;
+    border: 1px solid #555;
 }
+/* Colours as per .clickable:hover, used by the "My recent uploads" top-bar button */
 .ai-search-preview:hover .ai-search-preview__cta {
-    background-color: white;
-    color: #717171;
+    background-color: #666666;
+    color: white;
 }
 
 

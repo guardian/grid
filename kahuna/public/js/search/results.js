@@ -206,18 +206,17 @@ results.controller('SearchResultsCtrl', [
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
         // Prototype: visual treatments of the "try AI search instead" prompt shown
-        // when a plain search returns nothing. Flip between them with ?aiSearchVariant=a|b|c|d|e|e1|e2|e3
-        const AI_SEARCH_VARIANTS = ['a', 'b', 'c', 'd', 'e', 'e1', 'e2', 'e3'];
+        // when a plain search returns nothing. Flip between them with ?aiSearchVariant=
+        const AI_SEARCH_VARIANTS = ['a'];
         ctrl.aiSearchVariant = AI_SEARCH_VARIANTS.includes($stateParams.aiSearchVariant)
           ? $stateParams.aiSearchVariant
           : 'a';
-        ctrl.showsAiSearchPreview = ctrl.aiSearchVariant.startsWith('e');
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
           !!($stateParams.query && $stateParams.query.trim());
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
-        // Variant (e) only: a row's worth of what the AI search would return.
+        // A row's worth of what the AI search would return.
         ctrl.aiSearchPreviewSize = 6;
         ctrl.aiSearchPreviewImages = [];
         ctrl.aiSearchPreviewLoading = false;
@@ -352,7 +351,7 @@ results.controller('SearchResultsCtrl', [
 
           ctrl.searched = search(initialSearchParams).then(images => {
             const result = initialiseResults(images, { isAiSearch });
-            if (ctrl.showsAiSearchPreview && ctrl.canOfferAiSearch &&
+            if (ctrl.canOfferAiSearch &&
                 !ctrl.filtersOnlyAiSearch && ctrl.totalResults === 0) {
               loadAiSearchPreview();
             }
