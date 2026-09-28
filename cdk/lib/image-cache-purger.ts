@@ -4,9 +4,10 @@ import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import type { App } from 'aws-cdk-lib';
 import { aws_lambda as lambda } from 'aws-cdk-lib';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
+import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources';
+
 type ImageCachePurgerProps = GuStackProps & {
 	imageBaseUrl: string;
   queueArn: string;
