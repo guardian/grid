@@ -67,8 +67,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 **Current snapshot: 27 September 2026.** U1-U5 and U6a-d are built; M1 is operator-accepted.
 U6z is complete with tests only; the operator reported a clean cold review. U9-A is committed
 locally (`804ca1191`); U9-B is committed locally (`887814ccc`; cold review accepted with fixes). U10-A's
-source-only characterization is complete; U10-B's narrow lazy-fallback scope is selected but not
-started (executor intake required). U9-C and U8 have not started.
+source-only characterization is complete; U10-B's narrow lazy-fallback derivation is built locally
+(cold review accepted with fixes). U9-C and U8 have not started.
 The [API build plan](exploration/docs/03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
 owns the sequence, decisions and endpoint contracts. Its progress log and the changelog retain
 implementation history; older candidate/research gates do not override it.
@@ -118,7 +118,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 ### Testing Summary
 
-- **2145 Vitest unit/integration tests across 81 files** -- `npm --prefix kupua test`
+- **2187 Vitest unit/integration tests across 81 files** -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
 - **299 Playwright E2E** tests (~5min, 3 workers) -- `npm --prefix kupua run test:e2e`

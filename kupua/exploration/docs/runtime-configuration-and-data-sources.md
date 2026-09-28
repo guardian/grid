@@ -460,7 +460,8 @@ standalone cleanup campaign or migration gate.
 
 ### 8.2 Bounded Client Changes Needing Focused Tests
 
-**B1: lazy local derivation, selected as the entire U10-B scope.** Files:
+**B1: lazy local derivation, selected as the entire U10-B scope.** Implemented
+28 September; see the [unit note][u10b-unit] "as built". Files:
 [derive-enriched-image.ts][derive] and its [existing tests][test-derive]; use the
 current hook/adapter/store tests as integration neighbors. Observable behavior:
 identical selected fields with fewer policy calls under complete overlays.

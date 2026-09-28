@@ -143,7 +143,7 @@ maintained here by the executing agent at completion (section 8).
 | U9-B | Kupua media-api AI client and two-mode pool metadata parity | Kupua | U9-A | done locally (`887814ccc`); cold review accepted with fixes |
 | U9-C | Shared ordinary-search MLT contract and clients | Both | separate team approval | deferred; do not build |
 | U10-A | Characterize server-derived data/config ownership and duplicate computation | Docs/evidence | operator sequencing exception | done; post-U9 evidence rechecked at `2aad7ddba`; no new execution |
-| U10-B | Skip unused cost/validity/syndication fallback derivation | Kupua | U9-B, U10-A | narrow scope selected; not started; executor intake required |
+| U10-B | Skip unused cost/validity/syndication fallback derivation | Kupua | U9-B, U10-A | done locally; cold review accepted with fixes |
 | U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B, selected U10-B | not started |
 | M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
@@ -1048,7 +1048,7 @@ selected only its B1 proposal for U10-B below; other candidates remain separatel
 
 #### U10-B: Skip Unused Fallback Derivation
 
-**Direction selected by the operator, 27 September; not implemented.** Stop calculating values
+**Direction selected by the operator, 27 September; implemented 28 September (as built below).** Stop calculating values
 that the merge will discard because an existing overlay already supplies them. This is the
 characterization's **B1 only**, not all of its section 8 or every possible client/server duplicate.
 Do it before U8; deployment is not needed to establish this local duplication. Confirm the
@@ -1116,6 +1116,21 @@ executor's concrete file/test plan at intake before tests or code edits.
   No live access, automatic commit or U10-C follows. If current code no longer duplicates this
   work, stop and report that; if the fix needs policy, ownership, transport or broader production
   changes, stop for a scope decision rather than expanding the task.
+- **As built (28 September, base `fc4fb9469`):** intake confirmed the eager duplication was still
+  present; the operator approved the plan unchanged. `deriveImage` now evaluates `overlay?.cost ??`
+  local cost, builds one validity map only when `valid` or `invalidReasons` is nullish and fills
+  only the missing output with `??=`, and calls `calculateSyndicationStatus(image, Date.now())`
+  only when the overlay status is nullish. Signature, returned fields, `noRights`, rights, usages,
+  leases, persisted, actions and fallback inputs are unchanged; no other production file changed.
+  Proven reduction (real helpers under spies): a complete overlay makes 0 of the previous 2 cost,
+  1 map, 1 valid, 1 reasons and 1 status calls; partial overlays derive only the missing field(s),
+  and a needed map still performs its internal cost check. A 32-case matrix (every supplied-field
+  subset over two fixtures, including supplied `false`, `{}`, overquota and lease-date inputs under
+  a fixed clock) equals the pre-change eager merge. Limit: an image whose unused helper would
+  throw (for example a non-string `metadata.source`) no longer throws under a complete overlay.
+  No speedup is claimed or measured by this unit. Cold review: accept with fixes (S2: no
+  explicit-`null` case); five null cases added (each field, and both validity fields), shown to
+  fail against a temporary undefined-only mutation, then restored byte-identical.
 
 **U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
 `/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
@@ -1328,6 +1343,7 @@ ignoring it.
 
 (One line per completed unit: date, unit, commits, notes.)
 
+- 28 Sep 2026, U10-B: one Kupua commit (code, tests, docs). `deriveImage` derives cost, validity and syndication fallbacks only for nullish overlay fields; outputs unchanged, zero helper calls under a complete overlay. Unit 2187/2187, build, E2E 299/299. Cold review: accept with fixes (explicit-null cases added, proven against an undefined-only mutation). No merge needed (main's new commit touches no Kupua files). Operator API preflights and perf campaign outstanding; no speedup claimed. B2/B3 not selected.
 - 27 Sep 2026, U9-B: `887814ccc` (Kupua media-api AI client). API mode sends AI through `GET /api/images` with `aiQuery`, constructs no ES datasource and makes no browser Bedrock call; pool total/tickers publish with the hits in both modes; KUP-030 closed by composed replacement tests. Unit 2145/2145, build, E2E 299/299. Cold review: accept with fixes (two S2 abort/overlap fixes, failing-first); inherited S1s now GRID-015/016, deferred. Browser checks in both modes on TEST and the completion-timing comparison done (pool count never delays publication). New KUP-038 (code reading only).
 - 27 Sep 2026, U9-A: `804ca1191` (additive explicit `aiQuery` branch, `ai-search` capability, no-vector projection; media-api files only). No merge needed (0 behind `main`). Cold review: reject (S1, absent `q` skipped default exclusions); fixed failing-first and the re-review accepted. Scala 767/767. Two inherited S1s recorded in section 11, not fixed (operator). Team review still gates merge/deploy.
 

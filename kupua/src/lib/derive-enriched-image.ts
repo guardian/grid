@@ -93,19 +93,16 @@ export function deriveImage(
   image: Image,
   overlay: EnrichmentFields | undefined,
 ): EnrichedImage {
-  // --- Baseline: compute from ES data ---
-  const baselineCost = calculateCost(image.usageRights, GUARDIAN_COST_CONFIG);
-  const validityMap = buildValidityMap(image);
-  const baselineInvalidReasons = deriveInvalidReasons(validityMap);
-  const baselineValid = deriveValid(validityMap);
+  // Each local fallback runs only when the overlay does not supply that field.
+  const cost = overlay?.cost ?? calculateCost(image.usageRights, GUARDIAN_COST_CONFIG);
+  let valid = overlay?.valid;
+  let invalidReasons = overlay?.invalidReasons;
+  if (valid == null || invalidReasons == null) {
+    const validityMap = buildValidityMap(image);
+    valid ??= deriveValid(validityMap);
+    invalidReasons ??= deriveInvalidReasons(validityMap);
+  }
   const noRights = !image.usageRights?.category;
-  const nowMs = Date.now();
-  const baselineSyndicationStatus = calculateSyndicationStatus(image, nowMs);
-
-  // --- Merge: overlay wins when present ---
-  const cost = overlay?.cost ?? baselineCost;
-  const valid = overlay?.valid ?? baselineValid;
-  const invalidReasons = overlay?.invalidReasons ?? baselineInvalidReasons;
 
   return {
     ...image,
@@ -117,7 +114,7 @@ export function deriveImage(
     leasesSummary: overlay?.leasesSummary,
     persisted: overlay?.persisted,
     actions: overlay?.actions,
-    syndicationStatus: overlay?.syndicationStatus ?? baselineSyndicationStatus,
+    syndicationStatus: overlay?.syndicationStatus ?? calculateSyndicationStatus(image, Date.now()),
     enrichedUsages: overlay?.usages ?? image.usages,
   };
 }

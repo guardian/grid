@@ -17,6 +17,18 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 28 September 2026 - Skip unused enrichment fallback derivation (U10-B)
+
+  `deriveImage` now calculates each local fallback only when the overlay's field is
+  nullish: cost only without overlay cost; one validity map only when `valid` or
+  `invalidReasons` is missing, filling just the missing output so supplied `false` and `{}`
+  still win; syndication status only without overlay status. A complete overlay therefore
+  runs none of the cost, validity or status helpers, where it previously ran all of them
+  before discarding the results. Outputs, inputs, `noRights` and the signature are
+  unchanged; a needed validity map still does its own cost check. Tests wrap the real
+  helpers in spies and compare every supplied/missing/null combination with the previous
+  eager merge under a fixed clock and quota state. No speedup is claimed.
+
   ### 27 September 2026 - AI search through media-api, pool metadata in both modes (U9-B)
 
   API mode now sends AI search as one authenticated `GET /api/images` with

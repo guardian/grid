@@ -1774,3 +1774,150 @@ Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browse
 Not compared across scenario revision/cache changes: P1, P5c, P7, P17, P13a, P13b, P15a, P15b, P15c, P16a, P16b.
 
 Verdict: ⚠️ Possible regressions: P2.maxFrame: 92 → 134 (+46%), P4a.severeRate: 5.2‰ → 10.5‰ (+102%), P8.maxFrame: 143 → 171 (+20%), P18.maxFrame: 87 → 104 (+20%), P18.severeRate: 29.1‰ → 50.0‰ (+72%), P18.p95Frame: 25 → 92 (+268%), P11@20.maxFrame: 171 → 200 (+17%), P11@60.maxFrame: 80 → 204 (+155%), P11@85.maxFrame: 76 → 92 (+21%)
+
+---
+
+## local-media-api before U10b (fc4fb9469 (dirty), 2026-09-28)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 208fbf43376fd37d | App source: 208fbf43376fd37d
+
+| Test | Samples | CLS (Δ) | Max frame (Δ) | Severe/1k frames (Δ) | P95 frame (Δ) | DOM churn (Δ) | LoAF blocking (Δ) |
+|------|---|---|---|---|---|---|---|
+| P1 | 4 | 0.0002 (not comparable) | 105ms (not comparable) | 46.6‰ (not comparable) | 41ms (not comparable) | 158 (not comparable) | 64ms (not comparable) |
+| P2 | 4 | 0.0000 (0) | 125ms (-9ms) | 2.0‰ (+0.1‰) | 38ms (+5ms) | 1433 (-44) | 43ms (-1ms) |
+| P3 | 4 | 0.0000 (0) | 163ms (-3ms) | 1.6‰ (-1.5‰) | 10ms (+1ms) | 1489 (0) | 117ms (-11ms) |
+| P3b | 4 | 0.0000 (-0.0001) | 174ms (+7ms) | 1.4‰ (0) | 10ms (+1ms) | 1266 (0) | 106ms (+2ms) |
+| P4a | 4 | 0.0000 (0) | 125ms (-17ms) | 6.5‰ (-4.0‰) | 10ms (+1ms) | 127 (0) | 81ms (-16ms) |
+| P4b | 4 | 0.0000 (0) | 88ms (-8ms) | 6.4‰ (+1.2‰) | 10ms (+1ms) | 105 (0) | 42ms (-9ms) |
+| P5a | 4 | 0.0000 (0) | 59ms (-8ms) | 9.7‰ (-0.1‰) | 10ms (+1ms) | 119 (0) | 4ms (-3ms) |
+| P5b | 4 | 0.0000 (0) | 59ms (+1ms) | 10.3‰ (-0.2‰) | 10ms (+1ms) | 109 (0) | 6ms (-2ms) |
+| P5c | 4 | 0.0000 (not comparable) | 51ms (not comparable) | n/a (<30 frames) | 51ms (not comparable) | 127 (not comparable) | 8ms (not comparable) |
+| P6 | 4 | 0.0001 (0) | 146ms (-8ms) | 2.8‰ (+0.1‰) | 10ms (+1ms) | 458 (-3) | 119ms (-14ms) |
+| P7 | 4 | 0.0018 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 426 (not comparable) | 0ms (not comparable) |
+| P8 | 4 | 0.0000 (0) | 178ms (+7ms) | 88.1‰ (-11.1‰) | 59ms (0) | 121062 (-629) | 1480ms (-431ms) |
+| P17 | 4 | 0.0000 (not comparable) | 196ms (not comparable) | 14.3‰ (not comparable) | 33ms (not comparable) | 1873 (not comparable) | 287ms (not comparable) |
+| P18 | 4 | 0.0000 (0) | 93ms (-11ms) | 55.1‰ (+5.1‰) | 82ms (-10ms) | 152 (0) | 42ms (-8ms) |
+| P19 | 4 | 0.0000 (0) | 329ms (-25ms) | 13.1‰ (+0.7‰) | 16ms (+3ms) | 164 (0) | 251ms (-15ms) |
+| P9 | 4 | 0.0119 (+0.0001) | 113ms (+29ms) | 6.2‰ (-2.7‰) | 10ms (+1ms) | 456 (0) | 58ms (-5ms) |
+| P11@20 | 4 | 0.0001 (-0.0010) | 175ms (-25ms) | 1.6‰ (0) | 10ms (+1ms) | 1498 (-45) | 115ms (-22ms) |
+| P11@60 | 4 | 0.0000 (0) | 92ms (-112ms) | 1.6‰ (+0.1‰) | 10ms (+1ms) | 2437 (-164) | 28ms (-115ms) |
+| P11@85 | 4 | 0.0000 (-0.0060) | 172ms (+80ms) | 1.6‰ (+0.1‰) | 10ms (+1ms) | 2545 (+122) | 121ms (+91ms) |
+| P11b@20 | 4 | 0.0000 (0) | 155ms (-4ms) | 1.5‰ (+0.1‰) | 10ms (+1ms) | 1266 (0) | 109ms (0) |
+| P11b@60 | 4 | 0.0000 (0) | 167ms (-21ms) | 1.6‰ (+0.1‰) | 10ms (+1ms) | 1618 (+2) | 127ms (-3ms) |
+| P11b@85 | 4 | 0.0089 (+0.0002) | 91ms (-1ms) | 1.6‰ (+0.1‰) | 10ms (+1ms) | 1493 (-15) | 28ms (-3ms) |
+| P13a | 4 | 0.0000 (not comparable) | 175ms (not comparable) | 3.9‰ (not comparable) | 10ms (not comparable) | 42 (not comparable) | 127ms (not comparable) |
+| P13b | 4 | 0.0000 (not comparable) | 90ms (not comparable) | n/a (<30 frames) | 90ms (not comparable) | 24 (not comparable) | 41ms (not comparable) |
+| P13c | 4 | 0.0000 (0) | 10ms (+1ms) | 0.0‰ (0) | 10ms (+1ms) | 23 (0) | 0ms (0) |
+| P14a | 4 | 0.0000 (0) | 68ms (-7ms) | 9.2‰ (-1.8‰) | 10ms (+1ms) | 580 (0) | 113ms (-47ms) |
+| P14b | 4 | 0.0000 (0) | 60ms (+1ms) | 9.7‰ (-2.4‰) | 10ms (+1ms) | 833 (0) | 84ms (-27ms) |
+| P14c | 4 | 0.0352 (+0.0352) | 58ms (-1ms) | 7.0‰ (-3.8‰) | 10ms (+1ms) | 580 (0) | 64ms (-22ms) |
+| P14d | 4 | 0.1691 (+0.1691) | 58ms (-1ms) | 5.7‰ (-3.8‰) | 10ms (+1ms) | 1099 (0) | 60ms (-16ms) |
+| P15a | 4 | 0.0000 (not comparable) | 9ms (not comparable) | n/a (<30 frames) | 9ms (not comparable) | 5 (not comparable) | 0ms (not comparable) |
+| P15b | 4 | 0.0000 (not comparable) | 48ms (not comparable) | n/a (<30 frames) | 48ms (not comparable) | 34 (not comparable) | 6ms (not comparable) |
+| P15c | 4 | 0.0000 (not comparable) | 10ms (not comparable) | n/a (<30 frames) | 10ms (not comparable) | 6 (not comparable) | 0ms (not comparable) |
+| P16a | 4 | 0.0000 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 64 (not comparable) | 0ms (not comparable) |
+| P16b | 4 | 0.0000 (not comparable) | 17ms (not comparable) | n/a (<30 frames) | 17ms (not comparable) | 3 (not comparable) | 0ms (not comparable) |
+
+Not compared across scenario revision/cache changes: P1, P5c, P7, P17, P13a, P13b, P15a, P15b, P15c, P16a, P16b.
+
+Verdict: ⚠️ Possible regressions: P18.severeRate: 50.0‰ → 55.1‰ (+10%), P9.maxFrame: 84 → 113 (+35%), P11@85.maxFrame: 92 → 172 (+87%)
+
+---
+
+## direct mode  before U10b (fc4fb9469 (dirty), 2026-09-28)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: direct-es | Base URL: http://localhost:3000 | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 653115ba42eb42bb | App source: e3b0c44298fc1c14
+
+| Test | Samples | CLS (Δ) | Max frame (Δ) | Severe/1k frames (Δ) | P95 frame (Δ) | DOM churn (Δ) | LoAF blocking (Δ) |
+|------|---|---|---|---|---|---|---|
+| P1 | 4 | 0.0003 (not comparable) | 101ms (not comparable) | 52.0‰ (not comparable) | 54ms (not comparable) | 158 (not comparable) | 65ms (not comparable) |
+| P2 | 4 | 0.0000 (0) | 84ms (-41ms) | 1.9‰ (-0.1‰) | 33ms (-5ms) | 1536 (+103) | 33ms (-10ms) |
+| P3 | 4 | 0.0000 (0) | 163ms (0) | 3.4‰ (+1.8‰) | 9ms (-1ms) | 1497 (+8) | 117ms (0) |
+| P3b | 4 | 0.0000 (0) | 150ms (-24ms) | 1.5‰ (+0.1‰) | 9ms (-1ms) | 1231 (-35) | 100ms (-6ms) |
+| P4a | 4 | 0.0000 (0) | 129ms (+4ms) | 6.5‰ (0) | 9ms (-1ms) | 127 (0) | 81ms (0) |
+| P4b | 4 | 0.0000 (0) | 83ms (-5ms) | 6.4‰ (0) | 9ms (-1ms) | 105 (0) | 41ms (-1ms) |
+| P5a | 4 | 0.0000 (0) | 58ms (-1ms) | 9.7‰ (0) | 9ms (-1ms) | 119 (0) | 6ms (+2ms) |
+| P5b | 4 | 0.0000 (0) | 50ms (-9ms) | 5.2‰ (-5.1‰) | 9ms (-1ms) | 109 (0) | 1ms (-5ms) |
+| P5c | 4 | 0.0000 (not comparable) | 50ms (not comparable) | n/a (<30 frames) | 50ms (not comparable) | 127 (not comparable) | 7ms (not comparable) |
+| P6 | 4 | 0.0001 (0) | 133ms (-13ms) | 3.0‰ (+0.2‰) | 10ms (0) | 459 (+1) | 117ms (-2ms) |
+| P7 | 4 | 0.0018 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 426 (not comparable) | 0ms (not comparable) |
+| P8 | 4 | 0.0000 (0) | 163ms (-15ms) | 74.1‰ (-14.0‰) | 51ms (-8ms) | 121565 (+503) | 1232ms (-248ms) |
+| P17 | 4 | 0.0000 (not comparable) | 181ms (not comparable) | 9.9‰ (not comparable) | 34ms (not comparable) | 1873 (not comparable) | 238ms (not comparable) |
+| P18 | 4 | 0.0000 (0) | 93ms (0) | n/a (<30 frames) | 17ms (-65ms) | 137 (-15) | 31ms (-11ms) |
+| P19 | 4 | 0.0000 (0) | 324ms (-5ms) | 13.6‰ (+0.5‰) | 10ms (-6ms) | 164 (0) | 245ms (-6ms) |
+| P9 | 4 | 0.0000 (-0.0119) | 75ms (-38ms) | 7.1‰ (+0.9‰) | 10ms (0) | 399 (-57) | 51ms (-7ms) |
+| P11@20 | 4 | 0.0000 (-0.0001) | 158ms (-17ms) | 3.4‰ (+1.8‰) | 10ms (0) | 1488 (-10) | 114ms (-1ms) |
+| P11@60 | 4 | 0.0000 (0) | 167ms (+75ms) | 1.7‰ (+0.1‰) | 10ms (0) | 2551 (+114) | 122ms (+94ms) |
+| P11@85 | 4 | 0.0076 (+0.0076) | 62ms (-110ms) | 1.7‰ (+0.1‰) | 10ms (0) | 2424 (-121) | 21ms (-100ms) |
+| P11b@20 | 4 | 0.0000 (0) | 151ms (-4ms) | 1.6‰ (+0.1‰) | 10ms (0) | 1231 (-35) | 105ms (-4ms) |
+| P11b@60 | 4 | 0.0026 (+0.0026) | 75ms (-92ms) | 1.7‰ (+0.1‰) | 10ms (0) | 1501 (-117) | 28ms (-99ms) |
+| P11b@85 | 4 | 0.0000 (-0.0089) | 162ms (+71ms) | 1.7‰ (+0.1‰) | 10ms (0) | 1611 (+118) | 119ms (+91ms) |
+| P13a | 4 | 0.0000 (not comparable) | 158ms (not comparable) | 2.5‰ (not comparable) | 10ms (not comparable) | 42 (not comparable) | 114ms (not comparable) |
+| P13b | 4 | 0.0000 (not comparable) | 92ms (not comparable) | n/a (<30 frames) | 92ms (not comparable) | 24 (not comparable) | 40ms (not comparable) |
+| P13c | 4 | 0.0000 (0) | 10ms (0) | 0.0‰ (0) | 10ms (0) | 23 (0) | 0ms (0) |
+| P14a | 4 | 0.0000 (0) | 67ms (-1ms) | 6.3‰ (-2.9‰) | 10ms (0) | 580 (0) | 109ms (-4ms) |
+| P14b | 4 | 0.0558 (+0.0558) | 59ms (-1ms) | 8.8‰ (-0.9‰) | 10ms (0) | 833 (0) | 84ms (0) |
+| P14c | 4 | 0.0021 (-0.0331) | 59ms (+1ms) | 7.0‰ (0) | 10ms (0) | 580 (0) | 62ms (-2ms) |
+| P14d | 4 | 0.1691 (0) | 55ms (-3ms) | 4.5‰ (-1.2‰) | 10ms (0) | 1099 (0) | 50ms (-10ms) |
+| P15a | 4 | 0.0000 (not comparable) | 9ms (not comparable) | n/a (<30 frames) | 9ms (not comparable) | 5 (not comparable) | 0ms (not comparable) |
+| P15b | 4 | 0.0000 (not comparable) | 43ms (not comparable) | n/a (<30 frames) | 43ms (not comparable) | 34 (not comparable) | 5ms (not comparable) |
+| P15c | 4 | 0.0000 (not comparable) | 9ms (not comparable) | n/a (<30 frames) | 9ms (not comparable) | 6 (not comparable) | 0ms (not comparable) |
+| P16a | 4 | 0.0000 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 64 (not comparable) | 0ms (not comparable) |
+| P16b | 4 | 0.0000 (not comparable) | 14ms (not comparable) | n/a (<30 frames) | 14ms (not comparable) | 3 (not comparable) | 0ms (not comparable) |
+
+Not compared across scenario revision/cache changes: P1, P5c, P7, P17, P13a, P13b, P15a, P15b, P15c, P16a, P16b.
+
+Verdict: ⚠️ Possible regressions: P11@60.maxFrame: 92 → 167 (+82%), P11b@85.maxFrame: 91 → 162 (+78%)
+
+---
+
+## local-media-api after U10b (5c59bc757 (dirty), 2026-09-28)
+
+Stable until: 2026-02-15T00:00:00.000Z | Runs: 4
+
+Mode: media-api | Base URL: https://kupua.media.local.dev-gutools.co.uk | Browser: chromium 151.0.7922.34 | OS: darwin/arm64 25.6.0 | Viewport: 1720x960 | Screen: 1720x960 | DPR: 2 | Headed: true | CPU throttle: none | Cache: uncontrolled-browser-cache | Workers: 1 | Dirty state: 90f8265d491bb0c0 | App source: 208fbf43376fd37d
+
+| Test | Samples | CLS (Δ) | Max frame (Δ) | Severe/1k frames (Δ) | P95 frame (Δ) | DOM churn (Δ) | LoAF blocking (Δ) |
+|------|---|---|---|---|---|---|---|
+| P1 | 4 | 0.0002 (not comparable) | 96ms (not comparable) | 51.0‰ (not comparable) | 54ms (not comparable) | 158 (not comparable) | 62ms (not comparable) |
+| P2 | 4 | 0.0000 (0) | 109ms (+25ms) | 1.9‰ (0) | 33ms (0) | 1534 (-2) | 26ms (-7ms) |
+| P3 | 4 | 0.0001 (+0.0001) | 159ms (-4ms) | 1.6‰ (-1.8‰) | 10ms (+1ms) | 1489 (-8) | 112ms (-5ms) |
+| P3b | 4 | 0.0000 (0) | 167ms (+17ms) | 1.5‰ (0) | 10ms (+1ms) | 1266 (+35) | 102ms (+2ms) |
+| P4a | 4 | 0.0000 (0) | 131ms (+2ms) | 6.4‰ (-0.1‰) | 10ms (+1ms) | 127 (0) | 85ms (+4ms) |
+| P4b | 4 | 0.0000 (0) | 87ms (+4ms) | 6.4‰ (0) | 10ms (+1ms) | 105 (0) | 41ms (0) |
+| P5a | 4 | 0.0000 (0) | 59ms (+1ms) | 9.8‰ (+0.1‰) | 10ms (+1ms) | 119 (0) | 4ms (-2ms) |
+| P5b | 4 | 0.0000 (0) | 58ms (+8ms) | 10.7‰ (+5.5‰) | 10ms (+1ms) | 109 (0) | 6ms (+5ms) |
+| P5c | 4 | 0.0000 (not comparable) | 52ms (not comparable) | n/a (<30 frames) | 52ms (not comparable) | 127 (not comparable) | 6ms (not comparable) |
+| P6 | 4 | 0.0001 (0) | 153ms (+20ms) | 2.8‰ (-0.2‰) | 10ms (0) | 460 (+1) | 122ms (+5ms) |
+| P7 | 4 | 0.0018 (not comparable) | 10ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 426 (not comparable) | 0ms (not comparable) |
+| P8 | 4 | 0.0000 (0) | 163ms (0) | 86.0‰ (+11.9‰) | 58ms (+7ms) | 121703 (+138) | 1441ms (+209ms) |
+| P17 | 4 | 0.0000 (not comparable) | 217ms (not comparable) | 10.1‰ (not comparable) | 33ms (not comparable) | 1859 (not comparable) | 268ms (not comparable) |
+| P18 | 4 | 0.0000 (0) | 88ms (-5ms) | 57.4‰ (not comparable) | 68ms (+51ms) | 152 (+15) | 41ms (+10ms) |
+| P19 | 4 | 0.0000 (0) | 329ms (+5ms) | 13.1‰ (-0.5‰) | 10ms (0) | 164 (0) | 255ms (+10ms) |
+| P9 | 4 | 0.0118 (+0.0118) | 92ms (+17ms) | 7.7‰ (+0.6‰) | 10ms (0) | 456 (+57) | 56ms (+5ms) |
+| P11@20 | 4 | 0.0000 (0) | 168ms (+10ms) | 1.6‰ (-1.8‰) | 10ms (0) | 1503 (+15) | 115ms (+1ms) |
+| P11@60 | 4 | 0.0000 (0) | 183ms (+16ms) | 1.6‰ (-0.1‰) | 10ms (0) | 2566 (+15) | 123ms (+1ms) |
+| P11@85 | 4 | 0.0097 (+0.0021) | 67ms (+5ms) | 1.6‰ (-0.1‰) | 10ms (0) | 2423 (-1) | 20ms (-1ms) |
+| P11b@20 | 4 | 0.0000 (0) | 150ms (-1ms) | 1.5‰ (-0.1‰) | 10ms (0) | 1266 (+35) | 101ms (-4ms) |
+| P11b@60 | 4 | 0.0028 (+0.0002) | 138ms (+63ms) | 1.5‰ (-0.2‰) | 10ms (0) | 1557 (+56) | 72ms (+44ms) |
+| P11b@85 | 4 | 0.0027 (+0.0027) | 129ms (-33ms) | 1.6‰ (-0.1‰) | 10ms (0) | 1551 (-60) | 68ms (-51ms) |
+| P13a | 4 | 0.0000 (not comparable) | 166ms (not comparable) | 4.5‰ (not comparable) | 10ms (not comparable) | 42 (not comparable) | 117ms (not comparable) |
+| P13b | 4 | 0.0000 (not comparable) | 89ms (not comparable) | n/a (<30 frames) | 89ms (not comparable) | 24 (not comparable) | 42ms (not comparable) |
+| P13c | 4 | 0.0000 (0) | 10ms (0) | 0.0‰ (0) | 10ms (0) | 23 (0) | 0ms (0) |
+| P14a | 4 | 0.0000 (0) | 67ms (0) | 9.2‰ (+2.9‰) | 10ms (0) | 580 (0) | 109ms (0) |
+| P14b | 4 | 0.0000 (-0.0558) | 59ms (0) | 10.3‰ (+1.5‰) | 10ms (0) | 833 (0) | 86ms (+2ms) |
+| P14c | 4 | 0.0021 (0) | 59ms (0) | 8.8‰ (+1.8‰) | 10ms (0) | 580 (0) | 59ms (-3ms) |
+| P14d | 4 | 0.1404 (-0.0287) | 55ms (0) | 7.6‰ (+3.1‰) | 10ms (0) | 1099 (0) | 52ms (+2ms) |
+| P15a | 4 | 0.0000 (not comparable) | 10ms (not comparable) | n/a (<30 frames) | 10ms (not comparable) | 5 (not comparable) | 0ms (not comparable) |
+| P15b | 4 | 0.0000 (not comparable) | 49ms (not comparable) | n/a (<30 frames) | 49ms (not comparable) | 34 (not comparable) | 6ms (not comparable) |
+| P15c | 4 | 0.0000 (not comparable) | 9ms (not comparable) | n/a (<30 frames) | 9ms (not comparable) | 6 (not comparable) | 0ms (not comparable) |
+| P16a | 4 | 0.0000 (not comparable) | 13ms (not comparable) | 0.0‰ (not comparable) | 10ms (not comparable) | 64 (not comparable) | 0ms (not comparable) |
+| P16b | 4 | 0.0000 (not comparable) | 10ms (not comparable) | n/a (<30 frames) | 10ms (not comparable) | 3 (not comparable) | 0ms (not comparable) |
+
+Not compared across scenario revision/cache changes: P1, P5c, P7, P17, P13a, P13b, P15a, P15b, P15c, P16a, P16b.
+
+Verdict: ⚠️ Possible regressions: P2.maxFrame: 84 → 109 (+30%), P3b.maxFrame: 150 → 167 (+11%), P5b.severeRate: 5.2‰ → 10.7‰ (+106%), P6.maxFrame: 133 → 153 (+15%), P8.severeRate: 74.1‰ → 86.0‰ (+16%), P18.p95Frame: 17 → 68 (+300%), P9.maxFrame: 75 → 92 (+23%), P11b@60.maxFrame: 75 → 138 (+84%)
