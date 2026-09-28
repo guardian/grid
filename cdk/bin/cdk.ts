@@ -17,7 +17,7 @@ new ImageEmbedder(app, 'ImageEmbedderLambda-euwest-1-TEST', {
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
 	fastlyServiceId: '1L0HRheo6sMtfQHnY1FU6C',
 	fastlyMediaHost: 'media.guim.co.uk',
-	queueArn: 'arn:aws:sqs:eu-west-1:563563610310:test',
+	queueArn: 'arn:aws:sqs:eu-west-1:563563610310:media-service-PROD-ImageNotificationQueue-cF0LLGrMGHKT',
 	stack: 'media-service',
 	stage: 'PROD',
 	env: { region: 'eu-west-1' },
