@@ -3,6 +3,7 @@ import { GuStack } from '@guardian/cdk/lib/constructs/core';
 import { GuLambdaFunction } from '@guardian/cdk/lib/constructs/lambda';
 import type { App } from 'aws-cdk-lib';
 import { aws_lambda as lambda } from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -47,7 +48,26 @@ export class ImageCachePurger extends GuStack {
 			'ImageCachePurgerQueue',
 			props.queueArn,
 		);
-		const consumeQueueGrant = queue.grantConsumeMessages(imagePurgerHandler);
+		const queueConsumerPolicy = new iam.Policy(
+			this,
+			'ImageCachePurgerQueueConsumerPolicy',
+			{
+				statements: [
+					new iam.PolicyStatement({
+						actions: [
+							'sqs:ReceiveMessage',
+							'sqs:ChangeMessageVisibility',
+							'sqs:GetQueueUrl',
+							'sqs:DeleteMessage',
+							'sqs:GetQueueAttributes',
+						],
+						resources: [queue.queueArn],
+					}),
+				],
+			},
+		);
+		queueConsumerPolicy.attachToRole(imagePurgerHandler.role!);
+
 		const eventSourceMapping = new lambda.EventSourceMapping(
 			this,
 			'ImageCachePurgerEventSource',
@@ -57,6 +77,10 @@ export class ImageCachePurger extends GuStack {
 				enabled: true,
 			},
 		);
-		consumeQueueGrant.applyBefore(eventSourceMapping);
+		const cfnEventSourceMapping = eventSourceMapping.node
+			.defaultChild as lambda.CfnEventSourceMapping;
+		const cfnQueueConsumerPolicy = queueConsumerPolicy.node
+			.defaultChild as iam.CfnPolicy;
+		cfnEventSourceMapping.addDependency(cfnQueueConsumerPolicy);
 	}
 }
