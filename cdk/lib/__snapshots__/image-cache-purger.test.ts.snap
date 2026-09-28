@@ -18,9 +18,6 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
   },
   "Resources": {
     "ImageCachePurgerEventSource0FB81348": {
-      "DependsOn": [
-        "ImageCachePurgerQueueConsumerPolicyC42A8381",
-      ],
       "Properties": {
         "Enabled": true,
         "EventSourceArn": "arn:aws:sqs:eu-west-1:563563610310:test",
@@ -298,22 +295,6 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
                 ],
               },
             },
-          ],
-          "Version": "2012-10-17",
-        },
-        "PolicyName": "ImageCachePurgerHandlerServiceRoleDefaultPolicy6C167981",
-        "Roles": [
-          {
-            "Ref": "ImageCachePurgerHandlerServiceRoleBF588395",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Policy",
-    },
-    "ImageCachePurgerQueueConsumerPolicyC42A8381": {
-      "Properties": {
-        "PolicyDocument": {
-          "Statement": [
             {
               "Action": [
                 "sqs:ReceiveMessage",
@@ -328,7 +309,7 @@ exports[`The ImageCachePurger stack matches the snapshot 1`] = `
           ],
           "Version": "2012-10-17",
         },
-        "PolicyName": "ImageCachePurgerQueueConsumerPolicyC42A8381",
+        "PolicyName": "ImageCachePurgerHandlerServiceRoleDefaultPolicy6C167981",
         "Roles": [
           {
             "Ref": "ImageCachePurgerHandlerServiceRoleBF588395",

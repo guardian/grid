@@ -6,7 +6,7 @@ import { aws_lambda as lambda } from 'aws-cdk-lib';
 import { Architecture } from 'aws-cdk-lib/aws-lambda';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-
+import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources';
 type ImageCachePurgerProps = GuStackProps & {
 	imageBaseUrl: string;
   queueArn: string;
@@ -41,12 +41,8 @@ export class ImageCachePurger extends GuStack {
       'ImageCachePurgerQueue',
       props.queueArn
     );
-		const consumeQueueGrant = queue.grantConsumeMessages(imagePurgerHandler);
-		const eventSourceMapping = new lambda.EventSourceMapping(this, 'ImageCachePurgerEventSource', {
-			target: imagePurgerHandler,
-			eventSourceArn: queue.queueArn,
-			enabled: true,
-		});
-		consumeQueueGrant.applyBefore(eventSourceMapping);
+	imagePurgerHandler.addEventSource(new eventsources.SqsEventSource(queue, {
+		enabled: true,
+	}));
 	}
 }
