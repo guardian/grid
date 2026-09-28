@@ -113,7 +113,6 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
 
   const [crops, setCrops] = useState<Crop[] | null>(null);
   const [cropsLoading, setCropsLoading] = useState(false);
-
   const fetchCrops = async () => {
     if (!image) {
       return;
