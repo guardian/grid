@@ -179,8 +179,13 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     }
     try {
       if (hasPublishedPrintUsages) {
-        // Only delete deletable usages and leave published print usages
-        // @TODO: Delete usages one by one
+        await image.perform("delete-usages-by-ids", {
+          body: {
+            data: {
+              usageIds: deletableUsages.map((usage) => usage.id)
+            }
+          }
+        })
       } else {
         await image.perform("delete-usages");
       }
