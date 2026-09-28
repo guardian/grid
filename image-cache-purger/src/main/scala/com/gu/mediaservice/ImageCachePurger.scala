@@ -13,9 +13,18 @@ import scala.util.{Failure, Success, Try}
 
 class ImageCachePurgerHandler extends RequestHandler[SQSEvent, String] {
 
-  val imageCachePurger = new ImageCachePurger(new FastlyPurger(FastlyApiKeyProvider.default, sys.env.getOrElse("STAGE", "DEV")))
+  private val fastlyServiceId = requiredEnvironmentVariable("FASTLY_SERVICE_ID")
+  private val fastlyMediaHost = requiredEnvironmentVariable("FASTLY_MEDIA_HOST")
+  val imageCachePurger = new ImageCachePurger(
+    new FastlyPurger(FastlyApiKeyProvider.default, fastlyServiceId, fastlyMediaHost)
+  )
 
   private val logger = Logger.getLogger(classOf[ImageCachePurger].getName)
+
+  private def requiredEnvironmentVariable(name: String): String =
+    sys.env.get(name).map(_.trim).filter(_.nonEmpty)
+      .getOrElse(throw new IllegalStateException(s"$name is not set"))
+
   override def handleRequest(input: SQSEvent, context: Context): String = {
     imageCachePurger.handleRecord(input).fold(
       exception => {

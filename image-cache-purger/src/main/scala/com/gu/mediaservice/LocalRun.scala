@@ -9,7 +9,11 @@ object LocalRun extends App {
     sys.env.getOrElse("FASTLY_API_KEY", throw new IllegalStateException("FASTLY_API_KEY is not set"))
   )
   private val imageCachePurger = new ImageCachePurger(
-    new FastlyPurger(apiKeyProvider, sys.env.getOrElse("STAGE", "CODE"))
+    new FastlyPurger(
+      apiKeyProvider,
+      sys.env.getOrElse("FASTLY_SERVICE_ID", throw new IllegalStateException("FASTLY_SERVICE_ID is not set")),
+      sys.env.getOrElse("FASTLY_MEDIA_HOST", throw new IllegalStateException("FASTLY_MEDIA_HOST is not set"))
+    )
   )
 
   imageCachePurger.handleRecord(new SQSEvent() {

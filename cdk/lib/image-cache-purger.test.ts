@@ -8,7 +8,8 @@ describe('The ImageCachePurger stack', () => {
 		const stack = new ImageCachePurger(app, 'ImageCachePurgerLambda', {
 			stack: 'media-service',
 			stage: 'TEST',
-			imageBaseUrl: 'https://media.test.dev-guim.co.uk',
+			fastlyServiceId: 'test-service-id',
+			fastlyMediaHost: 'images.example.com',
 			queueArn: 'arn:aws:sqs:eu-west-1:563563610310:test',
 		});
 		return Template.fromStack(stack);

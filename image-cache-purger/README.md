@@ -5,7 +5,7 @@ A JVM AWS Lambda responsible for purging cached Grid images.
 The Lambda entry point is:
 
 ```text
-com.gu.mediaservice.ImageCachePurger::handleRequest
+com.gu.mediaservice.ImageCachePurgerHandler::handleRequest
 ```
 
 ## Fastly API key
@@ -19,6 +19,21 @@ Before deploying, create an AWS Secrets Manager secret in the deployment account
 Store the raw Fastly API key as the secret's `SecretString`. The CDK stack grants the Lambda permission to read only
 this secret and passes its ARN through `FASTLY_API_KEY_SECRET_ID`; the secret value is loaded and cached at runtime.
 Do not put the key itself in Lambda environment variables, source control, or CDK configuration.
+
+The Fastly endpoints are configured through environment variables:
+
+- `FASTLY_SERVICE_ID` — the Fastly service ID used by the service purge endpoint.
+- `FASTLY_MEDIA_HOST` — the media hostname used by the URL purge endpoint, without a scheme or path.
+
+The CDK stack supplies stage-appropriate values for both variables. To run `LocalRun`, supply them alongside the raw
+local API key:
+
+```bash
+FASTLY_API_KEY='...' \
+FASTLY_SERVICE_ID='5CSDV7WcKwnIIHipZzt3po' \
+FASTLY_MEDIA_HOST='media.guimcode.co.uk' \
+sbt 'image-cache-purger/runMain com.gu.mediaservice.LocalRun'
+```
 
 For each S3 object key received through SQS, the Lambda sends an authenticated `POST` to the stage's Fastly service.
 Transport errors and non-200 responses produce a failed `Try`; the SQS processor unwraps that result so the invocation

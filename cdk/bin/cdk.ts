@@ -15,16 +15,18 @@ new ImageEmbedder(app, 'ImageEmbedderLambda-euwest-1-TEST', {
 	env: { region: 'eu-west-1' },
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
-	imageBaseUrl: 'https://media.guim.co.uk',
-  queueArn: "arn:aws:sqs:eu-west-1:563563610310:test",
-  stack: 'media-service',
+	fastlyServiceId: '1L0HRheo6sMtfQHnY1FU6C',
+	fastlyMediaHost: 'media.guim.co.uk',
+	queueArn: 'arn:aws:sqs:eu-west-1:563563610310:test',
+	stack: 'media-service',
 	stage: 'PROD',
-	env: { region: 'eu-west-1' }
+	env: { region: 'eu-west-1' },
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-TEST', {
-	imageBaseUrl: 'https://media.test.dev-guim.co.uk',
-  queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-f9c84U2udff8`,
-  stack: 'media-service',
+	fastlyServiceId: '5CSDV7WcKwnIIHipZzt3po',
+	fastlyMediaHost: 'media.guimcode.co.uk',
+	queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-f9c84U2udff8`,
+	stack: 'media-service',
 	stage: 'TEST',
-	env: { region: 'eu-west-1' }
+	env: { region: 'eu-west-1' },
 });

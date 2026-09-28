@@ -13,12 +13,12 @@ class FastlyPurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
 
   describe("FastlyPurger") {
     it("builds the service and media-host purge URLs for a key") {
-      val purger = new FastlyPurger(apiKeyProvider, "TEST")
+      val purger = new FastlyPurger(apiKeyProvider, "test-service-id", "images.example.com")
       val key = "hash/crop/master/image.jpg"
 
       purger.purgeUrls(key) shouldBe List(
-        s"https://api.fastly.com/service/5CSDV7WcKwnIIHipZzt3po/purge//$key",
-        s"https://api.fastly.com/purge/media.guimcode.co.uk/$key"
+        s"https://api.fastly.com/service/test-service-id/purge//$key",
+        s"https://api.fastly.com/purge/images.example.com/$key"
       )
     }
 
@@ -28,7 +28,8 @@ class FastlyPurgerTest extends AnyFunSpec with Matchers with MockitoSugar {
         override def apiKey: String = throw expectedFailure
       }
 
-      val result = new FastlyPurger(failingApiKeyProvider, "TEST").purge("image.jpg")
+      val result = new FastlyPurger(failingApiKeyProvider, "test-service-id", "images.example.com")
+        .purge("image.jpg")
 
       result.failed.get should be theSameInstanceAs expectedFailure
     }
