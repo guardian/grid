@@ -61,13 +61,14 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     withWritePermission: Boolean,
     withDeleteImagePermission: Boolean,
     withDeleteCropsOrUsagePermission: Boolean,
-    included: List[String] = List(), tier: Tier
+    included: List[String] = List(), tier: Tier,
+    includeEmbedding: Boolean = true,
   )(implicit logMarker: LogMarker): (JsValue, List[Link], List[Action]) = {
 
     val image = imageWrapper.instance
 
     val source = Try {
-      Json.toJsObject(image)(imageResponseWrites(image.id, included.contains("fileMetadata"))) ++ imageWrapper.fields
+      Json.toJsObject(image)(imageResponseWrites(image.id, included.contains("fileMetadata"), includeEmbedding)) ++ imageWrapper.fields
     }.recoverWith {
       case e =>
         logger.error(logMarker, s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
@@ -323,7 +324,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
 
   import play.api.libs.json.JodaWrites._
 
-  def imageResponseWrites(id: String, expandFileMetaData: Boolean): OWrites[Image] = {
+  def imageResponseWrites(id: String, expandFileMetaData: Boolean, includeEmbedding: Boolean = true): OWrites[Image] = {
     def writes[T](v: T)(implicit writer: Writes[T]): Option[JsValue] =
       Some(writer writes v)
 
@@ -353,7 +354,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
         "collections" -> writes(image.collections.map(collectionsEntity(id, _))),
         "syndicationRights" -> writesOpt(image.syndicationRights),
         "userMetadataLastModified" -> writesOpt(image.userMetadataLastModified),
-        "embedding" -> writes(image.embedding),
+        "embedding" -> writes(image.embedding).filter(_ => includeEmbedding),
       ).collect { case (key, Some(value)) => (key, value) })
     }
   }

@@ -159,6 +159,24 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(true)) shouldEqual true
   }
 
+  it("renders the embedding by default and, when asked, omits only the embedding") {
+    val responses = new ImageResponse(new MediaApiConfig(GridConfigResources(
+      Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++ Map("domain.root" -> "example.test")),
+      null,
+      new ApplicationLifecycle {
+        override def addStopHook(hook: () => Future[_]): Unit = {}
+        override def stop(): Future[_] = Future.successful(())
+      }
+    )), null, null)
+    val image = createImage("test-image-with-embedding", agency, vector = Some(List(0.25, 0.5)))
+
+    val default = Json.toJsObject(image)(responses.imageResponseWrites(image.id, expandFileMetaData = false))
+    val projected = Json.toJsObject(image)(responses.imageResponseWrites(image.id, expandFileMetaData = false, includeEmbedding = false))
+
+    (default \ "embedding").toOption shouldEqual image.embedding.map(Json.toJson(_))
+    projected shouldEqual (default - "embedding")
+  }
+
   it("should extract a matchViaExistence alias field as false, rather than omitting it, when the underlying field is absent") {
     val image = createImage(
       id = "test-image-without-c2pa",

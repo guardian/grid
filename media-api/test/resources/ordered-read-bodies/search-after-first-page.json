@@ -1,0 +1,21 @@
+[
+  {
+    "path": "/images/search-after",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "sort": [
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "length": 200,
+      "reverse": false,
+      "seekToEnd": false,
+      "countAll": true
+    }
+  }
+]

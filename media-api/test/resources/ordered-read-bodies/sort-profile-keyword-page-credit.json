@@ -1,0 +1,25 @@
+[
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "credit",
+      "sort": [
+        {
+          "metadata.credit": "asc"
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "keyword-page",
+      "field": "metadata.credit",
+      "size": 10000,
+      "includeCoveredCount": true
+    }
+  }
+]
