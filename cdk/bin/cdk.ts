@@ -23,7 +23,7 @@ new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-PROD', {
 });
 new ImageCachePurger(app, 'ImageCachePurgerLambda-euwest-1-TEST', {
 	imageBaseUrl: 'https://media.test.dev-guim.co.uk',
-  queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-rymVWjgDfJoy`,
+  queueArn: `arn:aws:sqs:eu-west-1:563563610310:media-service-TEST-ImageNotificationQueue-f9c84U2udff8`,
   stack: 'media-service',
 	stage: 'TEST',
 	env: { region: 'eu-west-1' }
