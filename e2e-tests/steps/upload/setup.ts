@@ -1,4 +1,6 @@
-import { statSync } from 'node:fs';
+import { statSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
@@ -36,13 +38,60 @@ export const filesToUpload = [testImages.smaller, testImages.larger];
  */
 export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images/blocked-cookies.png`;
 
+/**
+ * A JPEG unique to this run. The Grid dedupes by content hash, so a scenario that deletes
+ * its image would otherwise poison the shared fixtures and its own re-runs; random trailing
+ * bytes change the hash without stopping the image decoding.
+ */
+export const uniqueImage = (): TestImage => {
+  const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
+  writeFileSync(filePath, Buffer.concat([readFileSync(testImages.smaller.path), randomBytes(16)]));
+  return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
+};
+
+/** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
+export const holdIngest = (page: Page, ms = 5_000) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      await route.abort();
+    },
+  );
+
+/** Reject the transfer to the ingest bucket so the job fails. */
+export const failIngest = (page: Page) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await route.fulfill({ status: 403, body: 'denied' });
+    },
+  );
+
+/**
+ * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
+ * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
+ * that reaches the `image-delete-failure` handler.
+ */
+export const failDelete = (page: Page) =>
+  page.route(
+    () => true,
+    async (route) => {
+      if (route.request().method() !== 'DELETE') return route.fallback();
+      await route.abort();
+    },
+  );
+
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
+  const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
 
   return {
     prompt,
     main: page.getByRole('main', { name: 'Image uploads' }),
-    currentUploads: page.getByRole('region', { name: 'Your current uploads' }),
+    currentUploads,
     pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
     /* The overlay is `position: fixed`, so the <dnd-uploader> wrapper has no box of its own
@@ -57,5 +106,14 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
+    /** A finished upload that has become an editable image, scoped to current uploads. */
+    editableJob: currentUploads.getByRole('region', { name: 'Image metadata' }),
+    /** The delete control on a current upload (labelled "Delete image" for both states). */
+    deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
+    /* The per-item undelete control, an <a role="button">. The batch action bar renders a
+       second "Undelete" button, so intersect with the anchor to pick the per-item one. */
+    undeleteJobButton: currentUploads
+      .getByRole('button', { name: 'Undelete' })
+      .and(currentUploads.locator('a')),
   };
 };
