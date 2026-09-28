@@ -191,7 +191,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
       }
     } catch (error) {
       throw new Error(
-        `Failed to delete usages: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete usages: ${error instanceof Error ? error.message : error.body.errorMessage ?? String(error)}`
       );
     }
   };
@@ -205,7 +205,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
       await cropsResource.perform("delete-crops");
     } catch (error) {
       throw new Error(
-        `Failed to delete crops: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete crops: ${error instanceof Error ? error.message : error.body.errorMessage ?? String(error)}`
       );
     }
   };
