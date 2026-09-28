@@ -207,7 +207,7 @@ results.controller('SearchResultsCtrl', [
 
         // Prototype: visual treatments of the "try AI search instead" prompt shown
         // when a plain search returns nothing. Flip between them with ?aiSearchVariant=
-        const AI_SEARCH_VARIANTS = ['a'];
+        const AI_SEARCH_VARIANTS = ['a', 'b', 'c', 'd', 'e', 'f'];
         ctrl.aiSearchVariant = AI_SEARCH_VARIANTS.includes($stateParams.aiSearchVariant)
           ? $stateParams.aiSearchVariant
           : 'a';
@@ -216,20 +216,32 @@ results.controller('SearchResultsCtrl', [
           !!($stateParams.query && $stateParams.query.trim());
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
-        // A row's worth of what the AI search would return.
+        // A row's worth of what the AI search would return, plus a few more that
+        // some variants tease beyond it.
         ctrl.aiSearchPreviewSize = 6;
+        ctrl.aiSearchPreviewTeaserSize = 6;
         ctrl.aiSearchPreviewImages = [];
+        ctrl.aiSearchPreviewTeaserImages = [];
+        ctrl.aiSearchPreviewLoopImages = [];
         ctrl.aiSearchPreviewLoading = false;
 
         function loadAiSearchPreview() {
           ctrl.aiSearchPreviewLoading = true;
+          // Same length for every variant, as length changes the AI ranking.
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
-          return search({offset: 0, length: ctrl.aiSearchPreviewSize, useAISearch: 'true', countAll: false})
+          const length = ctrl.aiSearchPreviewSize + ctrl.aiSearchPreviewTeaserSize;
+          return search({offset: 0, length, useAISearch: 'true', countAll: false})
             .then(images => {
-              ctrl.aiSearchPreviewImages = images.data;
+              const all = images.data;
+              ctrl.aiSearchPreviewImages = all.slice(0, ctrl.aiSearchPreviewSize);
+              ctrl.aiSearchPreviewTeaserImages = all.slice(ctrl.aiSearchPreviewSize);
+              // Doubled so the (d) marquee loops seamlessly by translating half its width
+              ctrl.aiSearchPreviewLoopImages = all.concat(all);
             })
             .catch(() => {
               ctrl.aiSearchPreviewImages = [];
+              ctrl.aiSearchPreviewTeaserImages = [];
+              ctrl.aiSearchPreviewLoopImages = [];
             })
             .finally(() => {
               ctrl.aiSearchPreviewLoading = false;

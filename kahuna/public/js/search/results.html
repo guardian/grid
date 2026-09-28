@@ -247,11 +247,38 @@
                     <span class="ai-search-preview__heading" ng-if="! ctrl.aiSearchPreviewLoading">
                         Here are the top results from AI search
                     </span>
-                    <span class="ai-search-preview__row" ng-if="! ctrl.aiSearchPreviewLoading">
+                    <span class="ai-search-preview__row" ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant !== 'd'">
                         <img class="ai-search-preview__thumb"
                              ng-repeat="image in ctrl.aiSearchPreviewImages track by image.data.id"
+                             style="--rank: {{$index}}"
                              ng-src="{{::image.data.thumbnail | assetFile}}"
                              alt="" />
+                        <!-- (e) the next results continue the row, receding -->
+                        <img class="ai-search-preview__thumb ai-search-preview__thumb--teaser"
+                             ng-if="ctrl.aiSearchVariant === 'e'"
+                             ng-repeat="image in ctrl.aiSearchPreviewTeaserImages track by image.data.id"
+                             style="--rank: {{$index + ctrl.aiSearchPreviewSize}}"
+                             ng-src="{{::image.data.thumbnail | assetFile}}"
+                             alt="" />
+                    </span>
+                    <!-- (c) the tops of the next row peek out from under the fade -->
+                    <span class="ai-search-preview__peek"
+                          ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant === 'c'"
+                          aria-hidden="true">
+                        <img class="ai-search-preview__thumb"
+                             ng-repeat="image in ctrl.aiSearchPreviewTeaserImages track by image.data.id"
+                             ng-src="{{::image.data.thumbnail | assetFile}}"
+                             alt="" />
+                    </span>
+                    <!-- (d) every result drifts past in an endless loop -->
+                    <span class="ai-search-preview__marquee"
+                          ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant === 'd'">
+                        <span class="ai-search-preview__marquee-track">
+                            <img class="ai-search-preview__thumb"
+                                 ng-repeat="image in ctrl.aiSearchPreviewLoopImages track by $index"
+                                 ng-src="{{::image.data.thumbnail | assetFile}}"
+                                 alt="" />
+                        </span>
                     </span>
                     <!-- Sticky gradient scrim over the thumbnails, as per .preview__fade -->
                     <span class="ai-search-preview__footer" ng-if="! ctrl.aiSearchPreviewLoading">

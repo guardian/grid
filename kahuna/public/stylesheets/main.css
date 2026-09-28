@@ -1667,6 +1667,101 @@ textarea.ng-invalid {
     color: white;
 }
 
+/* b: a longer, eased fade and a frosted-glass button */
+.ai-search-preview--b .ai-search-preview__footer {
+    height: 110px;
+    margin-top: calc(-110px - 1.5rem);
+    background: linear-gradient(to bottom,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.15) 35%,
+        rgba(0, 0, 0, 0.5) 70%,
+        rgba(0, 0, 0, 0.8) 100%);
+}
+.ai-search-preview--b .ai-search-preview__cta {
+    background-color: rgba(34, 34, 34, 0.5);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+}
+.ai-search-preview--b:hover .ai-search-preview__cta {
+    background-color: rgba(102, 102, 102, 0.6);
+}
+
+/* c: the tops of the next results peek out from under the fade */
+.ai-search-preview__peek {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 8px;
+    align-self: stretch;
+    height: 56px;
+    margin-top: calc(8px - 1.5rem);
+    overflow: hidden;
+    /* Its unwrapped row mustn't widen the page */
+    contain: inline-size;
+    opacity: 0.6;
+}
+
+/* d: every result drifts past in an endless loop, fading in and out at the edges */
+.ai-search-preview--d {
+    width: 100%;
+}
+.ai-search-preview__marquee {
+    align-self: stretch;
+    overflow: hidden;
+    contain: inline-size;
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+}
+.ai-search-preview__marquee-track {
+    display: flex;
+    width: max-content;
+    animation: ai-search-preview-drift 60s linear infinite;
+}
+/* Margin rather than gap, so exactly half the track is one copy of the results */
+.ai-search-preview__marquee-track .ai-search-preview__thumb {
+    margin-right: 8px;
+    max-width: none;
+}
+.ai-search-preview--d:hover .ai-search-preview__marquee-track {
+    animation-play-state: paused;
+}
+@keyframes ai-search-preview-drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ai-search-preview__marquee-track {
+        animation: none;
+    }
+}
+
+/* e: results shrink by rank, like nearest neighbours getting further away, then trail off */
+.ai-search-preview--e .ai-search-preview__row {
+    align-items: flex-end;
+}
+.ai-search-preview--e .ai-search-preview__thumb {
+    height: calc(140px - var(--rank, 0) * 8px);
+}
+.ai-search-preview--e .ai-search-preview__thumb--teaser {
+    opacity: calc(0.8 - (var(--rank) - 6) * 0.12);
+}
+
+/* f: a stack of further pages of results behind the preview, which fans out on hover */
+.ai-search-preview--f {
+    max-width: calc(100% - 16px);
+    margin-bottom: 12px;
+    box-shadow:
+        6px 6px 0 -1px #373737, 6px 6px 0 0 #4d4d4d,
+        12px 12px 0 -1px #353535, 12px 12px 0 0 #454545;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+.ai-search-preview--f:hover {
+    transform: translate(-2px, -2px);
+    box-shadow:
+        8px 8px 0 -1px #373737, 8px 8px 0 0 #4d4d4d,
+        16px 16px 0 -1px #353535, 16px 16px 0 0 #454545;
+}
+
 
 /* ==========================================================================
    Preview
