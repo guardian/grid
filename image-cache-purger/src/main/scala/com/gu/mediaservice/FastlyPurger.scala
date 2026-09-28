@@ -20,10 +20,12 @@ class FastlyPurger private[mediaservice] (
 
   private val fastlyIOService = if (stage == "PROD") iGuimCoUk else iGuimCodeCoUk
 
+  private val mediaGuimUrl = if (stage == "PROD") "media.guim.co.uk" else "media.guimcode.co.uk"
+
   private[mediaservice] def purgeUrls(key: String): List[String] =
     List(
       s"https://api.fastly.com/service/$fastlyIOService/purge//$key",
-      s"https://api.fastly.com/purge/media.guimcode.co.uk/$key"
+      s"https://api.fastly.com/purge/$mediaGuimUrl/$key"
     )
 
   def purge(key: String): Try[Unit] = Try {
