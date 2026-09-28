@@ -188,3 +188,42 @@ deployments:
     dependencies:
       - cfn-eu-west-1-image-embedder-lambda-image-embedder-lambda
 
+  lambda-upload-eu-west-1-image-cache-purger-lambda:
+    type: aws-lambda
+    regions:
+      - eu-west-1
+    app: image-cache-purger-lambda
+    contentDirectory: image-cache-purger-lambda
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-cache-purger.jar
+    actions:
+      - uploadLambda
+  cfn-eu-west-1-image-cache-purger-lambda:
+    type: cloud-formation
+    regions:
+      - eu-west-1
+    app: image-cache-purger-lambda
+    contentDirectory: cdk.out
+    parameters:
+      templateStagePaths:
+        PROD: ImageCachePurgerLambda-euwest-1-PROD.template.json
+        TEST: ImageCachePurgerLambda-euwest-1-TEST.template.json
+    dependencies:
+      - lambda-upload-eu-west-1-image-cache-purger-lambda
+  lambda-update-eu-west-1-image-cache-purger-lambda:
+    type: aws-lambda
+    regions:
+      - eu-west-1
+    app: image-cache-purger-lambda
+    contentDirectory: image-cache-purger-lambda
+    parameters:
+      bucketSsmLookup: true
+      lookupByTags: true
+      fileName: image-cache-purger.jar
+    actions:
+      - updateLambda
+    dependencies:
+      - cfn-eu-west-1-image-cache-purger-lambda
+

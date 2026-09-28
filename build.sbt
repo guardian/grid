@@ -1,5 +1,6 @@
 import play.sbt.PlayImport.PlayKeys._
 import sbt.Package.FixedTimestamp
+import sbtassembly.AssemblyPlugin.autoImport._
 
 import scala.sys.process._
 import scala.util.control.NonFatal
@@ -61,7 +62,7 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, imageCachePurger, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 lazy val e2eServiceProjects: Seq[sbt.ProjectReference] = Seq(auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall)
 lazy val e2eStage = taskKey[Seq[File]]("Stage the services required by the E2E test stack")
 
@@ -161,6 +162,22 @@ lazy val imageLoader = playProject("image-loader", 9003).settings(
     file("image-loader/grayscale.icc") -> "grayscale.icc",
     file("image-loader/srgb.icc") -> "srgb.icc"
   )
+)
+
+lazy val imageCachePurger = project("image-cache-purger").settings(
+  libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+    "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
+    "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
+    "software.amazon.awssdk" % "secretsmanager" % awsSdkV2Version,
+  ),
+  assembly / assemblyJarName := "image-cache-purger.jar",
+  assembly / assemblyMergeStrategy := {
+    case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.concat
+    case path => (assembly / assemblyMergeStrategy).value(path)
+  },
+  assembly / test := {},
 )
 
 lazy val kahuna = playProject("kahuna", 9005).settings(
