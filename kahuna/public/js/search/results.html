@@ -234,54 +234,32 @@
             <span ng-if="! ctrl.canOfferAiSearch">No matches, sorry! Try altering your search.</span>
 
             <div ng-if="ctrl.canOfferAiSearch" class="ai-search-prompt">
-                <span class="ai-search-prompt__heading">No results from text search</span>
+                <span>No results from text search</span>
 
                 <!-- Preview of what AI search would return; the whole box links to it -->
                 <a class="ai-search-preview"
-                   ng-class="'ai-search-preview--' + ctrl.aiSearchVariant"
+                   ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading,
+                               'ai-search-preview--dark-fade': ctrl.aiPreviewDarkFade,
+                               'ai-search-preview--static': ! ctrl.aiPreviewScrolls,
+                               'ai-search-preview--hard-sides': ! ctrl.aiPreviewFadesSides}"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    aria-label="Click to see all AI search results">
                     <span class="ai-search-preview__loading" ng-if="ctrl.aiSearchPreviewLoading">
                         Looking for AI search results…
                     </span>
-                    <span class="ai-search-preview__heading" ng-if="! ctrl.aiSearchPreviewLoading">
+                    <span class="ai-search-preview__heading" ng-if-start="! ctrl.aiSearchPreviewLoading">
                         Here are the top results from AI search
                     </span>
-                    <span class="ai-search-preview__row" ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant !== 'd'">
-                        <img class="ai-search-preview__thumb"
-                             ng-repeat="image in ctrl.aiSearchPreviewImages track by image.data.id"
-                             style="--rank: {{$index}}"
-                             ng-src="{{::image.data.thumbnail | assetFile}}"
-                             alt="" />
-                        <!-- (e) the next results continue the row, receding -->
-                        <img class="ai-search-preview__thumb ai-search-preview__thumb--teaser"
-                             ng-if="ctrl.aiSearchVariant === 'e'"
-                             ng-repeat="image in ctrl.aiSearchPreviewTeaserImages track by image.data.id"
-                             style="--rank: {{$index + ctrl.aiSearchPreviewSize}}"
-                             ng-src="{{::image.data.thumbnail | assetFile}}"
-                             alt="" />
-                    </span>
-                    <!-- (c) the tops of the next row peek out from under the fade -->
-                    <span class="ai-search-preview__peek"
-                          ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant === 'c'"
-                          aria-hidden="true">
-                        <img class="ai-search-preview__thumb"
-                             ng-repeat="image in ctrl.aiSearchPreviewTeaserImages track by image.data.id"
-                             ng-src="{{::image.data.thumbnail | assetFile}}"
-                             alt="" />
-                    </span>
-                    <!-- (d) every result drifts past in an endless loop -->
-                    <span class="ai-search-preview__marquee"
-                          ng-if="! ctrl.aiSearchPreviewLoading && ctrl.aiSearchVariant === 'd'">
+                    <span class="ai-search-preview__marquee">
                         <span class="ai-search-preview__marquee-track">
                             <img class="ai-search-preview__thumb"
-                                 ng-repeat="image in ctrl.aiSearchPreviewLoopImages track by $index"
+                                 ng-repeat="image in ctrl.aiSearchPreviewImages track by $index"
                                  ng-src="{{::image.data.thumbnail | assetFile}}"
                                  alt="" />
                         </span>
                     </span>
-                    <!-- Sticky gradient scrim over the thumbnails, as per .preview__fade -->
-                    <span class="ai-search-preview__footer" ng-if="! ctrl.aiSearchPreviewLoading">
+                    <!-- Gradient scrim over the thumbnails, as per .preview__fade -->
+                    <span class="ai-search-preview__footer" ng-if-end>
                         <span class="ai-search-preview__cta">
                             <gr-icon-label gr-icon="search">Click to see all AI search results</gr-icon-label>
                         </span>

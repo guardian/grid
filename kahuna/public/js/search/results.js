@@ -205,44 +205,34 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
-        // Prototype: visual treatments of the "try AI search instead" prompt shown
-        // when a plain search returns nothing. Flip between them with ?aiSearchVariant=
-        const AI_SEARCH_VARIANTS = ['a', 'b', 'c', 'd', 'e', 'f'];
-        ctrl.aiSearchVariant = AI_SEARCH_VARIANTS.includes($stateParams.aiSearchVariant)
-          ? $stateParams.aiSearchVariant
-          : 'a';
+        // Prototype: when a plain search returns nothing, preview the AI search results.
+        // All default to true: ?aiPreviewDissolve=false swaps the fade into the page for a
+        // darkening gradient; ?aiPreviewScroll=false stops the thumbnails drifting;
+        // ?aiPreviewFadeSides=false stops the row fading out at its left and right ends.
+        const isFalse = param => param === 'false' || param === false;
+        ctrl.aiPreviewDarkFade = isFalse($stateParams.aiPreviewDissolve);
+        ctrl.aiPreviewScrolls = !isFalse($stateParams.aiPreviewScroll);
+        ctrl.aiPreviewFadesSides = !isFalse($stateParams.aiPreviewFadeSides);
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
           !!($stateParams.query && $stateParams.query.trim());
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
-        // A row's worth of what the AI search would return, plus a few more that
-        // some variants tease beyond it.
-        ctrl.aiSearchPreviewSize = 6;
-        ctrl.aiSearchPreviewTeaserSize = 6;
+        ctrl.aiSearchPreviewSize = 12;
         ctrl.aiSearchPreviewImages = [];
-        ctrl.aiSearchPreviewTeaserImages = [];
-        ctrl.aiSearchPreviewLoopImages = [];
         ctrl.aiSearchPreviewLoading = false;
 
         function loadAiSearchPreview() {
           ctrl.aiSearchPreviewLoading = true;
-          // Same length for every variant, as length changes the AI ranking.
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
-          const length = ctrl.aiSearchPreviewSize + ctrl.aiSearchPreviewTeaserSize;
-          return search({offset: 0, length, useAISearch: 'true', countAll: false})
+          return search({offset: 0, length: ctrl.aiSearchPreviewSize, useAISearch: 'true', countAll: false})
             .then(images => {
-              const all = images.data;
-              ctrl.aiSearchPreviewImages = all.slice(0, ctrl.aiSearchPreviewSize);
-              ctrl.aiSearchPreviewTeaserImages = all.slice(ctrl.aiSearchPreviewSize);
-              // Doubled so the (d) marquee loops seamlessly by translating half its width
-              ctrl.aiSearchPreviewLoopImages = all.concat(all);
+              // Doubled when drifting, so the loop is seamless by translating half its width
+              ctrl.aiSearchPreviewImages = ctrl.aiPreviewScrolls
+                ? images.data.concat(images.data)
+                : images.data;
             })
-            .catch(() => {
-              ctrl.aiSearchPreviewImages = [];
-              ctrl.aiSearchPreviewTeaserImages = [];
-              ctrl.aiSearchPreviewLoopImages = [];
-            })
+            .catch(angular.noop)
             .finally(() => {
               ctrl.aiSearchPreviewLoading = false;
             });
