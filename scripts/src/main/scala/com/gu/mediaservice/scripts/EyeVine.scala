@@ -6,6 +6,7 @@ import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import scala.io.Source
 
 object EyeVine extends App {
   val GRIDKEY = sys.env.getOrElse("GRIDKEY", throw new RuntimeException("Must set a GRIDKEY env variable"))
@@ -14,7 +15,7 @@ object EyeVine extends App {
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
-  val gridIds = List("ba4f7fcd346f6d6705fc37c3585fe3f32dc8f2ee")
+  val gridIds = Source.fromResource("eyevineids.txt").getLines().toList
 
   private def parseUsages(responseBody: String): List[Usage] =
     (Json.parse(responseBody) \ "data")
