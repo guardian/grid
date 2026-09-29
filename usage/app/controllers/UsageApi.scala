@@ -359,9 +359,6 @@ class UsageApi(
       ),
       request => {
         val usageIds = request.usageIds.map(_.trim).filter(_.nonEmpty).distinct
-        println("********")
-        println(usageIds)
-        println("********")
 
         if (usageIds.isEmpty) {
           Future.successful(
@@ -371,9 +368,6 @@ class UsageApi(
           Future.sequence(
             usageIds.map(usageId => usageTable.queryByUsageId(usageId).map(usageId -> _))
           ).map { resolvedUsages =>
-            println("$$$$$$$$$$$$$$$$$")
-            println(resolvedUsages)
-            println("$$$$$$$$$$$$$$$$$")
             val missingUsageIds = resolvedUsages.collect { case (usageId, None) => usageId }
             val usagesForOtherMedia = resolvedUsages.collect {
               case (usageId, Some(mediaUsage)) if mediaUsage.mediaId != mediaId => usageId
@@ -399,7 +393,11 @@ class UsageApi(
                   UpdateMessage(subject = DeleteSingleUsage, id = Some(mediaId), usageId = Some(usageId))
                 )
               }
-              Ok
+              respondError(
+                BadRequest,
+                "usage-media-break",
+                s"Example break"
+              )
             }
           }.recover { case error: Exception =>
             logger.error(logMarker, "Failed to delete usages by ID", error)
