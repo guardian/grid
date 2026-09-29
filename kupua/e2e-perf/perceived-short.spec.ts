@@ -33,7 +33,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect } from "./helpers";
+import { test, expect, isMediaApiUrl } from "./helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 
@@ -238,7 +238,7 @@ function captureSuccessfulDataRoutes(kupua: any) {
   const onResponse = (response: any) => {
     if (!response.ok()) return;
     const path = new URL(response.url()).pathname;
-    if (path.startsWith("/api/")) routes.add("media-api");
+    if (isMediaApiUrl(response.url())) routes.add("media-api");
     if (path.startsWith("/es/")) routes.add("direct-es");
   };
   kupua.page.on("response", onResponse);
@@ -306,7 +306,9 @@ async function appendFocusedSortVisualPhases(
         const routes = new Set<string>();
         for (const resource of resources) {
           const url = new URL(resource.name, location.origin);
-          if (url.pathname.startsWith("/api/")) routes.add("media-api");
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") {
+            routes.add("media-api");
+          }
           if (url.pathname.startsWith("/es/")) routes.add("direct-es");
         }
         return {
@@ -368,8 +370,10 @@ async function appendDensityVisualPhases(kupua: any, interactionId: string) {
         if (!state || !Number.isFinite(state.total)) throw new Error("PP6 settled total is unavailable");
         const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
         const networkRoutes = resources
-          .map((resource) => new URL(resource.name, location.origin).pathname)
-          .filter((path) => path.startsWith("/api/") || path.startsWith("/es/"));
+          .map((resource) => new URL(resource.name, location.origin))
+          .filter((url) => url.pathname.startsWith("/api/")
+            || url.pathname.startsWith("/es/")
+            || url.origin === "https://api.media.test.dev-gutools.co.uk");
         if (networkRoutes.length > 0) throw new Error("PP6 unexpectedly issued a data request");
         return {
           settledTotal: state.total,
@@ -550,9 +554,9 @@ async function appendNoFocusSortVisualPhases(kupua: any, interactionId: string) 
         const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
         const routes = new Set<string>();
         for (const resource of resources) {
-          const path = new URL(resource.name, location.origin).pathname;
-          if (path.startsWith("/api/")) routes.add("media-api");
-          if (path.startsWith("/es/")) routes.add("direct-es");
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
         }
         if (!Number.isFinite(state.total)) throw new Error("PP2 settled total is unavailable");
         return {
@@ -610,9 +614,9 @@ async function appendFilterVisualPhases(kupua: any, interactionId: string) {
         const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
         const routes = new Set<string>();
         for (const resource of resources) {
-          const path = new URL(resource.name, location.origin).pathname;
-          if (path.startsWith("/api/")) routes.add("media-api");
-          if (path.startsWith("/es/")) routes.add("direct-es");
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
         }
         if (!Number.isFinite(state.total)) throw new Error("PP5 settled total is unavailable");
         return {
@@ -659,9 +663,9 @@ async function appendQueryVisualPhases(kupua: any, interactionId: string) {
         const routes = new Set<string>();
         const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
         for (const resource of resources) {
-          const path = new URL(resource.name, location.origin).pathname;
-          if (path.startsWith("/api/")) routes.add("media-api");
-          if (path.startsWith("/es/")) routes.add("direct-es");
+          const url = new URL(resource.name, location.origin);
+          if (url.pathname.startsWith("/api/") || url.origin === "https://api.media.test.dev-gutools.co.uk") routes.add("media-api");
+          if (url.pathname.startsWith("/es/")) routes.add("direct-es");
         }
         if (!Number.isFinite(state.total)) throw new Error("PP8 settled total is unavailable");
         return {

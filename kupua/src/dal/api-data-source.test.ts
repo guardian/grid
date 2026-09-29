@@ -234,6 +234,19 @@ describe("ApiDataSource standalone image", () => {
     });
   });
 
+  it("uses the credentialed absolute TEST endpoint only when the deployed base is selected", async () => {
+    vi.stubEnv("VITE_MEDIA_API_BASE_URL", "https://api.media.test.dev-gutools.co.uk");
+    const fetchMock = stubSingleton(() => singleton("img-1"));
+
+    await new ApiDataSource().getById("img-1");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.media.test.dev-gutools.co.uk/images/img-1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
   it("reports a missing or hidden image as absent, quietly", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     stubSingleton(() => failure(404, "image-not-found"));

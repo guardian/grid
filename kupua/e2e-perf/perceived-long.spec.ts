@@ -43,7 +43,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect } from "./helpers";
+import { test, expect, isMediaApiUrl } from "./helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
 
@@ -111,7 +111,7 @@ function captureSuccessfulDataRoutes(kupua: any) {
   const onResponse = (response: any) => {
     if (!response.ok()) return;
     const path = new URL(response.url()).pathname;
-    if (path.startsWith("/api/")) routes.add("media-api");
+    if (isMediaApiUrl(response.url())) routes.add("media-api");
     if (path.startsWith("/es/")) routes.add("direct-es");
   };
   kupua.page.on("response", onResponse);

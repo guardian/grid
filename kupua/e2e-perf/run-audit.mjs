@@ -34,6 +34,8 @@
  *                   Requires kupua started with: ./scripts/start.sh --use-media-api
  *                   Also requires a panda auth file (one-time setup — see
  *                   enforceClusterGate() for the generation command).
+ *   --use-deployed-media-api
+ *                   Route reads directly to deployed TEST media-api.
  *   <P-id list>     Positional jank-test filter (e.g. "P3,P8").
  *
  * Output files (under e2e-perf/results/):
@@ -148,7 +150,9 @@ let perceivedFull = false;     // --perceived             jank + short + long
 let perceivedOnly = false;     // --perceived-only        short + long
 let shortOnly = false;         // --short-perceived-only  short
 let longOnly = false;          // --long-perceived-only   long
-let useMediaApi = false;       // --use-media-api         route ordered reads through media-api
+let useMediaApi = false;       // either media-api mode
+let useLocalMediaApi = false;  // --use-media-api          local media-api proxy
+let useDeployedMediaApi = false; // --use-deployed-media-api direct TEST media-api
 
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -173,7 +177,9 @@ for (let i = 0; i < args.length; i++) {
   } else if (a === "--long-perceived-only") {
     longOnly = true;
   } else if (a === "--use-media-api") {
-    useMediaApi = true;
+    useLocalMediaApi = true;
+  } else if (a === "--use-deployed-media-api") {
+    useDeployedMediaApi = true;
   } else if (!a.startsWith("--")) {
     // Positional arg: jank test filter (e.g. "P8" or "P3,P8")
     const parts = a.split(",").map((s) => s.trim()).filter(Boolean);
@@ -182,6 +188,12 @@ for (let i = 0; i < args.length; i++) {
     failCli(`Unknown flag: ${a}`, 2);
   }
 }
+
+if (useLocalMediaApi && useDeployedMediaApi) {
+  failCli("Error: --use-media-api and --use-deployed-media-api are mutually exclusive.", 2);
+}
+useMediaApi = useLocalMediaApi || useDeployedMediaApi;
+const apiTopology = useDeployedMediaApi ? "deployed-test" : useLocalMediaApi ? "local" : "none";
 
 // Validate: at most one of the four perceived modes.
 const perceivedModeCount = [perceivedFull, perceivedOnly, shortOnly, longOnly]
@@ -265,6 +277,7 @@ function readEnvironment(exitCode, suiteLabel, git) {
   unlinkSync(ENVIRONMENT_TMP);
   const observed = assertEnvironmentMatches(requireSingleEnvironment(rows, suiteLabel), {
     dataMode: useMediaApi ? "media-api" : "direct-es",
+    apiTopology,
   });
   return {
     ...observed,
@@ -285,6 +298,7 @@ function formatEnvironment(environment) {
   if (!environment) return "Environment: unavailable";
   return [
     `Mode: ${environment.dataMode}`,
+    `API topology: ${environment.apiTopology}`,
     `Base URL: ${environment.appBaseUrl}`,
     `Browser: ${environment.browserName} ${environment.browserVersion}`,
     `OS: ${environment.os.platform}/${environment.os.architecture} ${environment.os.release}`,
@@ -328,7 +342,7 @@ async function probeRtt() {
 const PANDA_AUTH_FILE = resolve(__dirname, ".panda-auth.json");
 
 function enforceClusterGate() {
-  // --use-media-api auth check: must have a storageState file so Playwright
+  // Media-api auth check: must have a storageState file so Playwright
   // contexts can authenticate to media-api.
   if (useMediaApi) {
     if (!existsSync(PANDA_AUTH_FILE)) {
@@ -1188,7 +1202,8 @@ async function main() {
   console.log(`  Grep:         ${grepArg || "(all tests)"}`);
   if (dryRun) console.log(`  Dry run:      no log files will be written`);
   if (headed) console.log(`  Headed:       browser will be visible`);
-  if (useMediaApi) console.log(`  Mode:         --use-media-api (ordered reads via local media-api)`);
+  if (useLocalMediaApi) console.log(`  Mode:         --use-media-api (reads via local media-api)`);
+  if (useDeployedMediaApi) console.log(`  Mode:         --use-deployed-media-api (direct reads via TEST media-api)`);
   console.log(`  Suites:       jank=${runJank} short=${runShort} long=${runLong}`);
   console.log();
 

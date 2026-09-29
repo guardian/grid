@@ -275,12 +275,13 @@ reach other Grid services). These services support write operations
 collections. Until Phase C explicitly enables writes, they must be
 physically impossible.
 
-**Why one layer suffices (unlike ES):** The Grid API uses standard HTTP
-semantics — reads are GET, writes are POST/PUT/DELETE/PATCH. This means a
-simple method check is a perfect discriminator, unlike ES (which uses POST
-for reads like `_search`). Additionally, the Vite proxy is the sole path
-to media-api from browser code — direct cross-origin requests are blocked
-by CORS. There's no "bypass the adapter" scenario to defend against.
+**Topology boundary:** The guard protects requests that traverse Vite's local
+`/api` proxy. It is not a universal browser boundary: temporary
+`--use-deployed-media-api` mode sends credentialed cross-origin requests directly
+to the allowlisted TEST media-api, whose CORS policy admits the Kupua local origin.
+That mode bypasses this guard by design and is not transport-enforced read-only;
+it exists only for operator-run TEST measurement pending the permanent ingress
+design. Current Kupua code issues reads, but server permissions remain authoritative.
 
 **Safeguard:** The `gridApiWriteGuard()` middleware plugin in
 `vite.config.ts` blocks all non-GET HTTP methods on Grid API proxy
@@ -291,8 +292,8 @@ array). Requests are rejected with 403 and a descriptive message.
 compound sort clauses and cursors in a JSON body, so they are POST. The
 guard admits exactly those paths via `GRID_API_READ_VIA_POST`:
 `/images/search-after`, `/images/window`, `/images/rank`,
-`/images/sort-profile` and `/images/keys` (the last four added with API
-build U5, 25 September 2026). Each is a read on the server side; add a path
+`/images/sort-profile`, `/images/keys`, `/images/count`,
+`/images/aggregations` and `/images/mget`. Each is a read on the server side; add a path
 here only when its server handler performs no write.
 
 **Env-var gate:** Set `VITE_GRID_API_WRITES_ENABLED=true` in the
@@ -303,6 +304,8 @@ blocked unconditionally.
 **Config:**
 - `GRID_API_PROXY_PREFIXES` in `vite.config.ts` — list of proxy path
   prefixes to protect (currently `["/api"]`)
+- `VITE_MEDIA_API_BASE_URL` — `/api` in ordinary/local API modes; only
+  `--use-deployed-media-api` selects the exact TEST origin
 - `VITE_GRID_API_WRITES_ENABLED` — env var to relax the guard (default:
   unset = writes blocked)
 
@@ -327,6 +330,7 @@ converting it to a per-operation allowlist (like the ES path guard).
 | `VITE_ES_BASE` | `/es` | `.env` | Vite proxy path prefix (client-side) |
 | `VITE_ES_INDEX` | `images` | `.env` | ES index or alias to query |
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
+| `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
 | `VITE_GRID_API_WRITES_ENABLED` | (unset) | Shell | Set to `true` to allow non-GET requests through Grid API proxy (Phase C) |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |

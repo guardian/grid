@@ -15,6 +15,8 @@
  *         media-api/app/controllers/UsageController.scala (quotas action)
  */
 
+import { mediaApiUrl } from "@/dal/grid-api/proxy-target";
+
 /** Map of supplier name → exceeded. Empty = quota data unavailable (graceful absence). */
 let quotaMap: Map<string, boolean> = new Map();
 
@@ -40,7 +42,7 @@ type QuotasResponse = {
 export function fetchQuotas(): void {
   void (async () => {
     try {
-      const response = await fetch("/api/usage/quotas", { credentials: "include" });
+      const response = await fetch(mediaApiUrl("/usage/quotas"), { credentials: "include" });
       if (!response.ok) return;
       const json = (await response.json()) as QuotasResponse;
       const store = json?.data?.store;

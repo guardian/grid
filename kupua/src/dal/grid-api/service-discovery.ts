@@ -3,11 +3,10 @@
  * parses service links, and provides URL helpers for all Grid API calls.
  *
  * Architecture notes:
- * - All requests go through the Vite proxy (`/api` → media-api). Never
- *   construct absolute media-api URLs — use the proxy-relative helpers here.
- * - `imageUrl(id)` returns `/api/images/{id}`. The `/api` proxy prefix maps
- *   to the media-api rootUri. The `/images/{id}` path follows the `image`
- *   link template from the HATEOAS root (`${rootUri}/images/{id}`).
+ * - Local media-api requests go through the Vite `/api` proxy. The explicit
+ *   deployed TEST mode uses the allowlisted absolute media-api origin.
+ * - The `/images/{id}` path follows the `image` link template from the
+ *   HATEOAS root (`${rootUri}/images/{id}`).
  * - In `--use-TEST` mode the HATEOAS root returns mixed-origin URLs (media-api
  *   at *.local.dev-gutools.co.uk, satellites at *.test.dev-gutools.co.uk).
  *   For satellite services (Phase B+), each gets its own proxy prefix and
@@ -19,12 +18,7 @@
  */
 
 import type { ClientConfig, Link, RootResponse } from "./types";
-
-/** Vite proxy prefix for media-api. Matches the `/api` rule in vite.config.ts. */
-const ROOT_PROXY_PATH = "/api";
-
-/** Proxy-relative path prefix for single-image requests. */
-const IMAGE_PATH_PREFIX = "/api/images/";
+import { mediaApiUrl } from "./proxy-target";
 
 /**
  * ServiceDiscovery provides URL construction and service link lookup for the
@@ -53,7 +47,7 @@ export class ServiceDiscovery {
 
   private async load(signal?: AbortSignal): Promise<boolean> {
     try {
-      const resp = await fetch(ROOT_PROXY_PATH, {
+      const resp = await fetch(mediaApiUrl(""), {
         credentials: "include",
         signal,
       });
@@ -76,17 +70,11 @@ export class ServiceDiscovery {
   }
 
   /**
-   * Returns the proxy-relative URL for a single image detail request.
-   *
-   * Path structure: `/api/images/{id}` where:
-   *   `/api` = Vite proxy prefix (maps to media-api rootUri)
-   *   `/images/{id}` = path from the `image` link template in the HATEOAS root
-   *
    * The ID is URI-encoded to handle edge cases (though Grid image IDs are SHA-1
    * hex strings and never require encoding in practice).
    */
   imageUrl(id: string): string {
-    return `${IMAGE_PATH_PREFIX}${encodeURIComponent(id)}`;
+    return mediaApiUrl(`/images/${encodeURIComponent(id)}`);
   }
 
   /**

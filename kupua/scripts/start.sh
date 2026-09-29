@@ -12,7 +12,8 @@
 # Usage:
 #   ./kupua/scripts/start.sh                     # local mock data (default)
 #   ./kupua/scripts/start.sh --use-TEST          # connect to TEST ES via SSH tunnel
-#   ./kupua/scripts/start.sh --use-media-api     # TEST ES + ordered reads through media-api
+#   ./kupua/scripts/start.sh --use-media-api     # all image reads through local media-api
+#   ./kupua/scripts/start.sh --use-deployed-media-api # all image reads through deployed TEST media-api
 #
 # Options:
 #   --use-TEST      Connect to real TEST ES cluster via SSH tunnel (port 9200).
@@ -20,10 +21,11 @@
 #                   Skips local ES startup and sample data loading.
 #                   Sets VITE_ES_IS_LOCAL=false (enables write protection).
 #   --use-media-api Same as --use-TEST plus VITE_USE_MEDIA_API=true.
-#                   Routes ordered reads (pages, rank, sort profiles, position maps,
-#                   range walks) through the local media-api server (port 9001
-#                   via nginx); other reads still go to ES. Requires media-api to be running
-#                   in --use-TEST mode. Implies --use-TEST.
+#                   Routes all image reads through local media-api (port 9001 via nginx).
+#                   Requires media-api to be running in --use-TEST mode. Implies --use-TEST.
+#   --use-deployed-media-api
+#                   Routes all image reads through media-api deployed in TEST. Retains the TEST
+#                   ES tunnel only for local image-delivery setup. Implies --use-TEST.
 #   --skip-es       Skip starting / waiting for Elasticsearch
 #   --skip-data     Skip checking / loading sample data
 #   --skip-install  Skip npm install check
@@ -102,6 +104,7 @@ KUPUA_DIR="${SCRIPT_DIR}/.."
 
 USE_TEST=false
 USE_MEDIA_API=false
+USE_DEPLOYED_MEDIA_API=false
 SKIP_ES=false
 SKIP_DATA=false
 SKIP_INSTALL=false
@@ -110,16 +113,26 @@ for arg in "$@"; do
   case "$arg" in
     --use-TEST)     USE_TEST=true ;;
     --use-media-api) USE_MEDIA_API=true; USE_TEST=true ;;
+    --use-deployed-media-api) USE_DEPLOYED_MEDIA_API=true; USE_TEST=true ;;
     --skip-es)      SKIP_ES=true ;;
     --skip-data)    SKIP_DATA=true ;;
     --skip-install) SKIP_INSTALL=true ;;
     *)
       echo -e "${red}Unknown option: $arg${plain}"
-      echo "Usage: $0 [--use-TEST] [--use-media-api] [--skip-es] [--skip-data] [--skip-install]"
+      echo "Usage: $0 [--use-TEST] [--use-media-api | --use-deployed-media-api] [--skip-es] [--skip-data] [--skip-install]"
       exit 1
       ;;
   esac
 done
+
+if [ "$USE_MEDIA_API" = true ] && [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+  echo -e "${red}ERROR: --use-media-api and --use-deployed-media-api are mutually exclusive.${plain}"
+  exit 1
+fi
+
+# Every ordinary mode is pinned to the local same-origin proxy. Only the explicit
+# deployed-media-api branch below may replace this with an absolute TEST origin.
+export VITE_MEDIA_API_BASE_URL="/api"
 
 # ---------------------------------------------------------------------------
 # Check Node.js version — Vite 8 requires ^20.19.0 || >=22.12.0
@@ -250,7 +263,9 @@ fi
 if [ "$USE_TEST" = true ]; then
   wopr_intro
   echo -e "${cyan}╔══════════════════════════════════════╗${plain}"
-  if [ "$USE_MEDIA_API" = true ]; then
+  if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
+    echo -e "${cyan}║ Starting Kupua (deployed TEST API)   ║${plain}"
+  elif [ "$USE_MEDIA_API" = true ]; then
     echo -e "${cyan}║  Starting Kupua (TEST + media-api)   ║${plain}"
   else
     echo -e "${cyan}║      Starting Kupua (TEST mode)      ║${plain}"
@@ -635,9 +650,14 @@ print('')
   echo -e "${cyan}      → http://localhost:3000${plain}"
   echo -e "${yellow}      → ES: ${KUPUA_ES_URL} / index: ${VITE_ES_INDEX}${plain}"
   echo -e "${yellow}      → Write protection: ON${plain}"
-  if [ "$USE_MEDIA_API" = true ]; then
+  if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
     export VITE_USE_MEDIA_API="true"
-    echo -e "${cyan}      → media-api: ON  (ordered reads → POST /images/search-after, /window, /rank, /sort-profile, /keys)${plain}"
+    export VITE_MEDIA_API_BASE_URL="https://api.media.test.dev-gutools.co.uk"
+    echo -e "${cyan}      → media-api: DEPLOYED TEST (direct credentialed browser reads)${plain}"
+    echo -e "${yellow}      → TEST ES tunnel: startup bucket discovery only${plain}"
+  elif [ "$USE_MEDIA_API" = true ]; then
+    export VITE_USE_MEDIA_API="true"
+    echo -e "${cyan}      → media-api: LOCAL (all image reads via /api)${plain}"
     echo -e "${cyan}        Requires media-api running: ./dev/script/start.sh media-api${plain}"
   fi
   if [ "$VITE_S3_PROXY_ENABLED" = "true" ]; then

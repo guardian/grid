@@ -17,6 +17,27 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 29 September 2026 - Deployed TEST media-api measurement (U8/M2a)
+
+  Added explicit `--use-deployed-media-api` startup and perf modes. Ordinary and local API
+  modes remain pinned to `/api`; only the deployed flag selects the allowlisted TEST origin,
+  with credentialed reads and local `/s3`/`imgproxy` delivery. The shared transport now covers
+  discovery, image reads and quotas, suppresses the direct Bedrock probe in API mode, and reports
+  `apiTopology` so the harness rejects app/runner mismatches. Route metrics now require the exact
+  local or TEST API origin, and the Playwright reporter no longer writes a nested results tree.
+
+  Temporary TEST build `15470` completed a four-run deployed campaign and a matched-home local
+  control with no browser ES leakage or hard perceived ceiling breach. Matched-home medians made
+  PP1-5 8-18% faster, PP11 restore 17% faster, JB2/JB3 filters 17%/34% faster, P18 visual settle
+  19% faster and singleton lookup 29% faster. Fresh-context JA1/JB1 were 18%/12% slower, PP7 click
+  seek was 13% slower despite a 6% better p95, and P19's 1,000-item range/visual settle were
+  25%/19% slower. P8/P9 jank matched after controlling network location.
+
+  A bounded deployed AI check confirmed finite-scored hits, pool/tickers, no-vector projection
+  and result-owned overlays without browser ES/Bedrock. No endpoint redesign, PIT work or general
+  rerun was selected. This direct TEST transport bypasses Vite's write guard and is temporary
+  measurement wiring, not the permanent ingress/read-only security design.
+
   ### 28 September 2026 - Skip unused enrichment fallback derivation (U10-B)
 
   `deriveImage` now calculates each local fallback only when the overlay's field is

@@ -11,11 +11,11 @@ then against the same media-api deployed to TEST. We measure and iterate on the 
 freely. Only once it works do we split the media-api code into small human-reviewable PRs.
 Hosting Kupua for other users is a later, separate decision.
 
-**Current milestone (operator, 27 September):** U6z verifies zero browser Elasticsearch traffic
-for non-AI operations, including recovery. U9-A (`804ca1191`) and U9-B are built locally: API mode
-now sends AI search through media-api too and constructs no ES datasource, so the AI exception is
-gone in that mode. U9-C remains deferred pending separate team approval. Team review remains
-required before merging or deploying U9-A. U7's media-delivery changes remain separate.
+**Current milestone (operator, 29 September):** U8 deployed the cumulative media-api build to TEST
+as temporary build `15470`; M2a and its matched-home local control are complete. Deployed API mode
+made no browser Elasticsearch/Bedrock reads, and the bounded AI check passed. U9-C remains
+deferred. Team review gates merge/PROD for U9-A, not the completed operator-authorized TEST
+experiment. The active sequence is now U7 -> M2b; permanent hosting/ingress remains separate.
 
 ## 1. Decisions (operator, 23 September 2026)
 
@@ -144,17 +144,16 @@ maintained here by the executing agent at completion (section 8).
 | U9-C | Shared ordinary-search MLT contract and clients | Both | separate team approval | deferred; do not build |
 | U10-A | Characterize server-derived data/config ownership and duplicate computation | Docs/evidence | operator sequencing exception | done; post-U9 evidence rechecked at `2aad7ddba`; no new execution |
 | U10-B | Skip unused cost/validity/syndication fallback derivation | Kupua | U9-B, U10-A | done locally; cold review accepted with fixes |
-| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B, selected U10-B | not started |
-| M2a | TEST API measurement, retaining current local image delivery | Both | U8 | not started |
+| U8 | Deploy to TEST; `start.sh` switch for TEST media-api (cookie routing as in e2e-perf) | Both | U9-B, selected U10-B | done; temporary TEST build `15470` |
+| M2a | TEST API measurement, retaining current local image delivery | Both | U8 | done; deployed + matched-home local campaigns |
 | U7 | Media from canonical entity links (no `/s3`, `/imgproxy`) | Kupua | M2a | not started |
 | M2b | Canonical media delivery checks and targeted measurement | Both | U7 | not started |
 | P1 | Import #4957 when merged; mapper default cleanup (KUP-011) | Both | merge | parallel |
 | L1 | PIT open/close (only if M1/M2a/M2b justify) | Both | M1 | deferred |
 | S | Split into reviewable PRs (section 7) | Both | M2b | later |
 
-**Sequencing amendment (operator, 27 September):** U10-A completed early as a source-only
-characterization exception; U9-A/B are now built. The remaining active sequence is the
-[narrow U10-B below](#u10-b-skip-unused-fallback-derivation) -> U8 -> M2a -> U7 -> M2b.
+**Sequencing amendment (operator, 29 September):** U10-A/B, U9-A/B, U8 and M2a are complete. The
+remaining active sequence is U7 -> M2b.
 U9-C remains deferred and outside the active sequence. Only characterization proposal B1 is
 selected for U10-B; the rest is not a deployment prerequisite or blanket implementation approval. Measure
 the deployed API after convergence and before changing
@@ -163,7 +162,8 @@ media-api on the laptop against TEST ES
 through the tunnel; U8/M2a use that branch deployed to TEST. Neither requires merging to main.
 U7 follows M2a by choice, not because deploying the API technically requires canonical media
 delivery. Local U9-A then U9-B implementation proceeds as two separate units before U8/M2a and
-U7/M2b. Team review remains a gate before merging or deploying U9-A. U6z preserves today's working
+U7/M2b. Team review remains a gate before merging/PROD U9-A; the operator separately authorized
+the completed temporary TEST measurement deployment. U6z preserves today's working
 AI, including its ES path, until the replacement is validated. Do not fold filter text into AI
 ranking, change established server
 pool semantics or hide the controls merely to satisfy a gate. Kupua has no AI URL compatibility
@@ -1132,12 +1132,19 @@ executor's concrete file/test plan at intake before tests or code edits.
   explicit-`null` case); five null cases added (each field, and both validity fields), shown to
   fail against a temporary undefined-only mutation, then restored byte-identical.
 
-**U8.** Deploy the branch's media-api to TEST (operator). Add a `start.sh` switch pointing the
-`/api` proxy at TEST media-api, with cookie handling following the e2e-perf authentication
-approach. Keep the existing local `/s3` and `/imgproxy` image delivery for M2a; U7 is not a
-deployment prerequisite. Never write cookies or credentials into the repository.
+**U8 result (29 September 2026).** The operator deployed the cumulative media-api delta as
+temporary TEST build `15470`. `--use-deployed-media-api` is the only start mode that sets the
+allowlisted absolute TEST API base; direct/local modes keep their existing transports. A local
+cookie forwarded through Vite is not a TEST principal, so deployed mode calls TEST media-api
+directly with `credentials: include` and the TEST-domain Panda cookie. TEST CORS admits the Kupua
+origin. This intentionally bypasses Vite's Grid API method guard: Kupua implements reads only, but
+the transport is not physically read-only and is temporary measurement wiring, not permanent
+hosting/ingress. Cookies remain in external Playwright storage state. The TEST ES tunnel remains
+startup-only bucket discovery; `/s3` and `/imgproxy` stay local through M2a. API mode also skips
+the unused direct-Bedrock Vite startup probe.
 
-**M2a: TEST API measurement before U7.** Use the existing perceived and jank suites with Kupua
+**M2a result: TEST API measurement before U7 (29 September 2026).** The existing perceived and
+jank suites ran with Kupua
 on the laptop calling the modified media-api deployed to TEST, while image files still use the
 existing local proxies. Assess API-backed search, seek, focus, restore and traversal in this
 topology. Record client/server revisions, origin, corpus pin and cache conditions; differences
@@ -1154,6 +1161,22 @@ counts/ticker values/aggregations, enrichment, links/actions and AI capability/r
 discovery supplies HATEOAS links, not Kahuna `clientConfig`. Record any client/server mismatch as
 an M2a finding; do not copy private TEST config into source. KUP-037's free-only collection-count
 scope is a separately parked correctness issue because both modes currently agree.
+
+Four-run deployed and matched-home local campaigns used client `afa49dfdf`, the same corpus pin,
+browser/origin/viewport/DPR and local media delivery; fingerprints distinguished `deployed-test`
+from `local`. Recorded data routes were media-api or client-only, never ES. Deployed PP1-5 were
+8-18% faster, PP11 restore 17% faster, JB2/JB3 filters 17%/34% faster, P18 100-item selection 19%
+faster and singleton lookup 29% faster. Fresh JA1/JB1 were 18%/12% slower, PP7 click seek 13%
+slower (p95 6% better), and P19's 1,000-item range/selection 25%/19% slower. P8/P9 jank matched
+once network location was controlled; P8 remains the known client-rendering target. Likely costs
+are cold cross-origin TLS/CORS/preflight and repeated browser-to-TEST round trips; warmed heavy
+filters benefit from server/ES co-location. A deployed explicit-AI check returned scored hits,
+pool/tickers and result-owned enrichment with no embedding, browser ES/Bedrock traffic or toast;
+Home restored ordinary state. No hard perceived ceiling was breached. No endpoint redesign, PIT
+work or further general M2a campaign is selected. Cache state remains uncontrolled. Two-run dry
+preflights remain appropriate; empirical raw results retained four runs for recorded baselines.
+Redeploying main removes code behavior after old instances drain; logs/metrics/deployment records
+and external CORS config persist.
 
 **U7.** After M2a, thumbnails and full images come from entity links (signed URLs, imgops),
 replacing `/s3` and `/imgproxy` in API mode. Check the details that local imgproxy handles today:
@@ -1176,8 +1199,9 @@ other users remains separate work.
   runner rules (pipefail + tee, unsandboxed, ports 3000/3030 free, ask the operator first).
 - **Direct-ES mode stays green.** The normal E2E suite is direct-ES, so it does not prove API mode.
 - **API-mode smoke check (from U5 on):** the operator runs the existing e2e-perf media-api
-  preflights: `P14d,P17,P18 --use-media-api --dry-run --runs 2` and
-  `--use-media-api --long-perceived-only --dry-run --runs 2`, about two minutes, writing no history
+  preflights: `P14d,P17,P18,P19 --use-media-api --dry-run --runs 2` and
+  `--use-media-api --long-perceived-only --dry-run --runs 2`, or the same commands with
+  `--use-deployed-media-api` for deployed TEST, about two minutes, writing no history
   ([handbook](../../../../e2e-perf/README.md#L84)). Add `--perceived --dry-run` for broader journey
   coverage when a unit touches browsing. These use TEST data and the operator's cookies through
   the modified media-api on the laptop, or its TEST deployment after U8; identify the topology
@@ -1342,6 +1366,13 @@ ignoring it.
 ## 10. Progress Log
 
 (One line per completed unit: date, unit, commits, notes.)
+
+- 29 Sep 2026, U8/M2a: cumulative media-api delta deployed temporarily to TEST as build `15470`;
+  Kupua added explicit direct deployed-API mode and topology-aware perf routing. Four-run deployed
+  and matched-home local campaigns completed with zero browser ES routes; ordinary/filter/restore
+  paths mostly improved, fresh startup/seek and 1,000-item selection remain watchpoints. Deployed
+  AI contract passed. Unit 2196/2196, perf harness 84/84, both builds and normal E2E 299/299 green.
+  No permanent ingress decision, U7 media cutover, PIT work or endpoint redesign selected.
 
 - 28 Sep 2026, U10-B: one Kupua commit (code, tests, docs). `deriveImage` derives cost, validity and syndication fallbacks only for nullish overlay fields; outputs unchanged, zero helper calls under a complete overlay. Unit 2187/2187, build, E2E 299/299. Cold review: accept with fixes (explicit-null cases added, proven against an undefined-only mutation). No merge needed (main's new commit touches no Kupua files). Operator API preflights and perf campaign outstanding; no speedup claimed. B2/B3 not selected.
 - 27 Sep 2026, U9-B: `887814ccc` (Kupua media-api AI client). API mode sends AI through `GET /api/images` with `aiQuery`, constructs no ES datasource and makes no browser Bedrock call; pool total/tickers publish with the hits in both modes; KUP-030 closed by composed replacement tests. Unit 2145/2145, build, E2E 299/299. Cold review: accept with fixes (two S2 abort/overlap fixes, failing-first); inherited S1s now GRID-015/016, deferred. Browser checks in both modes on TEST and the completion-timing comparison done (pool count never delays publication). New KUP-038 (code reading only).

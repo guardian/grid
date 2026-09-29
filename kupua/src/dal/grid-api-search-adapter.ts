@@ -13,6 +13,7 @@ import { type EnrichmentFields } from "@/stores/enrichment-store";
 import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData } from "./grid-api/types";
 import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
+import { mediaApiUrl } from "./grid-api/proxy-target";
 
 type ImagePageResponse = {
   data: Array<{ data?: unknown; actions?: unknown }>;
@@ -155,7 +156,7 @@ export function buildReadBody(params: SearchParams): Record<string, unknown> {
 
 /** POSTs one ordered read to media-api and returns its JSON, classifying failures for recovery. */
 export async function postImageRead(path: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-  const res = await fetchImageRead(`/api${path}`, {
+  const res = await fetchImageRead(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -166,7 +167,7 @@ export async function postImageRead(path: string, body: Record<string, unknown>,
 
 /** Reads one image through GET /images/:id; undefined when media-api has no visible image with that ID. */
 export async function apiGetImage(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
-  const res = await fetchImageRead(`/api/images/${encodeURIComponent(id)}`, {}, signal);
+  const res = await fetchImageRead(`/images/${encodeURIComponent(id)}`, {}, signal);
   if (res.status === 404) return undefined;
   if (!res.ok) throw await readFailure(res, signal);
   const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown };
@@ -207,10 +208,10 @@ export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<
   return images;
 }
 
-async function fetchImageRead(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
+async function fetchImageRead(path: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
   signal?.throwIfAborted();
   try {
-    return await fetch(url, { ...init, signal });
+    return await fetch(mediaApiUrl(path), { ...init, credentials: "include", signal });
   } catch (error) {
     signal?.throwIfAborted();
     if (error instanceof TypeError) throw new SearchAfterApiError("unavailable");
@@ -337,7 +338,7 @@ export async function apiSearchByAi(params: SearchParams, signal?: AbortSignal):
   const t0 = Date.now();
   let json: AiSearchApiResponse;
   try {
-    const res = await fetchImageRead(`/api/images?${aiSearchQuery(params)}`, {}, signal);
+    const res = await fetchImageRead(`/images?${aiSearchQuery(params)}`, {}, signal);
     if (!res.ok) return null;
     json = await readJson(res, signal) as AiSearchApiResponse;
   } catch (error) {

@@ -4,7 +4,10 @@ import { ServiceDiscovery } from "./service-discovery";
 const root = (links: Array<{ rel: string; href: string }>) => Response.json({ data: { description: "This is the Media API" }, links });
 const aiSearch = { rel: "ai-search", href: "https://media.example.test/images{?q,aiQuery}" };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 describe("ServiceDiscovery readiness", () => {
   it("shares one delayed root read, so concurrent callers only see links once it has loaded", async () => {
@@ -27,6 +30,20 @@ describe("ServiceDiscovery readiness", () => {
     expect(settled).toEqual([`first:true:${aiSearch.href}`, `second:true:${aiSearch.href}`]);
     await discovery.init();
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("uses deployed TEST URLs only when its absolute base is selected", async () => {
+    vi.stubEnv("VITE_MEDIA_API_BASE_URL", "https://api.media.test.dev-gutools.co.uk");
+    const fetchMock = vi.fn(async () => root([]));
+    vi.stubGlobal("fetch", fetchMock);
+    const discovery = new ServiceDiscovery();
+
+    await expect(discovery.init()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.media.test.dev-gutools.co.uk",
+      expect.objectContaining({ credentials: "include" }),
+    );
+    expect(discovery.imageUrl("abc/123")).toBe("https://api.media.test.dev-gutools.co.uk/images/abc%2F123");
   });
 
   it("distinguishes a loaded root without the relation from a failed root", async () => {

@@ -4,10 +4,10 @@
 > It is NOT loaded at session start. Agents read it on demand when working on
 > a specific area. For the bootstrap summary, see `kupua/AGENTS.md`.
 >
-> **Last refreshed: 27 September 2026.** API-build U6z non-AI routing/startup/recovery verified;
+> **Last refreshed: 29 September 2026.** API-build U8/M2a deployed routing and measurement verified;
 > KUP-029/030 reachability and retention were bounded in the browser. This is not whole-system verification. The
 > [active build plan](../03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md)
-> owns sequencing and acceptance. AI remains unchanged; U8 deployment and U7 delivery remain separate.
+> owns sequencing and acceptance. U7 delivery remains separate and next.
 
 ---
 
@@ -27,6 +27,9 @@ at most four in flight). `getById(id, signal?)` returns `{image, enrichment?} | 
 `offsetReadLimit` is 10,000, so an estimate-less deep seek lands at 9,800 with its actual position.
 AI search uses `GET /images` with `useAISearch=true` and a separate `aiQuery` (U9-B). There is
 no ES fallback, and the factory constructs no ES datasource in API mode.
+The shared URL resolver defaults every mode to local `/api`; only `--use-deployed-media-api`
+selects the allowlisted absolute TEST base and credentialed cross-origin reads. That temporary
+measurement mode bypasses Vite's Grid API write guard and is not the permanent ingress design.
 
 **Direct/local mode:** `ElasticsearchDataSource` retains cursor paging/PIT recovery, aggregations,
 rank/profiles, `getByIds` (1,000-ID parallel chunks), and `getIdRange` (cursor walk, cap 5,000).
@@ -41,7 +44,7 @@ ES-specific code in `dal/adapters/elasticsearch/`: CQL→ES translator, sort cla
 
 ## Grid API Adapter (`src/dal/grid-api/`, `src/dal/grid-api-search-adapter.ts`)
 
-**Search path (`--use-media-api` mode):** `grid-api-search-adapter.ts` builds the shared request body (`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`, `apiImageWindow`) to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `ApiDataSource`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard). `countAll` is sent only when the caller sets `trackTotalHits`.
+**Search path (both media-api modes):** `grid-api-search-adapter.ts` builds the shared request body (`buildReadBody`), posts reads (`postImageRead`) and maps Argo-wrapped pages (`apiSearchAfter`, `apiImageWindow`) to `SearchAfterResult` including a per-hit enrichment map (`extractEnrichment`). Called by `ApiDataSource`; `search-store` writes the enrichment map to `enrichment-store` at commit-to-view points only (probe calls never write — F-1 guard). `countAll` is sent only when the caller sets `trackTotalHits`.
 
 **Failure handling:** `SearchAfterApiError` distinguishes explicit HTTP 410 with
 `search-after-pit-expired` from transport absence and refusals. A supplied PIT that expires is

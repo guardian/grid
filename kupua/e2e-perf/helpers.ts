@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 
 import { test as sharedTest, expect } from "../e2e/shared/helpers";
+import { DEPLOYED_TEST_MEDIA_API_BASE_URL } from "../src/dal/grid-api/proxy-target";
 
 export const test = sharedTest.extend<{ perfEnvironment: void }>({
   perfEnvironment: [async ({ kupua, browserName }, use) => {
@@ -25,11 +26,19 @@ export const test = sharedTest.extend<{ perfEnvironment: void }>({
 
     writeFileSync(outputFile, JSON.stringify({
       dataMode: appEnvironment.dataMode,
+      apiTopology: appEnvironment.apiTopology,
       browserName,
       browserVersion: browser?.version() ?? "unknown",
       ...browserEnvironment,
     }) + "\n");
   }, { auto: true }],
 });
+
+export function isMediaApiUrl(rawUrl: string): boolean {
+  const url = new URL(rawUrl);
+  return url.pathname === "/api"
+    || url.pathname.startsWith("/api/")
+    || url.origin === DEPLOYED_TEST_MEDIA_API_BASE_URL;
+}
 
 export { expect };

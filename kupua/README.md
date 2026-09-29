@@ -4,7 +4,8 @@
 
 **Modern frontend WIP PROPOSAL for [Grid](https://github.com/guardian/grid)** – the Guardian's image DAM. Or just a plaything, really.
 
-Kupua  is a React-based replacement for Kahuna (AngularJS). It lives inside the Grid monorepo and connects directly to Elasticsearch – either a local instance with sample data, or real Guardian ES clusters via SSH tunnel.
+Kupua is a React-based replacement for Kahuna (AngularJS). It lives inside the Grid monorepo and
+can read from local/TEST Elasticsearch directly or route every image-data read through media-api.
 
 Kupua is also a supernatural shape-shifting being from Hawaiian mythology, usually of cruel and vindictive character, ready to destroy and devour any persons they can catch, oftentimes of kindly spirit giving watchful care to others. One time a man, a vegetable, an animal or a mineral form.
 
@@ -49,7 +50,8 @@ All image access is read-only and uses your existing developer AWS credentials. 
 
 ```bash
 ./kupua/scripts/start.sh --use-TEST        # Connect to TEST ES cluster via SSH tunnel
-./kupua/scripts/start.sh --use-media-api   # Route some requests via local Grid media-api (implies --use-TEST)
+./kupua/scripts/start.sh --use-media-api   # All image reads via local media-api (implies local Grid’s --use-TEST)
+./kupua/scripts/start.sh --use-deployed-media-api # All image reads via deployed TEST media-api
 ./kupua/scripts/start.sh --skip-es         # Skip starting Elasticsearch
 ./kupua/scripts/start.sh --skip-data       # Skip sample data check
 ./kupua/scripts/start.sh --skip-install    # Skip npm install check
@@ -137,7 +139,8 @@ flowchart LR
         ES[("Elasticsearch\n:9220 local\n:9200 tunnel")]
         S3T["S3 Proxy :3001\n(thumbnails)"]
         IMG["imgproxy :3002\n(full-size → AVIF)"]
-        API["Grid media-api\n(optional enrichment)"]
+        APIL["Local media-api"]
+        APIT["Deployed TEST media-api"]
     end
 
     subgraph S3["S3"]
@@ -148,12 +151,13 @@ flowchart LR
     DAL -- "search · count · mget" --> P1
     DAL -- "thumbnail URLs" --> P2
     DAL -- "resized originals" --> P3
-    DAL -- "quota state\n(boot-time only)" --> P4
+    DAL -- "local API mode" --> P4
+    DAL -. "deployed TEST mode\ncredentialed direct reads" .-> APIT
 
     P1 -- "read-only\nguardrails" --> ES
     P2 --> S3T
     P3 --> IMG
-    P4 -- "GET only" --> API
+    P4 -- "guarded reads" --> APIL
 
     S3T --> S3T_B
     IMG --> S3O_B
@@ -197,19 +201,34 @@ dev/script/start.sh --use-TEST       # starts auth + media-api with TEST domain 
 
 ### `--use-media-api` flag
 
-This flag routes a subset of Kupua's data fetching through a locally-running Grid
-media-api instead of going directly to Elasticsearch. It implies `--use-TEST` (a live
-ES cluster must be reachable), and additionally requires the full Grid stack to be
-running locally via `dev/script/start.sh --use-TEST`.
+This flag routes every image-data read through a locally running Grid media-api. It implies
+`--use-TEST` for the API's Elasticsearch target and local image-delivery setup, and requires Grid
+to be running locally via `dev/script/start.sh --use-TEST`.
 
 ```bash
 ./kupua/scripts/start.sh --use-media-api
 ```
 
-Which routes go via media-api vs direct ES is determined by
-[`src/dal/strangler-adapter.ts`](src/dal/strangler-adapter.ts) — that file is the
-single routing boundary. Methods that override the ES adapter call media-api;
-everything else still goes direct. As more gaps are closed, new overrides land there.
+`ApiDataSource` owns the API path; it has no Elasticsearch fallback and API mode constructs no ES
+datasource. Browser requests use relative `/api` URLs, so Vite supplies the local-domain cookie and
+enforces the Grid API write guard.
+
+### `--use-deployed-media-api` flag
+
+This temporary measurement mode keeps local `/s3` and `/imgproxy` delivery but sends image-data
+reads directly to the deployed TEST media-api:
+
+```bash
+./kupua/scripts/start.sh --use-deployed-media-api
+```
+
+Only this flag selects the allowlisted absolute TEST API base. Direct browser requests use the
+TEST-domain Panda cookie, so first sign in to `https://media.test.dev-gutools.co.uk`; TEST must
+allow the Kupua local origin through CORS. The Vite `/api` write guard is not on this direct path:
+Kupua implements reads only, but this is not a transport-enforced read-only guarantee and is not a
+permanent hosting/ingress design. The TEST ES tunnel remains startup-only bucket discovery for the
+local image proxies. For automated authentication and performance commands, see
+[the performance handbook](e2e-perf/README.md#authentication-state).
 
 ## Key Documentation
 
@@ -223,6 +242,9 @@ everything else still goes direct. As more gaps are closed, new overrides land t
 
 ## Current Status
 
-**Phase 2 – Live Elasticsearch (Read-Only)**
+**Phase 3 – media-api migration (read-only prototype)**
 
-Grid/table views with three-tier scroll architecture (≤1k/1k–65k/>65k), multi-image selection, CQL search, keyboard navigation, touch gestures and mobile view, image detail with zoom. Connected to real ES clusters via SSH tunnel. See [AGENTS.md](AGENTS.md) for full details.
+Grid/table views with three-tier scroll architecture (≤1k/1k–65k/>65k), multi-image selection,
+CQL search, keyboard navigation, touch gestures and image detail with zoom. API mode now routes all
+image reads, including AI, through media-api; U8/M2a deployed TEST measurement is complete and U7
+canonical media delivery is next. See [AGENTS.md](AGENTS.md) for full details.

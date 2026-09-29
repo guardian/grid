@@ -34,7 +34,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect } from "./helpers";
+import { test, expect, isMediaApiUrl } from "./helpers";
 import {
   GRID_ROW_HEIGHT,
   GRID_MIN_CELL_WIDTH,
@@ -88,7 +88,7 @@ function captureSuccessfulDataRoutes(
     if (!response.ok()) return;
     const path = new URL(response.url()).pathname;
     if (!ownsPath(path)) return;
-    if (path.startsWith("/api/")) routes.add("media-api");
+    if (isMediaApiUrl(response.url())) routes.add("media-api");
     if (path.startsWith("/es/")) routes.add("direct-es");
   };
   kupua.page.on("response", onResponse);
@@ -100,7 +100,9 @@ function captureSuccessfulDataRoutes(
 }
 
 const isSelectionMetadataPath = (path: string) =>
-  (path.startsWith("/es/") && path.endsWith("/_mget")) || path === "/api/images/mget";
+  (path.startsWith("/es/") && path.endsWith("/_mget"))
+    || path === "/api/images/mget"
+    || path === "/images/mget";
 
 async function selectionMetadataRoute(kupua: any): Promise<string> {
   return kupua.page.evaluate(() =>
@@ -314,7 +316,7 @@ async function measureRangeSelection(kupua: any, label: string, expectedCount: n
 function captureImageLookups(page: any) {
   const requests: Array<{ route: string; request: any }> = [];
   const onRequest = (request: any) => {
-    const route = classifyImageLookup(request.method(), new URL(request.url()).pathname);
+    const route = classifyImageLookup(request.method(), request.url());
     if (route) requests.push({ route, request });
   };
   page.on("request", onRequest);
@@ -412,7 +414,10 @@ async function measureStandaloneDetail(kupua: any, targetId: string, expectedRou
     for (const [index, { request, route }] of probe.requests.entries()) {
       expect(route).toBe(expectedRoute);
       const ownsTarget = request.method() === "GET"
-        ? new URL(request.url()).pathname === `/api/images/${encodeURIComponent(targetId)}`
+        ? [
+            `/api/images/${encodeURIComponent(targetId)}`,
+            `/images/${encodeURIComponent(targetId)}`,
+          ].includes(new URL(request.url()).pathname)
         : (() => {
           const body = request.postDataJSON();
           const ids = body?.ids ?? body?.docs?.map((document: { _id: string }) => document._id);

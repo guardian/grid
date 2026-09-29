@@ -261,6 +261,11 @@ export function assertEnvironmentMatches(observed, requested) {
       `App data mode mismatch: requested ${requested.dataMode}, observed ${observed.dataMode}`,
     );
   }
+  if (requested.apiTopology !== undefined && observed.apiTopology !== requested.apiTopology) {
+    throw new Error(
+      `App API topology mismatch: requested ${requested.apiTopology}, observed ${observed.apiTopology}`,
+    );
+  }
   return observed;
 }
 

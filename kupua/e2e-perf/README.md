@@ -55,17 +55,17 @@ Other flags:
 | `--dry-run` | Run everything, print summaries, write nothing. |
 | `--headed` | Show the browser window (otherwise headless). |
 | `--use-media-api` | Route ordered reads through the local media-api (instead of direct ES). Requires one-time auth setup — see below. |
+| `--use-deployed-media-api` | Route all image reads directly to deployed TEST media-api; runner/app topology must match. Requires auth setup below. |
 | `--prune-history` | No-browser maintenance mode: atomically removes retired and pre-revision-2 replaced jank rows, rebuilds JSON/JS/Markdown, and removes campaigns left empty. |
 | `--rebuild-history` | No-browser maintenance mode: atomically regenerates jank JS/Markdown from canonical JSON without adding a campaign. |
 | `<P-id list>` | Positional jank-test filter (e.g. `P3,P8`). |
 
 ## How to run
 
-Run these commands from the `kupua/` directory. The app mode and audit-runner
-mode are configured separately: a media-api campaign requires
-`--use-media-api` in **both terminals**. Omitting it from the runner uses the
-direct-ES Playwright origin/expectation even if the app was started in
-media-api mode, and the environment check rejects the mismatch.
+Run these commands from the `kupua/` directory. App and runner modes are configured separately:
+use `--use-media-api` in both terminals for local media-api, or
+`--use-deployed-media-api` in both for deployed TEST. The environment fingerprint records
+`apiTopology` (`none`, `local`, `deployed-test`) and rejects a mismatch.
 
 ### Direct-ES campaign
 
@@ -96,7 +96,26 @@ node e2e-perf/run-audit.mjs --use-media-api --long-perceived-only --dry-run --ru
 node e2e-perf/run-audit.mjs --use-media-api --perceived --label "local-media-api baseline" --runs 4
 ```
 
-The two preflights take roughly two minutes total, write no history, and exercise
+### Deployed TEST media-api campaign
+
+```bash
+# Terminal 1: local image delivery, direct browser reads to deployed TEST media-api
+./scripts/start.sh --use-deployed-media-api
+
+# Terminal 2: required dry preflights
+node e2e-perf/run-audit.mjs P14d,P17,P18,P19 --use-deployed-media-api --dry-run --runs 2 --label "TEST-media-api API preflight"
+node e2e-perf/run-audit.mjs --use-deployed-media-api --long-perceived-only --dry-run --runs 2 --label "TEST-media-api long preflight"
+
+# Recorded baseline
+node e2e-perf/run-audit.mjs --use-deployed-media-api --perceived --runs 4 --label "TEST-media-api api-mode local-media-delivery"
+```
+
+Deployed mode uses an allowlisted absolute API base with `credentials: include`, so the browser
+sends the TEST-domain Panda cookie. It bypasses Vite's Grid API write guard; current Kupua code is
+read-only, but this temporary measurement transport is not a permanent read-only security boundary.
+Local `/s3` and `/imgproxy` delivery remains until U7.
+
+The two preflights write no history and exercise
 the rapid-traversal landing plus cross-repetition contracts that previously failed
 only after a full run.
 The runner also aggregates after every repetition, so a future mismatch stops
@@ -199,11 +218,9 @@ through the same rollback-capable file transaction as normal history writes.
 This routes Kupua's ordered reads through the local media-api instead of going
 directly to ES. Useful for measuring the media-api code path end-to-end.
 
-**Scope changed with API build U5 (25 September 2026):** before U5 this mode sent only
-`searchAfter` pages to media-api; from U5 it also sends window, rank, sort-profile, position-map
-and range-walk reads there (counts, aggregations, detail and selection still use ES until U6).
-`dataMode` stays `media-api` for both, so distinguish runs by label (`local-media-api api-mode`
-after U5) and git revision.
+All image reads now use `ApiDataSource`: pages/window, rank, profiles, keys/maps/ranges,
+counts/tickers, aggregations, detail, mget and AI. There is no ES fallback or ES datasource in API
+mode. The fingerprint records `dataMode: media-api` and `apiTopology: local`.
 
 **Topology warning:** in this harness, `Mode: media-api` currently means:
 
@@ -216,11 +233,9 @@ Playwright
   → TEST Elasticsearch
 ```
 
-It does **not** mean Kupua is calling a deployed TEST media-api. Results include
+It does **not** mean Kupua is calling deployed TEST media-api. Results include
 local JVM, local proxy, authentication, and tunnel effects that a deployed
-media-api does not share. The environment fingerprint records `dataMode` and the
-Kupua origin, but does not yet encode media-api deployment topology; put
-`local-media-api` in the label and interpretation.
+media-api does not share. The fingerprint records the topology; retain a descriptive label too.
 
 The 12 September 2026 campaign labelled `Matched media-api baseline 2026-09-12`
 used this local-media-api topology. Its comparison direct-ES campaign used
@@ -231,13 +246,19 @@ isolating only the `searchAfter` implementation. A future controlled pair should
 run direct ES through the same HTTPS Kupua origin using `KUPUA_PERF_BASE_URL`, or
 record origin/proxy overhead separately.
 
-**Deployed-TEST evidence:** the June 2026 before/after deployment experiment
-measured shared Elasticsearch-client gzip behavior on deployed TEST media-api's
-existing `/images` route. It did not run Kupua's D3 `/images/search-after`
-journeys. The D3 TS and Scala commits are not ancestors of `origin/main`, and no
-checked-in evidence has been found of a full Kupua perf campaign against a
-deployed TEST build containing D3. Treat that as a distinct, currently unmeasured
-topology unless deployment records establish otherwise.
+### M2a deployed-TEST evidence (29 September 2026)
+
+Temporary media-api build `15470` was measured with client `afa49dfdf`, local media delivery and
+four repetitions, then compared with a matched-home local-media-api campaign using the same code,
+corpus, origin, browser, viewport and DPR. No direct-ES route appeared. Deployed TEST made PP1-5
+8-18% faster, PP11 restore 17% faster, JB2/JB3 filters 17%/34% faster, P18 100-item selection 19%
+faster and singleton lookup 29% faster. JA1/JB1 fresh navigation was 18%/12% slower, PP7 click
+seek 13% slower (p95 6% better), and P19's 1,000-item range/selection was 25%/19% slower. P8/P9
+jank matched locally once physical network location was controlled. Likely costs are cold
+cross-origin TLS/CORS/preflight and repeated browser-to-TEST round trips; warmed heavy filters
+benefit from server/ES co-location. A deployed AI check proved scored hits, pool/tickers,
+no-vector projection, result-owned enrichment and no browser ES/Bedrock. No hard perceived ceiling
+was breached; no endpoint redesign, PIT work or additional general campaign was selected.
 
 **Prerequisites (every session):**
 
@@ -256,6 +277,10 @@ topology unless deployment records establish otherwise.
   Playwright config was invoked directly.
 4. Local media-api must have the same `field.aliases` configuration as TEST. See
   the alias preflight below.
+
+For deployed mode, local Grid/media-api is not required. `start.sh` still establishes the TEST ES
+tunnel only to discover buckets for local S3/imgproxy delivery. Sign in to TEST in the Playwright
+storage state; the browser calls deployed media-api directly.
 
 #### Authentication state
 
@@ -278,6 +303,11 @@ kupua/node_modules/.bin/playwright codegen \
 In the browser that opens, sign in to **both**:
 - `https://media.test.dev-gutools.co.uk/` — captures the `.test.dev-gutools.co.uk` cookie (used by Collections tree etc.)
 - `https://media.local.dev-gutools.co.uk/` — captures the `.local.dev-gutools.co.uk` cookie (used by local media-api)
+
+The local cookie authenticates `--use-media-api`; the TEST cookie authenticates
+`--use-deployed-media-api` and TEST satellite services. Browser cookie scoping means Vite cannot
+forward the TEST cookie from a local-origin `/api` request, which is why deployed mode uses the
+absolute TEST API origin.
 
 Then **close the browser** — the file is written on exit, not during the session.
 Restrict access to the result:
@@ -408,8 +438,10 @@ Tests fall into three categories. This matters for result stability:
 
 **Practical guidance:**
 - Use `--runs 1` during development for all tests. Don't panic about ±15% on ES-dominated tests.
-- Use `--runs 3` for jank/short baselines and `--runs 4` for long or combined
-  baselines so JB2's matched control has balanced AB/BA order.
+- Use `--runs 2` for dry preflights and `--runs 4` for recorded baselines or decisions. In the
+  M2a matched pair, first-two medians differed from four-run medians by >5% in 13/22 perceived
+  scenarios, >10% in 5, and reversed two local/deployed conclusions. Four runs also give JB2 two
+  observations of each AB/BA order.
 - When evaluating a coupling-fix phase that targets client-side performance (e.g. handleScroll stabilisation), focus on the client-only tests (P4, P5, P14, P15, P16). These give reliable signal from a single run.
 - When an ES-dominated test shows a big change, re-run with `--runs 3` before concluding it's a real regression.
 

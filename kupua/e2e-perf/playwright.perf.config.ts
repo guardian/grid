@@ -39,7 +39,7 @@ export default defineConfig({
   reporter: [
     ["list"],
     ["./teardown-reporter.mjs"],
-    ["json", { outputFile: "e2e-perf/results/.playwright-report.json" }],
+    ["json", { outputFile: "results/.playwright-report.json" }],
   ],
 
   use: {

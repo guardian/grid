@@ -42,6 +42,16 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 29 September 2026, deployed media-api AI check:** embedded-browser
+`page.on("request"/"response")` can report zero events even when a UI search publishes completed
+results. For a bounded proof, install a temporary in-page `fetch` wrapper before changing the AI
+input, record only route class/method/status/duration, and wait for its 2xx AI record before reading
+store state. Keep the aggregate summary inside page state until after extracting it; a Node-scoped
+summary variable is not visible inside a later `page.evaluate`. Restore the original `fetch` in
+`finally`, return Home, and verify AI query/pool state cleared. Resource Timing may omit the
+cross-origin AI GET even when the wrapper observed its successful response, so do not use absence
+there to refute a completed in-page record.
+
 **[V] 27 September 2026, U9-B media-api AI verification:** classify Resource Timing
 entries by path plus a marker for `useAISearch`; since U9-B a whole AI session in
 `--use-media-api` should show only `/api` entries (root, one AI GET per search, plus

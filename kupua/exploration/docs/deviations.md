@@ -617,23 +617,23 @@ Future body-carrying read endpoints should use the same `auth.async(parse.json)`
 pattern for consistency. `03 Ce n'est pas une pipe dream/media-api-work/media-api-90-conventions.md` should be updated if more
 body-carrying endpoints are added.
 
-### 28. Vite proxy spoofs `Origin` header to `media.local.dev-gutools.co.uk`
+### 28. Local media-api mode spoofs `Origin` through the Vite proxy
 
 **What:** `vite.config.ts` overrides the `Origin` header to
 `media.local.dev-gutools.co.uk` for all requests proxied to local media-api (port
-9001). Kupua's own local origin (`kupua.media.local.dev-gutools.co.uk`) is not in
-media-api's default `corsAllowedDomains` list, so requests from kupua were rejected
-with CORS 403s.
+9001). This is specific to the relative `/api` transport. Kupua's local origin is
+not in local media-api's default `corsAllowedDomains` list, so unmodified proxied
+requests were rejected with CORS 403s.
 
 **Why:** Adding kupua's origin to `corsAllowedDomains` requires a config change
 that would need to be replicated across dev/TEST/CODE/PROD. Spoofing the Origin in
 the Vite proxy (which is dev-only by construction) is simpler and doesn't touch
 media-api config.
 
-**Scope:** Dev only — `vite.config.ts` is never shipped. The Origin spoof only
-applies to the Vite proxy (`/api` target), not to production requests. In
-TEST/CODE/PROD, kupua runs behind the standard nginx reverse proxy setup which
-handles CORS at the CDN/load-balancer layer.
+**Scope:** Dev only — `vite.config.ts` is never shipped. The spoof applies only
+to the local `/api` proxy. Temporary `--use-deployed-media-api` mode bypasses it:
+TEST CORS admits the Kupua local origin and the browser supplies the TEST-domain
+cookie directly. No CODE/PROD routing conclusion follows.
 
 **Trade-off:** Could mask CORS configuration issues in dev if media-api's allowed
 domains list changes. If kupua gains its own nginx config, the Origin spoof should
@@ -2009,4 +2009,19 @@ additive parameter preserves both apps.
 **Trade-off:** the same visible words rank differently in Kahuna and Kupua. MLT (`similar:`) is
 not available through Kupua's AI path until the separately approved U9-C. See the
 [AI workplan](ai-search-catching-up-workplan.md) sections 3 and 12.
+
+### 36. Deployed TEST measurement calls media-api directly (U8/M2a, 29 September 2026)
+
+**What:** `--use-deployed-media-api` selects one allowlisted absolute TEST media-api origin and
+sends credentialed browser reads there. Every other mode remains pinned to relative `/api`.
+Local `/s3` and `/imgproxy` delivery is retained.
+
+**Why:** Browser cookie scope prevents a local-origin Vite proxy request from carrying the
+TEST-domain Panda credential, while TEST CORS permits a direct request from Kupua's local origin.
+The direct path was required to measure the deployed API before U7.
+
+**Trade-off:** Direct requests bypass Vite's Grid API write guard. Kupua implements reads only,
+but trusted TEST CORS plus server permissions is not a transport-enforced read-only boundary.
+This is an operator-only TEST measurement mode, not the permanent ingress architecture and not
+authorization for CODE/PROD use.
 

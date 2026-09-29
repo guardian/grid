@@ -346,7 +346,9 @@ function standaloneProbeHarness({ route = "direct-es", expectedRoute = route, re
     const requestedId = wrongTarget || wrongTargetIndex === index ? "different-target" : target;
     return {
       method: () => actualRoute === "direct-es" ? "POST" : "GET",
-      url: () => actualRoute === "direct-es" ? "https://example.invalid/es/images/_mget" : `https://example.invalid/api/images/${requestedId}`,
+      url: () => actualRoute === "direct-es"
+        ? "https://example.invalid/es/images/_mget"
+        : `https://kupua.media.local.dev-gutools.co.uk/api/images/${requestedId}`,
       response: async () => failedIndex === index ? null : response,
       failure: () => failedIndex === index ? { errorText: failureText } : null,
       postDataJSON: () => ({ docs: [{ _id: requestedId }] }),
@@ -793,7 +795,7 @@ test("rejects unbalanced long audits before suite execution", () => {
 test("P18/P19 route ownership includes only the selection metadata request in either mode", () => {
   const source = readFileSync(join(import.meta.dirname, "perf.spec.ts"), "utf8");
   assert.match(source, /const isSelectionMetadataPath = \(path: string\) =>/);
-  assert.match(source, /\(path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)\) \|\| path === "\/api\/images\/mget"/);
+  assert.match(source, /\(path\.startsWith\("\/es\/"\) && path\.endsWith\("\/_mget"\)\)[\s\S]*path === "\/api\/images\/mget"[\s\S]*path === "\/images\/mget"/);
   assert.match(source, /captureSuccessfulDataRoutes\(\s*kupua,\s*isSelectionMetadataPath/);
   assert.equal(source.match(/expect\(routes\)\.toEqual\(\[await selectionMetadataRoute\(kupua\)\]\)/g)?.length, 2);
 });
@@ -1115,6 +1117,21 @@ test("rejects an app data mode that differs from the requested mode", () => {
     ),
     /data mode.*requested direct-es.*observed media-api/i,
   );
+});
+
+test("rejects a media-api topology that differs from the requested topology", () => {
+  assert.throws(
+    () => assertEnvironmentMatches(
+      { dataMode: "media-api", apiTopology: "local" },
+      { dataMode: "media-api", apiTopology: "deployed-test" },
+    ),
+    /API topology.*requested deployed-test.*observed local/i,
+  );
+});
+
+test("perf environment fingerprint preserves the app API topology", () => {
+  const source = readFileSync(join(import.meta.dirname, "helpers.ts"), "utf8");
+  assert.match(source, /apiTopology: appEnvironment\.apiTopology/);
 });
 
 test("rejects an environment change between repetitions", () => {

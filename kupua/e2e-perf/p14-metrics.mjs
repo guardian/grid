@@ -3,10 +3,20 @@ function finite(value, label) {
   return value;
 }
 
-export function classifyImageLookup(method, path) {
+export function classifyImageLookup(method, rawUrl) {
+  const url = new URL(rawUrl, "https://kupua.media.local.dev-gutools.co.uk");
+  const path = url.pathname;
   if (method === "POST" && /^\/es\/(?:[^/]+\/)?_mget$/.test(path)) return "direct-es";
-  if (method === "POST" && path === "/api/images/mget") return "media-api";
-  if (method === "GET" && /^\/api\/images\/[^/]+$/.test(path)) return "media-api";
+  const localMediaApi = url.origin === "https://kupua.media.local.dev-gutools.co.uk";
+  const deployedMediaApi = url.origin === "https://api.media.test.dev-gutools.co.uk";
+  if (method === "POST" && (
+    (localMediaApi && path === "/api/images/mget")
+    || (deployedMediaApi && path === "/images/mget")
+  )) return "media-api";
+  if (method === "GET" && (
+    (localMediaApi && /^\/api\/images\/[^/]+$/.test(path))
+    || (deployedMediaApi && /^\/images\/[^/]+$/.test(path))
+  )) return "media-api";
   return null;
 }
 

@@ -20,14 +20,18 @@ test("reserves regression verdicts for repeated current evidence", () => {
 
 test("classifies image hydration without confusing ordered reads or media", () => {
   assert.equal(classifyImageLookup("POST", "/es/images/_mget"), "direct-es");
-  assert.equal(classifyImageLookup("GET", "/api/images/example-id"), "media-api");
-  assert.equal(classifyImageLookup("POST", "/api/images/mget"), "media-api");
+    assert.equal(classifyImageLookup("GET", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id"), "media-api");
+    assert.equal(classifyImageLookup("POST", "https://kupua.media.local.dev-gutools.co.uk/api/images/mget"), "media-api");
+    assert.equal(classifyImageLookup("GET", "https://api.media.test.dev-gutools.co.uk/images/example-id"), "media-api");
+    assert.equal(classifyImageLookup("POST", "https://api.media.test.dev-gutools.co.uk/images/mget"), "media-api");
+    assert.equal(classifyImageLookup("GET", "https://images.example.test/images/example-id"), null);
   for (const path of ["/api/images/search-after", "/api/images/window", "/api/images/keys"]) {
     assert.equal(classifyImageLookup("POST", path), null);
   }
-  assert.equal(classifyImageLookup("GET", "/api/images/example-id/fileMetadata"), null);
-  assert.equal(classifyImageLookup("GET", "/imgproxy/insecure/image"), null);
-  assert.equal(classifyImageLookup("DELETE", "/api/images/example-id"), null);
+    assert.equal(classifyImageLookup("GET", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id/fileMetadata"), null);
+    assert.equal(classifyImageLookup("GET", "https://api.media.test.dev-gutools.co.uk/images/example-id/download"), null);
+    assert.equal(classifyImageLookup("POST", "https://kupua.media.local.dev-gutools.co.uk/api/images/other"), null);
+    assert.equal(classifyImageLookup("DELETE", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id"), null);
 });
 
 test("measures landing from the final committed navigation", () => {

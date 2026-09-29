@@ -6,6 +6,10 @@ import path from "path";
 import type { Plugin } from "vite";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
+import {
+  DEPLOYED_TEST_MEDIA_API_BASE_URL,
+  shouldEnableDirectBedrockProxy,
+} from "./src/dal/grid-api/proxy-target.ts";
 
 /**
  * Proxy-level ES path guard.
@@ -96,9 +100,15 @@ function perfEnvironment(): Plugin {
     name: "perf-environment",
     configureServer(server) {
       server.middlewares.use("/__kupua/perf-environment", (_req, res) => {
+        const dataMode = process.env.VITE_USE_MEDIA_API === "true" ? "media-api" : "direct-es";
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({
-          dataMode: process.env.VITE_USE_MEDIA_API === "true" ? "media-api" : "direct-es",
+          dataMode,
+          apiTopology: dataMode === "direct-es"
+            ? "none"
+            : process.env.VITE_MEDIA_API_BASE_URL === DEPLOYED_TEST_MEDIA_API_BASE_URL
+              ? "deployed-test"
+              : "local",
         }));
       });
     },
@@ -112,8 +122,13 @@ if (!process.env.VITEST) {
   Object.assign(process.env, loadEnv("development", process.cwd(), ""));
 }
 
+const directBedrockPlugins = shouldEnableDirectBedrockProxy(
+  process.env.VITE_USE_MEDIA_API,
+  Boolean(process.env.VITEST),
+) ? [bedrockEmbedProxy()] : [];
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), bedrockEmbedProxy()],
+  plugins: [react(), tailwindcss(), esProxyGuard(), gridApiWriteGuard(), perfEnvironment(), ...directBedrockPlugins],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
@@ -157,9 +172,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/imgproxy/, ""),
       },
       // Proxy Grid media-api requests — avoids CORS (same-origin from browser's view).
-      // kupua fetches /api/... → Vite forwards to media-api on port 9001.
-      // Origin is spoofed to Kahuna's domain because kupua.media.* is not in
-      // media-api's corsAllowedDomains (set from S3 config, not overrideable locally).
+      // Deployed TEST mode uses an explicit absolute browser base and does not enter this proxy.
       "/api": {
         target: "https://api.media.local.dev-gutools.co.uk",
         changeOrigin: true,

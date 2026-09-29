@@ -3,6 +3,8 @@ import { isSupplierOverQuota, getOverQuotaSuppliers, fetchQuotas, _setQuotaMapFo
 
 beforeEach(() => {
   _setQuotaMapForTest(new Map());
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -35,6 +37,20 @@ describe("isSupplierOverQuota", () => {
 });
 
 describe("fetchQuotas", () => {
+  it("uses the deployed TEST base with credentials only when selected", async () => {
+    vi.stubEnv("VITE_MEDIA_API_BASE_URL", "https://api.media.test.dev-gutools.co.uk");
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+    vi.stubGlobal("fetch", fetchMock);
+
+    fetchQuotas();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.media.test.dev-gutools.co.uk/usage/quotas",
+      { credentials: "include" },
+    );
+  });
+
   it("populates the map from a valid response", async () => {
     const mockResponse = {
       data: {
