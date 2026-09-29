@@ -1,6 +1,7 @@
 package com.gu.mediaservice.scripts
 
 import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.scripts.AlamyCleanUp.{ids, outcomes}
 import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
@@ -13,7 +14,7 @@ object EyeVine extends App {
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
-  val gridId = "ba4f7fcd346f6d6705fc37c3585fe3f32dc8f2ee"
+  val gridIds = List("ba4f7fcd346f6d6705fc37c3585fe3f32dc8f2ee")
 
   private def parseUsages(responseBody: String): List[Usage] =
     (Json.parse(responseBody) \ "data")
@@ -32,7 +33,7 @@ object EyeVine extends App {
     }
   }
 
-  private def deleteUsage(gridId: String, usageId: String) = {
+  private def deleteUsage(gridId: String, usageId: String): Boolean = {
     val client = HttpClient.newHttpClient()
     val request = HttpRequest.newBuilder(new URI(s"https://media-usage.$GRIDDOMAIN/usages/media/$gridId/$usageId"))
       .headers("X-Gu-Media-Key", GRIDKEY)
@@ -41,14 +42,32 @@ object EyeVine extends App {
     val response = client.send(request, HttpResponse.BodyHandlers.ofString())
 
     response.statusCode() match {
-      case 200 => println(s"Deleted usage $usageId")
-      case 404 => println(s"Usage $usageId not found")
-      case statusCode => throw new RuntimeException(s"Usage API returned $statusCode: ${response.body()}")
+      case 200 => {
+        println(s"Deleted usage $usageId")
+        true
+      }
+      case 404 => {
+        println(s"Usage $usageId not found")
+        false
+      }
+      case statusCode => {
+        println(s"Error deleting usage $usageId: ${response.body()}")
+        false
+      }
     }
   }
-  private val usages = getUsages(gridId)
-  println(s"Found ${usages.size} usages")
-  usages.filter(u => u.platform.toString == "syndication").foreach { usage =>
-    deleteUsage(gridId, usage.id)
-  }
+
+  gridIds.foreach(gridId => {
+    println(s"Fetching usages for $gridId")
+    val syndicationUsages = getUsages(gridId).filter(u => u.platform.toString == "syndication")
+    if(syndicationUsages.isEmpty) {
+      println(s"No syndication usages found for $gridId")
+    } else {
+      println(s"Found ${syndicationUsages.size} syndication usages for $gridId")
+    }
+    syndicationUsages.foreach { usage =>
+      println(s"Deleting usage ${usage.id} for $gridId")
+      (deleteUsage(gridId, usage.id), gridId)
+    }
+  })
 }
