@@ -42,11 +42,6 @@ export const CropsAndUsages = ({
   deletableUsages: Usage[];
   deleteFromGridStatus: DeleteFromGridStatus | null;
 }) => {
-  console.log("oiposifpodif")
-  console.log("***")
-  console.log(deletableUsages)
-  console.log("---")
-  console.log("sdkfjsklfj")
   // eslint-disable-next-line new-cap
   const [contentUsages, downloadUsages] = List<Usage>(
     deletableUsages

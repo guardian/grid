@@ -92,6 +92,9 @@ export const TakedownContextProvider: React.FC<
   const [activeContentLoading, setActiveContentLoading] = useState(false);
 
   const [usages, setUsages] = useState<Usage[] | null>(null);
+  console.log("USAGES");
+  console.log(usages);
+  console.log("******");
   const [usagesLoading, setUsagesLoading] = useState(false);
 
   const [deleteFromGridStatus, setDeleteFromGridStatus] =
