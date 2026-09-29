@@ -12,20 +12,20 @@ object EyeVine extends App {
 
   println(s"Running for stage $STAGE with domain $GRIDDOMAIN")
 
-  val gridId = "81790c957428dc138e259a01b345ae91933fe77a"
+  val gridId = "9b8104b27921381a18fdf3afc6de0043d0577351"
 
-  val leases = s""" {
+  val leases = s""" [{
                      |    "mediaId": "${gridId}",
                      |    "createdAt": "2026-09-29T14:54:17.301Z",
                      |    "leasedBy": "image-syndication",
                      |    "access": "allow-syndication"
                      |
-                     |}""".stripMargin
+                     |}]""".stripMargin
   val leasesBody = HttpRequest.BodyPublishers.ofString(leases)
 
   val client = HttpClient.newHttpClient()
-  val request = HttpRequest.newBuilder(new URI(s"https://media-leases.$GRIDDOMAIN/leases")).headers(
-    "X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").POST(leasesBody).build()
+  val request = HttpRequest.newBuilder(new URI(s"https://media-leases.$GRIDDOMAIN/leases/media/$gridId")).headers(
+    "X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(leasesBody).build()
 
   val response = client.send(request, HttpResponse.BodyHandlers.ofString())
   println(response.statusCode())
