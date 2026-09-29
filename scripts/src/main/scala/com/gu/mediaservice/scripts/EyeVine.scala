@@ -1,6 +1,7 @@
 package com.gu.mediaservice.scripts
 
-import com.gu.mediaservice.scripts.AlamyCleanUp.{GRIDDOMAIN, GRIDKEY, STAGE}
+import com.gu.mediaservice.model.usage.Usage
+import play.api.libs.json.{JsValue, Json}
 
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
@@ -14,61 +15,40 @@ object EyeVine extends App {
 
   val gridId = "ba4f7fcd346f6d6705fc37c3585fe3f32dc8f2ee"
 
-  val leases = s""" [{
-                     |    "mediaId": "${gridId}",
-                     |    "createdAt": "2026-09-29T14:54:17.301Z",
-                     |    "leasedBy": "image-syndication",
-                     |    "access": "allow-syndication"
-                     |
-                     |}]""".stripMargin
-  val leasesBody = HttpRequest.BodyPublishers.ofString(leases)
+  private def parseUsages(responseBody: String): List[Usage] =
+    (Json.parse(responseBody) \ "data")
+      .as[List[JsValue]]
+      .map(entity => (entity \ "data").as[Usage])
 
-  val rights = """{
-                 |  "data": {
-                 |    "suppliers": [
-                 |      {
-                 |        "supplierName": "TEST SUPPLIER",
-                 |        "supplierId": "DO NOT SYNDICATE",
-                 |        "prAgreement": true
-                 |      }
-                 |    ],
-                 |    "rights": [
-                 |      {
-                 |        "rightCode": "LICENSINGNONSUBSALES",
-                 |        "acquired": true,
-                 |        "properties": [
-                 |          {
-                 |            "propertyCode": "TERM",
-                 |            "expiresOn": "1980-07-31T00:00:00.000+00:00",
-                 |            "value": "THESE ARE IGNORED"
-                 |          }
-                 |        ]
-                 |      }
-                 |    ],
-                 |    "published": "2022-01-27T00:10:00.000+00:00",
-                 |    "isInferred": false
-                 |  }
-                 |}""".stripMargin
+  private def getUsages(gridId: String): List[Usage] = {
+    val client = HttpClient.newHttpClient()
+    val request = HttpRequest.newBuilder(new URI(s"https://media-usage.$GRIDDOMAIN/usages/media/$gridId")).headers("X-Gu-Media-Key", GRIDKEY).build()
+    val response = client.send(request, HttpResponse.BodyHandlers.ofString())
 
-  val rightsBody = HttpRequest.BodyPublishers.ofString(rights)
+    response.statusCode() match {
+      case 200 => parseUsages(response.body())
+      case 404 => Nil
+      case statusCode => throw new RuntimeException(s"Usage API returned $statusCode: ${response.body()}")
+    }
+  }
 
-  val client = HttpClient.newHttpClient()
+  private def deleteUsage(gridId: String, usageId: String) = {
+    val client = HttpClient.newHttpClient()
+    val request = HttpRequest.newBuilder(new URI(s"https://media-usage.$GRIDDOMAIN/usages/media/$gridId/$usageId"))
+      .headers("X-Gu-Media-Key", GRIDKEY)
+      .DELETE()
+      .build()
+    val response = client.send(request, HttpResponse.BodyHandlers.ofString())
 
-  val rightsRequest = HttpRequest.newBuilder(new URI(s"https://media-metadata.$GRIDDOMAIN/metadata/$gridId/syndication")).headers(
-    "X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(rightsBody).build()
-
-  val rightsResponse = client.send(rightsRequest, HttpResponse.BodyHandlers.ofString())
-
-  println(s"Rights response: ${rightsResponse.statusCode()}")
-  println(rightsResponse.body())
-
-  val leaseRequest = HttpRequest.newBuilder(new URI(s"https://media-leases.$GRIDDOMAIN/leases/media/$gridId")).headers(
-    "X-Gu-Media-Key", GRIDKEY, "Content-Type", "application/json").PUT(leasesBody).build()
-
-  val leaseResponse = client.send(leaseRequest, HttpResponse.BodyHandlers.ofString())
-
-
-  println(s"Leases response: ${leaseResponse.statusCode()}")
-  println(leaseResponse.body())
-
+    response.statusCode() match {
+      case 200 => println(s"Deleted usage $usageId")
+      case 404 => println(s"Usage $usageId not found")
+      case statusCode => throw new RuntimeException(s"Usage API returned $statusCode: ${response.body()}")
+    }
+  }
+  private val usages = getUsages(gridId)
+  println(s"Found ${usages.size} usages")
+  usages.filter(u => u.platform.toString == "syndication").foreach { usage =>
+    deleteUsage(gridId, usage.id)
+  }
 }
