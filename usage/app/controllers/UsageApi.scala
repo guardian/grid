@@ -342,10 +342,10 @@ class UsageApi(
 
   }
 
-  def deleteUsagesByIds(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async(parse.json) { req =>
+  def deleteUsagesByIds(mediaId: String) = Action.async(parse.json) { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages-by-ids",
-      "requestId" -> RequestLoggingFilter.getRequestId(req),
+//      "requestId" -> RequestLoggingFilter.getRequestId(req),
       "image-id" -> mediaId,
     )
 
@@ -359,6 +359,9 @@ class UsageApi(
       ),
       request => {
         val usageIds = request.usageIds.map(_.trim).filter(_.nonEmpty).distinct
+        println("********")
+        println(usageIds)
+        println("********")
 
         if (usageIds.isEmpty) {
           Future.successful(
@@ -368,6 +371,9 @@ class UsageApi(
           Future.sequence(
             usageIds.map(usageId => usageTable.queryByUsageId(usageId).map(usageId -> _))
           ).map { resolvedUsages =>
+            println("$$$$$$$$$$$$$$$$$")
+            println(resolvedUsages)
+            println("$$$$$$$$$$$$$$$$$")
             val missingUsageIds = resolvedUsages.collect { case (usageId, None) => usageId }
             val usagesForOtherMedia = resolvedUsages.collect {
               case (usageId, Some(mediaUsage)) if mediaUsage.mediaId != mediaId => usageId
