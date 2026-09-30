@@ -187,8 +187,8 @@ image.controller('ImageCtrl', [
       if (!deleteUsages) {
         ctrl.canTakedown = false;
       }
-      else ctrl.canTakedown = true;
-    })
+      else {ctrl.canTakedown = true;}
+    });
 
     const recentPrintUsages$ = usages.recentPrintUsages$;
     const recentDigitalUsages$ = usages.recentDigitalUsages$;
