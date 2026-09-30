@@ -644,7 +644,7 @@ query.controller('SearchQueryCtrl', [
     let aiSearchInitialised = false;
 
     // Sync the checkbox from the URL: this controller isn't recreated when only search.results params
-    // change (e.g. back/forward), so it must watch useAISearch itself.
+    // change (e.g. the zero-results AI search link, back/forward), so it must watch useAISearch itself.
     $scope.$watch(() => $stateParams.useAISearch, onValChange(newVal => {
       if (!ctrl.shouldDisplayAISearchOption) {
         return;
