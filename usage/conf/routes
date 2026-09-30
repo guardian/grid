@@ -4,6 +4,7 @@ GET     /usages/:id                                     controllers.UsageApi.for
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
 DELETE  /usages/media/:mediaId                          controllers.UsageApi.deleteUsages(mediaId: String)
 DELETE  /usages/media/:mediaId/*usageId                 controllers.UsageApi.deleteSingleUsage(mediaId: String, usageId: String)
+POST    /usages-by-ids/media/:mediaId                   controllers.UsageApi.deleteUsagesByIds(mediaId: String)
 POST    /usages/print                                   controllers.UsageApi.setPrintUsages()
 POST    /usages/syndication                             controllers.UsageApi.setSyndicationUsages()
 POST    /usages/front                                   controllers.UsageApi.setFrontUsages()

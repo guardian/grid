@@ -187,12 +187,13 @@ class MediaApi(
   }
   def getCapiUsages(id: String) = auth.async { _ =>
     val composerDomain = config.composerDomain
-    for {
-      previewContent <- previewContentApi.findContentUsingImage(id)
-      previewImages = previewContent.map(sr => UsagesInContent.fromSearchResponse(sr, composerDomain))
-    } yield  {
-      respond[List[UsagesInContent]](previewImages)
-    }
+//    for {
+//      previewContent <- previewContentApi.findContentUsingImage(id)
+//      previewImages = previewContent.map(sr => UsagesInContent.fromSearchResponse(sr, composerDomain))
+//    } yield  {
+//      respond[List[UsagesInContent]](List.empty)
+//    }
+    Future.successful(respond[List[UsagesInContent]](List.empty))
   }
 
   /**

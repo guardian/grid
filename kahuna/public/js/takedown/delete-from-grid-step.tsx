@@ -113,7 +113,6 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
 
   const [crops, setCrops] = useState<Crop[] | null>(null);
   const [cropsLoading, setCropsLoading] = useState(false);
-
   const fetchCrops = async () => {
     if (!image) {
       return;
@@ -180,14 +179,19 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     }
     try {
       if (hasPublishedPrintUsages) {
-        // Only delete deletable usages and leave published print usages
-        // @TODO: Delete usages one by one
+        await image.perform("delete-usages-by-ids", {
+          body: {
+            data: {
+              usageIds: deletableUsages.map((usage) => usage.id)
+            }
+          }
+        });
       } else {
         await image.perform("delete-usages");
       }
     } catch (error) {
       throw new Error(
-        `Failed to delete usages: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete usages: ${error instanceof Error ? error.message : error.body.errorMessage ?? String(error)}`
       );
     }
   };
@@ -201,7 +205,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
       await cropsResource.perform("delete-crops");
     } catch (error) {
       throw new Error(
-        `Failed to delete crops: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to delete crops: ${error instanceof Error ? error.message : error.body.errorMessage ?? String(error)}`
       );
     }
   };
