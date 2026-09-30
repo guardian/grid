@@ -55,7 +55,7 @@ const DELETE_METHOD_OPTIONS: {
   }
 ];
 
-const getDeleteFromGridStatusText = (status: DeleteFromGridStatus) => {
+const getDeleteFromGridStatusText = (status: DeleteFromGridStatus, hasPublishedPrintUsages: boolean) => {
   if (status === "soft-deleted") {
     return "This image has been soft deleted from Grid. You may hard delete it if necessary.";
   }
@@ -65,7 +65,7 @@ const getDeleteFromGridStatusText = (status: DeleteFromGridStatus) => {
   }
 
   if (status === "denied-lease") {
-    return "This image has been denied lease in Grid. You may soft delete or hard delete it if necessary.";
+    return `This image has been denied lease in Grid. ${!hasPublishedPrintUsages ? "You may soft delete or hard delete it if necessary" : ""}`;
   }
 };
 
@@ -312,7 +312,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                 variant="bodySm"
                 theme={standThemeOverride.typography.default}
               >
-                {getDeleteFromGridStatusText(deleteFromGridStatus)}
+                {getDeleteFromGridStatusText(deleteFromGridStatus, hasPublishedPrintUsages)}
               </Typography>
             )}
 
