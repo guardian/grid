@@ -1,7 +1,11 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { DataTable } from 'playwright-bdd';
 import type { Locator } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
+import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { openUploadPage } from '../common.steps.ts';
 import { testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
@@ -201,6 +205,49 @@ Then('I should see the existing usage instructions', async ({ page }) => {
 
 Then('I should be able to add further special instructions', async ({ page }) => {
   await expect(uploadPage(page).metadataField.specialInstructions).toBeVisible();
+});
+
+Given(
+  'I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission',
+  async ({ page, testContext }) => {
+    const image = uniqueImage();
+    testContext.uploadedImagePath = image.path;
+    await uploadPage(page).fileInput.setInputFiles(image.path);
+    await expect(uploadPage(page).metadataEditor).toBeVisible();
+
+    // Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh.
+    await page.context().clearCookies();
+    await openUploadPage(page, TEST_ACCOUNTS.restricted);
+
+    // The fields start disabled until canUserEdit resolves, so prove the API really denies edits.
+    const mediaApiUri = await page.evaluate(
+      () => document.querySelector('link[rel="media-api-uri"]')?.getAttribute('href'),
+    );
+    const mediaId = createHash('sha1').update(readFileSync(image.path)).digest('hex');
+    const response = await page.request.get(`${mediaApiUri}/images/${mediaId}`);
+    expect(response.ok()).toBeTruthy();
+    const { data, links } = (await response.json()) as {
+      data: { uploadedBy: string };
+      links: { rel: string }[];
+    };
+    expect(data.uploadedBy).toBe(TEST_ACCOUNTS.fullAccess);
+    expect(links.map((link) => link.rel)).not.toContain('edits');
+  },
+);
+
+When('I view the metadata editor for an image I did not upload', async ({ page, testContext }) => {
+  // Re-uploading the same bytes surfaces the existing image, which keeps its original uploader.
+  await uploadPage(page).fileInput.setInputFiles(testContext.uploadedImagePath!);
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
+});
+
+Then('the metadata fields should be disabled', async ({ page }) => {
+  const { description, byline, credit, imageType, specialInstructions } =
+    uploadPage(page).metadataField;
+  const fields = { description, byline, credit, imageType, specialInstructions };
+  for (const [name, field] of Object.entries(fields)) {
+    await expect(field, `field "${name}"`).toBeDisabled();
+  }
 });
 
 Given('I am uploading more than one image', async ({ page }) => {

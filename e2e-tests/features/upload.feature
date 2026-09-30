@@ -361,7 +361,6 @@ Feature: Uploading images to the Grid
     Then that value should be applied to the same field on every current upload
   # Evidence: kahuna/public/js/edits/image-editor.html
 
-  @todo
   Scenario: Metadata editing is disabled without edit permission
     Given I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission
     When I view the metadata editor for an image I did not upload
