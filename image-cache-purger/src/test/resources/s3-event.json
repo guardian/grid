@@ -1,0 +1,44 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.6",
+      "eventSource": "aws:s3",
+      "awsRegion": "eu-west-1",
+      "eventTime": "2026-09-21T19:52:18.824Z",
+      "eventName": "ObjectRemoved:DeleteMarkerCreated",
+      "userIdentity": {
+        "principalId": "AWS:AROAYGNYCIDDAR655XJJS:i-071d8af36de47df16"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "10.248.37.203"
+      },
+      "responseElements": {
+        "x-amz-request-id": "W7TQMKS2N8SNX4DQ",
+        "x-amz-id-2": "ZvGtNLOGayf7Bi3KUlv3cbvL+UxF4SMEP0b+LQXbiQwPE59+3no+b7+C61y8PejlEOvY0ft4St+wgf8ZNITsUvTJ7FTb3/Pk"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "YTI0NjhhMDAtNzgwOC00ODg5LTg2NmQtZWQxMmQ1ODhmNDY0",
+        "bucket": {
+          "name": "media-origin.test.dev-guim.co.uk",
+          "ownerIdentity": {
+            "principalId": "A2WXMAO3QWDXTH"
+          },
+          "arn": "arn:aws:s3:::media-origin.test.dev-guim.co.uk",
+          "awsGeneratedTags": {
+            "aws:cloudformation:stack-id": "arn:aws:cloudformation:eu-west-1:563563610310:stack/media-service-TEST/97bcc3d0-26c9-11e4-b3ee-50d500fa4218",
+            "aws:cloudformation:logical-id": "ImageOriginBucket",
+            "aws:cloudformation:stack-name": "media-service-TEST"
+          }
+        },
+        "object": {
+          "key": "e3b4e3c7065a6a3f0b6f6ba0280eee6532dd4284/0_0_2000_3000/333.jpg",
+          "eTag": "d41d8cd98f00b204e9800998ecf8427e",
+          "versionId": "8FlAIQosGU4lZPoan3bzZcAJV4zx4mzy",
+          "sequencer": "006AB18AF2CD3AAE8B"
+        }
+      }
+    }
+  ]
+}
+
