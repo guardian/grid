@@ -642,6 +642,21 @@ query.controller('SearchQueryCtrl', [
     }));
 
     let aiSearchInitialised = false;
+
+    // Sync the checkbox from the URL: this controller isn't recreated when only search.results params
+    // change (e.g. back/forward), so it must watch useAISearch itself.
+    $scope.$watch(() => $stateParams.useAISearch, onValChange(newVal => {
+      if (!ctrl.shouldDisplayAISearchOption) {
+        return;
+      }
+      const enabled = newVal === 'true' || newVal === true;
+      if (enabled === ctrl.useAISearch) {
+        return;
+      }
+      ctrl.vecWeight = $stateParams.vecWeight;
+      ctrl.useAISearch = enabled;
+    }));
+
     $scope.$watch(() => ctrl.useAISearch, () => {
       // Note: $watch expressions execute at least once during initialization, so this is executed on page refresh.
       // This is the behaviour we want so that the URL is updated based on the AI search toggle.
