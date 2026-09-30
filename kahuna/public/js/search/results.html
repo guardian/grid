@@ -236,8 +236,13 @@
             <div ng-if="ctrl.canOfferAiSearch" class="ai-search-prompt">
                 <span>No results from text search</span>
 
+                <a ng-if="ctrl.aiSearchPreviewUnavailable" ui-sref="search.results(ctrl.aiSearchStateParams)">
+                    <gr-icon-label gr-icon="search">Try AI search</gr-icon-label>
+                </a>
+
                 <!-- Preview of what AI search would return; the whole box links to it -->
                 <a class="ai-search-preview"
+                   ng-if="! ctrl.aiSearchPreviewUnavailable"
                    ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading}"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    aria-label="Click to see all AI search results">

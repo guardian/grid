@@ -216,8 +216,11 @@ results.controller('SearchResultsCtrl', [
           search({offset: 0, length: 12, useAISearch: 'true', countAll: false})
             .then(images => {
               ctrl.aiSearchPreviewImages = images.data;
+              ctrl.aiSearchPreviewUnavailable = images.data.length === 0;
             })
-            .catch(angular.noop)
+            .catch(() => {
+              ctrl.aiSearchPreviewUnavailable = true;
+            })
             .finally(() => {
               ctrl.aiSearchPreviewLoading = false;
             });
