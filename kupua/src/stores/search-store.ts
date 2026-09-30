@@ -57,7 +57,6 @@ import {
   BUFFER_CAPACITY,
   PAGE_SIZE,
   SCROLL_MODE_THRESHOLD,
-  POSITION_MAP_THRESHOLD,
   MAX_RESULT_WINDOW,
   DEEP_SEEK_THRESHOLD,
   NEW_IMAGES_POLL_INTERVAL,
@@ -642,9 +641,6 @@ export function suppressNextRestore(): () => void {
   return () => { if (_suppressRestore === owner) _suppressRestore = null; };
 }
 
-/** Clear the suppress flag. Safety cleanup for resetToHome's timeout. */
-export function clearSuppressRestore(): void { _suppressRestore = null; }
-
 /** Debounce timer for aggregation fetches. */
 let _aggDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1156,10 +1152,9 @@ async function _fillBufferForScrollMode(
 // _fillBufferForScrollMode (above) only covers the case where search()'s
 // normal branch lands the buffer at offset 0. The sort-around-focus branch
 // and restoreAroundCursor instead call _loadBufferAroundImage, which
-// centres the buffer on a target image at an arbitrary global offset —
-// neither ever topped up the remainder, so for small (≤ SCROLL_MODE_THRESHOLD)
-// result sets the scrubber stayed stuck thinking it's in seek mode forever.
-// See exploration/docs/worklog-current.md for the investigation.
+// centres the buffer on a target image at an arbitrary global offset.
+// Without a top-up, small (≤ SCROLL_MODE_THRESHOLD) result sets would keep
+// the scrubber in seek mode.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1523,8 +1518,8 @@ async function _findAndFocusImage(
    *  that makes the scrubber/position counter wrong until async correction. */
   hintOffset?: number | null,
   /** When true, position the buffer around the image but do NOT set
-   *  focusedImageId. Uses the seek scroll mechanism instead of
-   *  sortAroundFocusGeneration. Used by phantom focus promotion. */
+   *  focusedImageId: publish `_phantomFocusImageId` with the
+   *  sortAroundFocusGeneration bump instead. Used by phantom focus promotion. */
   phantomOnly?: boolean,
   /** Keep an existing explicit focus while phantom-positioning around a
    *  higher-priority selection anchor. */
@@ -1732,11 +1727,7 @@ async function _findAndFocusImage(
           `[sort-around-focus] position map miss: id=${imageId}, countBefore=${offset}`,
         );
       }
-    } else if (
-      POSITION_MAP_THRESHOLD > 0 &&
-      effectiveTotal > SCROLL_MODE_THRESHOLD &&
-      effectiveTotal <= POSITION_MAP_THRESHOLD
-    ) {
+    } else if (isTwoTierFromTotal(effectiveTotal)) {
       // Two-tier range but positionMap is temporarily null — the new map is
       // still fetching in the background (search() nullifies the old sort's
       // map before _findAndFocusImage runs). countBefore is fast (~10ms for
@@ -1890,15 +1881,12 @@ async function _findAndFocusImage(
       // running, don't overwrite the fallback state with stale results.
       if (timeoutController.signal.aborted) return;
 
-      // NOTE: we intentionally do NOT bump _seekGeneration here (in non-phantom
-      // mode). sortAroundFocusGeneration is the sole scroll trigger — its effect
-      // scrolls to the focused image with align: "center". Bumping
-      // _seekGeneration too would fire the seek scroll effect (align:
-      // "start") in the same layout pass, causing two conflicting
-      // scroll positions and a visible grid-cell recomposition twitch.
-      //
-      // In phantom mode, we use _seekGeneration instead (no focusedImageId
-      // to drive the sort-around-focus scroll effect).
+      // NOTE: we intentionally do NOT bump _seekGeneration here, in either
+      // mode. sortAroundFocusGeneration is the sole scroll trigger (phantom
+      // mode supplies _phantomFocusImageId as its target). Bumping
+      // _seekGeneration too would fire the seek scroll effect in the same
+      // layout pass, causing two conflicting scroll positions and a visible
+      // grid-cell recomposition twitch.
       retainSortValues(buildSearchKey(params), finalResults, finalSortValues, Boolean(fallbackFirstPage));
       // Commit-to-view (buffer-around / sort-around-focus): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
@@ -2442,11 +2430,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // switching sorts with a focused image leaves positionMap permanently
         // null — all subsequent seeks use the slow deep-seek path, and in
         // two-tier mode the inexact offset causes permanent skeletons.
-        if (
-          POSITION_MAP_THRESHOLD > 0 &&
-          result.total > SCROLL_MODE_THRESHOLD &&
-          result.total <= POSITION_MAP_THRESHOLD
-        ) {
+        if (isTwoTierFromTotal(result.total)) {
           _positionMapAbortController = new AbortController();
           _fetchPositionMap(
             dataSource, params,
@@ -2510,9 +2494,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // generation so the view scrolls to its new position. Without
           // this, the scroll-reset effect leaves scrollTop=0 and the
           // focused image may be off-screen in its new sort position.
-          //
-          // In phantom mode, use seek scroll mechanism instead — no
-          // focusedImageId means the sort-around-focus effect would no-op.
+          // Phantom mode uses the same bump with _phantomFocusImageId below.
           ...(focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
             : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: !!options?.sortOnly } }),
@@ -2563,11 +2545,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // threshold), fetch a lightweight [id, sortValues] index in
         // the background. Uses a dedicated PIT and abort controller.
         // -----------------------------------------------------------
-        if (
-          POSITION_MAP_THRESHOLD > 0 &&
-          result.total > SCROLL_MODE_THRESHOLD &&
-          result.total <= POSITION_MAP_THRESHOLD
-        ) {
+        if (isTwoTierFromTotal(result.total)) {
           _positionMapAbortController = new AbortController();
           _fetchPositionMap(
             dataSource, params,
@@ -3855,12 +3833,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // - Normal: ≈ clampedOffset (drift is small) → Effect #6 is a no-op
         // - Null zone: ≈ buffer centre → Effect #6 jumps to the data we found
         _seekTargetGlobalIndex: (() => {
-          const effectiveTotal = get().total;
-          const inTwoTier =
-            POSITION_MAP_THRESHOLD > 0 &&
-            effectiveTotal > SCROLL_MODE_THRESHOLD &&
-            effectiveTotal <= POSITION_MAP_THRESHOLD;
-          if (!inTwoTier) return -1;
+          if (!isTwoTierFromTotal(get().total)) return -1;
           if (exactOffset) return clampedOffset;
           return actualOffset + backwardItemCount;
         })(),

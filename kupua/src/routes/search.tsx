@@ -43,7 +43,7 @@ import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
-import { SCROLL_MODE_THRESHOLD, POSITION_MAP_THRESHOLD } from "@/constants/tuning";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { initGridApi } from "@/lib/grid-api-instance";
 import type { Image } from "@/types/image";
@@ -132,18 +132,8 @@ function SearchPage() {
     void fetchAggregations(mode);
   }, [filtersActive, fetchAggregations, loading, searchError, searchParams]);
 
-  // Position map state — drives the scrubber's tristate mode signal.
-  // When non-null, the scrubber enters 'indexed' mode (fast seek via map).
-  const positionMapLoaded = useSearchStore((s) => s.positionMap !== null);
-
-  // Two-tier mode — derived from total range, NOT from positionMap.
-  // See useDataWindow for the rationale: twoTier is the coordinate-space
-  // decision; positionMap is a performance optimization for seeks.
-  const twoTier = useSearchStore((s) =>
-    POSITION_MAP_THRESHOLD > 0 &&
-    s.total > SCROLL_MODE_THRESHOLD &&
-    s.total <= POSITION_MAP_THRESHOLD,
-  );
+  // Two-tier is the coordinate-space decision, derived from total only.
+  const twoTier = useSearchStore((s) => isTwoTierFromTotal(s.total));
 
   const currentPosition = twoTier
     ? visibleRange.start           // two-tier: already global
@@ -224,7 +214,6 @@ function SearchPage() {
       getSortLabel={getSortLabel}
       onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}
-      positionMapLoaded={positionMapLoaded}
       twoTier={twoTier}
     />
   );

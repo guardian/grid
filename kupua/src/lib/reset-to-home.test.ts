@@ -33,7 +33,6 @@ vi.mock("@/lib/orchestration/search", () => ({
 
 vi.mock("@/stores/search-store", () => ({
   suppressNextRestore: () => fixture.suppress("restore"),
-  clearSuppressRestore: () => { fixture.flags.restore = null; },
   getSearchGeneration: () => fixture.generation,
   useSearchStore: {
     getState: () => fixture.state,

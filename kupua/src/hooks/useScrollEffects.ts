@@ -18,8 +18,6 @@
  * structural differences (row height, columns, header offset, index↔pixel
  * math). The hook handles all scroll orchestration; the components handle
  * only rendering and component-specific concerns.
- *
- * Part A Steps 1–2 of scroll-consolidation-and-signals-plan.md.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
@@ -49,7 +47,7 @@ function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: bo
 }
 
 // ---------------------------------------------------------------------------
-// Density-focus bridge (previously src/lib/density-focus.ts)
+// Density-focus bridge
 //
 // Module-level state for preserving the focused item's viewport-relative
 // position across density switches (table ↔ grid). Written by the
@@ -124,7 +122,7 @@ export function suppressDensityFocusSave(): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Sort-focus bridge (previously src/lib/sort-focus.ts)
+// Sort-focus bridge
 //
 // Module-level state for preserving the focused item's viewport-relative
 // position across sort changes. Written synchronously before the async
@@ -888,18 +886,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
 
-    // Use focusedImageId if set, otherwise fall back to the viewport anchor
-    // (the image nearest the viewport centre, tracked by useDataWindow).
-    // This ensures density switches preserve scroll position even when the
-    // user hasn't explicitly clicked an image.
-    // Check for saved density-focus state FIRST — it carries everything
-    // needed (globalIndex, ratio, scroll extrema) and doesn't depend on
-    // the viewport anchor being valid. This is critical in React Strict
-    // Mode (dev), where the double-mount sequence (mount → cleanup →
-    // mount) allows reportVisibleRange to clear _viewportAnchorId between
-    // the first cleanup and the second mount (the skeleton-zone path sets
-    // it to null when scrollTop is 0 and the buffer is deep). Without
-    // this, the second mount sees id=null and bails, losing the restore.
+    // Saved density-focus state (from the previous view's unmount) carries
+    // the anchor's global index, ratio and scroll extrema. Without it, fall
+    // back to focusedImageId or the viewport-centre image. The state is
+    // peeked, not consumed, so React Strict Mode's double mount still sees it.
     const saved = peekDensityFocusRatio();
 
     if (saved != null) {

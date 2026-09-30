@@ -55,9 +55,7 @@ let _lastKupuaKey: string | undefined;
 // Collection auto-sort — atomically adjust sort when a `collection:` chip
 // appears or disappears from the query. Handled inside useUpdateSearchParams
 // so the sort change is part of the same navigate() call as the query change,
-// producing a single URL update → single search() call. This eliminates the
-// two-search race condition that the previous useEffect-based approach caused.
-// See deviations.md §20, exploration/docs/worklog-current.md.
+// producing a single URL update → single search() call. See deviations.md §20.
 // ---------------------------------------------------------------------------
 let _searchContextMemory: import("@/lib/search-params-schema").SearchContextMemory = {};
 

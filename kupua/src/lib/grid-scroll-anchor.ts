@@ -21,15 +21,9 @@
  * EXACTLY whenever the same ID is resolved at both ends of a cycle — true
  * by construction for the focused image, since it doesn't change across a
  * resize. For the phantom (no-explicit-focus) case, `getViewportAnchorId()`
- * is itself re-derived from the visible range each time
- * (`useDataWindow.ts`'s `reportVisibleRange`, which is column-count-scaled),
- * so the resolved ID can differ between the two ends of a cycle — this is
- * NOT structurally guaranteed to be identity-stable. In practice (live TEST,
- * all 3 tiers, and the e2e regression test) it has not been observed to
- * compound across repeated cycles, unlike the old synthetic-index approach
- * — see the review at
- * `zz Archive/R-2026-08-01-panel-toggle-anchor-fix-review.md` (concern C1)
- * for the detailed reasoning and a caveat on this claim.
+ * re-elects the rendered image nearest the viewport centre each time, so
+ * the resolved ID can differ between the two ends of a cycle — this is
+ * NOT structurally guaranteed to be identity-stable.
  */
 
 export interface CapturedAnchor {

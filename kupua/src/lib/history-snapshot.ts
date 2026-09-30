@@ -2,13 +2,10 @@
  * History snapshot — per-entry position data for back/forward restoration.
  *
  * Captured before each push-navigate, keyed by the *predecessor*
- * entry's kupuaKey. Consumed on popstate to restore scroll position
- * near where the user left each search context.
+ * entry's kupuaKey. Consumed on popstate (useUrlSearchSync) to restore
+ * scroll position near where the user left each search context.
  *
- * Phase 2: capture infrastructure only — no consumer yet.
- *
- * See: exploration/docs/browser-history-analysis.md § "Future polish"
- *      exploration/docs/browser-history-future-polish-handoff.md
+ * See: exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md
  */
 
 // ---------------------------------------------------------------------------

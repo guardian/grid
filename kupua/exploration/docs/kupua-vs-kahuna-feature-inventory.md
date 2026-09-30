@@ -43,8 +43,8 @@ All three layers were stress-tested against 17 identified flash/jump scenarios; 
 **Why it's better:** Changing sort from "Upload date" to "Taken date", opening the filter panel, resizing the browser, or changing density between table and grid all leave the same image on screen at the same position. Deep in a 9 M-image result set this is the difference between "I know where I am" and starting over.
 
 **Evidence — Kupua:**
-- `kupua/exploration/docs/position-preservation-reference.md` (17-site flash inventory, all fixed)
-- `kupua/exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md:45–113`
+- `kupua/exploration/docs/zz Archive/position-preservation-reference.md` (17-site flash inventory, all fixed; archived)
+- `kupua/exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` §4
 - `kupua/src/hooks/useScrollEffects.ts:46–105` (sort/query/density paths)
 - `kupua/src/components/ImageGrid.tsx:441–605` (ResizeObserver → anchor capture → `useLayoutEffect` restore)
 

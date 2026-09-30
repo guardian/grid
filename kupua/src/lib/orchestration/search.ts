@@ -85,9 +85,9 @@ let _virtualizerReset: (() => void) | null = null;
 
 /**
  * Generation counter incremented by resetScrollAndFocusSearch().
- * The Scrubber's flash guard reads this to distinguish legitimate Home
- * resets (allow through) from transient sort-around-focus corrections
- * (suppress). See Scrubber.tsx discrete thumb sync effect.
+ * In seek mode, the Scrubber's discrete thumb sync skips stale deep
+ * positions after a bump (keeping the 0px written below) until the
+ * position settles near the top. See Scrubber.tsx discrete thumb sync.
  */
 let _thumbResetGeneration = 0;
 export function getThumbResetGeneration(): number {
@@ -209,11 +209,8 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; is
   const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
   if (thumb) thumb.style.top = "0px";
 
-  // Bump the thumb-reset generation so the Scrubber's flash guard knows
-  // the next deep→0 thumbTop transition is a legitimate Home reset, not
-  // a transient sort-around-focus correction. Without this, the flash
-  // guard blocks the 0px write and the thumb stays stuck at the old
-  // position permanently.
+  // Bump the thumb-reset generation so the Scrubber keeps this 0px while
+  // the stale deep position is still rendered, until fresh data arrives.
   _thumbResetGeneration++;
 
   // Focus CQL input — but only if we're in search/results view, not image

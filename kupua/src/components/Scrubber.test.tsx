@@ -59,7 +59,6 @@ function seekModeProps(overrides: Partial<React.ComponentProps<typeof Scrubber>>
     bufferLength: 300,
     loading: false,
     onSeek: vi.fn(),
-    positionMapLoaded: false,
     twoTier: false,
     ...overrides,
   };

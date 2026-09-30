@@ -562,7 +562,6 @@ export function useListNavigation(config: ListNavigationConfig): void {
                   }
                 }
               }
-              if (c.resultsLength < c.total) c.loadMore();
             }
           }
           break;

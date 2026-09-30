@@ -720,7 +720,7 @@ instrumentation output, and restart again if it comes back 0. Don't assume
 scroll to it — confirmed real bug, reproduced three times (including once with
 proper poll-until-settled verification, ruling out a fixed-wait timing
 artifact).** When explicit focus is on an image absent from a narrower query,
-the documented behaviour (`02-focus-and-position-preservation.md` §2.3 step 5)
+the documented behaviour (`02-focus-and-position-preservation.md` §4.1 step 5)
 is "find nearest surviving neighbour → focus it → scroll to its new position."
 The ID-matching half works (confirmed: the new `focusedImageId` is present in
 the new result set at a genuine mid-list index, not index 0 by coincidence),

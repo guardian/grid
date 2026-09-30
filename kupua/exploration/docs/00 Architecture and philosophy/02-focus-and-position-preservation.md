@@ -1,188 +1,193 @@
-# Focus, Phantom Focus, and the Position Preservation Engine
+# Focus, Phantom Focus, and Position Preservation
 
-> **Created:** 2026-04-17
-> **Status:** Living document.
-> **Companion to:** `01-frontend-philosophy.md` § "Never Lost" Principle.
-> **Purpose:** Define the focus model, explain why we built explicit focus knowing
-> we'd hide it, and lay out the position-preservation engine that underpins both
-> visible and invisible modes.
+> Describes current behaviour and the code that delivers it. Timeless by design:
+> no history. Where code and this document knowingly disagree, the disagreement
+> is an item in the [cleanup ledger](../not-yet-another-audit-ledger.md), marked
+> here as *(Lx)*. Buffer, seek and tier mechanics: [scroll architecture](03-scroll-architecture.md).
+> kupuaKey and snapshot storage: [browser history](04-browser-history-architecture.md).
+> Selection lifecycle: [selections](05-selections.md).
 
----
+## 1. Principle: Preserve Strictly, Relax Deliberately
 
-## 1. The Scaffolding Principle
+"Never Lost" ([philosophy](01-frontend-philosophy.md)): across every transition the
+user's place stays anchored to an identified image.
 
-Kupua has an explicit focus concept: a single highlighted image, set by click or
-keyboard, visually marked with a ring. Users of Grid (which has no such concept —
-single-click enters image detail) will see this as an unwanted extra click.
+1. Every transition first meets the strictest guarantee: the anchor image stays
+   at the same viewport position.
+2. Individual transitions then relax it on purpose. A relaxation names its
+   target (*top of results*, *visible centre image*, *a specific image*) and is
+   listed in §4. Losing place without a listed relaxation is a bug.
 
-We built it anyway.
+Explicit focus is the scaffolding that makes the strict guarantee testable: one
+identified image the user chose. Phantom mode hides the scaffolding; the engine
+underneath is the same.
 
-The reasoning: **the hardest position-preservation problems are solvable only when
-there is an explicit anchor.** Keeping a focused image in view across density
-changes, panel openings, window resizes, sort-order changes, and search-context
-changes requires an identified image to anchor to. Without one, you're guessing
-based on viewport geometry — fragile and approximate.
+## 2. Anchors
 
-Explicit focus is scaffolding. We erect it first, solve every position-preservation
-problem against the strictest possible requirement ("this specific image must stay
-visible"), verify it works, then selectively hide the scaffolding. What remains is
-an invisible engine that preserves position just as rigorously — but from the user's
-perspective, there's nothing extra to click.
+| Anchor | Meaning | Source |
+|---|---|---|
+| Explicit focus | `focusedImageId` with a visible ring, set by click or keys in explicit mode. A durable bookmark: survives scrolling away, seek and eviction | `search-store.ts` |
+| Selection anchor | Last-interacted selected image, while a selection exists | `selection-store.ts` `anchorId` |
+| Viewport centre | Rendered image nearest the centre of the usable viewport (below the table header). Elected from DOM geometry only when a transition asks; not tracked per scroll frame | `getViewportAnchorId()` in `useDataWindow.ts` |
+| Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
-The order matters. You cannot retrofit "Never Lost" onto an app that never tracked
-position. You _can_ hide a tracker that already works.
+Precedence: selection anchor (where the transition honours selections), then
+explicit focus (explicit mode only), then viewport centre. Layout transitions
+(resize, panel toggle, density switch) keep the visible centre; an off-screen
+selection never pulls the view back.
 
----
+In phantom mode the anchor is the selection anchor or the viewport centre. A
+`focusedImageId` left behind in phantom mode must never act as anchor *(L6:
+opening/closing detail and middle-click currently set it, and later search,
+density and resize transitions anchor on it)*.
 
-## 2. The Position Preservation Engine
+The precedence is currently decided separately in six places *(L9)*:
+`useUrlSearchSync` (search transitions), `useScrollEffects` effect 7 (ratio
+capture) and density save, `ImageGrid` `captureAnchor` (column change),
+`buildHistorySnapshot` (history) and `useListNavigation` (keys).
 
-At the core of Kupua is a position-preservation engine. It is **always running**,
-regardless of whether focus is visible. Its job: the user should never feel lost.
+## 3. Engine Map
 
-### 2.1 What It Tracks
+### 3.1 Tiers and Coordinates
 
-The engine maintains a **position anchor** — the identity of the image that
-represents "where the user is" in the result set. This anchor exists in two forms:
+`isTwoTierFromTotal(total)` is the only coordinate-space decision; position-map
+arrival never changes it.
 
-| Form | What it is | When it's active |
-|------|-----------|-----------------|
-| **Explicit focus** | A user-set `focusedImageId` with a visible ring | User clicked or keyboard-navigated to an image |
-| **Phantom focus** | An invisible `viewportAnchorId` — the image nearest the viewport centre | No explicit focus is set (or explicit focus is disabled) |
+| Tier | `total` | Virtualizer index | Buffer | Scrubber |
+|---|---|---|---|---|
+| Buffer | ≤ `SCROLL_MODE_THRESHOLD` | buffer-local | whole set (first page, then background fill) | scrollbar |
+| Two-tier | ≤ `POSITION_MAP_THRESHOLD` | global; unloaded cells are skeletons | window; scrolling outside it triggers a debounced seek | scrollbar |
+| Seek | above | buffer-local (`bufferOffset` maps to global) | window of ≤ `BUFFER_CAPACITY` | seek on click or drag release |
 
-Phantom focus is updated silently on every scroll frame. Explicit focus overrides
-phantom focus when set — the engine anchors to whichever is active, preferring
-explicit.
+`imagePositions` (ID to global index, loaded images only) is the only way to
+locate an image. Views convert with `findImageIndex` and `getImage`.
 
-Active selection is a separate anchor source, not a focus mode. For grid panel or
-window resizing, its resolvable `anchorId` takes precedence over older explicit
-focus, then viewport inference. All candidates use the same capture/restore math;
-the selection does not acquire a focus ring or change `focusedImageId`. See section 5.
+### 3.2 Publication and Placement
 
-### 2.2 What It Guarantees
+The store never scrolls. It publishes a signal in the same `set()` as the data,
+and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 
-The position anchor (whether explicit or phantom) must survive:
+| Signal | Published by | Placement |
+|---|---|---|
+| `_prependGeneration`, `_forwardEvictGeneration` | `extendBackward`, `extendForward` | Effects 4/5: shift `scrollTop` by the exact row shift of the top visible item (not in two-tier) |
+| `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: move only if off by more than a row, then apply Home/End intent |
+| `_scrollReset` | `search` without a surviving anchor, find-focus fallbacks, AI re-sort | Effect 7b: top (table keeps horizontal scroll on sort) |
+| `bufferOffset` deep to 0 | `search`, `seek(0)` | Effect 8: top, except during small-set top-up (`_bufferSelfCorrecting`) |
+| `sortAroundFocusGeneration` with positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: anchor at the saved ratio, or apply a pending arrow move |
 
-| Scenario | Guarantee |
-|----------|-----------|
-| **Density change** (table ↔ grid ↔ detail) | Anchor image appears at the same viewport-relative position in the new view |
-| **Panel open/close** (left or right) | Anchor image stays in view despite width change |
-| **Window resize** | Same |
-| **Sort order change** (with explicit focus) | Focused image found in re-sorted results, scrolled to its new position |
-| **Sort order change** (phantom focus only) | Relaxed — reset to top (see §4) |
-| **Seek** (scrubber jump to distant position) | Explicit focus persists as durable state; image is off-screen but remembered. Seeking back restores it. Phantom focus resets to new viewport centre |
-| **Search context change** (query/filter change) | If the anchor image exists in new results → stay on it. If not → find nearest surviving neighbour. If none survive → accept defeat, reset to top |
-| **Buffer eviction** (image scrolled out of the 1000-item window) | Explicit focus persists as ID even when the image is no longer in the buffer. Phantom focus tracks whatever is currently visible |
+Completion means a scroll write. Only the density restore waits (two frames) and
+checks for user interruption; nothing verifies stable placement.
 
-### 2.3 Focus Surviving Search Context Change
+### 3.3 Placement Values
 
-This is the crown jewel — the guarantee nobody else provides.
+A placement is an anchor plus a viewport ratio. Four captures exist *(L10)*:
 
-**Primary path (covers ~90% of real use):**
+- **Search/sort ratio** `(rowTop − scrollTop) / clientHeight`, without header.
+  Written by effect 7 on URL change, overwritten by `useUrlSearchSync` from a
+  history snapshot, consumed by effect 9. The overwrite relies on layout effects
+  running before passive effects *(L8)*.
+- **Density** ratio including header offset, plus source scroll extremes; saved
+  on view unmount, restored two frames after the next mount.
+- **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
+- **History snapshot** `viewportRatio`, same formula as the search ratio.
 
-1. Image A is focused. User changes query (e.g., focuses a Reuters photo, then
-   searches `credit:"Reuters"`).
-2. New results arrive. The engine checks: is image A in the new result set?
-3. **Yes →** Keep A focused, scroll to its new position. Done.
+Edge rules: a row that would be clipped is shown whole at the nearest edge;
+results are clamped to the scroll range; density restore snaps to top or bottom
+when the source was there or the result is within a row of an edge.
 
-This path is the one that matters most. When a user narrows a search around a
-focused image, that image almost always survives the new query. The user should
-see it, still focused, staring back at them.
+### 3.4 Staleness
 
-**Fallback path (best-effort, accept graceful failure):**
+- Search generation (`getSearchGeneration`) invalidates search-derived work.
+- `_rangeAbortController` aborts extends and seeks and is replaced by every seek,
+  search, restore and `abortExtends`. The find-focus controller is replaced only
+  by search.
+- `_seekCooldownUntil` blocks extends after search, seek and backward extend.
+- History subscriptions cancel reset-to-home, pending traversal and delayed sort.
+- One-shot suppression flags are symbol-owned with release functions.
 
-4. Image A is **not** in the new results. The engine checks the IDs of A's
-   neighbours from the old buffer (±N images, nearest first, alternating
-   forward/backward).
-5. First surviving neighbour found → focus it, scroll to its new position.
-   The user is "in the neighbourhood" — they recognise nearby images.
-6. No neighbours survive (completely disjoint result sets — the user typed an
-   entirely different query) → reset to top. This is acceptable because the
-   context change was so large that adjacency is meaningless.
+## 4. Transitions and Relaxations
 
-**Implementation notes:**
+| Transition | Guarantee | Relaxation (target) |
+|---|---|---|
+| Query / filter change | Anchor kept at the same ratio; if absent, nearest surviving neighbour | No survivor, or AI query removed without explicit focus: top |
+| Sort change | Explicit focus or selection anchor kept at the same ratio | Phantom mode without selection: top |
+| Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
+| Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
+| Buffer extend / evict | Visible content does not move | none |
+| Density switch | Visible centre image stays in place; top/bottom stay top/bottom | none *(currently anchors on explicit focus first and drifts on repeated switches: L15, L17)* |
+| Browser resize / panel toggle (grid column change) | Visible centre image stays in place; an off-screen selection never pulls the view | none *(currently prefers selection, then focus: L9)* |
+| Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Phantom mode: image pulsed, not kept as anchor *(L6)* |
+| Browser Back / Forward | Destination's saved anchor at its saved ratio | No matching snapshot: top, no focus carried |
+| Logo (Home) | none | Top of default search; focus, selection and density state cleared |
+| New-images ticker | none | Top of refreshed results |
 
-- Neighbour IDs are cheap — they're already in the buffer. Cache ±10–20 IDs
-  before initiating the search. This is fragile if the focused image was near
-  the buffer edge, but that's acceptable — the fallback to top is not a
-  catastrophe when we've tried hard enough first.
-- Checking whether image A (or its neighbours) exist in the new result set can
-  be done by scanning the first page of new results (if they happen to be there)
-  or by a targeted ES query. Start with the cheap scan; add the query later if
-  needed.
+Undecided relaxation candidates are ledger decisions, not behaviour.
 
-### 2.4 Focus Surviving Seek
+### 4.1 Search Context Change
 
-When the user scrubber-jumps to a distant position, the buffer is replaced
-entirely. Under explicit focus:
+1. `useScrollEffects` effect 7 captures the anchor's ratio. `useUrlSearchSync`
+   classifies the navigation (push helpers mark user-initiated navigations;
+   anything else is treated as Back/Forward), clears the selection, picks the
+   anchor and calls `search(anchor, options)`.
+2. `search` fetches the first page. Anchor on it: publish with the effect-9 signal.
+3. Anchor not on it: the old buffer stays visible while `_findAndFocusImage` gets
+   the anchor's sort values and offset (position map, else `countBefore`), loads
+   a buffer around it and publishes once.
+4. Anchor absent from the new results: neighbours are checked with one ids query,
+   nearest first (explicit: ±20 buffer images; phantom: visible images).
+5. First surviving neighbour: positioned as in step 3.
+6. No survivor, error, or 8 s timeout: first page at top, focus cleared.
+7. Small result sets are then topped up to the full set. While the first page is
+   still filling, a near-bottom anchor whose ratio cannot yet be reached is retried
+   as the buffer grows; any newer search, seek, focus change or scroll discards it.
 
-- `focusedImageId` remains set (durable state). The image is off-screen and not
-  in the buffer, but focus is not cleared.
-- The visual ring is not rendered (the image isn't in view).
-- If the user seeks back to the neighbourhood of the focused image, focus
-  reappears naturally as the image re-enters the buffer.
-- Keyboard navigation (↓↑) from a distant viewport: **snaps back to the focused
-  image's position first** (a seek), then moves from there. This is "go back to
-  where I was, then navigate" — the focus acts as a bookmark.
+### 4.2 Seek and Keys
 
-Under phantom focus: seek simply resets the phantom anchor to whatever is now
-in the viewport centre. No memory of the previous position. This is correct —
-phantom focus tracks "where you are," and a seek is "take me somewhere else."
+- Deep seeks land by estimate; the viewport stays where the user is, avoiding a
+  flash. Exact seeks (shallow, position map) target the position directly.
+- Home/End record `_pendingFocusAfterSeek`, owned by that seek; a later seek
+  replaces it.
+- An arrow key with explicit focus outside the buffer seeks back to the focus,
+  then applies the move (`_pendingFocusDelta`).
 
-### 2.5 First-Page Sort Placement During Fill
+### 4.3 Detail, Preview and Reload
 
-When a preserved image is already in the first page, search publishes that page
-before filling the rest of a small result set. A near-bottom image can therefore
-hit a temporary scroll-height limit even though the complete result set has room
-for its saved viewport position.
+- Detail overlays the list, which stays laid out at opacity 0, so list placement
+  persists natively. Traversal replaces the URL `image`. The entry image is
+  `_detailEntryImageId` in history state and survives traversal and reload
+  *(L11: also tracked by component refs)*.
+- Traversal works in global indices. An off-buffer neighbour waits for the buffer;
+  changing image, context or history entry, or unmounting, cancels only that wait.
+- The deferred centring after traversal re-reads index and geometry when it runs;
+  reopening, a newer search, history entry or focus change makes it inert.
+- Reload in detail restores the buffer around the image from its cached cursor
+  (`restoreAroundCursor`); the list shows it at the top row.
+- Fullscreen preview owns a history entry so Back closes it. After traversal it
+  centres the last image once window resizing settles; each entry owns its own
+  centring, so re-entry makes an older one inert.
 
-`useScrollEffects` keeps that intended ratio only for an offset-zero, incomplete
-small-result bottom clamp. It retries on buffer growth and clears the pending
-placement once reachable or fully filled. Changed search/seek generations, focus,
-pending arrow navigation, buffer replacement or scroll position discard it so
-later user intent wins. The image ID is retained for this local retry even when
-the normal one-shot phantom positioning ID has already been consumed.
+### 4.4 Back / Forward and Reload
 
-This does not increase page size, add requests or timers, or change actual
-result-set edge clamping. Indexed mode and deep windowed buffers are unaffected.
+- Before each push, the departing entry's snapshot is saved under its kupuaKey:
+  anchor, global offset, ratio and new-images cutoff. On Back/Forward the departing
+  entry is recaptured (phantom snapshots only when the anchor image changed).
+- The destination snapshot applies when its search key matches exactly: anchor
+  positioned (phantom: without focus), ratio reused, results capped at the cutoff.
+  Snapshots live in sessionStorage (50 entries) and survive reload.
 
-### 2.6 Pending Image Traversal
+### 4.5 Reset to Home
 
-Detail and fullscreen share global-index traversal. Resident neighbors navigate
-synchronously. Off-buffer intent retains its originating image, search generation,
-query/order scope and caller history until a committed window supplies the neighbor.
-Completion resolves the origin's current global position, so prepend/origin movement,
-new result arrays and callback replacement do not invalidate legitimate progress.
+The logo waits for the fresh first page before changing the URL, avoiding a
+table-to-grid flash. A later history change or newer search cancels it. It
+suppresses a pending `restoreAroundCursor`, the return-from-detail placement and
+the table's density save *(L12)*.
 
-Changing the current image or context, becoming inactive, leaving the navigation or
-unmounting discards only the consumer's pending direction. Shared extend/seek work is
-not aborted. Repeated arrows retain the existing single-pending-direction policy,
-not a queue; ordinary proactive extension and prefetch remain independent fast paths.
+## 5. Two UI Modes, One Engine
 
-### 2.7 Deferred Return and Preview Centering
+The engine runs identically in both modes; they differ in what the user sees and
+can do, and in the relaxations listed in §4.
 
-Closing the original detail-entry image preserves the retained list's native
-placement. After traversal, the queued return keeps that specific closing image,
-search generation, returned history entry and post-close focus. Reopening or
-unmounting cancels it; changed search/history/focus prevents obsolete application.
-For a still-valid return, index, row mapping and the centering callback are read
-again at execution. Columns, header measurements, buffer origin, callback identity
-and ordinary rerenders are geometry changes, not automatic cancellation.
-
-Preview exit has a separate lifetime. Each preview entry owns its delayed
-centering, so reentry (including the same image) or disposal makes an older frame
-inert. Valid same-exit settlement still resolves the latest focus and current
-geometry. Non-traversed exits keep native placement. The existing native
-promise/event finalization, rejected-exit recovery, resize quiet period and safety
-cap remain separate from this centering guard; it is not a global exit manager.
-
----
-
-## 3. Two UI Modes, One Engine
-
-The position-preservation engine runs identically in both modes. The difference
-is purely what the user sees and can interact with.
-
-### 3.1 Explicit Focus Mode (development default, power users)
+### 5.1 Explicit Focus Mode (desktop default, power users)
 
 | Interaction | Effect |
 |-------------|--------|
@@ -197,11 +202,10 @@ is purely what the user sees and can interact with.
 | Escape (from fullscreen within detail) | Returns to image detail |
 | Home / End | Focus first / last image, scroll to it |
 
-This is the mode where all position-preservation behaviours are developed and
-tested. It is the strictest mode — every guarantee in §2.2 is actively
-exercised.
+This is the strictest mode: every guarantee in §4 is exercised with an
+identified anchor.
 
-### 3.2 Phantom Focus Mode (mobile, optional desktop preference)
+### 5.2 Phantom Focus Mode (touch devices, optional desktop preference)
 
 | Interaction | Effect |
 |-------------|--------|
@@ -210,22 +214,18 @@ exercised.
 | PageUp / PageDown | Scroll by one page of rows |
 | Enter | No effect (no focused image to open) |
 | `f` key | No effect (no focused image to preview) |
-| Backspace (from detail) | Returns to list; phantom focus set to the image that was open |
+| Backspace (from detail) | Returns to list; the image that was open is pulsed (and centred if traversed) but does not become an anchor *(L6)* |
+| Middle-click | Fullscreen preview of that image *(L6: currently sets focus)* |
 | Escape (from fullscreen within detail) | Returns to image detail |
 | Home / End | Scroll to top / bottom (no focus) |
 | Swipe left/right (touch) | Navigate prev/next in detail view |
 
-Focus is **completely invisible and unreachable.** There is no arrow-key path to
-reveal it, no shift-click, no long-press (for now — see §6 on selections). The
-only entity that knows about position is the engine. From the user's perspective,
-this mode behaves like Grid/Kahuna: click to enter, back to return.
+There is no focus in this mode: no ring, no keyboard path to one. Selection uses
+its own gestures (§6). From the user's perspective it behaves like Kahuna (click
+to enter, back to return) while the engine keeps their place using the viewport
+centre as anchor.
 
-But under the hood, the phantom focus engine is tracking position. When the user
-returns from detail, they land where they were. When they change density, their
-position is preserved. When they resize the window, the same images stay visible.
-They get all of "Never Lost" without ever seeing a focus ring.
-
-### 3.3 Why Not Reveal Focus on Arrow Keys?
+### 5.3 Why Not Reveal Focus on Arrow Keys?
 
 It's tempting: keep focus hidden, but reveal it when the user presses an arrow
 key (desktop keyboard users would "discover" focus). Two reasons not to:
@@ -246,15 +246,14 @@ The clean answer: phantom focus mode has no focus affordance. Period. If we
 later need keyboard-accessible focus in phantom mode (e.g. accessibility
 requirements), we design it intentionally rather than letting it leak.
 
-### 3.4 The Preference
+### 5.4 The Preference
 
-A `focusMode: "explicit" | "phantom"` setting, persisted in localStorage.
+A `focusMode: "explicit" | "phantom"` setting, persisted in localStorage and read
+through `getEffectiveFocusMode()`.
 
-- **Desktop default:** `explicit` (during development; may flip to `phantom`
-  once users migrate from Kahuna, if research confirms the "extra click"
-  complaint outweighs the power-user benefit).
-- **Mobile / `pointer: coarse`:** always `phantom`, ignoring the preference.
-  Explicit focus is meaningless without a mouse and keyboard.
+- **Desktop default:** `explicit`.
+- **`pointer: coarse`:** always `phantom`, ignoring the preference. Switching to
+  phantom clears any focus.
 
 The preference controls:
 - Whether single-click sets focus or enters detail
@@ -262,43 +261,12 @@ The preference controls:
 - Whether arrow keys move focus or scroll rows
 - Whether `Enter` and `f` operate on the focused image
 
-It does **not** control:
-- The position-preservation engine (always on)
-- Phantom focus tracking (always on)
-- Sort-around-focus behaviour (uses explicit focus if available, phantom otherwise)
-- Density-change position restoration (uses best available anchor)
+It does **not** control the engine: every transition in §4 applies in both modes,
+with the mode-specific relaxations listed there.
 
 ---
 
-## 4. The Relaxation Model
-
-The scaffolding principle means we build the maximum guarantee first, then
-**explicitly relax** it in specific scenarios where a weaker behaviour is more
-helpful. Relaxation is always a deliberate decision, never a bug.
-
-Current relaxations:
-
-| Scenario | Explicit focus behaviour | Phantom focus behaviour | Rationale |
-|----------|------------------------|------------------------|-----------|
-| **Sort order change** | Keep focused image in view at new position | Reset to top | When the user changes sort order without a specific image in mind (phantom), they want to see "what's first in the new order," not "where my phantom anchor ended up" |
-| **Scrubber seek** | Focus persists (durable), seek back restores it | Phantom resets to new position | A deliberate seek is "take me there" — phantom should follow. But explicit focus is a bookmark the user chose to set |
-| **Completely disjoint search** | Focus cleared, reset to top | Phantom reset to top | Context change so large that any anchor is meaningless |
-
-Future relaxation candidates (not yet decided):
-
-| Scenario | Question |
-|----------|----------|
-| **Filter narrows results and focused image survives** | Should we scroll to it, or let the new results start from the top? |
-| **Filter narrows results and focused image is gone** | Neighbour search, or just top? |
-| **User explicitly clicks "New Search" / clears query** | Preserve position or reset? |
-| **Returning from a long detail session** | The user spent 5 minutes in detail, navigated through 50 images. Where do they land — on the last image they viewed, or on the image they entered from? |
-
-Each relaxation should be discussed and decided individually. The default is
-always the strictest guarantee; we only relax with a reason.
-
----
-
-## 5. Relationship to Selections
+## 6. Relationship to Selections
 
 Selections are implemented separately from focus, with shared position-preservation
 mechanisms where the transition requires them:
@@ -306,11 +274,12 @@ mechanisms where the transition requires them:
 - **Selection is multi-persistent; focus is single-ephemeral.** Selecting images
   does not move focus. Moving focus does not alter the selection.
 - **Selection survives density changes** (same as focus — "Never Lost" applies).
-- **Selection supplies a position anchor.** The active selection's last-interacted
-  image is the continuity point for sorting and grid panel/window reflow, ahead of
-  an older, visually suppressed focus. Preserving that image does not mean keeping
-  every selected image on screen. Search/filter navigation normally clears the
-  selection; its persistence policy is documented separately.
+- **Selection supplies a position anchor for sorting.** The active selection's
+  last-interacted image is the continuity point for sort changes, ahead of an
+  older, visually suppressed focus. Layout transitions keep the visible centre
+  instead (§4). Preserving that image does not mean keeping every selected image
+  on screen. Search/filter navigation normally clears the selection; its
+  persistence policy is documented separately.
 - **Selection gestures must not conflict with focus/detail entry.** In explicit
   focus mode, single-click = focus, double-click = detail, so selection needs a
   separate gesture (checkbox, Ctrl/Cmd-click, or a selection-mode toggle). In
@@ -326,50 +295,10 @@ restores the older focus's ordinary role without creating new focus.
 
 ---
 
-## 6. How Kahuna Works (for reference, not as a constraint)
+## 7. Comparison with Kahuna
 
-Grid's existing frontend has no focus concept. Its interaction model:
+Kahuna has no focus: single-click opens detail, arrows scroll, and the only
+position preservation is returning from detail to the previous scroll position.
+Phantom mode matches that interaction model; the engine adds every other
+transition in §4. Explicit focus is a Kupua-only power-user capability.
 
-- **Single-click** an image in the search grid → enters image detail.
-- **Checkbox on hover** → selects/deselects the image for batch operations.
-- **Once images are selected**, clicking another image also selects it (selection
-  mode is sticky). A "Clear selection" button exits selection mode.
-- **Arrow keys** scroll the grid by rows. No concept of focus movement.
-- **Info panel** is toggled by a button, shows metadata for the selected image(s).
-  When multiple images are selected, it shows shared values and flags conflicts.
-- **Position preservation** is minimal: a scroll-position service remembers where
-  you were when you entered detail, and "Back to search" restores it. No
-  preservation across sort changes, filter changes, panel toggles, or resizes.
-
-Kupua's phantom focus mode is designed to feel familiar to Kahuna users (click to
-enter, arrows to scroll) while providing dramatically better position preservation
-invisibly. The explicit focus mode is a power-user capability that Kahuna never
-offered.
-
----
-
-## 7. Implementation Roadmap
-
-Priority order for the position-preservation engine:
-
-1. **Focus survives search context change** — the §2.3 algorithm. This is the
-   hardest guarantee and the one that makes Kupua unique. Primary path first
-   (focused image found in new results), fallback path (neighbours) second.
-
-2. **Focus survives seek** — durable `focusedImageId` that persists across buffer
-   replacement. Arrow-key snap-back to focused position.
-
-3. **Promote viewport anchor to first-class phantom focus** — give it the same
-   guarantees as explicit focus (density change, panel toggle, resize are already
-   there; add search-context-change and sort-change relaxation).
-
-4. **Phantom focus mode** — the `focusMode` preference and `pointer: coarse`
-   detection. Single-click/tap enters detail. Focus ring hidden. Arrow keys
-   scroll rows.
-
-5. **Selection** — separate workstream. Checkbox + Ctrl/Cmd-click in explicit
-   mode, checkbox + long-press in phantom mode. Batch operations, metadata panel
-   integration.
-
-Each step builds on the previous. Step 1 is the architectural heart; step 4 is
-a UI skin over a working engine; step 5 is orthogonal.

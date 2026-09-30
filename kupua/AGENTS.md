@@ -48,7 +48,8 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md`, `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
+| **Position-engine cleanup** | Start sessions with the [session prompt](exploration/docs/not-yet-another-audit-prompt.md); work list and decisions in the [ledger](exploration/docs/not-yet-another-audit-ledger.md). One item per session, behaviour fixed unless decided. |
+| **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md` (source-derived behaviour map; ledger items marked *(Lx)*), `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx` and its mounted identity tests, `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
 | **URL / routing** | `search-params-schema.ts`, `useUrlSearchSync.ts`, `router.ts`, `routes/search.tsx`, `home-defaults.ts` |
@@ -146,7 +147,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 | Doc | Path | Summary |
 |---|---|---|
 | Frontend philosophy | `exploration/docs/00 Architecture and philosophy/01-frontend-philosophy.md` | Density continuum, "Never Lost", click-to-search |
-| Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Focus, phantom focus, position engine, relaxation model, mobile |
+| Focus & position preservation | `exploration/docs/00 Architecture and philosophy/02-focus-and-position-preservation.md` | Anchors, relaxations, engine map (tiers, store signals, placement), transitions |
 | Scroll architecture | `exploration/docs/00 Architecture and philosophy/03-scroll-architecture.md` | Windowed buffer, search_after + PIT, seek, extend/evict, two-tier, swimming |
 | Browser history architecture | `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md` | kupuaKey, snapshot capture, popstate restore, reload survival |
 | Selections architecture | `exploration/docs/00 Architecture and philosophy/05-selections.md` | Multi-image selection: state shape, click semantics, lazy reconciliation, survival matrix |

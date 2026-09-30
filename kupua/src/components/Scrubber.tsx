@@ -141,14 +141,12 @@ import type { TrackTick } from "@/lib/sort-context";
 // ---------------------------------------------------------------------------
 
 /**
- * Scrubber operating mode:
+ * Scrubber interaction regime (exposed as `data-scrubber-mode`):
  * - `'buffer'`: all data in buffer (total ≤ bufferLength). Click/drag
  *   directly scrolls the content container. Native scrollbar behaviour.
- * - `'indexed'`: position map loaded — the scrubber knows the exact
- *   sortValues at every global position. Buffer is windowed.
- *   Seek is fast (~50ms via position map lookup + single searchAfter).
- * - `'seek'`: neither buffer nor position map. Status-quo deep seek
- *   (percentile estimation, composite walk, countBefore).
+ * - `'indexed'`: two-tier — the scroll container spans all `total` items,
+ *   so click/drag scrolls it directly and data loads behind the viewport.
+ * - `'seek'`: windowed buffer without two-tier. Click and drag release seek.
  */
 type ScrubberMode = "buffer" | "indexed" | "seek";
 
@@ -184,17 +182,9 @@ interface ScrubberProps {
    */
   trackTicks?: TrackTick[];
   /**
-   * Whether the position map has been loaded (non-null in the store).
-   * When true AND total > bufferLength, the scrubber enters 'indexed' mode
-   * instead of 'seek' mode. Defaults to false.
-   */
-  positionMapLoaded?: boolean;
-  /**
    * Whether two-tier virtualisation is active. When true, the scroll
    * container already spans all `total` items (virtualizerCount = total),
-   * so the scrubber can scroll the container directly even before the
-   * position map loads. Without this, scrubber would fire a slow deep
-   * seek (~2s) instead of instant scrollTop assignment.
+   * so the scrubber scrolls the container directly instead of seeking.
    */
   twoTier?: boolean;
 }
@@ -213,7 +203,6 @@ export function Scrubber({
   getSortLabel,
   onFirstInteraction,
   trackTicks,
-  positionMapLoaded = false,
   twoTier = false,
 }: ScrubberProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -224,34 +213,15 @@ export function Scrubber({
   // Mode derivation
   // -------------------------------------------------------------------------
 
-  /**
-   * Tristate scrubber mode:
-   * - `'buffer'`:  total ≤ bufferLength — all data in buffer, direct scroll.
-   * - `'indexed'`: position map loaded — windowed buffer, fast seek via map.
-   * - `'seek'`:    neither — deep seek (percentile/composite/countBefore).
-   *
-   * NOTE: For Phase 4a this is purely a signal. 'indexed' currently
-   * behaves identically to 'seek' in all code paths. Phase 4b will
-   * add indexed-specific interaction (fast pointer-up seek).
-   */
-  const scrubberMode: ScrubberMode =
-    total <= bufferLength ? "buffer" : positionMapLoaded ? "indexed" : "seek";
-
-  // Two-tier: in indexed mode, the scrubber behaves like a scrollbar (same
-  // as buffer mode) — drag sets scrollTop directly, no seek-on-pointer-up.
-  // isScrollMode is true for both buffer and indexed modes. Only seek mode
-  // (no position map, >1k results) uses the seek-on-pointer-up interaction.
-  //
-  // ALSO true when twoTier is active (even without positionMap). When the
-  // scroll container already spans all `total` items, scrollTop assignment
-  // is instant — the scrubber moves immediately, skeletons appear at the
-  // right position, and useDataWindow's scroll-triggered seek fetches data
-  // in the background. Without this, clicking the scrubber before positionMap
-  // loads would fire a slow deep seek (~2s) with no visual feedback.
-  const isScrollMode = scrubberMode === "buffer" || scrubberMode === "indexed" || twoTier;
-  const interactionRegime: ScrubberMode = scrubberMode === "buffer"
+  // Buffer and two-tier (indexed) regimes behave like a scrollbar: click/drag
+  // sets scrollTop directly. In two-tier the container spans all `total`
+  // items, so skeletons appear at once and useDataWindow's scroll-triggered
+  // seek loads data behind them. Only the seek regime seeks on click/release.
+  const inBuffer = total <= bufferLength;
+  const isScrollMode = inBuffer || twoTier;
+  const interactionRegime: ScrubberMode = inBuffer
     ? "buffer"
-    : isScrollMode ? "indexed" : "seek";
+    : twoTier ? "indexed" : "seek";
 
   // Ref-stabilise onFirstInteraction so callers don't need to memoize it.
   // Called on every user interaction (hover, click, drag). The store's own

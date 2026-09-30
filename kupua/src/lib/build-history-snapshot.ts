@@ -6,8 +6,6 @@
  * load-bearing for debounced typing: the first-keystroke push captures
  * the predecessor (pre-edit state), not the keystroke just typed.
  * DO NOT reorder this read to after navigate().
- *
- * Phase 2: capture only — no consumer yet.
  */
 
 import type { HistorySnapshot } from "@/lib/history-snapshot";

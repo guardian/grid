@@ -17,6 +17,24 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 1 October 2026 - Position-engine cleanup: dead wood and stale comments (ledger L1-L5)
+
+  Started the position-engine cleanup series (session prompt and ledger in
+  `not-yet-another-audit-prompt.md` / `-ledger.md`; behaviour map rewritten in
+  `02-focus-and-position-preservation.md`). No behaviour change.
+
+  - Removed the Scrubber's `positionMapLoaded` prop and the route's position-map
+    subscription. The map only exists inside the two-tier range, where `twoTier` already
+    selects scroll mode, so the prop never changed interaction or `data-scrubber-mode`.
+  - Removed the unused `clearSuppressRestore` export and an End-key `loadMore()` call
+    that only ran when the buffer already reached the end.
+  - Replaced five inlined two-tier range checks (store and search route) with
+    `isTwoTierFromTotal`.
+  - Corrected comments describing removed mechanisms: phantom placement via seek
+    generation, "no consumer yet" snapshot notes, viewport anchor derived from the
+    visible range, `_viewportAnchorId`, the Scrubber thumb-reset "flash guard", and
+    worklog/plan pointers.
+
   ### 29 September 2026 - Deployed TEST media-api measurement (U8/M2a)
 
   Added explicit `--use-deployed-media-api` startup and perf modes. Ordinary and local API
