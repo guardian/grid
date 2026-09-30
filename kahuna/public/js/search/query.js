@@ -669,11 +669,6 @@ query.controller('SearchQueryCtrl', [
       }
       aiSearchInitialised = true;
 
-      if (syncingAiSearchFromUrl) {
-        syncingAiSearchFromUrl = false;
-        return;
-      }
-
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
