@@ -247,8 +247,7 @@
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    aria-label="Click to see all AI search results">
                     <span class="ai-search-preview__loading" ng-if="ctrl.aiSearchPreviewLoading">
-                        Looking for AI search results…
-                        <span class="ai-search-preview__progress"></span>
+                        Looking for AI search results<span class="ai-search-preview__dots"><span>.</span><span>.</span><span>.</span></span>
                     </span>
                     <span class="ai-search-preview__heading" ng-if-start="! ctrl.aiSearchPreviewLoading">
                         Here are the top results from AI search
