@@ -182,7 +182,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
         await image.perform("delete-usages-by-ids", {
           body: {
             data: {
-              usageIds: deletableUsages.map((usage) => usage.id)
+              usageIds: deletableUsages.toArray().map((usage) => usage.id)
             }
           }
         });
