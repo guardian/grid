@@ -3,10 +3,10 @@
     "permission": {
       "name": "grid_access",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]
@@ -15,10 +15,10 @@
     "permission": {
       "name": "edit_metadata",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]
@@ -27,10 +27,10 @@
     "permission": {
       "name": "delete_image",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]
@@ -39,10 +39,10 @@
     "permission": {
       "name": "delete_crops_or_usages",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]
@@ -51,10 +51,10 @@
     "permission": {
       "name": "delete_crops",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]
@@ -63,10 +63,10 @@
     "permission": {
       "name": "show_paid",
       "app": "grid",
-      "defaultValue": true
+      "defaultValue": false
     },
     "overrides": [{
-      "userId": "johndoe@example.com",
+      "userId": "grid-e2e-account@guardian.co.uk",
       "active": true,
       "isCasualNotOnShift": false
     }]

@@ -30,6 +30,11 @@ There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bund
 Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
 `https://*.media.<domain>` browser origins.
 
+The harness applies both development CloudFormation templates to LocalStack, seeds Panda
+settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
+[`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
+OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed.
+
 ### 2. Dev (live recompilation)
 
 For iterating on failing tests you can run the services from source with live reload using
@@ -77,8 +82,8 @@ straight away and names the ports it is waiting on.
 
 **Watch out for stale provisioning.** A reused stack picks up Scala changes (the repo is
 bind-mounted and services run under `sbt run`), but *not* changes to anything applied at
-boot: generated service config, the CloudFormation template, bucket contents, permissions
-or the Elasticsearch fixtures. After changing any of those, restart `dev:e2e`.
+boot: generated service config, CloudFormation templates, bucket contents, OIDC users,
+permissions or Elasticsearch fixtures. After changing any of those, restart `dev:e2e`.
 
 Reuse also means state carries over between runs. The current suite is read-only, so this
 is harmless today, but a test that uploads or edits an image will want a fresh stack.
