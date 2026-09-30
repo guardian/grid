@@ -252,7 +252,7 @@
                         <img class="ai-search-preview__thumb"
                              ng-repeat="image in ctrl.aiSearchPreviewImages track by $index"
                              ng-src="{{::image.data.thumbnail | assetFile}}"
-                             alt="" />
+                             alt="{{::image.data.metadata.description}}" />
                     </span>
                     <!-- Gradient scrim over the thumbnails, as per .preview__fade -->
                     <span class="ai-search-preview__footer" ng-if-end>
