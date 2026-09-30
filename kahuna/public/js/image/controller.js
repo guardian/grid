@@ -160,11 +160,6 @@ image.controller('ImageCtrl', [
     ctrl.image = image;
     if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
 
-    ctrl.canTakedown = false;
-    ctrl.image.getAction('delete-usages').then(
-      action => { ctrl.canTakedown = Boolean(action); },
-      () => { ctrl.canTakedown = false; }
-    );
 
     $scope.$watch('ctrl.image.data.softDeletedMetadata', () => {
         if (ctrl.image) {
@@ -187,6 +182,13 @@ image.controller('ImageCtrl', [
 
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;
+
+    imageUsagesService.canDeleteUsages(ctrl.image).then(deleteUsages => {
+      if (!deleteUsages) {
+        ctrl.canTakedown = false;
+      }
+      else ctrl.canTakedown = true;
+    })
 
     const recentPrintUsages$ = usages.recentPrintUsages$;
     const recentDigitalUsages$ = usages.recentDigitalUsages$;
