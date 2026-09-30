@@ -346,6 +346,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                   onChange={(key) => {
                     setDeleteMethod(key as DeleteMethod);
                     setIsConfirming(false);
+                    setSubmitError(null);
                   }}
                   theme={standThemeOverride.select}
                   formInputContainerTheme={
@@ -407,16 +408,16 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                         Cancel
                       </Button>
                     </div>
-                    {submitError && (
-                      <Typography
-                        element="span"
-                        variant="bodySm"
-                        theme={standThemeOverride.typography.error}
-                      >
-                        {submitError}
-                      </Typography>
-                    )}
                   </>
+                )}
+                {submitError && (
+                  <Typography
+                    element="span"
+                    variant="bodySm"
+                    theme={standThemeOverride.typography.error}
+                  >
+                    {submitError}
+                  </Typography>
                 )}
               </div>
             )}
