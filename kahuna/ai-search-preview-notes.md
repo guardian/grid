@@ -8,12 +8,12 @@ When a plain text search returns no results, offer AI search instead. AI search 
 
 - `kahuna/public/js/search/results.html`: the `ai-search-preview` block in the zero-results section.
 - `kahuna/public/js/search/results.js`:
-  - `canOfferAiSearch`, the `aiPreview*` flags, and `loadAiSearchPreview()`.
+  - `canOfferAiSearch`, the `aiSearchPreview*` state, and `loadAiSearchPreview()`.
   - `search()` accepts a `useAISearch` override; pass it as the string `'true'`, because `mediaApi` uses `maybeStringToBoolean`.
 - `kahuna/public/stylesheets/main.css`: the `.ai-search-prompt` and `.ai-search-preview*` rules.
 - `kahuna/public/js/search/query.js`: watches `$stateParams.useAISearch` so the "AI search" checkbox stays in sync when AI search is turned on by a link.
 
-The preview is a still row of thumbnails, cut off at the box's right edge, with a footer that fades into the page.
+The preview is a still row of thumbnails, cut off at the box's right edge, with a footer that fades into the page. While it loads, a light grey bar slides along the box's bottom border.
 
 Gotcha: `kahuna/public/dist/build.js` has been seen stale, so rebuild or run webpack watch if markup or JS changes don't appear.
 

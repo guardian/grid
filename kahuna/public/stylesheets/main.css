@@ -1585,6 +1585,7 @@ textarea.ng-invalid {
 }
 
 .ai-search-preview {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -1612,6 +1613,35 @@ textarea.ng-invalid {
     font-size: 1.6rem;
     color: #999;
     padding-bottom: 12px;
+}
+
+/* Indeterminate progress running along the box's bottom border */
+.ai-search-preview__progress {
+    position: absolute;
+    bottom: -1px;
+    left: -1px;
+    right: -1px;
+    height: 2px;
+    overflow: hidden;
+}
+.ai-search-preview__progress::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 30%;
+    background: linear-gradient(90deg, rgba(221, 221, 221, 0), #ddd, rgba(221, 221, 221, 0));
+    animation: ai-search-preview-progress 1.5s ease-in-out infinite;
+}
+@keyframes ai-search-preview-progress {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(334%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ai-search-preview__progress::before {
+        animation: none;
+    }
 }
 
 .ai-search-preview__heading {
