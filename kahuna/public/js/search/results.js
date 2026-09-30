@@ -205,7 +205,6 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
-        // Prototype: when a plain search returns nothing, preview the AI search results.
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
           !!($stateParams.query && $stateParams.query.trim());
