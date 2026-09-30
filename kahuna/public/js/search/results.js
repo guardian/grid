@@ -39,6 +39,7 @@ import {
   sendToCaptureTitle,
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
+import { sendTelemetryForNoResults, sendTelemetryForAiSearchPreviewClick } from '../services/telemetry';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -210,6 +211,10 @@ results.controller('SearchResultsCtrl', [
           !!($stateParams.query && $stateParams.query.trim());
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
+        ctrl.onAiSearchPreviewClick = source => {
+          sendTelemetryForAiSearchPreviewClick($stateParams.query, source);
+        };
+
         function loadAiSearchPreview() {
           ctrl.aiSearchPreviewLoading = true;
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
@@ -341,6 +346,10 @@ results.controller('SearchResultsCtrl', [
 
           ctrl.searched = search(initialSearchParams).then(images => {
             const result = initialiseResults(images, { isAiSearch });
+            // Skip deep-state-redirect reloads, which re-show a search the user already ran
+            if (!isAiSearch && ctrl.totalResults === 0 && !isReloadingPreviousSearch) {
+              sendTelemetryForNoResults($stateParams.query, ctrl.canOfferAiSearch);
+            }
             if (ctrl.canOfferAiSearch && ctrl.totalResults === 0) {
               loadAiSearchPreview();
             }
