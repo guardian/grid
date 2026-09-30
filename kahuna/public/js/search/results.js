@@ -206,13 +206,6 @@ results.controller('SearchResultsCtrl', [
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
         // Prototype: when a plain search returns nothing, preview the AI search results.
-        // All default to true: ?aiPreviewDissolve=false swaps the fade into the page for a
-        // darkening gradient; ?aiPreviewScroll=false stops the thumbnails drifting;
-        // ?aiPreviewFadeSides=false stops the row fading out at its left and right ends.
-        const isFalse = param => param === 'false' || param === false;
-        ctrl.aiPreviewDarkFade = isFalse($stateParams.aiPreviewDissolve);
-        ctrl.aiPreviewScrolls = !isFalse($stateParams.aiPreviewScroll);
-        ctrl.aiPreviewFadesSides = !isFalse($stateParams.aiPreviewFadeSides);
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
           !!($stateParams.query && $stateParams.query.trim());
@@ -227,10 +220,7 @@ results.controller('SearchResultsCtrl', [
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
           return search({offset: 0, length: ctrl.aiSearchPreviewSize, useAISearch: 'true', countAll: false})
             .then(images => {
-              // Doubled when drifting, so the loop is seamless by translating half its width
-              ctrl.aiSearchPreviewImages = ctrl.aiPreviewScrolls
-                ? images.data.concat(images.data)
-                : images.data;
+              ctrl.aiSearchPreviewImages = images.data;
             })
             .catch(angular.noop)
             .finally(() => {

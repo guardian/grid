@@ -1603,8 +1603,7 @@ textarea.ng-invalid {
     background-color: #404040;
 }
 /* Nothing dissolves into the page, so keep a plain bottom border */
-.ai-search-preview--loading,
-.ai-search-preview--dark-fade {
+.ai-search-preview--loading {
     border-bottom-width: 1px;
     border-image: none;
 }
@@ -1619,51 +1618,24 @@ textarea.ng-invalid {
     font-size: 2rem;
 }
 
-/* A single row running the full width, fading in and out at the edges */
-.ai-search-preview__marquee {
-    /* Bleeds through the box's side padding, so both ends meet the border alike */
+/* A single row running the full width, cut off at the right edge */
+.ai-search-preview__row {
+    display: flex;
+    gap: 8px;
+    /* Bleeds through the box's side padding, so the row runs border to border */
     margin: 0 -12px;
     overflow: hidden;
     /* Its unwrapped row mustn't widen the page */
     contain: inline-size;
-    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-}
-.ai-search-preview--hard-sides .ai-search-preview__marquee {
-    -webkit-mask-image: none;
-    mask-image: none;
-}
-.ai-search-preview__marquee-track {
-    display: flex;
-    width: max-content;
-    animation: ai-search-preview-drift 60s linear infinite;
-}
-.ai-search-preview:hover .ai-search-preview__marquee-track {
-    animation-play-state: paused;
-}
-.ai-search-preview--static .ai-search-preview__marquee-track {
-    animation: none;
-}
-@keyframes ai-search-preview-drift {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-}
-@media (prefers-reduced-motion: reduce) {
-    .ai-search-preview__marquee-track {
-        animation: none;
-    }
 }
 
 .ai-search-preview__thumb {
+    flex: none;
     height: 140px;
-    /* Margin rather than gap, so exactly half the doubled track is one copy of the results */
-    margin-right: 8px;
 }
 
 /* Pulled up over the thumbnails so it takes no vertical space */
 .ai-search-preview__footer {
-    /* Positioned so it paints above the marquee, whose mask gives it a stacking context */
-    position: relative;
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -1673,9 +1645,6 @@ textarea.ng-invalid {
     box-sizing: border-box;
     /* Ends on the page background (body), so the box has no visible bottom edge */
     background: linear-gradient(to bottom, rgba(51, 51, 51, 0), #333);
-}
-.ai-search-preview--dark-fade .ai-search-preview__footer {
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
 }
 
 /* Pill as per the Subjects pills in the info panel */

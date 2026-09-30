@@ -238,10 +238,7 @@
 
                 <!-- Preview of what AI search would return; the whole box links to it -->
                 <a class="ai-search-preview"
-                   ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading,
-                               'ai-search-preview--dark-fade': ctrl.aiPreviewDarkFade,
-                               'ai-search-preview--static': ! ctrl.aiPreviewScrolls,
-                               'ai-search-preview--hard-sides': ! ctrl.aiPreviewFadesSides}"
+                   ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading}"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    aria-label="Click to see all AI search results">
                     <span class="ai-search-preview__loading" ng-if="ctrl.aiSearchPreviewLoading">
@@ -250,13 +247,11 @@
                     <span class="ai-search-preview__heading" ng-if-start="! ctrl.aiSearchPreviewLoading">
                         Here are the top results from AI search
                     </span>
-                    <span class="ai-search-preview__marquee">
-                        <span class="ai-search-preview__marquee-track">
-                            <img class="ai-search-preview__thumb"
-                                 ng-repeat="image in ctrl.aiSearchPreviewImages track by $index"
-                                 ng-src="{{::image.data.thumbnail | assetFile}}"
-                                 alt="" />
-                        </span>
+                    <span class="ai-search-preview__row">
+                        <img class="ai-search-preview__thumb"
+                             ng-repeat="image in ctrl.aiSearchPreviewImages track by $index"
+                             ng-src="{{::image.data.thumbnail | assetFile}}"
+                             alt="" />
                     </span>
                     <!-- Gradient scrim over the thumbnails, as per .preview__fade -->
                     <span class="ai-search-preview__footer" ng-if-end>
