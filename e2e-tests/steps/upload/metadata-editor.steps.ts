@@ -10,15 +10,21 @@ async function uploadAndOpenEditor(page: import('@playwright/test').Page): Promi
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 }
 
-/**
- * Required-metadata-editor fields whose batch `⇔` button persists after editing. imageType and
- * description are excluded: their `⇔` only renders while the value equals the original, so it
- * vanishes as soon as you type a value to apply.
- */
 const BATCH_FIELDS: Record<
   string,
-  { input: (editor: Locator) => Locator; applyTitle: string; value: string }
+  { input: (editor: Locator) => Locator; applyTitle: string; value: string; isSelect?: boolean }
 > = {
+  'Image type': {
+    input: (editor) => editor.locator('select[name="imageType"]'),
+    applyTitle: 'Apply this image type to all your current uploads',
+    value: E2E_IMAGE_TYPES[0],
+    isSelect: true,
+  },
+  Description: {
+    input: (editor) => editor.locator('textarea[name="description"]'),
+    applyTitle: 'Apply this description to all your current uploads',
+    value: 'Batch description',
+  },
   Byline: {
     input: (editor) => editor.locator('input[name="byline"]'),
     applyTitle: 'Apply this byline to all your current uploads',
@@ -208,14 +214,35 @@ Given('I am permitted to edit', async () => {});
 When(
   'I apply the following field values to all current uploads:',
   async ({ page, testContext }, table: DataTable) => {
-    const firstEditor = uploadPage(page).metadataEditor.first();
+    const editors = uploadPage(page).metadataEditor;
+    const firstEditor = editors.first();
+    // Let the filename-derived description land first, or its reindex resets our edits.
+    for (let i = 0; i < (await editors.count()); i++) {
+      await expect(editors.nth(i).locator('textarea[name="description"]')).not.toHaveValue('');
+    }
     testContext.batchApplied = {};
     for (const [label] of table.raw()) {
       const field = BATCH_FIELDS[label];
-      await field.input(firstEditor).fill(field.value);
-      await field.input(firstEditor).blur();
-      await firstEditor.getByTitle(field.applyTitle).click();
+      const input = field.input(firstEditor);
+      const saved = page.waitForResponse(
+        (r) =>
+          r.request().method() === 'PUT' &&
+          new URL(r.url()).pathname.includes('/metadata') &&
+          (r.request().postData() ?? '').includes(field.value),
+      );
+      if (field.isSelect) {
+        await input.selectOption({ label: field.value });
+      } else {
+        await input.fill(field.value);
+      }
+      await input.blur();
+      await saved;
+      // imageType/description's ⇔ only returns once the saved edit is reindexed.
+      const apply = firstEditor.getByTitle(field.applyTitle);
+      await expect(apply).toBeVisible({ timeout: 15_000 });
+      await apply.click();
       testContext.batchApplied[label] = field.value;
+      await expectFieldOnEveryEditor(editors, field, field.value);
     }
   },
 );
@@ -224,12 +251,23 @@ Then(
   'that value should be applied to the same field on every current upload',
   async ({ page, testContext }) => {
     const editors = uploadPage(page).metadataEditor;
-    const count = await editors.count();
     for (const [label, value] of Object.entries(testContext.batchApplied!)) {
-      const field = BATCH_FIELDS[label];
-      for (let i = 0; i < count; i++) {
-        await expect(field.input(editors.nth(i))).toHaveValue(value);
-      }
+      await expectFieldOnEveryEditor(editors, BATCH_FIELDS[label], value);
     }
   },
 );
+
+async function expectFieldOnEveryEditor(
+  editors: Locator,
+  field: (typeof BATCH_FIELDS)[string],
+  value: string,
+): Promise<void> {
+  const count = await editors.count();
+  for (let i = 0; i < count; i++) {
+    const input = field.input(editors.nth(i));
+    // AngularJS ng-options encodes <select> values (e.g. "string:Photograph"), so check the label.
+    await (field.isSelect
+      ? expect(input.locator('option:checked')).toHaveText(value)
+      : expect(input).toHaveValue(value));
+  }
+}
