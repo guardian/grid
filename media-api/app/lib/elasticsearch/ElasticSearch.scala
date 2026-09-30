@@ -578,7 +578,7 @@ class ElasticSearch(
       val composerQuota = aggs.filter("has_composer").nested("usages_agg").filter("qualifying").docCount.toInt
       val frontsQuota   = aggs.filter("fronts_no_composer").docCount.toInt
       val printQuota    = aggs.filter("print_no_composer").nested("usages_agg").filter("qualifying").docCount.toInt
-      logger.info(s"Quota count for supplier $supplierName in last $numDays days: composer=$composerQuota, fronts=$frontsQuota, print=$printQuota")
+      logger.info(s"Quota count for supplier $supplierName with date filter $dateAddedQuery: composer=$composerQuota, fronts=$frontsQuota, print=$printQuota")
       SupplierQuotaCount(supplier, composerQuota + frontsQuota + printQuota)
     }
   }
