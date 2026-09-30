@@ -202,7 +202,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     }
     try {
       const cropsResource = await image.follow<CropsResource>("crops").get();
-      await cropsResource.perform("delete-crops");
+      await cropsResource.perform("delete-crops").then(() => setCrops([]));
     } catch (error) {
       throw new Error(
         `Failed to delete crops: ${error instanceof Error ? error.message : error.body.errorMessage ?? String(error)}`
