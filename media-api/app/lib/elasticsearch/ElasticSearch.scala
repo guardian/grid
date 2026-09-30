@@ -500,7 +500,7 @@ class ElasticSearch(
       case Nested(SingleField("usages"), SingleField("dateAdded"), DateRange(start, end)) => (start, end)
     }
 
-    val maybeDateAddedRange = dateAddedRanges match {
+    val dateAddedQuery = dateAddedRanges match {
       // when no range in query, use default
       // lt("now+1d/d") instead of lte("now") so the query is day-rounded and fully request-cacheable
       case Nil => rangeQuery("usages.dateAdded").gt(s"now-${UsageStore.countPeriodInDays}d/d").lt("now+1d/d")
@@ -508,10 +508,10 @@ class ElasticSearch(
         val from = ranges.map(_._1).maxBy(_.getMillis)
         // `<date` is parsed as midnight of that day; extend to end of day to make the bound inclusive
         val to = ranges.map(_._2).minBy(_.getMillis).withTime(23, 59, 59, 999)
-        Some((from, to))
+        rangeQuery("usages.dateAdded").gte(printDateTime(from)).lte(printDateTime(to))
     }
     val haveQualifyingPlatform = termsQuery("usages.platform", UsageStore.countQualifyingPlatforms.map(_.toString))
-    val haveQualifyingUsage    = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, maybeDateAddedRange))
+    val haveQualifyingUsage    = nestedQuery("usages", boolQuery().must(haveQualifyingStatus, haveQualifyingPlatform, dateAddedQuery))
 
     val beSupplier = boolQuery().should(
       termQuery("usageRights.supplier", supplierName),
@@ -523,17 +523,17 @@ class ElasticSearch(
 
     // Usage-level filters for counting inside the nested aggregation context
     val composerUsageFilter = boolQuery().must(
-      haveQualifyingStatus, maybeDateAddedRange,
+      haveQualifyingStatus, dateAddedQuery,
       termQuery("usages.platform", DigitalUsage.toString),
       termQuery("usages.references.type", ComposerUsageReference.toString)
     )
     val frontsUsageFilter = boolQuery().must(
-      haveQualifyingStatus, maybeDateAddedRange,
+      haveQualifyingStatus, dateAddedQuery,
       termQuery("usages.platform", DigitalUsage.toString),
       termQuery("usages.references.type", FrontUsageReference.toString)
     )
     val printUsageFilter = boolQuery().must(
-      haveQualifyingStatus, maybeDateAddedRange,
+      haveQualifyingStatus, dateAddedQuery,
       termQuery("usages.platform", PrintUsage.toString)
     )
     // Document-level filters: classify images by which quota bucket they fall into.
