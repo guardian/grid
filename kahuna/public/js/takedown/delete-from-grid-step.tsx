@@ -198,7 +198,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     }
     try {
       const cropsResource = await image.follow<CropsResource>("crops").get();
-      await cropsResource.perform("delete-crops").then(() => setCrops([]));
+      await cropsResource.perform("delete-crops");
     } catch (error) {
       throw new Error(
         `Failed to delete crops: ${error instanceof Error ? error.message : String(error)}`
@@ -261,16 +261,14 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     try {
       if (crops && crops.length > 0) {
         await deleteCrops();
+        await fetchCrops();
       }
       if (usages && usages.length > 0) {
         await deleteUsages();
       }
       await performDeleteImage();
-      // Only refetch once the delete method itself has succeeded - if it
-      // fails, leave crops/usages state as-is so a retry doesn't skip
-      // re-attempting deleteCrops/deleteUsages for anything that wasn't
-      // actually removed.
-      await Promise.all([fetchCrops(), fetchUsages()]);
+      // Only refetch usages after performDeleteImage succeeds, so delete options don't re-render.
+      await fetchUsages();
     } catch (error) {
       setSubmitError(
         `Failed to perform ${deleteMethod} on image. Reason: ${error instanceof Error ? error.message : String(error)}`
@@ -342,6 +340,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                   onChange={(key) => {
                     setDeleteMethod(key as DeleteMethod);
                     setIsConfirming(false);
+                    setSubmitError(null);
                   }}
                   theme={standThemeOverride.select}
                   formInputContainerTheme={
@@ -403,16 +402,16 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                         Cancel
                       </Button>
                     </div>
-                    {submitError && (
-                      <Typography
-                        element="span"
-                        variant="bodySm"
-                        theme={standThemeOverride.typography.error}
-                      >
-                        {submitError}
-                      </Typography>
-                    )}
                   </>
+                )}
+                {submitError && (
+                  <Typography
+                    element="span"
+                    variant="bodySm"
+                    theme={standThemeOverride.typography.error}
+                  >
+                    {submitError}
+                  </Typography>
                 )}
               </div>
             )}
