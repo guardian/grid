@@ -160,6 +160,12 @@ image.controller('ImageCtrl', [
     ctrl.image = image;
     if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
 
+    ctrl.canTakedown = false;
+    ctrl.image.getAction('delete-usages').then(
+      action => { ctrl.canTakedown = Boolean(action); },
+      () => { ctrl.canTakedown = false; }
+    );
+
     $scope.$watch('ctrl.image.data.softDeletedMetadata', () => {
         if (ctrl.image) {
           ctrl.isDeleted = ctrl.image?.data.softDeletedMetadata !== undefined;

@@ -33,6 +33,12 @@
 
         <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
         </gr-crop-image>
+        <a class="results-toolbar-item top-bar-item results-toolbar-item--right clickable"
+           ng-if="ctrl.canBeTakedown"
+           ui-sref="takedown({imageId: ctrl.image.data.id})"
+           title="Takedown image">
+            <gr-icon-label gr-icon="delete_forever">Takedown</gr-icon-label>
+        </a>
     </gr-top-bar-actions>
 </gr-top-bar>
 
