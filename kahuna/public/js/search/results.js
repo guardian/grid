@@ -211,14 +211,10 @@ results.controller('SearchResultsCtrl', [
           !!($stateParams.query && $stateParams.query.trim());
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
-        ctrl.aiSearchPreviewSize = 12;
-        ctrl.aiSearchPreviewImages = [];
-        ctrl.aiSearchPreviewLoading = false;
-
         function loadAiSearchPreview() {
           ctrl.aiSearchPreviewLoading = true;
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
-          return search({offset: 0, length: ctrl.aiSearchPreviewSize, useAISearch: 'true', countAll: false})
+          search({offset: 0, length: 12, useAISearch: 'true', countAll: false})
             .then(images => {
               ctrl.aiSearchPreviewImages = images.data;
             })
@@ -343,8 +339,7 @@ results.controller('SearchResultsCtrl', [
 
           ctrl.searched = search(initialSearchParams).then(images => {
             const result = initialiseResults(images, { isAiSearch });
-            if (ctrl.canOfferAiSearch &&
-                !ctrl.filtersOnlyAiSearch && ctrl.totalResults === 0) {
+            if (ctrl.canOfferAiSearch && ctrl.totalResults === 0) {
               loadAiSearchPreview();
             }
             return result;
