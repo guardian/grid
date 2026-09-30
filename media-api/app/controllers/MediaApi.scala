@@ -749,13 +749,19 @@ class MediaApi(
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
       params.aiQueryParts match {
         case scala.util.Right(parts) =>
-          val k = Math.min(params.length, config.aiSearchResultLimit)
+          // If we set `k` to `length`, we'll get a different top 5 depending on whether
+          // we ask for just 5 results or 200. This is a problem when fetching
+          // a preview of top AI search results when there are no text search results.
+          // So let's always rank over the full pool, and truncate based on length.
+          val k = config.aiSearchResultLimit
           val searchResultsFuture = parseAiSearchMode(parts) match {
             case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, parts, params)
             case TextSearch => semanticSearchByText(k, parts, params)
           }
 
-          searchResultsFuture.map(aiSearchResponseFromResults)
+          searchResultsFuture
+            .map(results => results.copy(hits = results.hits.take(params.length)))
+            .map(aiSearchResponseFromResults)
 
         // No query to rank by, so we can't return ranked results. Instead return the
         // size of the pool we'd be searching over, so the client can prompt the user to
