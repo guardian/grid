@@ -272,7 +272,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 197-203
 
   # ---------------------------------------------------------------------------
-  # Required metadata editor (jobs/required-metadata-editor.html + .js)
+  # Required metadata editor (jobs/required-metadata-editor.html + .js,
+  # edits/image-editor.html)
   # ---------------------------------------------------------------------------
 
   Scenario: Editing required metadata for an uploaded image
@@ -348,7 +349,6 @@ Feature: Uploading images to the Grid
 
   # Leases/Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
   # metadata editor, so they need separate locators and setup.
-  @todo
   Scenario: Applying an image-editor field value to all current uploads in a batch
     Given I am uploading more than one image
     And I am permitted to edit

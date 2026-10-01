@@ -5,6 +5,7 @@ import type { DataTable } from 'playwright-bdd';
 import type { Locator } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { openUploadPage } from '../common.steps.ts';
 import { testImages, uniqueImage, uploadPage } from './setup.ts';
 
@@ -43,6 +44,80 @@ const BATCH_FIELDS: Record<
     input: (editor) => editor.locator('input[name="special-instructions"]'),
     applyTitle: 'Apply these instructions to all your current uploads',
     value: 'Batch instructions',
+  },
+};
+
+const usageRights = (job: Locator) => job.getByRole('region', { name: 'Image usage rights' });
+const grouping = (job: Locator) => job.getByRole('region', { name: 'Organisation and grouping' });
+
+/** Fields in the image-editor around the required-metadata form; `job` is one current upload. */
+const IMAGE_EDITOR_FIELDS: Record<
+  string,
+  {
+    value: string;
+    set: (job: Locator, value: string) => Promise<void>;
+    applyButton: (job: Locator) => Locator;
+    expectOn: (job: Locator, value: string) => Promise<void>;
+  }
+> = {
+  Leases: {
+    value: 'e2e batch lease',
+    set: async (job, value) => {
+      await usageRights(job).getByRole('button', { name: 'Add lease to image' }).click();
+      // Deny syndication needs no dates, so the form is just access type and notes.
+      await usageRights(job)
+        .getByRole('combobox')
+        .filter({ hasText: 'Please select access' })
+        .selectOption('deny-syndication');
+      await usageRights(job).getByPlaceholder('Notes...').fill(value);
+      await usageRights(job).getByTitle('Save new lease').click();
+    },
+    applyButton: (job) =>
+      usageRights(job).getByRole('button', { name: 'Apply these leases to all current uploads' }),
+    expectOn: (job, value) => expect(usageRights(job).getByText(value)).toBeVisible(),
+  },
+  Collections: {
+    value: E2E_COLLECTION,
+    set: async (job, value) => {
+      await grouping(job).getByRole('button', { name: 'Add image to a collection' }).click();
+      await grouping(job).getByRole('button', { name: value, exact: true }).click();
+    },
+    applyButton: (job) => grouping(job).getByTitle('Apply these collections to all your current uploads'),
+    expectOn: (job, value) =>
+      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+  },
+  Labels: {
+    value: 'e2e-batch-label',
+    set: async (job, value) => {
+      await grouping(job).getByRole('button', { name: 'Add label to image' }).click();
+      await grouping(job).locator('[data-cy="label-input"]').fill(value);
+      await grouping(job).getByTitle('Save new label').click();
+    },
+    applyButton: (job) => grouping(job).getByTitle('Apply these labels to all your current uploads'),
+    expectOn: (job, value) =>
+      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+  },
+  Keywords: {
+    value: 'e2e-batch-keyword',
+    set: async (job, value) => {
+      await grouping(job).getByRole('button', { name: 'Add keywords to image' }).click();
+      await grouping(job).locator('[data-cy="keyword-input"]').fill(value);
+      await grouping(job).getByTitle('Save new keyword').click();
+    },
+    applyButton: (job) => grouping(job).getByTitle('Apply these keywords to all your current uploads'),
+    expectOn: (job, value) =>
+      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+  },
+  Photoshoot: {
+    value: 'e2e-batch-photoshoot',
+    set: async (job, value) => {
+      const input = grouping(job).locator('input[name="photoshoot"]');
+      await input.fill(value);
+      await input.blur();
+    },
+    applyButton: (job) => grouping(job).getByTitle('Apply this photoshoot to all your current uploads'),
+    expectOn: (job, value) =>
+      expect(grouping(job).locator('input[name="photoshoot"]')).toHaveValue(value),
   },
 };
 
@@ -268,7 +343,17 @@ When(
       await expect(editors.nth(i).locator('textarea[name="description"]')).not.toHaveValue('');
     }
     testContext.batchApplied = {};
+    const jobs = uploadPage(page).imageEditorJob;
     for (const [label] of table.raw()) {
+      const editorField = IMAGE_EDITOR_FIELDS[label];
+      if (editorField) {
+        await editorField.set(jobs.first(), editorField.value);
+        await editorField.expectOn(jobs.first(), editorField.value);
+        await editorField.applyButton(jobs.first()).click();
+        testContext.batchApplied[label] = editorField.value;
+        await expectOnEveryJob(jobs, editorField, editorField.value);
+        continue;
+      }
       const field = BATCH_FIELDS[label];
       const input = field.input(firstEditor);
       const saved = page.waitForResponse(
@@ -299,10 +384,24 @@ Then(
   async ({ page, testContext }) => {
     const editors = uploadPage(page).metadataEditor;
     for (const [label, value] of Object.entries(testContext.batchApplied!)) {
-      await expectFieldOnEveryEditor(editors, BATCH_FIELDS[label], value);
+      const editorField = IMAGE_EDITOR_FIELDS[label];
+      await (editorField
+        ? expectOnEveryJob(uploadPage(page).imageEditorJob, editorField, value)
+        : expectFieldOnEveryEditor(editors, BATCH_FIELDS[label], value));
     }
   },
 );
+
+async function expectOnEveryJob(
+  jobs: Locator,
+  field: (typeof IMAGE_EDITOR_FIELDS)[string],
+  value: string,
+): Promise<void> {
+  const count = await jobs.count();
+  for (let i = 0; i < count; i++) {
+    await field.expectOn(jobs.nth(i), value);
+  }
+}
 
 async function expectFieldOnEveryEditor(
   editors: Locator,

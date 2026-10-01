@@ -116,6 +116,10 @@ export const uploadPage = (page: Page) => {
     editableJob: metadataEditor,
     /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
     metadataEditor,
+    /** A finished upload's whole image-editor (rights, metadata, grouping), one per current upload. */
+    imageEditorJob: currentUploads
+      .getByRole('listitem')
+      .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
     /** Fields inside the required-metadata editor. The credit input has no name, so key on data-cy. */
     metadataField: {
       description: metadataEditor.locator('textarea[name="description"]'),

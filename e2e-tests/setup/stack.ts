@@ -59,6 +59,7 @@ import {
   seedKclLeaseTable,
 } from './provision.ts';
 import type { StackProps } from './provision.ts';
+import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
@@ -570,6 +571,15 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     await seedElasticsearch(ELASTICSEARCH_URL, startupTimeoutMs, reportTo(seedTask));
                   },
                 },
+                {
+                  title: 'Seed collections',
+                  skip: () => !seed && 'seeding not requested',
+                  task: async (_, seedTask) => {
+                    const report = reportTo(seedTask);
+                    await waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report);
+                    await seedCollections(report);
+                  },
+                },
               ];
 
               return services.newListr(readiness, { concurrent: true });
@@ -717,6 +727,13 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
+        },
+      },
+      {
+        title: 'Seed collections',
+        skip: () => !reseed && 'reseeding not requested',
+        task: async (_, task) => {
+          await seedCollections(reportTo(task));
         },
       },
     ],
