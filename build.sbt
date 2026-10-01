@@ -1,5 +1,6 @@
 import play.sbt.PlayImport.PlayKeys._
 import sbt.Package.FixedTimestamp
+import sbtassembly.AssemblyPlugin.autoImport._
 
 import scala.sys.process._
 import scala.util.control.NonFatal
@@ -20,7 +21,7 @@ ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 ThisBuild / libraryDependencySchemes +=
   "org.scala-lang.modules" %% "scala-java8-compat" % VersionScheme.Always
 
-lazy val jacksonVersion = "2.21.4"
+lazy val jacksonVersion = "2.21.6"
 lazy val jacksonAnnotationsVersion = "2.21"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",
@@ -61,17 +62,24 @@ val commonSettings = Seq(
 )
 
 //Common projects to all organizations
-lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, imageCachePurger, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+lazy val e2eServiceProjects: Seq[sbt.ProjectReference] = Seq(auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall)
+lazy val e2eStage = taskKey[Seq[File]]("Stage the services required by the E2E test stack")
 
 lazy val root = project("grid", path = Some("."))
   .aggregate((maybeBBCLib.toList ++ commonProjects):_*)
+  .settings(
+    e2eStage := (Universal / stage)
+      .all(ScopeFilter(inProjects(e2eServiceProjects: _*)))
+      .value
+  )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
 addCommandAlias("runMinimal", "all auth/run media-api/run kahuna/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
-  Tags.limit(Tags.CPU, Math.min(1, java.lang.Runtime.getRuntime.availableProcessors - 1)),
+  Tags.limit(Tags.CPU, Math.max(1, java.lang.Runtime.getRuntime.availableProcessors - 1)),
   Tags.limit(Tags.Test, 1),
   Tags.limitAll(12)
 )
@@ -143,12 +151,34 @@ lazy val collections = playProject("collections", 9010)
 
 lazy val cropper = playProject("cropper", 9006)
 
-lazy val imageLoader = playProject("image-loader", 9003).settings {
+lazy val imageLoader = playProject("image-loader", 9003).settings(
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "3.2.3",
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
+  ),
+  Universal / mappings ++= Seq(
+    file("image-loader/cmyk.icc") -> "cmyk.icc",
+    file("image-loader/facebook-TINYsRGB_c2.icc") -> "facebook-TINYsRGB_c2.icc",
+    file("image-loader/grayscale.icc") -> "grayscale.icc",
+    file("image-loader/srgb.icc") -> "srgb.icc"
   )
-}
+)
+
+lazy val imageCachePurger = project("image-cache-purger").settings(
+  libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.4.0",
+    "com.amazonaws" % "aws-lambda-java-events" % "3.16.1",
+    "com.fasterxml.jackson.core" % "jackson-databind" % jacksonVersion,
+    "software.amazon.awssdk" % "secretsmanager" % awsSdkV2Version,
+  ),
+  assembly / assemblyJarName := "image-cache-purger.jar",
+  assembly / assemblyMergeStrategy := {
+    case PathList("META-INF", "versions", _, "module-info.class") => MergeStrategy.discard
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.concat
+    case path => (assembly / assemblyMergeStrategy).value(path)
+  },
+  assembly / test := {},
+)
 
 lazy val kahuna = playProject("kahuna", 9005).settings(
   pipelineStages := Seq(digest, gzip)

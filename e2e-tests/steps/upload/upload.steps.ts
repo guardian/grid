@@ -1,8 +1,7 @@
 import type { DataTable } from 'playwright-bdd';
-import { Given, KAHUNA_APP_URL, Then, When, expect } from '../fixtures.ts';
-import { testImages, uploadPage } from './setup.ts';
-
-const filesToUpload = [testImages.smaller, testImages.larger];
+import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
+import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 
 /**
  * Upload page shell
@@ -21,7 +20,7 @@ Given('I am permitted to upload images', async ({ page }) => {
 });
 
 When('the upload page loads', async ({ page }) => {
-  await expect(uploadPage(page).main).toBeVisible();
+  await expect(uploadPage(page).main).toBeVisible({ timeout: 5000 });
 });
 
 Then('I should see the file upload prompt', async ({ page }) => {
@@ -70,18 +69,9 @@ Then('my previous search should be intact', async ({ page, testContext }) => {
 });
 
 Given('I have an upload in progress', async ({ page }) => {
-  // Hold the transfer to the ingest bucket open, otherwise the job reaches a terminal
-  // state within a second or so and is no longer "in progress" by the time we assert.
-  // This is long enough for a scenario's assertions, short enough not to drag out teardown.
-  const uploadHoldMs = 5_000;
-  await page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await new Promise((resolve) => setTimeout(resolve, uploadHoldMs));
-      await route.abort();
-    },
-  );
+  // Hold the transfer open, otherwise the job reaches a terminal state within a second or so
+  // and is no longer "in progress" by the time we assert.
+  await holdIngest(page);
 
   await uploadPage(page).fileInput.setInputFiles(testImages.smaller.path);
   await expect(uploadPage(page).job(testImages.smaller.fileName)).toBeVisible();
@@ -96,7 +86,9 @@ When('I choose {string}', async ({ page }, label: string) => {
 });
 
 Then('I should be taken to a search filtered to images I uploaded', async ({ page }) => {
-  await expect(page).toHaveURL((url) => url.searchParams.get('uploadedBy') === 'johndoe@example.com');
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get('uploadedBy') === TEST_ACCOUNTS.fullAccess,
+  );
 });
 
 When(

@@ -39,6 +39,7 @@ import {
   sendToCaptureTitle,
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
+import { sendTelemetryForNoResults, sendTelemetryForAiSearchPreviewClick } from '../services/telemetry';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -205,6 +206,31 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
+        ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
+          !$stateParams.useAISearch &&
+          !!($stateParams.query && $stateParams.query.trim());
+        ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
+
+        ctrl.onAiSearchPreviewClick = source => {
+          sendTelemetryForAiSearchPreviewClick($stateParams.query, source);
+        };
+
+        function loadAiSearchPreview() {
+          ctrl.aiSearchPreviewLoading = true;
+          // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
+          search({offset: 0, length: 12, useAISearch: 'true', countAll: false})
+            .then(images => {
+              ctrl.aiSearchPreviewImages = images.data;
+              ctrl.aiSearchPreviewUnavailable = images.data.length === 0;
+            })
+            .catch(() => {
+              ctrl.aiSearchPreviewUnavailable = true;
+            })
+            .finally(() => {
+              ctrl.aiSearchPreviewLoading = false;
+            });
+        }
+
         // Map to track image->position and help remove duplicates
         let imagesPositions;
 
@@ -318,9 +344,17 @@ results.controller('SearchResultsCtrl', [
             ? {offset: 0, length: $window._clientConfig.aiSearchResultLimit}
             : {length: 1, orderBy: 'newest'};
 
-          ctrl.searched = search(initialSearchParams).then(images =>
-            initialiseResults(images, { isAiSearch })
-          ).catch(error => {
+          ctrl.searched = search(initialSearchParams).then(images => {
+            const result = initialiseResults(images, { isAiSearch });
+            // Skip deep-state-redirect reloads, which re-show a search the user already ran
+            if (!isAiSearch && ctrl.totalResults === 0 && !isReloadingPreviousSearch) {
+              sendTelemetryForNoResults($stateParams.query, ctrl.canOfferAiSearch);
+            }
+            if (ctrl.canOfferAiSearch && ctrl.totalResults === 0) {
+              loadAiSearchPreview();
+            }
+            return result;
+          }).catch(error => {
             ctrl.loadingError = error;
             return $q.reject(error);
         }).finally(() => {
@@ -536,7 +570,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({query, until, since, offset, length, orderBy, countAll} = {}) {
+        function search({query, until, since, offset, length, orderBy, countAll, useAISearch} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -569,6 +603,9 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(countAll)) {
               countAll = true;
             }
+            if (angular.isUndefined(useAISearch)) {
+              useAISearch = $stateParams.useAISearch;
+            }
 
 
             return mediaApi.search(query, angular.extend({
@@ -587,7 +624,7 @@ results.controller('SearchResultsCtrl', [
                 offset:     offset,
                 length:     length,
                 orderBy:    orderBy,
-                useAISearch: $stateParams.useAISearch,
+                useAISearch: useAISearch,
                 vecWeight: $stateParams.vecWeight,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,

@@ -3,6 +3,7 @@ import * as angular from "angular";
 import { css } from "@emotion/react";
 import { react2angular } from "react2angular";
 import { semanticSpacing } from "@guardian/stand";
+import { from } from "@guardian/stand/utils";
 import { Layout } from "@guardian/stand/Layout";
 import { Typography } from "@guardian/stand/Typography";
 import { TakedownStep } from "./takedown-step";
@@ -22,7 +23,7 @@ import {
 type Step = {
   id: TakedownStepId;
   title: string;
-  Component: React.FC;
+  Component: React.FC<{ image: GridImage | null }>;
 };
 
 const STEPS: Step[] = [
@@ -44,7 +45,7 @@ export type TakedownPageProps = {
   mediaApiRoot: MediaApiRoot;
 };
 
-const TakedownSteps: React.FC = () => {
+const TakedownSteps: React.FC<{ image: GridImage | null }> = ({ image }) => {
   const { getStepStatus } = useTakedownContext();
 
   return (
@@ -57,7 +58,7 @@ const TakedownSteps: React.FC = () => {
           status={getStepStatus(step.id)}
           isLastStep={index === STEPS.length - 1}
         >
-          <step.Component />
+          <step.Component image={image} />
         </TakedownStep>
       ))}
     </>
@@ -80,6 +81,10 @@ export const TakedownPage: React.FC<TakedownPageProps> = ({
           cssOverrides={css`
             padding: 0 ${semanticSpacing.stackMd};
             min-width: 50%;
+
+            ${from.lg} {
+              width: 50%;
+            }
           `}
         >
           <Typography
@@ -108,7 +113,7 @@ export const TakedownPage: React.FC<TakedownPageProps> = ({
             mediaApiRoot={mediaApiRoot}
             stepIds={STEPS.map((step) => step.id)}
           >
-            <TakedownSteps />
+            <TakedownSteps image={image} />
           </TakedownContextProvider>
         </Layout.Main>
       </Layout>

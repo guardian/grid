@@ -1,7 +1,8 @@
 import * as angular from "angular";
 
 import { takedownController } from "./controller";
-import { GridImage } from "../types/image";
+import { type GridImage } from "../types/image";
+import { type Action } from "../types/api";
 import "../components/gr-top-bar/gr-top-bar";
 
 import takedownTemplate from "./view.html";
@@ -12,9 +13,7 @@ export const takedown = angular.module("kahuna.takedown", [
 ]);
 
 interface MediaApi {
-  find: (
-    imageId: string
-  ) => Promise<GridImage & { getAction: (name: string) => Promise<unknown> }>;
+  find: (imageId: string) => Promise<GridImage>;
   root: { getLink: (rel: string) => Promise<unknown> };
 }
 
@@ -78,12 +77,7 @@ takedown.config([
           "$q",
           "image",
           "mediaApi",
-          (
-            state: any,
-            q: any,
-            image: { getAction: (name: string) => Promise<unknown> } | null,
-            mediaApi: MediaApi
-          ) => {
+          (state: any, q: any, image: GridImage | null, mediaApi: MediaApi) => {
             const deny = () => {
               state.go("image-error", {
                 message: "You do not have permission to take down this image"
@@ -109,10 +103,16 @@ takedown.config([
                   return;
                 }
 
-                return image
-                  .getAction("delete-usages")
-                  .then((action: unknown) => {
-                    if (!action) {
+                // Note: `delete`/`hard-delete` are deliberately NOT checked
+                // here - media-api only exposes those actions once the image
+                // has no usages/exports left (see Image.canBeDeleted).
+                return q
+                  .all([
+                    image.getAction("delete-usages"),
+                    image.getAction("add-lease")
+                  ])
+                  .then(([deleteUsagesAction, addLeaseAction]: Action[]) => {
+                    if (!deleteUsagesAction || !addLeaseAction) {
                       return deny();
                     }
                   });

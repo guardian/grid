@@ -1,4 +1,4 @@
-import { When, Then, expect } from './fixtures.ts';
+import { When, Then, expect } from '../setup.ts';
 
 When('I request the Kahuna healthcheck endpoint', async ({ request, testContext }) => {
   testContext.response = await request.get('/management/healthcheck');

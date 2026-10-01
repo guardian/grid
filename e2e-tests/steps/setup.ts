@@ -17,6 +17,14 @@ interface TestContext {
   fileChooser?: Promise<FileChooser>;
   /** The query run on the search page before navigating to the upload page. */
   previousSearchQuery?: string;
+  /** Path of the image uploaded earlier in a scenario, to re-upload the same bytes. */
+  uploadedImagePath?: string;
+}
+
+export interface TestImage {
+  fileName: string;
+  path: string;
+  bytes: number;
 }
 
 /**
@@ -32,3 +40,4 @@ export const test = base.extend<{ testContext: TestContext }>({
 
 export const { Given, When, Then, Before, After } = createBdd(test);
 export { expect };
+

@@ -1,4 +1,22 @@
-import { Given, KAHUNA_APP_URL, expect } from './fixtures.ts';
+import { Given, KAHUNA_APP_URL, expect } from './setup.ts';
+import { OIDC_ISSUER, TEST_ACCOUNTS } from '../setup/constants.ts';
+import type { TestAccount } from '../setup/constants.ts';
+import type { Page } from '@playwright/test';
+
+export async function authenticate(page: Page, loginAccount: TestAccount): Promise<void> {
+  const providerOrigin = OIDC_ISSUER;
+
+  await expect(page).toHaveURL((url) => url.origin === providerOrigin);
+  await page.locator('input[name="login"]').fill(loginAccount);
+  await page.locator('input[name="password"]').fill('e2e-password');
+  await page.locator('form').getByRole('button').click();
+
+  if (new URL(page.url()).origin === providerOrigin) {
+    await page.locator('input[name="prompt"][value="consent"]').locator('..').getByRole('button').click();
+  }
+
+  await expect(page).toHaveURL((url) => url.origin === KAHUNA_APP_URL);
+}
 
 Given('the application stack is running', async ({ request }) => {
   const response = await request.get('/management/healthcheck');
@@ -27,6 +45,7 @@ Given('I have opened the image upload page', async ({ page, testContext }) => {
   // Arrive from search rather than deep-linking, so the upload page has a same-document
   // history entry behind it and back-navigation behaves as it does for a real user.
   await page.goto(KAHUNA_APP_URL);
+  await authenticate(page, TEST_ACCOUNTS.fullAccess);
   await page.getByRole('banner').getByRole('link', { name: 'My recent uploads' }).click();
   await page.waitForURL('**/upload');
 });
