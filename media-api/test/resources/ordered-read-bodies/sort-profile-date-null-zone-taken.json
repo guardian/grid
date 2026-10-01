@@ -1,0 +1,47 @@
+[
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-taken",
+      "sort": [
+        {
+          "metadata.dateTaken": "desc"
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "date-stats",
+      "field": "uploadTime",
+      "missingField": "metadata.dateTaken"
+    }
+  },
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-taken",
+      "sort": [
+        {
+          "metadata.dateTaken": "desc"
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "date-buckets",
+      "field": "uploadTime",
+      "missingField": "metadata.dateTaken",
+      "interval": "day"
+    }
+  }
+]

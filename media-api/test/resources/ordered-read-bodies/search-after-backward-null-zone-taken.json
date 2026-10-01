@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/images/search-after",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-taken",
+      "sort": [
+        {
+          "metadata.dateTaken": "desc"
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "length": 200,
+      "reverse": true,
+      "seekToEnd": false,
+      "countAll": false,
+      "sortValues": [
+        null,
+        1700000000000,
+        "fixture-id"
+      ]
+    }
+  }
+]

@@ -19,7 +19,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, Parser}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
@@ -121,6 +121,8 @@ class MediaApi(
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
     val maybeCapiUsagesLink: Option[Link] = Some(Link("capiUsages", s"${config.rootUri}/capiUsages/{id}")).filter(_ => config.takedownEnabled)
+    val maybeAiSearchLink: Option[Link] = Some(Link("ai-search", s"${config.rootUri}/images{?$searchParamList,aiQuery}"))
+      .filter(_ => config.aiSearchEnabled && elasticSearch.includeDenseVectorMappings)
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -138,7 +140,7 @@ class MediaApi(
       Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete"),
       Link("usage",           config.usageUri),
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeCapiUsagesLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeCapiUsagesLink.toList ++ maybeAiSearchLink.toList
     respond(indexData, indexLinks)
   }
 
@@ -580,13 +582,13 @@ class MediaApi(
 
     val include = getIncludedFromParams(request)
 
-    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
+    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image], includeEmbedding: Boolean = true): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
       val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
+        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier, includeEmbedding)
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
@@ -598,7 +600,7 @@ class MediaApi(
           shouldFlagGraphicImages = shouldFlagGraphicImages,
         )
       )
-      imageEntities = hits map (hitToImageEntity _).tupled
+      imageEntities = hits map { case (id, image) => hitToImageEntity(id, image) }
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
@@ -607,6 +609,8 @@ class MediaApi(
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
+    // Opt-in explicit ranking text; its absence keeps the legacy AI parse of q.
+    val explicitAiQuery = request.getQueryString("aiQuery")
 
     sealed trait AiSearchMode
     case object TextSearch extends AiSearchMode
@@ -653,7 +657,7 @@ class MediaApi(
     }
 
     def aiSearchResponseFromResults(searchResults: SearchResults): Result = {
-      val imageEntities = searchResults.hits map (hitToImageEntity _).tupled
+      val imageEntities = searchResults.hits map { case (id, image) => hitToImageEntity(id, image, includeEmbedding = explicitAiQuery.isEmpty) }
       respondCollection(
         data = imageEntities,
         offset = Some(0),
@@ -746,7 +750,9 @@ class MediaApi(
     }
 
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
-      params.aiQueryParts match {
+      // An absent q still gets the parser's default deleted/replaced exclusions.
+      val aiQueryParts = explicitAiQuery.fold(params.aiQueryParts)(AiQueryParts.fromExplicitText(Parser.run(params.query.getOrElse("")), _))
+      aiQueryParts match {
         case scala.util.Right(parts) =>
           // If we set `k` to `length`, we'll get a different top 5 depending on whether
           // we ask for just 5 results or 200. This is a problem when fetching

@@ -1,13 +1,13 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.argo.model.ExtraCounts
+import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCounts}
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
-import lib.querysyntax.{AnyField, Condition, Match, Parser, Phrase, SimilarField, SimilarValue, Words}
+import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{Json, OWrites}
+import play.api.libs.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -85,6 +85,530 @@ object AiQueryParts {
       parts.copy(semanticQuery = Some(semanticQuery))
     }
   }
+
+  // Explicit ranking text: every other condition, including bare words, filters the pool.
+  // A similar image always conflicts, so this path never runs an image search.
+  def fromExplicitText(conditions: List[Condition], text: String): Either[AiQueryError, AiQueryParts] = {
+    val hasSimilarImage = conditions.exists {
+      case Match(SimilarField, SimilarValue(imageId)) => imageId.trim.nonEmpty
+      case _ => false
+    }
+    val filterConditions = conditions.filterNot {
+      case Match(SimilarField, _) => true
+      case _ => false
+    }
+    val semanticQuery = Some(text.trim).filter(_.nonEmpty)
+
+    if (hasSimilarImage) Left(AiQueryError.ConflictingRankingSignals)
+    else if (semanticQuery.isEmpty) Left(AiQueryError.NoRankingSignal(filterConditions))
+    else Right(AiQueryParts(semanticQuery, filterConditions, similarImageId = None))
+  }
+}
+
+// Params for the POST /images/search-after cursor-pagination endpoint.
+// sort: fully-resolved ES sort clause from the client; server never calls createSort here.
+// sortValues: null-prefixed cursors are allowed; JsNull at index 0 signals null-zone.
+case class SearchAfterParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  sortValues:   Option[Seq[JsValue]],
+  pitId:        Option[String],
+  reverse:      Boolean = false,
+  seekToEnd:    Boolean = false,
+)
+
+case class SearchAfterRawResults(
+  hits:           Seq[(String, SourceWrapper[Image])],
+  total:          Long,
+  sortValues:     Seq[Seq[JsValue]],
+  nextSortValues: Option[Seq[JsValue]],
+  pitId:          Option[String],
+)
+
+case object SearchAfterPitExpired extends Exception("The search point in time has expired")
+case object SearchAfterIncomplete extends Exception("The search-after page did not complete on every shard")
+
+// Client-resolved ES sort clause shared by Kupua's ordered reads (Option B transport).
+object SortClauseBody {
+  def fromJson(body: JsValue): Either[String, Seq[JsObject]] = (body \ "sort").toOption match {
+    case None        => scala.util.Right(Seq.empty)
+    case Some(value) => value.validate[Seq[JsObject]].asEither.left.map(_ => "sort must be an array of objects")
+  }
+}
+
+// Public sort tuple shared by Kupua's ordered reads: absent, or an array of scalars and nulls.
+object SortValuesBody {
+  def fromJson(body: JsValue): Either[String, Option[Seq[JsValue]]] = (body \ "sortValues").toOption match {
+    case None        => scala.util.Right(None)
+    case Some(value) => value.validate[Seq[JsValue]].asEither
+      .left.map(_ => "sortValues must be an array when present")
+      .filterOrElse(_.forall {
+        case JsNull | _: JsNumber | _: JsString => true
+        case _                                  => false
+      }, "sortValues elements must be strings, numbers or null")
+      .map(Some(_))
+  }
+}
+
+object SearchAfterParamsBody {
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SearchAfterParams] =
+    for {
+      parsedSort       <- SortClauseBody.fromJson(body)
+      parsedSortValues <- SortValuesBody.fromJson(body)
+    } yield SearchAfterParams(
+      searchParams = searchParams,
+      sort         = parsedSort,
+      sortValues   = parsedSortValues,
+      pitId        = (body \ "pitId").asOpt[String],
+      reverse      = (body \ "reverse").asOpt[Boolean].getOrElse(false),
+      seekToEnd    = (body \ "seekToEnd").asOpt[Boolean].getOrElse(false),
+    )
+}
+
+// Params for the POST /images/window shallow offset read. Offset and length live in searchParams.
+case class ImageWindowParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  pitId:        Option[String],
+)
+
+// rawHitCount counts every ES hit, including any that failed to decode and are absent from hits.
+case class ImageWindowRawResults(
+  hits:        Seq[(String, SourceWrapper[Image])],
+  sortValues:  Seq[Seq[JsValue]],
+  total:       Option[Long],
+  rawHitCount: Int,
+  pitId:       Option[String],
+)
+
+case object ImageWindowIncomplete extends Exception("The image window did not complete on every shard")
+
+object ImageWindowParamsBody {
+  // Cursor fields are refused rather than ignored: a window addresses positions by offset only.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by the offset window; use D3 for cursor reads" }
+  }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageWindowParams] =
+    refuseCursorField(body).toLeft(()).flatMap(_ => SortClauseBody.fromJson(body)).map { sort =>
+      ImageWindowParams(
+        searchParams = searchParams,
+        sort         = sort,
+        pitId        = (body \ "pitId").asOpt[String],
+      )
+    }
+}
+
+// Params for POST /images/rank: how many admitted images sort strictly before sortValues.
+case class ImageRankParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  sortValues:   Seq[JsValue],
+  pitId:        Option[String],
+)
+
+case class ImageRankRawResults(rank: Long, pitId: Option[String])
+
+case object ImageRankIncomplete extends Exception("The rank count did not complete on every shard")
+
+object ImageRankParamsBody {
+  // A reversed or end-anchored order would change what "before" means, so it is refused, not ignored.
+  private def refuseOrderingField(body: JsValue): Option[String] =
+    Seq("reverse", "seekToEnd")
+      .find(field => (body \ field).asOpt[Boolean].contains(true))
+      .map(field => s"$field is unsupported by rank; it counts in the sort's own order")
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageRankParams] =
+    for {
+      _          <- refuseOrderingField(body).toLeft(())
+      sort       <- SortClauseBody.fromJson(body)
+      sortValues <- SortValuesBody.fromJson(body).flatMap(_.toRight("sortValues is required: rank counts the images before a tuple"))
+    } yield ImageRankParams(
+      searchParams = searchParams,
+      sort         = sort,
+      sortValues   = sortValues,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+// Params for POST /images/keys: one source-free page of ordered image keys after an optional tuple.
+case class ImageKeysParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  sortValues:   Option[Seq[JsValue]],
+  size:         Int,
+  pitId:        Option[String],
+)
+
+object ImageKeysParams {
+  val MaxSize = 10000
+}
+
+case class ImageKey(id: String, sortValues: Seq[JsValue])
+
+object ImageKey {
+  implicit val jsonWrites: OWrites[ImageKey] = Json.writes[ImageKey]
+}
+
+// after is the tuple to continue from; absent once a page came back shorter than its size.
+case class ImageKeysResult(keys: Seq[ImageKey], after: Option[Seq[JsValue]])
+
+case class ImageKeysRawResults(result: ImageKeysResult, pitId: Option[String])
+
+case object ImageKeysIncomplete extends Exception("The key page did not complete on every shard")
+
+object ImageKeysParamsBody {
+  // Keys follow the sort's own order; a reversed or end-anchored order would change what "after" means.
+  private def refuseOrderingField(body: JsValue): Option[String] =
+    Seq("reverse", "seekToEnd")
+      .find(field => (body \ field).asOpt[Boolean].contains(true))
+      .map(field => s"$field is unsupported by key pages; they follow the sort's own order")
+
+  private def sizeFrom(body: JsValue): Either[String, Int] =
+    (body \ "size").toOption.filter(_ != JsNull) match {
+      case None                                        => scala.util.Right(ImageKeysParams.MaxSize)
+      case Some(JsNumber(number)) if number.isValidInt => scala.util.Right(number.toInt)
+      case Some(_)                                     => scala.util.Left("size must be an integer when present")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageKeysParams] =
+    for {
+      _          <- refuseOrderingField(body).toLeft(())
+      sort       <- SortClauseBody.fromJson(body)
+      sortValues <- SortValuesBody.fromJson(body)
+      size       <- sizeFrom(body)
+    } yield ImageKeysParams(
+      searchParams = searchParams,
+      sort         = sort,
+      sortValues   = sortValues,
+      size         = size,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+// Params for POST /images/count: the number of admitted images, with the configured ticker counts.
+case class ImageCountParams(searchParams: SearchParams, pitId: Option[String])
+
+case class ImageCountRawResults(total: Long, tickerCounts: Map[String, ExtraCount], pitId: Option[String])
+
+case object ImageCountIncomplete extends Exception("The image count did not complete on every shard")
+
+object ImageCountParamsBody {
+  // A count covers the whole admitted scope, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by counts; use rank to count the images before a tuple" }
+  }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageCountParams] =
+    refuseCursorField(body).toLeft(ImageCountParams(searchParams, pitId = (body \ "pitId").asOpt[String]))
+}
+
+// Params for POST /images/aggregations: per-field value counts and named is: filter counts over the admitted images.
+case class FieldAggregation(field: String, size: Int)
+
+case class ImageAggregationsParams(
+  searchParams: SearchParams,
+  fields:       Seq[FieldAggregation],
+  isFilters:    Seq[String],
+  pitId:        Option[String],
+)
+
+object ImageAggregationsParams {
+  val MaxFields    = 50
+  val MaxSize      = 10000
+  val DefaultSize  = 10
+  val MaxIsFilters = 20
+}
+
+// Each bucket counts the admitted images holding that value; fields keep the requested order.
+case class ImageAggregationsResult(fields: Seq[(String, Seq[BucketResult])], isFilterCounts: Seq[(String, Long)])
+
+case class ImageAggregationsRawResults(result: ImageAggregationsResult, pitId: Option[String])
+
+case object ImageAggregationsIncomplete extends Exception("The aggregations did not complete on every shard")
+
+object ImageAggregationsParamsBody {
+  // Aggregations cover the whole admitted scope, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by aggregations" }
+  }
+
+  private def fieldAggregation(entry: JsObject): Option[FieldAggregation] =
+    for {
+      field <- (entry \ "field").asOpt[String]
+      size  <- (entry \ "size").toOption.filter(_ != JsNull) match {
+        case None                                        => Some(ImageAggregationsParams.DefaultSize)
+        case Some(JsNumber(number)) if number.isValidInt => Some(number.toInt)
+        case Some(_)                                     => None
+      }
+    } yield FieldAggregation(field, size)
+
+  private def fieldsFrom(body: JsValue): Either[String, Seq[FieldAggregation]] =
+    (body \ "fields").toOption.filter(_ != JsNull) match {
+      case None => scala.util.Right(Nil)
+      case Some(value) =>
+        value.asOpt[Seq[JsObject]]
+          .flatMap(entries => entries.foldRight(Option(List.empty[FieldAggregation])) { (entry, acc) =>
+            for { rest <- acc; aggregation <- fieldAggregation(entry) } yield aggregation :: rest
+          })
+          .toRight("fields must be an array of {field, size} objects with a string field and an optional integer size")
+    }
+
+  private def isFiltersFrom(body: JsValue): Either[String, Seq[String]] =
+    (body \ "isFilters").toOption.filter(_ != JsNull) match {
+      case None        => scala.util.Right(Nil)
+      case Some(value) => value.asOpt[Seq[String]].toRight("isFilters must be an array of strings")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, ImageAggregationsParams] =
+    for {
+      _         <- refuseCursorField(body).toLeft(())
+      fields    <- fieldsFrom(body)
+      isFilters <- isFiltersFrom(body)
+    } yield ImageAggregationsParams(
+      searchParams = searchParams,
+      fields       = fields,
+      isFilters    = isFilters,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+
+// Params for POST /images/mget: images by ID, independent of any search scope.
+case class ImageMgetParams(ids: Seq[String], tier: Tier)
+
+object ImageMgetParams {
+  val MaxIds = 200
+}
+
+case object ImageMgetIncomplete extends Exception("The image lookup did not complete on every shard")
+
+object ImageMgetParamsBody {
+  def fromJson(body: JsValue, tier: Tier): Either[String, ImageMgetParams] =
+    (body \ "ids").asOpt[Seq[String]]
+      .toRight("ids must be an array of strings")
+      .map(ImageMgetParams(_, tier))
+}
+
+// Params for POST /images/sort-profile: one fixed aggregation over a field of the admitted sort.
+sealed trait SortProfileOperation
+case class ScalarAnchor(field: String, percentile: Double, scope: Seq[(String, String)]) extends SortProfileOperation
+case class DateStats(field: String, missingField: Option[String]) extends SortProfileOperation
+case class DateBuckets(field: String, missingField: Option[String], interval: String) extends SortProfileOperation
+// One bounded composite page of the primary sort field's values; the caller owns the walk and its caps.
+case class KeywordPage(field: String, after: Option[JsValue], size: Int, includeCoveredCount: Boolean) extends SortProfileOperation
+
+object KeywordPage {
+  val MaxSize = 10000
+}
+
+object DateBucketInterval {
+  val Calendar: Set[String] = Set("month", "day", "hour")
+  val Fixed: Set[String]    = Set("30m", "10m", "5m")
+}
+
+case class SortProfileParams(
+  searchParams: SearchParams,
+  sort:         Seq[JsObject],
+  operation:    SortProfileOperation,
+  pitId:        Option[String],
+)
+
+sealed trait SortProfileResult
+case class ScalarAnchorResult(value: Option[Double]) extends SortProfileResult
+// coveredCount (images with at least one value) is reported only for max-mode, multi-valued fields.
+case class DateStatsResult(valueCount: Long, min: Option[Long], max: Option[Long], coveredCount: Option[Long]) extends SortProfileResult
+case class DateBucket(key: String, count: Long, startPosition: Long)
+// approximate-evidence buckets may count an image in several buckets, so startPosition is not its rank.
+case class DateBucketsResult(buckets: Seq[DateBucket], positionKind: String, evidenceCount: Long) extends SortProfileResult
+case class KeywordBucket(key: JsValue, count: Long)
+// after is the continuation for the next page, absent (null) when Elasticsearch reports none.
+case class KeywordPageResult(buckets: Seq[KeywordBucket], after: Option[JsValue], coveredCount: Option[Long]) extends SortProfileResult
+
+object SortProfileResult {
+  private implicit val dateBucketWrites: OWrites[DateBucket] = Json.writes[DateBucket]
+  private implicit val keywordBucketWrites: OWrites[KeywordBucket] = Json.writes[KeywordBucket]
+
+  implicit val jsonWrites: OWrites[SortProfileResult] = {
+    case ScalarAnchorResult(value) => Json.obj("value" -> value)
+    case DateStatsResult(valueCount, min, max, coveredCount) =>
+      Json.obj("valueCount" -> valueCount, "min" -> min, "max" -> max) ++
+        coveredCount.fold(Json.obj())(count => Json.obj("coveredCount" -> count))
+    case DateBucketsResult(buckets, positionKind, evidenceCount) =>
+      Json.obj("buckets" -> buckets, "positionKind" -> positionKind, "evidenceCount" -> evidenceCount)
+    case KeywordPageResult(buckets, after, coveredCount) =>
+      Json.obj("buckets" -> buckets, "after" -> after) ++
+        coveredCount.fold(Json.obj())(count => Json.obj("coveredCount" -> count))
+  }
+}
+
+case class SortProfileRawResults(result: SortProfileResult, pitId: Option[String])
+
+case object SortProfileIncomplete extends Exception("The sort profile did not complete on every shard")
+
+object SortProfileParamsBody {
+  // A profile describes the whole ordered result, so cursor and direction fields are refused, not ignored.
+  private def refuseCursorField(body: JsValue): Option[String] = {
+    val sortValuesSent = (body \ "sortValues").toOption.exists(_ != JsNull)
+    val reverseSent    = (body \ "reverse").asOpt[Boolean].contains(true)
+    val seekToEndSent  = (body \ "seekToEnd").asOpt[Boolean].contains(true)
+    Seq("sortValues" -> sortValuesSent, "reverse" -> reverseSent, "seekToEnd" -> seekToEndSent)
+      .collectFirst { case (field, true) => s"$field is unsupported by sort profiles" }
+  }
+
+  private def requiredString(body: JsValue, key: String): Either[String, String] =
+    (body \ key).asOpt[String].toRight(s"$key must be a string")
+
+  private def optionalString(body: JsValue, key: String): Either[String, Option[String]] =
+    (body \ key).toOption.filter(_ != JsNull) match {
+      case None                 => scala.util.Right(None)
+      case Some(JsString(text)) => scala.util.Right(Some(text))
+      case Some(_)              => scala.util.Left(s"$key must be a string when present")
+    }
+
+  private def scopeFrom(body: JsValue): Either[String, Seq[(String, String)]] =
+    (body \ "scope").toOption.filter(_ != JsNull) match {
+      case None => scala.util.Right(Seq.empty)
+      case Some(value) =>
+        value.validate[Seq[JsObject]].asOpt
+          .flatMap(entries => entries.foldRight(Option(List.empty[(String, String)])) { (entry, acc) =>
+            for {
+              rest  <- acc
+              field <- (entry \ "field").asOpt[String]
+              text  <- (entry \ "value").asOpt[String]
+            } yield (field, text) :: rest
+          })
+          .toRight("scope must be an array of {field, value} string pairs")
+    }
+
+  private def operationFrom(body: JsValue): Either[String, SortProfileOperation] =
+    (body \ "operation").asOpt[String] match {
+      case Some("scalar-anchor") =>
+        for {
+          field      <- requiredString(body, "field")
+          percentile <- (body \ "percentile").asOpt[Double].toRight("percentile must be a number")
+          scope      <- scopeFrom(body)
+        } yield ScalarAnchor(field, percentile, scope)
+      case Some("date-stats") =>
+        for {
+          field        <- requiredString(body, "field")
+          missingField <- optionalString(body, "missingField")
+        } yield DateStats(field, missingField)
+      case Some("date-buckets") =>
+        for {
+          field        <- requiredString(body, "field")
+          missingField <- optionalString(body, "missingField")
+          interval     <- (body \ "interval").asOpt[String]
+            .filter(DateBucketInterval.Calendar ++ DateBucketInterval.Fixed)
+            .toRight("interval must be one of month, day, hour, 30m, 10m, 5m")
+        } yield DateBuckets(field, missingField, interval)
+      case Some("keyword-page") =>
+        for {
+          field <- requiredString(body, "field")
+          after <- (body \ "after").toOption.filter(_ != JsNull) match {
+            case None                                    => scala.util.Right(None)
+            case Some(key @ (_: JsString | _: JsNumber)) => scala.util.Right(Some(key))
+            case Some(_)                                 => scala.util.Left("after must be a string or number when present")
+          }
+          size <- (body \ "size").toOption.filter(_ != JsNull) match {
+            case None                                        => scala.util.Right(KeywordPage.MaxSize)
+            case Some(JsNumber(number)) if number.isValidInt => scala.util.Right(number.toInt)
+            case Some(_)                                     => scala.util.Left("size must be an integer when present")
+          }
+          includeCoveredCount <- (body \ "includeCoveredCount").toOption.filter(_ != JsNull) match {
+            case None                  => scala.util.Right(false)
+            case Some(JsBoolean(flag)) => scala.util.Right(flag)
+            case Some(_)               => scala.util.Left("includeCoveredCount must be a boolean when present")
+          }
+        } yield KeywordPage(field, after, size, includeCoveredCount)
+      case Some(other) => scala.util.Left(s"unsupported sort profile operation: $other")
+      case None        => scala.util.Left("operation must be one of scalar-anchor, date-stats, date-buckets, keyword-page")
+    }
+
+  def fromJson(body: JsValue, searchParams: SearchParams): Either[String, SortProfileParams] =
+    for {
+      _         <- refuseCursorField(body).toLeft(())
+      sort      <- SortClauseBody.fromJson(body)
+      operation <- operationFrom(body)
+    } yield SortProfileParams(
+      searchParams = searchParams,
+      sort         = sort,
+      operation    = operation,
+      pitId        = (body \ "pitId").asOpt[String],
+    )
+}
+// Parses a POST /images/search-after request body into SearchParams.
+object SearchParamsBody {
+  def fromJson(body: JsValue, tier: Tier): Either[String, SearchParams] = {
+    def str(key: String):  Option[String]  = (body \ key).asOpt[String]
+    def bool(key: String): Option[Boolean] = (body \ key).asOpt[Boolean]
+    def strs(key: String): List[String]    = str(key).toList.flatMap(SearchParams.commasToList)
+
+    // inline readOrderBy — private in SearchParams object, duplicated here
+    val orderBy = str("orderBy").map { ob =>
+      if (ob == "oldest") "uploadTime"
+      else if (ob == "newest") "-uploadTime"
+      else ob
+    }
+
+    def intent(condition: Condition): Condition = condition match {
+      case Negation(inner) => intent(inner)
+      case NegationNested(inner) => inner
+      case Match(IsField, IsValue(value)) => Match(IsField, IsValue(value.toLowerCase(java.util.Locale.ROOT)))
+      case other => other
+    }
+
+    val query = str("q")
+    val parsedQuery = Parser.normalise(Parser.parse(query.getOrElse("")))
+    val mentionedConditions = parsedQuery.map(intent)
+    val structuredQuery = parsedQuery ++ Parser.run("").filterNot(condition => mentionedConditions.contains(intent(condition)))
+
+    Right(SearchParams(
+      query             = query,
+      structuredQuery   = structuredQuery,
+      ids               = str("ids").map(_.split(",").toList),
+      offset            = (body \ "offset").asOpt[Int].getOrElse(0),
+      length            = (body \ "length").asOpt[Int].getOrElse(10),
+      orderBy           = orderBy,
+      since             = str("since").flatMap(parseDateFromQuery),
+      until             = str("until").flatMap(parseDateFromQuery),
+      modifiedSince     = str("modifiedSince").flatMap(parseDateFromQuery),
+      modifiedUntil     = str("modifiedUntil").flatMap(parseDateFromQuery),
+      takenSince        = str("takenSince").flatMap(parseDateFromQuery),
+      takenUntil        = str("takenUntil").flatMap(parseDateFromQuery),
+      archived          = bool("archived"),
+      hasExports        = bool("hasExports"),
+      hasIdentifier     = str("hasIdentifier"),
+      missingIdentifier = str("missingIdentifier"),
+      valid             = bool("valid"),
+      free              = bool("free"),
+      payType           = None, // not sent by kupua (disabled in Kahuna; live cost filter is nonFree/free boolean)
+      hasRightsCategory = bool("hasRightsCategory"),
+      hasRightsAcquired = bool("hasRightsAcquired"),
+      uploadedBy        = str("uploadedBy"),
+      labels            = strs("labels"),
+      hasMetadata       = strs("hasMetadata"),
+      persisted         = bool("persisted"),
+      usageStatus       = strs("usageStatus").map(UsageStatus(_)),
+      usagePlatform     = strs("usagePlatform"),
+      tier              = tier,
+      syndicationStatus = str("syndicationStatus").flatMap(SearchParams.parseSyndicationStatus),
+      countAll          = bool("countAll"),
+      printUsageFilters = None,
+      shouldFlagGraphicImages = false,
+      useAISearch       = None,
+      vecWeight         = str("vecWeight").flatMap(SearchParams.parseBoundedDoubleFromQuery),
+    ))
+  }
 }
 
 case class CompletionSuggestionResult(key: String, score: Float)
@@ -144,6 +668,7 @@ case class SearchParams(
   free: Option[Boolean] = None,
   payType: Option[PayType.Value] = None,
   hasRightsCategory: Option[Boolean] = None,
+  hasRightsAcquired: Option[Boolean] = None,
   uploadedBy: Option[String] = None,
   labels: List[String] = List.empty,
   hasMetadata: List[String] = List.empty,
@@ -238,6 +763,7 @@ object SearchParams {
       request.getQueryString("free") flatMap parseBooleanFromQuery,
       request.getQueryString("payType") flatMap parsePayTypeFromQuery,
       request.getQueryString("hasRightsCategory") flatMap parseBooleanFromQuery,
+      None, // hasRightsAcquired: request bodies only; GET /images ignores it as on main (GRID-014)
       request.getQueryString("uploadedBy"),
       commaSep("labels"),
       commaSep("hasMetadata"),

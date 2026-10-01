@@ -6,29 +6,33 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.argo.model.{ExtraCount, ExtraCountConfig, ExtraCounts}
 import com.gu.mediaservice.lib.elasticsearch.filters
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
+import com.gu.mediaservice.lib.auth.{Syndication, Tier}
+import com.gu.mediaservice.lib.elasticsearch.{CompletionPreview, ElasticNotFoundException, ElasticSearchClient, ElasticSearchConfig, ElasticSearchError, Mappings, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, Stopwatch, combineMarkers}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.gu.mediaservice.model.usage.{ComposerUsageReference, DigitalUsage, FrontUsageReference, InDesignUsageReference, PrintUsage, PublishedUsageStatus, RemovedUsageStatus, Usage, UnknownUsageStatus, UsageStatus, UsageType}
-import com.sksamuel.elastic4s.{ElasticDsl, Hit}
+import com.sksamuel.elastic4s.{ElasticDsl, Hit, Response}
+import com.sksamuel.elastic4s.fields.{ElasticField, NestedField, ObjectField}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.common.Operator.Or
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.script.{Script, ScriptField}
 import com.sksamuel.elastic4s.requests.searches._
-import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
+import com.sksamuel.elastic4s.requests.searches.aggs.{AbstractAggregation, Aggregation, CompositeAggregation, HistogramOrder, TermsValueSource}
+import com.sksamuel.elastic4s.requests.searches.aggs.CompositeAggregation.CompositeAggResult
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
-import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.{Query, RangeQuery}
 import com.sksamuel.elastic4s.requests.searches.knn.Knn
 import com.sksamuel.elastic4s.requests.searches.queries.matches.MultiMatchQueryBuilderType.BEST_FIELDS
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{FieldWithOptionalBoost, MultiMatchQuery}
+import com.sksamuel.elastic4s.requests.searches.sort.{FieldSort, Sort, SortMode, SortOrder}
 import lib.elasticsearch.ResultSource.{Both, Lexical, Semantic}
-import lib.querysyntax.{Condition, DateRange, HierarchyField, Match, Nested, Parser, Phrase, SingleField}
+import lib.querysyntax.{Condition, DateRange, HierarchyField, IsField, IsValue, Match, Nested, Parser, Phrase, SingleField}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierQuotaCount, ImageUsagesBySupplier, ImageUsagesBySupplierResult, UsageStore}
-import play.api.libs.json.{JsError, JsObject, JsSuccess, Json}
+import play.api.libs.json.{JsError, JsNull, JsNumber, JsObject, JsString, JsSuccess, JsValue, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import play.mvc.Http.Status
@@ -37,7 +41,7 @@ import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.ListMap
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(
@@ -720,5 +724,752 @@ class ElasticSearch(
 
   private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
     if (res.isTimedOut) logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
+
+  // Reflection keeps this in sync with Image automatically; over-inclusion is harmless.
+  private val imageSourceFields: Seq[String] =
+    classOf[Image].getDeclaredFields.toIndexedSeq.map(_.getName)
+
+  // Heavy fields excluded from Kupua-facing image reads. fieldAliasConfigs re-adds needed
+  // leaf paths individually (e.g. pur:adultContentWarning, for client-side graphic-image blur).
+  private val leanDropFields = Set("embedding", "originalMetadata", "fileMetadata")
+
+  // _source here is missing the dropped fields, which the strict Image reader rejects.
+  // Strip them from a copy before validating, but keep the full source for alias extraction.
+  // Kept separate from resolveHit/mapImageFrom (production search), which must stay untouched.
+  private def resolveLeanHit(hit: SearchHit): Option[SourceWrapper[Image]] = {
+    val source   = Json.parse(hit.sourceAsString)
+    val forImage = leanDropFields.foldLeft(source.as[JsObject])(_ - _)
+    forImage.validate[Image] match {
+      case JsSuccess(image, _) => Some(SourceWrapper(source, image, hit.index, JsObject.empty))
+      case e: JsError =>
+        logger.error("Failed to parse lean image from source string " + hit.id + ": " + e.toString)
+        None
+    }
+  }
+
+  // The Image schema minus leanDropFields, plus the alias leaf paths so their values survive
+  // (e.g. fileMetadata.icc.Profile Description). The resulting PARTIAL fileMetadata is why
+  // image reads must resolve hits with resolveLeanHit.
+  private def withLeanImageSource(request: SearchRequest): SearchRequest = {
+    val includes = imageSourceFields.filterNot(leanDropFields) ++ config.fieldAliasConfigs.map(_.elasticsearchPath)
+    request.sourceInclude(includes.head, includes.tail: _*)
+  }
+
+  // Every Kupua-facing read starts here, so all of them share one query scope, target and timeout.
+  private def admittedSearch(searchParams: SearchParams, pitId: Option[String], extraFilter: Option[Query] = None): SearchRequest = {
+    val rawQuery = queryBuilder.makeQuery(searchParams.structuredQuery)
+    val filteredQuery = queryBuilder.buildFilterOpt(searchParams, searchFilters, syndicationFilter)
+      .map(f => boolQuery() must rawQuery filter f)
+      .getOrElse(rawQuery)
+    val query = extraFilter.map(f => boolQuery().must(filteredQuery).filter(f)).getOrElse(filteredQuery)
+
+    // Same conditional runtime mapping search() applies: without it the review-queue filter's
+    // hasActiveDenySyndicationLease term is unmapped and silently matches nothing.
+    val runtimeMappings =
+      if (searchParams.syndicationStatus.contains(AwaitingReviewForSyndication) &&
+          config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
+        Seq(syndicationFilter.syndicationReviewQueueFixMapping)
+      else
+        Seq.empty
+
+    readTarget(query, pitId).runtimeMappings(runtimeMappings)
+  }
+
+  private def readTarget(query: Query, pitId: Option[String]): SearchRequest =
+    pitId match {
+      case Some(pid) =>
+        // Bypass prepareSearch: its migration dedup filter (must_not migratedTo) would silently
+        // exclude already-migrated images from a PIT snapshot, shrinking results as migration
+        // proceeds. search(Nil) lets ES resolve the target from the PIT ID directly.
+        withSearchQueryTimeout(ElasticDsl.search(Nil).query(query)).pit(Pit(pid).keepAlive(1.minute))
+      case None =>
+        prepareSearch(query)
+    }
+
+  // Admits only the client-resolved clause shapes jsonToSort understands; this is not a sort builder.
+  private def admitSortClause(sort: Seq[JsObject]): Seq[Sort] = {
+    if (sort.isEmpty)
+      throw InvalidUriParams("sort must be a non-empty array; positional reads need a deterministic sort")
+
+    val sortFields = sort.flatMap(_.fields.map(_._1))
+    val duplicateFields = sortFields.groupBy(identity).collect { case (field, occurrences) if occurrences.size > 1 => field }
+    if (duplicateFields.nonEmpty)
+      throw InvalidUriParams(s"duplicate sort fields are unsupported: ${duplicateFields.toSeq.sorted.mkString(", ")}")
+
+    val unresolvedAliases = sortFields.filter(Set("usagesDateAdded", "dateAddedToCollection"))
+    if (unresolvedAliases.nonEmpty)
+      throw InvalidUriParams(s"unresolved sort aliases are unsupported: ${unresolvedAliases.distinct.sorted.mkString(", ")}")
+
+    // A _shard_doc value is PIT-specific; publicTuple would otherwise keep it in public tuples.
+    if (sortFields.contains("_shard_doc"))
+      throw InvalidUriParams("_shard_doc is unsupported in sort; end the clause with a unique field such as id")
+
+    val admitted = sort.map(sorts.jsonToSort).map {
+      case fs: FieldSort =>
+        requireMappedNestedPath(fs)
+        if (MultiValuedSortDates(fs.field) && !isMultiValued(fs))
+          throw InvalidUriParams(s"${fs.field} needs sort mode max; ordered reads position an image by its latest date")
+        fs
+      case other => other
+    }
+
+    // A continuation after a tie on a non-unique last clause would skip the remaining tied images.
+    if (!sortFields.lastOption.contains("id"))
+      throw InvalidUriParams("sort must end with the unique id field; otherwise continuations can skip tied images")
+    admitted
+  }
+
+  // Null-zone filters, rank predicates and profiles wrap a clause in its nested path, so it must match Grid's mapping.
+  private def requireMappedNestedPath(sort: FieldSort): Unit = {
+    val mapped = MappedNestedPaths.toSeq.filter(path => sort.field.startsWith(s"$path.")).sortBy(-_.length).headOption
+    val requested = sort.nested.flatMap(_.path)
+    if (requested != mapped)
+      throw InvalidUriParams(s"${sort.field} needs nested path ${mapped.getOrElse("none")}, not ${requested.getOrElse("none")}")
+  }
+
+  private def requireTupleMatches(sortValues: Seq[JsValue], sortClause: Seq[Sort]): Unit = {
+    if (sortValues.contains(JsNull))
+      throw InvalidUriParams("null sort values are supported only in the leading primary slot")
+    if (sortValues.length != sortClause.length)
+      throw InvalidUriParams(
+        s"sortValues length ${sortValues.length} must equal sort clause length ${sortClause.length}")
+  }
+
+  private def requireSuccessfulRead(r: Response[SearchResponse], pitId: Option[String]): Unit =
+    if (!r.isSuccess) {
+      val missingContext = r.error.`type` == "search_context_missing_exception" ||
+        (r.error.`type` == "search_phase_execution_exception" && r.error.rootCause.nonEmpty &&
+          r.error.rootCause.forall(_.`type` == "search_context_missing_exception"))
+      if (r.status == 404 && pitId.nonEmpty && missingContext) throw SearchAfterPitExpired
+      else throw ElasticNotFoundException
+    }
+
+  // A PIT search's hit.sort carries an extra implicit _shard_doc tiebreaker. It is dropped
+  // deliberately: tuples outlive the PIT (clients persist them, and retry without a PIT when
+  // one expires), and a PIT-specific value in a non-PIT search_after is rejected by ES. Callers
+  // must therefore end their sort clause with a unique tiebreaker such as id, or documents tied
+  // on the clause can be skipped at a page boundary.
+  private def publicTuple(hit: SearchHit, sortLength: Int): Seq[JsValue] =
+    sortValuesToJsValues(hit.sort.getOrElse(Seq.empty).take(sortLength))
+
+  // How a cursor read continues from a tuple. A null primary value means the null zone: read without
+  // the primary clause, only images lacking it, and re-insert the null into the published tuples.
+  private case class CursorRead(
+    searchAfter: Option[Seq[JsValue]],
+    sortClause:  Seq[Sort],
+    filter:      Option[Query],
+    publish:     Seq[Seq[JsValue]] => Seq[Seq[JsValue]],
+  )
+
+  private def cursorRead(baseSorts: Seq[Sort], effectiveSortClause: Seq[Sort], sortValues: Option[Seq[JsValue]]): CursorRead = {
+    val read = sortValues.filter(_.headOption.contains(JsNull)) match {
+      case Some(sv) =>
+        val primarySort = baseSorts.collectFirst { case fs: FieldSort => fs }
+          .getOrElse(throw InvalidUriParams("cannot detect primary sort field for null-zone cursor"))
+        val primaryField = primarySort.field
+        val nzSort   = effectiveSortClause.filterNot { case fs: FieldSort => fs.field == primaryField; case _ => false }
+        // A root-level exists on a field inside a nested type matches no parent document, so the
+        // must_not would exclude nothing and images that have the field would leak into the null zone.
+        val nzExists = primarySort.nested.flatMap(_.path) match {
+          case Some(path) => nestedQuery(path, existsQuery(primaryField))
+          case None       => existsQuery(primaryField)
+        }
+        CursorRead(Some(sv.tail), nzSort, Some(boolQuery().withNot(nzExists)),
+          remapNullZoneSortValues(_, baseSorts, primaryField))
+      case None =>
+        CursorRead(sortValues, effectiveSortClause, None, identity)
+    }
+    read.searchAfter.foreach(requireTupleMatches(_, read.sortClause))
+    read
+  }
+
+  def searchAfter(params: SearchAfterParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] =
+    // Sort/cursor validation below throws before any Future exists, and the controller only recovers
+    // failed futures — an escaping throw would surface as a 500 rather than the intended 422.
+    try searchAfterQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def searchAfterQuery(params: SearchAfterParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SearchAfterRawResults] = {
+    if (params.sort.isEmpty)
+      throw InvalidUriParams("sort must be a non-empty array; cursor pagination needs a deterministic sort")
+    if (params.searchParams.offset != 0)
+      throw InvalidUriParams("offset is unsupported by cursor pagination; use sortValues instead")
+
+    val baseSorts          = admitSortClause(params.sort)
+    val withReverse        = if (params.reverse) sorts.reverseSorts(baseSorts) else baseSorts
+    val effectiveSortClause = if (params.seekToEnd) {
+      withReverse.headOption match {
+        case Some(fs: FieldSort) => fs.missing("_first") +: withReverse.tail
+        case _                   => withReverse
+      }
+    } else withReverse
+
+    val cursor = cursorRead(baseSorts, effectiveSortClause, params.sortValues)
+
+    val withSort = admittedSearch(params.searchParams, params.pitId, cursor.filter)
+      .size(params.searchParams.length)
+      .sortBy(cursor.sortClause)
+      .trackTotalHits(params.searchParams.countAll.getOrElse(true))
+
+    val request = cursor.searchAfter match {
+      case Some(sv) => withSort.searchAfter(sv.map(jsValueToAny))
+      case None     => withSort
+    }
+
+    executeAndLog(withLeanImageSource(request), "search-after", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      requireCompleteExecution(r.result, SearchAfterIncomplete, "search-after page")
+
+      val sortLen = cursor.sortClause.length
+
+      val (rawHits, rawSortValues) = r.result.hits.hits.toSeq.flatMap { hit =>
+        resolveLeanHit(hit).map(image => ((image.instance.id, image), publicTuple(hit, sortLen)))
+      }.unzip
+
+      val (orderedHits, orderedSortValues) =
+        if (params.reverse) (rawHits.reverse, rawSortValues.reverse) else (rawHits, rawSortValues)
+
+      val finalSortValues = cursor.publish(orderedSortValues)
+
+      SearchAfterRawResults(
+        hits           = orderedHits,
+        total          = if (params.searchParams.countAll.getOrElse(true)) r.result.totalHits else 0L,
+        sortValues     = finalSortValues,
+        nextSortValues = finalSortValues.lastOption,
+        pitId          = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+  }
+
+  // Kupua's shallow-seek threshold. Deeper positions use cursor, rank and profile reads, never from/size.
+  private val ShallowWindowOffsetLimit = 10000
+
+  def imageWindow(params: ImageWindowParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageWindowRawResults] =
+    try imageWindowQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageWindowQuery(params: ImageWindowParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageWindowRawResults] = {
+    val searchParams = params.searchParams
+    if (searchParams.offset >= ShallowWindowOffsetLimit)
+      throw InvalidUriParams(s"offset must be below $ShallowWindowOffsetLimit; deeper positions need a cursor read")
+
+    val sortClause = admitSortClause(params.sort)
+    val countTotal = searchParams.countAll.getOrElse(true)
+
+    val request = admittedSearch(searchParams, params.pitId)
+      .from(searchParams.offset)
+      .size(searchParams.length)
+      .sortBy(sortClause)
+      .trackTotalHits(countTotal)
+
+    executeAndLog(withLeanImageSource(request), "image-window", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      requireCompleteExecution(r.result, ImageWindowIncomplete, "image window")
+
+      val rawHits = r.result.hits.hits.toSeq
+      val (hits, tuples) = rawHits.flatMap { hit =>
+        resolveLeanHit(hit).map(image => ((image.instance.id, image), publicTuple(hit, sortClause.length)))
+      }.unzip
+
+      ImageWindowRawResults(
+        hits        = hits,
+        sortValues  = tuples,
+        total       = if (countTotal) Some(r.result.totalHits) else None,
+        rawHitCount = rawHits.size,
+        pitId       = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+  }
+
+  def imageRank(params: ImageRankParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageRankRawResults] =
+    try imageRankQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageRankQuery(params: ImageRankParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageRankRawResults] =
+    executeAndLog(imageRankRequest(params), "image-rank", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageRankRawResults(
+        rank  = completeCount(r.result),
+        pitId = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // A size-0 _search rather than _count, because only _search can bind to a PIT.
+  private[elasticsearch] def imageRankRequest(params: ImageRankParams): SearchRequest = {
+    val sortClause = admitNullsLastSortClause(params.sort, "rank")
+    if (params.sortValues.length != sortClause.length)
+      throw InvalidUriParams(
+        s"sortValues length ${params.sortValues.length} must equal sort clause length ${sortClause.length}")
+
+    admittedSearch(params.searchParams, params.pitId, Some(sortsBeforeTuple(sortClause, params.sortValues)))
+      .size(0)
+      .trackTotalHits(true)
+  }
+
+  // Kupua sends one semantic sort (with any configured expansion) plus uploadTime and id. The bound
+  // matters because the tie predicates grow quadratically with the clause count.
+  private val MaxNullsLastSortClauses = 10
+
+  // The rank predicates assume nulls sort last and multi-valued fields sort by their maximum.
+  private def admitNullsLastSortClause(sort: Seq[JsObject], operation: String): Seq[FieldSort] = {
+    if (sort.length > MaxNullsLastSortClauses)
+      throw InvalidUriParams(s"$operation supports at most $MaxNullsLastSortClauses sort clauses, got ${sort.length}")
+
+    admitSortClause(sort).map {
+      case fs: FieldSort if fs.missing.exists(_ != "_last") =>
+        throw InvalidUriParams(s"$operation supports only missing _last, not ${fs.missing.get}, for ${fs.field}")
+      case fs: FieldSort if fs.sortMode.exists(_ != SortMode.Max) =>
+        throw InvalidUriParams(s"$operation supports only sort mode max, not ${fs.sortMode.get}, for ${fs.field}")
+      case fs: FieldSort => fs
+      case other => throw InvalidUriParams(s"$operation supports only field sorts, not $other")
+    }
+  }
+
+  // Ported from Kupua's countBefore: an image sorts before the tuple when it ties on every earlier
+  // clause and sorts strictly before on one clause.
+  private def sortsBeforeTuple(sortClause: Seq[FieldSort], sortValues: Seq[JsValue]): Query = {
+    val clauses = sortClause.zip(sortValues)
+    val alternatives = clauses.indices.map { i =>
+      val (sort, value) = clauses(i)
+      val ties = clauses.take(i).map { case (tiedSort, tiedValue) => tiesWith(tiedSort, tiedValue) }
+      if (ties.isEmpty) sortsBefore(sort, value) else boolQuery().must(ties :+ sortsBefore(sort, value))
+    }
+    boolQuery().should(alternatives).minimumShouldMatch(1)
+  }
+
+  // A max-mode sort compares each image's greatest value, so "equal" also excludes greater values.
+  private def tiesWith(sort: FieldSort, value: JsValue): Query = value match {
+    case JsNull => boolQuery().not(hasSortValue(sort))
+    case _ =>
+      val bound = jsValueToAny(value)
+      val atBound = sortRange(sort)(_.copy(gte = Some(bound), lte = Some(bound)))
+      if (sort.sortMode.contains(SortMode.Max)) boolQuery().must(atBound).not(sortRange(sort)(_.copy(gt = Some(bound))))
+      else atBound
+  }
+
+  // Nulls sort last in either direction, so everything with a value sorts before a null.
+  private def sortsBefore(sort: FieldSort, value: JsValue): Query = value match {
+    case JsNull => hasSortValue(sort)
+    case _ =>
+      val bound = jsValueToAny(value)
+      if (sort.order == SortOrder.DESC) sortRange(sort)(_.copy(gt = Some(bound)))
+      else if (sort.sortMode.contains(SortMode.Max)) boolQuery().must(hasSortValue(sort)).not(sortRange(sort)(_.copy(gte = Some(bound))))
+      else sortRange(sort)(_.copy(lt = Some(bound)))
+  }
+
+  // Without the nested wrapper, queries on a field inside a nested type match no parent document.
+  private def onSortField(sort: FieldSort)(query: Query): Query =
+    sort.nested.flatMap(_.path).fold(query)(path => nestedQuery(path, query))
+
+  private def hasSortValue(sort: FieldSort): Query = onSortField(sort)(existsQuery(sort.field))
+
+  private def sortRange(sort: FieldSort)(bounds: RangeQuery => RangeQuery): Query =
+    onSortField(sort)(bounds(rangeQuery(sort.field)))
+
+  // A timed-out or partly failed search returns a smaller count without an error; publishing it
+  // would place the caller at the wrong position.
+  private[elasticsearch] def completeCount(result: SearchResponse)(implicit logMarker: LogMarker): Long = {
+    requireCompleteExecution(result, ImageRankIncomplete, "rank count")
+    result.totalHits
+  }
+
+  private def requireCompleteExecution(result: SearchResponse, incomplete: Exception, what: String)(implicit logMarker: LogMarker): Unit =
+    if (result.isTimedOut || result.shards.failed > 0) {
+      logger.warn(logMarker, s"Incomplete $what: timedOut=${result.isTimedOut}, failedShards=${result.shards.failed}")
+      throw incomplete
+    }
+
+  def imageKeys(params: ImageKeysParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageKeysRawResults] =
+    try imageKeysQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageKeysQuery(params: ImageKeysParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageKeysRawResults] =
+    executeAndLog(imageKeysRequest(params), "image-keys", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageKeysRawResults(
+        result = readImageKeys(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // A valued page runs on into the null tail, and a null-primary tuple continues inside it, as in D3.
+  private def keysRead(params: ImageKeysParams): CursorRead = {
+    if (params.size < 1 || params.size > ImageKeysParams.MaxSize)
+      throw InvalidUriParams(s"key page size must be between 1 and ${ImageKeysParams.MaxSize}, got ${params.size}")
+    if (params.searchParams.offset != 0)
+      throw InvalidUriParams("offset is unsupported by key pages; use sortValues instead")
+
+    val sortClause = admitNullsLastSortClause(params.sort, "keys")
+    cursorRead(sortClause, sortClause, params.sortValues)
+  }
+
+  private[elasticsearch] def imageKeysRequest(params: ImageKeysParams): SearchRequest = {
+    val cursor = keysRead(params)
+    val page = admittedSearch(params.searchParams, params.pitId, cursor.filter)
+      .size(params.size)
+      .sortBy(cursor.sortClause)
+      .fetchSource(false)
+      .trackTotalHits(false)
+    cursor.searchAfter.fold(page)(sv => page.searchAfter(sv.map(jsValueToAny)))
+  }
+
+  private[elasticsearch] def readImageKeys(params: ImageKeysParams, result: SearchResponse)
+                                          (implicit logMarker: LogMarker): ImageKeysResult = {
+    requireCompleteExecution(result, ImageKeysIncomplete, "key page")
+    val cursor = keysRead(params)
+    val hits = result.hits.hits.toSeq
+    val tuples = cursor.publish(hits.map(publicTuple(_, cursor.sortClause.length)))
+    ImageKeysResult(
+      keys  = hits.map(_.id).zip(tuples).map { case (id, tuple) => ImageKey(id, tuple) },
+      after = if (hits.size < params.size) None else tuples.lastOption,
+    )
+  }
+
+  def imageCount(params: ImageCountParams)
+                (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageCountRawResults] =
+    executeAndLog(imageCountRequest(params), "image-count", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      val (total, tickerCounts) = readImageCount(r.result)
+      ImageCountRawResults(
+        total        = total,
+        tickerCounts = tickerCounts,
+        pitId        = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // The same ticker aggregations as search(), over the admitted scope.
+  private[elasticsearch] def imageCountRequest(params: ImageCountParams): SearchRequest =
+    admittedSearch(params.searchParams, params.pitId)
+      .size(0)
+      .trackTotalHits(true)
+      .aggregations(extraCountAggregations)
+
+  private[elasticsearch] def readImageCount(result: SearchResponse)
+                                           (implicit logMarker: LogMarker): (Long, Map[String, ExtraCount]) = {
+    requireCompleteExecution(result, ImageCountIncomplete, "image count")
+    (result.totalHits, extraCountsFrom(result.aggregations).tickerCounts)
+  }
+
+  def imageAggregations(params: ImageAggregationsParams)
+                       (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageAggregationsRawResults] =
+    try imageAggregationsQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageAggregationsQuery(params: ImageAggregationsParams)
+                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[ImageAggregationsRawResults] =
+    executeAndLog(imageAggregationsRequest(params), "image-aggregations", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      ImageAggregationsRawResults(
+        result = readImageAggregations(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }.recoverWith {
+      // Aggregating a field without doc values (for example a text field) fails the whole search this way.
+      case e: ElasticSearchError if e.error.rootCause.exists(_.`type` == "illegal_argument_exception") =>
+        Future.failed(InvalidUriParams("a requested field cannot be aggregated"))
+    }
+
+  private def fieldAggregationName(position: Int) = s"field-$position"
+  private def isFilterAggregationName(position: Int) = s"is-$position"
+
+  private def admitAggregations(params: ImageAggregationsParams): Unit = {
+    import ImageAggregationsParams._
+    def duplicates(values: Seq[String]) = values.groupBy(identity).collect { case (value, seen) if seen.size > 1 => value }.toSeq.sorted
+
+    if (params.fields.size > MaxFields)
+      throw InvalidUriParams(s"at most $MaxFields fields can be aggregated, got ${params.fields.size}")
+    if (params.isFilters.size > MaxIsFilters)
+      throw InvalidUriParams(s"at most $MaxIsFilters is: filters can be counted, got ${params.isFilters.size}")
+    params.fields.foreach { case FieldAggregation(field, size) =>
+      if (field.isEmpty)
+        throw InvalidUriParams("aggregated fields must be non-empty paths")
+      if (size < 1 || size > MaxSize)
+        throw InvalidUriParams(s"aggregation size must be between 1 and $MaxSize, got $size for $field")
+      MappedNestedPaths.find(path => field.startsWith(s"$path.")).foreach { path =>
+        throw InvalidUriParams(s"$field is inside the nested path $path; a root aggregation would count none of its values")
+      }
+    }
+    val duplicateFields = duplicates(params.fields.map(_.field))
+    if (duplicateFields.nonEmpty)
+      throw InvalidUriParams(s"duplicate aggregated fields are unsupported: ${duplicateFields.mkString(", ")}")
+    val duplicateIsFilters = duplicates(params.isFilters)
+    if (duplicateIsFilters.nonEmpty)
+      throw InvalidUriParams(s"duplicate is: filters are unsupported: ${duplicateIsFilters.mkString(", ")}")
+  }
+
+  // Positional names, because field paths may contain characters aggregation names cannot.
+  private[elasticsearch] def imageAggregationsRequest(params: ImageAggregationsParams): SearchRequest = {
+    admitAggregations(params)
+    val fieldAggregations = params.fields.zipWithIndex.map { case (FieldAggregation(field, size), position) =>
+      termsAgg(fieldAggregationName(position), field).size(size)
+    }
+    val isFilterAggregations = params.isFilters.zipWithIndex.map { case (name, position) =>
+      filterAgg(isFilterAggregationName(position), queryBuilder.makeQuery(List(Match(IsField, IsValue(name)))))
+    }
+    admittedSearch(params.searchParams, params.pitId)
+      .size(0)
+      .trackTotalHits(false)
+      .aggregations(fieldAggregations ++ isFilterAggregations)
+  }
+
+  private[elasticsearch] def readImageAggregations(params: ImageAggregationsParams, result: SearchResponse)
+                                                  (implicit logMarker: LogMarker): ImageAggregationsResult = {
+    requireCompleteExecution(result, ImageAggregationsIncomplete, "aggregations")
+    val aggregations = result.aggregations
+    ImageAggregationsResult(
+      fields = params.fields.zipWithIndex.map { case (FieldAggregation(field, _), position) =>
+        field -> aggregations.result[Terms](fieldAggregationName(position)).buckets.map(b => BucketResult(b.key, b.docCount))
+      },
+      isFilterCounts = params.isFilters.zipWithIndex.map { case (name, position) =>
+        name -> aggregations.filter(isFilterAggregationName(position)).docCount
+      },
+    )
+  }
+
+  def imageMget(params: ImageMgetParams)
+               (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[(String, SourceWrapper[Image])]] =
+    try imageMgetQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def imageMgetQuery(params: ImageMgetParams)
+                            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[(String, SourceWrapper[Image])]] =
+    executeAndLog(imageMgetRequest(params), "image-mget").map(r => readImageMget(params, r.result))
+
+  // IDs only: no search scope applies, as when a single image is read by ID.
+  private[elasticsearch] def imageMgetRequest(params: ImageMgetParams): SearchRequest = {
+    val ids = params.ids.distinct
+    if (ids.isEmpty || ids.size > ImageMgetParams.MaxIds)
+      throw InvalidUriParams(s"ids must hold between 1 and ${ImageMgetParams.MaxIds} distinct IDs, got ${ids.size}")
+    withLeanImageSource(readTarget(idsQuery(ids), None).size(ids.size).trackTotalHits(false))
+  }
+
+  // An incomplete search would report found images as missing. Unreadable and hidden images read
+  // as missing, as they do for a single image read by ID.
+  private[elasticsearch] def readImageMget(params: ImageMgetParams, result: SearchResponse)
+                                          (implicit logMarker: LogMarker): Seq[(String, SourceWrapper[Image])] = {
+    requireCompleteExecution(result, ImageMgetIncomplete, "image mget")
+    val found = result.hits.hits.toSeq.flatMap(hit => resolveLeanHit(hit).map(hit.id -> _)).toMap
+    params.ids.distinct.flatMap(id => found.get(id).filter(image => isVisibleToTier(params.tier, image.instance)).map(id -> _))
+  }
+
+  // Same rule as MediaApi.isVisibleToAccessor for a single image read by ID.
+  private def isVisibleToTier(tier: Tier, image: Image): Boolean = tier match {
+    case Syndication => image.syndicationRights.exists(_.isAvailableForSyndication)
+    case _ => true
+  }
+
+  def sortProfile(params: SortProfileParams)
+                 (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
+    try sortProfileQuery(params) catch { case e: InvalidUriParams => Future.failed(e) }
+
+  private def sortProfileQuery(params: SortProfileParams)
+                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[SortProfileRawResults] =
+    executeAndLog(sortProfileRequest(params), "sort-profile", notFoundSuccessful = params.pitId.nonEmpty).map { r =>
+      requireSuccessfulRead(r, params.pitId)
+      SortProfileRawResults(
+        result = readSortProfile(params, r.result),
+        pitId  = r.result.pitId.filter(_.nonEmpty).orElse(params.pitId),
+      )
+    }
+
+  // Profiles describe fields of the admitted sort only; each clause supplies its nested path,
+  // direction and max-mode (multi-valued) semantics.
+  private case class ProfiledSort(sortClause: Seq[FieldSort]) {
+    def clauseFor(field: String): FieldSort = sortClause.find(_.field == field)
+      .getOrElse(throw InvalidUriParams(s"$field is not a field of the admitted sort; profiles describe sorted fields only"))
+
+    // The null zone is the images without the primary sort value, which sort last.
+    def withoutPrimary(missingField: Option[String]): Option[Query] = missingField.map { field =>
+      val primary = sortClause.head
+      if (field != primary.field)
+        throw InvalidUriParams(s"missingField must be the primary sort field ${primary.field}, not $field")
+      boolQuery().not(hasSortValue(primary))
+    }
+
+    // Counts are images per value; admission has already matched any nested path to Grid's mapping.
+    def keywordPageClause(field: String): FieldSort = {
+      val primary = sortClause.head
+      if (field != primary.field)
+        throw InvalidUriParams(s"keyword pages walk the primary sort field ${primary.field}, not $field")
+      if (primary.nested.isDefined || isMultiValued(primary))
+        throw InvalidUriParams(s"keyword pages count plain values; nested or max-mode sort clauses are unsupported, not $field")
+      primary
+    }
+  }
+
+  private lazy val MappedNestedPaths: Set[String] = {
+    def nestedPaths(prefix: String, fields: Seq[ElasticField]): Seq[String] = fields.flatMap {
+      case nested: NestedField => s"$prefix${nested.name}" +: nestedPaths(s"$prefix${nested.name}.", nested.properties)
+      case obj: ObjectField    => nestedPaths(s"$prefix${obj.name}.", obj.properties)
+      case _                   => Nil
+    }
+    nestedPaths("", Mappings.imageMapping(includeDenseVectorMappings).properties).toSet
+  }
+
+  private val ProfileAggregation = "profile"
+  private val MultiValuedSortDates = Set("usages.dateAdded", "collections.actionData.date")
+  private val NestedProfileAggregation = "nested"
+  private val CoveredParentsAggregation = "covered"
+  private val BucketParentsAggregation = "parents"
+  private val KeywordPageSource = "value"
+
+  // Without the nested wrapper, aggregations on a field inside a nested type see no values.
+  private def onSortFieldValues(sort: FieldSort)(aggregation: AbstractAggregation): AbstractAggregation =
+    sort.nested.flatMap(_.path).fold(aggregation)(path => nestedAggregation(NestedProfileAggregation, path).subAggregations(aggregation))
+
+  private def sortFieldValues(sort: FieldSort, aggregations: Aggregations): Option[Aggregations] =
+    sort.nested.flatMap(_.path).fold(Option(aggregations))(_ => aggregations.getAgg(NestedProfileAggregation))
+      .flatMap(_.getAgg(ProfileAggregation))
+
+  private def isMultiValued(sort: FieldSort): Boolean = sort.sortMode.contains(SortMode.Max)
+
+  private[elasticsearch] def sortProfileRequest(params: SortProfileParams): SearchRequest = {
+    val profiled = ProfiledSort(admitNullsLastSortClause(params.sort, "sort profile"))
+    def profileSearch(filter: Option[Query], aggregations: AbstractAggregation*): SearchRequest =
+      admittedSearch(params.searchParams, params.pitId, filter)
+        .size(0)
+        .trackTotalHits(false)
+        .aggregations(aggregations)
+
+    params.operation match {
+      case ScalarAnchor(field, percentile, scope) =>
+        if (percentile < 0 || percentile > 100)
+          throw InvalidUriParams(s"percentile must be between 0 and 100, got $percentile")
+        val sort = profiled.clauseFor(field)
+        val scopeFilter = if (scope.isEmpty) None else Some(boolQuery().filter(scope.map { case (scopeField, value) =>
+          onSortField(profiled.clauseFor(scopeField))(termQuery(scopeField, value))
+        }))
+        profileSearch(scopeFilter,
+          onSortFieldValues(sort)(percentilesAgg(ProfileAggregation, field).percents(Seq(percentile)).compression(200)))
+
+      case DateStats(field, missingField) =>
+        val sort = profiled.clauseFor(field)
+        val stats = onSortFieldValues(sort)(statsAggregation(ProfileAggregation).field(field))
+        val coveredParents = if (isMultiValued(sort)) Seq(filterAgg(CoveredParentsAggregation, hasSortValue(sort))) else Nil
+        profileSearch(profiled.withoutPrimary(missingField), stats +: coveredParents: _*)
+
+      case DateBuckets(field, missingField, bucketInterval) =>
+        val sort = profiled.clauseFor(field)
+        val interval = DateHistogramInterval.fromString(bucketInterval)
+        val histogram = dateHistogramAgg(ProfileAggregation, field)
+          .minDocCount(1)
+          .order(if (sort.order == SortOrder.DESC) HistogramOrder.KEY_DESC else HistogramOrder.KEY_ASC)
+        val intervalled =
+          if (DateBucketInterval.Calendar(bucketInterval)) histogram.calendarInterval(interval) else histogram.fixedInterval(interval)
+        val counted = if (sort.nested.isDefined) intervalled.subAggregations(reverseNestedAggregation(BucketParentsAggregation)) else intervalled
+        profileSearch(profiled.withoutPrimary(missingField), onSortFieldValues(sort)(counted))
+
+      case KeywordPage(field, after, size, includeCoveredCount) =>
+        if (size < 1 || size > KeywordPage.MaxSize)
+          throw InvalidUriParams(s"keyword page size must be between 1 and ${KeywordPage.MaxSize}, got $size")
+        val sort = profiled.keywordPageClause(field)
+        val page = CompositeAggregation(ProfileAggregation,
+          sources = Seq(TermsValueSource(KeywordPageSource, field = Some(field), order = Some(if (sort.order == SortOrder.DESC) "desc" else "asc"))),
+          size    = Some(size),
+          after   = after.map(key => Map(KeywordPageSource -> jsValueToAny(key))),
+        )
+        val coveredParents = if (includeCoveredCount) Seq(filterAgg(CoveredParentsAggregation, hasSortValue(sort))) else Nil
+        profileSearch(None, page +: coveredParents: _*)
+    }
+  }
+
+  private[elasticsearch] def readSortProfile(params: SortProfileParams, result: SearchResponse)
+                                            (implicit logMarker: LogMarker): SortProfileResult = {
+    requireCompleteExecution(result, SortProfileIncomplete, "sort profile")
+    val profiled = ProfiledSort(admitNullsLastSortClause(params.sort, "sort profile"))
+    val aggregations = result.aggregations
+
+    params.operation match {
+      case ScalarAnchor(field, _, _) =>
+        val percentiles = sortFieldValues(profiled.clauseFor(field), aggregations).flatMap(_.getAgg("values"))
+        ScalarAnchorResult(percentiles.flatMap(_.dataAsMap.values.headOption).flatMap(finiteNumber))
+
+      case DateStats(field, _) =>
+        val sort = profiled.clauseFor(field)
+        val stats = sortFieldValues(sort, aggregations).map(_.dataAsMap).getOrElse(Map.empty[String, Any])
+        DateStatsResult(
+          valueCount   = stats.get("count").flatMap(finiteNumber).fold(0L)(_.toLong),
+          min          = stats.get("min").flatMap(finiteNumber).map(_.toLong),
+          max          = stats.get("max").flatMap(finiteNumber).map(_.toLong),
+          coveredCount = if (isMultiValued(sort)) Some(docCount(aggregations.getAgg(CoveredParentsAggregation))) else None,
+        )
+
+      case DateBuckets(field, _, _) =>
+        val sort = profiled.clauseFor(field)
+        val counts = sortFieldValues(sort, aggregations).toSeq
+          .flatMap(values => DateHistogram(ProfileAggregation, values.dataAsMap).buckets)
+          .map { bucket =>
+            val images = if (sort.nested.isDefined) docCount(bucket.getAgg(BucketParentsAggregation)) else bucket.docCount
+            bucket.date -> images
+          }
+          .filter { case (_, images) => images > 0 }
+        val starts = counts.scanLeft(0L)(_ + _._2)
+        DateBucketsResult(
+          buckets       = counts.zip(starts).map { case ((key, count), start) => DateBucket(key, count, start) },
+          positionKind  = if (isMultiValued(sort)) "approximate-evidence" else "exact-rank",
+          evidenceCount = starts.last,
+        )
+
+      case KeywordPage(field, _, _, includeCoveredCount) =>
+        profiled.keywordPageClause(field)
+        val page = aggregations.compositeAgg(ProfileAggregation)
+        KeywordPageResult(
+          buckets      = page.buckets.map(bucket => KeywordBucket(keywordValue(bucket.key(KeywordPageSource)), bucket.docCount)),
+          after        = page.afterKey.flatMap(_.get(KeywordPageSource)).map(keywordValue),
+          coveredCount = if (includeCoveredCount) Some(docCount(aggregations.getAgg(CoveredParentsAggregation))) else None,
+        )
+    }
+  }
+
+  private def keywordValue(key: Any): JsValue = key match {
+    case text: String             => JsString(text)
+    case number: java.lang.Number => JsNumber(BigDecimal(number.toString))
+    case other                    => JsString(other.toString)
+  }
+
+  private def finiteNumber(value: Any): Option[Double] = value match {
+    case n: java.lang.Number if !n.doubleValue.isNaN && !n.doubleValue.isInfinite => Some(n.doubleValue)
+    case _ => None
+  }
+
+  private def docCount(aggregation: Option[Aggregations]): Long =
+    aggregation.flatMap(_.dataAsMap.get("doc_count")).flatMap(finiteNumber).fold(0L)(_.toLong)
+
+  private def sortValueToJsValue(v: AnyRef): JsValue = v match {
+    case null                  => JsNull
+    case n: java.lang.Long if n == Long.MinValue || n == Long.MaxValue => JsNull
+    case n: java.lang.Long     => JsNumber(BigDecimal(n))
+    case n: java.lang.Double   => JsNumber(BigDecimal(n))
+    case n: java.lang.Integer  => JsNumber(BigDecimal(n.toLong))
+    case s: String             => JsString(s)
+    case other                 => JsString(other.toString)
+  }
+
+  private def sortValuesToJsValues(sort: Seq[AnyRef]): Seq[JsValue] =
+    sort.toSeq.map(sortValueToJsValue)
+
+  private def jsValueToAny(v: JsValue): AnyRef = v match {
+    case JsNull      => null
+    case JsNumber(n) => if (n.isValidLong) java.lang.Long.valueOf(n.toLong) else java.lang.Double.valueOf(n.toDouble)
+    case JsString(s) => s
+    case other       => other.toString
+  }
+
+  // Re-insert JsNull at the primary sort field position in each sort-values array.
+  private def remapNullZoneSortValues(
+    sortValues:     Seq[Seq[JsValue]],
+    fullSortClause: Seq[Sort],
+    primaryField:   String,
+  ): Seq[Seq[JsValue]] =
+    sortValues.map { sv =>
+      fullSortClause.foldLeft[(Seq[JsValue], Seq[JsValue])]((Seq.empty, sv)) {
+        case ((acc, remaining), fs: FieldSort) if fs.field == primaryField =>
+          (acc :+ JsNull, remaining)
+        case ((acc, remaining), _) =>
+          (acc :+ remaining.headOption.getOrElse(JsNull), remaining.drop(1))
+      }._1
+    }
 
 }

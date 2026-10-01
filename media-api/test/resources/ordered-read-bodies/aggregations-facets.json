@@ -1,0 +1,31 @@
+[
+  {
+    "path": "/images/aggregations",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "until": "2030-01-01T00:00:00.000Z",
+      "fields": [
+        {
+          "field": "metadata.credit",
+          "size": 10
+        },
+        {
+          "field": "usageRights.category",
+          "size": 10
+        },
+        {
+          "field": "usagesPlatform",
+          "size": 20
+        },
+        {
+          "field": "usagesStatus",
+          "size": 20
+        }
+      ],
+      "isFilters": [
+        "deleted",
+        "under-quota"
+      ]
+    }
+  }
+]

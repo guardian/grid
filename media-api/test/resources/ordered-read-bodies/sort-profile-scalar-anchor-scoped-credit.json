@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/images/sort-profile",
+    "body": {
+      "q": "-is:deleted -usages@status:replaced",
+      "orderBy": "-credit",
+      "sort": [
+        {
+          "metadata.credit": "desc"
+        },
+        {
+          "uploadTime": "desc"
+        },
+        {
+          "id": "asc"
+        }
+      ],
+      "until": "2030-01-01T00:00:00.000Z",
+      "operation": "scalar-anchor",
+      "field": "uploadTime",
+      "percentile": 37.5,
+      "scope": [
+        {
+          "field": "metadata.credit",
+          "value": "Fixture"
+        }
+      ]
+    }
+  }
+]
