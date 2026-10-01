@@ -1045,11 +1045,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); stopWatchingInput(); };
     }
 
-    // No saved density-focus state — scroll the viewport anchor into view.
-    // Requires a valid anchor ID (focusedImageId or viewport anchor).
-    const id = focusedImageId ?? getViewportAnchorId();
+    // No saved density-focus state — scroll the anchor into view: explicit
+    // focus when it is in the buffer, otherwise the viewport anchor.
+    const focusIdx = focusedImageId ? findImageIndex(focusedImageId) : -1;
+    const id = focusIdx >= 0 ? focusedImageId : getViewportAnchorId();
     if (!id) return;
-    const idx = findImageIndex(id);
+    const idx = focusIdx >= 0 ? focusIdx : findImageIndex(id);
     if (idx < 0) return;
 
     // Capture the anchor's global index NOW (mount time), before the
@@ -1087,9 +1088,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   }, []);
 
   // Unmount: save the scroll anchor's viewport ratio for density-switch restore.
-  // Uses focusedImageId if set, otherwise falls back to the viewport anchor
-  // (viewport-centre image). This ensures density switches preserve scroll
-  // position even without explicit focus.
+  // Uses focusedImageId when it is in the buffer, otherwise the viewport anchor
+  // (viewport-centre image): a focus seeked out of the buffer cannot anchor,
+  // and skipping the save would land the next view at its buffer top.
   // Separate from mount so the cleanup is registered unconditionally —
   // even when focusedImageId was null at mount time (Bug #17).
   useLayoutEffect(() => {
@@ -1097,14 +1098,15 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const el = parentRef.current;
       if (!el) return;
       const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } = useSearchStore.getState();
-      // Fall back to viewport anchor when no explicit focus
-      const anchorId = fid ?? getViewportAnchorId();
-      if (!anchorId) return;
-      const globalIdx = imagePositions.get(anchorId) ?? -1;
-      if (globalIdx < 0) return;
-      // In two-tier mode, the virtualizer uses global indices.
-      const localIdx = toVirtualizerIdx(globalIdx, bo, isTwoTierFromTotal(t));
-      if (localIdx < 0) return;
+      const isTT = isTwoTierFromTotal(t);
+      const resolve = (id: string | null) => {
+        const globalIdx = id ? imagePositions.get(id) ?? -1 : -1;
+        const localIdx = globalIdx < 0 ? -1 : toVirtualizerIdx(globalIdx, bo, isTT);
+        return localIdx < 0 ? null : { anchorId: id!, globalIdx, localIdx };
+      };
+      const anchor = resolve(fid) ?? resolve(getViewportAnchorId());
+      if (!anchor) return;
+      const { anchorId, globalIdx, localIdx } = anchor;
       const geo = geometryRef.current;
       const rowTop = localIndexToPixelTop(localIdx, geo);
       const ratio = (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight;

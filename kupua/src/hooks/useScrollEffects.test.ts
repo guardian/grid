@@ -8,7 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 });
+const anchor = vi.hoisted(() => ({ viewportId: null as string | null }));
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => routeParams }));
+vi.mock("@/hooks/useDataWindow", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useDataWindow")>()),
+  getViewportAnchorId: () => anchor.viewportId,
+}));
 
 import { useSearchStore } from "@/stores/search-store";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
@@ -33,6 +38,7 @@ beforeEach(() => {
   });
   vi.stubGlobal("cancelAnimationFrame", (handle: number) => { frames.delete(handle); });
   clearDensityFocusRatio();
+  anchor.viewportId = null;
   const results = Array.from({ length: 800 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
   useSearchStore.setState({ ...initialState, results, total: 70000, bufferOffset: 200, focusedImageId: "image-400",
     imagePositions: new Map(results.map((image, index) => [image.id, index + 200])) }, true);
@@ -246,4 +252,15 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
     frame();
     expect(target.container.scrollTop).toBe(0);
   });
+
+  for (const [tier, total, expected] of [["seek", 70000, 6136], ["two-tier", 12000, 12536]] as const) {
+    it(`anchors on the viewport centre when explicit focus is outside the buffer (${tier})`, () => {
+      useSearchStore.setState({ total, focusedImageId: "image-seeked-away" });
+      anchor.viewportId = "image-400";
+      const target = transition();
+      frame();
+      frame();
+      expect(target.container.scrollTop).toBe(expected);
+    });
+  }
 });

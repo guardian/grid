@@ -7,6 +7,11 @@
 > kupuaKey and snapshot storage: [browser history](04-browser-history-architecture.md).
 > Selection lifecycle: [selections](05-selections.md).
 
+> **Policy status:** D8 is under reconsideration. Sections below mix source-based
+> descriptions and intended guarantees; they are not a completed characterisation.
+> L7 will place current behaviour, written-contract conflicts and operator decisions
+> in a single table here. Do not derive new fixes from an unresolved policy.
+
 ## 1. Principle: Preserve Strictly, Relax Deliberately
 
 "Never Lost" ([philosophy](01-frontend-philosophy.md)): across every transition the
@@ -22,6 +27,9 @@ Explicit focus is the scaffolding that makes the strict guarantee testable: one
 identified image the user chose. Phantom mode hides the scaffolding; the engine
 underneath is the same.
 
+Scroll tiers (§3.1) are an implementation detail: every behaviour in this
+document is the same in every tier.
+
 ## 2. Anchors
 
 | Anchor | Meaning | Source |
@@ -31,10 +39,16 @@ underneath is the same.
 | Viewport centre | Rendered image nearest the centre of the usable viewport (below the table header). Elected from DOM geometry only when a transition asks; not tracked per scroll frame | `getViewportAnchorId()` in `useDataWindow.ts` |
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
-Precedence: selection anchor (where the transition honours selections), then
-explicit focus (explicit mode only), then viewport centre. Layout transitions
-(resize, panel toggle, density switch) keep the visible centre; an off-screen
-selection never pulls the view back.
+Anchor precedence depends on the transition; there is no settled universal rule.
+Density currently prefers a resolvable focus, then viewport centre; grid reflow
+prefers selection, then focus, then viewport centre. History capture prefers
+explicit focus in explicit mode, otherwise viewport centre. L7 must reconcile
+these paths with D5 and the unsettled D8 policy before L15/L20 changes.
+
+A history entry's focus (including no focus) and viewport position are separate
+concerns. Position restoration must not discard that entry's focus or substitute
+another entry's. This requirement does not prescribe every scrolling outcome:
+the operator will decide those cases from the characterisation table.
 
 In phantom mode the anchor is the selection anchor or the viewport centre. A
 `focusedImageId` left behind in phantom mode must never act as anchor *(L6:
@@ -114,10 +128,10 @@ when the source was there or the result is within a row of an edge.
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict | Visible content does not move | none |
-| Density switch | Visible centre image stays in place; top/bottom stay top/bottom | none *(currently anchors on explicit focus first and drifts on repeated switches: L15, L17)* |
-| Browser resize / panel toggle (grid column change) | Visible centre image stays in place; an off-screen selection never pulls the view | none *(currently prefers selection, then focus: L9)* |
+| Density switch | Current: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Desired precedence awaits L7/L15; smaller placement drift remains L18 |
+| Browser resize / panel toggle (grid column change) | Current: resolvable selection, then focus, then viewport centre supplies the placement anchor | Reconcile this with D5 and visibility cases in L7 before consolidation |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Phantom mode: image pulsed, not kept as anchor *(L6)* |
-| Browser Back / Forward | Destination's saved anchor at its saved ratio | No matching snapshot: top, no focus carried |
+| Browser Back / Forward | Current search-context restore uses the snapshot anchor for placement and, when explicit, focus; desired independent state restoration awaits L7/L20 | No matching snapshot: top, no focus carried; display-only entries require separate characterisation |
 | Logo (Home) | none | Top of default search; focus, selection and density state cleared |
 | New-images ticker | none | Top of refreshed results |
 
@@ -174,6 +188,13 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
 - The destination snapshot applies when its search key matches exactly: anchor
   positioned (phantom: without focus), ratio reused, results capped at the cutoff.
   Snapshots live in sessionStorage (50 entries) and survive reload.
+- Snapshots do not independently store explicit focus and viewport anchor. Merely
+  switching to a viewport anchor can lose the entry's focus; it is not a complete
+  implementation of independent restoration. L20 remains an open decision/design item.
+- Density changes currently push URL/history entries. Search-param deduplication
+  skips the search-context restore for display-only changes. L7 must characterise
+  their focus and placement separately. Push versus replace is undecided; density
+  can remain URL state under either choice.
 
 ### 4.5 Reset to Home
 

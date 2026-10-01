@@ -17,9 +17,19 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
-  ### 1 October 2026 - Position-engine cleanup: dead wood and stale comments (ledger L1-L5)
+  ### 1 October 2026 - Density switch no longer drifts after seeking away from focus
 
-  Started the position-engine cleanup series (session prompt and ledger in
+  With explicit focus on an image that a later seek moved out of the buffer, every density
+  switch landed further back in the results (200-400 images per switch on TEST). Both the
+  unmount save and the no-save mount restore anchored on the unresolvable focus and gave
+  up, so the new view mounted at its buffer top, extended backward, and the next switch
+  repeated from there. Both now fall back to the viewport-centre image when the focus is
+  not in the buffer. An in-buffer focus still anchors the switch, and a smaller,
+  converging row-top placement shift remains.
+
+  ### 1 October 2026 - Position-engine cleanup: dead wood and stale comments
+
+  Started a position-engine cleanup series (session prompt and ledger in
   `not-yet-another-audit-prompt.md` / `-ledger.md`; behaviour map rewritten in
   `02-focus-and-position-preservation.md`). No behaviour change.
 

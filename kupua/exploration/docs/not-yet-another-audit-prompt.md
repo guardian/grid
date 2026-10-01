@@ -19,6 +19,11 @@ Answer it one ledger item at a time. Prefer deleting mechanisms and duplicated
 decisions over renaming, moving or wrapping. Do not rewrite for its own sake, do
 not manufacture refactors, and keep the ledger's Leave Alone list alone.
 
+**Current priority: L7 characterisation before further anchor-policy changes.**
+Follow the ledger's table specification. Write the compact decision table in the
+existing 02 guide, not a new report. This task gathers evidence and exposes policy
+choices; it does not implement fixes or choose unresolved behaviour for the operator.
+
 ## Read First, and Only
 
 1. The repository startup protocol: copilot instructions, `kupua/AGENTS.md`, the worklog.
@@ -27,8 +32,10 @@ not manufacture refactors, and keep the ledger's Leave Alone list alone.
    and their tests.
 
 Other docs (archives, audits, handoffs, the API-boundary corpus, the changelog)
-are likely stale. Load one only for a specific fact the item needs. Code wins over
-any document; a document that disagrees with code is a ledger Doc item. Read the
+may be stale. Load one only for a specific fact or contract the item needs. Code
+establishes implementation, not intended behaviour. For L7, compare the relevant
+focus, scroll, history and selection contracts and test assertions; cite conflicts
+without automatically treating either code or documents as correct. Read the
 [test guide](../../e2e/README.md) before running tests and the
 [browser playbook](embedded-browser-playbook.md) before browser work.
 
@@ -60,7 +67,7 @@ any document; a document that disagrees with code is a ledger Doc item. Read the
 | Comment | Every touched comment matches current code; no history narrative |
 | Bug | Failing test now passes; relevant e2e green |
 | Decision | Operator answer recorded in ledger Decisions and 02; code follow-up added as an item |
-| Characterise | Tests record current behaviour; ask before keeping them permanently |
+| Characterise | Decision table separates current behaviour, written contracts/conflicts and operator decisions, with evidence and verification gaps; assertions are labelled observed versus intended; ask before retaining temporary tests |
 | Consolidate / Refactor | Characterisation tests unchanged; changelog names the mechanisms removed; 02 ownership updated |
 | Move | No logic change; tests unchanged |
 | Doc | Rewritten as timeless description, or deleted with operator approval |
