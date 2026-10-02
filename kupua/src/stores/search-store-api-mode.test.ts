@@ -1149,6 +1149,34 @@ describe("U9-B media-api AI search", () => {
     expect(paths()).toEqual(["/images", "/images"]);
   });
 
+  it("B8 range cancellation preserves the pending AI search and its owned completion", async () => {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    useAiApiMode(async () => {
+      await held;
+      return aiAnswer([{ data: (await staff(["img-6"]))[0], actions: [] }], 22);
+    });
+    state().setParams({ ...aiParams, aiQuery: "pending density" });
+    const pending = state().search();
+    try {
+      await flush();
+      const request = calls.find(call => call.path === "/images")!;
+      expect(request.signal?.aborted).toBe(false);
+      expect(state().loading).toBe(true);
+      state().abortExtends();
+      expect(request.signal?.aborted).toBe(false);
+      expect(state().loading).toBe(true);
+      release();
+      await pending;
+      expect(state()).toMatchObject({ total: 1, aiPoolTotal: 22, loading: false, error: null });
+      expect(state().results.map(image => image?.id)).toEqual(["img-6"]);
+      expect([...useEnrichmentStore.getState().data.keys()]).toEqual(["img-6"]);
+    } finally {
+      release();
+      await pending;
+    }
+  });
+
   it("lets neither a cancelled nor a superseded AI completion change the published result or overlay", async () => {
     let releaseFirst!: () => void;
     const firstHeld = new Promise<void>((resolve) => { releaseFirst = resolve; });

@@ -376,6 +376,7 @@ interface SearchState {
     edge: "first" | "last";
     focusedImageId: string | null;
     signal?: AbortSignal;
+    initialSearchSuperseded?: boolean;
   } | null;
 
   /**
@@ -556,9 +557,13 @@ let _newImagesPollVisibilityHandler: (() => void) | null = null;
  */
 let _newImagesPollGeneration = 0;
 
+let _searchAbortController = new AbortController();
+let _pendingInitialSearchSignal: AbortSignal | null = null;
+
 /**
- * Generation-based abort for extend/seek requests.
- * search() aborts all in-flight extends from the previous search.
+ * Range cancellation for extends, fills, seeks and cursor restores.
+ * search() aborts previous ranges; density can cancel buffer movement
+ * without cancelling the initial search that owns its loading state.
  */
 let _rangeAbortController = new AbortController();
 
@@ -2148,12 +2153,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // the search() call and the results arriving — during this window the
     // buffer is still at the old deep offset, and extendBackward would
     // prepend stale data.
+    _searchAbortController.abort();
+    _searchAbortController = new AbortController();
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
     _findFocusAbortController.abort();
     _findFocusAbortController = new AbortController();
     _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
-    const signal = _rangeAbortController.signal;
+    const signal = _searchAbortController.signal;
     // Capture the find-focus signal NOW, before the await. Passed to
     // _findAndFocusImage so it uses THIS search's controller, not a
     // later search's (which would be non-aborted and run to completion).
@@ -2294,6 +2301,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return;
     }
 
+    _pendingInitialSearchSignal = signal;
     try {
       // Bump PIT generation BEFORE any await so in-flight seek/extend
       // operations that captured the old pitId are immediately invalidated
@@ -2340,7 +2348,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // INVARIANT: no further awaits between this check and the final set()
       // block below. If you add an await, repeat this check after it —
       // the mechanism doesn't fail loudly when violated.
-      if (_searchGeneration !== myGeneration) {
+      if (_searchGeneration !== myGeneration || signal.aborted) {
         // Close this PIT now rather than leaving it to expire on its own
         // keepAlive — cheap and bounded per-call, but adds up across many
         // concurrent users each opening a PIT per stale keystroke pause.
@@ -2535,7 +2543,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ) {
           _fillBufferForScrollMode(
             dataSource, params, result.hits.length, result.total,
-            endCursor, result.pitId ?? newPitId, signal, get, set,
+            endCursor, result.pitId ?? newPitId, _rangeAbortController.signal, get, set,
           );
         }
 
@@ -2554,19 +2562,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         }
       }
     } catch (e) {
-      // A superseded search's searchAfter is now cancelled via `signal`
-      // (previously only the result was discarded via _searchGeneration,
-      // leaving the request running server-side). apiSearchAfter's fetch
+      // A newer search cancels the superseded browser request via `signal`;
+      // this does not establish that backend work stopped. apiSearchAfter's fetch
       // rejects with AbortError on cancellation (unlike the direct-ES path,
       // which swallows it internally) — bail out silently rather than
       // surfacing it as a search failure.
-      if (_searchGeneration !== myGeneration) return;
+      if (_searchGeneration !== myGeneration || signal.aborted) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
       set({
         error: e instanceof Error ? e.message : "Search failed",
         loading: false,
         sortAroundFocusStatus: null,
       });
+    } finally {
+      if (_pendingInitialSearchSignal === signal) _pendingInitialSearchSignal = null;
     }
   },
 
@@ -2895,6 +2904,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const { total } = get();
     const clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
 
+    // Fresh keyboard-edge intent supersedes an ordinary initial read;
+    // viewport/density refill does not. AI retains its finite-result owner.
+    const edgeNavigation = pendingFocus !== null && pendingFocus.signal === undefined;
+    const initialSearchSuperseded = edgeNavigation && !params.aiQuery &&
+      _pendingInitialSearchSignal === _searchAbortController.signal;
+    if (edgeNavigation && !params.aiQuery) _searchAbortController.abort();
+
     // Abort in-flight extends / previous seeks
     _rangeAbortController.abort();
     _rangeAbortController = new AbortController();
@@ -2928,7 +2944,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       loading: true,
       error: null,
       _pendingFocusDelta: null,
-      _pendingFocusAfterSeek: pendingFocus && !pendingFocus.signal ? { ...pendingFocus, signal } : null,
+      _pendingFocusAfterSeek: pendingFocus && !pendingFocus.signal
+        ? { ...pendingFocus, signal, ...(initialSearchSuperseded && { initialSearchSuperseded: true }) }
+        : null,
       _extendForwardInFlight: false,
       _extendBackwardInFlight: false,
     });

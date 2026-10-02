@@ -3818,6 +3818,7 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     await actions().search();
     const currentResults = state().results;
     const currentParams = state().params;
+    expect(ai.mock.calls[0][1]?.aborted).toBe(true);
     release({ ...result, hits: [], total: 0, sortValues: [] });
     await old;
     expect(ai).toHaveBeenCalledTimes(2);
@@ -3860,21 +3861,24 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     expect(state().results.map((image) => image?.id)).not.toEqual(hits.map((image) => image.id));
   });
 
-  it("publishes nothing from an AI result that resolves after an abort-only cancellation", async () => {
+  it("B8 range-only cancellation preserves the current AI search and its owned completion", async () => {
     const source = makeAiMock(3);
     const result = await source.searchByAi({});
     let release!: (value: typeof result) => void;
-    vi.spyOn(source, "searchByAi").mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    const ai = vi.spyOn(source, "searchByAi").mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
     useSearchStore.setState({ dataSource: source, aiPoolTotal: null, tickerCounts: null });
-    const before = state().results;
 
     const operation = actions().search();
     actions().abortExtends();
+    expect(ai.mock.calls[0][1]?.aborted).toBe(false);
+    expect(state().loading).toBe(true);
     release({ ...result, aiPoolTotal: 9000, tickerCounts: { "GNM-owned": { value: 12 } } });
     await operation;
 
-    expect(state().results).toBe(before);
-    expect(state()).toMatchObject({ aiPoolTotal: null, tickerCounts: null });
+    expect(state().results.map(image => image?.id)).toEqual(result.hits.map(image => image.id));
+    expect(state()).toMatchObject({ total: 3, aiPoolTotal: 9000, tickerCounts: { "GNM-owned": { value: 12 } },
+      loading: false, error: null });
+    assertPositionsConsistent();
   });
 
   it("scrolls to top (no focus) when sortAroundFocusId is absent from AI results", async () => {

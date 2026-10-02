@@ -333,9 +333,20 @@ When switching from table to grid (or vice versa):
    it behind the sticky header or below the viewport), it snaps to the
    nearest edge — fully visible.
 
-4. **Drift prevention:** `abortExtends()` sets a 2-second cooldown before
-   the restore, preventing `extendBackward` → prepend compensation →
-   browser scroll clamping → pixel loss on each cycle.
+4. **Drift prevention:** `abortExtends()` cancels range movement and sets a
+   2-second cooldown before the restore, preventing `extendBackward` → prepend
+   compensation → browser scroll clamping → pixel loss on each cycle.
+
+Initial ordinary/AI reads use a separate search-owned controller. A newer search
+cancels prior search and range work; density cancels ranges only, so the pending
+search still publishes its requested query/order and settles its own lifecycle.
+Fresh captured keyboard-edge intent may supersede an ordinary initial read;
+automatic viewport refill does not. If pending End invalidated the resident
+page, Home rebuilds the current-order first page before reusing it. Valid resident
+Home shortcuts and finite AI ownership remain unchanged.
+Small-result fill captures the current range signal when it starts and remains
+cancellable during density restoration. Adapter cancellation outcomes are not
+normalized into successful core-list absence.
 
 Saved restoration belongs to its captured search generation and saved record.
 While its two frames are pending, short-lived input listeners observe actual list

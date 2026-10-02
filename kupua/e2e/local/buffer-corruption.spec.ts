@@ -29,6 +29,7 @@
  */
 
 import { test, expect } from "../shared/helpers";
+import type { Route } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Safety: require enough data for seeks to be meaningful.
@@ -37,6 +38,252 @@ import { test, expect } from "../shared/helpers";
 // ---------------------------------------------------------------------------
 
 const MIN_TOTAL_FOR_SEEK = 500;
+
+test.describe("B8 pending sort survives saved density", () => {
+  for (const transport of ["direct-ES", "media-api-fixture"] as const) {
+    for (const focusMode of ["explicit", "phantom"] as const) {
+      for (const sourceView of ["grid", "table"] as const) {
+        test(`${transport}, ${focusMode}, ${sourceView} preserves the pending search`, async ({ kupua }) => {
+          const page = kupua.page;
+          await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+          await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+          const initial = await kupua.getStoreState();
+          expect(initial.total).toBeGreaterThan(1000);
+          await page.evaluate(async ({ transport, focusMode }) => {
+            const configPath = "/src/dal/es-config.ts";
+            if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B8 fixture requires local ES");
+            const prefsPath = "/src/stores/ui-prefs-store.ts";
+            const { useUiPrefsStore, getEffectiveFocusMode } = await import(prefsPath);
+            useUiPrefsStore.getState().setFocusMode(focusMode);
+            if (getEffectiveFocusMode() !== focusMode) throw new Error("B8 focus mode mismatch");
+            const store = (window as any).__kupua_store__;
+            const originalSource = store.getState().dataSource;
+            const apiPath = "/src/dal/api-data-source.ts";
+            const source = transport === "media-api-fixture"
+              ? new (await import(apiPath)).ApiDataSource() : originalSource;
+            const originalPage = source.searchAfter;
+            const ownPage = Object.getOwnPropertyDescriptor(source, "searchAfter");
+            const originalAbort = store.getState().abortExtends;
+            const probe = { originalSource, rangeAborts: 0, emptyPublications: 0,
+              signal: null as AbortSignal | null, cleanup: () => {} };
+            source.searchAfter = function (...args: any[]) {
+              if (args[0].trackTotalHits && !args[1]) probe.signal = args[3];
+              return originalPage.apply(this, args);
+            };
+            store.setState({ dataSource: source, abortExtends: () => {
+              probe.rangeAborts += 1;
+              originalAbort();
+            } });
+            const unsubscribe = store.subscribe((state: any) => {
+              if (!state.loading && state.error === null && state.total === 0 && state.results.length === 0) {
+                probe.emptyPublications += 1;
+              }
+            });
+            probe.cleanup = () => {
+              unsubscribe();
+              if (ownPage) Object.defineProperty(source, "searchAfter", ownPage);
+              else delete source.searchAfter;
+              store.setState({ dataSource: originalSource, abortExtends: originalAbort });
+            };
+            (window as any).__b8 = probe;
+          }, { transport, focusMode });
+
+          let release!: () => void;
+          const held = new Promise<void>(resolve => { release = resolve; });
+          let finish!: () => void;
+          const finished = new Promise<void>(resolve => { finish = resolve; });
+          let called = false;
+          let routeFailure: unknown;
+          let expectedIds: string[] = [];
+          let expectedTotal = 0;
+          let expectedCursors: unknown[] = [];
+          const pattern = transport === "direct-ES" ? "**/es/**/_search" : "**/api/images/search-after";
+          const handler = async (route: Route) => {
+            const body = route.request().postDataJSON();
+            const firstPage = transport === "direct-ES"
+              ? body.size === 200 && body.track_total_hits === true && !body.search_after
+              : body.countAll === true && !body.sortValues && !body.ids;
+            if (!firstPage || called) { await route.continue(); return; }
+            called = true;
+            try {
+              const upstream = transport === "direct-ES" ? await route.fetch() : null;
+              const reply = upstream ? await upstream.json() : await page.evaluate(async body => {
+                const result = await (window as any).__b8.originalSource.searchAfter({
+                  query: body.q, orderBy: body.orderBy, nonFree: body.free ? undefined : "true",
+                  length: body.length, trackTotalHits: body.countAll,
+                }, body.sortValues ?? null, null, undefined, body.reverse, body.seekToEnd);
+                return { data: result.hits.map((data: unknown) => ({ data })), total: result.total, sortValues: result.sortValues };
+              }, body);
+              expectedIds = transport === "direct-ES"
+                ? reply.hits.hits.map((hit: any) => hit._id) : reply.data.map((entity: any) => entity.data.id);
+              expectedTotal = transport === "direct-ES" ? reply.hits.total.value : reply.total;
+              expectedCursors = transport === "direct-ES" ? reply.hits.hits.map((hit: any) => hit.sort) : reply.sortValues;
+              expect(body.sort).toEqual([{ uploadTime: "asc" }, { id: "asc" }]);
+              expect(expectedIds).toHaveLength(200);
+              await held;
+              await route.fulfill({ ...(upstream ? { response: upstream } : {}), json: reply });
+            } catch (error) {
+              routeFailure = error;
+            } finally {
+              finish();
+            }
+          };
+          await page.route(pattern, handler);
+          try {
+            const before = await page.evaluate(() => ({
+              started: (window as any).__kupua_getSearchLifecycle__().started,
+              density: (window as any).__kupua_getDensityRestoreGeneration__(),
+            }));
+            await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();
+            await expect.poll(() => expectedIds.length).toBe(200);
+            const pending = await page.evaluate(() => ({
+              started: (window as any).__kupua_getSearchLifecycle__().started,
+              loading: (window as any).__kupua_store__.getState().loading,
+            }));
+            expect(pending.started).toBeGreaterThan(before.started);
+            expect(pending.loading).toBe(true);
+            const targetView = sourceView === "grid" ? "table" : "grid";
+            await page.getByRole("button", { name: `Switch to ${targetView} view`, exact: true }).click();
+            await page.waitForFunction(previous =>
+              (window as any).__kupua_getDensityRestoreGeneration__() > previous, before.density);
+            const during = await page.evaluate(() => ({
+              rangeAborts: (window as any).__b8.rangeAborts,
+              aborted: (window as any).__b8.signal?.aborted,
+              started: (window as any).__kupua_getSearchLifecycle__().started,
+              loading: (window as any).__kupua_store__.getState().loading,
+            }));
+            expect(during.rangeAborts).toBeGreaterThan(0);
+            expect(during).toMatchObject({ aborted: false, started: pending.started, loading: true });
+            release();
+            await finished;
+            expect(routeFailure).toBeUndefined();
+            await page.waitForFunction(() => {
+              const state = (window as any).__kupua_store__.getState();
+              const lifecycle = (window as any).__kupua_getSearchLifecycle__();
+              return !state.loading && lifecycle.started === lifecycle.settled;
+            });
+            const final = await page.evaluate(() => {
+              const state = (window as any).__kupua_store__.getState();
+              return { ids: state.results.map((image: any) => image.id), total: state.total,
+                offset: state.bufferOffset, orderBy: state.params.orderBy, error: state.error,
+                firstCursor: state.startCursor, lastCursor: state.endCursor,
+                emptyPublications: (window as any).__b8.emptyPublications };
+            });
+            expect(final).toEqual({ ids: expectedIds, total: expectedTotal, offset: 0,
+              orderBy: "uploadTime", error: null, firstCursor: expectedCursors[0],
+              lastCursor: expectedCursors.at(-1), emptyPublications: 0 });
+            await kupua.assertPositionsConsistent();
+            await expect(page.getByRole("button", { name: `Switch to ${sourceView} view`, exact: true })).toBeVisible();
+          } finally {
+            release();
+            if (called) await finished;
+            await page.unroute(pattern, handler);
+            await page.evaluate(() => { (window as any).__b8?.cleanup(); delete (window as any).__b8; });
+          }
+        });
+      }
+    }
+  }
+});
+
+test.describe("L37 End supersedes pending initial sort", () => {
+  for (const focusMode of ["explicit", "phantom"] as const) {
+    for (const sourceView of ["grid", "table"] as const) {
+      test(`${focusMode}, ${sourceView} retains End after late first-page success`, async ({ kupua }) => {
+        const page = kupua.page;
+        await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+        await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+        const before = await page.evaluate(async focusMode => {
+          const configPath = "/src/dal/es-config.ts";
+          if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("L37 fixture requires local ES");
+          const prefsPath = "/src/stores/ui-prefs-store.ts";
+          const { useUiPrefsStore } = await import(prefsPath);
+          useUiPrefsStore.getState().setFocusMode(focusMode);
+          const store = (window as any).__kupua_store__;
+          store.getState().setFocusedImageId(null);
+          const source = store.getState().dataSource;
+          const original = source.searchAfter;
+          const own = Object.getOwnPropertyDescriptor(source, "searchAfter");
+          let release!: () => void;
+          const held = new Promise<void>(resolve => { release = resolve; });
+          const probe = { ready: false, called: false, signal: null as AbortSignal | null,
+            work: null as Promise<unknown> | null, release: () => release(), cleanup: async () => {},
+            tail: null as any, positions: null as any, start: null as any, end: null as any,
+            offset: 0, scrollTop: 0, reset: 0 };
+          source.searchAfter = function (...args: any[]) {
+            if (probe.called || !args[0].trackTotalHits || args[1]) return original.apply(this, args);
+            probe.called = true;
+            probe.signal = args[3];
+            probe.work = (async () => {
+              const result = await original.apply(this, args);
+              probe.ready = true;
+              await held;
+              return result;
+            })();
+            return probe.work;
+          };
+          probe.cleanup = async () => {
+            probe.release();
+            await probe.work?.catch(() => {});
+            if (own) Object.defineProperty(source, "searchAfter", own);
+            else delete source.searchAfter;
+            delete (window as any).__l37;
+          };
+          (window as any).__l37 = probe;
+          return { seek: store.getState()._seekGeneration, total: store.getState().total };
+        }, focusMode);
+        try {
+          expect(before.total).toBeGreaterThan(1000);
+          await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();
+          await page.waitForFunction(() => (window as any).__l37.ready && (window as any).__kupua_store__.getState().loading);
+          await page.keyboard.press("End");
+          await page.waitForFunction(previous => {
+            const state = (window as any).__kupua_store__.getState();
+            return state._seekGeneration > previous && !state.loading && !state.error &&
+              state.bufferOffset > 0 && state.bufferOffset + state.results.length === state.total;
+          }, before.seek);
+          const end = await page.evaluate(() => {
+            const state = (window as any).__kupua_store__.getState();
+            const probe = (window as any).__l37;
+            const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+            probe.tail = state.results;
+            probe.positions = state.imagePositions;
+            probe.start = state.startCursor;
+            probe.end = state.endCursor;
+            probe.offset = state.bufferOffset;
+            probe.scrollTop = container.scrollTop;
+            probe.reset = state._scrollReset.gen;
+            return { aborted: probe.signal.aborted, offset: state.bufferOffset, scrollTop: container.scrollTop };
+          });
+          expect(end.aborted).toBe(true);
+          expect(end.offset).toBeGreaterThan(0);
+          expect(end.scrollTop).toBeGreaterThan(0);
+          await page.evaluate(async () => {
+            const probe = (window as any).__l37;
+            probe.release();
+            await probe.work;
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          });
+          const final = await page.evaluate(() => {
+            const state = (window as any).__kupua_store__.getState();
+            const probe = (window as any).__l37;
+            const container = document.querySelector<HTMLElement>('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+            return { sameTail: state.results === probe.tail, samePositions: state.imagePositions === probe.positions,
+              sameCursors: JSON.stringify([state.startCursor, state.endCursor]) === JSON.stringify([probe.start, probe.end]),
+              sameOffset: state.bufferOffset === probe.offset, sameReset: state._scrollReset.gen === probe.reset,
+              sameScroll: container.scrollTop === probe.scrollTop, tailReached: state.bufferOffset + state.results.length === state.total,
+              loading: state.loading, error: state.error, focus: state.focusedImageId, order: state.params.orderBy };
+          });
+          expect(final).toEqual({ sameTail: true, samePositions: true, sameCursors: true, sameOffset: true,
+            sameReset: true, sameScroll: true, tailReached: true, loading: false, error: null, focus: null, order: "uploadTime" });
+          await kupua.assertPositionsConsistent();
+        } finally {
+          await page.evaluate(async () => { await (window as any).__l37?.cleanup(); });
+        }
+      });
+    }
+  }
+});
 
 /**
  * Shared assertion: after any "return to top" action, the buffer must be

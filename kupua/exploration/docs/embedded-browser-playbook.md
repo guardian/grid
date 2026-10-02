@@ -1,7 +1,7 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** Maintained operating reference; latest live technique check 2026-09-27.
+> **Status:** Maintained operating reference; latest live technique check 2026-10-02.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
@@ -41,6 +41,189 @@ a throttled run.
 ---
 
 ## 1. Session setup
+
+**[V] 2 October 2026, cold-review End interleaving:** pause only the first counted
+adapter read before calling its original method, press the actual End key, and
+wait for a changed seek generation plus a buffer reaching the real tail. Release
+the original read and compare buffer offset, tail reach and scroll-reset generation.
+This confirmed late initial publication replacing End's tail in API mode without
+response substitution. It is a controlled client delay, not a network-in-flight
+claim. A lifecycle counter driven by shared `loading=false` can settle when the
+seek commits even though that initial read remains held; record the gate and
+publisher together rather than treating the counter as independent RPC completion.
+Restore the original own-property descriptor (or delete the wrapper), release held
+work and verify Home/cleanup before stopping. Keep baseline attribution separate:
+gating an already completed adapter response bypasses its earlier abort checks,
+so it alone cannot prove how the old API client handled a genuine pending read.
+
+**[V] 2 October 2026, matched B8 media-api pass:** after the operator's switch,
+verify visible `ApiDataSource`, the running repair action and served client hashes
+again; neither the mode label nor the previously shared tab is sufficient. The
+direct pass-through response gate, real sort/density buttons and thumbnail hit
+targets worked unchanged in the API pass. For focused windows beyond the API
+offset limit, verify the first target under the current query and fetch the
+ordered suffix from its authoritative start cursor, not `offset=bufferOffset`.
+Keep those identities/tuples in page memory; return equality/counts only. Pair
+gated cases with unwrapped natural timing and real Home supersession, and verify
+cleanup before leaving the app in the operator-selected mode. Completed real
+responses held before publication are client-ownership evidence, not proof that
+server work was pending or stopped on browser cancellation.
+
+**[V] 2 October 2026, B8 post-repair direct verification:** compare served raw
+SHA-256 with the workspace and check the running search action, not raw source
+alone. A pass-through `searchAfter` gate can hold an unchanged successful page
+before store publication; record request-called/response-ready separately and
+observe the actual signal through the density buttons. This is a pending client
+search, not proof that the backend is still working. A range-action spy plus the
+density generation establishes saved-branch reach. Pair with no-density and
+unwrapped natural-timing controls, and retain aggregate progress in page memory
+so a later driver timeout cannot erase completed observations. Exact first-page
+membership comes from the real held response; focused windows outside it can be
+checked with bounded target/cursor reads without exposing identities or tuples.
+Restore own-property shape, listeners and actions in `finally`, release held work,
+then separately confirm cleanup before handing the tab back for a mode switch.
+
+**[F] Same pass, a table row's full geometric centre is not a visible hit target.**
+A 3448px row in a 1139px viewport put its centre off-screen and caused bookmark
+setup to time out without changing focus. The corrected full rerun clicked the
+visible thumbnail centre after checking viewport intersection and that
+`elementFromPoint(...).closest('[data-image-id]')` was the elected row. Keep the
+failed setup outside product evidence; do not substitute a store focus mutation
+and call it a real click. `bringToFront()` also did not restore visibility once
+the tab became hidden after completion: check visibility again for the next pass.
+
+**[V] 2 October 2026, targeted continuity gap closure:** for Home cancellation,
+hold a successful first page before store publication, then Back to a deep snapshot;
+compare slider `aria-valuenow` with `[data-scrubber-thumb].style.top`. This exposed
+a deep logical position with thumb stuck at 0. For reload/swipe identity, reload on
+B, wait `listBehindDetailReady`, traverse back to historical A, then cancel a slow
+down/up dismiss before completing one; compare hidden-list geometry with ordinary
+Backspace. Synthetic direct grid/table controls isolated -168.5/-353 px movement.
+
+**[V] Same session, controlled history/persistence checks:** a matching-key phantom
+snapshot with a browser-memory-only missing ID plus same-membership departing sort
+can exercise historical missing-target fallback without server mutation. AI sort
+A-none/B-focus Back/Forward isolates entry focus ownership. For selection debounce,
+DOM-click the hover-revealed tickbox and reload immediately; pair with a control that
+waits until sessionStorage contains the selected ID.
+
+**[V] Same session, density rAF ownership:** gate `requestAnimationFrame`, flush the
+first queued frame, apply newer explicit focus, then flush until density generation
+acknowledges completion. Saved restore retained B as focus but placed old A, moving B
++17 -> -604 px. Attempts to force an ordinary no-saved density mount did not receive
+a density acknowledgment because normal unmount saved an anchor; keep UI reachability
+qualified instead of treating the mounted branch as browser-proven.
+
+**[V] Same session, height-only resize characterization:** keep width fixed, use
+fully visible upper/centre/lower candidates, and compare no-focus, explicit focus,
+selection and distinct focus+selection policies. Record scrollTop plus signed centre,
+full/intersection and ring state through shrink/restore/grow/restore. At 886 -> 650,
+scrollTop stayed fixed and all rows shifted +118 px; lower grid became partial and
+lower table left view regardless of semantic anchor. At 886 -> 1050 rows shifted
+-82 px and remained full. This is Q1 evidence, not a separate decision.
+
+**[V] 2 October 2026, mirrored focus-mode probes:** keep one shared harness for
+natural tiers, geometry, readiness, request gates and transport setup. Let wrappers
+install it with an `expectedMode` plus their own `modulePath`, so reload reinstalls
+the same mode and `prepare` rejects accidental preference drift. Explicit runners
+should differ only where interaction semantics genuinely differ: click/ring,
+focused keys, Enter/F, Home/End, sort/query ownership and selection eligibility.
+Use a static query revision on the wrapper's shared import when HMR is disconnected.
+
+**[V] Same session, Click to Focus is inapplicable on coarse pointers.** The stored
+preference may remain `explicit`, but `_pointerCoarse=true` makes
+`getEffectiveFocusMode()` return `phantom`. Do not manufacture an explicit touch
+matrix by forcing the stored preference; synthetic long-press/swipe/dismiss belongs
+to the phantom evidence. Record this as a product applicability rule, not missing
+hardware coverage.
+
+**[F] Same session, media-api explicit fullscreen under deferred Playwright:** F
+entry reached active native fullscreen, but while the deferred runner owned the page
+the integrated browser did not deliver F/Backspace exit, and competing native-exit
+evaluation also deferred. Reload was required to abort two invalid cells. Direct
+explicit F1/F6 and API phantom P6 completed, but they are not a media explicit pass.
+Skip preview actions in the remaining media explicit matrix and retain a named F6
+tooling gap; do not keep adding exit mechanisms or credit manually interrupted runs.
+
+**[V] 2 October 2026, paired Click-to-Open direct checks:** after an
+operator-controlled server switch, reload the shared page and independently verify
+`ElasticsearchDataSource`, focus mode, pointer, visibility and settled/no-error
+state; a runner's `transport` option is only a label. A one-shot direct search
+failure can be isolated with `/\/es\/(?:[^/]+\/)?_search(?:\?|$)/`, which matches
+raw/PIT and index-prefixed `_search` but leaves `_pit` and `_count` untouched.
+Always remove the route before recovery. The matched direct matrix can share the
+raw helper runner, but ranking-dependent identities/ranks are not pixel-pairable
+with media-api even when client geometry agrees.
+
+**[F] Same session, never return an intentionally held store promise from
+`page.evaluate`.** `await page.evaluate(() => store.extendForward())` adopts the
+promise; if a datasource wrapper holds that response, Playwright waits forever
+before the runner can observe/release its gate. Fire setup work without returning
+it (`page.evaluate(() => { void store.extendForward(); })`) and then wait on an
+independent gate. Exclude cleanup publication from evidence.
+
+**[V] Same session, direct pending traversal closure:** deep-seek before arming;
+record `called` separately from `responseReady`; hold only after the real cursor
+response resolves. At the local edge, grid can open the true tail directly. Table's
+sticky-header correction settled 36 px above mathematical max, leaving the tail
+4 px below view, so open the last visible loaded row, traverse loaded successors
+to the true tail, then pend one more Right. This completed in both views/modes:
+close-before-release canceled navigation, release progressed data, no stale reopen.
+
+**[V] 2 October 2026, retained Click-to-Open diagnostics:** execute Playwright
+driver functions from the helper's `?raw` source, not an imported function's
+`.toString()`. Vite injects module-local `__vite__injectQuery` for variable dynamic
+imports; serializing the function into a second execution context loses that
+binding. A missing probe after reload was a diagnostic failure, not an app defect.
+Wait for a new document (`performance.timeOrigin`) and its app store before
+reinstalling. Use a fresh helper URL query after edits when HMR is disconnected.
+
+**[V] Same session, readiness and invalidation:** query text alone is not sufficient
+setup ownership when `until` or order changes. Compare production canonical search
+fingerprints and require the new generation. Reject errored data setups. Distinguish
+detail identity ready from the underlying list ready: retain early-close observations
+and add a settled control instead of silently replacing the former with a wait.
+Record actual target geometry through buffer fill; raw scroll/origin changes can
+coexist with stationary target geometry. A hidden-tab watch is invalid; the isolated
+selected End/Home pair was rerun visibly. Viewport resizing through Playwright was
+verified at 1130x886 -> 980x886 -> 1130x886; layout/fullscreen drivers using it had
+not yet been executed at the compaction pitstop.
+
+**[V] 1 October 2026, TEST natural-tier placement checks:** confirm page visibility,
+runtime datasource/local flag and thresholds, then compare served raw-source hashes
+for the touched consumers with the workspace. Keep stable image IDs only in page
+memory; return signed DOM-centre offsets, visibility, loaded-state and membership
+booleans. A density-generation acknowledgement precedes the bounded watch window;
+it is not proof that a subsequent setup scroll has stuck. Assert actual scrollTop
+before choosing targets, and select from measured rectangles rather than assuming
+another fully visible row exists. Separate query setup from density setup unless
+their overlap is the intended experiment. Buffer compensation can change raw
+scrollTop/origin without changing final image-relative geometry.
+
+**[V] Same session, cancellation attribution:** a temporary pass-through
+`dataSource.searchAfter` wrapper can observe its AbortSignal and classify whether
+the abort stack includes the density hook, without returning stacks, request
+payloads or identities. Restore the original own-property descriptor (or delete
+the temporary own property), and remove abort listeners in `finally`. Confirm
+the result with actual controls after removing instrumentation. Direct and API
+abort contracts differ; do not infer a second transport's symptom from one run.
+
+**[V] Same session, matched API cancellation check:** after an operator-controlled
+transport switch, reload and verify the new datasource instance plus served-source
+hashes. For sort-then-density timing, read `loading` and the started generation
+between the real button clicks; a missed in-flight window is not a reproduction.
+Do not await `loading=false` as the only oracle when the suspected defect is
+stranded loading. Use a bounded state-change watch and report its duration/limits,
+then recover with the real Home control. The API check used no datasource wrapper;
+the server remained in the operator-selected mode.
+
+**[V] 1 October 2026, local Playwright history characterisation:** the existing
+`switchToTable` helper waits for density-restore generation, but the existing
+density Back/Forward test checks view type only. For per-entry focus checks,
+capture identity before pushing density, choose a different focus in the new
+view, then await both destination view and a changed density-restore generation
+after Back. Compare identities as booleans in assertions so reports do not print
+them. This exercised local indexed mode only, not live data or other tiers.
 
 **[V] 29 September 2026, deployed media-api AI check:** embedded-browser
 `page.on("request"/"response")` can report zero events even when a UI search publishes completed

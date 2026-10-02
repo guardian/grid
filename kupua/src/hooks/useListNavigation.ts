@@ -498,7 +498,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // with fresh data; effect #8 (BufferOffset→0 guard) resets
             // scrollTop in the same render frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
-            if (c.bufferOffset && c.bufferOffset > 0 && c.seek) {
+            if (((c.bufferOffset && c.bufferOffset > 0) ||
+              useSearchStore.getState()._pendingFocusAfterSeek?.initialSearchSuperseded) && c.seek) {
               useSearchStore.setState({
                 _pendingFocusAfterSeek: {
                   edge: "first",

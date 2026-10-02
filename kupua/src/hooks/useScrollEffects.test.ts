@@ -16,6 +16,8 @@ vi.mock("@/hooks/useDataWindow", async (importOriginal) => ({
 }));
 
 import { useSearchStore } from "@/stores/search-store";
+import { ApiDataSource } from "@/dal/api-data-source";
+import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { Image } from "@/types/image";
 import { clearDensityFocusRatio, useScrollEffects, type ScrollGeometry } from "./useScrollEffects";
@@ -262,5 +264,220 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
       frame();
       expect(target.container.scrollTop).toBe(expected);
     });
+  }
+});
+
+describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and saved density", (mode) => {
+  function response(hits: Image[]) {
+    const sortValues = hits.map((image) => [Date.parse(image.uploadTime!), image.id]);
+    return new Response(JSON.stringify(mode === "media-api"
+      ? { data: hits.map((data) => ({ data })), total: hits.length, sortValues }
+      : { hits: { total: { value: hits.length }, hits: hits.map((image, index) => ({
+        _id: image.id, _source: image, sort: sortValues[index],
+      })) } }));
+  }
+
+  it.each(["success", "abort", "failure"].flatMap(outcome =>
+    [false, true].map(settled => ({ outcome, settled })),
+  ))("late $outcome cannot overwrite a successor (settled=$settled)", async ({ outcome, settled }) => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const dataSource = mode === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: 1, tickerCounts: {} });
+    const successorImage = { id: "image-401", uploadTime: "2026-01-02T00:00:00Z" } as Image;
+    const predecessorImage = { id: "image-400", uploadTime: "2026-01-01T00:00:00Z" } as Image;
+    const gates = [0, 1].map(() => {
+      let release!: () => void;
+      const promise = new Promise<void>(resolve => { release = resolve; });
+      return { promise, release };
+    });
+    const signals: Array<AbortSignal | null | undefined> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      const index = signals.length;
+      signals.push(init.signal);
+      await gates[index].promise;
+      if (index === 0 && outcome === "abort") throw new DOMException("Cancelled predecessor", "AbortError");
+      if (index === 0 && outcome === "failure") throw new TypeError("Failed predecessor");
+      return response([index === 0 ? predecessorImage : successorImage]);
+    }));
+    useSearchStore.setState({ dataSource, pitId: null,
+      params: { query: 'keyword:"predecessor"', orderBy: "uploadTime", nonFree: "true" } });
+    const predecessor = useSearchStore.getState().search("image-400");
+    useSearchStore.getState().setParams({ query: 'keyword:"successor"' });
+    const successor = useSearchStore.getState().search("image-401");
+    try {
+      expect(signals).toHaveLength(2);
+      expect(signals[0]?.aborted).toBe(true);
+      expect(signals[1]?.aborted).toBe(false);
+      if (settled) await act(async () => { gates[1].release(); await successor; });
+      const ownedState = useSearchStore.getState();
+      await act(async () => { gates[0].release(); await predecessor; });
+      expect(useSearchStore.getState()).toBe(ownedState);
+      expect(ownedState.loading).toBe(!settled);
+      await act(async () => { gates[1].release(); await successor; });
+      expect(useSearchStore.getState()).toMatchObject({ results: [expect.objectContaining({ id: "image-401" })],
+        total: 1, focusedImageId: "image-401", loading: false, error: null,
+        params: { query: 'keyword:"successor"', orderBy: "uploadTime" } });
+    } finally {
+      await act(async () => { gates.forEach(gate => gate.release()); await Promise.all([predecessor, successor]); });
+    }
+  });
+
+  it.each(["zero", "refused", "unavailable"] as const)("settles a genuine %s initial read without disguising failure", async (outcome) => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const dataSource = mode === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: 0, tickerCounts: {} });
+    const before = useSearchStore.getState().results;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      if (outcome === "unavailable") throw new TypeError("Fixture unavailable");
+      return outcome === "refused" ? new Response("Forbidden", { status: 403 }) : response([]);
+    }));
+    useSearchStore.setState({ dataSource, pitId: null, params: { nonFree: "true" } });
+    await act(async () => { await useSearchStore.getState().search(); });
+    const state = useSearchStore.getState();
+    expect(state.loading).toBe(false);
+    if (outcome === "zero") {
+      expect(state.results).toEqual([]);
+      expect(state.total).toBe(0);
+      expect(state.error).toBeNull();
+      expect(state.imagePositions.size).toBe(0);
+    } else {
+      expect(state.results).toBe(before);
+      expect(state.total).toBe(70000);
+      expect(state.error).not.toBeNull();
+    }
+  });
+
+  it("starts fill on a range signal after density and prevents its cancelled page from publishing", async () => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const dataSource = mode === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: 240, tickerCounts: {} });
+    const pages = vi.spyOn(dataSource, "searchAfter");
+    const gates = [0, 1].map(() => {
+      let release!: () => void;
+      const promise = new Promise<void>(resolve => { release = resolve; });
+      return { promise, release };
+    });
+    const hits = Array.from({ length: 240 }, (_, index) => ({ id: `fill-${index}`,
+      uploadTime: new Date(Date.UTC(2026, 0, 1) + index * 1000).toISOString() }) as Image);
+    const signals: Array<AbortSignal | null | undefined> = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      const index = signals.length;
+      signals.push(init.signal);
+      await gates[index].promise;
+      init.signal?.throwIfAborted();
+      const reply = await response(index === 0 ? hits.slice(0, 200) : hits.slice(200)).json();
+      if (mode === "media-api") reply.total = 240;
+      else reply.hits.total.value = 240;
+      return Response.json(reply);
+    }));
+    useSearchStore.setState({ dataSource, pitId: null, params: { orderBy: "uploadTime", nonFree: "true" } });
+    anchor.viewportId = "image-400";
+    const pending = useSearchStore.getState().search();
+    try {
+      transition();
+      frame();
+      frame();
+      expect(signals[0]?.aborted).toBe(false);
+      await act(async () => { gates[0].release(); await pending; });
+      expect(signals).toHaveLength(2);
+      expect(signals[1]).not.toBe(signals[0]);
+      expect(signals[1]?.aborted).toBe(false);
+      const published = useSearchStore.getState().results;
+      expect(published.map(image => image?.id)).toEqual(hits.slice(0, 200).map(image => image.id));
+      anchor.viewportId = "fill-40";
+      transition(table, grid);
+      frame();
+      frame();
+      expect(signals[1]?.aborted).toBe(true);
+      await act(async () => { gates[1].release(); await pages.mock.results[1].value.catch(() => {}); });
+      expect(useSearchStore.getState().results).toBe(published);
+      expect(useSearchStore.getState()).toMatchObject({ total: 240, bufferOffset: 0, loading: false,
+        error: null, _extendForwardInFlight: false, _extendBackwardInFlight: false });
+    } finally {
+      await act(async () => { gates.forEach(gate => gate.release()); await pending;
+        await pages.mock.results[1]?.value.catch(() => {}); });
+    }
+  });
+
+  for (const direction of ["grid-table", "table-grid"] as const) {
+    for (const focused of [false, true]) {
+      it.each([false, true])(`${direction}, focused=${focused}, density=%s publishes the requested order and settles`, async (changeDensity) => {
+        vi.stubGlobal("scheduler", { yield: async () => {} });
+        const dataSource = mode === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+        const hits = [403, 402, 401, 400].map((index) => ({
+          id: `image-${index}`, uploadTime: `2026-01-0${404 - index}T00:00:00Z`,
+        }) as Image);
+        const sortValues = hits.map((image) => [Date.parse(image.uploadTime!), image.id]);
+        vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+        vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: hits.length, tickerCounts: {} });
+        useSearchStore.setState({ dataSource, pitId: null, focusedImageId: focused ? "image-400" : null,
+          params: { query: 'keyword:"B8 pending"', orderBy: "uploadTime", nonFree: "true" } });
+        anchor.viewportId = "image-400";
+
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => { release = resolve; });
+        let requestSignal: AbortSignal | null | undefined;
+        const requests: Record<string, unknown>[] = [];
+        vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+          requests.push(JSON.parse(init.body as string));
+          requestSignal = init.signal;
+          await new Promise<void>((resolve, reject) => {
+            const cancel = () => reject(new DOMException("Cancelled fixture request", "AbortError"));
+            init.signal?.addEventListener("abort", cancel, { once: true });
+            held.then(() => { init.signal?.removeEventListener("abort", cancel); resolve(); });
+          });
+          init.signal?.throwIfAborted();
+          return new Response(JSON.stringify(mode === "media-api"
+            ? { data: hits.map((data) => ({ data })), total: hits.length, sortValues }
+            : { hits: { total: { value: hits.length }, hits: hits.map((image, index) => ({
+              _id: image.id, _source: image, sort: sortValues[index],
+            })) } }));
+        }));
+
+        const sourceGeometry = direction === "grid-table" ? grid : table;
+        const targetGeometry = direction === "grid-table" ? table : grid;
+        const source = mountDensity(sourceGeometry);
+        frame();
+        frame();
+        source.container.scrollTop = 1000;
+        const abortExtends = vi.spyOn(useSearchStore.getState(), "abortExtends");
+        let pending!: Promise<void>;
+        act(() => { pending = useSearchStore.getState().search(focused ? "image-400" : null, { sortOnly: true }); });
+        try {
+          expect(requests).toHaveLength(1);
+          expect(requestSignal?.aborted).toBe(false);
+          expect(useSearchStore.getState().loading).toBe(true);
+          expect(requests[0]).toMatchObject(mode === "media-api"
+            ? { q: 'keyword:"B8 pending" -is:deleted -usages@status:replaced', orderBy: "uploadTime" }
+            : { sort: [{ uploadTime: "asc" }, { id: "asc" }] });
+          if (changeDensity) {
+            source.unmount();
+            source.container.remove();
+            mountDensity(targetGeometry, true);
+            expect(abortExtends).toHaveBeenCalled();
+            expect(frames.size).toBe(1);
+            frame();
+            frame();
+          } else {
+            expect(abortExtends).not.toHaveBeenCalled();
+          }
+          await act(async () => { release(); await pending; });
+          const state = useSearchStore.getState();
+          expect(state.results.map((image) => image?.id)).toEqual(hits.map((image) => image.id));
+          expect(state).toMatchObject({ total: hits.length, bufferOffset: 0, loading: false, error: null,
+            params: { query: 'keyword:"B8 pending"', orderBy: "uploadTime" },
+            focusedImageId: focused ? "image-400" : null });
+          expect([...state.imagePositions]).toEqual(hits.map((image, index) => [image.id, index]));
+          expect(state.startCursor).toEqual(sortValues[0]);
+          expect(state.endCursor).toEqual(sortValues[sortValues.length - 1]);
+          expect(requestSignal?.aborted).toBe(false);
+        } finally {
+          await act(async () => { release(); await pending; });
+        }
+      });
+    }
   }
 });

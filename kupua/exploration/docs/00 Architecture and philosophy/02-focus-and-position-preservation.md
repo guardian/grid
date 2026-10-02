@@ -9,8 +9,10 @@
 
 > **Policy status:** D8 is under reconsideration. Sections below mix source-based
 > descriptions and intended guarantees; they are not a completed characterisation.
-> L7 will place current behaviour, written-contract conflicts and operator decisions
-> in a single table here. Do not derive new fixes from an unresolved policy.
+> Characterisation, written-contract conflicts, bugs and operator decisions belong
+> in the [working ledger](../not-yet-another-audit-ledger.md), not this architecture
+> guide. Update this guide with settled behaviour after that work is complete.
+> Do not derive new fixes from an unresolved policy.
 
 ## 1. Principle: Preserve Strictly, Relax Deliberately
 
@@ -112,9 +114,17 @@ when the source was there or the result is within a row of an edge.
 ### 3.4 Staleness
 
 - Search generation (`getSearchGeneration`) invalidates search-derived work.
-- `_rangeAbortController` aborts extends and seeks and is replaced by every seek,
-  search, restore and `abortExtends`. The find-focus controller is replaced only
-  by search.
+- `_searchAbortController` owns initial ordinary/AI reads and is replaced only by
+  a newer search. Publication checks its captured signal and search generation.
+  A fresh captured keyboard edge can supersede an ordinary initial read, but
+  automatic viewport refill/density and finite AI ownership stay separate.
+- The pending ordinary initial signal is cleared by identity. A pending edge
+  records whether it invalidated the resident page, so Home rebuilds the
+  current-order first page in that case rather than using its normal resident shortcut.
+- `_rangeAbortController` owns extends, fill, seek and cursor restore, and is
+  replaced by search, seek, restore and `abortExtends`. Density cancels range
+  movement without cancelling the current search. Fill captures its range signal
+  at launch. The existing find-focus controller is replaced only by search.
 - `_seekCooldownUntil` blocks extends after search, seek and backward extend.
 - History subscriptions cancel reset-to-home, pending traversal and delayed sort.
 - One-shot suppression flags are symbol-owned with release functions.

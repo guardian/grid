@@ -17,6 +17,18 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 2 October 2026 - Preserve search and keyboard-edge ownership (B8/L37)
+
+  Initial ordinary/AI reads have separate cancellation from range movement. Density and
+  automatic viewport refill preserve the current search; fresh keyboard-edge intent can
+  supersede an obsolete ordinary initial read. Captured-signal and generation guards prevent
+  late success, cancellation or failure from overwriting the newer navigation.
+
+  Home after pending End rebuilds the current-order first page when initial cancellation
+  invalidated the resident buffer; valid resident Home shortcuts remain unchanged. Fill stays
+  range-owned, while AI ownership, adapter contracts, cooldowns and two-frame restoration
+  remain intact. No request restart, timer delay or general coordinator was added.
+
   ### 1 October 2026 - Density switch no longer drifts after seeking away from focus
 
   With explicit focus on an image that a later seek moved out of the buffer, every density
