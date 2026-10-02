@@ -208,7 +208,7 @@ When('I leave the description or credit empty', async ({ page }) => {
   await editor.metadataField.credit.fill('');
 });
 
-Then('those fields should be marked as required', async ({ page }) => {
+Then('those fields should be marked as mandatory', async ({ page }) => {
   const editor = uploadPage(page);
   await expect(editor.metadataField.description).toHaveJSProperty('required', true);
   await expect(editor.metadataField.credit).toHaveJSProperty('required', true);

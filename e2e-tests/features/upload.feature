@@ -283,10 +283,10 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 1, 30-56, 61-72, 85-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 33, 40-65
 
-  Scenario: Description and credit are required
+  Scenario: Description and credit are mandatory
     Given an uploaded image is shown in the metadata editor
     When I leave the description or credit empty
-    Then those fields should be marked as required
+    Then those fields should be marked as mandatory
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 36, 96
 
   Scenario: The description placeholder gives guidance
