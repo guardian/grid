@@ -723,14 +723,14 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
   await runTasks(
     [
       {
-        title: 'Seed Elasticsearch',
+        title: 'Re-seed Elasticsearch',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedElasticsearch(ELASTICSEARCH_URL, 60_000, reportTo(task));
         },
       },
       {
-        title: 'Seed collections',
+        title: 'Re-seed collections',
         skip: () => !reseed && 'reseeding not requested',
         task: async (_, task) => {
           await seedCollections(reportTo(task));
