@@ -1,0 +1,12 @@
+{
+  "image": null,
+  "initializeCommand": [
+    "/bin/bash",
+    "${localWorkspaceFolder}/.devcontainer/prepare-host-ca.sh",
+    "${localEnv:DEVCONTAINER_CA_NAME:Cisco Umbrella Root CA}"
+  ],
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  }
+}

@@ -41,7 +41,7 @@ forwardPorts:
 #   intellij: []
 
 postCreateCommand:
-  - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
+  - cmd: "docker build --build-arg USE_HOST_CA=true --secret id=host_ca,src=/usr/local/share/ca-certificates/host-root-ca.crt --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
     workingDirectory: "."
   - cmd: 'PATH="$HOME/.local/share/mise/shims:$PATH" npm ci'
     workingDirectory: "./e2e-tests"
