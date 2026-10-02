@@ -183,8 +183,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
               grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
           };
 
-          ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
-
+          ctrl.srefNonfree = () => storage.getJs("isNonFree", true) === 'true' ? 'true' : 'false';
 
       };
       ctrl.searchWithModifiers = searchWithModifiers;

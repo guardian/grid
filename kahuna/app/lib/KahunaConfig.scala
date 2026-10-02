@@ -57,6 +57,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     else s"https://$bucket.s3.$awsRegion.amazonaws.com"
   } ++ telemetryUri
   val fontSources: Set[String] = getStringSet("security.fontSources")
+  val styleSources: Set[String] = getStringSet("security.styleSources")
   val imageSources: Set[String] = getStringSet("security.imageSources")
 
   val scriptsToLoad: List[ScriptToLoad] = getConfigList("scriptsToLoad").map(entry => ScriptToLoad(

@@ -109,7 +109,8 @@ object MappingTest {
       icc = Map("icc1" -> "value1"),
       getty = Map("getty1" -> "value1"),
       colourModel = Some("my-model"),
-      colourModelInformation = Map("colourModel1" -> "value1")
+      colourModelInformation = Map("colourModel1" -> "value1"),
+      c2pa = FileMetadata.C2paAvailable
     ),
     userMetadata = Some(Edits(
       archived = true,

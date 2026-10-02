@@ -5,6 +5,7 @@
 GET     /                                             controllers.KahunaController.index(ignored="")
 GET     /images/$id<[0-9a-z]+>                        controllers.KahunaController.index(id: String)
 GET     /images/$id<[0-9a-z]+>/crop                   controllers.KahunaController.index(id: String)
+GET     /images/$id<[0-9a-z]+>/takedown               controllers.KahunaController.index(id: String)
 GET     /search                                       controllers.KahunaController.index(ignored="")
 GET     /upload                                       controllers.KahunaController.index(ignored="")
 GET     /quotas                                       controllers.KahunaController.quotas

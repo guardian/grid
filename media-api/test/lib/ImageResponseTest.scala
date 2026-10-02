@@ -35,6 +35,13 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
           "alias" -> "captionWriter",
           "label" -> "Caption Writer / Editor",
           "displaySearchHint" -> true
+        ),
+        Map(
+          "elasticsearchPath" -> "fileMetadata.c2pa.isAvailable",
+          "alias" -> "c2paMetadataAvailable",
+          "label" -> "C2PA Metadata Available",
+          "displaySearchHint" -> true,
+          "matchViaExistence" -> true
         )
       )
     ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
@@ -114,14 +121,17 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
     extractedFields.nonEmpty shouldEqual true
-    extractedFields should have length 3
+    // 3 regular fields plus c2paMetadataAvailable, which is always present for matchViaExistence
+    // fields (as an explicit `false` here, since this image has no c2pa data - see below)
+    extractedFields should have length 4
 
     extractedFields.contains("orgProgrammeMaker" -> JsString("xmp programme maker")) shouldEqual true
     extractedFields.contains("auxLens" -> JsString("xmp aux lens")) shouldEqual true
     extractedFields.contains("captionWriter" -> JsString("the editor")) shouldEqual true
+    extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(false)) shouldEqual true
   }
 
-  it("should return empty set of extract configured alias fields from sourcewrapper if fields do not exist in image") {
+  it("should return only the matchViaExistence alias fields (as false) if no other configured alias fields exist in image") {
     val image = createImage(
       id = "test-image-with-no-filemetadata",
       agency,
@@ -132,6 +142,34 @@ class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
 
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
-    extractedFields.isEmpty shouldEqual true
+    extractedFields shouldEqual Seq("c2paMetadataAvailable" -> JsBoolean(false))
+  }
+
+  it("should extract a matchViaExistence alias field as true when the underlying field is present") {
+    val image = createImage(
+      id = "test-image-with-c2pa",
+      agency,
+      fileMetadata = Some(FileMetadata(c2pa = FileMetadata.C2paAvailable))
+    )
+    val json = Json.toJson(image)
+    val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+
+    val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
+
+    extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(true)) shouldEqual true
+  }
+
+  it("should extract a matchViaExistence alias field as false, rather than omitting it, when the underlying field is absent") {
+    val image = createImage(
+      id = "test-image-without-c2pa",
+      agency,
+      fileMetadata = Some(FileMetadata(c2pa = FileMetadata.NoC2PA))
+    )
+    val json = Json.toJson(image)
+    val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
+
+    val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
+
+    extractedFields.contains("c2paMetadataAvailable" -> JsBoolean(false)) shouldEqual true
   }
 }

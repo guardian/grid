@@ -20,6 +20,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
 import lib.querysyntax.Condition
+import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.StreamConverters
 import org.http4s.UriTemplate
@@ -50,6 +51,7 @@ class MediaApi(
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
+                previewContentApi: PreviewContentApi,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3,
                 mediaApiMetrics: MediaApiMetrics,
@@ -118,6 +120,7 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeCapiUsagesLink: Option[Link] = Some(Link("capiUsages", s"${config.rootUri}/capiUsages/{id}")).filter(_ => config.takedownEnabled)
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -135,7 +138,7 @@ class MediaApi(
       Link("syndicate-image", s"${config.rootUri}/images/{id}/{partnerName}/{startPending}/syndicateImage"),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete"),
       Link("usage",           config.usageUri),
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeCapiUsagesLink.toList
     respond(indexData, indexLinks)
   }
 
@@ -180,6 +183,15 @@ class MediaApi(
       case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
       case _ => ImageNotFound(id)
+    }
+  }
+  def getCapiUsages(id: String) = auth.async { _ =>
+    val composerDomain = config.composerDomain
+    for {
+      previewContent <- previewContentApi.findContentUsingImage(id)
+      previewImages = previewContent.map(sr => UsagesInContent.fromSearchResponse(sr, composerDomain))
+    } yield  {
+      respond[List[UsagesInContent]](previewImages)
     }
   }
 
@@ -736,13 +748,19 @@ class MediaApi(
     def performAiSearchAndRespond(params: SearchParams): Future[Result] = {
       params.aiQueryParts match {
         case scala.util.Right(parts) =>
-          val k = Math.min(params.length, config.aiSearchResultLimit)
+          // If we set `k` to `length`, we'll get a different top 5 depending on whether
+          // we ask for just 5 results or 200. This is a problem when fetching
+          // a preview of top AI search results when there are no text search results.
+          // So let's always rank over the full pool, and truncate based on length.
+          val k = config.aiSearchResultLimit
           val searchResultsFuture = parseAiSearchMode(parts) match {
             case SimilarSearch(imageId) => semanticSearchByImage(imageId, k, parts, params)
             case TextSearch => semanticSearchByText(k, parts, params)
           }
 
-          searchResultsFuture.map(aiSearchResponseFromResults)
+          searchResultsFuture
+            .map(results => results.copy(hits = results.hits.take(params.length)))
+            .map(aiSearchResponseFromResults)
 
         // No query to rank by, so we can't return ranked results. Instead return the
         // size of the pool we'd be searching over, so the client can prompt the user to

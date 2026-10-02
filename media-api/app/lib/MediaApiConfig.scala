@@ -26,6 +26,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")
+  val awsRegionName = string("aws.region")
 
   val imageBucket: String = string("s3.image.bucket")
   val thumbBucket: String = string("s3.thumb.bucket")
@@ -56,7 +57,12 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val collectionsUri: String = services.collectionsBaseUri
 
   val requiredMetadata = NonEmptyList("credit", "description", "usageRights")
-
+  val capiPreviewUrl = string("capi.preview.url")
+  val capiPreviewRole = stringOpt("capi.preview.role")
+  val defaultMaxRetries = 4
+  val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
+  val capiApiKey = string("capi.apiKey")
+  val composerDomain = string("composer.domain")
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten
@@ -73,6 +79,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
     configuration.getOptional[Map[String, String]]("usageRestrictions").getOrElse(Map.empty)
 
   val restrictDownload: Boolean = boolean("restrictDownload")
+  val takedownEnabled: Boolean = booleanOpt("image.takedown.enabled").getOrElse(false)
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")
 

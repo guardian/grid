@@ -17,11 +17,25 @@ import scalaz.syntax.std.list._
 
 class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency], config: MediaApiConfig) extends ImageFields with GridLogging {
 
-  def resolveFieldPath(field: String): String = {
-    config.fieldAliasConfigs.find(_.alias == field) match {
-      case Some(x) => x.elasticsearchPath
-      case None => getFieldPath(field)
-    }
+  // Users can search by either the friendly alias (e.g. "c2paMetadataAvailable") or the underlying
+  // Elasticsearch path it resolves to (e.g. "fileMetadata.c2pa.isAvailable"), so field alias configs
+  // are looked up by whichever of the two was typed.
+  private def findFieldAliasConfig(field: String) =
+    config.fieldAliasConfigs.find(fieldAlias => fieldAlias.alias == field || fieldAlias.elasticsearchPath == field)
+
+  def resolveFieldPath(field: String): String =
+    findFieldAliasConfig(field).map(_.elasticsearchPath).getOrElse(getFieldPath(field))
+
+  private def isMatchViaExistence(field: String): Boolean =
+    findFieldAliasConfig(field).exists(_.matchViaExistence)
+
+  private def isBooleanPhrase(value: String): Boolean =
+    value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")
+
+  private def booleanValueOf(value: Value): String = value match {
+    case Words(v) => v
+    case Phrase(v) => v
+    case _ => ""
   }
 
   // For some sad reason, there was no helpful alias for this in the ES library
@@ -52,6 +66,12 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
+      // Some fields are only ever indexed when true (see FieldAlias.matchViaExistence) - for these,
+      // translate a literal true/false value query into an exists/not-exists query so both values
+      // behave intuitively, rather than a literal term match (which could never match "false").
+      case v @ (Words(_) | Phrase(_)) if isMatchViaExistence(field) && isBooleanPhrase(booleanValueOf(v)) =>
+        val existsQ = boolQuery().filter(existsQuery(resolveFieldPath(field)))
+        if (booleanValueOf(v).equalsIgnoreCase("true")) existsQ else boolQuery().not(existsQ)
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) =>
         matchQuery(resolveFieldPath(field), value).operator(Operator.AND)

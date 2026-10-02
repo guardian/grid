@@ -735,12 +735,12 @@
     </dl>
     </div>
 
-    <div ng-if="ctrl.singleImage && !ctrl.isAdditionalMetadataEmpty()" class="image-info__group image-info__group--full-metadata" role="region" aria-label="Additional metadata">
+    <div ng-if="ctrl.singleImage && !ctrl.isAdditionalMetadataEmpty()" class="image-info__group image-info__group--full-metadata image-info__group--expandable" role="region" aria-label="Additional metadata">
         <button class="metadata-reveal"
                 ng-click="ctrl.showMetadataSection('additionalMetadata')"
                 aria-label="{{ctrl.isMetadataSectionHidden('additionalMetadata') ? 'Show' : 'Hide'}} additional metadata section">
-            <span ng-show="ctrl.isMetadataSectionHidden('additionalMetadata')">▸ Show</span>
-            <span ng-hide="ctrl.isMetadataSectionHidden('additionalMetadata')">▾ Hide</span>
+            <span ng-show="ctrl.isMetadataSectionHidden('additionalMetadata')"><gr-icon>chevron_right</gr-icon> Show</span>
+            <span ng-hide="ctrl.isMetadataSectionHidden('additionalMetadata')"><gr-icon>expand_more</gr-icon> Hide</span>
             additional metadata
         </button>
 

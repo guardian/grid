@@ -92,7 +92,9 @@
 
         <div class="result-editor__info-item">
             <a ng-if="ctrl.canUndelete && ctrl.isDeleted"
-               type="button"
+               role="button"
+               tabindex="0"
+               aria-label="Undelete"
                class="gr-archiver-status__button inner-clickable result-editor__status status"
                title="Undelete"
                ng-click="ctrl.undelete()">

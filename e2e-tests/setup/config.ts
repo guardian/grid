@@ -6,17 +6,22 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRequire } from 'module';
 import JSON5 from 'json5';
 import {
   DOMAIN,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
+  ELASTICSEARCH_PORT,
   LOCALSTACK_ALIAS,
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
   SERVICE_PORTS,
-} from './constants';
+} from './constants.ts';
+
+/** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
+const require = createRequire(import.meta.url);
 
 const GENERATE_CONFIG_DIR = path.join(REPO_ROOT, 'dev', 'script', 'generate-config');
 
@@ -53,8 +58,11 @@ function rewriteEndpoints(conf: string): string {
 /**
  * Generate all service config files into `configDir`.
  */
-export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+export function generateServiceConfig(
+  configDir: string,
+  coreStackProps: StackProps,
+  authStackProps: StackProps,
+): void {
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
     fs.readFileSync(path.join(GENERATE_CONFIG_DIR, 'config.json5'), 'utf8'),
@@ -65,18 +73,16 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     DOMAIN,
     EMAIL_DOMAIN,
     AWS_DEFAULT_REGION: REGION,
-    // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so
-    // we don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
-    // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
-    NO_AUTHENTICATION: true,
     coreStackProps,
+    authStackProps,
     es6: {
       ...defaultConfig.es6,
-      url: `http://${ELASTICSEARCH_ALIAS}:9200`,
+      url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
     },
   };
 
   const serviceConfigs: Record<string, string> = ServiceConfig.getCoreConfigs(config);
+  const localAuthConfig: string = ServiceConfig.getUseLocalAuthConfig(config);
 
   fs.mkdirSync(configDir, { recursive: true });
 
@@ -97,6 +103,9 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
 
-    fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
+    fs.writeFileSync(
+      path.join(configDir, `${service}.conf`),
+      rewriteEndpoints(`${conf}\n${localAuthConfig}`),
+    );
   }
 }
