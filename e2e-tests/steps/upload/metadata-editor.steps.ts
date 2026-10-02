@@ -1,16 +1,15 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { DataTable } from 'playwright-bdd';
-import type { Locator } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { openUploadPage } from '../common.steps.ts';
+import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
 import { testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
-async function uploadAndOpenEditor(page: import('@playwright/test').Page): Promise<void> {
+async function uploadAndOpenEditor(page: Page): Promise<void> {
   await uploadPage(page).fileInput.setInputFiles(uniqueImage().path);
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 }
@@ -191,9 +190,7 @@ Then('I should see the metadata values in the appropriate fields', async ({ page
 When('I fill in the description, byline and credit', async ({ page, testContext }) => {
   const editor = uploadPage(page);
   // Capture the debounced save before triggering it so the Then step can await it.
-  testContext.mediaApiResponse = page.waitForResponse(
-    (r) => r.request().method() === 'PUT' && new URL(r.url()).pathname.includes('/metadata'),
-  );
+  testContext.mediaApiResponse = waitForMetadataSave(page);
   await editor.metadataField.description.fill('An e2e description');
   await editor.metadataField.byline.fill('An e2e byline');
   await editor.metadataField.credit.fill('An e2e credit');
@@ -295,18 +292,7 @@ Given(
     await openUploadPage(page, TEST_ACCOUNTS.restricted);
 
     // The fields start disabled until canUserEdit resolves, so prove the API really denies edits.
-    const mediaApiUri = await page.evaluate(
-      () => document.querySelector('link[rel="media-api-uri"]')?.getAttribute('href'),
-    );
-    const mediaId = createHash('sha1').update(readFileSync(image.path)).digest('hex');
-    const response = await page.request.get(`${mediaApiUri}/images/${mediaId}`);
-    expect(response.ok()).toBeTruthy();
-    const { data, links } = (await response.json()) as {
-      data: { uploadedBy: string };
-      links: { rel: string }[];
-    };
-    expect(data.uploadedBy).toBe(TEST_ACCOUNTS.fullAccess);
-    expect(links.map((link) => link.rel)).not.toContain('edits');
+    await expectNoEditPermission(page, image.path, TEST_ACCOUNTS.fullAccess);
   },
 );
 

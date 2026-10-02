@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
-import { TestImage } from '../setup.ts';
+import type { TestImage } from '../setup.ts';
 
 declare global {
   interface Window {
