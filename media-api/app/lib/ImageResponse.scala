@@ -173,7 +173,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3, usageQuota: UsageQuota
     val replaceLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
     val deleteUsagesUri = URI.create(s"${config.usageUri}/usages/media/$id")
-    val deleteUsagesByIdsUri = URI.create(s"${config.usageUri}/usages-by-ids/media/$id")
+    val deleteUsagesByIdsUri = URI.create(s"${config.usageUri}/usages/media/$id/delete")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val hardDeleteAction = Action("hard-delete", hardDeleteUri, "DELETE")
