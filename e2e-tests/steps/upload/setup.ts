@@ -75,22 +75,6 @@ export const failIngest = (page: Page) =>
     },
   );
 
-/** Hold the past-uploads search until the returned function is called. */
-export const holdPastUploads = async (page: Page) => {
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
-    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
-    async (route) => {
-      await released;
-      await route.continue();
-    },
-  );
-  return release;
-};
-
 /**
  * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
  * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection

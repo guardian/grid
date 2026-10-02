@@ -39,10 +39,10 @@ export async function expectNoEditPermission(
 /** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */
 export async function expectInUploadHistory(
   page: Page,
-  mediaApiUrl: string,
   imagePath: string,
   uploadedBy: string,
 ): Promise<void> {
+  const mediaApiUrl = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
   const mediaId = createHash('sha1').update(readFileSync(imagePath)).digest('hex');
   await expect
     .poll(async () => {
@@ -54,3 +54,19 @@ export async function expectInUploadHistory(
     })
     .toContain(mediaId);
 }
+
+/** Hold the past-uploads search until the returned function is called. */
+export const holdPastUploads = async (page: Page) => {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
+    async (route) => {
+      await released;
+      await route.continue();
+    },
+  );
+  return release;
+};
