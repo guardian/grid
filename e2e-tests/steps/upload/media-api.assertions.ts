@@ -35,3 +35,22 @@ export async function expectNoEditPermission(
   expect(data.uploadedBy).toBe(expectedUploader);
   expect(links.map((link) => link.rel)).not.toContain('edits');
 }
+
+/** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */
+export async function expectInUploadHistory(
+  page: Page,
+  mediaApiUrl: string,
+  imagePath: string,
+  uploadedBy: string,
+): Promise<void> {
+  const mediaId = createHash('sha1').update(readFileSync(imagePath)).digest('hex');
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(`${mediaApiUrl}/images`, {
+        params: { q: '', uploadedBy, length: 50 },
+      });
+      const { data } = (await response.json()) as { data: { data: { id: string } }[] };
+      return data.map((image) => image.data.id);
+    })
+    .toContain(mediaId);
+}
