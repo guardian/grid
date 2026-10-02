@@ -39,6 +39,7 @@ ARG NATIVE_PKGS="graphicsmagick imagemagick pngquant libimage-exiftool-perl libg
 FROM ubuntu:22.04 AS toolchain
 
 ARG NATIVE_PKGS
+ARG USE_HOST_CA=false
 
 # mise data/config live at a fixed, predictable location so its shims (and the
 # tools they resolve) are on PATH for any shell, including the entrypoints.
@@ -66,10 +67,16 @@ WORKDIR /build
 # mount, so tarballs are reused across rebuilds and kept out of the image layer.
 COPY .tool-versions ./.tool-versions
 RUN --mount=type=cache,target=/mise/cache \
+    --mount=type=secret,id=host_ca,required=false \
     set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
     curl ca-certificates git xz-utils unzip ${NATIVE_PKGS}; \
+    if [ "$USE_HOST_CA" = true ]; then \
+        test -f /run/secrets/host_ca; \
+        cp /run/secrets/host_ca /usr/local/share/ca-certificates/host-root-ca.crt; \
+        update-ca-certificates; \
+    fi; \
     rm -rf /var/lib/apt/lists/*; \
     curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh; \
     mise install java nodejs sbt; \
