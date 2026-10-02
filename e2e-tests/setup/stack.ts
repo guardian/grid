@@ -5,7 +5,7 @@
  *   3. the CloudFormation core/auth stacks + seeded buckets (provisioning),
  *   4. generated per-service config (reusing dev/script/generate-config),
  *   5. the pre-built `grid-e2e-ci` / `grid-e2e-dev` image running the Grid services,
- *   6. the local OIDC provider on the shared network and host port 9014.
+ * with the local OIDC provider booting alongside steps 2-5 on the shared network and host port 9014.
  *
  * Used by Playwright's global setup/teardown and by `dev.ts`, which runs the same
  * stack interactively outside the test runner.
@@ -472,13 +472,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
 
-  const tasks: ListrTask<BootContext>[] = [
-    {
-      title: 'Create network',
-      task: async (ctx) => {
-        ctx.network = await new Network().start();
-      },
-    },
+  const gridTasks: ListrTask<BootContext>[] = [
     {
       // These three share only the network, and Elasticsearch is by far the slowest to come
       // up, so provisioning LocalStack costs nothing beyond it.
@@ -577,32 +571,54 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           },
         ]),
     },
-    {
-      title: 'Start OIDC provider',
-      task: (_, oidcTask) => {
-        let image: GenericContainer;
+  ];
 
-        return oidcTask.newListr(
+  const tasks: ListrTask<BootContext>[] = [
+    {
+      title: 'Create network',
+      task: async (ctx) => {
+        ctx.network = await new Network().start();
+      },
+    },
+    {
+      // Grid only contacts the OIDC provider at login, so neither waits on the other.
+      title: 'Start services',
+      task: (_, task) =>
+        task.newListr(
           [
             {
-              title: 'Build image',
-              task: async () => {
-                image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
-                  deleteOnExit: false,
-                });
+              title: 'OIDC provider',
+              task: (_, oidcTask) => {
+                let image: GenericContainer;
+
+                return oidcTask.newListr(
+                  [
+                    {
+                      title: 'Build image',
+                      task: async () => {
+                        image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
+                          deleteOnExit: false,
+                        });
+                      },
+                    },
+                    {
+                      title: 'Start container',
+                      task: async (ctx) => {
+                        ctx.containers.push(await oidcContainer(image, ctx.network!).start());
+                      },
+                    },
+                  ],
+                  { concurrent: false },
+                );
               },
             },
             {
-              title: 'Start container',
-              task: async (ctx) => {
-                const oidc = await oidcContainer(image, ctx.network!).start();
-                ctx.containers.push(oidc);
-              },
+              title: 'Grid',
+              task: (_, gridTask) => gridTask.newListr(gridTasks, { concurrent: false }),
             },
           ],
-          { concurrent: false },
-        );
-      },
+          { concurrent: true },
+        ),
     },
     {
       title: 'Start reverse proxy',
