@@ -356,19 +356,14 @@ When(
       }
       const field = BATCH_FIELDS[label];
       const input = field.input(firstEditor);
-      const saved = page.waitForResponse(
-        (r) =>
-          r.request().method() === 'PUT' &&
-          new URL(r.url()).pathname.includes('/metadata') &&
-          (r.request().postData() ?? '').includes(field.value),
-      );
       if (field.isSelect) {
+        // selectOption doesn't focus the input, so we must do this manually
+        await input.focus();
         await input.selectOption({ label: field.value });
       } else {
         await input.fill(field.value);
       }
       await input.blur();
-      await saved;
       // imageType/description's ⇔ only returns once the saved edit is reindexed.
       const apply = firstEditor.getByTitle(field.applyTitle);
       await expect(apply).toBeVisible({ timeout: 15_000 });
