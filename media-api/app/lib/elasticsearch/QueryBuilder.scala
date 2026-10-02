@@ -9,6 +9,7 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 import lib.{ImagePersistenceReasons, MediaApiConfig}
@@ -137,6 +138,12 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         matchNoneQuery()
     }
 
+  private def addMustQueries(query: BoolQuery, queries: Seq[Query]): BoolQuery =
+    queries.foldLeft(query) { (combinedQuery, requiredQuery) => combinedQuery.withMust(requiredQuery) }
+
+  private def addMustNotQueries(query: BoolQuery, queries: Seq[Query]): BoolQuery =
+    queries.foldLeft(query) { (combinedQuery, excludedQuery) => combinedQuery.withNot(excludedQuery) }
+
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery()
     case condList => {
@@ -173,12 +180,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
         case (query, _) => query
       }
 
-      val queryWithNestedAndNormal = listOfNestedToQueries(nested).foldLeft(queryWithNormal) { case (q, nestedQ) => q.withMust(nestedQ) }
+      val queryWithNestedAndNormal = addMustQueries(queryWithNormal, listOfNestedToQueries(nested))
 
       val negativeQueries = negationNested.flatMap(condition => listOfNestedToQueries(List(condition)))
-      negativeQueries.foldLeft(queryWithNestedAndNormal) { (query, negativeQuery) =>
-        query.withNot(negativeQuery)
-      }
+      addMustNotQueries(queryWithNestedAndNormal, negativeQueries)
     }
   }
 
