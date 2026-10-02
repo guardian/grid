@@ -14,12 +14,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 // This test is disabled for now as it doesn't run on our CI environment, because GraphicsMagick is not present...
 @Ignore
-class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
+class MagickImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
 
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
   implicit val logMarker: LogMarker = MarkerMap()
 
-  private val imageOperations = new ImageOperations("")
+  private val imageOperations = new MagickImageOperations("")
 
   describe("identifyColourModel") {
     it("should return RGB for a JPG image with RGB image data and no embedded profile") {
