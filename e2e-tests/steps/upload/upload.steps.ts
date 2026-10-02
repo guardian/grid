@@ -1,6 +1,7 @@
 import type { DataTable } from 'playwright-bdd';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { expectUploadPermission } from './media-api.assertions.ts';
 import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 
 /**
@@ -10,13 +11,8 @@ import { filesToUpload, holdIngest, testImages, uploadPage } from './setup.ts';
 Given('I am permitted to upload images', async ({ page }) => {
   // Kahuna decides whether to show the upload tools by looking for a `loader` link on the
   // media API root, which the API only emits for users holding the upload permission.
-  const mediaApiUri = await page.evaluate(
-    () => document.querySelector('link[rel="media-api-uri"]')?.getAttribute('href'),
-  );
-  const response = await page.request.get(mediaApiUri!);
-  const { links } = (await response.json()) as { links: { rel: string }[] };
-
-  expect(links.map((link) => link.rel)).toContain('loader');
+  const mediaApiUrl = await page.locator('link[rel="media-api-uri"]').getAttribute('href');
+  await expectUploadPermission(page, mediaApiUrl!);
 });
 
 When('the upload page loads', async ({ page }) => {

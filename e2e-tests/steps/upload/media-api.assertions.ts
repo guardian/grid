@@ -1,0 +1,37 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import type { Page, Response } from '@playwright/test';
+import { expect } from '../setup.ts';
+
+export function waitForMetadataSave(page: Page): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PUT' &&
+      new URL(response.url()).pathname.includes('/metadata'),
+  );
+}
+
+export async function expectUploadPermission(page: Page, mediaApiUrl: string): Promise<void> {
+  const response = await page.request.get(mediaApiUrl);
+  const { links } = (await response.json()) as { links: { rel: string }[] };
+
+  expect(links.map((link) => link.rel)).toContain('loader');
+}
+
+export async function expectNoEditPermission(
+  page: Page,
+  mediaApiUrl: string,
+  imagePath: string,
+  expectedUploader: string,
+): Promise<void> {
+  const mediaId = createHash('sha1').update(readFileSync(imagePath)).digest('hex');
+  const response = await page.request.get(`${mediaApiUrl}/images/${mediaId}`);
+  expect(response.ok()).toBeTruthy();
+  const { data, links } = (await response.json()) as {
+    data: { uploadedBy: string };
+    links: { rel: string }[];
+  };
+
+  expect(data.uploadedBy).toBe(expectedUploader);
+  expect(links.map((link) => link.rel)).not.toContain('edits');
+}
