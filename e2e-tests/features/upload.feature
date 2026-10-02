@@ -85,17 +85,17 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 21
 
-  @todo
   Scenario: Preset labels are applied to all uploads
-    When I add a preset label via the 'apply label to all uploads' button
+    When I add a preset label via the "Add label to all uploads" button
+    And I upload more than one image
     Then that label should be applied to all my uploads
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 5-11
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 43, 113-114
 
-  @todo
   Scenario: Preset labels are stored in local storage
     When I add preset label(s) in the prompt
     Then those label(s) should already be selected when I reload the page
+  # Evidence: kahuna/public/js/services/preset-label.js lines 8-28
 
   # ---------------------------------------------------------------------------
   # Select-files uploader (file-uploader.html + file-uploader.js)
@@ -385,14 +385,12 @@ Feature: Uploading images to the Grid
   # Recent uploads (recent/recent-uploads.html + recent-uploads.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Past uploads are loading
     When my past uploads have not yet loaded
     Then I should see a loading message
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 1-2
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 34
 
-  @todo
   Scenario: I have not uploaded anything yet
     Given I have never uploaded an image
     When my past uploads load
@@ -400,7 +398,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 4-5
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-34
 
-  @todo
   Scenario: My past uploads are listed
     Given I have uploaded images before
     When my past uploads load
@@ -409,6 +406,8 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.html lines 7-13
   # Evidence: kahuna/public/js/upload/recent/recent-uploads.js lines 25-51
 
+  # Existing bug: the `image-delete-failure` listener omits the event argument, so it throws
+  # reading `image.data.id` and never alerts.
   @todo
   Scenario: A failed deletion of a past upload is reported
     Given a past uploaded image is listed
