@@ -120,14 +120,14 @@ export const uploadPage = (page: Page) => {
     imageEditorJob: currentUploads
       .getByRole('listitem')
       .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
-    /** Fields inside the required-metadata editor. The credit input has no name, so key on data-cy. */
+    /** Fields inside the required-metadata editor, located by their user-facing labels. */
     metadataField: {
-      description: metadataEditor.locator('textarea[name="description"]'),
-      byline: metadataEditor.locator('input[name="byline"]'),
-      credit: metadataEditor.locator('[data-cy="image-metadata-credit"]'),
-      copyright: metadataEditor.locator('input[name="copyright"]'),
-      imageType: metadataEditor.locator('select[name="imageType"]'),
-      specialInstructions: metadataEditor.locator('input[name="special-instructions"]'),
+      description: metadataEditor.getByLabel('Description', { exact: true }),
+      byline: metadataEditor.getByLabel('Byline', { exact: true }),
+      credit: metadataEditor.getByLabel('Credit', { exact: true }),
+      copyright: metadataEditor.getByLabel('Copyright', { exact: true }),
+      imageType: metadataEditor.getByLabel('Image type'),
+      specialInstructions: metadataEditor.getByLabel('Special Instructions'),
     },
     /* The read-only usage-instructions block is asserted by its visible text in the steps. */
     /* Credit suggestions rendered by gr-datalist as options in a listbox. */
