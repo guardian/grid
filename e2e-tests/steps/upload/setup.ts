@@ -2,7 +2,7 @@ import { statSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
 import type { TestImage } from '../setup.ts';
 
@@ -75,6 +75,22 @@ export const failIngest = (page: Page) =>
     },
   );
 
+/** Hold the past-uploads search until the returned function is called. */
+export const holdPastUploads = async (page: Page) => {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
+    async (route) => {
+      await released;
+      await route.continue();
+    },
+  );
+  return release;
+};
+
 /**
  * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
  * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
@@ -89,16 +105,28 @@ export const failDelete = (page: Page) =>
     },
   );
 
+/** The collections/labels/keywords/photoshoot section of an image-editor. */
+export const grouping = (job: Locator) =>
+  job.getByRole('region', { name: 'Organisation and grouping' });
+
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
+  const pastUploads = page.getByRole('region', { name: 'Your past 50 uploads' });
   const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
 
   return {
     prompt,
     main: page.getByRole('main', { name: 'Image uploads' }),
     currentUploads,
-    pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
+    pastUploads,
+    /** A past upload, labelled by the file name it was uploaded with. */
+    pastUpload: (fileName: string) => pastUploads.getByRole('region', { name: fileName }),
+    addPresetLabelButton: prompt.getByRole('button', { name: 'Add label to all uploads' }),
+    newPresetLabelInput: prompt.getByRole('textbox', { name: 'New preset label' }),
+    savePresetLabelButton: prompt.getByRole('button', { name: 'Save new preset label' }),
+    presetLabel: (label: string) =>
+      prompt.getByRole('link', { name: `Search images by ${label} label` }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
     /* The dropzone overlay is a `position: fixed` region rendered only mid-drag; target it by
        its accessible name (the <dnd-uploader> wrapper has no box of its own). */

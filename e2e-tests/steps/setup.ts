@@ -25,6 +25,10 @@ interface TestContext {
   expectedMetadata?: Record<string, string>;
   /** Field values batch-applied across current uploads, keyed by the feature-table label. */
   batchApplied?: Record<string, string>;
+  /** Labels added in the upload prompt to apply to every upload. */
+  presetLabels?: string[];
+  /** Lets a held past-uploads search through (see holdPastUploads). */
+  releasePastUploads?: () => void;
 }
 
 export interface TestImage {
