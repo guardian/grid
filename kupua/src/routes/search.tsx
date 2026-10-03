@@ -90,6 +90,7 @@ function SearchPage() {
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const bufferLength = useSearchStore((s) => s.results.length);
   const loading = useSearchStore((s) => s.loading);
+  const pendingPosition = useSearchStore((s) => s._browseNavigation?.targetOffset ?? null);
   const searchError = useSearchStore((s) => s.error);
   const searchParams = useSearchStore((s) => s.params);
   const seek = useSearchStore((s) => s.seek);
@@ -210,6 +211,7 @@ function SearchPage() {
       visibleCount={visibleCount}
       bufferLength={bufferLength}
       loading={loading}
+      pendingPosition={pendingPosition}
       onSeek={(offset, interactionId) => seek(offset, "scrubber-seek", interactionId)}
       onBrowsePosition={(offset) => useSearchStore.getState().queueBrowsePosition(offset)}
       getSortLabel={getSortLabel}

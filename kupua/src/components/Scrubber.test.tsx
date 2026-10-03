@@ -146,6 +146,42 @@ describe("B17 scrubber navigation intent", () => {
 describe("Scrubber seek-mode position sync", () => {
   const TRACK_HEIGHT = 600;
 
+  it("B18 follows the current owner through supersession and cancellation", () => {
+    const view = render(<Scrubber {...seekModeProps({ currentPosition: 650000, pendingPosition: 1040000, loading: true })} />);
+    act(() => fireResizeObserver(TRACK_HEIGHT));
+    expect(getThumbTop(view.container)).toBeCloseTo(1040000 / 1299950 * 580);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 649900, pendingPosition: 325000, loading: true })} />);
+    expect(getThumbTop(view.container)).toBeCloseTo(325000 / 1299950 * 580);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 649900, pendingPosition: null, loading: true })} />);
+    expect(getThumbTop(view.container)).toBeCloseTo(649900 / 1299950 * 580);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 0, total: 70000, loading: false })} />);
+    expect(getThumbTop(view.container)).toBe(0);
+  });
+
+  it("B18 keeps the requested thumb position across pending density viewport reports", () => {
+    const onSeek = vi.fn();
+    const view = render(<Scrubber {...seekModeProps({ currentPosition: 650000, onSeek })} />);
+    act(() => fireResizeObserver(TRACK_HEIGHT));
+    const slider = screen.getByRole("slider");
+    Object.defineProperty(slider, "clientHeight", { value: TRACK_HEIGHT });
+    slider.getBoundingClientRect = () => ({ top: 0, left: 0, bottom: 600, right: 20,
+      x: 0, y: 0, width: 20, height: 600, toJSON: () => ({}) });
+    fireEvent.click(slider, { clientY: 480 });
+    expect(onSeek).toHaveBeenCalledOnce();
+    const requestedTop = getThumbTop(view.container);
+    expect(requestedTop).toBeGreaterThan(400);
+    const pendingPosition = onSeek.mock.calls[0][0];
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 650000, pendingPosition, loading: true, onSeek })} />);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 649900, pendingPosition, visibleCount: 20, loading: true, onSeek })} />);
+    expect(getThumbTop(view.container)).toBeCloseTo(requestedTop!, 1);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 649900, pendingPosition, visibleCount: 20, onSeek })} />);
+    expect(getThumbTop(view.container)).toBeCloseTo(requestedTop!, 1);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 1040000, visibleCount: 20, onSeek })} />);
+    expect(getThumbTop(view.container)).toBeCloseTo(1040000 / (1300000 - 20) * 580);
+    view.rerender(<Scrubber {...seekModeProps({ currentPosition: 0, onSeek })} />);
+    expect(getThumbTop(view.container)).toBe(0);
+  });
+
   it("allows thumb to reset to 0 when loading=false (sort change without focus)", async () => {
     // Phase 1: render at a deep position (~50% of 1.3M results).
     const { rerender, container } = render(

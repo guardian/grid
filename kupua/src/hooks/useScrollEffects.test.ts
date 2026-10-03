@@ -860,6 +860,51 @@ describe("B17 indexed browsing before request dispatch", () => {
 });
 
 describe.each(["direct-ES", "media-api"] as const)("B17 %s pending destination across density", (transport) => {
+  it.each(["failure", "newer-Home"] as const)("B18 retires departure presentation after %s", async (outcome) => {
+    const dataSource = new MockDataSource(70000);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const original = dataSource.searchAfter.bind(dataSource);
+    const read = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      if (outcome === "failure") throw new Error("B18 controlled failed seek");
+      args[3]?.throwIfAborted();
+      return original(...args);
+    });
+    useSearchStore.setState({ dataSource, pitId: null });
+    anchor.viewportId = "image-600";
+    const source = mountDensity(grid);
+    frame();
+    frame();
+    source.container.scrollTop = 100 * grid.rowHeight - 280;
+    let pending!: Promise<void>;
+    act(() => { pending = useSearchStore.getState().seek(5000, "scrubber-seek"); });
+    source.unmount();
+    source.container.remove();
+    const target = mountDensity(table, true);
+    try {
+      expect(target.container.scrollTop).toBe(400 * table.rowHeight + table.headerOffset - 280);
+      frame();
+      if (outcome === "newer-Home") await act(async () => { await useSearchStore.getState().seek(0, "keyboard-home"); });
+      await act(async () => { release(); await pending; });
+      frame();
+      frame();
+      expect(useSearchStore.getState()._browseNavigation).toBeNull();
+      expect(useSearchStore.getState().loading).toBe(false);
+      if (outcome === "failure") {
+        expect(target.container.scrollTop).toBe(400 * table.rowHeight + table.headerOffset - 280);
+        expect(useSearchStore.getState().bufferOffset).toBe(200);
+        expect(read).toHaveBeenCalledOnce();
+      } else {
+        expect(read.mock.calls[0][3]?.aborted).toBe(true);
+        expect(target.container.scrollTop).toBe(0);
+        expect(useSearchStore.getState()).toMatchObject({ bufferOffset: 0, error: null });
+      }
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
   it("settles a cancelled maintenance refill without a successor", async () => {
     const dataSource = new MockDataSource(12000);
     let release!: () => void;
@@ -914,13 +959,14 @@ describe.each(["direct-ES", "media-api"] as const)("B17 %s pending destination a
           focusedImageId: context === "none" ? null : "image-400",
           params: { orderBy: "uploadTime", nonFree: "true" } });
         if (context === "selection") useSelectionStore.setState({ selectedIds: new Set(["image-401"]), anchorId: "image-401" });
-        anchor.viewportId = "image-400";
+        anchor.viewportId = "image-600";
         const sourceGeometry = direction === "grid-table" ? grid : table;
         const targetGeometry = direction === "grid-table" ? table : grid;
         const source = mountDensity(sourceGeometry);
         frame();
         frame();
-        source.container.scrollTop = 1000;
+        const departureIndex = isTwoTierFromTotal(total) ? 600 : 400;
+        source.container.scrollTop = Math.floor(departureIndex / sourceGeometry.columns) * sourceGeometry.rowHeight + sourceGeometry.headerOffset - 280;
         let pending!: Promise<void>;
         act(() => { pending = useSearchStore.getState().seek(5000, "scrubber-seek"); });
         try {
@@ -945,6 +991,14 @@ describe.each(["direct-ES", "media-api"] as const)("B17 %s pending destination a
             frame();
           }
           expect(requestSignal?.aborted).toBe(false);
+          if (total === 70000 && (arrival === "after-frames" || arrival === "repeated")) {
+            const departureTop = Math.floor(departureIndex / targetGeometry.columns) * targetGeometry.rowHeight
+              + targetGeometry.headerOffset - target.container.scrollTop;
+            expect.soft(departureTop, "B18 pending departure anchor remains visible").toBeGreaterThanOrEqual(targetGeometry.headerOffset);
+            expect.soft(departureTop + targetGeometry.rowHeight, "B18 pending departure anchor remains visible").toBeLessThanOrEqual(target.container.clientHeight);
+            expect(useSearchStore.getState()).toMatchObject({ loading: true, bufferOffset: 200,
+              _browseNavigation: { phase: "loading", targetOffset: 5000 } });
+          }
           await act(async () => { release(); await pending; });
           frame();
           frame();

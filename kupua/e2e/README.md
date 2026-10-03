@@ -172,7 +172,7 @@ than a production event bus.
 | `local/browse-density.spec.ts` | 32 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; rendered narrowing-query and finite-AI ownership in local memory fixtures; both click modes/views |
 | `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
-| `local/forced-seek.spec.ts` | 9 | Core midpoint/End/Home journey plus eight pending-browse density cases; runs habitually against port 3030 |
+| `local/forced-seek.spec.ts` | 11 | Core midpoint/End/Home journey, eight pending-browse density cases with frame-level departure/thumb assertions, and two no-density controls; runs habitually against port 3030 |
 | `local/focus-preservation.spec.ts` | ~30 | Focus preservation across sort/filter/scrubber/density in explicit and phantom mode |
 
 ### Shared (`e2e/shared/` — imported by maintained test modes)
@@ -180,7 +180,7 @@ than a production event bus.
 | File | What it provides |
 |------|------------------|
 | `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()` |
-| `shared/browse-density.ts` | Real-control pending destination/density checks, including wheel before dispatch; local-ES safety gate, pass-through response hold and API response-shape fixture. Clicks result cells, including No thumbnail placeholders. |
+| `shared/browse-density.ts` | Real-control pending destination/density checks, including wheel before dispatch; local-ES safety gate, pass-through response hold and API response-shape fixture. Seek-tier cases start deep and sample pending departure identity and thumb position across rendered frames. Clicks result cells, including No thumbnail placeholders. |
 
 ### Infrastructure (`e2e/` root)
 

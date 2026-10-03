@@ -161,6 +161,7 @@ interface ScrubberProps {
   bufferLength: number;
   /** Whether a seek/search is in flight. */
   loading: boolean;
+  pendingPosition?: number | null;
   /** Callback to seek to a global offset. */
   onSeek: (globalOffset: number, interactionId?: string) => void;
   onBrowsePosition?: (globalOffset: number) => void;
@@ -200,6 +201,7 @@ export function Scrubber({
   visibleCount,
   bufferLength,
   loading,
+  pendingPosition = null,
   onSeek,
   onBrowsePosition,
   getSortLabel,
@@ -328,39 +330,7 @@ export function Scrubber({
   const getSortLabelRef = useRef(getSortLabel);
   getSortLabelRef.current = getSortLabel;
 
-  // Pending seek position — a ref (not state) that holds the user's intended
-  // global position while a seek is in flight. Blocks the DOM sync effect
-  // from snapping the thumb back to the old currentPosition. Cleared when:
-  // - total changes (new search)
-  // - currentPosition changes and not dragging (seek landed)
-  // - loading true→false and not dragging (operation finished)
-  const pendingSeekPosRef = useRef<number | null>(null);
-  const prevCurrentPosRef = useRef(currentPosition);
-  const prevTotalRef = useRef(total);
-  const prevLoadingRef = useRef(loading);
-
-  // Clear the pending seek when the data catches up.
-  // This runs on every render but only mutates the ref — no re-render cost.
-  if (total !== prevTotalRef.current) {
-    // New search — unconditionally clear
-    pendingSeekPosRef.current = null;
-    prevTotalRef.current = total;
-    prevCurrentPosRef.current = currentPosition;
-    prevLoadingRef.current = loading;
-  } else if (pendingSeekPosRef.current != null && !isDragging) {
-    const positionChanged = currentPosition !== prevCurrentPosRef.current;
-    const loadingFinished = prevLoadingRef.current && !loading;
-    if (positionChanged || loadingFinished) {
-      pendingSeekPosRef.current = null;
-    }
-    prevCurrentPosRef.current = currentPosition;
-    prevTotalRef.current = total;
-    prevLoadingRef.current = loading;
-  } else {
-    prevCurrentPosRef.current = currentPosition;
-    prevTotalRef.current = total;
-    prevLoadingRef.current = loading;
-  }
+  const dragPositionRef = useRef<number | null>(null);
 
   // -------------------------------------------------------------------------
   // Measure track height + wheel forwarding (callback ref)
@@ -415,7 +385,7 @@ export function Scrubber({
   // Thumb geometry
   // -------------------------------------------------------------------------
 
-  const effectivePosition = pendingSeekPosRef.current ?? currentPosition;
+  const effectivePosition = (isDragging ? dragPositionRef.current : pendingPosition) ?? currentPosition;
   const thumbHeight = Math.max(
     MIN_THUMB_HEIGHT,
     trackHeight > 0 ? (thumbVisibleCount / total) * trackHeight : MIN_THUMB_HEIGHT,
@@ -432,8 +402,8 @@ export function Scrubber({
       ? Math.min(maxThumbTop, (effectivePosition / maxPosition) * maxThumbTop)
       : 0;
 
-  // Sync thumb DOM position with React's computed value when no
-  // seek is pending and not dragging. This is the ONLY path that sets
+  // Sync thumb DOM position with the owned destination or visible position
+  // when not dragging. This is the ONLY path that sets
   // thumb.style.top outside of drag/click handlers — the inline JSX
   // style intentionally omits `top` to prevent the React reconciler
   // from fighting direct DOM writes.
@@ -443,7 +413,7 @@ export function Scrubber({
   //
   const prevThumbResetGenRef = useRef(getThumbResetGeneration());
   useEffect(() => {
-    if (isDragging || pendingSeekPosRef.current != null) return;
+    if (isDragging) return;
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
 
     // If resetScrollAndFocusSearch() bumped the thumb-reset generation, this
@@ -612,7 +582,6 @@ export function Scrubber({
         scrollContentTo(pos / maxPos);
       } else {
         const interactionId = beginTraceInteraction("scrubber-seek", { mode: "click", pos });
-        pendingSeekPosRef.current = pos;
         onSeekRef.current(pos, consumeTraceInteraction("scrubber-seek") ?? interactionId);
       }
       flashTooltip();
@@ -646,14 +615,14 @@ export function Scrubber({
       setIsHovered(true); // Show extended ticks during drag (on desktop already true from hover)
 
       // Freeze the thumb at its current visual position during the grab.
-      pendingSeekPosRef.current = currentPosition;
+      dragPositionRef.current = effectivePosition;
 
       // Capture the offset of the pointer within the thumb so dragging
       // doesn't snap the thumb top to the cursor position.
       const thumbRect = thumb.getBoundingClientRect();
       const pointerOffsetInThumb = e.clientY - thumbRect.top;
 
-      let latestPosition = currentPosition;
+      let latestPosition = effectivePosition;
       let hasMoved = false;
 
       // Freeze visible count for the duration of this drag — prevents
@@ -689,7 +658,7 @@ export function Scrubber({
         }
         // Large result set: no seek during drag. Thumb + tooltip show
         // the target position; data loads on pointer up.
-        pendingSeekPosRef.current = pos;
+        dragPositionRef.current = pos;
       };
 
       const onPointerUp = () => {
@@ -705,7 +674,7 @@ export function Scrubber({
           }
         } else {
           // Click-without-drag
-          pendingSeekPosRef.current = null;
+          dragPositionRef.current = null;
           flashTooltip();
         }
         setIsDragging(false);
@@ -718,7 +687,7 @@ export function Scrubber({
       document.addEventListener("pointerup", onPointerUp);
       document.addEventListener("pointercancel", onPointerUp);
     },
-    [currentPosition, total, thumbVisibleCount, isScrollMode, scrollContentTo, flashTooltip],
+    [effectivePosition, total, thumbVisibleCount, isScrollMode, scrollContentTo, flashTooltip],
   );
 
 
@@ -744,7 +713,7 @@ export function Scrubber({
         const tipEl = tooltipRef.current;
         const trackEl = trackRef.current;
         if (tipEl && trackEl) {
-          const pos = pendingSeekPosRef.current ?? currentPosition;
+          const pos = effectivePosition;
           const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
           applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
         }
@@ -800,11 +769,11 @@ export function Scrubber({
           dataLabel: getSortLabelRef.current?.(dataPos) ?? null,
           tickLabel: getSortLabelRef.current?.(tickPos) ?? null,
           // Current tooltip uses scrollPos
-          effectivePosition: pendingSeekPosRef.current ?? currentPosition,
+          effectivePosition,
         };
       }
     },
-    [isDragging, isHoveringTrack, isHovered, currentPosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
+    [isDragging, isHoveringTrack, isHovered, effectivePosition, total, thumbVisibleCount, positionFromY, notifyFirstInteraction],
   );
 
   const handleTrackMouseEnter = useCallback(() => {
@@ -838,12 +807,12 @@ export function Scrubber({
       const tipEl = tooltipRef.current;
       const trackEl = trackRef.current;
       if (tipEl && trackEl && total > 0) {
-        const pos = pendingSeekPosRef.current ?? currentPosition;
+        const pos = effectivePosition;
         const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
         applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
       }
     }
-  }, [tooltipFlashing, total, currentPosition, thumbVisibleCount]);
+  }, [tooltipFlashing, total, effectivePosition, thumbVisibleCount]);
 
   // -------------------------------------------------------------------------
   // Memoised tick marks — only recomputed when the tick data, track

@@ -42,14 +42,19 @@ a throttled run.
 
 ## 1. Session setup
 
-**[V] 3 October 2026, pending-seek presentation:** sample thumb DOM position and
+**[V] 3 October 2026, pending-seek presentation verification:** sample thumb DOM position and
 viewport-intersecting image identities at frame boundaries, separately from store
-buffer publications. One coherent buffer replacement can still hide a third visible
-neighbourhood during density remount. Record loading/browse phase at the actual density
-click, include a no-density control, keep identities in page memory and return aggregate
-start/end/other labels. Natural overlap can suffice without response gates. Remove rAF,
-store, mutation and click observers, delete probe globals and verify real Home cleanup.
-Current finding: ledger C38/B18.
+buffer publications. Capture the actual visible departure anchor, not the bookmark.
+Record loading/browse phase at the density click, pair unchanged-response holds with
+natural overlap and a no-density control, and keep identities in page memory. Return
+aggregate visibility/rollback/publication checks. Both density directions and repeat
+switches pass for the current B18 repair in the media-api seek tier. Remove rAF/store
+observers and wrappers, restore method descriptors, delete probes and verify Home.
+
+**[V] Foreground after reload:** `bringToFront()` can leave this embedded tab hidden.
+Check `document.visibilityState`; ask the operator to foreground it when necessary.
+Do not count background samples as visual evidence. Reload is needed when the local
+Vite websocket is unavailable; matching raw-source hashes alone do not refresh modules.
 
 **[V] Browser-runner snippets must be plain JavaScript.** TypeScript assertions (`as`)
 and typed DOM generics are syntax errors in `run_playwright_code`; repository Playwright

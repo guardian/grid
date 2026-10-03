@@ -339,12 +339,21 @@ publication leaves it eligible. No performance equivalence is implied.
 
 When switching from table to grid (or vice versa):
 
-If browsing has a pending destination, that destination takes precedence over
-departure geometry. The store retains queued/loading/ready navigation independently
+If browsing has a pending destination, that destination owns final placement.
+The store retains queued/loading/ready navigation independently
 of the mounted component. Density cancels obsolete maintenance, not the destination;
 the current view consumes ready placement after its two-frame geometry readiness.
 Indexed views can position skeletons at the requested global coordinate while data
-is pending. Focus and tickbox selection remain separate from this viewport intent.
+is pending. Seek-tier views retain the visible departure anchor through the density
+bridge, tagged with the navigation signal. Mount layout positions that anchor before
+paint using current geometry and checks ownership again at readiness; a ready arrival
+or successor cannot receive that departure restoration. Focus and tickbox selection
+remain separate from this viewport intent.
+
+The Scrubber reads the pending destination from the same browse owner, including its
+ready phase, rather than inferring arrival from visible-range, total or loading changes.
+When ownership ends, ordinary visible-position sync resumes. Pointer dragging retains
+local immediate feedback; it does not own asynchronous navigation completion.
 
 Without a pending destination, the existing settled-density rules apply:
 

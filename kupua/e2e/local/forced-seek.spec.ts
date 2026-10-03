@@ -5,6 +5,12 @@ test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
 
+for (const sourceView of ["grid", "table"] as const) {
+  test(`B18 forced-seek ${sourceView} preserves pending presentation without density`, async ({ kupua }) => {
+    await pendingBrowseAcrossDensity(kupua, "direct-ES", "explicit", sourceView, "pending", false);
+  });
+}
+
 for (const transport of ["direct-ES", "media-api-fixture"] as const) {
   for (const focusMode of ["explicit", "phantom"] as const) {
     for (const sourceView of ["grid", "table"] as const) {

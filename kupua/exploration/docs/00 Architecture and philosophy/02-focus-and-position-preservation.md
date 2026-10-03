@@ -44,7 +44,7 @@ document is the same in every tier.
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
 Anchor precedence depends on the transition; there is no settled universal rule.
-Density currently prefers a resolvable focus, then viewport centre; grid reflow
+Settled density currently prefers a resolvable focus, then viewport centre; grid reflow
 prefers selection, then focus, then viewport centre. History capture prefers
 explicit focus in explicit mode, otherwise viewport centre. L7 must reconcile
 these paths with D5 and the unsettled D8 policy before L15/L20 changes.
@@ -104,6 +104,9 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 Completion means a scroll write, not proof of indefinitely stable geometry.
 Density remount readiness waits two frames. A pending browsing destination
 survives until its ready placement can be consumed by the current view.
+While a seek-tier destination loads, the density bridge retains the visible departure
+anchor under the same navigation signal. The thumb follows the owned destination;
+neither departure restoration nor a viewport report declares navigation complete.
 
 ### 3.3 Placement Values
 
@@ -212,7 +215,8 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   flash. Exact seeks (shallow, position map) target the position directly.
 - Home/End record `_pendingFocusAfterSeek`, owned by that seek; a later seek
   replaces it. This captures permission to move focus, not navigation authority.
-- Density does not save departure geometry over a pending browsing destination.
+- Density carries temporary departure geometry under a pending seek's signal,
+  preserving the visible neighbourhood without replacing the destination.
   Ready placement remains available across remount, waits for the new geometry,
   then consumes its owner once. Deferred viewport notification has its own timer
   lifetime and yields to newer search, navigation, input or unmount.

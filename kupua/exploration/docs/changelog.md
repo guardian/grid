@@ -17,6 +17,22 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 3 October 2026 - Keep pending navigation presentation under its browse owner
+
+  B18/L40 is repaired. Scrubber receives the existing browse destination through the
+  route and follows it through ready placement, replacing its separate inference that
+  position, total or loading changes mean arrival. Pointer dragging retains immediate
+  local feedback without owning asynchronous completion.
+
+  Pending seek-tier density changes capture the visible departure anchor in the
+  existing density bridge, tagged with the navigation signal. Mount layout preserves
+  that neighbourhood before paint using current geometry; ready arrival, cancellation
+  or newer navigation prevents stale departure restoration. Focus/selection policy,
+  indexed positioning, request/cursor logic and two-frame readiness are unchanged.
+  Maintained regressions now inspect pending thumb/content frames as well as final
+  publication, with failing-first coverage and failure/successor controls. No new
+  coordinator, request, restart or timing workaround is introduced.
+
   ### 3 October 2026 - Carry ordinary search continuity with its target
 
   Ordinary user search/filter and sort transitions capture target identity, placement,

@@ -61,6 +61,7 @@ function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: bo
 interface DensityFocusState {
   ratio: number;
   globalIndex: number;
+  navigationSignal?: AbortSignal;
   /** scrollTop of the source density at save time. When 0, the restore
    *  should snap to 0 instead of computing from the ratio — avoids small
    *  pixel offsets from geometry mismatch at the top edge. */
@@ -92,12 +93,12 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
  */
 let _suppressDensityFocusSave: symbol | null = null;
 
-function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number): void {
+function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number, navigationSignal?: AbortSignal): void {
   if (_suppressDensityFocusSave) {
     devLog(`[density-focus SAVE SUPPRESSED] going home — ignoring save`);
     return;
   }
-  _densityFocusSaved = { ratio, globalIndex, sourceScrollTop, sourceMaxScroll };
+  _densityFocusSaved = { ratio, globalIndex, sourceScrollTop, sourceMaxScroll, navigationSignal };
 }
 
 /** Read without clearing — for deferred consumption (survives React Strict Mode double-mount). */
@@ -940,6 +941,30 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // saved state and cleanup cancels the rAF, the second mount sees null and can't
   // restore. Peeking lets the state survive the double-mount; clearDensityFocusRatio()
   // is called inside the rAF callback after the scroll is actually applied.
+  const restoreBrowseDeparture = () => {
+    const saved = peekDensityFocusRatio();
+    const state = useSearchStore.getState();
+    const navigation = state._browseNavigation;
+    const el = parentRef.current;
+    if (!el || !saved?.navigationSignal || saved.navigationSignal.aborted ||
+        navigation?.signal !== saved.navigationSignal || navigation.phase === "ready" ||
+        isTwoTierFromTotal(state.total)) return;
+    const index = saved.globalIndex - state.bufferOffset;
+    if (index < 0 || index >= state.results.length) return;
+    const geometry = geometryRef.current;
+    const columns = geometry.minCellWidth
+      ? Math.max(1, Math.floor(el.clientWidth / geometry.minCellWidth)) : geometry.columns;
+    const rowTop = Math.floor(index / columns) * geometry.rowHeight;
+    const placement = Math.max(geometry.headerOffset,
+      Math.min(el.clientHeight - geometry.rowHeight, saved.ratio * el.clientHeight));
+    el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight,
+      rowTop + geometry.headerOffset - placement));
+  };
+
+  useLayoutEffect(() => {
+    if (!densityReady) restoreBrowseDeparture();
+  });
+
   useLayoutEffect(() => {
     // Clear the suppress flag — it only needs to survive one navigate()
     // cycle (resetToHome sets it before navigate, table unmount is
@@ -999,6 +1024,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const firstFrame = requestAnimationFrame(() => {
         secondFrame = requestAnimationFrame(() => {
           input.stop();
+          if (!input.wasInterrupted()) restoreBrowseDeparture();
           clearDensityFocusRatio();
           const navigation = useSearchStore.getState()._browseNavigation;
           if (navigation && navigation.phase !== "ready" && isTwoTierFromTotal(useSearchStore.getState().total)) {
@@ -1014,6 +1040,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     if (useSearchStore.getState()._browseNavigation) {
       useSearchStore.getState().cancelWindowMaintenance();
+      return finishNavigationMount();
+    }
+
+    if (saved?.navigationSignal) {
+      clearDensityFocusRatio();
       return finishNavigationMount();
     }
 
@@ -1209,15 +1240,17 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     return () => {
       const el = parentRef.current;
       if (!el) return;
-      if (useSearchStore.getState()._browseNavigation) return;
+      const navigation = useSearchStore.getState()._browseNavigation;
+      if (navigation?.phase === "ready") return;
       const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } = useSearchStore.getState();
       const isTT = isTwoTierFromTotal(t);
+      if (navigation && isTT) return;
       const resolve = (id: string | null) => {
         const globalIdx = id ? imagePositions.get(id) ?? -1 : -1;
         const localIdx = globalIdx < 0 ? -1 : toVirtualizerIdx(globalIdx, bo, isTT);
         return localIdx < 0 ? null : { anchorId: id!, globalIdx, localIdx };
       };
-      const anchor = resolve(fid) ?? resolve(getViewportAnchorId());
+      const anchor = navigation ? resolve(getViewportAnchorId()) : resolve(fid) ?? resolve(getViewportAnchorId());
       if (!anchor) return;
       const { anchorId, globalIdx, localIdx } = anchor;
       const geo = geometryRef.current;
@@ -1233,7 +1266,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         const sourceMaxScroll = el.scrollHeight - el.clientHeight;
         // DIAG: density-focus save
         devLog(`[density-focus SAVE] anchor=${anchorId} (focus=${!!fid}) globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} maxScroll=${sourceMaxScroll} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
-        saveDensityFocusRatio(ratio, globalIdx, el.scrollTop, sourceMaxScroll);
+        saveDensityFocusRatio(ratio, globalIdx, el.scrollTop, sourceMaxScroll, navigation?.signal);
       } else {
         devLog(`[density-focus SAVE SKIPPED] pending state exists (Strict Mode guard)`);
       }

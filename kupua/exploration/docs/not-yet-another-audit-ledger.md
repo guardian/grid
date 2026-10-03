@@ -23,7 +23,7 @@ unexercised because VS Code's embedded browser hijacks the key; the operator
 confirmed the same app exits correctly in normal Chrome.
 Runtime verification is bounded, not a certification of every timing, device or
 datasource combination. The characterisation itself approved no product repair
-or consolidation. Separately authorized B8/L37 and B17 repairs are recorded below
+or consolidation. Separately authorized B8/L37, B17 and B18 repairs are recorded below
 with their checkpoint limits. The 3 October operator decisions and first search/sort
 unit below supersede the original blanket D2 policy. Ordinary search/sort continuity
 and B6 are delivered with independent review repairs and final local acceptance gates.
@@ -68,7 +68,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C21](#c21) Change density, then scroll/focus before placement finishes | Saved restoration respects newer wheel/touch/navigation-key input but places the old image after a newer focus choice. The no-saved fallback can overwrite newer wheel scroll in a mounted fixture, but has no current anchor-bearing production caller. | Saved newer-focus overwrite observed in browser; no-saved overwrite mounted-only and call-path audited | No new requirement for the saved-wheel path. Newer focus must own placement; latent fallback need not survive a rewrite. | B4 |
 | [C34](#c34) Change sort, then switch density while the search is loading | Repaired client ownership: density still cancels buffer movement, but the current search publishes its requested membership/order and settles. Historical direct 13,210 -> 0 and API five-second loading witnesses remain below. | Maintained adapter/local checks and bounded live density checks pass; L37 follow-up has full local gates, not a new live/production/performance certification | No new anchor policy: view changes must not manufacture empty results or strand the current search. | B8 and bounded L37 follow-up resolved; other scopes remain |
 | [C37](#c37) Seek far away, then change density before arrival | Repaired: queued/in-flight navigation reaches its destination in the new view and loading settles. Historical departure-buffer and stuck-indicator failures remain below. Settled density anchor policy is unchanged. | Maintained TDD/full local gates and bounded direct/media-api live checks in both click modes/directions; indexed pre-request and deep/map paths covered | A view change carries the pending destination, not departure. No new Q1 choice or stronger seek-accuracy requirement. | B17 / L38 resolved; wider policy and performance remain separate |
-| [C38](#c38) Seek from halfway to another position, then change density while loading | The thumb returns from the requested destination to the start before arriving again. The results also show a third neighbourhood: the beginning of the departure buffer, not the previously visible start. Final arrival and loading settlement succeed. | Observed with actual controls and foreground frame sampling in both density directions on media-api seek tier; no-density control has only start/end | No new choice: pending thumb stays at the destination; visible navigation content permits only start and end, not a third region | B18 / L40; confirmed, unrepaired |
+| [C38](#c38) Seek from halfway to another position, then change density while loading | The thumb follows the pending destination. The new seek-tier view keeps the departure anchor visible until the destination arrives, without changing focus or selection. | Maintained mounted and browser controls, full local gates and bounded media-api seek-tier frame checks pass in both directions; live repeat/no-density/natural controls pass | Existing start/end contract; no new settled-density anchor policy | B18 / L40 resolved; verification limits below |
 
 ### Detail, Selection And History
 
@@ -1309,54 +1309,71 @@ this repair; no general coordinator, backend work or stronger seek exactness was
 
 <a id="c38"></a>
 <a id="b18"></a>
-**B18 / C38 / L40: Pending seek/density changes roll the thumb back and expose a third visible region.**
+**B18 / C38: Pending seek/density presentation. Resolved.**
 
-**Confirmed, unrepaired.** Expected navigation presentation has only start and end:
-the thumb stays at the requested destination, and the content does not visit another
-neighbourhood while loading. Final-arrival correctness alone does not meet this contract.
+**Current contract:** the pending thumb stays at the destination, while content
+preserves the departure neighbourhood until arrival. Final arrival alone is not
+sufficient. Focus and selection remain independent. Settled density, history and
+seek-accuracy policy are unchanged; no next implementation unit is selected.
 
-| Observed media-api seek case | Thumb sequence | Visible content while destination is pending |
-|---|---|---|
-| Halfway -> roughly 80%, grid -> table | 51% -> 80% -> 51% -> 80% | Centre moves 91 images earlier within the departure buffer for about 1.7 seconds, then arrives at end |
-| Halfway -> roughly 25%, table -> grid | 51% -> 25% -> 51% -> 25% | Centre moves 105 images earlier within the departure buffer for about 1.5 seconds, then arrives at end |
-| Roughly 80% -> halfway, no density change | 80% -> 51% | Only start and end neighbourhoods |
+**Implementation:** the [route](../../src/routes/search.tsx) passes the existing
+`_browseNavigation.targetOffset` to [Scrubber](../../src/components/Scrubber.tsx).
+Its thumb and tooltip follow that owner through queued/loading/ready placement;
+only pointer dragging has separate local presentation state. Viewport reports,
+total changes and `loading=false` do not independently declare arrival.
+[Scroll effects](../../src/hooks/useScrollEffects.ts) capture the visible departure
+anchor during a pending seek-tier density unmount, not the focus or selection anchor.
+The existing density bridge carries that geometry with the navigation signal.
+Pre-paint positioning uses current columns/header and viewport bounds, then checks
+ownership again during mount readiness. Ready arrival, cancellation or a successor
+cannot replay the old departure placement. Indexed skeleton positioning, final seek
+placement, two-frame readiness, request/cursor logic and cooldowns remain intact.
 
-Each seek publishes its result buffer once, at end; the third region is a viewport
-error over the unchanged departure buffer, not a third data publication. The same
-thumb DOM node survives throughout. Both density clicks occur while the browse owner
-is loading. No ordinary search/sort continuity record is active in these samples.
+**Separate outcomes:** behaviour repaired is stable pending thumb/content across
+density. Structure simplified is removal of Scrubber's independent arrival inference
+from position/total/loading changes; its existing browse owner now controls pending
+presentation too. The density bridge is reused with explicit ownership. There is no
+new coordinator, request, restart, timer workaround or disabled control.
 
-**Source cause:** [Scrubber](../../src/components/Scrubber.tsx#L351) clears its pending
-destination on any `currentPosition` change, even while the seek is loading. The
-[route](../../src/routes/search.tsx#L138) derives that position from the active view's
-visible range. Meanwhile, [pending-browse unmount](../../src/hooks/useScrollEffects.ts#L1212)
-skips departure capture, and [mount readiness](../../src/hooks/useScrollEffects.ts#L996)
-prepositions only indexed views. A new seek-tier view therefore shows the beginning
-of the old buffer and reports that range, prematurely releasing the thumb's guard.
-Both indicator ownership and departure-viewport presentation need repair; changing
-only the thumb would leave the wrong content visible.
+**Verification (3 October 2026):** TDD and inline cold review complete. The maintained
+[mounted suite](../../src/hooks/useScrollEffects.test.ts) covers both adapters,
+coordinate regimes, density directions, focus modes, bookmark/none/selection states,
+repeat switches and arrival before/between/after mount frames. Pending departure
+visibility is asserted independently of final data, cursors, focus and loading.
+[Scrubber controls](../../src/components/Scrubber.test.tsx) cover viewport reports,
+ready-before-placement, successor targets and cancellation. Failed seek and newer
+Home controls retain the departure or place the successor without stale restoration.
+The [browser composition](../../e2e/shared/browse-density.ts) starts deep and samples
+pending rendered frames; both modes/adapters/directions plus no-density controls pass.
 
-**Attribution and limits:** these thumb/route/data-window implementations are unchanged
-from pre-L8 HEAD `c6c3530d8`; that HEAD also contains the same pending-browse save skip
-and indexed-only mount positioning. Source attribution therefore points to an existing
-B17 presentation gap, not the ordinary search/sort restructuring. The old app was not
-replayed. Runtime proof is bounded to the authorized media-api setup, natural seek tier,
-both density directions, explicit desktop mode and no focus/selection. Served-source
-hashes match the checkout, all sampled frames are foreground, and no responses are held
-or replaced. Direct-ES, indexed/resident, selected/remembered-focus and production-build
-incidence remain unverified. Identities stay in browser memory; probes are removed and
-Home cleanup is verified. No product code or automated test changed.
+| Gate | Current result |
+|---|---|
+| Full unit | 2,586/2,586 across 82 files |
+| TypeScript/Vite build | Passed; existing bundle-size advisory |
+| Focused browser | 10/10, retries disabled |
+| Full local E2E | 354/354, retries disabled, including 11 forced-seek cases |
+| Shared media-api browser | Both held density directions, repeated switches, no-density control and both unwrapped natural-timing directions passed |
 
-**Missing check:** [B17's browser composition](../../e2e/shared/browse-density.ts#L124)
-checks pending ownership and final arrival, not the intervening thumb/content sequence.
-A discriminating regression must hold the destination pending across density and assert
-the thumb remains at end and the start viewport anchor remains visible until end arrives,
-with separate publication/cursor/loading checks and a no-density control.
+**Live limits:** served source hashes matched the checkout; all counted samples were
+foreground. Held checks delayed unchanged completed API reads before publication,
+not server work. Each held seek published once; destination visibility, positions,
+total and loading were checked separately. Natural overlaps also retained departure
+visibility and destination thumb position. This live pass used the natural seek tier
+without focus/selection; other modes/tiers and direct ES have maintained local coverage,
+not a new live certificate. Wrappers, listeners and probes were removed and settled
+Home verified before the operator stopped the app for E2E. No identities or payloads
+were retained. Physical devices, production-build races and performance equivalence
+remain unverified; L36 and other ledger items are unchanged. L40 is closed.
+
+**Operator-only performance follow-up:** existing 2 October post-B8 local-media-api
+jank/perceived records cover normal density and seeking, not this repair's pre-paint
+placement cost. Compare P6 and PP6/PP7 families under matching scenario revision,
+topology and cache conditions. Those runs cannot themselves certify held-request
+composition; no new campaign or speed claim accompanies this repair.
 
 ### Remaining Limits
 
-C38/B18 remains an observed pending-navigation presentation defect despite correct
-final arrival. Physical Safari/touch behavior, unbounded timing
+C38/B18 is resolved within the verification boundary above. Physical Safari/touch behavior, unbounded timing
 interleavings, production-build incidence and performance/jank remain separate
 certification surfaces. VS Code's native Escape key hijack is an environment
 limitation; the operator confirmed normal Chrome works. These limits do not
@@ -2195,4 +2212,3 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
 | L39 | Bug | C10/Q3: without a remembered detail image, AI exit resets to top rather than the operator's desired browsed-centre continuity. Disposition: defer to a named AI-exit unit, not a first ordinary search/sort gate | Start AI without opening detail, browse away from top, exit with a centre image that survives; assert its neighbourhood is preserved without creating explicit focus. Keep remembered-detail precedence and bound any extra lookup cost | Q3; separate implementation scope |
-| L40 | Bug | B18: pending seek plus density change rolls the thumb back and shows the departure buffer's beginning as a third visible neighbourhood. Confirmed, unrepaired; investigation does not authorize implementation | Frame-sample thumb and visible identities across a held pending destination and density remount: thumb must remain at end and content must preserve start until end arrives. Keep coherent publication/loading and no-density controls | C38/B18; existing B17 browse owner |
