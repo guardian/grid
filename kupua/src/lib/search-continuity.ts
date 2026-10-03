@@ -21,7 +21,7 @@ export interface SearchContinuity {
 export interface OwnedSearchContinuity extends SearchContinuity {
   owner: AbortSignal;
   searchGeneration: number;
-  phase: "ready" | "placed" | "retired";
+  phase: "pending" | "ready" | "placed" | "retired";
 }
 
 let captured: { key: string; generation: number; sortOnly: boolean; continuity: SearchContinuity } | null = null;
@@ -36,7 +36,7 @@ export function captureSearchContinuity(
   const selectedAnchor = sortOnly && selection.selectedIds.size > 0 ? selection.anchorId : null;
   const focusTarget = sortOnly && getEffectiveFocusMode() !== "explicit" ? null : state.focusedImageId;
   const targetId = selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
-  const focus = selectedAnchor ? "retain" : focusTarget ? "target" : "none";
+  const focus = selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";
   const index = resolveAnchorVirtIndex(targetId, state.imagePositions, state.bufferOffset, isTwoTierFromTotal(state.total));
   const placement: SearchPlacement = index !== null && container && container.clientHeight > 0
     ? { kind: "ratio", ratio: (Math.floor(index / geometry.columns) * geometry.rowHeight - container.scrollTop) / container.clientHeight }

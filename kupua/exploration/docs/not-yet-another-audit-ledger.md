@@ -6,11 +6,57 @@ operator decisions and actionable bugs, and tracking later cleanup. Follow the
 [focus and position architecture guide](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md)
 is a contract source, not a destination for this investigation's tables or bugs.
 
-Open Items rules: delete resolved or refuted task rows (code-change history belongs
-in the changelog). New tasks need a claim, a check that could disprove it, and a
-kind. Claims remain hypotheses until checked. These rules do not cap the
-characterisation cases or require deleting their evidence and operator decisions
-when a task closes.
+Maintain current state, not an execution diary. Amend owning entries in place;
+record outcome, structural change, final validation and material limits. Do not
+append review-request chronology, patch attempts, service-recovery stories or
+successive test totals. Code-change history belongs in the [changelog](changelog.md).
+Delete resolved/refuted Open Item tasks, but retain their case IDs and concise
+evidence. New tasks need a status, claim, disproof check and kind. A policy decision
+is not a code fix; an old observation is not proof it still reproduces at HEAD.
+
+## Current Status
+
+**Snapshot: 3 October 2026, `e2e319026`.** Ordinary search/sort handoff and B6 are
+delivered (`d9b70c013`); pending seek/density presentation is delivered (`e2e319026`).
+User-initiated AI continuity and L39 are complete within the local verification
+boundary below. Independent cold review, repair re-review and final gates pass.
+No broader history/layout repair or live-system work is authorized by that scope.
+
+Final gates: **382 focused regressions and 2,632 unit tests / 82 files pass;
+TypeScript/Vite passes; all 358 local E2E cases pass with retries disabled,
+including 11 forced-seek cases.** The unit run took 61.64 seconds; E2E took
+5.2 minutes. Net additions are 46 unit cases and four browser cases in existing
+suites; no existing assertions were removed or weakened. Run times are not a paired
+performance comparison. The existing bundle-size advisory and E2E warnings remain.
+Per-unit live/checkpoint limits remain attached to the repair records.
+
+| ID | Status | Issue / responsibility | Remaining task |
+|---|---|---|---|
+| [B1](#b1) | Open | Destination focus lost across density history | L20 |
+| [B2](#b2) | Recheck | Late snap-back failure clearing newer focus was observed before later ownership repairs | L21; do not presume current reproduction or closure |
+| [B3](#b3) | Open | Asynchronous long-press range cancels itself | L22 |
+| [B4](#b4) | Open | Density restore can overwrite newer focus; no-saved fallback is latent | L23 |
+| [B5](#b5) | Accepted policy for query/filter and AI exit | Remembered detail identity may anchor off-screen; not a repair | Layout preference remains Q1/L15 |
+| [B6](#b6) | **Done** | Ordinary selected-sort equality no longer clears retained focus | L24 closed; L8 structural unit complete |
+| [B7](#b7) | Open | Temporary buffer bottom treated as true result bottom | L25 |
+| [B8](#b8) | **Done** | Search survives density; obsolete initial placement cannot replace newer keyboard-edge intent | L26/L37 closed; current discovery ownership is also covered by B17 |
+| [B9](#b9) | Open | Early close after traversed-detail reload misses centring/focus | L27 |
+| [B10](#b10) | Open | Ordinary prepend-to-zero is treated as reset | L28 |
+| [B11](#b11) | Open | Cancelled deep Home strands thumb at top | L13 |
+| [B12](#b12) | Open | Reloaded swipe pre-scroll and final return use different entry identities | L11 |
+| [B13](#b13) | Open | Missing history anchor adopts a departing-context neighbour | L32 |
+| [B14](#b14) | Open | AI sort history leaks newer focus into an unfocused destination | L33; outside the AI adoption unit |
+| [B15](#b15) | Open | Immediate reload loses selection before persistence debounce | L34 |
+| [B16](#b16) | Open | New-images refresh exposes stale top before fresh publication | L35 |
+| [B17](#b17) | **Done** | Pending browsing survives density; discovery, AI membership and completion retain ownership | L38 closed |
+| [B18](#b18) | **Done** | Pending seek/density retains departure content and destination thumb | L40 closed |
+| L39 / [C10](#c10) | **Done** | AI exit without remembered detail identity preserves browsed centre without creating focus | Local verification limits below; no wider repair selected |
+
+**Read by purpose:** [operator choices](#operator-questions), [policy rules](#decisions),
+[next-unit scope](#proposed-sequence), [open work](#open-items),
+[behaviour cases](#l7-characterisation-observable-behaviour),
+[bug evidence](#bugs-and-qualified-suspicions), [coverage](#coverage-and-checks).
+Open means recorded unresolved work, not a new reproduction on every later revision.
 
 ## L7 Characterisation: Observable Behaviour
 
@@ -48,14 +94,14 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C07](#c07) Sort without visible focus or selection | No-focus sorting resets to top. Click-to-open ordinary sorting also ignores a hidden last-viewed bookmark. No new selection or visible focus is created. | Source-established; observed across all tier/view cells and both transports | Keep the existing named sort relaxation; no fresh approval needed. | Established current relaxation |
 | [C08](#c08) Sort while images are ticked, with or without older focus | The selection anchor supplies placement while older focus is retained, including when both identify the same image. Membership remains selected; Clear does not scroll. | Failing-first composed and actual-control equal/distinct checks; independent review repairs and final local gates pass | No decision needed: selection must not destroy retained focus. | B6 resolved; implementation and review evidence below |
 | [C09](#c09) Enter AI search or change its query | A surviving target in the returned images is positioned; an absent target resets to top without the ordinary neighbour search. Selection clears. Results arrive as one finite list. | Source-established; observed from all tier/view source cells in both modes/transports | No new choice about internal fetching; the missing-neighbour difference is retained for assessment. | Evidence/contract qualification |
-| [C10](#c10) Re-sort AI results, then leave AI | Re-sort is immediate and can preserve focus/selection position. Without a target it goes to top but can retain hidden stored focus, unlike ordinary sorting. Leaving AI with no stored focus resets to top; a hidden last-viewed focus can still influence exit. | Source-established; re-sort/exit observed from all tier/view source cells in both modes/transports | Remembered detail image wins, even off-screen. With no remembered image, desired AI exit preserves browsed centre; that improvement is deferred. | Q3 answered; no-bookmark improvement L39 |
+| [C10](#c10) Re-sort AI results, then leave AI | Re-sort remains immediate and preserves eligible focus/selection placement. No-target re-sort resets to top but retains hidden focus. Exit follows remembered focus, otherwise browsed centre without creating focus, using ordinary missing-target fallback. | Independent review, adapter-backed mounted controls and full local gates pass; no new live certification | Remembered detail image wins, even off-screen; L39 adopts centre continuity when absent. | Q3 implemented; L39 resolved |
 
 ### Browsing And Layout
 
 | Case / situation | What happens now | Confidence | Choice if needed | Operator decision |
 |---|---|---|---|---|
 | [C11](#c11) Seek or scroll away from focused A | Focus remains A even after its image leaves the loaded content. Selection remains. Some drags scroll immediately; large-result seeking moves content on release and may land approximately. No Back step is added. | Source-established; observed through paired seek/lifetime matrices | No decision needed: seeking must not silently replace focus. | Established |
-| [C12](#c12) Press arrows/Page keys after seeking away, then choose newer focus | Visible-focus mode returns to the bookmark and applies the key movement. Selection/click-to-open uses scrolling instead. A delayed failed snap-back can clear newer focus chosen while it waited. | Observed in controlled store test for late clear; other paths inferred | No decision needed: obsolete work must not clear a newer choice. | B2 |
+| [C12](#c12) Press arrows/Page keys after seeking away, then choose newer focus | Visible-focus mode returns to the bookmark and applies the key movement. Selection/click-to-open uses scrolling instead. The original late-clear failure needs revalidation after subsequent ownership repairs. | Original controlled store witness; not replayed here after B17 | No decision needed: obsolete work must not clear a newer choice. | B2: Recheck |
 | [C13](#c13) Home/End, including a later opposite-edge action | The view goes to the real result edge. Only active explicit focus moves to first/last; hidden focus and selection stay unchanged. A later owned edge action supersedes the old one. | Source-established; observed in every tier/view, mode policy and transport | No decision needed; do not confuse Home with logo reset. | Established |
 | [C14](#c14) Browse across a loaded-content boundary | The buffer moves while compensation attempts to keep current content stationary. Unloaded positions can show skeleton slots; failed extension can leave a temporary boundary. Focus/selection are not re-elected. | Source-established; paired lifetime matrices observed delayed edges, eviction and prepend | Different fetch/coordinate machinery is not itself a policy choice. | No decision needed |
 | [C15](#c15) Switch grid/table with a visible focused image | Focus stays the same; its row placement is carried across and nudged fully into view at edges. Image centres are not preserved exactly across different row heights. | Source-established; repeated paired density matrices observed current geometry | Preserve focused image placement or visible centre when they differ? | Q1 open |
@@ -111,8 +157,8 @@ were performed to record these answers.
   browsed centre for ordinary query/filter changes and AI exit, even after scrolling
   it off-screen, if it survives. Example: open A, close detail, scroll to B, change a
   filter that retains A -> follow A. With no remembered detail image, the desired
-  AI-exit target is the current browsed centre; today's top reset is a follow-up,
-  not a prerequisite or bundled repair. Existing ordinary no-selection phantom-sort
+  AI-exit target is the current browsed centre; L39 implements this in the completed
+  AI adoption unit. Ordinary no-selection phantom-sort
   clear-and-top behaviour is unchanged. The earlier "only when visible" qualification
   is withdrawn. Density, resize and destination-history policy are not settled by
   this answer. Revisit precedence when UX feedback or an explicit operator decision
@@ -139,13 +185,11 @@ were performed to record these answers.
 
 ### Baseline And Interpretation
 
-Application/test baseline: `1e81eb50027f9a129da9bca1990b5b8bb7550a53`.
-Startup had unstaged edits to this ledger, its prompt, AGENTS and guide 02, plus
-an unrelated nginx template. Those were preserved; application source was clean.
-Temporary tests were removed and `git diff --numstat -- kupua/src kupua/e2e`
-was empty afterward. The initial pass used no live systems. The separately
-authorised browser follow-up below used TEST read-only. No product/configuration/
-dependency change, Git mutation or performance campaign was performed.
+Original L7 application/test baseline: `1e81eb50027f9a129da9bca1990b5b8bb7550a53`,
+1-2 October. Characterisation used source, temporary local probes and separately
+authorized TEST read-only comparisons; probes were removed without product changes.
+Later repairs have their own records. See [Current Status](#current-status) for
+delivered work; original observations do not automatically describe current code.
 
 The current prompt limits archived authority. In particular D6's earlier
 table-driven preference is not approval for a mechanism, and D5/D8 cannot be
@@ -160,7 +204,9 @@ active migration plan. Code establishes current behaviour, not desired policy.
 | `selection-store.anchorId` | Range pivot and sort/grid-reflow target while membership exists. Tick dispatch changes it; remove can elect another selected ID. Detail/preview traversal does not update it. It is not a universal last-interaction bookmark. |
 | `getViewportAnchorId()` | Fresh DOM election among intersecting identified cells, nearest usable centre; table excludes sticky header and ignores horizontal distance. No durable viewport identity is maintained during ordinary scroll. |
 | `_phantomFocusImageId` | One-operation placement identity; Effect 9 consumes it after resolving a loaded index. `_phantomPulseImageId` is separate presentation with a timeout, not focus or completion. |
-| Density / sort captures | Density stores global index, row-top ratio and source DOM extrema across unmount; sort stores a ratio independently of identity. Grid capture stores virtualizer index and ratio. These payloads are not interchangeable. |
+| `_searchContinuity` | Ordinary and user-initiated AI capture bind target, placement and focus treatment to the existing focus owner. AI retains a pending handoff through same-query sorts; accepted publication supplies the resolved identity. Placement is consumed or retired without cancelling discovery. History retains numeric-ratio compatibility. |
+| `_browseNavigation` | Search-scoped queued/loading/ready destination survives density. Maintenance has a separate owner. The scrubber follows this destination; B18 carries owned departure geometry until arrival. |
+| Density / legacy history captures | Density stores global index, row-top ratio and source DOM extrema across unmount; history still uses a numeric sort ratio. Grid capture stores virtualizer index and ratio. These payloads are not interchangeable. |
 | History / cursor cache | History stores one anchor plus `anchorIsPhantom`, offset, ratio and freeze boundary under an entry key. The image cache stores per-image cursor/offset under a search key. Neither is a complete independent focus-and-viewport snapshot. |
 
 Sources: [focus setter and snap-back](../../src/stores/search-store.ts#L2056),
@@ -181,20 +227,25 @@ coordinator would remove them. See [shared effects](../../src/hooks/useScrollEff
 
 ### Case Traces
 
+These retain causal evidence from L7, with adopted changes noted explicitly.
+Original source line references may have moved; use the named implementation.
+Unresolved observations are not a fresh whole-app certification at each revision.
+
 <a id="c01"></a>
-**C01: Query with focus.** [URL producer](../../src/hooks/useUrlSearchSync.ts#L327)
-chooses stored focus for non-sort user navigation; [Effect 7](../../src/hooks/useScrollEffects.ts#L589)
-captures its row-top ratio. [Search](../../src/stores/search-store.ts#L2084)
-captures neighbours and keeps old data while [resolution](../../src/stores/search-store.ts#L1476)
-locates an out-of-page target; final publication uses Effect 9, with full-row and
-DOM-range clamping. First-page success avoids lookup. New search aborts old lookup;
-ordinary focus/scroll is not a universal lookup cancellation. [Existing test](../../e2e/local/focus-preservation.spec.ts#L55)
-asserts retained ID and buffer membership, not signed placement or every intermediate frame.
+**C01: Query with focus.** Current ordinary paths use one pre-passive
+[continuity capture](../../src/lib/search-continuity.ts), consumed by
+[URL sync](../../src/hooks/useUrlSearchSync.ts). [Search](../../src/stores/search-store.ts)
+keeps old data while resolving an out-of-page target, then publishes the resolved
+identity with the coherent window and existing owner. Effect 9 consumes placement
+with full-row/DOM clamping; first-page success avoids lookup. Newer post-publication
+input can retire pending placement without cancelling discovery. The
+[ordinary unit](#ordinary-searchsort-current-state) owns current proof;
+the original focus-preservation assertion alone did not certify every frame.
 
 <a id="c02"></a>
-**C02: Query without focus.** Same pipeline with `phantomOnly` and a fresh
-[viewport election](../../src/hooks/useDataWindow.ts#L144). It clears stored focus,
-positions through the one-shot ID and may pulse. [Existing assertion](../../e2e/local/focus-preservation.spec.ts#L357)
+**C02: Query without focus.** Same owned ordinary pipeline with a fresh
+[viewport election](../../src/hooks/useDataWindow.ts#L144) and no-focus treatment.
+It positions the inferred image without creating explicit focus and may pulse. [Existing assertion](../../e2e/local/focus-preservation.spec.ts#L357)
 checks no focus, visible target and one-frame positional stability; that cannot
 exclude all later work. Grid/table election uses actual usable DOM bounds rather
 than virtual-range midpoint; [table election test](../../e2e/local/focus-preservation.spec.ts#L307)
@@ -216,14 +267,11 @@ operator answer: remembered detail identity may remain the anchor off-screen.
 Layout preference is still Q1; no product change is made by that policy correction.
 
 <a id="c04"></a>
-**C04: Selection then query.** [Selection clear](../../src/hooks/useUrlSearchSync.ts#L216)
-runs before producer choice; non-sort capture likewise ignores selection.
-Older focus is consequently reused. [Selection Clear](../../src/stores/selection-store.ts#L509)
-does not clear it. Guide 02 section 6 says later transitions regain ordinary focus
-semantics, whereas archive T25 prescribes surviving visible neighbourhood for the
-combined query action. The 3 October operator answer accepts following retained
-focus for both explicit Clear and the combined query/filter action. A pending
-range cancels on query change.
+**C04: Selection then query.** Ordinary pre-passive capture chooses retained focus,
+not the selection anchor, for a query/filter change. [Selection clear](../../src/stores/selection-store.ts)
+does not clear that focus. Q4 accepts following it for both explicit Clear and
+query-triggered automatic Clear; this resolves the earlier conflicting archive
+description. A pending range cancels on query change.
 
 <a id="c05"></a>
 **C05: Missing target and failure.** [Neighbour capture](../../src/stores/search-store.ts#L934)
@@ -244,8 +292,8 @@ is [entry-owned and delayed](../../src/components/ImageTable.tsx#L1126); another
 history entry or input reset cancels it. Table preserves `scrollLeft` only in the
 relevant reset branch; Effect 8 or fallback reset can still clear it. Natural
 grid column follows ordering/alignment, not a saved horizontal column.
-Guide 03 section 3's first-page-then-target flash is stale: current search withholds
-the first page while resolving an out-of-page target.
+Current search withholds the first page while resolving an out-of-page target;
+guide 03 was reconciled by the ordinary continuity unit.
 
 <a id="c07"></a>
 **C07: Sort relaxation.** [URL sync](../../src/hooks/useUrlSearchSync.ts#L337)
@@ -256,15 +304,11 @@ offset zero and null focus. It does not assert every screen frame. Archive D02/D
 and current guide 02 section 4 agree on the current no-focus sort relaxation.
 
 <a id="c08"></a>
-**C08: Selection sort (pre-repair trace).** [Producer](../../src/hooks/useUrlSearchSync.ts#L329)
-and [ratio capture](../../src/hooks/useScrollEffects.ts#L632) both choose active
-selection first. Ordinary successful publication preserves a *different* older
-focus through `retainExplicitFocus`. The [options branch](../../src/hooks/useUrlSearchSync.ts#L390)
-sets that flag only when target differs from stored focus; equality yields
-`phantomOnly: true` without retention, and [search start](../../src/stores/search-store.ts#L2135)
-clears it. This is source proof of a guide 05 section 4 violation, not a new
-selection policy. Failure paths can also clear older focus; they need distinct
-failed-read assertions. AI in-memory sort uses a different publication branch.
+**C08: Selection sort. B6 is done.** [Continuity capture](../../src/lib/search-continuity.ts)
+chooses selection for placement and explicitly retains older focus, including
+equal identity. The old producer's inequality condition cleared equal focus before
+arrival; it is removed from adopted ordinary paths. Selection remains selected and
+Clear does not scroll. Failure and AI re-sort retain their existing separate policies.
 
 <a id="c09"></a>
 **C09: AI entry.** [Context transition](../../src/lib/search-params-schema.ts#L77)
@@ -280,13 +324,19 @@ and no ring. This checks client transition/placement only; no backend-ranking
 correctness claim follows.
 
 <a id="c10"></a>
-**C10: AI re-sort/exit.** [URL fast path](../../src/hooks/useUrlSearchSync.ts#L375)
-calls [resortAiBuffer](../../src/stores/search-store.ts#L4044), not `search()`.
-It does not clear focus on its no-target reset. AI exit suppresses viewport
-inference but tests stored focus, not conscious-mode provenance. The original guide
+**C10: AI re-sort/exit.** User-initiated transitions now consume the shared
+pre-passive continuity capture. `resortAiBuffer` replaces the existing focus owner
+without a new search generation or request; pending AI completion adopts its latest
+handoff and supported sort. No-target AI re-sort retains focus. Exit carries image
+identity into ordinary lookup and discards the AI offset hint; without remembered
+focus it follows the browsed centre, without creating focus (L39 repaired locally).
+History keeps its legacy arguments/ratio bridge; B14 is not repaired.
+
+**Original L7 observation:** AI exit suppressed viewport inference but tested stored
+focus, not conscious-mode provenance. The original guide
 02 called top-on-exit a relaxation; archive D09 demanded preservation and its later
 Phase 3A deferred the change for cost. Q3 now accepts remembered-detail precedence
-and records no-bookmark centre preservation as an undelivered follow-up. A sort-only history
+and approved no-bookmark centre preservation, now implemented locally. A sort-only history
 move within AI also uses this fast path, so ordinary-history null-focus assertions
 cannot certify it. In all paired Click-to-Open source cells, opening/closing one AI result created a
 hidden bookmark; relevance re-sort retained it loaded but offscreen while the list
@@ -297,11 +347,11 @@ cleared. This historical runtime result does not certify the later policy decisi
 or implement its no-bookmark improvement.
 
 <a id="c11"></a>
-**C11: Seek.** [Scrubber](../../src/components/Scrubber.tsx#L225) uses native
-scroll for fully resident or indexed data; otherwise it seeks on click/release.
-[Data-window](../../src/hooks/useDataWindow.ts#L366) debounces distant indexed
-scroll for 200 ms with hook/search ownership. [Store seek](../../src/stores/search-store.ts#L2886)
-aborts prior range work but not find-focus work. Shallow/map/end reads target
+**C11: Seek.** [Scrubber](../../src/components/Scrubber.tsx) uses native scroll for
+fully resident/indexed data; otherwise it seeks on click/release. Indexed user
+input now queues a store-owned destination before debounce; only layout refill is
+view-owned. Explicit browsing supersedes obsolete focus resolution and maintenance,
+while density preserves browsing ownership (B17/B18). Shallow/map/end reads target
 exact rank; estimated seeks report the landed rank and use bounded headroom.
 `countBefore` corrects knowledge of the landing, not estimation into exact target
 selection. Map readiness never changes the coordinate predicate. Seek leaves
@@ -314,9 +364,10 @@ uses loaded focus plus delta, skips up to ten placeholders, or queues a delta an
 calls `seekToFocused`. Selection/phantom mode uses scroll-only commands; table
 left/right is horizontal. [Existing E2E](../../e2e/local/focus-preservation.spec.ts#L215)
 checks bookmark retained across distant seek then changed by snap-back. B2's
-controlled late-empty response proves the post-await generation-only cleanup can
-erase a newer focus. Search ownership is not focus ownership. Successful old
-lookup after a newer focus is a related unprobed continuation, not separately reproduced.
+original controlled late-empty response exposed generation-only cleanup clearing
+newer focus. Later B17 work added cancellation/identity guards; L21 must replay the
+original discriminator before claiming either continued failure or verified closure.
+Successful old lookup is a separate continuation, not the original reproduced defect.
 
 <a id="c13"></a>
 **C13: Home/End.** [Capture-phase producer](../../src/hooks/useListNavigation.ts#L459)
@@ -619,10 +670,12 @@ dependence is retained; no new request/placement coordinator is proposed.
 
 ### Bugs And Qualified Suspicions
 
-These records are linked to cases, not a second backlog. No repairs were made.
+Status is explicit in every record and summarized in [Current Status](#current-status).
+Open records retain the last established reproduction and its limits; Done records
+lead with the repaired contract. Only unresolved work belongs in Open Items.
 
 <a id="b1"></a>
-**B1 / C28 / L20: Destination focus lost across density history.** Established-contract
+**B1 / C28 / L20: OPEN. Destination focus lost across density history.** Established-contract
 violation (D8; guide 02 section 2). Expected A or none from the destination; actual
 later B. Reproduce grid A/none -> toggle table -> focus B -> Back. Two local Chromium
 checks failed after density completion, with ElasticsearchDataSource and 10,000
@@ -632,18 +685,19 @@ focus including null, Forward after departure changes, then reload, across equiv
 buffer/seek setups. Confidence high for observed scope, not all sequences.
 
 <a id="b2"></a>
-**B2 / C12: Old snap-back failure clears newer focus.** Current focus ownership
-violation. Reproduce with real store/MockDataSource(10,000): focus fixture rank 50,
+**B2 / C12: RECHECK. Old snap-back failure cleared newer focus.** Original focus
+ownership violation. Reproduce with real store/MockDataSource(10,000): focus fixture rank 50,
 seek 5,000, defer snap-back ID lookup, focus a currently loaded image, resolve old
-lookup empty. Expected newer focus retained; actual null. The missing-target
-cleanup checks only unchanged `sortAroundFocusGeneration`, not current identity
-or request ownership. Existing [snap-back tests](../../src/stores/search-store.test.ts#L2465)
-assert deletion clears the original focus, not that it preserves a successor.
-Confidence high in controlled store execution; trusted-key/click browser sequence
-and late-success variant are not newly certified.
+lookup empty. Expected newer focus retained; original actual result was null.
+That cleanup formerly checked only `sortAroundFocusGeneration`. B17 subsequently
+added cancellation/identity guards, so the old source explanation is not current
+proof of failure. Revalidate this exact sequence alongside the original-deletion
+control in [snap-back tests](../../src/stores/search-store.test.ts) before closing
+L21 or proposing another repair. Trusted-key/click and late-success variants remain
+outside the original controlled witness; no new test was run during ledger cleanup.
 
 <a id="b3"></a>
-**B3 / C33: Long-press range cancels itself when a read is needed.** Established
+**B3 / C33: OPEN. Long-press range cancels itself when a read is needed.** Established
 selection contract violation (guide 05 sections 6/14; no loading-dependent policy).
 Paired real-dispatcher/mounted-hook test: selected first image, target third,
 all metadata available, successful two-ID walk response. Resident expected/actual
@@ -655,7 +709,7 @@ isolate dispatch. Missing assertion is their production composition. No server
 or mobile browser needed for this bounded proof; physical gesture remains untested.
 
 <a id="b4"></a>
-**B4 / C21: Density restore can overwrite newer intent.** Two bounded defects share
+**B4 / C21: OPEN. Density restore can overwrite newer intent.** Two bounded defects share
 the same two-frame ownership gap. First, the no-saved fallback has no input/search
 guards: mounted real hook, 70,000-result fixture, buffer offset 200, focused global
 index 400, table geometry; wheel/set scrollTop 320 between frames, then frame 2
@@ -672,7 +726,7 @@ and offscreen. Density generation acknowledged completion. This is browser-confi
 focus ownership failure, not a regression of the saved-wheel repair. No repair.
 
 <a id="b5"></a>
-**B5 / C03 / former L6: Hidden last-viewed focus becomes a later anchor.** Historical
+**B5 / C03 / former L6: ACCEPTED POLICY for query/filter and AI exit.** Historical
 classification under the former D2 rule. Enter/close detail in phantom mode, scroll elsewhere, then filter:
 hidden stored identity is passed to preservation; resident density/reflow also
 prefers it. Ordinary sort is an explicit counterexample and must not be included
@@ -689,21 +743,17 @@ than preserving L6's blanket prohibition. Keep the evidence, remove the supersed
 repair task, and do not silently clear this remembered identity during restructuring.
 
 <a id="b6"></a>
-**B6 / C08: Sorting a selection whose anchor equals old focus clears focus.**
-Pre-repair source-established breach of guide 05's "focusedImageId is unchanged" rule.
-Focus A -> tick A -> ordinary sort produces `phantomOnly` with retention false;
-search clears focus before results arrive. Distinct focus/anchor is the useful
-control. Cause is the producer's inequality condition, not the geometry consumer.
-No fresh runtime reproduction was performed. A composed URL-producer test should
-assert focus A before/after sort and Clear, while selection/anchor stay unchanged;
-ordinary success, failure and AI re-sort must not be assumed equivalent.
-
-The ordinary-path repair is implemented locally with failing-first composed proof;
-see the implementation and final acceptance records below. Failure and AI policies
-are unchanged. L24 is closed after independent review repairs and final local gates.
+**B6 / C08: DONE. Ordinary selected sorting retains equal focus.** Focus A -> tick
+A -> sort -> Clear now retains focus A, while selected membership/anchor remain
+unchanged during sorting and Clear remains stationary. The pre-repair producer
+used an inequality condition that cleared focus when it equalled the selection
+anchor. The owned ordinary capture now expresses focus retention directly.
+Failing-first composed and actual-control equal/distinct checks passed in both
+click modes; independent review and local acceptance are complete. Failure and AI
+policies are unchanged. L24 is closed; see [the structural outcome](#ordinary-searchsort-current-state).
 
 <a id="b7"></a>
-**B7 / C18: Temporary buffer-bottom snapping changes policy by tier.**
+**B7 / C18: OPEN. Temporary buffer-bottom snapping changes policy by tier.**
 Established D7 violation in the controlled natural-tier browser comparison.
 Both sources were 150 px before their loaded-window bottom, far from real result
 end, with a still-loaded off-screen focus and visible anchor at +98.5 px from
@@ -722,267 +772,51 @@ setup used production `abortExtends()` without response/threshold changes. All s
 and timing interleavings remain outside the claim.
 
 <a id="b8"></a>
-**B8 / C34: Density cancels a current search; adapters produce different failure
-symptoms.** First seen during combined query/density navigation; one stable-view
-refresh returned the missing 13,210 results. A pass-through datasource trace then
-recorded a non-aborted initial request receiving a density-origin abort and resolving
-zero hits, followed by total zero/no error. Original method/own-property shape and
-listeners were restored. A separate uninstrumented actual-UI witness started at
-13,210: click sort direction, confirm loading/new search started, click density;
-the table settled at zero/no error. Expected same non-empty membership under the
-new order/view, not fabricated absence. After the operator switched to TEST
-media-api, source hashes still matched and ApiDataSource was verified. The same
-actual sort-then-density sequence began from 13,210 results/no focus/no selection.
-Throughout a five-second watch it retained total 13,210/200 loaded, `loading=true`,
-no error, and started generation 3 versus settled 2. It remained in that state
-before cleanup; Home recovered normally. The watch does not prove infinite loading.
-Both focus-mode interruption passes reproduced the same API symptom from a stored
-bookmark: after five visible seconds total/loaded data and that bookmark remained,
-the destination was table, and lifecycle stayed started 32/settled 31 with
-`loading=true`; Home again recovered. Phantom had no ring; explicit retained one.
-This confirms focus mode does not avoid B8; the API abort event itself was still not directly instrumented.
-Current Vite/development Strict Mode client; production-build incidence remains
-unverified. This required client ownership/adapter-contract investigation, not a
-new anchor decision or backend-specific preservation behaviour. No fix was made
-during the characterisation.
+**B8 / C34: DONE. Search survives density; L37 keyboard-edge supersession is also done.**
 
-**2 October 2026: Bounded B8 repair delivered.** Actual HEAD matched the recorded
-baseline; prior documentation edits and both retained probes were preserved.
-The maintained composed regression first failed in all eight density cases
-(direct empty publication, API stale buffer), while all eight equally delayed
-no-density controls and 18 original geometry/input tests passed. Saved state was
-produced by real unmount and consumed through Strict Mode remount: an
-`abortExtends()` spy and the queued two-frame chain proved the saved branch ran.
+**Current contract:** density cancels obsolete window maintenance without cancelling
+the current search. Newer explicit navigation may retire initial placement; late
+first-page completion must not replace a newer End landing. Home must not reuse a
+resident page from the old order, while valid resident Home remains fetch-free.
+Current query-discovery handoff is described under [B17](#b17), not the original
+initial-read-abort mechanism.
 
-[`search()`](../../src/stores/search-store.ts#L2087) now captures a dedicated
-`_searchAbortController` for initial ordinary/AI reads. A newer search
-aborts it, while also cancelling prior ranges and focus resolution. The L37
-follow-up below also allows fresh keyboard-edge intent to supersede an ordinary
-initial read, without giving density or viewport refill that permission. The initial
-success/error guards retain generation checks and also check that captured signal.
-`abortExtends()` still aborts/replaces the range controller, clears range flags
-and applies the existing cooldown. Fill captures the current range signal when
-it starts, not the first-page signal: density before first-page arrival cannot
-poison fill, and density during fill still prevents late append/publication.
-An extension-specific cancellation path was rejected because density also protects
-seek/restore buffer movement; it would require rerouting those consumers rather
-than separating the initial search's actual lifetime. No adapter normalization,
-search restart, delay, disabled control, extra fetch or forced loading settlement
-was introduced.
+**Structural result:** initial search and range maintenance have separate owners;
+captured signals and search generation guard publication. Fill captures its range
+signal at launch, so density before initial arrival does not poison fill and density
+during fill still prevents obsolete append. No adapter normalization, restarted
+search, disabled control, timer workaround or unconditional loading reset is needed.
 
-| Operation | Signal owner / legitimate superseder | Publication guard / busy-state owner |
-|---|---|---|
-| Initial ordinary / AI read | Search controller / newer `search()`; fresh keyboard edge can supersede an ordinary initial read | Captured signal + generation / accepted search completion or superseding edge; focused ordinary resolution retains its separate path |
-| Extend / fill / small-result top-up | Range controller / density, seek, restore or search | Captured range signal (top-up also total/PIT generation) / existing extend flags |
-| Seek / cursor restore | Range controller / newer range operation or search | Captured signal; restore also checks search generation / existing seek/restore loading semantics |
-| Focus lookup and centred load | Existing find-focus controller plus timeout / newer search or timeout | Combined signal / focused publication or first-page fallback |
+**Regression evidence:** sort, observe pending search, then change density. Before
+repair, direct ES published 13,210 -> 0 without error; API retained its old buffer
+and remained loading through a five-second watch. Density-origin cancellation was
+instrumented on direct ES; the historical API abort cause was source-supported,
+not instrumented. The L37 discriminator holds an initial sort read, completes End,
+then releases the old read: the old API client replaced its 13,008-offset tail with
+page one. These are pre-repair observations, not current failures or infinite-wait
+claims. Loading-derived lifecycle counters alone do not prove request completion.
 
-Retained proof: [mounted density and transport controls](../../src/hooks/useScrollEffects.test.ts#L270),
-[AI range/supersession controls](../../src/stores/search-store.test.ts#L3864),
-[API-mode controls](../../src/stores/search-store-api-mode.test.ts#L1152), and
-[actual sort/density browser controls](../../e2e/local/buffer-corruption.spec.ts#L42).
-Both density directions and focused/viewport saved setups are covered in the
-mounted suite. Real direct/API adapters over mocked fetch cover zero success,
-HTTP refusal, network failure and late predecessor success/empty cancellation/
-rejection against pending or settled successors, without overwriting data, focus,
-error or loading. Existing extend/prepend, fill/top-up, find-focus, PIT, restore,
-AI, Strict Mode, two-frame geometry and newer-input controls remain required.
-The former AI test that treated `abortExtends()` as search cancellation was
-explicitly revised to require owned completion; genuine newer-query cancellation
-still asserts an aborted signal and unchanged successor publication. Optional AI
-absence/enrichment handling was not redesigned.
+**Maintained checks:** [mounted density](../../src/hooks/useScrollEffects.test.ts),
+[keyboard producers/adapters](../../src/hooks/useListNavigation.test.ts),
+[AI/store](../../src/stores/search-store.test.ts),
+[API mode](../../src/stores/search-store-api-mode.test.ts) and
+[actual-control browser cases](../../e2e/local/buffer-corruption.spec.ts).
+They cover both density directions/click modes, no-density controls, Strict Mode,
+late success/abort/rejection, fill cancellation, automatic-refill non-supersession
+and current-order Home. Local unit/build/full E2E acceptance passed; latest totals
+are in [Current Status](#current-status). L26 and L37 are closed.
 
-**Verification and limits:** unsandboxed Node 22.12.0 on macOS: focused 470/470;
-full unit 2235/2235 across 82 files; TypeScript/Vite build passed (bundle-size
-advisory); full local Chromium E2E 307/307 including forced-seek. Eight B8 browser
-cases use actual controls, request-start/hold/release gates, exact IDs/order,
-cursors, total/buffer, no empty publication and owned lifecycle settlement, in
-both desktop focus modes and density directions. Their no-focus starting corpus
-is natural local indexed data; API cases inject the real `ApiDataSource` and map
-local ES reads through a stand-in transport. This is not live media-api/Scala
-certification or zero-ES-construction proof. Mounted tests also cover old seek
-geometry and new small-result publication; the full gates retain other tiers.
-At local closure, no live check, production-bundle race check, physical-device
-check or performance campaign had run; the direct continuation below extends only
-the named live client paths. Historical five-second/API-abort qualifications stand;
-browser cancellation never proves server work stopped. L26 is removed because
-its client scope and required gates are resolved. Q1-Q7 and other bugs remain open.
-
-**2 October 2026: Operator-authorized live direct continuation.** The shared
-fine-pointer desktop tab reported `ElasticsearchDataSource`, non-local ES and a
-visible document. Served raw hashes for search-store, useScrollEffects and the ES
-adapter matched the workspace; the running search action also contained the
-dedicated controller. This verifies the client, not the proxy's backend stage or
-server binary. The pinned Dublin corpus had 13,205 matches during this pass; the
-original 13,210 witnesses above remain historical, not immutable count assertions.
-
-Eight gated cases used the actual sort/density buttons: grid/table in both
-directions, explicit/phantom mode, and no focus versus a real clicked bookmark
-(phantom bookmark established by opening and closing detail). A ninth equally
-gated no-density control passed. The pass-through datasource gate held an
-unchanged successful response before store publication, not a replacement page
-or proof that server work remained pending. Every density case executed the saved
-branch (`abortExtends()` twice under development Strict Mode), while the captured
-search signal remained non-aborted with no abort event. Release published the
-requested query/order, coherent total/buffer, exact membership/cursors and owned
-lifecycle completion, without empty publication. Explicit bookmarks survived and
-were loaded in the final centred window; ordinary phantom sort retained its
-existing clear-and-top relaxation. First-page membership was compared with the
-held real response; out-of-first-page focused landings used bounded target/cursor
-reads to verify the actual ordered suffix and authoritative cursors. No image IDs,
-tuples, response bodies, credentials or signed URLs were written to project files.
-
-Four further unwrapped natural-timing cases passed (both directions/modes,
-no-focus): loading/new generation was observed between the actual button clicks,
-then the settled buffer matched a fresh bounded read in the requested order.
-One real Home supersession control also passed: Home aborted the predecessor
-signal, settled before old release, and late successful completion changed none
-of its membership, params, total, focus, error or loading. These are bounded
-correctness checks, not a timing campaign or a whole-tier/device certification.
-
-An initial table bookmark setup timed out because its full row centre was outside
-the viewport; that driver sample is not counted. Visible thumbnail hit-testing
-fixed setup without a product change, and the complete nine-case gated rerun
-passed. All sampled experiment outcomes were visible. Cleanup removed wrappers,
-listeners, held work and page-only identity/aggregate probes, and left Home/default
-grid with no loading/error/focus/selection. The page subsequently became hidden;
-`bringToFront()` did not itself restore visibility, so foreground must be checked
-again before the next pass. At the end of this direct pass, the operator's live
-media-api switch/check was still pending; the continuation below is separate.
-No production-bundle, physical-device or performance evidence follows.
-
-**2 October 2026: Operator-authorized live media-api continuation.** After the
-operator-controlled switch, the same shared tab independently reported visible
-fine-pointer `ApiDataSource`, no residual probe and the current running search
-action. Served raw hashes for search-store, useScrollEffects, ApiDataSource and
-the API request adapter exactly matched the workspace. No fixture datasource,
-response substitution, server lifecycle/configuration change or test runner was
-used in this pass; requests went through the app's real API datasource. These
-checks do not identify the backend stage/binary or certify infrastructure ingress.
-
-The same nine gated cases passed: eight grid/table density cases across both
-directions, both desktop focus modes and clicked-bookmark/no-focus setups, plus
-the no-density control. Each saved-density path cancelled ranges twice while
-the current search signal remained non-aborted with zero abort events. After
-release, exact membership, authoritative cursors, requested query/order,
-total/buffer/positions, expected focus state and owned lifecycle settlement all
-passed with no empty publication. The pinned corpus again had 13,205 matches;
-explicit focused windows landed at offset 13,103/13,104 with 102/101 hits, matching
-the bounded direct observations. Identity/cursor checks stayed in page memory;
-focused API windows were checked by bounded target/cursor reads, not invalid
-deep offset reads. This is independent per-transport consistency, not an immutable
-cross-mode snapshot or exact pixel-placement comparison.
-
-Four unwrapped natural-timing cases also passed, observing loading/new generation
-between the real sort and density clicks and validating the final ordered buffer.
-The real Home supersession control aborted the old signal, settled its successor
-before old release, and late success changed no successor membership, params,
-total, focus, error or loading. All sampled outcomes were visible. Cleanup restored
-prototype/own-property shape and range actions, removed listeners and held work,
-deleted identity/aggregate probes, and verified settled default grid with no
-error/focus/selection, leaving the app in the operator-selected media-api mode.
-
-This extends B8's live client evidence to both transports without changing the
-repair or its local gate results. The response gate still holds completed real
-read results before client publication; it is not proof of server cancellation
-or a network-in-flight guarantee. Production-bundle incidence, unbounded timing,
-other live tiers/devices and performance equivalence remain unverified. Q1-Q7,
-other ledger cases and the proposed search/sort milestone are not resolved or
-authorized by these passes.
-
-**Cold review, before L37 follow-up.** The operator-requested
-independent read-only reviewer found one medium-severity ownership issue; the
-coordinator then confirmed it in a bounded live API control. The
-[End producer](../../src/hooks/useListNavigation.ts) was reachable while
-loading and started a seek without advancing search generation. Seek then replaced
-the range controller, not the initial search signal. The initial publication guard
-therefore accepted late first-page data after the newer End seek, replaced the tail
-with page one and emitted a top reset.
-
-Controlled sequence: no-focus ordinary sort with its counted first adapter read
-paused before executing, real End key, complete the independent End seek, then
-release the unchanged original adapter read. On live ApiDataSource, End reached
-offset 13,008 with 197 hits through the true 13,205-result tail; late initial
-completion replaced it with offset 0 / 200 hits and scrollTop 0. Search generation
-stayed 32 and the initial signal remained non-aborted. The DEV lifecycle counter
-had already reported settled while the initial read was still held: its
-[loading-derived subscriber](../../src/stores/search-store.ts#L4354) is not an
-independent proof that this initial work completed. All sampled states were
-visible. This is a controlled client-delay reproduction, not a network timing
-measurement or a claim about server cancellation. Probe cleanup and Home/default
-grid were verified afterward; no product fix or new test was applied during review.
-
-Read-only HEAD comparison confirmed that the old initial request captured the
-range signal, which End's seek aborted; API cancellation propagated rather than
-publishing the first page. The split newly permits this API overlap. Direct had a
-different pre-existing empty-on-abort publication defect, so the whole transport-
-independent problem is not described as new. Baseline attribution is source-backed,
-not a replay of the old live client. The tests at review time covered true newer-
-search generation supersession but not a newer same-generation End producer;
-their green results and passing density witnesses did not disprove L37.
-
-The reviewer supported the bounded repair/revisable-policy direction, but the
-related range/search overlap held acceptance until the operator approved a bounded
-follow-up. That approval did not authorize a universal epoch, disabled controls,
-server changes, a Q1-Q7 freeze or the structural slice.
-
-**L37 follow-up resolved (2 October 2026).** The existing captured keyboard-edge
-record now identifies explicit navigation before its seek has a signal. Only that
-fresh edge can abort an obsolete ordinary initial read; density-only cancellation,
-automatic viewport refill and finite AI ownership do not acquire that permission.
-The captured-signal guard rejects late success, empty cancellation or rejection
-without changing the newer End tail, placement, focus, error or loading. Search
-generation, seek geometry/alignment, focus policy and the public seek API stay intact.
-
-An identity-owned pending initial signal records whether the edge invalidated the
-resident page. That fact travels with the pending edge, so Home after unfinished
-End fetches the current-order first page instead of presenting the previous order
-as successful completion. Valid resident Home shortcuts retain their original
-no-fetch path. There is no restarted search, timer delay, extra fetch on ordinary
-valid shortcuts or general navigation coordinator.
-
-Maintained proof: [real mounted producers and adapters](../../src/hooks/useListNavigation.test.ts#L217)
-and [actual sort/End browser controls](../../e2e/local/buffer-corruption.spec.ts#L189).
-Six direct/API late-read cases failed first while all 33 original navigation
-controls passed, then went green. A real automatic-refill control rejected an
-overbroad generic-seek abort, and two opposite-edge controls rejected stale
-resident reuse using genuinely different credit orders. The final 42-test mounted
-suite preserves every old assertion. The bounded implementation, not either
-discarded approach, passed affected controls 562/562, full unit 2244/2244 across
-82 files, TypeScript/Vite build and full local Chromium E2E 311/311 including
-forced-seek. Focused browser B8+L37 was 12/12; four new local cases cover grid/table
-and both desktop focus modes, retaining exact tail/cursors/positions and scroll
-after late unchanged first-page success. All held work is released and wrappers
-removed in cleanup.
-
-L37 is removed from Open Items after these gates. The earlier live API reproduction
-remains historical evidence: no new live API pass was run after this follow-up,
-and no production-bundle, physical-device or performance claim follows. The live
-app was stopped by the operator for local E2E; the agent did not change its lifecycle.
-This closes the named initial-read/keyboard-edge overlap, not every possible
-same-generation range or late focus-resolution composition. Q1-Q7 and other ledger
-items remain open; search/sort continuity still requires its own operator scope.
-
-**Separate outcomes:** behaviour repaired: density cannot cancel the current
-search in these verified paths, and the L37 newer-End tail survives obsolete
-initial completion. Structure simplified: search/range lifetimes are separated,
-with explicit captured keyboard-edge permission and valid resident-page reuse.
-Initial search and range
-movement no longer share a cancellation owner; existing focus, range and geometry
-machinery stays intact. Search/sort continuity is ready for the next operator
-scope/policy decision, not started or authorized here.
-
-Canonical 12 September paired jank/perceived records and the 29 September
-local-api matched-home control already measure normal sort/density and broad
-browsing. Suggested operator-only checks are P4a/P4b/P6 for frame timing and
-PP2-PP4/PP6 for ordinary sort/density latency against comparable records. They
-cannot certify this held-request composition or performance equivalence; a
-composition timing check needs its own owned boundary and approval, not another
-full core campaign. The full E2E run also emitted an un-attributed ImageTable
-render-time update warning; L36 records a bounded characterization, not a B8 gate.
+**Live boundary:** the B8 client checkpoint passed, per transport, eight gated
+density cases plus a no-density control, four unwrapped natural-timing cases and
+Home supersession. Pinned total was 13,205; exact membership/cursors and completion
+were checked, including deep focused windows through bounded target/cursor reads.
+These checks predate L37 and later B17 discovery changes, which have local coverage
+rather than a new live certificate. Holds delayed unchanged completed reads before
+client publication, not server work. Physical devices, production races and
+performance equivalence remain unverified. L36's render warning is separate work.
 
 <a id="b9"></a>
-**B9 / C35: Closing reloaded traversed detail before list readiness misses
+**B9 / C35: OPEN. Closing reloaded traversed detail before list readiness misses
 centring.** Expected last-viewed image at the established traversed-return centre;
 actual paired grid outcomes were +79.5/-115.5/+47.5 px and table outcomes were
 +32/+34/+17 px across buffer/indexed/seek.
@@ -1005,7 +839,7 @@ image correctly. This is part of the same availability-dependent return failure,
 not a separate placement policy or a new durable-focus requirement.
 
 <a id="b10"></a>
-**B10 / C36: Ordinary prepend-to-zero is reset as Home and loses the viewport
+**B10 / C36: OPEN. Ordinary prepend-to-zero is reset as Home and loses the viewport
 anchor.** Expected compensated backward browsing to keep the elected visible image
 in view when its final page reaches global offset zero. Actual paired seek outcomes
 made the stable held anchor non-visible in both table (+15 px signed-centre change)
@@ -1017,7 +851,7 @@ transports with production store/scroll code and real wheel motion. Source owner
 Effect 8's unconditional non-self-correcting positive-to-zero reset. No repair.
 
 <a id="b11"></a>
-**B11 / C31 / L13: Cancelled deep Home strands the scrubber thumb at top.**
+**B11 / C31 / L13: OPEN. Cancelled deep Home strands the scrubber thumb at top.**
 Expected Back's restored deep entry to show a deep logical and rendered thumb.
 Paired browser sequences restored deep logical positions (about 431k direct / 429k
 API), but thumb CSS/rendered top remained 0 before and after the
@@ -1028,7 +862,7 @@ for a near-zero position that will never arrive. Confidence high for seek table 
 both transports; focus mode is irrelevant because Home clears it. No repair.
 
 <a id="b12"></a>
-**B12 / C25 / L11: Reloaded swipe pre-scroll uses remount identity and survives
+**B12 / C25 / L11: OPEN. Reloaded swipe pre-scroll uses remount identity and survives
 cancel/final return.** Expected a canceled dismiss to leave the hidden list where
 it was, and returning to historical entry A to match ordinary Backspace. Actual
 paired phantom sequences A -> B -> reload B -> A -> cancel dismiss moved background
@@ -1039,7 +873,7 @@ Confidence high for synthetic Chromium grid/table in both transports; coarse mod
 phantom, and physical Safari animation is not claimed. No repair.
 
 <a id="b13"></a>
-**B13 / C30: Missing phantom history target adopts a departing-context neighbour.**
+**B13 / C30: OPEN. Missing phantom history target adopts a departing-context neighbour.**
 Expected archived history fallback: top/no focus when destination anchor genuinely
 disappears. A controlled matching-key snapshot used a missing phantom ID while
 departing sort B exposed same-membership visible neighbours. Back to default sort A
@@ -1049,7 +883,7 @@ the snapshot fixture changed only browser-memory storage. Reproduced equivalentl
 in both transports. No repair.
 
 <a id="b14"></a>
-**B14 / C27: AI sort history leaks newer focus into an originally unfocused entry.**
+**B14 / C27: OPEN. AI sort history leaks newer focus into an originally unfocused entry.**
 AI entry A and re-sort entry B both began unfocused. After adding focus only in B,
 Back to A retained that same focus in explicit and phantom modes; explicit A showed
 no ring despite stored focus, while Forward to B showed the ring. Phantom retained
@@ -1058,7 +892,7 @@ both modes and transports. Cause scope is
 the AI in-memory sort/history fast path, distinct from density-history B1. No repair.
 
 <a id="b15"></a>
-**B15 / C29: Immediate reload loses a just-ticked selection before persistence
+**B15 / C29: OPEN. Immediate reload loses a just-ticked selection before persistence
 debounce.** Synchronous tick produced store membership while sessionStorage still
 lacked the ID; immediate reload restored zero selections. A matched control waited
 for the debounced storage write and restored one selected ID. Expected per-tab reload
@@ -1066,7 +900,7 @@ survival once the user action commits; pagehide currently does not flush the pen
 selection write. Client-only, transport-independent evidence. No repair.
 
 <a id="b16"></a>
-**B16 / C32: First-page new-images refresh exposes stale top content before fresh
+**B16 / C32: OPEN. First-page new-images refresh exposes stale top content before fresh
 publication.** A real refresh badge click from `bufferOffset=0`, `scrollTop=2000`
 immediately set scrollTop 0 while a successful first-page response was held. For
 the full 600 ms watch, the previously viewed image moved offscreen and the old
@@ -1079,242 +913,76 @@ pixel-identically in direct and media-api. No repair.
 
 <a id="c37"></a>
 <a id="b17"></a>
-**B17 / C37 / L38: Density abandons pending browsing intent and can strand loading.**
+**B17 / C37: DONE. Pending browsing survives density; L38 is closed.**
 
-**3 October 2026, before/after attribution.** Inspected HEAD `30b5acaeb` and parent
-`1e81eb500`. HEAD protects initial ordinary/AI search from density's range abort;
-its L37 follow-up permits fresh keyboard edges to supersede an ordinary initial
-read and prevents stale resident Home reuse. Neither changes density capture,
-`abortExtends()`, seek's aborted completion, or indexed view-owned debounce. Those
-paths already exist in the parent. This is a surviving defect, not evidence that
-HEAD newly introduced this particular seek/density failure. The old binary was
-not replayed. B8/L37's verified repairs remain useful but do not prove this composition.
+**Current contract:** the latest browsing destination survives a view change,
+including the indexed pre-request debounce window. Arrival uses current geometry;
+newer search/navigation can supersede it. Focus/selection remain separate. Absence,
+failure and cancellation finish only the appropriate busy owner. Pending departure
+presentation is covered separately by [B18](#b18).
 
-**Cause, source-established:**
+**Structural result:** [search-store](../../src/stores/search-store.ts) owns a
+search-scoped `_browseNavigation` through queued/loading/ready phases, independently
+of maintenance and keyboard focus permission. [Scrubber](../../src/components/Scrubber.tsx)
+records indexed intent before native scroll, including its sibling wheel bridge;
+[useDataWindow](../../src/hooks/useDataWindow.ts) keeps only layout-refill timers
+view-owned. [Scroll effects](../../src/hooks/useScrollEffects.ts) consume ready
+placement once after current-view measurement, including unmounted arrival and
+Strict Mode, without replaying obsolete departure restoration.
 
-- [Scrubber seek](../../src/components/Scrubber.tsx#L582) supplies a destination;
-  [seek](../../src/stores/search-store.ts#L2896) retains it in its async invocation,
-  sets shared `loading=true`, and uses the same range controller as maintenance.
-  The scrubber's separate pending position protects its thumb, not navigation ownership.
-- [Density unmount](../../src/hooks/useScrollEffects.ts#L1096) captures resident
-  focus or a rendered viewport image, still from departure while a distant seek
-  waits. [Mount](../../src/hooks/useScrollEffects.ts#L939) calls `abortExtends()`
-  and restores that capture. [abortExtends](../../src/stores/search-store.ts#L2706)
-  also cancels seeks/restores but only clears extension flags, not `loading`.
-- [Seek publication](../../src/stores/search-store.ts#L3639) rejects aborted work;
-  its [catch/finally](../../src/stores/search-store.ts#L3900) assumes a successor
-  seek/search owns loading. Density supplies no such successor. The
-  [table indicator](../../src/components/ImageTable.tsx#L1555) directly reflects
-  the stranded flag; it is not an independently stuck toast timer.
-- Indexed scrubber input [changes scrollTop](../../src/components/Scrubber.tsx#L590)
-  instead of directly seeking. [useDataWindow](../../src/hooks/useDataWindow.ts#L402)
-  schedules a 200 ms refill owned by the reporting view; [unmount](../../src/hooks/useDataWindow.ts#L308)
-  cancels it. With skeletons and no focus, DOM anchor election supplies no image to
-  preserve. Protecting already-started direct seeks alone cannot repair this path.
-- Merely sparing the request also leaves competing positioning: the
-  [density callback](../../src/hooks/useScrollEffects.ts#L953) checks search
-  generation/input/saved-record identity, not navigation ownership, while
-  [seek placement](../../src/hooks/useScrollEffects.ts#L495) is separately
-  generation-driven. Their publication/remount/frame ordering needs composed proof.
+The current ownership contract also requires:
+- Ordinary navigation retires initial placement, not membership discovery. It reuses
+  the existing count or counted page and publishes the current total/window together.
+  End/clamping cannot use predecessor-query totals.
+- Cursor/focus replacements inherit unfinished discovery. Retired initial placement
+  cannot revive after a successor. Missing targets or cancelled/failed replacements
+  may finish the existing first page only without a newer owner; successful fallback
+  clears replacement error. Both discovery reads failing settle with the existing
+  error policy, not fabricated empty membership. Freeze/map/poll work is not duplicated.
+- AI excludes ordinary queued/direct seeks, refill, extensions, cursor restore and
+  snap-back while it owns the query, regardless of old indexed/seek totals.
+- Refill cannot settle a pending search. Cursor/snap-back supersede obsolete browsing;
+  cancelled or identity-superseded snap-back cannot clear newer focus. Original
+  cooldowns, valid resident Home shortcuts, cursor/alignment and compensation remain.
 
-**Observed, bounded live checks:** the operator authorized read-only operation of
-the shared HTTPS media-api tab. Preflight found visible fine-pointer explicit mode,
-no focus/selection, `ApiDataSource`, and the running dedicated search controller.
-Served raw SHA-256 matched local search-store, scroll effects, data-window and
-Scrubber sources. Backend stage/binary was not independently verified.
+**Pre-repair evidence:** seek, then switch density before arrival. A natural API
+seek-tier grid/table overlap retained the departure buffer and loading through four
+seconds; passive tracing observed density aborting the estimate signal. A matched
+no-density seek completed. In indexed data, a real track click followed immediately
+by density lost the destination before dispatch: no seek committed in 3.5 seconds,
+while a no-density control completed. This defect existed before B8/L37; no old-binary
+replay or claim of infinite loading was made. Waiting for seek settlement before
+toggling density cannot test either interruption.
 
-| Case | Observation |
-|---|---|
-| Large-result grid -> table, natural timing | Of 1,329,454 matches, click track around two-thirds then switch while `loading=true`. Across a four-second watch, the exact departure array remained at offset 0 / 200 hits, seek generation stayed 0, density completed, and Loading more remained visible with no error. No response gate or wrapper. |
-| Large-result table seek, no density | A different track position completed at offset 545,651 / 300 hits, seek generation 1, `loading=false`, no indicator/error. A successful successor recovers the stranded state. |
-| Large-result table -> grid, passive tracing | From that deep buffer, seek around four-fifths and switch while loading. The estimate request's initially live signal received a density-origin abort; the original method resolved and seek exited. Across four seconds the exact departure array/offset remained, seek generation stayed 1, and loading stayed true. Original methods/data were passed through unchanged. |
-| Indexed grid -> table before dispatch | In the pinned Dublin corpus (13,205 matches), a real track click moved grid scrollTop to 716,440 with no rendered anchor and loading still false. Immediate density change returned table to top; no seek committed in 3.5 seconds. This is pre-request destination loss, not an observed in-flight abort. |
-| Indexed table seek, no density | Another track click completed at offset 5,295 / 200 hits with seek generation 2 and loading false. |
+**Maintained checks:** the [mounted density suite](../../src/hooks/useScrollEffects.test.ts)
+and [browser composition](../../e2e/shared/browse-density.ts) cover both adapters,
+indexed/seek coordinates, density directions/click modes, bookmark/none/selection,
+queued intent, repeated mounts and arrival before/between/after frames. Deep
+estimation, ready-map and fetch-free resident controls are retained. The
+[navigation suite](../../src/hooks/useListNavigation.test.ts) and store suites cover
+newer navigation, current-query discovery (zero, narrowed and widened membership),
+cursor/focus replacement, failure and finite AI. Local gates passed; latest totals
+are in [Current Status](#current-status). API fixtures exercise the real parser over
+local response shapes, not a live Scala service.
 
-One attempted no-density control clicked the thumb still parked at the abandoned
-destination and initiated no new seek; its timeout is excluded. No credentials,
-image IDs, cursors, payloads or signed URLs were retained. Passive wrappers and
-listeners were removed, prototype method shape restored, and the page-only probe
-deleted after real Home returned to settled default grid/no focus/selection/error.
-These samples do not prove infinite duration, exact seek accuracy, all focus or
-selection modes, live direct-ES parity, production timing or performance equivalence.
-
-**Why existing tests missed it.** [B8's mounted composition](../../src/hooks/useScrollEffects.test.ts#L414)
-holds `search()`, not a destination seek. [L37](../../src/hooks/useListNavigation.test.ts#L254)
-holds the initial read across End, not density across End. Its
-[abort control](../../src/hooks/useListNavigation.test.ts#L448) checks focus and
-pending-intent cleanup but omits loading settlement. The
-[rapid-density E2E](../../e2e/local/scrubber.spec.ts#L1024) seeks before toggling;
-the [helper](../../e2e/shared/helpers.ts#L534) attempts seek settlement first.
-No maintained composed assertion inspected here owns destination, publication,
-placement and busy state across this pending-seek/density sequence. Existing
-tests were read, not rerun; no product/test changes or new automated tests were made.
-
-**Approved unit: pending browse destination across density. Delivered within the scope below.**
-
-| Brief | Proposed boundary |
-|---|---|
-| Disposition | Operator-approved bounded navigation-continuity unit delivered for directly observed core browsing breakage. Return to the proposed search/sort milestone for its next scope decision, not the next bug in the list. |
-| Contract | Latest destination survives density, including the indexed pre-request window; arrival uses the current density. Newer navigation/search may supersede it. Preserve focus/selection semantics separately. No demand for more exact percentile seeks, Q1 anchor-policy decision or new density/history policy. |
-| Mechanism | Retain a search-scoped pending browsing destination outside view/request lifetime, with operation identity, destination, phase and separately captured focus permission. Record explicit scrubber/indexed browsing intent before debounce; do not infer it from loading, trace labels or keyboard-focus payload. Keep necessary search/focus-resolution lifetimes distinct. |
-| Cancellation | Separate obsolete layout-maintenance work from navigation. Density cancels/suppresses old-view extends/fill/refill without abandoning a current destination. New navigation/search invalidates old destination/publication/placement. A timer may be replaced without losing its semantic target. Do not make all generic seek calls uncancellable. |
-| Publication and placement | Retain existing cursor/estimation/column-alignment and atomic-buffer behavior. A pending destination takes precedence over departure density capture; accepted placement survives remount and consumes current geometry once. Check completion before, between and after density frames, including completion before the new view subscribes. Prevent late departure restoration, not just request cancellation. |
-| Busy state | Start, success, absence/failure and cancellation in this slice must have explicit completion ownership. A canceled operation with no replacement settles its own busy state; stale cleanup cannot settle a newer operation. Do not unconditionally clear loading on density or in finally. |
-| Structural result | Replace broad density-triggered range cancellation and destination ownership inferred from keyboard-focus payload/view-local timer. Focus permission remains payload, not navigation authority. Adopted consumers must use the new owner, not leave two competing navigation/placement paths beneath a wrapper. |
-| Preserved controls | B8 search/AI publication, L37 newer End/current-order Home, no-fetch valid resident shortcuts, automatic-refill non-supersession, newer seek/search/Back/Home ownership, selected/phantom focus policy, cursor restore/detail traversal, Strict Mode, cooldowns and prepend/evict geometry. Reuse existing suites and do not weaken their assertions. |
-| Proof | Failing-first delayed destination tests plus pre-debounce indexed tests; both density directions, repeat toggles, both coordinate regimes/map states and adapters, focus/selection controls, late success/abort/failure and superseding navigation. Assert destination identity where exact, accepted region where estimated, placement/thumbnail and scrubber consistency, positions/cursors, and loading settlement independently. No-density controls and request counts must rule out restart/extra-fetch repairs. |
-| Gates and stop | After approval: focused regressions, full unit, build and full local E2E with normal port coordination; bounded shared-tab replay. No performance claim from these checks. Stop for approval if this needs a new anchor/history/detail policy, larger ownership redesign or added backend work. No universal epoch, persistence, server changes, new exact-rank requirement, blanket density disabling or timeout workaround. |
-
-Coverage here is a targeted follow-up, not a repeat of the original full L7 read:
-complete seek and density/seek-placement paths, complete data-window owner,
-scrubber producers, URL dedup/search dispatch, reset/keyboard/traversal consumers,
-relevant tests, parent diff and the recorded B8/L37 evidence. The independent
-read-only coverage challenge agreed on the missing composition and warned against
-treating every indexed refill as either user navigation or disposable maintenance.
-Other original audit cases and performance results remain prior evidence, not
-newly certified by this investigation.
-
-**3 October 2026: Initial bounded repair checkpoint.** The cold-review follow-up below
-supersedes this checkpoint's discovery/AI claims and validation counts. The operator approved the unit after
-the investigation, requiring TDD, tier/transport/click-mode coverage and coordination
-before E2E/live mode switches. No commit, branch, server-code or configuration change
-was made. The implementation remains uncommitted on baseline `30b5acaeb`.
-
-[`search-store`](../../src/stores/search-store.ts) now separates browsing from range
-maintenance. `_browseNavigation` owns a search-scoped destination through queued,
-loading and ready phases. Indexed [`Scrubber`](../../src/components/Scrubber.tsx)
-records intent before native scrolling; input-derived distant ranges use the same
-store queue through [`useDataWindow`](../../src/hooks/useDataWindow.ts). Layout-only
-refills retain their view-owned timer and cannot supersede a user destination or
-initial search. Density cancels maintenance, not the destination. Initial-search
-supersession belongs to navigation rather than the keyboard focus-permission payload;
-valid resident Home reuse and finite AI ownership remain distinct.
-
-[`useScrollEffects`](../../src/hooks/useScrollEffects.ts) defers owned ready placement
-until the current view is measured, including completion while unmounted, between
-frames and across repeated switches. It cannot restore departure over pending
-navigation. Invalid saved anchors do not permanently close readiness; Strict Mode
-cannot prematurely consume that state. Deferred viewport notification is independent
-of ready-state consumption. Cancellation and completion settle only the relevant busy
-owner; a refill cannot clear a pending search's loading. Newer cursor restore/snap-back
-cancel obsolete browsing, and cancelled/identity-superseded snap-back cannot clear focus.
-Snap-back retains its prior cooldown behavior rather than acquiring density's cooldown.
-
-**Maintained red-to-green proof:** all 16 initial real-adapter density cases failed
-on cancellation before implementation. Subsequent discriminators failed for queued
-wheel loss, late initial publication after scrubber navigation, and refill busy-state
-ownership. Independent review produced seven reproduced failures covering cursor/focus
-supersession, cancelled focus clearing, invalid-anchor readiness and deferred notification;
-all were repaired with their assertions retained. The first full unit pass found two
-accidental cooldown regressions and a PIT test conflating maintenance with explicit
-navigation. The cooldown was restored; the PIT assertion is retained under explicit
-refill purpose, with a separate newer-navigation control. No production policy was
-changed to accommodate a test.
-
-The mounted adapter matrix now includes 192 combinations of direct/API, indexed/seek
-coordinates, both density directions/click modes, bookmark/none/selection and four
-arrival orderings. Sixteen further cases use deep estimation or a ready position map;
-resident controls retain exact row-clamped geometry without fetching. The shared
-[browser regression](../../e2e/shared/browse-density.ts) covers 24 actual-UI cases across
-normal indexed and forced-seek projects, including the pre-debounce window. The local
-API fixture uses the real ApiDataSource parser over local ES-backed response shapes,
-not a live Scala service or proof of zero ES construction. Its initial img-only setup
-failed on No thumbnail fixtures and was corrected to click visible cells; those setup
-failures are not product evidence. The operator interrupted that run, then approved rerun.
-
-| Completed gate | Result / boundary |
-|---|---|
-| Full unit | 2,477/2,477 across 82 files; final rerun also green |
-| TypeScript/Vite | Passed; existing bundle-size advisory. Final comment-only source updates produced the same production JS bundle hash |
-| Focused browser | B17/B8/L37: 36/36, retries disabled |
-| Full local E2E | 335/335 in 4.6 min, retries disabled, including nine forced-seek cases. Existing router/aborted-map and ImageTable render-time warnings remain qualified; L36 is not closed |
-| Live media-api | 12 controlled overlaps plus four unwrapped natural-timing cases passed |
-| Live direct ES | Same 12 controlled overlaps plus four unwrapped natural-timing cases passed after operator-controlled TEST switch |
-
-**Live boundaries:** both passes used the shared visible fine-pointer desktop tab,
-independently verified datasource and matching served raw hashes for store, scroll
-effects, data window and Scrubber. Each controlled set covered deep estimated and
-map-ready indexed navigation in both click modes/directions, then indexed pre-dispatch
-without a bookmark. Indexed targets were beyond 10,000 and the exact map identity was
-visible. Real clicks established explicit or last-viewed bookmarks; those survived.
-Signal, buffer positions, destination visibility and settled loading/indicator were
-checked independently. The four unwrapped cases per transport observed loading before
-density and completed near the requested region with no focus or stuck notice.
-
-Pinned totals were about 1.22 million and 13,205; default-search natural checks used
-about 1.329 million. Counts/ranks differed slightly by time/transport, not immutable
-snapshot or exact cross-transport pixel evidence. Controlled holds delayed unchanged
-completed responses before client publication; they do not prove server cancellation.
-Nonempty-selection and resident-tier coverage is maintained/local, not a new live matrix.
-All wrappers/held work/probes were removed, with real Home cleanup; the shared app was
-left in direct ES, explicit mode, default grid, no focus/selection/loading/error. Only
-comments and documentation changed after those functional gates.
-
-**Separate outcomes:** behavior repaired: pending destination and busy completion
-survive density. Structure clarified: browsing, view maintenance, search and focus
-resolution have explicit distinct owners; focus permission no longer grants navigation
-authority, and view disposal no longer discards queued user intent. Existing buffer
-estimation, column alignment, compensation, cooldowns and two-frame geometry remain.
-L38 is removed from Open Items. Other audit cases were not generally reassessed; Q1-Q7
-and the separately scoped search/sort milestone are not resolved by this delivery.
-
-**Performance follow-up, not an executed gate:** the recorded 2 October B8 jank and
-short/long perceived runs already supply a media-api baseline (with revision/cache
-comparability qualifications). They cannot measure B17's new queue/placement ownership.
-Recommend the prescribed jank/perceived reruns to check density/seek visual settlement,
-indexed-scroll frame cost and request counts against comparable existing records. No
-new campaign ran, and no speed-up, production-build race, physical-device or unbounded
-timing certification is inferred from functional passes.
-
-**3 October 2026: Cold-review follow-up delivered, uncommitted.** The operator approved
-all three findings, including the pre-existing wheel producer gap. All belong to this
-navigation ownership boundary; none was deferred into a different cleanup project.
-
-- **Membership discovery:** the previous takeover aborted the ordinary initial read
-  while reusing its predecessor's total. Twelve failing adapter cases narrowed to zero
-  or 100 results or widened to 25,000. Navigation now retires only initial placement
-  and reuses the already-requested count, falling back to the counted page when needed.
-  It resolves End/clamping against current membership and publishes total/window together.
-- **Finite AI:** queued browsing could publish ordinary results after AI completed.
-  Guards now cover queued/direct seeks, refill, extensions, cursor restore and focus
-  snap-back while AI owns the query. Twenty-eight controls cover prior indexed/seek
-  totals and both completion orders without an ordinary page request.
-- **Wheel producer:** the Scrubber is a sibling of the list, so forwarding scroll did
-  not reach the list's input listener. The bridge now records indexed intent first,
-  using current total/regime props; non-indexed and zoom classification remain unchanged.
-
-Further independent challenges and failing-first controls exposed retired initial
-placement reviving after a successor, old totals/missing-target buffers in cursor/focus
-replacements, a generic deep-to-zero reset overriding End, cancelled pre-dispatch work
-stranding discovery, and cursor takeover retaining obsolete focus busy status. These
-were repaired within the same handoff. The query-scoped discovery records retirement
-and its current replacement; cancellation/failure can finish the existing first page
-only without a newer owner. Successful fallback clears the failed replacement's error.
-Both discovery requests failing retain the existing error behavior and settle loading,
-not fabricated empty membership. Accepted freeze/map/poll work is not duplicated.
-
-Current evidence: **2,557/2,557 unit tests across 82 files**, TypeScript/Vite build passed,
-and **351/351 full local E2E in 4.8 min with retries disabled**, including nine forced-seek
-cases. The navigation slice has 99 controls. Sixteen added browser cases cover actual
-wheel/density wiring in direct/API-adapter fixtures and rendered narrowing/AI membership
-in local memory fixtures, across both click modes/views. The AI fixture initially lacked
-required relevance scores; fixing that contract did not change production assertions.
-Existing router, aborted-read and ImageTable render-time warnings remain; L36 is not closed.
-
-No new live-service replay or performance campaign accompanied this follow-up. The
-32 earlier direct/media-api live checks above remain evidence for their earlier code
-checkpoint, not proof of these new overlap paths. Local adapter tests are not a live
-Scala certificate. Broader search/sort continuity, Q1-Q7 and other ledger bugs stay outside
-this repair; no general coordinator, backend work or stronger seek exactness was added.
+**Live boundary:** an earlier B17 checkpoint passed 12 controlled overlaps and four
+natural-timing cases per transport. Coverage included deep estimated and map-ready
+indexed navigation in both click modes/directions, plus indexed pre-dispatch without
+a bookmark; mapped targets exceeded 10,000. Pinned totals were about 1.22 million
+and 13,205. Nonempty selection/resident coverage is local, not a live matrix. The
+later discovery/AI/wheel composition repairs have full local gates but no new live
+replay; those earlier 32 checks do not certify them. Source hashes/datasource and
+foreground were checked. Held reads were unchanged completed responses, not server
+cancellation evidence. No production/device/performance equivalence is claimed.
 
 <a id="c38"></a>
 <a id="b18"></a>
-**B18 / C38: Pending seek/density presentation. Resolved.**
+**B18 / C38: DONE. Pending seek/density presentation.**
 
 **Current contract:** the pending thumb stays at the destination, while content
 preserves the departure neighbourhood until arrival. Final arrival alone is not
 sufficient. Focus and selection remain independent. Settled density, history and
-seek-accuracy policy are unchanged; no next implementation unit is selected.
+seek-accuracy policy are unchanged.
 
 **Implementation:** the [route](../../src/routes/search.tsx) passes the existing
 `_browseNavigation.targetOffset` to [Scrubber](../../src/components/Scrubber.tsx).
@@ -1329,11 +997,8 @@ ownership again during mount readiness. Ready arrival, cancellation or a success
 cannot replay the old departure placement. Indexed skeleton positioning, final seek
 placement, two-frame readiness, request/cursor logic and cooldowns remain intact.
 
-**Separate outcomes:** behaviour repaired is stable pending thumb/content across
-density. Structure simplified is removal of Scrubber's independent arrival inference
-from position/total/loading changes; its existing browse owner now controls pending
-presentation too. The density bridge is reused with explicit ownership. There is no
-new coordinator, request, restart, timer workaround or disabled control.
+This removes independent arrival inference without a new coordinator, request,
+restart, timer workaround or disabled control.
 
 **Verification (3 October 2026):** TDD and inline cold review complete. The maintained
 [mounted suite](../../src/hooks/useScrollEffects.test.ts) covers both adapters,
@@ -1346,13 +1011,9 @@ Home controls retain the departure or place the successor without stale restorat
 The [browser composition](../../e2e/shared/browse-density.ts) starts deep and samples
 pending rendered frames; both modes/adapters/directions plus no-density controls pass.
 
-| Gate | Current result |
-|---|---|
-| Full unit | 2,586/2,586 across 82 files |
-| TypeScript/Vite build | Passed; existing bundle-size advisory |
-| Focused browser | 10/10, retries disabled |
-| Full local E2E | 354/354, retries disabled, including 11 forced-seek cases |
-| Shared media-api browser | Both held density directions, repeated switches, no-density control and both unwrapped natural-timing directions passed |
+Full local gates are recorded in [Current Status](#current-status); the focused
+browser slice passed 10/10 with retries disabled. The shared API browser passed
+both held directions, repeated switches, no-density and natural-timing controls.
 
 **Live limits:** served source hashes matched the checkout; all counted samples were
 foreground. Held checks delayed unchanged completed API reads before publication,
@@ -1360,9 +1021,8 @@ not server work. Each held seek published once; destination visibility, position
 total and loading were checked separately. Natural overlaps also retained departure
 visibility and destination thumb position. This live pass used the natural seek tier
 without focus/selection; other modes/tiers and direct ES have maintained local coverage,
-not a new live certificate. Wrappers, listeners and probes were removed and settled
-Home verified before the operator stopped the app for E2E. No identities or payloads
-were retained. Physical devices, production-build races and performance equivalence
+not a new live certificate. No identities or payloads were retained. Physical
+devices, production-build races and performance equivalence
 remain unverified; L36 and other ledger items are unchanged. L40 is closed.
 
 **Operator-only performance follow-up:** existing 2 October post-B8 local-media-api
@@ -1381,28 +1041,16 @@ authorize repairs or imply comprehensive runtime/performance certification.
 
 ### TEST Browser Follow-Up: 1 October
 
-The operator explicitly authorised TEST read-only and identified `--use-TEST`
-direct mode. Browser preflight independently found `ElasticsearchDataSource`,
-`IS_LOCAL_ES=false`, visible page, explicit mode, no selection/detail, and runtime
-thresholds 1,000/65,000. Served raw-source SHA-256 matched workspace for
-useScrollEffects, ImageGrid and useDataWindow. Viewport was 1130x886; panels began
-closed. The agent made no server, source, response or threshold changes; the
-operator later switched transport for the separately recorded API comparison.
+**Original pre-repair evidence:** authorized read-only TEST, explicit mode, visible
+1130x886 viewport, independently checked direct datasource and served source hashes.
+Runtime thresholds stayed 1,000/65,000. Natural date-capped corpora yielded about
+820 / 13,210 / 1,221,840 matches; the cap does not freeze membership. Indexed maps
+were ready; buffer data was complete; other tiers retained normal windows.
 
-Natural corpora, all with nonFree and an upload-time cap of 4 March 2026: the
-existing keyword corpus returned 820, Dublin 13,210, and the broad corpus
-1,221,842 then 1,221,837. A date cap does not freeze later metadata/deletions;
-counts are observations, not permanent fixtures. Indexed checks had the map ready.
-Small-result data was fully loaded; the other tiers retained normal windows.
-
-Tracked identities stayed only in browser memory. Measurements used actual DOM
-rectangles and usable centre (excluding table header), not nth rendered cells.
-Positive signed centre is below the usable centre. Density writes were awaited
-through the existing restore generation, then observed for 2.5 seconds per step.
-These are bounded post-acknowledgement watches, not proof of no intermediate paint
-or no future movement. Most watches had no sampled change; the seek reflow-close
-watch had two raw state changes during extension, with restored final relative
-geometry. No full per-frame trace was retained for that exception.
+Signed centre uses actual DOM rectangles and usable viewport excluding the table
+header; positive is below centre. Watches lasted 2.5 seconds after density restore
+acknowledgement, not every intermediate paint. Seek reflow-close sampled two changes
+during extension before restored final geometry. Identities stayed in browser memory.
 
 | Witness | Observed result | Interpretation |
 |---|---|---|
@@ -1411,47 +1059,23 @@ geometry. No full per-frame trace was retained for that exception.
 | W3: loaded off-screen selection plus older hidden focus, all three tiers | Details opening held selected image at -1431.5 px; focus moved -1734.5 -> -2037.5; previously viewed image +83.5 -> +689.5 and off-screen. Closing restored final geometry. Density then put focus -367 px, selection -239 px, prior viewed image +209 px. | Reflow and density use different anchors, but each observed transition agreed across tiers. Preserving an off-screen selection ratio can displace visible content substantially; it is not evidence of preserving visible centre. |
 | W4: loaded focus near temporary window bottom, indexed versus seek | Indexed followed focus; seek snapped to window bottom and left focus off-screen, despite both being far from true result end. | Genuine tier-dependent outcome: B7. |
 | W5: evicted selection, two grid/table round-trips, with older absent focus and then no focus | Membership/focus state retained. Indexed original anchor -52.5 -> -203 table -> -463.5 grid (partly clipped), then repeated. No-focus run re-elected a different initial anchor at +142.5 and round-tripped there. Seek began at temporary DOM bottom and alternated -51.5 grid/+239 table in both focus setups. | Finite displacement and repeatability in these samples only. Starting anchors/boundaries differ, so neither clearing focus as a cure nor a matched cross-tier drift difference is established. |
-| W6: current search plus density | Direct: density-origin abort traced; ordinary sort-then-density UI reproduced 13,210 -> 0, no error. API: same real controls retained 13,210/200 loaded and remained loading/unsettled through the five-second watch. | B8 has observed transport-dependent symptoms. The shared client/adapters disagree on cancellation handling, not intended preservation policy. |
+| W6: current search plus density | Direct: density-origin abort traced; ordinary sort-then-density UI reproduced 13,210 -> 0, no error. API: same real controls retained 13,210/200 loaded and remained loading/unsettled through the five-second watch. | Original B8 transport-dependent symptoms; B8 is now Done. Cancellation handling differed, not intended preservation policy. |
 
-Query setup used the existing navigation helper without combining density changes,
-after the initial combined-navigation anomaly. Some source scroll positions were
-set deliberately to 2000/3600 px for matched geometry; focus, tickboxes, Details,
-density, sort direction and distant scrubber actions used actual controls. An
-indexed selection setup that unexpectedly returned to scroll zero was excluded;
-the corrected setup asserted actual scroll position before electing images.
-This is not a claim that every setup step was a trusted user gesture.
-
-The cancelled-read trace temporarily wrapped the real datasource method without
-changing arguments/results; it recorded only flags/counts and restored original
-own-property shape/listeners in `finally`. The later UI cancellation witness had
-no wrapper. Cleanup returned Home/default grid, cleared focus/selection, verified
-no loading or own DOM markers, and deleted the page-only probe. Forty-seven
-aggregate records were collected; no image IDs, raw responses or signed media
-URLs were written to project files.
-
-**Matched media-api continuation:** the operator switched services and explicitly
-confirmed readiness; the agent did not change server lifecycle/configuration.
-Reload verified ApiDataSource, non-local flag, explicit mode, visible page and
-the same three source hashes. Query setup stayed in grid. Actual sort click was
-followed by an observed loading/new-search state before the density click. No
-wrapper, response substitution or tier override was used in this API check.
-Only state changes were sampled over five seconds, not performance. Cleanup used
-Home and verified default grid, no loading/focus/selection/probe/markers. The app
-was left in the operator-selected API mode.
-
-**Transport conclusion at this stage:** the anchor/geometry choosers studied are shared client
-code, not direct/API policy branches. Nevertheless B8 has different observed
-symptoms: cancelled work becomes empty results in direct mode, while API mode
-retains the list and does not settle loading during the bounded watch. Source
-tracing identifies the shared cancellation owner and different adapter abort
-contracts; only the direct abort event was instrumented. This is a client
-ownership/contract defect, not permission for transport-specific preservation
-rules. The three-tier geometry comparisons had not yet been rerun in API mode at
-this stage. The later paired matrices below supersede that coverage limit and
-establish broad parity; VS Code Escape hijacking is environmental. No repair is authorised
-by these findings.
+**Validity limits:** query setup used the navigation helper and some source scroll
+positions were set deliberately for matched geometry. Focus/tickboxes/panel/density/
+sort/scrubber actions used real controls; invalid starting geometry was excluded.
+The direct cancellation trace passed original arguments/results through; actual UI
+reproductions used no wrapper. API W6 independently checked datasource, foreground,
+source hashes and a new loading state before density, with no substituted response.
+Only the direct abort event was instrumented. Shared client anchor policy does not
+imply identical transport cancellation. The paired matrices below expand coverage;
+neither they nor this baseline constitute current-code or performance certification.
 
 ### Coverage And Checks
+
+**Original L7 coverage manifest, at the baseline above.** File/line counts and
+partial-read limits describe that source pass, not current file sizes or a new
+complete audit of subsequent repairs. Later unit acceptance is recorded separately.
 
 **Lead full reads: all 22 required files, 14,193 lines.**
 
@@ -1501,7 +1125,7 @@ archive's bounded reload/clear observations and [KUP-013/017/018/027 evidence](b
 including 22 September live controls and 27 September reverse-edge follow-up.
 No paired performance campaign was rerun or reinterpreted.
 
-Current assertion reads: full mounted density tests and snapshot-builder tests;
+Original assertion reads: full mounted density tests and snapshot-builder tests;
 store setup/snap-back slice; range setup/ownership slice; focus-preservation 1-470;
 scrubber no-focus density 2201-2420; UI resize 455-570; history setup/density control
 and 1980-2135 repeated phantom restore. Shared helper startup, density and focus
@@ -1518,12 +1142,9 @@ run does not mean every test file was read.
 | Full unit baseline after all probe removal | 2,198 passed / 82 files, 53.99 s. Earlier clean baseline also passed. |
 | Product build / full E2E / performance | Not run: no retained product/test/config changes. Full E2E is not claimed; targeted browser checks are above. No speed-up or equivalence inference. |
 
-The initial automated tests ran through prescribed root-level npm scripts,
-foreground `pipefail` and `tee`, unsandboxed as required; no active test was polled
-or interrupted. The operator confirmed ports 3000/3030 free; runner-owned setup
-started local Docker ES. Those suites did not target a real cluster. The later
-authorised read-only TEST browser work is recorded separately above. No runtime
-identity, email, credential or signed URL is retained in this ledger.
+Automated probes used runner-owned local infrastructure, not a real cluster.
+Read-only TEST evidence is separately bounded above. No runtime identity, email,
+credential or signed URL is retained in this ledger.
 
 ### Click-to-Open Paired Matrix
 
@@ -1544,180 +1165,43 @@ substitute for these cells. No product changes are authorised.
 | P8: delayed/failed reads, superseding navigation and search/density interruption | Representative ownership/failure compositions complete; B8 reproduced in Click-to-Open | Complete for representative controls, including corrected pending traversal in both views/modes |
 | P9: synthetic long-press/swipe/dismiss composition; physical-device limitations separate | Complete for resident long-press control and seek grid/table swipe/dismiss under synthetic Chromium coarse state | Complete for the same synthetic grid/table scope; exact outcomes matched API |
 
-**P1 API witness:** effective phantom mode was selected through Settings, with
-ApiDataSource/non-local flag and visible 1130x886 fine-pointer browser confirmed.
-The natural corpora returned 820 / 13,207 / 1,221,812. Each of the six tier/view
-cells used real keys/clicks, tracked identities in memory, waited for matching
-detail identity/media decode and used 2.6-second post-return/layout watches.
-Arrow/Page keys scrolled without creating focus; Enter/F did not open detail or
-preview. Single-click opened the correct decoded image. Original Backspace return
-had 0 px signed-centre change and unchanged scroll. Two next/one previous followed
-by the Back button centred the last image at 0 px, fully visible. No ring appeared;
-stored last-viewed focus did remain. Return watches had no sampled changes.
+**Evidence boundary:** original 1-2 October characterization, before the repairs
+marked Done. Visible fine-pointer Chromium at 1130x886; independently checked
+datasources and real controls. Natural corpora were about 820 / 13,207 / 1,221,812
+matches, not immutable fixtures. Return/layout watches lasted 2.6 seconds after
+readiness; fullscreen entry watches were bounded to 800 ms. Detail readiness used
+identity and decode where stated; early-close B9 deliberately did not await the
+underlying list. These samples do not establish all intermediate paints or later
+timing behaviour.
 
-After real scrolling away, ArrowDown still scrolled without changing that hidden
-focus, and Enter/F remained inactive. Density then brought the loaded hidden image
-back in all six cells: grid->table at -367 px, table->grid at -255.5 px. The image
-being browsed moved from +47.5 to +273 px in grid->table; in table->grid it left the
-rendered viewport. These are mode-specific browser witnesses for C03/C16/B5,
-not evidence that the later query/filter path or the remaining matrix is complete.
+| Group | Retained outcome / discriminator |
+|---|---|
+| P1 | Arrow/Page scroll without focus/ring; Enter/F inert. Single-click detail identifies the correct image. Original return: 0 px change; traversal return: 0 px centre. Loaded remembered identity influences later density (C03/C16). |
+| P2 | Three-image selection/range does not create focus/detail/ring. Clear is stationary. Distinct older focus survives selected sort; ordinary phantom sort clears/top-resets. Filter follows remembered detail identity. Buffered controls remain stable through full fill. Empty query recovers through Clear. |
+| P3 | Settled search history/list reload preserves identity at 0 px change and persisted selection. Original-detail reload keeps placement; settled traversed return centres. All early variants differ: C35/B9 retains the paired offsets and focus consequences. |
+| P4 | Panel/reflow, height and repeated-density outcomes are bounded below and in C15-C20; selection survives but does not outrank older focus for settled density. |
+| P5 | Home/End reaches true edges without creating phantom focus; hidden focus/selection survive. Resident data has no temporary edge. Indexed wheel browsing grows its global window. Held seek-edge reads preserve boundary anchor at 0 px on release; forward eviction is 99 grid/100 table. Final prepend-to-zero breaks continuity: C36/B10. |
+| P6 | Detail fullscreen exit retains detail; original preview return has 0 px change, traversed detail/preview return centres at 0 px. Native Escape/macOS and physical touch are not certified. |
+| P7 | Finite 200-hit AI entry clears absent source bookmark. Re-sort retains a newly remembered bookmark off-screen; exit follows it. Grid +255.5 px is visible, table +403 px is outside usable viewport. Q3 now accepts target precedence; no-bookmark exit remains L39. Ranking parity is not claimed. |
+| P8 | Held initial sort cannot replace a completed Home; one-shot core-list 500 retains old data with error and recovers. Closing pending edge traversal prevents stale navigation/reopening while released data still progresses. Original sort/density failure is the now-repaired B8. |
+| P9 | Synthetic Chromium coarse events: resident long-press selects the exact range; swipe traversal/dismiss centres, original dismiss is stationary. This does not refute asynchronous B3 or certify physical devices. |
 
-**P2 API witness:** all six cells used real tick/body/Shift-range clicks, Clear,
-sort controls, the Anytime preset, and native CQL typing/Clear. Three-image ranges
-did not create focus, open detail or show a ring; Clear was stationary. With a
-different hidden bookmark, selected sort kept the selected target visible and
-retained that bookmark. Clear followed by ordinary sort reset to top and cleared
-hidden focus. Broadening the date filter after detail return and scroll-away
-instead brought hidden focus back: the viewed image moved +80.5 -> +1562.5 px in
-grid and -15 -> +529 px in table, across all three source tiers. Empty-query input
-produced empty results/no focus/no selection/no error; Clear recovered the list.
-Both buffered cells were repeated with full fill completion awaited: target centre
-stayed constant (-134.5 px grid; +33 px table) through first watch and completed fill.
-One seek setup was discarded because the diagnostic initially compared only query
-text, not the complete search scope; its corrected production-fingerprint rerun passed.
+**Layout measurements retained for Q1/L18:** with a 320 px panel, an off-screen
+grid bookmark stayed at -1847 px while the viewed image moved -29 -> +880 px;
+selected-anchor setup held selection at -1544 px and moved the viewed image to
++577 px. Dragging wider removed the viewed image; closing restored -29 px. Table
+held +8.5 px through panel open/drag/close. Height reduction shifted signed geometry
++118 px. Four unanchored density changes moved grid -29 -> -180 -> -440.5 -> -382.5
+-> -1057 px (outside), and table +8.5 -> +162 -> -162 -> -454.5 -> -364.5 px
+(transiently clipped, finally visible). Do not infer guaranteed convergence or
+unbounded drift. Loaded-bookmark density repeatedly follows that bookmark instead.
 
-**P3 settled API witness:** all six tier/view cells completed non-top search
-Back/Forward, selected-list reload, original-detail reload/close and traversed-detail
-reload/close. Source ranks were approximately 379/378 in buffer, 6088/6086 indexed,
-and 565450/565500 seek (grid/table). Back/Forward and list reload restored tracked
-identity at 0 px difference with no focus/ring; the persisted selected ID survived.
-With the list settled before closing detail, original placement was exact and the
-traversed image centred at 0 px, visible, with stored last-viewed ID and no ring.
-In every sampled settled cell, detail first became ready while its parent list
-was loading and did not yet contain that target. The paired early outcomes in all
-six tier/view cells are C35/B9 above.
-
-**P5 API edge witness:** each of six tier/view cells exercised End then Home in
-three states: no stored focus, hidden focus after detail return, and selection
-hiding that focus. The true last and first images became fully visible. Fresh
-state did not gain focus; existing hidden focus and selected membership survived;
-no ring appeared. A seek-grid selected-state watch was discarded when the tab
-became hidden; that exact pair was repeated visibly and completed. These checks
-were later complemented by ordinary forward eviction/backward prepend and
-temporary-edge tests below.
-
-The ordinary lifetime follow-up covered both views in every natural tier. Buffer
-held the complete result set at offset zero, so it had no temporary data edge.
-Indexed mode used its global scroll range: real out-and-back wheel motion grew the
-loaded window without a forward-eviction generation, while the hidden bookmark,
-selection and zero-ring state survived. Seek mode held one successful real cursor
-response at each buffer-local edge. Both held windows stayed unchanged for 600 ms
-and were not true result edges. Releasing forward preserved the boundary anchor at
-0 px, made data progress and eventually produced a real forward eviction (99 grid,
-100 table). Releasing backward produced a real prepend, preserved its boundary
-anchor at 0 px, and retained the hidden bookmark, selection and zero rings. These
-are delayed client-read characterisations, not server latency or performance
-measurements. The low-offset forward-evict then prepend-to-zero follow-up is C36/B10.
-
-**P4 API layout witness:** all six natural tier/view cells completed fresh,
-hidden-bookmark and selection-over-hidden-bookmark states. ArrowUp scrolled while
-horizontal arrows only moved the table's horizontal scroll (0 -> 150 -> 0), and
-Enter/F caused no search, detail or preview in any cell. Width restoration and
-Clear were stationary; height reduction changed signed vertical geometry by 118 px
-without losing the viewed item. Outcomes were identical across buffer, indexed
-and seek tiers but differed by view. In grid, opening the 320 px panel while an
-offscreen hidden bookmark existed kept that bookmark at -1847 px and displaced
-the viewed image from -29 to +880 px; dragging wider made the viewed image absent.
-With selection over that bookmark, the offscreen selection stayed at -1544 px and
-the viewed image moved to +577 px, then became absent. Closing restored -29 px.
-The table held its viewed row at +8.5 px through panel open, drag and close in all
-three states. Browser width changes also held those starting positions.
-
-Four fresh density changes accumulated displacement in every tier: the grid
-tracked image moved -29 -> -180 -> -440.5 -> -382.5 -> -1057 px and ended outside;
-the table moved +8.5 -> +162 -> -162 -> -454.5 -> -364.5 px, transiently clipped
-but finally fully visible. With a hidden bookmark, each density transition instead
-returned that bookmark to the same view-specific positions already seen in P1
-(-367/-219 px in grid destinations, -255.5/-367/-219 px across table/grid rounds),
-while the previously viewed image repeatedly left the viewport. Selection remained
-selected but did not outrank the older hidden bookmark during density. These are
-bounded client-layout outcomes, not performance claims; paired resident
-eviction/extension variants are recorded in P5.
-
-**P6 API fullscreen/preview witness:** native fullscreen was available and all six
-natural tier/view cells completed the same three desktop fine-pointer sequences.
-Opening detail, pressing F, traversing right, pressing F again and using Back to
-search kept detail open across fullscreen exit, used decoded media and returned the
-traversed image fully visible at 0 px centre with the stored last-viewed identity and
-no ring. Middle-click preview entered native fullscreen without a detail route;
-pressing F returned the original image with 0 px centre delta. A second preview,
-right traversal and Backspace returned the traversed image at 0 px centre, stored as
-last viewed, with no detail route or ring. This does not certify physical touch,
-Esc-specific macOS animation, browsers without native fullscreen, or indefinitely
-late media readiness; entry watches were bounded to 800 ms after their readiness
-conditions and return watches to 2.6 seconds.
-
-**P7 API AI witness:** all six ordinary source tier/view cells used the real AI
-toggle, query input, relevance direction control, detail close and disable control.
-Entry produced one settled 200-result in-memory list at top, cleared the prior
-ordinary hidden bookmark because it was absent, and showed no ring. Opening and
-closing an AI result created a new hidden bookmark; relevance re-sort retained it
-loaded but offscreen while scroll stayed at zero. Disabling AI carried that AI
-bookmark into the restored ordinary query. It landed at +255.5 px and visible in
-grid, but +403 px and outside the usable table viewport, identically across buffer,
-indexed and seek source tiers. No request error occurred. The fixed query and live
-TEST result membership make this a client-lifetime/geometry characterisation, not
-ranking quality or corpus stability evidence; Q3 remains open/deferred.
-
-**P8 API interruption witness:** four ownership/failure compositions used real app
-controls and production datasource methods. First, a held successful first-page
-sort was superseded by Home; Home's broad seek destination settled before release,
-the old signal was aborted, and late release left tier/total/intent unchanged with
-the old bookmark cleared, no error and no ring. Second, sort then density with a
-hidden Click-to-Open bookmark reproduced B8 as qualified above. Third, one actual
-`/api/images/search-after` response was intercepted with HTTP 500 in each view.
-Both retained old indexed data and hidden bookmark, published `error=true`, showed
-no ring, and recovered to no focus after interception was removed and Home used.
-This is core-list failure characterisation, not an assertion about optional Grid
-enrichment absence or every HTTP/network timing. Fourth, grid and table opened the
-last loaded image while a real seek-edge extension response was held, pressed
-ArrowRight, closed detail before release, then released. Both stayed on the origin
-while pending, did not reopen or navigate stale after release, made data progress,
-stored the closed origin as hidden focus and showed no ring. Existing unit ownership
-coverage remains broader than these composed browser representatives.
-
-**P9 API synthetic-touch witness:** the runner temporarily set the client coarse
-capability, dispatched touch `PointerEvent`s for long-press and hook-bound
-`TouchEvent`s for carousel/dismiss, then restored fine-pointer and empty selection
-state. In the fully resident buffer grid, first long-press selected one image and a
-second endpoint long-press selected the exact three-image resident range; neither
-created focus/detail/ring, and the endpoint became selection anchor. This resident
-control does not refute B3's separately reproduced asynchronous metadata/range-walk
-self-cancellation. In seek grid and table, a horizontal swipe changed detail
-identity; a subsequent downward dismiss returned the traversed image visible and
-centred at 0 px with stored last-viewed identity/no ring. A separate original-image
-downward dismiss preserved exact placement (0 px delta) in both views. These are
-synthetic Chromium event/hook checks only: no physical device, iOS/Safari pointer
-capture, browser chrome, orientation change, pinch conflict or real finger velocity
-is certified.
-
-**Direct paired witness:** after operator switch and reload, the page independently
-reported `ElasticsearchDataSource`, phantom mode, fine pointer, 1130x886, settled
-seek data and no residual detail/fullscreen/selection/focus/error. P1, P3, P4, P5,
-P6 and P9 then matched API outcomes exactly across their stated cells, including
-B9's six early-close offsets and B10's complete prepend steps/final anchor loss.
-P2 matched every behavioral outcome; the live filter sequence elected a different
-starting neighbour, so direct grid moved -62 -> +1259.5 px versus API +80.5 ->
-+1562.5, and direct table +5.5 -> +497 versus API -15 -> +529. This is not a
-same-identity pixel comparison; both transports pulled hidden focus back and moved
-the browsed image away. P7 also matched client state and exit geometry exactly
-(grid +255.5 visible, table +403 outside); ordinary scroll ranks differed because
-direct Bedrock/ES and API ranking/membership are transport-specific inputs.
-
-P8 supersession and one-shot first-page failure matched API in both views. Phantom
-sort+density reproduced B8's direct symptom: after the matched action it settled at
-total/loaded zero, no error, no bookmark and lifecycle 36/36, while API retained
-data/bookmark and remained loading. Home recovered both. Initial direct pending-
-traversal attempts from the top buffer were invalid: wheel events did not arm the
-gate, one fallback awaited its own held promise, and cleanup publication invalidated
-later targets. The corrected probe deep-seeked first, exposed request-called and
-response-ready separately, held a real successful cursor response, and opened the
-actual loaded tail before pending one more Right. Grid opened the tail directly;
-table opened the last visible row and traversed one loaded successor because sticky-
-header compensation left the true tail 4 px below the viewport. In both views and
-focus modes, close-before-release canceled pending navigation, release progressed
-data, and detail did not reopen; explicit retained one ring, phantom none. No
-physical touch claim or performance equivalence follows from the paired matrix.
+**Transport comparison:** P1/P3/P4/P5/P6/P9 matched in the recorded paired geometry,
+including B9 and B10. P2 matched behaviour but elected different filter anchors;
+it is not a same-identity pixel comparison. P7 matched client exit geometry with
+transport-specific membership/ranks. P8 differs for the historical B8 cancellation
+symptom, not policy. Pending-traversal controls held a real successful cursor read
+at an established deep edge before closing; invalid/inactive gates are excluded.
 
 ### Click-to-Focus Paired Matrix
 
@@ -1739,91 +1223,32 @@ during selection. The shared installer rejects a mismatched effective mode.
 | F8: supersession, sort/density, failed reads, pending traversal | Complete for representative controls including corrected pending traversal in both views/modes | Complete for representative controls including pending traversal in both views |
 | F9: synthetic coarse long-press/swipe/dismiss | Not applicable: coarse pointer forces effective phantom mode | Same product rule; no explicit-mode touch cell |
 
-**Direct explicit witness:** F1 was tier-invariant. With no focus, arrows/Page keys
-scrolled and Enter/F were inert. A single click created one ring; ArrowDown moved
-focus visibly, Enter opened/returned at 0 px, F preview returned at 0 px after its
-500 ms cooldown, traversal returned focused at centre, and offscreen ArrowDown
-snapped back/moved focus. Density pulled loaded offscreen focus to -367 px in grid
-destinations or -255.5 px in table destinations, with one ring.
+**Mode-specific outcomes:** no-focus keys scroll and Enter/F are inert; a click
+creates a ring, focused arrows move/snap back, and Enter/F open the chosen image.
+Original return is stationary and settled traversal return centres with the correct
+focus. Selection hides the ring and suppresses Enter/focused movement but permits F;
+Clear restores focus eligibility without movement (accepted Q5). Selected-sort
+distinct-identity controls passed; the former equality defect is now repaired B6.
+Home/End moves only eligible explicit focus, retaining it while selection is active.
+F3 reproduces B9's early-return offsets plus wrong focus; F5 reproduces B10.
 
-F2 selection-only behavior matched phantom until sort ownership mattered. A
-different explicit focus and selection both survived selected sort; selection mode
-hid the ring. After Clear, ordinary sort retained/followed explicit focus with one
-ring instead of phantom's clear-and-top relaxation. Broadening the date filter
-followed explicit focus in every tier; an empty query cleared focus and recovery
-retained explicit mode. F3 settled history/list behavior matched phantom no-focus
-controls, while settled detail close focused/ringed the correct original or
-traversed image at exact placement. Every early traversed cell reproduced B9's
-mode-independent offsets and additionally left the returned image unfocused with a
-ring elsewhere.
+F4 matches phantom layout geometry; focus/selection eligibility differs, not tier
+policy. F7 follows the new explicit AI focus during re-sort and exits at +47.5 px
+grid / +51 px table, versus phantom +255.5/+403. Transport-specific ranks and an
+adjacent elected row in F2 prevent universal same-identity pixel claims. F8 retains
+the same supersession, core-list failure and pending-traversal controls as P8;
+historical B8 transport symptoms are not current failures.
 
-F4 geometry was exactly tier-invariant and matched Click-to-Open's client layout:
-grid panel changes preserved offscreen focus/selection and displaced the browsed
-image; table held the row; fresh density drifted; focus density pulled back. Mode
-changed eligibility only: focus showed a ring and Enter/F worked; selection hid the
-ring and suppressed Enter but not F; Clear restored the ring. F5 Home/End moved an
-eligible explicit focus to the real first/last image, but selection suppressed that
-movement and preserved the bookmark. Shared paging/edge compensation matched;
-B10's prepend steps and final anchor loss were pixel-identical in both views.
+**Coverage gaps and exclusions:** API explicit preview entry succeeded, but native
+exit/Escape remains an embedded-browser tool limitation; the operator confirmed
+normal Chrome works. Direct explicit and API phantom passes do not fill that cell.
+F9 is inapplicable because coarse pointer forces phantom (accepted Q6). All physical
+touch/Safari, unbounded timing and performance claims remain excluded. Hidden-tab,
+service-outage, wrong-fingerprint, inactive-gate and driver-serialization samples
+were excluded; only corrected valid controls contribute to the matrices.
 
-F6 matched position/media outcomes with one ring. F7 exposed the clearest intended
-mode contrast: AI entry cleared absent source focus, then AI re-sort followed the
-new explicit focus visibly/ringed instead of leaving a hidden bookmark at top.
-Exit landed that focus at +47.5 px in grid or +51 px in table in every source tier,
-versus phantom +255.5/+403. F8 valid controls matched Click-to-Open, including B8's
-direct empty/no-error symptom. The corrected direct pending-edge traversal completed
-in grid/table for both modes with focus/ring differences only. For F9, source plus a live store check
-confirmed `_pointerCoarse=true` makes effective mode `phantom`; synthetic touch
-therefore belongs only to the Click-to-Open evidence and cannot be mirrored as an
-explicit-mode interaction.
-
-**Media-api explicit witness:** F1's non-preview checks matched direct exactly in
-all six cells. F preview entry itself reached active native fullscreen with the
-correct focused identity, but F, Backspace and programmatic native exit could not
-complete while the integrated browser's deferred Playwright call owned the page;
-two invalid cells required reload. The rerun explicitly skipped preview action and
-completed click/ring, no-focus keys, focused arrows, Enter detail, traversal,
-snap-back and density. F4 likewise skipped preview action but completed Enter
-eligibility plus all panel/viewport/density geometry, matching direct exactly.
-Direct explicit F1/F6 and API phantom P6 retain the valid fullscreen controls; they
-are not a substitute for the missing API explicit exit cell, so F6 remains a tool
-gap rather than a pass or app defect. Later separate calls sent Escape twice through
-both browser and Playwright channels; document fullscreen remained active. The
-operator confirmed Escape works in normal Chrome, so this is a VS Code embedded-
-browser limitation rather than missing product behavior.
-
-F2 matched direct behavior. One API seek-grid ordinary-sort/filter run elected the
-adjacent grid row (-134.5 and +1562.5 px) where direct elected +168.5 and +1259.5;
-no stable identity was paired, and every semantic focus/ring outcome agreed. F3
-settled and early outcomes were pixel-identical across transports, including B9's
-unfocused returned image/ring-elsewhere symptom. F5 edge policies, lifetime gates,
-eviction/prepend and B10 steps were identical. F7 preserved the explicit mode
-contrast and exact +47.5 grid/+51 table exit geometry; ordinary ranks differed with
-transport-specific AI membership.
-
-F8 supersession/failure matched direct. Explicit API sort+density reproduced B8's
-stranded-loading symptom with the bookmark and one ring retained. API and corrected
-direct pending traversal completed in grid/table: close-before-release
-did not reopen/navigate stale, data progressed, and the origin remained focused with
-one ring. The first failed-search attempt used the `api-explicit` label against an
-exact `api` route check and intercepted nothing; transport classification was fixed
-and both views were rerun with real one-shot 500 interception. F9 remains
-inapplicable by product rule, not missing execution.
-
-**Invalid samples and recovery:** the first seek transition setup compared only
-query/AI fields, not the date/order fingerprint; it was corrected using production
-canonicalization/search-key helpers and rerun. Initial reload-driver failures came
-from Vite-generated `__vite__injectQuery` references lost during function serialization,
-not from app reload. Raw-source execution resolved that tooling problem. A later
-media-api outage returned 500 for search-after/count/mget/aggregations while the
-root stayed 200; no-data/error setups were excluded. The operator recovered the
-service, and fresh search/count 200 plus fully loaded data were verified before
-resuming. A later lifetime validation was likewise discarded when the TEST session
-broke its pipe and API reads returned 500; after operator restart, the exact indexed
-scope was reloaded and verified clean before all six lifetime cells ran. None of
-these invalid samples is counted as an app regression or a pass.
-
-### Retained Tooling And Resume Boundary
+<a id="retained-tooling-and-resume-boundary"></a>
+### Diagnostic Tooling
 
 The operator explicitly allowed retaining the shared
 [Click-to-Open helper](../experiments/not-yet-another-audit-click-open-probe.js)
@@ -1884,15 +1309,16 @@ native list retention versus traversal centring; request cancellation versus
 whether a later callback still owns focus; and storage snapshots versus live
 selection. Removing their names would not remove those responsibilities.
 
-The traces support examining duplicated *decisions*: six anchor choosers, separate
+The original traces exposed duplicated *decisions*: separate anchor choosers,
 identity/ratio capture, entry identity used differently by swipe and final return,
 and focus simultaneously representing bookmark and last-viewed interaction.
-They do not establish that one table, one coordinator or a rewrite is best. The
-new composed-range failure also warns that individually correct cancellation can
+Ordinary and user-initiated AI transitions bind target and placement; history
+remains a compatibility boundary. AI adoption is reviewed and locally verified.
+The traces do not establish that one table, coordinator or rewrite is best. The
+composed-range failure warns that individually correct cancellation can
 conflict with its own producer. Later proposals must account for both sides and
 the assertions above. No deletion percentage, speed-up or universal exactness is
-promised. Settle the relevant unresolved policy before changing anchors; Q3's
-existing deferral must not become a new gate on unrelated work. Tier/transport
+promised. Settle only the policy relevant to the chosen unit. Tier/transport
 independence is already required. Bug fixes require their own scope.
 
 ## Decisions
@@ -1904,8 +1330,8 @@ independence is already required. Bug fixes require their own scope.
   For ordinary query/filter changes and AI exit, the last image returned from detail
   takes precedence over the current browsed centre, even off-screen, if it survives.
   This replaces the earlier blanket ban on hidden focus as an anchor. With no such
-  remembered image, centre preservation is the desired AI-exit improvement, not yet
-  delivered or bundled with the first ordinary search/sort unit. Keep the existing
+  remembered image, AI exit now preserves browsed centre without creating focus;
+  L39 is repaired, reviewed and locally verified. Keep the existing
   no-selection ordinary-sort clear-and-top exception and missing-target fallbacks.
   Selection clear follows Q4; layout and destination-history choices remain Q1/Q2.
   This precedence is revisable policy, not a rule to embed in request ownership.
@@ -1935,10 +1361,12 @@ independence is already required. Bug fixes require their own scope.
   Whether density changes should create history entries is also undecided;
   keeping density in the URL does not require pushing a new entry.
 
-## Preliminary What Next
+<a id="preliminary-what-next"></a>
+## Structural Work
 
-The delivered first-unit boundary and B6 approval are recorded below; later
-expansion remains proposed, not authorized. The goal is a clearer, less brittle
+Ordinary search/sort, B6 and AI adoption/L39 are delivered within their recorded
+verification boundaries. No subsequent unit is selected.
+Other expansion remains proposed, not authorized. The goal is a clearer, less brittle
 continuity system whose behaviour can evolve, not a completed bug list or a
 predetermined rewrite. Each delivered unit must remain useful if wider replacement
 is delayed, abandoned or rolled back.
@@ -1951,13 +1379,14 @@ intervention:
 
 - **Mixed meanings:** focus also carries last-viewed identity; history cannot
   independently represent the bookmark and the place being browsed (C03/C27).
-- **Split decisions:** search target and placement ratio are chosen separately,
-  with no identity or operation attached to the shared ratio (C01/C08).
+- **Split decisions:** ordinary search/sort now binds target and placement to its
+  owner. AI now adopts that handoff too; history still chooses identity and numeric
+  ratio separately (C27).
 - **Inferred intent:** a buffer reaching zero is treated as a reset, and a loaded
   DOM bottom as a result boundary (B10/B7).
 - **Mismatched ownership:** long-press can cancel its own range operation (B3).
-  B8's initial-search/range cancellation ownership is now separated; this bounded
-  repair does not settle the remaining continuity boundaries.
+  B8/B17 separate discovery, browsing and maintenance; B18 uses that browsing owner
+  for presentation. These repairs do not settle every continuity boundary.
 
 Grid and table already share substantial scroll, data-window, traversal and return
 machinery. Another shared module is progress only if it removes competing
@@ -1998,7 +1427,7 @@ switches are required. Test adjustability by substituting a policy in a fixture,
 not by changing live user preferences or adding a configuration framework.
 
 **Policy changes should be able to alter expected placement without weakening
-ownership or coherent-publication assertions.** Demonstrate this in the first unit:
+ownership or coherent-publication assertions.** Retain this proof as adoption expands:
 for the same target, substitute centre placement for captured-ratio placement in a
 fixture while retaining stale-work, publication and completion assertions. A later
 policy that chooses a different target may legitimately require different reads;
@@ -2006,70 +1435,93 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-Steps 1-4 are delivered within the first unit below. Step 5 requires a new operator
-scope decision; completion does not select another bug or structural unit.
+1. **Complete: AI continuity adoption, including L39.** Independent review and final
+  focused/unit/build/retry-free E2E gates pass within the recorded local boundary.
+2. **Accept only demonstrated simplification.** Preserve capture timing and existing
+  owners, exercise policy substitution without weakening invariants, pass cold
+  review and full applicable gates, and remove replaced decisions in adopted paths.
+3. **Choose subsequent responsibility after that result.** Density/reflow and
+  history/return remain candidates, not an authorized sequence. B1/B9/B14 and
+  Q1/Q2/Q7 do not become automatic repair or policy gates for AI adoption.
 
-1. **Start from the current B8/L37/B17 implementation.** The B17 cold-review
-  follow-up retains ordinary query discovery while retiring placement, preserves
-  finite AI membership and records Scrubber-wheel intent. Keep its existing owners
-  and maintained controls; do not design against the earlier shared-controller
-  architecture. Local gates and earlier live-checkpoint limits remain separate.
-2. **Prepare ordinary user-initiated search/filter and sort continuity, with B6.**
-  Tie target identity, captured placement, focus treatment and operation ownership
-  together rather than choosing identity and ratio independently. Q3/Q4 supply
-  revisable policy for the adopted paths. B6 is the named approved repair; accepted
-  remembered-detail precedence is not another bug to fix. AI/history paths remain
-  compatibility boundaries, not additional policy redesigns. The engineer chooses
-  producers, consumers and internal APIs and names the competing decisions removed.
-3. **Prove integration and policy adjustability together.** Exercise capture,
-  resolution, publication and placement through the existing store/hooks. Preserve
-  pre-transition capture timing; merely moving Effect 7 into a passive callback
-  is insufficient. Prove B6 failing-first with equal/distinct selection and focus.
-  Retain missing-target, search/density, superseding navigation, discovery and AI
-  controls. Substitute a same-target placement policy in a fixture without weakening
-  ownership/publication assertions. Pure chooser tests cannot replace composed proof.
-4. **Judge whether the adopted unit actually simplifies responsibilities.** Require
-  preserved or explicitly changed contracts, fewer independent decisions, clear
-  publication/placement owners and removal of replaced paths. Distinguish accepted
-  policy, known defects and invariants in the tests. Performance evidence remains
-  proportional to the actual change and subject to operator execution rules.
-  Reject a wrapper that leaves competing decisions underneath.
-5. **Choose the next responsibility from that result.** Density/reflow and history/
-  return are candidates, not a fixed migration order. Cross-family compositions are
-  regression controls where touched, not automatic demands to repair B1/B9 or settle
-  all Q1 choices. No-bookmark AI exit (L39), density history (Q2) and horizontal
-  restoration (Q7) retain their separate follow-up scopes. An engine may emerge;
-  it is not a prerequisite for useful simplification.
+### AI Continuity Unit
 
-### First Search/Sort Unit
+**Complete within the local verification boundary.** Independent cold review and
+re-review found no remaining actionable defects; final gates are in Current Status.
+No wider repair or unsettled policy follows from this unit.
 
-This is the delivered boundary discussed with the operator, including the explicitly
-approved B6 repair. The current state below records outcomes and limits, not wider rewrite
-authorization.
+**Behaviour:** remembered detail identity wins even off-screen if it survives.
+Without it, AI exit preserves the browsed centre without creating explicit focus
+(L39). Ordinary missing-target fallback on exit and finite-AI top fallback on entry
+remain unchanged. AI re-sort retains the existing selection/focus policy and stays
+entirely in memory; pending completion honors the latest same-query sort.
 
-| Field | Boundary |
-|---|---|
-| Outcome | L8 search/sort target-and-placement handoff, with B6/L24 focus retention repaired. Internal boundaries are engineering decisions, not questions for the operator. |
-| Policy | Query/filter follows retained explicit or remembered detail focus if present; automatic selection Clear behaves like explicit Clear first (Q4). Without focus, ordinary query/filter uses browsed centre. Selected sort follows selection while retaining older focus, including equality. Keep ordinary no-selection phantom-sort top/reset and existing missing-target fallback. |
-| Replaced responsibility | Independent target election and identity-free ratio handoff in adopted ordinary paths. Preserve capture timing and integrate with existing discovery/browse/focus owners, rather than adding a parallel coordinator. |
-| Exclusions | No new density, resize, history, preview, keyboard or coarse-pointer policy; no AI-exit centre improvement in this unit; no general ownership rewrite, backend work or stronger seek exactness. Existing shared callers remain compatibility obligations. |
-| Proof | B6 failing-first, focused and full applicable local gates, composed interruptions and same-target policy substitution. Existing test expectations change only for the named repair; functional success is not performance equivalence. |
-| Stop | Ask if the unit needs another repair, an unresolved user-visible choice, a third preservation target beyond Q1's accepted true-edge handling, materially greater cost or a wider ownership boundary. Revisit scope rather than growing the patch silently. |
+**Structure:** one pre-passive record supplies target, placement and focus treatment
+for AI entry, query/filter changes, re-sort and exit. URL sync's separate AI target
+chooser and effect 7's adopted AI numeric-ratio capture are removed. The existing
+focus signal owns placement; re-sort replaces it without restarting or cancelling
+search-owned discovery. Finite results, positions, metadata and enrichment retain
+coherent publication and newer-query rejection.
 
+**Ownership and compatibility:** AI-R1 and AI-R2 are resolved and independently
+re-reviewed. Input-retired re-sort placement stays retired at discovery completion;
+neither target-placement nor reset signals override newer scrolling. History-cleared
+continuity cannot resurrect an aborted closure owner. History retains its legacy
+numeric bridge: resident re-sort can consume the snapshot ratio once, so final AI
+arrival uses legacy start placement, not a two-publication ratio guarantee. B14
+remains unresolved and outside scope.
+
+**Verification boundary:** 46 mounted cases use actual direct/API AI mapping with
+synthetic responses and MockDataSource ordinary reads. Existing paired ordinary
+adapter tests retain actual lookup mapping across map/coordinate regimes. Four local
+browser cases use real AI controls/adapters with synthetic responses and ordinary
+mock data in grid/table. Coverage includes remembered-A over browsed-B, explicit and
+selected targets, missing targets, owned success/empty/API absence/direct failure,
+pending sorts, supersession and density input retirement. Same-target ratio/centre
+substitution retains ownership/publication/completion assertions. AI-R1 checks wheel
+input after resident re-sort but before discovery success on both adapters/policies;
+AI-R2 checks a matching history snapshot after adopted pending sort and the exact
+legacy final placement call. B6/B17/B18 workflow assertions remain unchanged and
+pass in the full suite. L39 fixture setup owns its search promise and checks mounted
+store identity across imports; cleanup restores its datasource/fetch in `finally`.
+The shared B17/B18 bookmark setup uses a hit-tested visible point and native mouse
+input, avoiding virtualizer-disturbing locator auto-scroll of overscan rows. Setup
+repairs are independently reviewed; they add no timeout or weakened assertion.
+The exact cause of the earlier collected fixture promise is not certified, and
+coordinate election/click are not atomic; full local success is not universal timing
+certification.
+
+**Transport and cost:** direct scores/count topology/error remain distinct from API
+server-order ordinals/quiet absence/enrichment. Displayed total is finite membership,
+not the filtered pool total. Exit resolves identity in ordinary ordering and discards
+AI rank hints; synthetic AI tuples are not ordinary cursors. First-page targets need
+no additional target/rank read. Out-of-page indexed/seek fixture exits use one initial
+page, one target lookup, two centred reads and one rank read, without restart. Settled
+re-sort is request-free; pending same-query sorts retain one AI request. Direct's
+unsignalled pool count can outlive cancellation; browser abort does not prove server
+work stops. No live/production/device or performance-equivalence claim follows.
+Density/history/resize/preview/keyboard/coarse-pointer policy and Q1/Q2/Q7 remain
+outside scope; materially greater resolution cost requires operator approval.
+
+<a id="first-searchsort-unit"></a>
 ### Ordinary Search/Sort Current State
+
+**DONE: L8 and B6/L24.** This is the completed ordinary-path unit, not a remaining plan.
 
 **L8 and B6/L24 are complete.** Selected sorting retains older focus even when it
 equals the selection anchor. Clear remains stationary; automatic query/filter Clear
 follows retained focus. Missing-target fallback and phantom no-selection sort reset
-are unchanged. No next repair or structural unit is selected.
+are unchanged. At this milestone AI/history retained compatibility; the current AI
+adoption is recorded separately above.
 
 [search-continuity.ts](../../src/lib/search-continuity.ts) owns one pre-passive capture
 of target, placement, focus treatment and neighbours. URL sync consumes that record;
 resolution publishes its resolved identity with the coherent window and existing owner.
 Placement is consumed once or retired by newer post-publication input during mount-frame
 waits. Retirement does not cancel discovery, mutate focus/selection or settle another
-owner's busy state. Small-result retries remain owner-checked. AI/history retain their
-numeric-ratio compatibility path; direct reset, density policy, coordinates and cursors
+owner's busy state. Small-result retries remain owner-checked. History retains its
+numeric-ratio compatibility path; user-initiated AI now adopts continuity as recorded
+above. Direct reset, density policy, coordinates and cursors
 are unchanged.
 
 **Verification:** independent review complete; **2580/2580 unit tests across 82 files**,
@@ -2093,8 +1545,8 @@ this is not a further functional gate or a claim of performance equivalence.
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. B8/L37 and B17 including its cold-review follow-up are delivered.
-The ordinary search/sort milestone above, including B6, is delivered. The next unit
-requires its own scope decision, not "fix the next easiest bug". A repair may interrupt an active milestone for
+The ordinary search/sort milestone, B18 and AI adoption/L39 are delivered; no next
+implementation unit is selected. A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
 
@@ -2145,7 +1597,7 @@ and repairs if the broader approach is rejected.
 
 ### Evidence, Tooling And Performance
 
-The 36 cases and paired matrices are sufficient to begin this work without another
+The 38 cases and paired matrices are sufficient to begin this work without another
 broad characterisation campaign. They are not a complete implementation design or
 a repair-size estimate. Resolve a specific causal or integration gap when the
 selected unit needs it; do not repeat the whole investigation.
@@ -2167,7 +1619,7 @@ Safari/touch, unbounded timing, production-build incidence and performance remai
 separate limits, becoming gates only where the selected change requires them.
 
 Preserve case IDs, evidence and limits when recording answers. The operator answers
-and bounded B6 approval above do not authorize wider product changes, live-system
+and bounded unit scopes above do not authorize wider product changes, live-system
 work or a new campaign. Update timeless guides with adopted decisions, not planning
 history. The Leave Alone safeguards below continue to apply unless the approved
 unit explicitly justifies a bounded change to a protected mechanism.
@@ -2177,14 +1629,19 @@ unit explicitly justifies a bounded change to a protected mechanism.
 Preserve generation counters, owned suppression releases, prepend/evict
 compensation, column alignment, the tier decision from `total`, seek estimation,
 kupuaKey and the two-frame density restore unless a named bug requires a bounded
-change. B8's authorized search/range controller separation is complete and grants
-no wider ownership rewrite. B2 still requires its own bounded repair scope;
+change. Completed ownership repairs grant no wider ownership rewrite.
+B2 requires revalidation before any new repair scope;
 B10 targets Effect 8's reset classification, not prepend compensation.
 
 ## Open Items
 
 Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 **Consolidate**, **Refactor**, **Move**, **Doc**.
+
+Only unresolved tasks appear here. L39 is resolved in the completed AI unit;
+other rows do not
+grant implementation permission. Completed bugs/units remain in Current Status and
+their evidence records, not in this backlog.
 
 | # | Kind | Claim | Disproof check | Depends |
 |---|---|---|---|---|
@@ -2193,13 +1650,13 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 | L11 | Bug | B12: after reload on B then traversal back to historical A, swipe pre-scroll compares mount B while final return compares A, so canceled/completed dismiss displaces the list unlike ordinary Back | Preserve canceled-gesture no-move and ordinary Back controls; unify or explicitly sequence the entry authority without weakening traversal return | C25/B12 |
 | L12 | Delete | After L8-L11, some reset-to-home suppressions (`suppressNextRestore`, `suppressReturnFromDetail`, `suppressDensityFocusSave`, dedup preset) may no longer be needed | Disable each alone in a throwaway change; run reset-to-home unit and e2e from grid, table and detail | L8, L11 |
 | L13 | Bug | B11: cancelled deep reset-to-home leaves scrubber thumb DOM at top while Back restores a deep logical position | Preserve successful Home's instant top feedback; add Back/newer-navigation cancellation controls that resynchronize to the actual deep position | C31/B11 |
-| L14 | Move | `search-store.ts` (~4.4k lines) mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
+| L14 | Move | `search-store.ts` mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
-| L18 | Bug | Violates D5, bounded: a density switch places the anchor's row *top* at the saved ratio, so between 303px grid rows and 32px table rows the visible centre shifts by up to about two grid rows (observed 0-10 items), converging after 1-3 switches. Placing the anchor's row centre at the same fraction of the usable viewport (below the table header) should hold it. Changes placement for focused images too, so the KUP-017 unit expectations in `useScrollEffects.test.ts` will change | Browser: cycle density without focus at several window sizes; record the viewport anchor's global index each switch | L15 |
+| L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
 | L19 | Decision | Why the buffer tier (total up to `SCROLL_MODE_THRESHOLD`) exists separately from two-tier; it adds the background fill and top-up machinery | Separate audit; check what would break if two-tier covered small results | |
 | L20 | Decision | C27-C30 separate history placement choices from destination-focus defect B1; density push/restore/persist remain independent decisions | Answer Q2 and history placement in Q1 without accepting lost focus; any B1 repair needs separate scope and destination-none coverage | Q1, Q2 |
-| L21 | Bug | B2: a late failed snap-back clears newer focus | Reproduce the recorded deferred missing-target sequence with a successor focus; preserve original deletion-clear control | C12/B2 |
+| L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
 | L25 | Bug | B7: density treats seek's temporary local buffer bottom as a real end, changing preservation outcome by coordinate regime | Preserve natural TEST and equal-size/map-absent controls; distinguish source snap from legitimate true-result destination clamp | C18/B7 |
@@ -2211,4 +1668,3 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
-| L39 | Bug | C10/Q3: without a remembered detail image, AI exit resets to top rather than the operator's desired browsed-centre continuity. Disposition: defer to a named AI-exit unit, not a first ordinary search/sort gate | Start AI without opening detail, browse away from top, exit with a centre image that survives; assert its neighbourhood is preserved without creating explicit focus. Keep remembered-detail precedence and bound any extra lookup cost | Q3; separate implementation scope |

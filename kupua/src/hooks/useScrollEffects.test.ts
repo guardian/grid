@@ -27,6 +27,7 @@ import { Scrubber } from "@/components/Scrubber";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
 import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { clearDensityFocusRatio, useScrollEffects, type ScrollGeometry } from "./useScrollEffects";
@@ -34,6 +35,8 @@ import { useUrlSearchSync } from "./useUrlSearchSync";
 import { consumeUserInitiatedFlag, markUserInitiatedNavigation, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
 import * as searchContinuity from "@/lib/search-continuity";
+import { snapshotStore } from "@/lib/history-snapshot";
+import { buildSearchKey } from "@/lib/image-offset-cache";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let beforeUrlSync: (() => void) | undefined;
@@ -151,6 +154,428 @@ function transition(sourceGeometry = grid, targetGeometry = table, extremum?: "t
   const target = mountDensity(targetGeometry, true);
   return target;
 }
+
+async function aiContinuityFixture(transport: "direct-ES" | "media-api", total = 100) {
+  vi.stubGlobal("scheduler", { yield: async () => {} });
+  const corpus = new MockDataSource(total);
+  const dataSource = transport === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+  vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+  const pages = vi.spyOn(dataSource, "searchAfter").mockImplementation((...args) => corpus.searchAfter(...args));
+  const counts = vi.spyOn(dataSource, "countWithTickers").mockImplementation(() => corpus.countWithTickers());
+  const ranks = vi.spyOn(dataSource, "countBefore").mockImplementation((...args) => corpus.countBefore(...args));
+  vi.spyOn(dataSource, "fetchPositionIndex").mockResolvedValue(null);
+  const ordinary = await corpus.searchAfter({ offset: total > 200 ? Math.floor(total / 2) : 0, length: 100 }, null);
+  const aiHits = ordinary.hits.slice(0, 80).reverse().map((image, index) => ({ ...image, __aiScore: 80 - index }));
+  let gate = Promise.resolve();
+  let outcome: "success" | "empty" | "failure" = "success";
+  const fetch = vi.fn(async (url: string) => {
+    if (url.startsWith("/bedrock/embed?")) return Response.json({ embedding: Array(256).fill(0) });
+    const requestGate = gate;
+    const requestOutcome = outcome;
+    await requestGate;
+    if (requestOutcome === "failure") return new Response("Fixture refusal", { status: 403 });
+    const hits = requestOutcome === "empty" ? [] : aiHits;
+    return Response.json(transport === "media-api"
+      ? { data: hits.map(image => ({ data: { ...image, cost: "free", valid: true } })), total }
+      : { hits: { hits: hits.map(image => ({ _id: image.id, _source: image, _score: image.__aiScore })) } });
+  });
+  vi.stubGlobal("fetch", fetch);
+  const ai = vi.spyOn(dataSource, "searchByAi");
+  return { dataSource, pages, counts, ranks, fetch, ai, aiHits,
+    hold: (nextOutcome: typeof outcome = "success") => {
+      outcome = nextOutcome;
+      let release!: () => void;
+      gate = new Promise<void>(resolve => { release = resolve; });
+      return () => { release(); gate = Promise.resolve(); outcome = "success"; };
+    } };
+}
+
+describe.each(["direct-ES", "media-api"] as const)("AI continuity %s through the URL producer", (transport) => {
+  it.each(["ratio", "centre"] as const)("L39 preserves the browsed centre on AI exit with %s placement", async (policy) => {
+    const { dataSource, pages, counts, fetch, ai, aiHits } = await aiContinuityFixture(transport);
+    const capture = searchContinuity.captureSearchContinuity;
+    const captures = vi.spyOn(searchContinuity, "captureSearchContinuity").mockImplementation((...args) => {
+      const captured = capture(...args);
+      return policy === "centre" ? { ...captured, placement: { kind: "centre" } } : captured;
+    });
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "phantom", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "test AI", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(ai).toHaveBeenCalledOnce();
+    expect(useSearchStore.getState()).toMatchObject({ focusedImageId: null, total: 80, aiPoolTotal: 100, loading: false });
+    expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(aiHits.map(image => image.id));
+    expect(useEnrichmentStore.getState().data.size).toBe(transport === "media-api" ? 80 : 0);
+    const targetId = aiHits[30].id;
+    anchor.viewportId = targetId;
+    view.container.scrollTop = 30 * table.rowHeight - 180;
+    expect(view.container.scrollTop).toBeGreaterThan(0);
+    act(() => {
+      routeParams = { nonFree: "true" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[1].value; });
+    const state = useSearchStore.getState();
+    expect(state).toMatchObject({ focusedImageId: null, total: 100, loading: false, sortAroundFocusStatus: null });
+    expect(state.imagePositions.get(targetId)).toBe(49);
+    expect(49 * table.rowHeight - view.container.scrollTop).toBe(policy === "ratio" ? 180 : (600 - table.headerOffset - table.rowHeight) / 2);
+    expect(state._searchContinuity).toMatchObject({ targetId, focus: "none", phase: "placed" });
+    expect(state._searchContinuity?.owner.aborted).toBe(false);
+    expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(captures).toHaveBeenCalledTimes(2);
+    expect(pages).toHaveBeenCalledTimes(2);
+    expect(counts).toHaveBeenCalledTimes(transport === "media-api" ? 2 : 3);
+    expect(fetch).toHaveBeenCalledTimes(transport === "media-api" ? 1 : 2);
+  });
+
+  const exits = [12000, 70000].flatMap(total =>
+    (["explicit", "phantom"] as const).map(focusMode => ({ total, focusMode })));
+  it.each(exits)("follows remembered A rather than browsed B into $total ordinary results in $focusMode mode", async ({ total, focusMode }) => {
+    const fixture = await aiContinuityFixture(transport, total);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode, _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    const targetId = fixture.aiHits[10].id;
+    useSearchStore.getState().setFocusedImageId(targetId);
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "remembered-A", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(useSearchStore.getState().focusedImageId).toBe(targetId);
+    useSearchStore.getState().setFocusedImageId(targetId);
+    expect(useSearchStore.getState()._focusedImageKnownOffset).toBe(10);
+    anchor.viewportId = fixture.aiHits[30].id;
+    view.container.scrollTop = 30 * table.rowHeight - 180;
+    act(() => {
+      routeParams = { nonFree: "true" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[1].value; await vi.advanceTimersByTimeAsync(0); });
+    await vi.waitFor(() => expect(useSearchStore.getState().loading).toBe(false));
+    const state = useSearchStore.getState();
+    expect(search.mock.calls[1][1]).toMatchObject({ discardOffsetHint: true, continuity: { targetId, focus: "target" } });
+    expect(state).toMatchObject({ total, focusedImageId: targetId, loading: false, error: null,
+      sortAroundFocusStatus: null, aiPoolTotal: null });
+    expect(state.imagePositions.get(targetId)).toBe(Math.floor(total / 2) + 69);
+    const index = state.imagePositions.get(targetId)! - (isTwoTierFromTotal(total) ? 0 : state.bufferOffset);
+    expect(index * table.rowHeight - view.container.scrollTop).toBe(0);
+    expect(state._searchContinuity).toMatchObject({ targetId, focus: "target", phase: "placed" });
+    expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, state.bufferOffset + index]));
+    expect(fixture.pages).toHaveBeenCalledTimes(5);
+    expect(fixture.ranks).toHaveBeenCalledOnce();
+    expect(fixture.ai).toHaveBeenCalledOnce();
+  });
+
+  const placements = (["ratio", "centre"] as const).flatMap(policy =>
+    ([false, "before", "after"] as const).map(interrupted => ({ policy, interrupted })));
+  it.each(placements)("pending AI sort uses latest $policy policy after density, interrupted=$interrupted", async ({ policy, interrupted }) => {
+    const fixture = await aiContinuityFixture(transport);
+    const capture = searchContinuity.captureSearchContinuity;
+    vi.spyOn(searchContinuity, "captureSearchContinuity").mockImplementation((...args) => {
+      const captured = capture(...args);
+      return policy === "centre" ? { ...captured, placement: { kind: "centre" } } : captured;
+    });
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "phantom", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-20");
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const source = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    source.container.scrollTop = 20 * table.rowHeight - 180;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const release = fixture.hold();
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "pending-sort", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      source.changeGeometry(table);
+    });
+    const pending = search.mock.results[0].value;
+    const predecessor = useSearchStore.getState()._searchContinuity!;
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      const selectedIds = new Set(["img-60", "img-70"]);
+      useSelectionStore.setState({ selectedIds, anchorId: "img-60" });
+      for (const [orderBy, targetId] of [["-uploadTime", "img-60"], ["uploadTime", "img-70"]] as const) {
+        useSelectionStore.setState({ anchorId: targetId });
+        source.container.scrollTop = useSearchStore.getState().imagePositions.get(targetId)! * table.rowHeight - 180;
+        act(() => {
+          routeParams = { ...routeParams, orderBy };
+          markUserInitiatedNavigation();
+          source.changeGeometry(table);
+        });
+      }
+      expect(predecessor.owner.aborted).toBe(true);
+      expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(false);
+      expect(useSearchStore.getState().loading).toBe(true);
+      let owner = useSearchStore.getState()._searchContinuity!.owner;
+      source.unmount();
+      source.container.remove();
+      const target = mountDensity(grid, true, false, interrupted === "before");
+      frame();
+      if (interrupted === "before") {
+        target.container.scrollTop = Math.floor(useSearchStore.getState().imagePositions.get("img-70")! / grid.columns) * grid.rowHeight - 180;
+        act(() => {
+          routeParams = { ...routeParams, orderBy: "-uploadTime" };
+          markUserInitiatedNavigation();
+          target.changeGeometry(grid);
+        });
+        owner = useSearchStore.getState()._searchContinuity!.owner;
+        act(() => {
+          target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 640 }));
+          target.container.scrollTop = 640;
+          target.container.dispatchEvent(new Event("scroll"));
+        });
+        expect(useSearchStore.getState()._searchContinuity).toMatchObject({ phase: "retired", owner });
+      }
+      await act(async () => { release(); await pending; });
+      expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "img-70", phase: interrupted === "before" ? "retired" : "ready", owner });
+      if (interrupted === "after") act(() => {
+        target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 640 }));
+        target.container.scrollTop = 640;
+        target.container.dispatchEvent(new Event("scroll"));
+      });
+      frame();
+      const state = useSearchStore.getState();
+      expect(state).toMatchObject({ focusedImageId: "img-20", total: 80, bufferOffset: 0,
+        aiPoolTotal: 100, loading: false, error: null, params: { orderBy: interrupted === "before" ? "-uploadTime" : "uploadTime" } });
+      const index = state.imagePositions.get("img-70")!;
+      if (interrupted) expect(target.container.scrollTop).toBe(640);
+      else expect(Math.floor(index / grid.columns) * grid.rowHeight - target.container.scrollTop)
+        .toBe(policy === "ratio" ? 180 : (600 - grid.rowHeight) / 2);
+      expect(state._searchContinuity).toMatchObject({ targetId: "img-70", phase: interrupted ? "retired" : "placed", focus: "retain", owner });
+      expect(owner.aborted).toBe(false);
+      expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+      expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+      expect(useSelectionStore.getState().anchorId).toBe("img-70");
+      expect(useEnrichmentStore.getState().data.size).toBe(transport === "media-api" ? 80 : 0);
+      const requests = fixture.fetch.mock.calls.length;
+      act(() => useSearchStore.getState().resortAiBuffer("-relevance", null, false,
+        { targetId: "img-70", placement: { kind: "ratio", ratio: 0.3 }, focus: "retain" }));
+      expect(owner.aborted).toBe(true);
+      expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "img-70", phase: "placed" });
+      expect(fixture.fetch).toHaveBeenCalledTimes(requests);
+      expect(fixture.pages).toHaveBeenCalledOnce();
+      expect(fixture.ai).toHaveBeenCalledOnce();
+      expect(search).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it("cold review: pending history sort uses legacy final placement without reviving an aborted adopted owner", async () => {
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-49");
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 49 * table.rowHeight - 180;
+    const release = fixture.hold();
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "history-compatibility", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    const pending = search.mock.results[0].value;
+    const originalOwner = useSearchStore.getState()._searchContinuity!.owner;
+    const historyKey = "ai-continuity-review-history";
+    const oldHistoryState = window.history.state;
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      act(() => {
+        routeParams = { ...routeParams, orderBy: "-uploadTime" };
+        markUserInitiatedNavigation();
+        view.changeGeometry(table);
+      });
+      expect(originalOwner.aborted).toBe(true);
+      const destination = { ...routeParams, orderBy: "-relevance" };
+      snapshotStore.set(historyKey, { searchKey: buildSearchKey(destination), anchorImageId: "img-49",
+        anchorIsPhantom: false, anchorOffset: 49, viewportRatio: 0.3, newCountSince: null });
+      window.history.replaceState({ ...oldHistoryState, kupuaKey: historyKey }, "");
+      act(() => {
+        routeParams = destination;
+        view.changeGeometry(table);
+      });
+      expect(useSearchStore.getState()._searchContinuity).toBeNull();
+      expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(false);
+      await act(async () => { release(); await pending; });
+      const state = useSearchStore.getState();
+      expect(state).toMatchObject({ focusedImageId: "img-49", total: 80, loading: false, error: null,
+        params: { orderBy: "-relevance" }, _searchContinuity: null });
+      expect(state.imagePositions.get("img-49")).toBe(30);
+      expect(view.scrollToIndex).toHaveBeenLastCalledWith(30, { align: "start" });
+      expect(30 * table.rowHeight - view.container.scrollTop).toBe(view.container.clientHeight / 2 - table.headerOffset);
+      expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+      expect(fixture.ai).toHaveBeenCalledOnce();
+      expect(search).toHaveBeenCalledOnce();
+    } finally {
+      snapshotStore.delete(historyKey);
+      window.history.replaceState(oldHistoryState, "");
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it.each(["success", "empty", "failure"] as const)("settles owned %s with finite missing-target and transport-specific absence/failure", async (outcome) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-90");
+    const before = useSearchStore.getState().results;
+    const previousOverlay = new Map([["img-90", { cost: "free" as const }]]);
+    useEnrichmentStore.getState().setEnrichment(previousOverlay);
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 90 * table.rowHeight - 180;
+    const release = fixture.hold(outcome);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "missing-target", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    const pending = search.mock.results[0].value;
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); release(); await pending; });
+      const state = useSearchStore.getState();
+      expect(state).toMatchObject({ loading: false, sortAroundFocusStatus: null, _searchContinuity: null });
+      if (outcome === "failure" && transport === "direct-ES") {
+        expect(state.error).not.toBeNull();
+        expect(state.results).toBe(before);
+        expect(useEnrichmentStore.getState().data).toBe(previousOverlay);
+      } else {
+        expect(state).toMatchObject({ error: null, focusedImageId: null, total: outcome === "success" ? 80 : 0 });
+        expect(state.total).toBe(state.results.length);
+        expect(view.container.scrollTop).toBe(0);
+        expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+        expect(useEnrichmentStore.getState().data.size).toBe(outcome === "success" && transport === "media-api" ? 80 : 0);
+      }
+      if (transport === "media-api") expect(warn).not.toHaveBeenCalled();
+      expect(fixture.pages).toHaveBeenCalledOnce();
+      expect(fixture.ranks).not.toHaveBeenCalled();
+      expect(fixture.ai).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it("L39 missing centre uses the existing ordinary top fallback without creating focus", async () => {
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true", aiQuery: "missing-centre", orderBy: "-relevance" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    await act(async () => { await useSearchStore.getState().search(); });
+    const narrowed = new MockDataSource(40);
+    fixture.pages.mockImplementation((...args) => narrowed.searchAfter(...args));
+    fixture.counts.mockImplementation(() => narrowed.countWithTickers());
+    anchor.viewportId = "img-49";
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 30 * table.rowHeight - 180;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { nonFree: "true" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[0].value; await vi.advanceTimersByTimeAsync(0); });
+    expect(useSearchStore.getState()).toMatchObject({ total: 40, focusedImageId: null, loading: false,
+      error: null, sortAroundFocusStatus: null, _searchContinuity: null });
+    expect(view.container.scrollTop).toBe(0);
+    expect(fixture.pages).toHaveBeenCalledTimes(3);
+    expect(fixture.ranks).not.toHaveBeenCalled();
+  });
+  const successors = (["success", "empty", "failure"] as const).flatMap(outcome =>
+    (["AI", "ordinary"] as const).map(successor => ({ outcome, successor })));
+  it.each(successors)("rejects late $outcome after a newer $successor query", async ({ outcome, successor }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    await act(async () => { await useSearchStore.getState().search(); });
+    anchor.viewportId = "img-49";
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 49 * table.rowHeight - 180;
+    const release = fixture.hold(outcome);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, aiQuery: "predecessor", orderBy: "-relevance" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    const pending = search.mock.results[0].value;
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      release();
+      act(() => {
+        routeParams = successor === "AI" ? { ...routeParams, aiQuery: "successor" } : { nonFree: "true", query: "successor" };
+        markUserInitiatedNavigation();
+        view.changeGeometry(table);
+      });
+      await act(async () => { await search.mock.results[1].value; });
+      const owned = useSearchStore.getState();
+      const overlay = useEnrichmentStore.getState().data;
+      const scrollTop = view.container.scrollTop;
+      expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(true);
+      expect(owned).toMatchObject({ loading: false, error: null, focusedImageId: null, total: successor === "AI" ? 80 : 100 });
+      expect(owned._searchContinuity).toMatchObject({ targetId: "img-49", phase: "placed" });
+      await act(async () => { await pending; });
+      expect(useSearchStore.getState()).toBe(owned);
+      expect(useEnrichmentStore.getState().data).toBe(overlay);
+      expect(view.container.scrollTop).toBe(scrollTop);
+      expect([...owned.imagePositions]).toEqual(owned.results.map((image, index) => [image!.id, index]));
+      expect(search).toHaveBeenCalledTimes(2);
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+});
 
 describe("B6 selected sort through the URL producer", () => {
   const cases = (["equal", "distinct"] as const).flatMap(relationship =>

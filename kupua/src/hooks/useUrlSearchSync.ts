@@ -12,7 +12,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
-import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
 import {
   applySearchContextTransitions,
@@ -323,39 +322,8 @@ export function useUrlSearchSync() {
           }
         }
       }
-    } else if (!prev.aiQuery && !searchOnly.aiQuery) {
-      continuity = takeSearchContinuity(searchParams, isSortOnly);
     } else {
-      const explicitFocus = useSearchStore.getState().focusedImageId;
-      const { anchorId: selectionAnchorId, selectedIds } = useSelectionStore.getState();
-      const activeSelectionAnchor = isSortOnly && selectedIds.size > 0
-        ? selectionAnchorId
-        : null;
-      // Sort-only relaxation: in phantom mode, sort changes reset to top
-      // even if focusedImageId is set (e.g. after return-from-detail).
-      // In explicit mode, focusedImageId always takes priority.
-      const isExplicitMode = getEffectiveFocusMode() === "explicit";
-
-      // AI removal relaxation: when the AI query just disappeared, phantom
-      // position preservation is unhelpful — the viewport anchor is an AI
-      // result that may live far from the top of chronological results.
-      // Only preserve position when there's a real explicit focus.
-      const aiJustRemoved = !!prev.aiQuery && !searchOnly.aiQuery;
-
-      phantomAnchor = activeSelectionAnchor
-        ?? (explicitFocus ? null : (isSortOnly || aiJustRemoved ? null : getViewportAnchorId()));
-      focusPreserveId = activeSelectionAnchor
-        ?? ((isSortOnly && !isExplicitMode) ? null : (explicitFocus ?? phantomAnchor));
-
-      // Selection anchor fallback: when in selection mode with no explicit
-      // focus, treat the selection anchor as a phantom position-preservation
-      // target so sort changes don't reset to top.
-      if (!focusPreserveId && isSortOnly) {
-        if (selectedIds.size > 0 && selectionAnchorId) {
-          focusPreserveId = selectionAnchorId;
-          phantomAnchor = selectionAnchorId;
-        }
-      }
+      continuity = takeSearchContinuity(searchParams, isSortOnly);
     }
 
     setPrevParamsSerialized(serialized);
@@ -382,13 +350,15 @@ export function useUrlSearchSync() {
         searchParams.orderBy ?? "-relevance",
         focusPreserveId,
         !!phantomAnchor,
+        continuity,
       );
       setExternalQuery(null);
       return;
     }
 
     const searchOptions = continuity
-      ? { continuity, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId }
+        ? { continuity, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
+          sortOnly: isSortOnly || undefined, traceAction, traceInteractionId }
       : phantomAnchor && snapshotHints
       ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
       : phantomAnchor

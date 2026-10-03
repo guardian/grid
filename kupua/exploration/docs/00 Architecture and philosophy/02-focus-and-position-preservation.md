@@ -40,7 +40,7 @@ document is the same in every tier.
 | Remembered detail image | Last image returned from detail in Click-to-Open, stored without a ring. Accepted query/filter and AI-exit anchor even after scrolling away | `focusedImageId`, written by detail entry/return |
 | Selection anchor | Last-interacted selected image, while a selection exists | `selection-store.ts` `anchorId` |
 | Viewport centre | Rendered image nearest the centre of the usable viewport (below the table header). Elected from DOM geometry only when a transition asks; not tracked per scroll frame | `getViewportAnchorId()` in `useDataWindow.ts` |
-| Ordinary search continuity | Captured target, placement, focus treatment and neighbours; resolved target is published with its existing operation owner | `lib/search-continuity.ts`, `search-store.ts`, effect 9 |
+| User search continuity | Ordinary and AI target, placement and focus treatment; ordinary fallback neighbours; resolved target is published with its existing operation owner | `lib/search-continuity.ts`, `search-store.ts`, effect 9 |
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
 Anchor precedence depends on the transition; there is no settled universal rule.
@@ -57,8 +57,9 @@ the operator will decide those cases from the characterisation table.
 Click-to-Open has no explicit focus affordance, but may remember the last image
 returned from detail. For ordinary query/filter changes and AI exit, that identity
 takes precedence over the browsed centre, even off-screen, if it survives. Ordinary
-query/filter without that identity uses the browsed centre. AI exit without it
-currently resets to top; centre preservation is the desired follow-up *(L39)*.
+query/filter and AI exit without that identity use the browsed centre without
+creating explicit focus. L39 is reviewed and locally verified; wider verification
+limits remain in the ledger.
 Ordinary sorting without selection retains its clear-and-top relaxation.
 
 This is revisable policy, not permission to carry a departing bookmark into a
@@ -67,9 +68,9 @@ centre, with legitimate true-result-edge handling; no accidental third target is
 accepted. Density, reflow, height-only and history preferences remain separately
 decidable. Policy changes must not weaken ownership or coherent-publication checks.
 
-Ordinary search/sort precedence is chosen once by `captureSearchContinuity` in
-`lib/search-continuity.ts`. Effect 7 captures it; URL sync consumes it. AI/history
-compatibility, density save, grid column change, history snapshots and keyboard
+Ordinary and user-initiated AI search/sort precedence is chosen once by
+`captureSearchContinuity` in `lib/search-continuity.ts`. Effect 7 captures it; URL
+sync consumes it. History compatibility, density save, grid column change, history snapshots and keyboard
 navigation retain their transition-specific decisions *(L9)*.
 
 ## 3. Engine Map
@@ -99,7 +100,7 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 | `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: move only if off by more than a row, then apply Home/End intent |
 | `_scrollReset` | `search` without a surviving anchor, find-focus fallbacks, AI re-sort | Effect 7b: top (table keeps horizontal scroll on sort) |
 | `bufferOffset` deep to 0 | `search`, `seek(0)` | Effect 8: top, except during small-set top-up (`_bufferSelfCorrecting`) |
-| `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary placement once, otherwise legacy ratio or pending arrow move |
+| `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary/AI placement once, otherwise history ratio or pending arrow move |
 
 Completion means a scroll write, not proof of indefinitely stable geometry.
 Density remount readiness waits two frames. A pending browsing destination
@@ -113,11 +114,11 @@ neither departure restoration nor a viewport report declares navigation complete
 A placement is an anchor plus a viewport ratio. Four captures exist *(L10)*:
 
 - **Search/sort ratio** `(rowTop − scrollTop) / clientHeight`, without header.
-  Ordinary user changes capture target, ratio, focus treatment and neighbours
+  Ordinary and AI user changes capture target, ratio, focus treatment and neighbours
   together in effect 7's layout phase, before URL sync's passive search dispatch.
   The handoff is scoped by destination and existing search generation. Missing
   matching view capture uses the same chooser against available geometry.
-  AI/history retain the compatibility ratio: effect 7 writes it, history may
+  History retains the compatibility ratio: effect 7 writes it, history may
   overwrite it from a snapshot, and effect 9 consumes it.
 - **Density** ratio including header offset, plus source scroll extremes; saved
   on view unmount, restored two frames after the next mount.
@@ -131,7 +132,7 @@ when the source was there or the result is within a row of an edge.
 ### 3.4 Staleness
 
 - Search generation (`getSearchGeneration`) invalidates search-derived work.
-- Ordinary continuity binds that generation and the existing focus signal. Its
+- Ordinary and AI continuity bind that generation and the existing focus signal. Its
   resolved target is published atomically with the window; effect 9 checks ownership
   and density readiness, then marks placement consumed. A later density mount cannot
   replay it. Small-result fill retries retain the same owner plus existing geometry,
@@ -142,6 +143,11 @@ when the source was there or the result is within a row of an edge.
   navigation/invalid-index and fallback mount chains share this input watcher and
   dispose it on completion or unmount. Readiness is not permission to overwrite
   post-publication input; legacy density target policy remains separate.
+- AI's pending continuity record waits for owned finite publication. Same-query
+  re-sort replaces only the focus/placement signal, not search discovery or its
+  generation. Completion adopts the latest handoff and supported sort; settled
+  re-sort remains request-free. Exit sends identity into ordinary lookup without
+  an AI rank hint or synthetic cursor. History retains its separate bridge.
 - `_searchAbortController` owns initial ordinary/AI reads. A newer search replaces
   it; explicit browsing retires ordinary initial placement, not query discovery.
   The replacement reuses the existing count (or counted first page on count failure)
@@ -175,7 +181,7 @@ when the source was there or the result is within a row of an edge.
 
 | Transition | Guarantee | Relaxation (target) |
 |---|---|---|
-| Query / filter change | Retained focus (including remembered detail identity in Click-to-Open), otherwise browsed centre; anchor kept at the same ratio; if absent, nearest surviving neighbour | No survivor: top. AI exit with no remembered focus currently goes to top; desired centre preservation is L39 |
+| Query / filter change, including AI entry/exit | Retained focus (including remembered detail identity in Click-to-Open), otherwise browsed centre; anchor kept at the same ratio | Ordinary destination: existing neighbour fallback, otherwise top. Finite AI destination: missing target resets to top without neighbour lookup |
 | Sort change | Explicit focus or selection anchor kept at the same ratio | Phantom mode without selection: top |
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
@@ -191,13 +197,16 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
 
 ### 4.1 Search Context Change
 
-1. `useScrollEffects` effect 7 captures ordinary user search/sort continuity once:
+1. `useScrollEffects` effect 7 captures ordinary and AI user search/sort continuity once:
   target identity, placement, focus treatment and fallback neighbours. Selected
   sorts retain focus independently of target equality; query/filter ignores
   selection as a placement target. `useUrlSearchSync` classifies navigation,
   clears selection when appropriate and passes the captured record to `search`.
-  AI/history preserve their existing separate target/snapshot policy.
-2. `search` fetches the first page. Anchor on it: publish with the effect-9 signal.
+  History preserves its existing separate target/snapshot policy. AI re-sort passes
+  the same record to its in-memory action, replacing only placement ownership.
+2. `search` fetches the first page, or the finite AI list. Anchor on it: publish
+  with the effect-9 signal. A missing finite-AI target resets to top; steps 3-7
+  apply only to ordinary destinations.
 3. Anchor not on it: the old buffer stays visible while `_findAndFocusImage` gets
    the anchor's sort values and offset (position map, else `countBefore`), loads
   a buffer around it and publishes once with the resolved continuity record.

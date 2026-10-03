@@ -17,6 +17,35 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 3 October 2026 - Adopt AI transitions into the search continuity handoff
+
+  User-initiated AI entry, query/filter changes, in-memory re-sort and exit share
+  the existing pre-passive target, placement and focus-treatment capture. URL sync's
+  separate AI target chooser and adopted numeric-ratio capture are removed. The
+  pending handoff stays with the existing search generation and focus owner;
+  re-sort replaces placement ownership without cancelling current AI discovery.
+  Finite publication uses the latest same-query sort and handoff, while obsolete
+  queries cannot reclaim results, metadata or enrichment. History retains its bridge.
+
+  L39 preserves the browsed centre on AI exit when there is no remembered detail
+  image, without creating explicit focus. Remembered identity still wins off-screen;
+  exit resolves ordinary membership/rank from identity and discards the AI rank hint.
+  Existing finite-AI missing-target and ordinary fallback rules remain intact.
+  Adapter-backed mounted and real-control browser regressions cover placement policy
+  substitution, pending ownership, density interruption and transport-specific
+  completion. No ranking, backend, density/history policy or performance guarantee
+  changes accompany the adoption.
+
+  AI completion preserves input-retired placement and suppresses its placement/reset
+  signals without suppressing result publication. A history-cleared handoff selects
+  the existing legacy consumer instead of reviving an aborted closure owner; its
+  one-shot ratio and eventual start placement remain unchanged.
+
+  Browser setup owns the L39 fixture search promise and checks mounted store identity
+  across imports, with cleanup in `finally`. Shared pending-density controls use a
+  hit-tested visible bookmark and native mouse input instead of auto-scrolling an
+  overscan row. Existing workflow assertions remain intact.
+
   ### 3 October 2026 - Keep pending navigation presentation under its browse owner
 
   B18/L40 is repaired. Scrubber receives the existing browse destination through the

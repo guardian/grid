@@ -308,6 +308,36 @@ query scope and relevance scores but adopts the current supported sort when that
 scope still matches. The existing generation guard rejects a genuinely superseded
 query. Sort changes neither discard the only pending result nor request it again.
 
+### 4.3 Continuity and placement ownership
+
+User-initiated AI entry, query/filter changes, re-sort and exit consume the shared
+`search-continuity.ts` capture from effect 7's pre-passive layout phase. Target,
+placement and focus treatment are chosen together; URL sync no longer separately
+chooses an AI target or relies on a detached numeric ratio. The existing focus signal
+owns placement, and the existing search signal owns asynchronous AI discovery.
+
+The pending handoff lives in `_searchContinuity`. Re-sort replaces only its placement
+owner, without a new search generation, network request or discovery cancellation.
+Completion adopts the latest same-query handoff and publishes finite membership,
+positions, pool metadata and result-owned enrichment together. Ready placement waits
+for density geometry and is consumed once; newer post-publication input can retire it
+without changing focus/selection or cancelling discovery. Missing finite-AI targets
+still reset to top, with no ordinary neighbour walk. No-target AI re-sort retains
+the hidden bookmark, unlike the ordinary no-selection phantom-sort exception.
+
+Exit prioritizes remembered detail identity, even off-screen, otherwise the browsed
+centre without creating focus (L39). Ordinary lookup resolves that identity under
+the destination query/order and discards the AI rank hint; synthetic AI tuples are
+not ordinary cursors. Existing ordinary missing-target fallback remains unchanged.
+History retains its numeric-ratio/legacy-argument bridge, including unresolved B14;
+clearing the adopted record cannot resurrect its aborted closure owner. A resident
+history re-sort consumes the snapshot ratio once; final AI arrival retains legacy
+start placement. Input-retired re-sort placement remains retired at discovery
+completion without suppressing result/focus/selection publication. This adoption
+does not redesign history or layout policy. Independent review and final local gates
+pass within the ledger's recorded verification boundary; no live or performance
+equivalence is implied.
+
 ---
 
 ## §5 UI Surface — A Separate Widget, Not a CQL Chip

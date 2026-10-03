@@ -53,6 +53,122 @@ async function waitForViewportAnchorWithCredit(page: import("@playwright/test").
   return await anchorHandle.jsonValue() as { id: string; credit: string };
 }
 
+test.describe("AI continuity L39", () => {
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(async () => {
+      const fixture = (window as any).__aiContinuity;
+      if (!fixture) return;
+      try {
+        await fixture.work;
+      } finally {
+        window.fetch = fixture.originalFetch;
+        (window as any).__kupua_store__.setState({ dataSource: fixture.originalSource, results: [], total: 0,
+          imagePositions: new Map(), _searchContinuity: null });
+        delete (window as any).__aiContinuity;
+      }
+    });
+  });
+
+  for (const transport of ["direct-ES", "media-api"] as const) {
+    for (const view of ["grid", "table"] as const) {
+      test(`${transport} ${view}: AI exit preserves browsed centre without remembered detail focus`, async ({ kupua, page }) => {
+        await page.route("**/bedrock/health", route => route.fulfill({ json: { available: true } }));
+        await page.route("**/*", route => route.request().resourceType() === "image"
+          ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+          : route.continue());
+        await kupua.gotoWithParams(view === "table" ? "density=table" : "");
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          const lifecycle = (window as any).__kupua_getSearchLifecycle__();
+          return !state.loading && lifecycle.started === lifecycle.settled;
+        });
+        await page.evaluate(async transport => {
+          const store = (window as any).__kupua_store__;
+          const configPath = "/src/dal/es-config.ts";
+          if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("AI continuity fixture requires local ES");
+          const mockPath = "/src/dal/mock-data-source.ts";
+          const esPath = "/src/dal/es-adapter.ts";
+          const apiPath = "/src/dal/api-data-source.ts";
+          const prefsPath = "/src/stores/ui-prefs-store.ts";
+          (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("phantom");
+          const source = new (await import(mockPath)).MockDataSource(800);
+          const adapter = transport === "media-api" ? new (await import(apiPath)).ApiDataSource()
+            : new (await import(esPath)).ElasticsearchDataSource();
+          adapter.countWithTickers = source.countWithTickers.bind(source);
+          source.searchByAi = adapter.searchByAi.bind(adapter);
+          const hits = (await source.getByIds(Array.from({ length: 80 }, (_, index) => `img-${400 + index}`))).reverse();
+          if ((window as any).__kupua_store__ !== store) throw new Error("AI fixture imports replaced the mounted store");
+          const originalFetch = window.fetch;
+          const fixture = { originalSource: store.getState().dataSource, originalFetch,
+            aiRequests: 0, targetId: null as string | null, targetTop: 0, work: null as Promise<void> | null };
+          (window as any).__aiContinuity = fixture;
+          window.fetch = async (input, init) => {
+            const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.origin);
+            if (url.pathname === "/bedrock/embed") return Response.json({ embedding: Array(256).fill(0) });
+            const aiRead = url.pathname === "/api/images" && url.searchParams.get("useAISearch") === "true"
+              || url.pathname.startsWith("/es/") && init?.body && JSON.parse(String(init.body)).knn;
+            if (aiRead) {
+              fixture.aiRequests++;
+              return Response.json(transport === "media-api"
+                ? { data: hits.map((image: any) => ({ data: { ...image, cost: "free", valid: true } })), total: 800 }
+                : { hits: { hits: hits.map((image: any, index: number) => ({ _id: image.id, _source: image, _score: 80 - index })) } });
+            }
+            return originalFetch(input, init);
+          };
+          store.setState({ dataSource: source, focusedImageId: null });
+          fixture.work = store.getState().search();
+          await fixture.work;
+        }, transport);
+        await page.waitForFunction(() => (window as any).__kupua_store__.getState().results.length === 800);
+        await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+        await page.getByRole("searchbox", { name: "AI image search query" }).fill("fixture continuity");
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return state.params.aiQuery === "fixture continuity" && state.total === 80 && !state.loading;
+        });
+        const container = page.locator(`[aria-label="Image results ${view}"]`);
+        await container.hover();
+        await page.mouse.wheel(0, 1000);
+        await expect.poll(() => container.evaluate(element => element.scrollTop)).toBeGreaterThan(500);
+        await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const source = await page.evaluate(() => {
+          const store = (window as any).__kupua_store__.getState();
+          const fixture = (window as any).__aiContinuity;
+          fixture.targetId = (window as any).__kupua_getViewportAnchorId__();
+          const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+          const cell = container.querySelector(`[data-image-id="${CSS.escape(fixture.targetId)}"]`)!;
+          fixture.targetTop = cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          return { focused: store.focusedImageId, aiIndex: store.imagePositions.get(fixture.targetId),
+            remembered: fixture.targetId !== null, requests: fixture.aiRequests };
+        });
+        expect(source.focused).toBeNull();
+        expect(source.remembered).toBe(true);
+        expect(source.aiIndex).toBeGreaterThan(8);
+        expect(source.aiIndex).toBeLessThan(72);
+        expect(source.requests).toBe(1);
+        await page.getByRole("button", { name: "Disable AI image search", exact: true }).click();
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return !state.params.aiQuery && !state.loading && state.total === 800 && state._searchContinuity?.phase === "placed";
+        });
+        await expect.poll(() => page.evaluate(() => {
+          const fixture = (window as any).__aiContinuity;
+          const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+          const cell = container.querySelector(`[data-image-id="${CSS.escape(fixture.targetId)}"]`);
+          return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - fixture.targetTop) : 10000;
+        })).toBeLessThanOrEqual(2);
+        expect(await page.evaluate(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return { focused: state.focusedImageId, total: state.total, loading: state.loading,
+            requests: (window as any).__aiContinuity.aiRequests,
+            selected: (window as any).__kupua_selection_store__.getState().selectedIds.size };
+        })).toEqual({ focused: null, total: 800, loading: false, requests: 1, selected: 0 });
+        await kupua.assertPositionsConsistent();
+      });
+    }
+  }
+});
+
 test.describe("Focus survives search context change", () => {
   test("focus preserved when query changes and image is in new results", async ({
     kupua,

@@ -651,7 +651,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const sortOnly = orderByChanged && !nonSortChanged;
 
-    if (isUserInitiatedNavigation() && !prev.aiQuery && !searchParams.aiQuery) {
+    if (isUserInitiatedNavigation()) {
       saveSearchContinuity(searchParams, sortOnly, captureSearchContinuity(sortOnly, el, geometryRef.current));
       consumeSortFocusRatio();
       return;
@@ -811,6 +811,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
     const store = useSearchStore.getState();
     const continuity = store._searchContinuity;
+    if (continuity?.phase === "pending") return;
     if (continuity && (continuity.phase === "retired" || continuity.owner.aborted || continuity.searchGeneration !== getSearchGeneration())) {
       pendingSortFocusRef.current = null;
       handledSortFocusGenRef.current = sortAroundFocusGeneration;

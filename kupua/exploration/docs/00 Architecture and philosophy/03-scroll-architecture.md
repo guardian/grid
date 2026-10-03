@@ -311,7 +311,7 @@ happen off-screen).
 ### Sort-around-focus ("Never Lost")
 
 1. User changes sort from `uploadTime desc` to `credit asc`.
-2. Effect 7 captures ordinary target, placement and focus treatment together before
+2. Effect 7 captures ordinary/AI target, placement and focus treatment together before
    passive effects. URL sync consumes that record and dispatches `search()`.
 3. `search()` fetches page 1. If the target is present, results and owned placement
    publish together. Otherwise the previous buffer stays visible while resolution runs.
@@ -330,8 +330,11 @@ happen off-screen).
 
 The old content remains until the final target window is ready; there is no deliberate
 first-page flash. Placement retains the captured ratio subject to the existing full-row
-and scroll-range clamps. The placed record cannot replay on density remount; AI/history
-continue to use their compatibility ratio path. If published placement waits for mount
+and scroll-range clamps. The placed record cannot replay on density remount; history
+continues to use its compatibility ratio path. AI entry publishes the same handoff
+with its finite list; re-sort replaces the existing placement owner without cancelling
+pending discovery, whose completion consumes the latest same-query handoff. AI exit
+uses identity-only ordinary resolution. If published placement waits for mount
 geometry, newer relevant input retires it across all mount-frame paths; input before
 publication leaves it eligible. No performance equivalence is implied.
 

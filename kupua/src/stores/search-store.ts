@@ -75,6 +75,7 @@ import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-conti
 
 interface SearchOptions {
   continuity?: SearchContinuity;
+  discardOffsetHint?: boolean;
   phantomOnly?: boolean;
   retainExplicitFocus?: boolean;
   visibleNeighbours?: string[];
@@ -584,6 +585,7 @@ interface SearchState {
     orderBy: string,
     preserveImageId?: string | null,
     phantomOnly?: boolean,
+    continuity?: SearchContinuity,
   ) => void;
 }
 
@@ -2362,7 +2364,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // _findAndFocusImage so it uses THIS search's controller, not a
     // later search's (which would be non-aborted and run to completion).
     const findFocusSignal = _findFocusAbortController.signal;
-    const continuity: OwnedSearchContinuity | undefined = options?.continuity && sortAroundFocusId
+    const continuity: OwnedSearchContinuity | undefined = options?.continuity
       ? { ...options.continuity, owner: findFocusSignal, searchGeneration: myGeneration, phase: "ready" }
       : undefined;
 
@@ -2410,6 +2412,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         return;
       }
       _pendingInitialSearchSignal = signal;
+      set({ _searchContinuity: continuity ? { ...continuity, phase: "pending" } : null });
       try {
         const aiResult = await dataSource.searchByAi(params, signal) ?? absentAiResult();
         if (_searchGeneration !== myGeneration || signal.aborted) return;
@@ -2435,8 +2438,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // All AI results arrive in one shot (≤200) — the anchor image is always
         // "in the first page". Mirror the focusedInFirstPage logic from the
         // normal path so Back-navigation position restoration works correctly.
-        const focusedInAiResults = sortAroundFocusId
-          ? aiHits.some((img) => img.id === sortAroundFocusId)
+        const currentContinuity = get()._searchContinuity;
+        const completionContinuity = currentContinuity?.searchGeneration === myGeneration && !currentContinuity.owner.aborted
+          ? { ...currentContinuity, phase: currentContinuity.phase === "retired" ? "retired" as const : "ready" as const }
+          : undefined;
+        const placementRetired = completionContinuity?.phase === "retired";
+        const targetId = completionContinuity ? completionContinuity.targetId : sortAroundFocusId;
+        const phantomOnly = completionContinuity ? completionContinuity.focus !== "target" : options?.phantomOnly;
+        const focusedInAiResults = targetId
+          ? aiHits.some((img) => img.id === targetId)
           : false;
 
         if (import.meta.env.DEV) {
@@ -2448,6 +2458,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         useEnrichmentStore.getState().setEnrichment(aiResult.enrichment ?? new Map());
         set({
           results: aiHits,
+          _searchContinuity: focusedInAiResults || placementRetired ? completionContinuity ?? null : null,
           _browseNavigation: null,
           _pendingFocusAfterSeek: null,
           ...(aiHits.length === 0 ? emptyAggregationState() : {}),
@@ -2463,7 +2474,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor,
           endCursor,
           pitId: null,
-          focusedImageId: (focusedInAiResults && !options?.phantomOnly) ? sortAroundFocusId! : null,
+          focusedImageId: completionContinuity?.focus === "retain" ? get().focusedImageId
+            : (focusedInAiResults && !phantomOnly) ? targetId! : null,
           _focusedImageKnownOffset: null,
           newCount: 0,
           newCountSince: now,
@@ -2476,16 +2488,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _seekTargetGlobalIndex: -1,
           // Use sortAroundFocusGeneration (scroll to image) when we have an
           // anchor, otherwise reset to top.
-          ...(focusedInAiResults
+          ...(placementRetired ? {} : focusedInAiResults
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
             : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
-          ...(focusedInAiResults && options?.phantomOnly
-            ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
-            : {}),
+          ...(focusedInAiResults && phantomOnly && !placementRetired
+            ? { _phantomFocusImageId: targetId!, _phantomPulseImageId: targetId! }
+            : { _phantomFocusImageId: null }),
           _isInitialLoad: false,
         });
 
-        if (focusedInAiResults && options?.phantomOnly) {
+        if (focusedInAiResults && phantomOnly && !placementRetired) {
           setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
         }
 
@@ -2500,7 +2512,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         if (errMsg.includes("503")) {
           addToast({ category: "error", message: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." });
         }
-        set({ loading: false, error: errMsg, aiPoolTotal: null });
+        set({ loading: false, error: errMsg, aiPoolTotal: null,
+          ...(get()._searchContinuity?.phase === "pending" && { _searchContinuity: null }) });
       } finally {
         if (_pendingInitialSearchSignal === signal) _pendingInitialSearchSignal = null;
       }
@@ -2629,7 +2642,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
           .then(() => {
             if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
               discovery.resultsPublished = true;
@@ -4411,7 +4424,16 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // Aggregation actions (unchanged from pre-buffer architecture)
   // -------------------------------------------------------------------------
 
-  resortAiBuffer: (orderBy, preserveImageId = null, phantomOnly = false) => {
+  resortAiBuffer: (orderBy, preserveImageId = null, phantomOnly = false, continuity) => {
+    let ownedContinuity: OwnedSearchContinuity | null = null;
+    if (continuity) {
+      preserveImageId = continuity.targetId;
+      phantomOnly = continuity.focus !== "target";
+      _findFocusAbortController.abort();
+      _findFocusAbortController = new AbortController();
+      ownedContinuity = { ...continuity, owner: _findFocusAbortController.signal,
+        searchGeneration: _searchGeneration, phase: "ready" };
+    }
     const { results } = get();
     const populated = results.filter((image): image is Image => image !== null);
     const sorted = sortAiResults(populated, orderBy);
@@ -4420,7 +4442,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       : false;
     set({
       results: sorted,
-      _searchContinuity: null,
+      _searchContinuity: ownedContinuity && (preserveFound || hasPendingSearch(get()))
+        ? { ...ownedContinuity, phase: preserveFound ? "ready" : "pending" } : null,
+      _phantomFocusImageId: null,
       imagePositions: buildPositions(sorted, 0),
       ...(preserveFound
         ? {

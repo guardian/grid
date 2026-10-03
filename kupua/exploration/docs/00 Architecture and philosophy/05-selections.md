@@ -155,6 +155,12 @@ consumes that record rather than choosing again. The existing resolver locates i
 the new order and publishes the resolved target with its operation owner; selection
 does not become explicit focus.
 
+User-initiated AI sorting consumes that same pre-passive capture. Its in-memory
+action replaces placement ownership without cancelling pending AI discovery;
+completion retains selection and older focus while adopting the latest same-query
+target/placement. Query/filter changes and AI entry/exit still clear selection under
+the existing navigation rule. History remains a separate compatibility boundary.
+
 **Key properties:**
 - Priority chain on sort change: active `selectionAnchorId` before older `focusedImageId`.
 - `focusedImageId` is unchanged, including when focus and selection anchor are equal.
