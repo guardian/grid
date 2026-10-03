@@ -163,6 +163,7 @@ interface ScrubberProps {
   loading: boolean;
   /** Callback to seek to a global offset. */
   onSeek: (globalOffset: number, interactionId?: string) => void;
+  onBrowsePosition?: (globalOffset: number) => void;
   /**
    * Optional callback to get a sort-context label for a global position.
    * Returns e.g. "14 Mar 2024" for date sorts, "Getty" for credit sort,
@@ -200,6 +201,7 @@ export function Scrubber({
   bufferLength,
   loading,
   onSeek,
+  onBrowsePosition,
   getSortLabel,
   onFirstInteraction,
   trackTicks,
@@ -317,6 +319,10 @@ export function Scrubber({
   // Ref-stabilise onSeek to avoid re-registering listeners
   const onSeekRef = useRef(onSeek);
   onSeekRef.current = onSeek;
+  const onBrowsePositionRef = useRef(onBrowsePosition);
+  onBrowsePositionRef.current = onBrowsePosition;
+  const wheelContextRef = useRef({ twoTier, total, visibleCount: thumbVisibleCount });
+  wheelContextRef.current = { twoTier, total, visibleCount: thumbVisibleCount };
 
   // Ref-stabilise getSortLabel
   const getSortLabelRef = useRef(getSortLabel);
@@ -387,7 +393,13 @@ export function Scrubber({
       const scrollContainer = getScrollContainer();
       if (scrollContainer) {
         const before = scrollContainer.scrollTop;
-        scrollContainer.scrollTop += e.deltaY;
+        const maxScroll = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        const targetScrollTop = Math.max(0, Math.min(maxScroll, before + e.deltaY));
+        const context = wheelContextRef.current;
+        if (context.twoTier && !e.ctrlKey && targetScrollTop !== before && maxScroll > 0) {
+          onBrowsePositionRef.current?.(Math.round(targetScrollTop / maxScroll * Math.max(1, context.total - context.visibleCount)));
+        }
+        scrollContainer.scrollTop = targetScrollTop;
         // Only prevent default if the scroll actually moved — otherwise let
         // the event propagate so the browser can handle it normally. After a
         // seek, the scroll container may briefly have scrollHeight === clientHeight
@@ -545,11 +557,12 @@ export function Scrubber({
   const scrollContentTo = useCallback((ratio: number) => {
     const scrollContainer = getScrollContainer();
     if (scrollContainer) {
+      if (twoTier) onBrowsePositionRef.current?.(Math.round(ratio * Math.max(1, total - thumbVisibleCount)));
       scrollContainer.scrollTop = Math.round(
         ratio * (scrollContainer.scrollHeight - scrollContainer.clientHeight),
       );
     }
-  }, []);
+  }, [twoTier, total, thumbVisibleCount]);
 
   const positionFromY = useCallback(
     (clientY: number): number => {

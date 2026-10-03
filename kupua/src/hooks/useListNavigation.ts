@@ -499,7 +499,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // scrollTop in the same render frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
             if (((c.bufferOffset && c.bufferOffset > 0) ||
-              useSearchStore.getState()._pendingFocusAfterSeek?.initialSearchSuperseded) && c.seek) {
+              !useSearchStore.getState().canReuseResidentResults() ||
+              useSearchStore.getState()._browseNavigation?.initialSearchSuperseded) && c.seek) {
               useSearchStore.setState({
                 _pendingFocusAfterSeek: {
                   edge: "first",
@@ -512,7 +513,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
               // post-seek effect will handle scroll position)
             } else {
               // Already at the start — just scroll to top
-              if (useSearchStore.getState()._pendingFocusAfterSeek) void c.seek?.(0);
+              if (useSearchStore.getState()._browseNavigation || useSearchStore.getState()._pendingFocusAfterSeek) void c.seek?.(0);
               const el = c.scrollRef.current;
               if (el) {
                 el.scrollTop = 0;
@@ -532,14 +533,14 @@ export function useListNavigation(config: ListNavigationConfig): void {
           {
             // If the buffer is windowed and not at the end, seek to the last position
             const bufOff = c.bufferOffset ?? 0;
-            if (c.seek && bufOff + c.resultsLength < c.total) {
+            if (c.seek && (bufOff + c.resultsLength < c.total || !useSearchStore.getState().canReuseResidentResults())) {
               // Always signal "last" so effect #6 scrolls to the end.
               // Focus permission belongs to the initiating keyboard action.
               useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });
               c.seek(Math.max(0, c.total - 1));
             } else {
               const store = useSearchStore.getState();
-              if (store._pendingFocusAfterSeek) {
+              if (store._browseNavigation || store._pendingFocusAfterSeek) {
                 store.abortExtends();
                 useSearchStore.setState({ _pendingFocusAfterSeek: null, loading: false });
               }

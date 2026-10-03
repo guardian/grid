@@ -1,7 +1,7 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** Maintained operating reference; latest live technique check 2026-10-02.
+> **Status:** Maintained operating reference; latest live technique check 2026-10-03.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
@@ -41,6 +41,37 @@ a throttled run.
 ---
 
 ## 1. Session setup
+
+**[V] 3 October 2026, B17 repaired live checks:** repeat the actual datasource and
+served-source hash checks after operator-controlled mode switches. A completed real
+page held before publication makes seek/density overlap deterministic without changing
+its data; pair it with entirely unwrapped natural timing. For indexed pre-dispatch
+coverage, run the scrubber and density DOM controls in the same browser task and assert
+the production queued phase between them. Use a map-ready target beyond the shallow
+read threshold when claiming position-map coverage. Retain identities only in page
+memory; return destination visibility, bookmark retention and position consistency.
+Static page-memory driver strings may disappear if the operator reloads during a mode
+switch; reinstall them with fresh module imports. Restore original method descriptors,
+release/await owned work, remove the probe and verify real Home cleanup afterward.
+
+**[F] Same session, local fixture bookmark setup cannot require an img element.**
+The sample data may intentionally render No thumbnail, so an img-only locator times
+out before the workflow begins. A visible result-cell hit inside the thumbnail area
+works for both loaded media and placeholders, without clicking the tickbox or a wide
+table row's off-screen centre. Diagnose one failure and rerun one case before the matrix;
+use max-failures=1 to prevent repeated setup failures from consuming the whole run.
+
+**[V] 3 October 2026, seek/density timing:** use the operator-shared page ID and
+origin, not an assumed localhost tab. For seek-tier overlap, check loading between
+the real scrubber and density clicks; for indexed overlap also capture scrollTop,
+rendered-anchor availability and whether the 200 ms refill has started. These are
+different windows. Compare departure-array identity in page memory and return only
+booleans/counts. A pass-through datasource wrapper can classify signal abort origin
+from the synchronous stack without logging it or changing responses. Restore original
+own-property descriptors and remove listeners/probes afterward. A scrubber thumb
+parked at an abandoned target consumes a same-position click without starting a new
+seek: hit-test or choose a different track point for the no-density control. Such a
+timeout is not evidence of another failed request. Findings are ledger C37/B17.
 
 **[V] 2 October 2026, cold-review End interleaving:** pause only the first counted
 adapter read before calling its original method, press the actual End key, and

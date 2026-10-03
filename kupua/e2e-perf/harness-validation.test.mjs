@@ -60,6 +60,136 @@ function runnerFunction(name) {
   return tail.slice(declaration.pos, declaration.end);
 }
 
+function metadataSearchObserverFixture(refreshRate, readyAt = 4_000, options = {}) {
+  const filename = join(import.meta.dirname, "perceived-long.spec.ts");
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node)
+    && node.name?.text === "appendMetadataSearchVisualPhases");
+  assert.ok(declaration);
+  const source = ts.transpileModule(declaration.getText(parsed), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+  }).outputText;
+  let now = 0;
+  let nextHandle = 0;
+  const frames = new Set();
+  const timers = new Map();
+  const entries = [];
+  const query = "field:fixture";
+  const rect = () => ({ top: 0, left: options.moving || now < (options.movingUntil ?? 0) ? now : 0, width: 800, height: 600 });
+  const item = { getBoundingClientRect: rect };
+  const container = { getBoundingClientRect: rect, querySelector: () => options.missingItem ? null : item };
+  const globals = {
+    URL,
+    performance: { now: () => now },
+    location: { href: `https://fixture.invalid/search?query=${encodeURIComponent(options.wrongUrl ? "other-query" : query)}${options.imageRoute ? "&image=private-fixture-id" : ""}` },
+    document: { querySelector: selector => {
+      if (selector === '[data-detail-image-id]') return options.detailOpen ? {} : null;
+      return selector === '[aria-label="Image results grid"]' && !options.missingContainer ? container : null;
+    } },
+    window: {
+      __kupua_store__: { getState: () => ({ loading: now < readyAt,
+        error: options.error ? new Error("private fixture failure") : null, total: 42 }) },
+      __kupua_getSearchLifecycle__: () => ({ query: options.wrongLifecycleQuery ? "other-query" : query,
+        started: 1, settled: !options.unsettledLifecycle && now >= readyAt ? 1 : 0 }),
+      __perceivedTrace__: entries,
+    },
+    requestAnimationFrame: callback => {
+      const handle = ++nextHandle;
+      frames.add(handle);
+      queueMicrotask(() => {
+        if (!frames.delete(handle)) return;
+        now += 1000 / refreshRate;
+        for (const [timer, scheduled] of timers) {
+          if (scheduled.at <= now) { timers.delete(timer); scheduled.callback(); }
+        }
+        callback(now);
+      });
+      return handle;
+    },
+    cancelAnimationFrame: handle => frames.delete(handle),
+    setTimeout: (callback, delay) => {
+      const handle = ++nextHandle;
+      timers.set(handle, { at: now + delay, callback });
+      return handle;
+    },
+    clearTimeout: handle => timers.delete(handle),
+  };
+  const observe = runInNewContext(`${source}\nappendMetadataSearchVisualPhases`, globals);
+  return {
+    entries, frames, timers,
+    elapsed: () => now,
+    run: () => observe({ page: { evaluate: (callback, args) => callback(args) } },
+      "fixture-interaction", query, "search", "JB2-control"),
+  };
+}
+
+for (const refreshRate of [60, 120, 240]) {
+  test(`long-journey search readiness budget is elapsed time at ${refreshRate} Hz`, async () => {
+    const fixture = metadataSearchObserverFixture(refreshRate);
+    const result = await fixture.run();
+    assert.equal(result.settledTotal, 42);
+    assert.equal(result.resultRegime, "buffer");
+    assert.equal(fixture.entries.length, 2);
+    assert.equal(fixture.entries[0].phase, "t_first_visible_frame");
+    assert.equal(fixture.entries[1].phase, "t_visual_settled");
+    assert.ok(fixture.entries[0].t >= 4_000);
+    assert.ok(fixture.entries[1].t > fixture.entries[0].t);
+    assert.equal(fixture.timers.size, 0);
+  });
+}
+
+test("long-journey search observer adds no wait after two ready frames", async () => {
+  const fixture = metadataSearchObserverFixture(120, 0);
+  await fixture.run();
+  assert.ok(fixture.elapsed() < 20);
+  assert.equal(fixture.entries.length, 2);
+});
+
+test("long-journey search observer still waits for stable geometry", async () => {
+  const fixture = metadataSearchObserverFixture(120, 0, { movingUntil: 7_000 });
+  await fixture.run();
+  assert.ok(fixture.entries[0].t >= 7_000);
+  assert.ok(fixture.entries[1].t > fixture.entries[0].t);
+});
+
+for (const [condition, expectedFlag, expectedValue] of [
+  ["wrongUrl", "urlQueryMatches", false],
+  ["wrongLifecycleQuery", "lifecycleQueryMatches", false],
+  ["unsettledLifecycle", "settled", 0],
+  ["error", "error", true],
+  ["imageRoute", "listRoute", false],
+  ["detailOpen", "detailClosed", false],
+  ["missingContainer", "containerPresent", false],
+  ["missingItem", "itemPresent", false],
+  ["moving", "geometryStable", false],
+]) {
+  test(`long-journey search observer rejects ${condition} with sanitized step diagnostics`, async () => {
+    const fixture = metadataSearchObserverFixture(120, 0, { [condition]: true });
+    await assert.rejects(fixture.run(), error => {
+      assert.match(error.message, /^JB2-control exact search did not visibly settle within 30000ms:/);
+      const diagnostics = JSON.parse(error.message.slice(error.message.indexOf("{")));
+      assert.equal(diagnostics[expectedFlag], expectedValue);
+      assert.ok(diagnostics.elapsedMs >= 30_000 && diagnostics.elapsedMs <= 30_010);
+      assert.ok(diagnostics.sampledFrames > 3_000);
+      assert.doesNotMatch(error.message, /field:fixture|other-query|private fixture failure|private-fixture-id|fixture\.invalid/);
+      return true;
+    });
+    assert.equal(fixture.entries.length, 0);
+    assert.equal(fixture.timers.size, 0);
+  });
+}
+
+test("long-journey search observer rejects data arriving after its elapsed deadline", async () => {
+  const fixture = metadataSearchObserverFixture(240, 31_000);
+  await assert.rejects(fixture.run(), error => {
+    const diagnostics = JSON.parse(error.message.slice(error.message.indexOf("{")));
+    assert.equal(diagnostics.loading, true);
+    assert.ok(diagnostics.elapsedMs >= 30_000 && diagnostics.elapsedMs <= 30_005);
+    return true;
+  });
+  assert.equal(fixture.entries.length, 0);
+});
+
 test("acknowledgement documentation stays distinct from visible-frame latency", () => {
   const shortSpec = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
   const handbook = readFileSync(join(import.meta.dirname, "README.md"), "utf8");

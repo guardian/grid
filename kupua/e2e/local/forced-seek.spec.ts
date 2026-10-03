@@ -1,8 +1,19 @@
 import { test, expect } from "../shared/helpers";
+import { pendingBrowseAcrossDensity } from "../shared/browse-density";
 
 test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
+
+for (const transport of ["direct-ES", "media-api-fixture"] as const) {
+  for (const focusMode of ["explicit", "phantom"] as const) {
+    for (const sourceView of ["grid", "table"] as const) {
+      test(`B17 forced-seek ${transport} ${focusMode} ${sourceView} retains pending destination`, async ({ kupua }) => {
+        await pendingBrowseAcrossDensity(kupua, transport, focusMode, sourceView);
+      });
+    }
+  }
+}
 
 test("forced seek preserves identity through the core journey", async ({ kupua }) => {
   test.setTimeout(90_000);

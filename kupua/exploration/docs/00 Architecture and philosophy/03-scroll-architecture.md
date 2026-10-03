@@ -258,13 +258,27 @@ viewport's current position. Skeletons fill in within ~200–450ms (PROD).
 Extends can't bridge the gap between the viewport and a distant buffer —
 only seek can reposition across thousands of items.
 
-The pending timer belongs to the hook instance that reported the distant range, not
-every consumer of `useDataWindow`. Reset, changed search generation/query/order, leaving
-the indexed tier or disposal of that reporter cancels it. An unrelated detail consumer's
-unmount and ordinary buffer publication do not. A newer reported range replaces the old
-timer; obsolete callbacks cannot dispatch or clear its successor. Query fingerprints are
-cached by params identity, avoiding serialization on each scroll report. Position-map
-readiness remains independent of this lifetime and of the coordinate regime.
+User browsing and layout maintenance have different owners. Scrubber input, including
+its wheel bridge, records its destination before native scrolling. Wheel/touch/navigation-key provenance lets
+`useDataWindow` queue a user destination when the viewport leaves the buffer. That
+store-owned 200 ms queue survives density unmount and is superseded by newer browsing
+or search, not by the new view's initial range report.
+
+Layout-only reports retain a hook-owned refill timer. Reset, changed search generation,
+query/order, leaving the indexed tier or disposal of that reporter cancels it. An
+unrelated detail consumer's unmount and ordinary buffer publication do not. Obsolete
+callbacks cannot dispatch or clear their successor; refills cannot supersede pending
+user navigation or initial search. Their query fingerprints remain cached by params
+identity. Position-map readiness remains independent of either lifetime and of the
+coordinate regime.
+
+When browsing overlaps an ordinary query change, the old visible total is not used
+as current membership. Navigation retains the existing count/first-page discovery,
+resolves End and clamps destinations against the new total, and publishes total and
+window together. Cursor/focus replacements inherit that discovery too. A failed or
+cancelled replacement with no newer owner can finish from the already-requested first
+page; late work cannot reclaim placement. Previously accepted freeze/map/poll work is
+reused, not restarted. Pending or settled AI queries never issue ordinary window reads.
 
 ### Deep seek (scrubber click at 50% of 1.3M results, seek mode)
 
@@ -320,6 +334,15 @@ same vertical position in the viewport as before the sort.
 
 When switching from table to grid (or vice versa):
 
+If browsing has a pending destination, that destination takes precedence over
+departure geometry. The store retains queued/loading/ready navigation independently
+of the mounted component. Density cancels obsolete maintenance, not the destination;
+the current view consumes ready placement after its two-frame geometry readiness.
+Indexed views can position skeletons at the requested global coordinate while data
+is pending. Focus and tickbox selection remain separate from this viewport intent.
+
+Without a pending destination, the existing settled-density rules apply:
+
 1. **Unmount save:** `useScrollEffects` cleanup captures the focused image's
    viewport-relative ratio: `(rowTop + headerOffset - scrollTop) / clientHeight`.
    Stored as module-level state (not React state — survives component swap).
@@ -333,20 +356,26 @@ When switching from table to grid (or vice versa):
    it behind the sticky header or below the viewport), it snaps to the
    nearest edge — fully visible.
 
-4. **Drift prevention:** `abortExtends()` cancels range movement and sets a
+4. **Drift prevention:** `cancelWindowMaintenance()` cancels maintenance and sets a
    2-second cooldown before the restore, preventing `extendBackward` → prepend
    compensation → browser scroll clamping → pixel loss on each cycle.
 
 Initial ordinary/AI reads use a separate search-owned controller. A newer search
-cancels prior search and range work; density cancels ranges only, so the pending
+cancels prior search, browsing and range work; density cancels maintenance only, so the pending
 search still publishes its requested query/order and settles its own lifecycle.
-Fresh captured keyboard-edge intent may supersede an ordinary initial read;
-automatic viewport refill does not. If pending End invalidated the resident
+Explicit browsing, including scrubber and keyboard-edge intent, may supersede an
+ordinary initial read; automatic viewport refill does not. If navigation invalidated the resident
 page, Home rebuilds the current-order first page before reusing it. Valid resident
 Home shortcuts and finite AI ownership remain unchanged.
 Small-result fill captures the current range signal when it starts and remains
 cancellable during density restoration. Adapter cancellation outcomes are not
 normalized into successful core-list absence.
+
+Browsing uses a separate cancellation signal and retains ready placement until a
+view consumes it. A cancelled refill without a successor settles its own busy state;
+its success or cancellation cannot settle a pending search. Newer cursor restore or
+snap-back cancels obsolete browsing, and cancelled snap-back cannot clear a retained
+or newer focus. These owners are not a universal cancellation epoch.
 
 Saved restoration belongs to its captured search generation and saved record.
 While its two frames are pending, short-lived input listeners observe actual list

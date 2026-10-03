@@ -211,6 +211,7 @@ function SearchPage() {
       bufferLength={bufferLength}
       loading={loading}
       onSeek={(offset, interactionId) => seek(offset, "scrubber-seek", interactionId)}
+      onBrowsePosition={(offset) => useSearchStore.getState().queueBrowsePosition(offset)}
       getSortLabel={getSortLabel}
       onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}

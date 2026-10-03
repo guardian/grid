@@ -150,7 +150,7 @@ describe("PIT expiry recovery", () => {
     },
   );
 
-  it("does not resurrect a PIT when focus waits for rank after its pages arrive", async () => {
+  it.each(["refill", "navigation"] as const)("does not resurrect a PIT when focus waits for rank after its pages arrive (%s)", async (purpose) => {
     mock = new MockDataSource(70_000);
     resetStore(mock);
     await actions().search();
@@ -167,10 +167,17 @@ describe("PIT expiry recovery", () => {
 
     await actions().search("img-15000");
     await vi.waitFor(() => expect(surroundingPages).toBe(2));
-    await actions().seek(69_999);
+    await actions().seek(69_999, "seek", undefined, purpose);
     expect(state().pitId).toBeNull();
+    const destination = state().results;
     resolveRank(15_000);
-    await vi.waitFor(() => expect(state().results.some((image) => image?.id === "img-15000")).toBe(true));
+    if (purpose === "refill") {
+      await vi.waitFor(() => expect(state().results.some((image) => image?.id === "img-15000")).toBe(true));
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(state().results === destination).toBe(true);
+      expect(state().bufferOffset + state().results.length).toBe(70_000);
+    }
 
     expect(state().pitId).toBeNull();
   });

@@ -247,11 +247,12 @@ async function appendMetadataSearchVisualPhases(
   interactionId: string,
   targetQuery: string,
   action: "metadata-click" | "facet-click" | "search",
+  step: "JA3" | "JB2" | "JB2-control" | "JB3",
 ) {
-  return kupua.page.evaluate(async ({ targetInteractionId, expectedQuery, targetAction }) => {
+  return kupua.page.evaluate(async ({ targetInteractionId, expectedQuery, targetAction, scenarioId }) => {
     const store = (window as any).__kupua_store__;
     const lifecycle = (window as any).__kupua_getSearchLifecycle__;
-    if (!store || !lifecycle) throw new Error("JA3 search lifecycle signal unavailable");
+    if (!store || !lifecycle) throw new Error(`${scenarioId} search lifecycle signal unavailable`);
     const readRect = (element: Element) => {
       const rect = element.getBoundingClientRect();
       return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
@@ -259,23 +260,38 @@ async function appendMetadataSearchVisualPhases(
     const close = (left: Record<string, number>, right: Record<string, number>) =>
       Object.keys(left).every((key) => Math.abs(left[key] - right[key]) <= 1);
 
+    const timeoutMs = 30_000;
+    const startedAt = performance.now();
+    const deadline = startedAt + timeoutMs;
+    let sampledFrames = 0;
+    let lastReadiness: Record<string, boolean | number | null> | null = null;
     let first = null;
-    for (let attempt = 0; attempt < 300; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      sampledFrames += 1;
+      if (performance.now() >= deadline) break;
       const state = store.getState();
       const life = lifecycle();
       const params = new URL(location.href).searchParams;
       const container = document.querySelector('[aria-label="Image results grid"]')
         ?? document.querySelector('[aria-label="Image results table"]');
       const item = container?.querySelector('[data-image-id]');
-      const targetReady = params.get("query") === expectedQuery
-        && !params.has("image")
-        && life.query === expectedQuery
-        && life.started > 0
-        && life.settled === life.started
-        && !state.loading
-        && !state.error
-        && !document.querySelector('[data-detail-image-id]');
+      lastReadiness = {
+        urlQueryMatches: params.get("query") === expectedQuery,
+        listRoute: !params.has("image"),
+        lifecycleQueryMatches: life.query === expectedQuery,
+        started: Number.isFinite(life.started) ? life.started : null,
+        settled: Number.isFinite(life.settled) ? life.settled : null,
+        loading: Boolean(state.loading),
+        error: Boolean(state.error),
+        detailClosed: !document.querySelector('[data-detail-image-id]'),
+        containerPresent: Boolean(container),
+        itemPresent: Boolean(item),
+        geometryStable: false,
+      };
+      const targetReady = lastReadiness.urlQueryMatches && lastReadiness.listRoute
+        && lastReadiness.lifecycleQueryMatches && life.started > 0 && life.settled === life.started
+        && !lastReadiness.loading && !lastReadiness.error && lastReadiness.detailClosed;
       if (!targetReady || !container || !item) {
         first = null;
         continue;
@@ -294,8 +310,10 @@ async function appendMetadataSearchVisualPhases(
       }
       first = current;
     }
-    throw new Error("JA3 exact metadata search did not visibly settle");
-  }, { targetInteractionId: interactionId, expectedQuery: targetQuery, targetAction: action });
+    throw new Error(`${scenarioId} exact search did not visibly settle within ${timeoutMs}ms: ${JSON.stringify({
+      elapsedMs: Math.round(performance.now() - startedAt), sampledFrames, ...lastReadiness,
+    })}`);
+  }, { targetInteractionId: interactionId, expectedQuery: targetQuery, targetAction: action, scenarioId: step });
 }
 
 async function appendIndexedScrollVisualPhases(kupua: any, interactionId: string, requestedPosition: number) {
@@ -684,7 +702,7 @@ test.describe("Journey Tests", () => {
         entry.action === "metadata-click" && entry.phase === "t_0" && entry.interactionId
       );
       expect(starts).toHaveLength(1);
-      const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "metadata-click");
+      const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "metadata-click", "JA3");
       context.routes = finishMetadataRouteCapture();
       const entries = await readTrace(kupua);
       const correlated = computeCorrelatedMetrics({
@@ -814,7 +832,7 @@ test.describe("Journey Tests", () => {
           entry.action === "search" && entry.phase === "t_0" && entry.interactionId
         );
         expect(starts).toHaveLength(1);
-        const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "search");
+        const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "search", "JB2-control");
         context.routes = finishRoutes();
         return {
           correlated: computeCorrelatedMetrics({
@@ -838,7 +856,7 @@ test.describe("Journey Tests", () => {
           entry.action === "facet-click" && entry.phase === "t_0" && entry.interactionId
         );
         expect(starts).toHaveLength(1);
-        const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "facet-click");
+        const context = await appendMetadataSearchVisualPhases(kupua, starts[0].interactionId!, targetQuery, "facet-click", "JB2");
         context.routes = finishRoutes();
         return {
           correlated: computeCorrelatedMetrics({
@@ -930,6 +948,7 @@ test.describe("Journey Tests", () => {
         starts[0].interactionId!,
         targetQuery,
         "facet-click",
+        "JB3",
       );
       context.routes = finishRouteCapture();
       expect(context.resultRegime).toBe("indexed");

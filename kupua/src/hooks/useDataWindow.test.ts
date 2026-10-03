@@ -66,7 +66,7 @@ describe("KUP-016 indexed seek ownership", () => {
     act(() => vi.advanceTimersByTime(199));
     expect(seek).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(1));
-    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");
   });
 
   it("ordinary buffer publication and an unrelated consumer unmount preserve valid work", () => {
@@ -76,7 +76,7 @@ describe("KUP-016 indexed seek ownership", () => {
     detail.unmount();
     act(() => useSearchStore.setState({ results: [...images], bufferOffset: 1100, loading: false }));
     act(() => vi.advanceTimersByTime(200));
-    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");
   });
 
   it("a new same-query search invalidates the old coordinate before its response", async () => {
@@ -103,7 +103,7 @@ describe("KUP-016 indexed seek ownership", () => {
     act(() => view.result.current.reportVisibleRange(3000, 3020));
     act(() => useSearchStore.getState().setParams({ length: 400 }));
     act(() => vi.advanceTimersByTime(200));
-    expect(seek).toHaveBeenCalledExactlyOnceWith(3000);
+    expect(seek).toHaveBeenCalledExactlyOnceWith(3000, "seek", undefined, "refill");
   });
 
   it("retains global indexed and buffer-local normal coordinate access", () => {
@@ -123,7 +123,7 @@ describe("KUP-016 indexed seek ownership", () => {
     act(() => current.result.current.reportVisibleRange(4000, 4020));
     previous.unmount();
     act(() => vi.advanceTimersByTime(200));
-    expect(seek).toHaveBeenCalledExactlyOnceWith(4000);
+    expect(seek).toHaveBeenCalledExactlyOnceWith(4000, "seek", undefined, "refill");
   });
 
   it("returning near the buffer cancels seek but retains forward/backward extension", () => {
@@ -146,7 +146,7 @@ describe("KUP-016 indexed seek ownership", () => {
     act(() => obsolete());
     expect(seek).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(200));
-    expect(seek).toHaveBeenCalledExactlyOnceWith(4000);
+    expect(seek).toHaveBeenCalledExactlyOnceWith(4000, "seek", undefined, "refill");
     timers.mockRestore();
   });
 });

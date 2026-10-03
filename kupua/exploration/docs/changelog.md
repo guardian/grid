@@ -17,6 +17,50 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 3 October 2026 - Preserve query discovery through navigation takeover
+
+  Explicit browsing now retires ordinary initial placement without discarding its
+  membership discovery. The existing count, or the already-requested counted page on
+  count failure, supplies current totals and edge clamping. Cursor/focus successors
+  inherit that discovery and bypass old-resident shortcuts. Failed, missing-target or
+  cancelled replacements can finish from the retained first page only while no newer
+  owner exists; queued cancellation and superseded focus status also settle correctly.
+  Accepted freeze/map/poll work is reused. Deep-to-resident End placement is not erased
+  by the generic offset-zero reset.
+
+  AI queries reject ordinary seek/refill/extension/restore reads while pending and after
+  publication. The Scrubber wheel bridge records indexed user intent before forwarding
+  scroll, using current props across regime changes. Failing-first adapter, store,
+  component and mounted controls cover these ownership boundaries, with maintained
+  browser regressions for both click modes and density directions. No new count request,
+  search restart, backend change, settled-density policy or general epoch was introduced.
+
+  ### 3 October 2026 - Make journey search readiness refresh-rate independent
+
+  The JA3/JB2/JB3 exact-search observer now uses the same elapsed-time readiness
+  budget as PP1 instead of stopping after 300 frames. A valid four-second search
+  previously passed at 60 Hz but failed at 120/240 Hz. Successful readiness guards,
+  observed timestamps and scenario revisions are unchanged. Failures now identify
+  the actual step, including JB2's matched control, with sanitized readiness flags.
+  Actual-observer regressions cover delayed success and invalid/missing/moving states;
+  no application behavior or recorded performance history was changed.
+
+  ### 3 October 2026 - Preserve pending browsing across density (B17)
+
+  Browsing now retains a search-scoped destination through queued, loading and ready
+  placement phases independently of the mounted view. Density cancels maintenance,
+  not navigation; indexed scrubber input records its target before native scrolling,
+  while layout-only refills retain their separate authority. Newer navigation/search
+  supersedes obsolete work without restarting the requested search.
+
+  Ready placement survives remount and waits for current geometry. Busy-state cleanup
+  cannot clear another foreground owner, and cursor restore/snap-back supersede older
+  browsing without importing the density cooldown. Cancelled focus work cannot clear
+  retained/newer focus. Strict Mode readiness and deferred viewport notification have
+  distinct lifetimes. Existing estimation, alignment, focus/selection and settled-density
+  policy remain intact. Maintained TDD regressions, full local gates and bounded live
+  direct/media-api checks cover the adopted paths; performance equivalence is not claimed.
+
   ### 2 October 2026 - Preserve search and keyboard-edge ownership (B8/L37)
 
   Initial ordinary/AI reads have separate cancellation from range movement. Density and

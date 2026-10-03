@@ -48,7 +48,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Position-engine cleanup** | [L7 ledger](exploration/docs/not-yet-another-audit-ledger.md): 36 cases; paired characterisation and retained probes remain qualified. B8/C34 and the approved cold-review L37 follow-up are resolved; L26/L37 closed after full local gates. Density/viewport refill preserve current search, while captured keyboard-edge intent supersedes obsolete ordinary initial work and Home avoids stale resident reuse. Earlier live direct/API density passes predate L37's follow-up; no new live/production/performance certification follows. Q1-Q7 stay open and policy remains revisable. The proposed next structural milestone remains search/sort continuity with integrated/cross-family controls, subject to a new operator scope, not another bug batch, product freeze or automatic engine rewrite. [Prompt](exploration/docs/not-yet-another-audit-prompt.md) owns completed characterisation scope; 02 stays a contract source. |
+| **Position-engine cleanup** | [L7 ledger](exploration/docs/not-yet-another-audit-ledger.md): 37 cases. B8/L37 and B17 including cold-review follow-up are repaired; live-checkpoint limits remain. Next unit: ordinary search/filter and sort target/placement handoff with explicitly approved B6, not yet implemented. Revised D2 accepts off-screen remembered-detail precedence for query/filter and AI exit; Q4 accepts explicit/automatic Clear retaining focus. Q5/Q6 current rules accepted; Q1 preferences and Q2/Q7 stay revisable. No-bookmark AI exit is separate L39. Preserve ownership/publication assertions when changing policy; stop for another target exception or wider repair. [Prompt](exploration/docs/not-yet-another-audit-prompt.md) owns characterisation; 02 is the contract guide. |
 | **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md` (source-derived behaviour map; ledger items marked *(Lx)*), `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx` and its mounted identity tests, `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts`, `useReturnFromDetail.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
@@ -66,10 +66,14 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 ## Current Phase: Phase 3 — Hybrid ES + media-api (in progress)
 
-**Current snapshot: 2 October 2026.** B8 and the approved L37 keyboard-edge follow-up
-are resolved with maintained regressions and full local gates. The earlier paired live
-density evidence and post-follow-up live limits remain separate. Search/sort continuity is
-not yet authorized. U1-U5 and U6a-d are built; M1 is operator-accepted.
+**Current snapshot: 3 October 2026.** B8/L37 and B17 pending-browse/density are repaired;
+the cold-review follow-up preserves query discovery through navigation/replacement,
+keeps AI results finite and captures Scrubber-wheel intent. Full local gates pass in
+both click modes; paired live checks belong to the earlier B17 checkpoint, not this
+follow-up. Pending destinations survive density; settled layout policy is unchanged.
+The ledger now scopes the first ordinary search/sort handoff with approved B6; no
+implementation yet. Operator policy is revisable, not a wider rewrite mandate.
+U1-U5 and U6a-d are built; M1 is operator-accepted.
 U6z is complete with tests only; the operator reported a clean cold review. U9-A is committed
 locally (`804ca1191`); U9-B is committed locally (`887814ccc`; cold review accepted with fixes). U10-A's
 source-only characterization is complete; U10-B's narrow lazy-fallback derivation is built locally
@@ -110,8 +114,8 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 | System | Key entry points | What it does |
 |---|---|---|
 | DAL | `dal/types.ts`, `es-adapter.ts`, `dal/api-data-source.ts`, `dal/index.ts` | `ImageDataSource` interface (17 methods, 5 optional; nullable `openPit`; optional `offsetReadLimit`). Factory selects API or direct ES and constructs only the selected datasource. API mode sends every read, AI included, through `grid-api-search-adapter.ts`; the base stays local `/api` unless only `--use-deployed-media-api` selects TEST. Client walk loops remain and there is no ES fallback. Selection/collections share the app datasource. API mget uses 200-ID chunks/four in flight; standalone lookup returns image plus optional enrichment. Non-local ES write protection remains. Date tuples use epoch ms, source fields ISO. |
-| Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (see KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses retained-total coordinates and one selected tuple for rank/pages; saved-rank/lookup startup stays parallel, with one conditional extra rank. Near-top centred reads cap known-rank predecessors; provisional focus keeps parallel rank/pages and trims excess predecessors before publication. Initial ordinary/AI reads have search-owned cancellation; density cancels ranges, not the current search. Generation/captured-signal guards remain; fill captures range ownership at launch and find-focus retains its separate controller. A short null-tail backward page gets one bounded valued-end read before atomic prepend; ordinary page costs stay unchanged. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed response tuples remain in `lib/image-offset-cache.ts` for alias-safe navigation. |
-| Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based coordinate predicate, independently of map readiness. Viewport anchor tracking for density-focus and sort-around-focus. |
+| Store | `stores/search-store.ts` | Windowed buffer (max 1000) shared by all three scroll tiers (KAD #2). Seek/extend/evict, PIT lifecycle, sort-around-focus, maps and aggregations. Restore uses current-query total and one selected tuple for rank/pages; saved-rank/lookup stays parallel, with one conditional extra rank. Centred reads cap/trim predecessors. Initial discovery, browsing and maintenance have distinct owners: `_browseNavigation` retains queued/loading/ready destinations across density; navigation retires initial placement but inherits existing count/page discovery, including cursor/focus replacements and owned fallback. AI excludes ordinary window paths. Busy cleanup is owner-checked; fill and focus resolution retain their lifetimes. A short null-tail page gets one bounded valued-end read before atomic prepend. Keyword seeks skip invalid primary percentiles; distribution reads coalesce by scope. Committed tuples remain in `lib/image-offset-cache.ts`. |
+| Data Window | `hooks/useDataWindow.ts` | Buffer↔view bridge. Two hook modes: **normal** (buffer-local indices — serves scroll tier ≤1k and seek tier >65k) and **two-tier** (global indices, skeleton cells — serves indexed tier 1k–65k). Visible-neighbour lookup uses that same total-based predicate, independently of map readiness. User input queues a store-owned destination; layout-only refills retain view-owned debounce. Viewport anchor tracking for density-focus and sort-around-focus. |
 | Scroll & Scrubber | `hooks/useScrollEffects.ts`, `components/Scrubber.tsx`, `lib/sort-context.ts` | Shared scroll lifecycle (seek, prepend compensation, density-focus, swimming prevention). Small first-page sort clamps retain placement across fill growth unless newer focus, scroll or navigation supersedes it. Prepend compensation only in scroll/seek tiers — indexed tier replaces items at fixed global positions (no swimming). Scrubber: three modes matching the three tiers (see KAD #2). Null-zone support, tick density map memoized by consumed buffer/distribution identities. |
 | Collections | `stores/collection-store.ts`, `components/CollectionTree.tsx` | Collection tree from port 9010. Graceful-absent when service unavailable. Subtree counts from an aggregation on the app's data source (media-api in API mode). Click → `collection:pathId` in CQL query. Auto-sort to `dateAddedToCollection`. |
 | Field Registry | `lib/field-registry.tsx` | Single source of truth for all image fields (33 static + config aliases). Drives table columns, sort, filters, detail panel, multi-image panel. `multiSelectBehaviour`, `detailLayout`, `pillVariant`. |
@@ -126,14 +130,15 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 ### Testing Summary
 
-- **2244 Vitest unit/integration tests across 82 files** -- `npm --prefix kupua test`
+- **2557 Vitest unit/integration tests across 82 files** -- `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **311 Playwright E2E** tests (~5min, 3 workers) -- `npm --prefix kupua run test:e2e`
-- **1 forced-seek habitual case** — isolated port-3030 project inside `npm run test:e2e`
+- **351 Playwright E2E** tests (~5min, 3 workers) -- `npm --prefix kupua run test:e2e`
+- **9 forced-seek habitual cases** — isolated port-3030 project inside `npm run test:e2e`; eight B17 density cases plus the core journey
 - **22 jank perf tests / 33 metric IDs** + experiment infrastructure — `npm run test:perf`. P13c measures non-resident detail with warm media; P14 guards zero image-hydration reads. Both dashboards show these shared audit records; live two-mode preflight remains operator-run.
-- **84 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). What they enforce:
+- **99 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). What they enforce:
   - *Static polling/deadline checks* — reject async predicates and misplaced or extra wait arguments.
+  - *Long-journey exact-search readiness* — actual observer tests at 60/120/240 Hz, elapsed deadlines, unchanged context/geometry guards and sanitized step-specific failures; no refresh-rate-dependent cutoff.
   - *Evidence contracts* — each rejects invalid evidence of its kind: numeric values, totals, route, regime, revision, cache state, completion boundary, named-measure aggregation, correlated-phase chronology.
   - *Dashboards* — keep missing values as gaps, hide stale client-only store timings, show qualified API-direct deltas, separate incomparable evidence.
   - *Runner* — records full-dirty and generated-history-independent app-source hashes; single-run threshold crossings are watchpoints, not failures.

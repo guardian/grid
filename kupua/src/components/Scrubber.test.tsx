@@ -6,12 +6,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, cleanup, act, fireEvent, screen } from "@testing-library/react";
 import { Scrubber } from "./Scrubber";
 
+const scrolling = vi.hoisted(() => ({ container: null as HTMLElement | null }));
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
 vi.mock("@/lib/scroll-container-ref", () => ({
-  getScrollContainer: () => null,
+  getScrollContainer: () => scrolling.container,
   useScrollContainerGeneration: () => 0,
 }));
 
@@ -37,6 +39,7 @@ class MockResizeObserver {
 }
 
 beforeEach(() => {
+  scrolling.container = null;
   resizeObserverCallback = null;
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
 });
@@ -86,6 +89,59 @@ function getThumbTop(container: HTMLElement): number | null {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe("B17 scrubber navigation intent", () => {
+  it.each(["buffer", "indexed", "seek"] as const)("classifies %s wheel input before forwarding scroll", (regime) => {
+    const container = document.createElement("div");
+    Object.defineProperties(container, { scrollHeight: { value: 320000 }, clientHeight: { value: 600 } });
+    scrolling.container = container;
+    const onBrowsePosition = vi.fn(() => { expect(container.scrollTop).toBe(0); });
+    render(<Scrubber {...seekModeProps({ total: regime === "buffer" ? 800 : regime === "indexed" ? 12000 : 70000,
+      bufferLength: regime === "buffer" ? 800 : 200, twoTier: regime === "indexed", onBrowsePosition })} />);
+    fireEvent.wheel(screen.getByRole("slider"), { deltaY: 4000 });
+    expect(container.scrollTop).toBe(4000);
+    expect(onBrowsePosition).toHaveBeenCalledTimes(regime === "indexed" ? 1 : 0);
+  });
+
+  it("uses current indexed wheel props after the scrubber changes regime", () => {
+    const container = document.createElement("div");
+    Object.defineProperties(container, { scrollHeight: { value: 320000 }, clientHeight: { value: 600 } });
+    scrolling.container = container;
+    const onBrowsePosition = vi.fn();
+    const view = render(<Scrubber {...seekModeProps({ onBrowsePosition })} />);
+    view.rerender(<Scrubber {...seekModeProps({ total: 12000, twoTier: true, onBrowsePosition })} />);
+    fireEvent.wheel(screen.getByRole("slider"), { deltaY: 4000 });
+    expect(onBrowsePosition).toHaveBeenCalledExactlyOnceWith(Math.round(4000 / 319400 * 11950));
+  });
+
+  it.each(["buffer", "indexed", "seek"] as const)("records %s intent before changing the viewport", (regime) => {
+    const scrollContainer = document.createElement("div");
+    Object.defineProperties(scrollContainer, { scrollHeight: { value: 320000 }, clientHeight: { value: 600 } });
+    scrolling.container = scrollContainer;
+    const onBrowsePosition = vi.fn((offset: number) => {
+      expect(offset).toBeGreaterThan(0);
+      expect(scrollContainer.scrollTop).toBe(0);
+    });
+    const onSeek = vi.fn();
+    const total = regime === "buffer" ? 800 : regime === "indexed" ? 12000 : 70000;
+    render(<Scrubber {...seekModeProps({ total, bufferLength: regime === "buffer" ? 800 : 200,
+      twoTier: regime === "indexed", onSeek, onBrowsePosition })} />);
+    const slider = screen.getByRole("slider", { name: "Result set position" });
+    Object.defineProperty(slider, "clientHeight", { value: 600 });
+    slider.getBoundingClientRect = () => ({ top: 0, left: 0, bottom: 600, right: 20,
+      x: 0, y: 0, width: 20, height: 600, toJSON: () => ({}) });
+    fireEvent.click(slider, { clientY: 300 });
+    if (regime === "indexed") {
+      expect(onBrowsePosition).toHaveBeenCalledOnce();
+      expect(onBrowsePosition.mock.calls[0][0]).toBeGreaterThan(5000);
+      expect(scrollContainer.scrollTop).toBeGreaterThan(0);
+      expect(onSeek).not.toHaveBeenCalled();
+    } else {
+      expect(onBrowsePosition).not.toHaveBeenCalled();
+      expect(onSeek).toHaveBeenCalledTimes(regime === "seek" ? 1 : 0);
+    }
+  });
+});
 
 describe("Scrubber seek-mode position sync", () => {
   const TRACK_HEIGHT = 600;

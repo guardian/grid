@@ -33,6 +33,22 @@ rate; it is not a performance target. URL, store, buffer, scrubber and geometry
 checks remain mandatory. Timeout diagnostics contain readiness flags and numeric
 positions only, not image identities or metadata.
 
+JA3, JB2 (facet and matched control), and JB3 likewise allow 30 seconds of elapsed
+time for exact-query search settlement and two matching geometry samples. The old
+300-frame cutoff allowed only about 2.5 seconds at 120 Hz or 1.25 seconds at 240 Hz.
+This is a readiness deadline, not a latency target or added delay: successful metrics
+still record the actual observed frames. URL/lifecycle equality, completed loading,
+absence of errors/detail, rendered content and stable geometry remain mandatory.
+Failures identify the actual step (including `JB2-control`) and report only readiness
+flags, lifecycle counters, elapsed time and sampled-frame count. No queries, image
+identities, URLs or server error payloads are included. Existing success boundaries and
+scenario revisions are unchanged; other visual observers are not certified by this fix.
+
+Operator verification on 3 October 2026: a two-repetition long-only media-api dry run
+passed JA and JB in both repetitions, covering both JB2 control orders. No performance
+history changed. This verifies the observer replay, not the later application ownership
+follow-up or performance equivalence.
+
 ## Flag matrix
 
 | Flag | Jank | Perceived (short) | Perceived (long) |

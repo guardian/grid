@@ -3881,6 +3881,65 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     assertPositionsConsistent();
   });
 
+  for (const previousTotal of [12000, 70000]) {
+    for (const operation of ["queued", "seek", "refill", "forward", "backward", "restore", "focus"] as const) {
+      it.each(["before-dispatch", "after-dispatch"] as const)(`cold review AI: ${operation}, previous total ${previousTotal}, AI publishes %s`, async (arrival) => {
+        vi.useFakeTimers();
+        const source = makeAiMock(200);
+        const result = { ...await source.searchByAi({}), aiPoolTotal: previousTotal,
+          tickerCounts: { "GNM-owned": { value: 12 } } };
+        const resident = await mock.searchAfter({ nonFree: "true", offset: 4000, length: 200 }, null);
+        let releaseAi!: (value: typeof result) => void;
+        const ai = vi.spyOn(source, "searchByAi").mockReturnValueOnce(new Promise(resolve => { releaseAi = resolve; }));
+        let releasePage!: () => void;
+        const heldPage = new Promise<void>(resolve => { releasePage = resolve; });
+        const originalPage = source.searchAfter.bind(source);
+        const pages = vi.spyOn(source, "searchAfter").mockImplementation(async (...args) => {
+          await heldPage;
+          return originalPage(...args);
+        });
+        useSearchStore.setState({ dataSource: source, results: resident.hits, total: previousTotal,
+          bufferOffset: 4000, startCursor: resident.sortValues[0], endCursor: resident.sortValues.at(-1),
+          imagePositions: new Map(resident.hits.map((image, index) => [image.id, index + 4000])) });
+        const searching = actions().search();
+        let browsing = Promise.resolve();
+        try {
+          await vi.advanceTimersByTimeAsync(2100);
+          if (operation === "queued") actions().queueBrowsePosition(6000);
+          else if (operation === "forward") browsing = actions().extendForward();
+          else if (operation === "backward") browsing = actions().extendBackward();
+          else if (operation === "restore") browsing = actions().restoreAroundCursor(resident.hits[0].id, resident.sortValues[0], 4000);
+          else if (operation === "focus") {
+            actions().setFocusedImageId("img-8000");
+            browsing = actions().seekToFocused();
+          }
+          else browsing = actions().seek(6000, "seek", undefined, operation === "refill" ? "refill" : "navigation");
+          if (arrival === "after-dispatch") await vi.advanceTimersByTimeAsync(200);
+          releaseAi(result);
+          await searching;
+          if (arrival === "before-dispatch") await vi.advanceTimersByTimeAsync(200);
+          releasePage();
+          await browsing;
+          await vi.advanceTimersByTimeAsync(0);
+          expect(pages).not.toHaveBeenCalled();
+          expect(ai.mock.calls[0][1]?.aborted).toBe(false);
+          expect(state().results.map(image => image?.id)).toEqual(result.hits.map(image => image.id));
+          expect(state()).toMatchObject({ total: 200, bufferOffset: 0, aiPoolTotal: previousTotal,
+            tickerCounts: result.tickerCounts, loading: false, error: null, _browseNavigation: null });
+          assertPositionsConsistent();
+        } finally {
+          releaseAi(result);
+          releasePage();
+          await searching;
+          await browsing;
+          await vi.advanceTimersByTimeAsync(0);
+          vi.clearAllTimers();
+          vi.useRealTimers();
+        }
+      });
+    }
+  }
+
   it("scrolls to top (no focus) when sortAroundFocusId is absent from AI results", async () => {
     const resetGenBefore = state()._scrollReset.gen;
 

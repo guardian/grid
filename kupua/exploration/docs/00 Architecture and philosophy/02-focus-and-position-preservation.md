@@ -37,6 +37,7 @@ document is the same in every tier.
 | Anchor | Meaning | Source |
 |---|---|---|
 | Explicit focus | `focusedImageId` with a visible ring, set by click or keys in explicit mode. A durable bookmark: survives scrolling away, seek and eviction | `search-store.ts` |
+| Remembered detail image | Last image returned from detail in Click-to-Open, stored without a ring. Accepted query/filter and AI-exit anchor even after scrolling away | `focusedImageId`, written by detail entry/return |
 | Selection anchor | Last-interacted selected image, while a selection exists | `selection-store.ts` `anchorId` |
 | Viewport centre | Rendered image nearest the centre of the usable viewport (below the table header). Elected from DOM geometry only when a transition asks; not tracked per scroll frame | `getViewportAnchorId()` in `useDataWindow.ts` |
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
@@ -52,10 +53,18 @@ concerns. Position restoration must not discard that entry's focus or substitute
 another entry's. This requirement does not prescribe every scrolling outcome:
 the operator will decide those cases from the characterisation table.
 
-In phantom mode the anchor is the selection anchor or the viewport centre. A
-`focusedImageId` left behind in phantom mode must never act as anchor *(L6:
-opening/closing detail and middle-click currently set it, and later search,
-density and resize transitions anchor on it)*.
+Click-to-Open has no explicit focus affordance, but may remember the last image
+returned from detail. For ordinary query/filter changes and AI exit, that identity
+takes precedence over the browsed centre, even off-screen, if it survives. Ordinary
+query/filter without that identity uses the browsed centre. AI exit without it
+currently resets to top; centre preservation is the desired follow-up *(L39)*.
+Ordinary sorting without selection retains its clear-and-top relaxation.
+
+This is revisable policy, not permission to carry a departing bookmark into a
+different history entry. Layout may preserve meaningful focus/selection or browsed
+centre, with legitimate true-result-edge handling; no accidental third target is
+accepted. Density, reflow, height-only and history preferences remain separately
+decidable. Policy changes must not weaken ownership or coherent-publication checks.
 
 The precedence is currently decided separately in six places *(L9)*:
 `useUrlSearchSync` (search transitions), `useScrollEffects` effect 7 (ratio
@@ -91,8 +100,9 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 | `bufferOffset` deep to 0 | `search`, `seek(0)` | Effect 8: top, except during small-set top-up (`_bufferSelfCorrecting`) |
 | `sortAroundFocusGeneration` with positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: anchor at the saved ratio, or apply a pending arrow move |
 
-Completion means a scroll write. Only the density restore waits (two frames) and
-checks for user interruption; nothing verifies stable placement.
+Completion means a scroll write, not proof of indefinitely stable geometry.
+Density remount readiness waits two frames. A pending browsing destination
+survives until its ready placement can be consumed by the current view.
 
 ### 3.3 Placement Values
 
@@ -114,17 +124,31 @@ when the source was there or the result is within a row of an edge.
 ### 3.4 Staleness
 
 - Search generation (`getSearchGeneration`) invalidates search-derived work.
-- `_searchAbortController` owns initial ordinary/AI reads and is replaced only by
-  a newer search. Publication checks its captured signal and search generation.
-  A fresh captured keyboard edge can supersede an ordinary initial read, but
-  automatic viewport refill/density and finite AI ownership stay separate.
-- The pending ordinary initial signal is cleared by identity. A pending edge
-  records whether it invalidated the resident page, so Home rebuilds the
+- `_searchAbortController` owns initial ordinary/AI reads. A newer search replaces
+  it; explicit browsing retires ordinary initial placement, not query discovery.
+  The replacement reuses the existing count (or counted first page on count failure)
+  and publishes the current total with its window. Initial placement stays retired
+  even after a later cursor/focus replacement. Automatic refill/density cannot take
+  this authority; AI never enters ordinary window reads.
+- `_browseNavigation` retains a scoped destination through queued, loading and
+  ready phases. Its separate signal survives density but not newer navigation,
+  search, cursor restore or snap-back. Indexed scrubber intent is recorded before
+  native scrolling, including the sibling Scrubber's wheel bridge; real scroll input
+  can queue it before the data request exists.
+- The pending initial signal is cleared by identity. Browsing records whether
+  it invalidated the resident page, so Home rebuilds the
   current-order first page in that case rather than using its normal resident shortcut.
-- `_rangeAbortController` owns extends, fill, seek and cursor restore, and is
-  replaced by search, seek, restore and `abortExtends`. Density cancels range
-  movement without cancelling the current search. Fill captures its range signal
-  at launch. The existing find-focus controller is replaced only by search.
+- Cursor/focus replacements inherit unfinished discovery and cannot use old resident
+  membership. Missing targets, failed replacements or cancellation without a successor
+  can use the already-requested first page; a newer owner suppresses that fallback.
+  Failure of both discovery requests settles loading without inventing a result set.
+- `_rangeAbortController` owns extends, fill, automatic refill and cursor restore.
+  Density's `cancelWindowMaintenance` cancels that work without cancelling initial
+  search or browsing. Reset callers retain broad `abortExtends` cancellation.
+  Fill captures its signal at launch; refill completion cannot clear another
+  foreground owner's loading state. Focus lookup/centred loading retain their own
+  controller, superseded by search, explicit browsing, cursor restore or a newer
+  snap-back. Cursor takeover clears the superseded focus status as well as its signal.
 - `_seekCooldownUntil` blocks extends after search, seek and backward extend.
 - History subscriptions cancel reset-to-home, pending traversal and delayed sort.
 - One-shot suppression flags are symbol-owned with release functions.
@@ -133,14 +157,14 @@ when the source was there or the result is within a row of an edge.
 
 | Transition | Guarantee | Relaxation (target) |
 |---|---|---|
-| Query / filter change | Anchor kept at the same ratio; if absent, nearest surviving neighbour | No survivor, or AI query removed without explicit focus: top |
+| Query / filter change | Retained focus (including remembered detail identity in Click-to-Open), otherwise browsed centre; anchor kept at the same ratio; if absent, nearest surviving neighbour | No survivor: top. AI exit with no remembered focus currently goes to top; desired centre preservation is L39 |
 | Sort change | Explicit focus or selection anchor kept at the same ratio | Phantom mode without selection: top |
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict | Visible content does not move | none |
-| Density switch | Current: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Desired precedence awaits L7/L15; smaller placement drift remains L18 |
+| Density switch | Pending browsing destination wins across the view change. Once settled: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Settled anchor precedence awaits L7/L15; smaller placement drift remains L18 |
 | Browser resize / panel toggle (grid column change) | Current: resolvable selection, then focus, then viewport centre supplies the placement anchor | Reconcile this with D5 and visibility cases in L7 before consolidation |
-| Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Phantom mode: image pulsed, not kept as anchor *(L6)* |
+| Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
 | Browser Back / Forward | Current search-context restore uses the snapshot anchor for placement and, when explicit, focus; desired independent state restoration awaits L7/L20 | No matching snapshot: top, no focus carried; display-only entries require separate characterisation |
 | Logo (Home) | none | Top of default search; focus, selection and density state cleared |
 | New-images ticker | none | Top of refreshed results |
@@ -170,7 +194,11 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
 - Deep seeks land by estimate; the viewport stays where the user is, avoiding a
   flash. Exact seeks (shallow, position map) target the position directly.
 - Home/End record `_pendingFocusAfterSeek`, owned by that seek; a later seek
-  replaces it.
+  replaces it. This captures permission to move focus, not navigation authority.
+- Density does not save departure geometry over a pending browsing destination.
+  Ready placement remains available across remount, waits for the new geometry,
+  then consumes its owner once. Deferred viewport notification has its own timer
+  lifetime and yields to newer search, navigation, input or unmount.
 - An arrow key with explicit focus outside the buffer seeks back to the focus,
   then applies the move (`_pendingFocusDelta`).
 
@@ -245,16 +273,16 @@ identified anchor.
 | PageUp / PageDown | Scroll by one page of rows |
 | Enter | No effect (no focused image to open) |
 | `f` key | No effect (no focused image to preview) |
-| Backspace (from detail) | Returns to list; the image that was open is pulsed (and centred if traversed) but does not become an anchor *(L6)* |
-| Middle-click | Fullscreen preview of that image *(L6: currently sets focus)* |
+| Backspace (from detail) | Returns to list; pulses the image (centres it if traversed) and retains its remembered identity for later query/filter and AI-exit continuity |
+| Middle-click | Fullscreen preview of that image; currently stores its identity without a ring |
 | Escape (from fullscreen within detail) | Returns to image detail |
 | Home / End | Scroll to top / bottom (no focus) |
 | Swipe left/right (touch) | Navigate prev/next in detail view |
 
-There is no focus in this mode: no ring, no keyboard path to one. Selection uses
-its own gestures (§6). From the user's perspective it behaves like Kahuna (click
-to enter, back to return) while the engine keeps their place using the viewport
-centre as anchor.
+There is no explicit focus affordance in this mode: no ring, no keyboard path to
+one. Selection uses its own gestures (§6). Remembered detail identity and inferred
+viewport centre are distinct continuity inputs; absence of a ring does not make
+the former invalid. Their precedence is transition policy, not request ownership.
 
 ### 5.3 Why Not Reveal Focus on Arrow Keys?
 
@@ -307,8 +335,8 @@ mechanisms where the transition requires them:
 - **Selection survives density changes** (same as focus — "Never Lost" applies).
 - **Selection supplies a position anchor for sorting.** The active selection's
   last-interacted image is the continuity point for sort changes, ahead of an
-  older, visually suppressed focus. Layout transitions keep the visible centre
-  instead (§4). Preserving that image does not mean keeping every selected image
+  older, visually suppressed focus. Layout precedence is a separate, transition-
+  specific choice (§2/§4). Preserving that image does not mean keeping every selected image
   on screen. Search/filter navigation normally clears the selection; its
   persistence policy is documented separately.
 - **Selection gestures must not conflict with focus/detail entry.** In explicit
@@ -322,7 +350,9 @@ mechanisms where the transition requires them:
 
 The [selection guide](05-selections.md) owns the current lifecycle, persistence and
 anchor-precedence details. Clearing selection leaves the viewport stationary and
-restores the older focus's ordinary role without creating new focus.
+restores the older focus's ordinary role without creating new focus. A query/filter
+that automatically clears selection follows that retained focus if it survives,
+just as explicit Clear followed by the transition does.
 
 ---
 

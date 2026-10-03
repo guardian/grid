@@ -20,7 +20,7 @@
  * only rendering and component-specific concerns.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
@@ -195,7 +195,7 @@ export interface UseScrollEffectsConfig {
   geometry: ScrollGeometry;
 
   /** From useDataWindow: report visible range for gap detection + extends. */
-  reportVisibleRange: (startIndex: number, endIndex: number) => void;
+  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean) => void;
 
   /** From useDataWindow: results array length. */
   resultsLength: number;
@@ -263,6 +263,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   } = config;
 
   const searchParams = useSearch({ from: "/search" });
+  const [densityReady, setDensityReady] = useState(() =>
+    peekDensityFocusRatio() === null && useSearchStore.getState()._browseNavigation === null);
 
   // Ref-stabilise the optional centering callback so closures in
   // mount-only effects always see the latest version.
@@ -347,9 +349,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // Register geometry for external consumers (e.g. Scrubber, diagnostics)
   registerScrollGeometry({ rowHeight: geometry.rowHeight, columns: geometry.columns });
 
-  const handleScroll = useCallback(() => {
+  const scrollInputRef = useRef<{ search: number; seek: number } | null>(null);
+  const handleScroll = useCallback((event?: Event) => {
     const el = parentRef.current;
     if (!el) return;
+    const input = scrollInputRef.current;
+    const userInitiated = event !== undefined && input !== null &&
+      input.search === getSearchGeneration() && input.seek === useSearchStore.getState()._seekGeneration;
 
     const range = virtualizerRef.current.range;
     if (range) {
@@ -359,10 +365,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         reportVisibleRange(
           range.startIndex * geo.columns,
           (range.endIndex + 1) * geo.columns - 1,
+          userInitiated,
         );
       } else {
         // Table: flat indices ARE row indices
-        reportVisibleRange(range.startIndex, range.endIndex);
+        reportVisibleRange(range.startIndex, range.endIndex, userInitiated);
       }
     } else {
       devLog(`[handleScroll] WARNING: virtualizer.range is null — reportVisibleRange skipped`);
@@ -381,10 +388,26 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
+    const captureInput = () => {
+      scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
+    };
+    const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) captureInput(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (!isNativeInputTarget(event) && ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) captureInput();
+    };
+    const stopInput = () => { scrollInputRef.current = null; };
+    el.addEventListener("wheel", onWheel, { passive: true });
+    el.addEventListener("touchmove", captureInput, { passive: true });
+    el.addEventListener("scrollend", stopInput);
+    document.addEventListener("keydown", onKey, true);
     el.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
       el.removeEventListener("scroll", handleScroll);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchmove", captureInput);
+      el.removeEventListener("scrollend", stopInput);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [handleScroll, parentRef]);
 
@@ -485,9 +508,13 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const seekTargetLocalIndex = useSearchStore((s) => s._seekTargetLocalIndex);
   const seekTargetGlobalIndex = useSearchStore((s) => s._seekTargetGlobalIndex);
   const seekSubRowOffset = useSearchStore((s) => s._seekSubRowOffset);
+  const browseNavigation = useSearchStore((state) => state._browseNavigation);
   const prevSeekGenRef = useRef(seekGeneration);
+  const seekScrollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useLayoutEffect(() => () => { clearTimeout(seekScrollTimerRef.current); }, []);
   useLayoutEffect(() => {
-    if (seekGeneration === prevSeekGenRef.current) return;
+    if (!densityReady || (browseNavigation && browseNavigation.phase !== "ready")) return;
+    if (seekGeneration === prevSeekGenRef.current && browseNavigation?.phase !== "ready") return;
     prevSeekGenRef.current = seekGeneration;
 
     const geo = geometryRef.current;
@@ -568,17 +595,26 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       useSearchStore.setState({ _pendingFocusAfterSeek: null });
     }
 
+    if (browseNavigation && useSearchStore.getState()._browseNavigation?.signal === browseNavigation.signal) {
+      useSearchStore.setState({ _browseNavigation: null });
+    }
+
     // Dispatch a deferred scroll event after the seek has settled — triggers
     // reportVisibleRange for Scrubber thumb sync and gap detection.
     // SEEK_DEFERRED_SCROLL_MS is derived from SEEK_COOLDOWN_MS + 100ms margin
     // in tuning.ts — see that file for the timing constraint.
     if (el) {
-      const timer = setTimeout(() => {
+      clearTimeout(seekScrollTimerRef.current);
+      const searchGeneration = getSearchGeneration();
+      const input = scrollInputRef.current;
+      seekScrollTimerRef.current = setTimeout(() => {
+        const state = useSearchStore.getState();
+        if (searchGeneration !== getSearchGeneration() || seekGeneration !== state._seekGeneration ||
+            state.loading || state._browseNavigation || scrollInputRef.current !== input) return;
         el.dispatchEvent(new Event("scroll"));
       }, SEEK_DEFERRED_SCROLL_MS);
-      return () => clearTimeout(timer);
     }
-  }, [seekGeneration, seekTargetLocalIndex, seekTargetGlobalIndex, seekSubRowOffset, twoTier, parentRef]);
+  }, [seekGeneration, seekTargetLocalIndex, seekTargetGlobalIndex, seekSubRowOffset, twoTier, parentRef, browseNavigation, densityReady]);
 
   // -------------------------------------------------------------------------
   // 7. Search params scroll reset (with sort-around-focus detection)
@@ -699,10 +735,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // handlers — the old buffer stays visible (harmlessly, at its deep scroll
   // position) until this effect fires with the new data.
 
-  const prevBufferOffsetRef = useRef(bufferOffset);
+  const prevBufferStateRef = useRef({ bufferOffset, seekGeneration });
   useLayoutEffect(() => {
-    const prev = prevBufferOffsetRef.current;
-    prevBufferOffsetRef.current = bufferOffset;
+    const previous = prevBufferStateRef.current;
+    prevBufferStateRef.current = { bufferOffset, seekGeneration };
+    const placedSeek = previous.seekGeneration !== seekGeneration &&
+      (twoTier ? seekTargetGlobalIndex : seekTargetLocalIndex) > 0;
     // NOTE: no twoTier guard here. In two-tier mode, bufferOffset→0 happens
     // in two cases: (a) the user scrolled to the top naturally (scrollTop is
     // already ~0 — the reset is a harmless no-op), or (b) a search()/resetToHome
@@ -718,7 +756,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // viewport at a non-zero position — this is internal bookkeeping, not
     // a "go home" event, and must not clobber that scroll. See F3/F4 in
     // wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md.
-    if (prev > 0 && bufferOffset === 0 && !useSearchStore.getState()._bufferSelfCorrecting) {
+    if (previous.bufferOffset > 0 && bufferOffset === 0 && !placedSeek && !useSearchStore.getState()._bufferSelfCorrecting) {
       const el = parentRef.current;
       if (el) {
         el.scrollTop = 0;
@@ -732,7 +770,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
       }
     }
-  }, [bufferOffset, virtualizer, parentRef, twoTier]);
+  }, [bufferOffset, virtualizer, parentRef, twoTier, seekGeneration, seekTargetGlobalIndex, seekTargetLocalIndex]);
 
   // -------------------------------------------------------------------------
   // 9. Sort-around-focus generation — scroll to focused image at new position
@@ -892,12 +930,34 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // peeked, not consumed, so React Strict Mode's double mount still sees it.
     const saved = peekDensityFocusRatio();
 
+    const finishNavigationMount = () => {
+      let secondFrame = 0;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => {
+          clearDensityFocusRatio();
+          const navigation = useSearchStore.getState()._browseNavigation;
+          if (navigation && navigation.phase !== "ready" && isTwoTierFromTotal(useSearchStore.getState().total)) {
+            const geometry = geometryRef.current;
+            el.scrollTop = Math.floor(navigation.targetOffset / geometry.columns) * geometry.rowHeight;
+          }
+          setDensityReady(true);
+          markDensityRestoreComplete();
+        });
+      });
+      return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+    };
+
+    if (useSearchStore.getState()._browseNavigation) {
+      useSearchStore.getState().cancelWindowMaintenance();
+      return finishNavigationMount();
+    }
+
     if (saved != null) {
       // saved branch: globalIndex is the anchor, no id/idx needed
       const store = useSearchStore.getState();
       const restoreGeneration = getSearchGeneration();
       const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
-      if (idx < 0) return;
+      if (idx < 0) return finishNavigationMount();
 
       let interrupted = false;
       const onWheel = (event: WheelEvent) => {
@@ -936,7 +996,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // losing pixels each cycle (density-focus drift bug).
       // The cooldown is identical to what resetScrollAndFocusSearch() and
       // scrubber seek() use — 2 seconds is plenty for the restore to settle.
-      useSearchStore.getState().abortExtends();
+      useSearchStore.getState().cancelWindowMaintenance();
 
       // Bug #17 fix: virtualizer.scrollToOffset() doesn't work at mount time
       // because the virtualizer hasn't measured the spacer element yet (scrollHeight
@@ -950,6 +1010,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => {
           stopWatchingInput();
+          setDensityReady(true);
+          if (useSearchStore.getState()._browseNavigation) {
+            clearDensityFocusRatio();
+            markDensityRestoreComplete();
+            return;
+          }
           if (interrupted || getSearchGeneration() !== restoreGeneration || peekDensityFocusRatio() !== saved) {
             if (peekDensityFocusRatio() === saved) clearDensityFocusRatio();
             return;
@@ -1062,6 +1128,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     let raf2b = 0;
     const raf1b = requestAnimationFrame(() => {
       raf2b = requestAnimationFrame(() => {
+        setDensityReady(true);
+        if (useSearchStore.getState()._browseNavigation) {
+          clearDensityFocusRatio();
+          markDensityRestoreComplete();
+          return;
+        }
         // Re-derive local index from the stable global index.
         // In two-tier mode, the virtualizer uses global indices.
         const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
@@ -1097,6 +1169,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     return () => {
       const el = parentRef.current;
       if (!el) return;
+      if (useSearchStore.getState()._browseNavigation) return;
       const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } = useSearchStore.getState();
       const isTT = isTwoTierFromTotal(t);
       const resolve = (id: string | null) => {

@@ -118,15 +118,13 @@ export function _resetForwardVelocity(): void {
 }
 
 /**
- * Debounce delay for scroll-triggered seeks in two-tier mode (ms).
- * When the user scrolls (wheel/trackpad or scrubber drag) past the buffer,
- * we wait this long before firing a seek — coalesces rapid scroll events.
- * The existing seek abort pattern handles concurrent seeks, but rapid fire
- * without debounce causes flicker.
+ * Debounce delay for view-owned indexed refills (ms). User browsing instead
+ * queues a store-owned destination, so disposing the old view cancels its
+ * maintenance timer without losing the user's requested position.
  */
 const SCROLL_SEEK_DEBOUNCE_MS = 200;
 
-/** Module-level debounce timer for scroll-triggered seek. */
+/** Module-level debounce timer for the reporting view's maintenance refill. */
 let _scrollSeek: { owner: object; cancel: () => void } | null = null;
 
 // ---------------------------------------------------------------------------
@@ -270,7 +268,7 @@ interface DataWindow {
    * buffer-local. In two-tier mode, indices are global (0..total-1).
    * The hook detects proximity to buffer edges and triggers extend/seek.
    */
-  reportVisibleRange: (startIndex: number, endIndex: number) => void;
+  reportVisibleRange: (startIndex: number, endIndex: number, userInitiated?: boolean) => void;
   /**
    * Get the image at an index, or undefined if not loaded.
    * In normal mode: buffer-local index. In two-tier mode: global index
@@ -371,7 +369,7 @@ export function useDataWindow(): DataWindow {
   seekRef.current = seek;
 
   const reportVisibleRange = useCallback(
-    (startIndex: number, endIndex: number) => {
+    (startIndex: number, endIndex: number, userInitiated = false) => {
       if (!ownerRef.current.mounted) return;
       const offset = bufferOffsetRef.current;
       const len = resultsLenRef.current;
@@ -411,6 +409,14 @@ export function useDataWindow(): DataWindow {
         const viewportOverlapsOrNearBuffer =
           globalEnd > offset - EXTEND_THRESHOLD &&
           globalStart < offset + len + EXTEND_THRESHOLD;
+
+        const navigation = useSearchStore.getState()._browseNavigation;
+        if (userInitiated && (!viewportOverlapsOrNearBuffer || navigation)) {
+          _scrollSeek?.cancel();
+          useSearchStore.getState().queueBrowsePosition(globalStart);
+          return;
+        }
+        if (navigation) return;
 
         if (viewportOverlapsOrNearBuffer) {
           // Cancel any pending scroll-triggered seek — the viewport is
@@ -452,7 +458,7 @@ export function useDataWindow(): DataWindow {
             if (_scrollSeek !== pending) return;
             pending.cancel();
             if (!isCurrent()) return;
-            seekRef.current(globalStart);
+            seekRef.current(globalStart, "seek", undefined, "refill");
           }, SCROLL_SEEK_DEBOUNCE_MS);
           _scrollSeek = pending;
           unsubscribe = useSearchStore.subscribe(() => { if (!isCurrent()) pending.cancel(); });

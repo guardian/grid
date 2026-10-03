@@ -63,14 +63,14 @@ test.describe("B8 pending sort survives saved density", () => {
               ? new (await import(apiPath)).ApiDataSource() : originalSource;
             const originalPage = source.searchAfter;
             const ownPage = Object.getOwnPropertyDescriptor(source, "searchAfter");
-            const originalAbort = store.getState().abortExtends;
+            const originalAbort = store.getState().cancelWindowMaintenance;
             const probe = { originalSource, rangeAborts: 0, emptyPublications: 0,
               signal: null as AbortSignal | null, cleanup: () => {} };
             source.searchAfter = function (...args: any[]) {
               if (args[0].trackTotalHits && !args[1]) probe.signal = args[3];
               return originalPage.apply(this, args);
             };
-            store.setState({ dataSource: source, abortExtends: () => {
+            store.setState({ dataSource: source, cancelWindowMaintenance: () => {
               probe.rangeAborts += 1;
               originalAbort();
             } });
@@ -83,7 +83,7 @@ test.describe("B8 pending sort survives saved density", () => {
               unsubscribe();
               if (ownPage) Object.defineProperty(source, "searchAfter", ownPage);
               else delete source.searchAfter;
-              store.setState({ dataSource: originalSource, abortExtends: originalAbort });
+              store.setState({ dataSource: originalSource, cancelWindowMaintenance: originalAbort });
             };
             (window as any).__b8 = probe;
           }, { transport, focusMode });

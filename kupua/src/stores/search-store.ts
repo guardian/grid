@@ -208,6 +208,35 @@ export function computeScrollTarget(input: ComputeScrollTargetInput): ComputeScr
 // Store interface
 // ---------------------------------------------------------------------------
 
+interface SearchDiscoveryMetadata {
+  total: number;
+  tickers: Awaited<ReturnType<ImageDataSource["countWithTickers"]>> | null;
+}
+
+interface InitialSearchDiscovery {
+  phase: "initial-read" | "metadata-published";
+  replacement: AbortSignal | null;
+  resultsPublished: boolean;
+  signal: AbortSignal;
+  searchGeneration: number;
+  searchKey: string;
+  dataSource: ImageDataSource;
+  params: SearchParams;
+  frozenUntil?: string;
+  page: Promise<SearchAfterResult>;
+  ready: Promise<{ metadata: SearchDiscoveryMetadata } | { error: unknown }>;
+}
+
+interface BrowseNavigation {
+  signal: AbortSignal;
+  targetOffset: number;
+  phase: "queued" | "loading" | "ready";
+  searchGeneration: number;
+  searchKey: string;
+  initialSearchSuperseded: boolean;
+  discovery?: InitialSearchDiscovery;
+}
+
 interface SearchState {
   // Data source (swappable between ES and Grid API)
   dataSource: ImageDataSource;
@@ -364,6 +393,8 @@ interface SearchState {
    */
   _seekSubRowOffset: number;
 
+  _browseNavigation: BrowseNavigation | null;
+
   /**
    * Post-seek focus intent for Home/End keys.
    * When Home/End triggers a seek (because the buffer doesn't cover the
@@ -376,7 +407,6 @@ interface SearchState {
     edge: "first" | "last";
     focusedImageId: string | null;
     signal?: AbortSignal;
-    initialSearchSuperseded?: boolean;
   } | null;
 
   /**
@@ -468,17 +498,19 @@ interface SearchState {
    */
   extendBackward: () => Promise<void>;
   /**
-   * Abort all in-flight extends and set a cooldown so no new extends fire
-   * for 2 seconds. Call this before any action that resets scroll on a
-   * deep buffer (logo click, metadata click-to-search) to prevent a rogue
-   * extendBackward from prepending stale data.
+  * Cancel obsolete browsing and range work before a semantic reset, with
+  * a 2-second extension cooldown. Density uses cancelWindowMaintenance
+  * instead so changing the view does not abandon its pending destination.
    */
   abortExtends: () => void;
+  cancelWindowMaintenance: () => void;
+  queueBrowsePosition: (globalOffset: number) => void;
+  canReuseResidentResults: () => boolean;
   /**
-   * Seek to a global offset — clear buffer and refill at the target position.
-   * Used by scrubber drags and sort-around-focus.
+  * Replace the buffer at a global destination. Navigation owns that destination
+  * across views; a refill is layout maintenance and cannot supersede it.
    */
-  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string) => Promise<void>;
+  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill") => Promise<void>;
 
   /**
    * Restore the buffer around a specific image using its cached sort cursor.
@@ -559,25 +591,21 @@ let _newImagesPollGeneration = 0;
 
 let _searchAbortController = new AbortController();
 let _pendingInitialSearchSignal: AbortSignal | null = null;
+let _browseAbortController = new AbortController();
+let _pendingWindowReadSignal: AbortSignal | null = null;
+let _initialSearchDiscovery: InitialSearchDiscovery | null = null;
 
 /**
- * Range cancellation for extends, fills, seeks and cursor restores.
+ * Range cancellation for extends, fills, viewport refills and cursor restores.
  * search() aborts previous ranges; density can cancel buffer movement
  * without cancelling the initial search that owns its loading state.
  */
 let _rangeAbortController = new AbortController();
 
 /**
- * Dedicated abort controller for _findAndFocusImage (Steps 1-2: find image
- * sort values + countBefore). Only aborted by search() — NOT by seek().
- *
- * Why: when search() sets a new `total` (e.g. 1.3M → 30k), the virtualizer
- * re-renders, browser clamps scrollTop, reportVisibleRange fires, and
- * two-tier mode schedules a debounced seek(). That seek aborts
- * _rangeAbortController, which used to kill _findAndFocusImage mid-flight.
- * This dedicated controller isolates the focus-finding work from seek
- * interference. _findAndFocusImage's Step 3 (the actual buffer load) still
- * uses _rangeAbortController via its own seekSignal.
+ * Focus lookup and centred loading share their captured focus signal plus
+ * timeout. Search, explicit browsing and a newer snap-back replace this owner;
+ * automatic viewport refill and density maintenance cannot cancel it.
  */
 let _findFocusAbortController = new AbortController();
 
@@ -590,6 +618,117 @@ let _findFocusAbortController = new AbortController();
 let _searchGeneration = 0;
 
 export function getSearchGeneration(): number { return _searchGeneration; }
+
+function hasPendingSearch(state: SearchState): boolean {
+  return (_pendingInitialSearchSignal !== null && !_pendingInitialSearchSignal.aborted) ||
+    state.sortAroundFocusStatus !== null;
+}
+
+function hasPendingForegroundRead(state: SearchState): boolean {
+  return hasPendingSearch(state) || (state._browseNavigation !== null &&
+    !state._browseNavigation.signal.aborted && state._browseNavigation.phase !== "ready");
+}
+
+function cancelBrowseNavigation(get: () => SearchState, set: (state: Partial<SearchState>) => void): void {
+  _browseAbortController.abort();
+  if (get()._browseNavigation) {
+    set({ _browseNavigation: null, _pendingFocusAfterSeek: null, loading: hasPendingSearch(get()) });
+  }
+}
+
+function cancelWindowReads(get: () => SearchState, set: (state: Partial<SearchState>) => void): void {
+  const cancelledRead = _pendingWindowReadSignal === _rangeAbortController.signal;
+  _pendingWindowReadSignal = null;
+  _rangeAbortController.abort();
+  _rangeAbortController = new AbortController();
+  set({ _extendForwardInFlight: false, _extendBackwardInFlight: false,
+    ...(cancelledRead && { loading: hasPendingForegroundRead(get()) }) });
+}
+
+function currentSearchDiscovery(state: SearchState): InitialSearchDiscovery | null {
+  const discovery = state._browseNavigation?.discovery ?? _initialSearchDiscovery;
+  return discovery && !discovery.resultsPublished && discovery.searchGeneration === _searchGeneration && discovery.dataSource === state.dataSource &&
+    discovery.searchKey === buildSearchKey(state.params) ? discovery : null;
+}
+
+function finishSearchDiscovery(discovery: InitialSearchDiscovery | undefined): void {
+  if (!discovery) return;
+  discovery.resultsPublished = true;
+  if (_searchAbortController.signal === discovery.signal) _searchAbortController.abort();
+  if (_initialSearchDiscovery === discovery) _initialSearchDiscovery = null;
+}
+
+function discoveryMetadataState(discovery: InitialSearchDiscovery, metadata: SearchDiscoveryMetadata): Partial<SearchState> {
+  return discovery.phase === "metadata-published" ? {} : {
+    newCountSince: discovery.frozenUntil ?? new Date().toISOString(),
+    tickerCounts: metadata.tickers?.tickerCounts ?? null,
+    tickersLastUpdated: metadata.tickers ? new Date().toISOString() : null,
+    ...(!discovery.frozenUntil && { newCount: 0 }),
+  };
+}
+
+function adoptDiscoveryMetadata(discovery: InitialSearchDiscovery, metadata: SearchDiscoveryMetadata,
+  get: () => SearchState, set: (state: Partial<SearchState> | ((state: SearchState) => Partial<SearchState>)) => void): void {
+  if (discovery.phase !== "initial-read") return;
+  set({ ...discoveryMetadataState(discovery, metadata), pitId: null });
+  discovery.phase = "metadata-published";
+  startNewImagesPoll(get, set);
+  if (isTwoTierFromTotal(metadata.total)) {
+    _positionMapAbortController = new AbortController();
+    _fetchPositionMap(discovery.dataSource, discovery.params, _positionMapAbortController.signal, get, set);
+  }
+}
+
+async function finishAbandonedDiscovery(discovery: InitialSearchDiscovery | undefined, owner: AbortSignal,
+  missingFocusId: string | undefined, get: () => SearchState,
+  set: (state: Partial<SearchState> | ((state: SearchState) => Partial<SearchState>)) => void): Promise<void> {
+  if (!discovery) return;
+  const owns = () => discovery.replacement === owner && !discovery.resultsPublished && !discovery.signal.aborted &&
+    discovery.searchGeneration === _searchGeneration && discovery.dataSource === get().dataSource &&
+    discovery.searchKey === buildSearchKey(get().params);
+  if (!owns()) return;
+  set({ loading: true });
+  try {
+    const [page, discovered] = await Promise.all([discovery.page, discovery.ready]);
+    if (!owns()) return;
+    if ("error" in discovered) throw discovered.error;
+    adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+    retainSortValues(discovery.searchKey, page.hits, page.sortValues, true);
+    if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
+    finishSearchDiscovery(discovery);
+    set({ results: page.hits, total: page.total, bufferOffset: 0, imagePositions: buildPositions(page.hits, 0),
+      startCursor: page.sortValues[0] ?? null, endCursor: page.sortValues.at(-1) ?? null,
+      loading: false, error: null, _isInitialLoad: false, sortAroundFocusStatus: null, _browseNavigation: null,
+      _pendingFocusAfterSeek: null, _pendingFocusDelta: null, _phantomFocusImageId: null,
+      _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
+      _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+      ...((page.total === 0 || (missingFocusId !== undefined && get().focusedImageId === missingFocusId)) &&
+        { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    void _topUpScrollModeBuffer(get);
+  } catch (error) {
+    if (!owns()) return;
+    if (_searchAbortController.signal === discovery.signal) _searchAbortController.abort();
+    set({ error: error instanceof Error ? error.message : "Search discovery failed", loading: false, sortAroundFocusStatus: null });
+  }
+}
+
+function startBrowseNavigation(state: SearchState, targetOffset: number): BrowseNavigation {
+  const discovery = currentSearchDiscovery(state);
+  const initialSearchSuperseded = state._browseNavigation?.initialSearchSuperseded === true ||
+    (!state.params.aiQuery && (discovery !== null || (_pendingInitialSearchSignal !== null && !_pendingInitialSearchSignal.aborted) ||
+      state.sortAroundFocusStatus !== null));
+  _browseAbortController.abort();
+  _browseAbortController = new AbortController();
+  if (discovery) discovery.replacement = _browseAbortController.signal;
+  if (!state.params.aiQuery) {
+    if (!discovery) _searchAbortController.abort();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+  }
+  return { signal: _browseAbortController.signal, targetOffset, phase: "queued",
+    searchGeneration: _searchGeneration, searchKey: buildSearchKey(state.params), initialSearchSuperseded,
+    ...(discovery && { discovery }) };
+}
 
 interface SearchLifecycleSnapshot {
   started: number;
@@ -1533,6 +1672,7 @@ async function _findAndFocusImage(
    *  rather than read from module scope, so concurrent search() calls don't
    *  grab each other's controllers. */
   findFocusSignalOverride?: AbortSignal,
+  discoveredTotal?: number,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1698,7 +1838,7 @@ async function _findAndFocusImage(
     // the stale total can route us into deep-seek mode (>65k) when the new
     // result set is actually small (<65k) — causing the stale hint to be used
     // as bufferOffset, which may exceed the new total → scroll clamps to end.
-    const effectiveTotal = fallbackFirstPage?.total ?? get().total;
+    const effectiveTotal = fallbackFirstPage?.total ?? discoveredTotal ?? get().total;
 
     // Guard: a stale hint that exceeds the effective total causes scroll-clamp
     // to end of results (bufferOffset > total). This happens when the query
@@ -1772,7 +1912,7 @@ async function _findAndFocusImage(
     //    fresh content in this case.
     const { bufferOffset, results } = get();
     const bufferEnd = bufferOffset + results.length;
-    const isInBuffer = !fallbackFirstPage && !offsetIsEstimate &&
+    const isInBuffer = !fallbackFirstPage && discoveredTotal === undefined && !offsetIsEstimate &&
       offset >= bufferOffset && offset < bufferEnd;
 
     if (isInBuffer) {
@@ -1900,7 +2040,7 @@ async function _findAndFocusImage(
         bufferOffset: finalBufferOffset,
         // fallbackFirstPage.total is result.total from the initial search().
         // get().total is a safe fallback (e.g. recursive neighbour-focus call).
-        total: fallbackFirstPage?.total ?? get().total,
+        total: fallbackFirstPage?.total ?? discoveredTotal ?? get().total,
         loading: false,
         imagePositions: buildPositions(finalResults, finalBufferOffset),
         startCursor: finalStartCursor,
@@ -2020,6 +2160,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   _seekTargetGlobalIndex: -1,
   _scrollReset: { gen: 0, sortOnly: false },
   _seekSubRowOffset: 0,
+  _browseNavigation: null,
   _pendingFocusAfterSeek: null,
   _pendingFocusDelta: null,
   _focusedImageKnownOffset: null,
@@ -2065,24 +2206,52 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   seekToFocused: async () => {
     const { focusedImageId, params } = get();
-    if (!focusedImageId) {
+    if (!focusedImageId || params.aiQuery) {
       set({ _pendingFocusDelta: null });
       return;
     }
 
+    const discovery = currentSearchDiscovery(get());
+    cancelBrowseNavigation(get, set);
+    cancelWindowReads(get, set);
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
+    const signal = _findFocusAbortController.signal;
+    if (discovery) discovery.replacement = signal;
+    const searchGeneration = _searchGeneration;
     const genBefore = get().sortAroundFocusGeneration;
     const hintOffset = get()._focusedImageKnownOffset;
     // No fallbackFirstPage — buffer is current (same query/sort), so the
     // isInBuffer shortcut in _findAndFocusImage fires correctly.
     // No prevNeighbours — not a search context change.
     // Pass hintOffset so deep-seek mode uses the known position instead of 0.
-    await _findAndFocusImage(focusedImageId, params, get, set, undefined, undefined, hintOffset);
-
-    // If generation didn't bump, the image wasn't found (deleted/expired).
-    // Clear focus and pending delta so the user isn't stuck with ghost focus.
-    if (get().sortAroundFocusGeneration === genBefore) {
-      devLog(`[seekToFocused] image ${focusedImageId} not found — clearing focus`);
-      set({ focusedImageId: null, _pendingFocusDelta: null, _focusedImageKnownOffset: null });
+    try {
+      let discoveredTotal: number | undefined;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || searchGeneration !== _searchGeneration) return;
+        if ("error" in discovered) throw discovered.error;
+        discoveredTotal = discovered.metadata.total;
+        adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+      }
+      await _findAndFocusImage(focusedImageId, discovery?.params ?? params, get, set,
+        undefined, undefined, hintOffset, undefined, undefined, signal, discoveredTotal);
+      if (signal.aborted || searchGeneration !== _searchGeneration) return;
+      if (discovery && get().sortAroundFocusGeneration !== genBefore) {
+        finishSearchDiscovery(discovery);
+        set({ _isInitialLoad: false });
+      }
+      if (get().focusedImageId !== focusedImageId) return;
+      if (get().sortAroundFocusGeneration === genBefore && !discovery) {
+        devLog(`[seekToFocused] image ${focusedImageId} not found — clearing focus`);
+        set({ focusedImageId: null, _pendingFocusDelta: null, _focusedImageKnownOffset: null });
+      }
+    } catch (error) {
+      if (signal.aborted || searchGeneration !== _searchGeneration) return;
+      set({ error: error instanceof Error ? error.message : "Focus lookup failed", loading: false,
+        sortAroundFocusStatus: null, _pendingFocusDelta: null });
+    } finally {
+      await finishAbandonedDiscovery(discovery ?? undefined, signal, focusedImageId, get, set);
     }
   },
 
@@ -2153,6 +2322,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // the search() call and the results arriving — during this window the
     // buffer is still at the old deep offset, and extendBackward would
     // prepend stale data.
+    _browseAbortController.abort();
+    _pendingWindowReadSignal = null;
+    _initialSearchDiscovery = null;
+    set({ _browseNavigation: null });
     _searchAbortController.abort();
     _searchAbortController = new AbortController();
     _rangeAbortController.abort();
@@ -2209,6 +2382,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         set({ loading: false, error: "AI search is not supported by the current data source" });
         return;
       }
+      _pendingInitialSearchSignal = signal;
       try {
         const aiResult = await dataSource.searchByAi(params, signal) ?? absentAiResult();
         if (_searchGeneration !== myGeneration || signal.aborted) return;
@@ -2242,10 +2416,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           _searchLifecycle = { ..._searchLifecycle, orderBy: completionParams.orderBy ?? null };
         }
         if (aiHits.length === 0) cancelAggregationFetch();
+        _browseAbortController.abort();
         // The AI result owns the overlay: exactly its images' current fields, or none.
         useEnrichmentStore.getState().setEnrichment(aiResult.enrichment ?? new Map());
         set({
           results: aiHits,
+          _browseNavigation: null,
+          _pendingFocusAfterSeek: null,
           ...(aiHits.length === 0 ? emptyAggregationState() : {}),
           bufferOffset: 0,
           _bufferSelfCorrecting: false,
@@ -2297,11 +2474,14 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           addToast({ category: "error", message: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." });
         }
         set({ loading: false, error: errMsg, aiPoolTotal: null });
+      } finally {
+        if (_pendingInitialSearchSignal === signal) _pendingInitialSearchSignal = null;
       }
       return;
     }
 
     _pendingInitialSearchSignal = signal;
+    let discovery: InitialSearchDiscovery | null = null;
     try {
       // Bump PIT generation BEFORE any await so in-flight seek/extend
       // operations that captured the old pitId are immediately invalidated
@@ -2318,37 +2498,44 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       //
       // CRITICAL: openPit is wrapped in .catch so a PIT rejection does NOT
       // fail the whole Promise.all (naïve form would reject on first failure).
-      const [newPitId, result, tickersResult] = await Promise.all([
-        IS_LOCAL_ES
+      const requestParams = options?.frozenUntil
+        ? { ...params, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
+        : params;
+      const pitRequest = IS_LOCAL_ES
           ? Promise.resolve(null)
           : dataSource.openPit("1m").catch((e) => {
               console.warn("[search] Failed to open PIT, proceeding without:", e);
               return null as string | null;
-            }),
-        dataSource.searchAfter(
-          options?.frozenUntil
-            ? { ...params, length: PAGE_SIZE, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until, trackTotalHits: true }
-            : { ...params, length: PAGE_SIZE, trackTotalHits: true },
+            });
+      const pageRequest = dataSource.searchAfter(
+          { ...requestParams, length: PAGE_SIZE, trackTotalHits: true },
           null, // no cursor — first page
           null, // no PIT — index-prefixed /{index}/_search
           signal, // cancel this request if a newer search() supersedes it
-        ),
+        );
         // Fire ticker aggs in parallel with the first page.
         // countWithTickers uses size:0 so it doesn't compete with the main
         // search for ES heap. Errors are non-fatal — null means no tickers.
-        dataSource.countWithTickers(
-          options?.frozenUntil
-            ? { ...params, until: (!params.until || params.until > options.frozenUntil) ? options.frozenUntil : params.until }
-            : params,
-        ).catch(() => null),
-      ]);
+      const tickerRequest = dataSource.countWithTickers(requestParams).catch(() => null);
+      discovery = {
+        phase: "initial-read", replacement: null, resultsPublished: false, signal, searchGeneration: myGeneration, searchKey: buildSearchKey(params), dataSource,
+        params: requestParams, frozenUntil: options?.frozenUntil, page: pageRequest,
+        ready: tickerRequest.then(async (tickers) => {
+          const total = tickers?.count ?? (await pageRequest).total;
+          if (!Number.isFinite(total) || total < 0) throw new Error("Search result count is unavailable");
+          return { metadata: { total, tickers } };
+        }).catch((error: unknown) => ({ error })),
+      };
+      _initialSearchDiscovery = discovery;
+      const [newPitId, result, tickersResult] = await Promise.all([pitRequest, pageRequest, tickerRequest]);
 
       // Stale search — a newer search() was called while we were awaiting.
       // Bail out to avoid overwriting the newer search's state.
       // INVARIANT: no further awaits between this check and the final set()
       // block below. If you add an await, repeat this check after it —
       // the mechanism doesn't fail loudly when violated.
-      if (_searchGeneration !== myGeneration || signal.aborted) {
+        if (_searchGeneration !== myGeneration || signal.aborted ||
+            discovery.replacement !== null) {
         // Close this PIT now rather than leaving it to expire on its own
         // keepAlive — cheap and bounded per-call, but adds up across many
         // concurrent users each opening a PIT per stale keystroke pause.
@@ -2382,6 +2569,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // _findAndFocusImage has what it needs.
       // -----------------------------------------------------------------
       if (sortAroundFocusId && !focusedInFirstPage && result.total > 0) {
+        discovery.phase = "metadata-published";
         set({
           // NOTE: total is NOT set here. _findAndFocusImage sets it
           // atomically with the new buffer. Setting it here would cause
@@ -2416,6 +2604,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           total: result.total,
         }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal)
           .then(() => {
+            if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
+              discovery.resultsPublished = true;
+              _initialSearchDiscovery = null;
+            }
             if (
               options?.traceAction
               && _searchGeneration === myGeneration
@@ -2446,6 +2638,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           );
         }
       } else {
+        discovery.resultsPublished = true;
+        if (_initialSearchDiscovery === discovery) _initialSearchDiscovery = null;
         if (options?.sortOnly && !sortAroundFocusId) {
           trace("sort-no-focus", "t_store_ready", { total: result.total });
         }
@@ -2567,7 +2761,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // rejects with AbortError on cancellation (unlike the direct-ES path,
       // which swallows it internally) — bail out silently rather than
       // surfacing it as a search failure.
-      if (_searchGeneration !== myGeneration || signal.aborted) return;
+        if (_searchGeneration !== myGeneration || signal.aborted ||
+            discovery?.replacement) return;
       if (e instanceof DOMException && e.name === "AbortError") return;
       set({
         error: e instanceof Error ? e.message : "Search failed",
@@ -2580,6 +2775,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   extendForward: async () => {
+    if (get().params.aiQuery) return;
     const {
       dataSource, params: rawParams, results, bufferOffset, total,
       endCursor, pitId, _extendForwardInFlight, _pitGeneration,
@@ -2704,16 +2900,17 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   abortExtends: () => {
-    _rangeAbortController.abort();
-    _rangeAbortController = new AbortController();
+    get().cancelWindowMaintenance();
+    cancelBrowseNavigation(get, set);
+  },
+
+  cancelWindowMaintenance: () => {
+    cancelWindowReads(get, set);
     _seekCooldownUntil = Date.now() + SEARCH_FETCH_COOLDOWN_MS;
-    set({
-      _extendForwardInFlight: false,
-      _extendBackwardInFlight: false,
-    });
   },
 
   extendBackward: async () => {
+    if (get().params.aiQuery) return;
     const {
       dataSource, params: rawParams, bufferOffset, startCursor, pitId,
       _extendBackwardInFlight, _pitGeneration,
@@ -2893,23 +3090,62 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string) => {
+  canReuseResidentResults: () => currentSearchDiscovery(get()) === null,
+
+  queueBrowsePosition: (globalOffset) => {
+    const state = get();
+    if (state.params.aiQuery) return;
+    const targetOffset = Math.max(0, Math.min(globalOffset, Math.max(0, state.total - 1)));
+    const pending = state._browseNavigation;
+    if (pending?.targetOffset === targetOffset && !pending.signal.aborted) return;
+    const navigation = startBrowseNavigation(state, targetOffset);
+    get().cancelWindowMaintenance();
+    if (!navigation.initialSearchSuperseded && targetOffset >= state.bufferOffset &&
+        targetOffset < state.bufferOffset + state.results.length) {
+      set({ _browseNavigation: null, _pendingFocusAfterSeek: null, loading: false });
+      return;
+    }
+    set({ _browseNavigation: navigation, _pendingFocusAfterSeek: null, loading: true, error: null,
+      sortAroundFocusStatus: null });
+    const cancel = () => {
+      clearTimeout(timer);
+      void finishAbandonedDiscovery(navigation.discovery, navigation.signal, undefined, get, set);
+    };
+    const timer = setTimeout(() => {
+      navigation.signal.removeEventListener("abort", cancel);
+      if (get()._browseNavigation?.signal !== navigation.signal || navigation.signal.aborted) return;
+      if (_searchGeneration !== navigation.searchGeneration || buildSearchKey(get().params) !== navigation.searchKey) {
+        get().abortExtends();
+        return;
+      }
+      void get().seek(targetOffset);
+    }, 200);
+    navigation.signal.addEventListener("abort", cancel, { once: true });
+  },
+
+  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation") => {
+    if (get().params.aiQuery) {
+      set({ _pendingFocusAfterSeek: null });
+      return;
+    }
+    if (purpose === "refill" && get()._browseNavigation) return;
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
-    const params = frozenParams(rawParams, get);
+    let params = frozenParams(rawParams, get);
     const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
     const offsetReadLimit = Math.min(dataSource.offsetReadLimit ?? MAX_RESULT_WINDOW, MAX_RESULT_WINDOW);
     const pendingFocus = get()._pendingFocusAfterSeek;
 
     // Clamp to valid range
-    const { total } = get();
-    const clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
+    let { total } = get();
+    let clampedOffset = Math.max(0, Math.min(globalOffset, Math.max(0, total - 1)));
 
-    // Fresh keyboard-edge intent supersedes an ordinary initial read;
-    // viewport/density refill does not. AI retains its finite-result owner.
-    const edgeNavigation = pendingFocus !== null && pendingFocus.signal === undefined;
-    const initialSearchSuperseded = edgeNavigation && !params.aiQuery &&
-      _pendingInitialSearchSignal === _searchAbortController.signal;
-    if (edgeNavigation && !params.aiQuery) _searchAbortController.abort();
+    const previousNavigation = get()._browseNavigation;
+    const queuedNavigation = previousNavigation?.phase === "queued" &&
+      previousNavigation.targetOffset === clampedOffset && !previousNavigation.signal.aborted
+      ? previousNavigation : null;
+    let navigation = purpose === "navigation"
+      ? { ...(queuedNavigation ?? startBrowseNavigation(get(), clampedOffset)), phase: "loading" as const }
+      : null;
 
     // Abort in-flight extends / previous seeks
     _rangeAbortController.abort();
@@ -2919,19 +3155,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // Without this capture, requests made later in this async function would
     // read the module-level _rangeAbortController (which may have been
     // replaced by a newer seek), allowing stale seeks to complete uncancelled.
-    const signal = _rangeAbortController.signal;
+    const signal = navigation?.signal ?? _rangeAbortController.signal;
+    _pendingWindowReadSignal = purpose === "refill" ? signal : null;
 
-    const reuseResidentStart = pendingFocus?.signal !== undefined && clampedOffset === 0 &&
+    const reuseResidentStart = (pendingFocus?.signal !== undefined || previousNavigation !== null) &&
+      !navigation?.initialSearchSuperseded && clampedOffset === 0 &&
       get().bufferOffset === 0 && get().results.length > 0;
     if (reuseResidentStart) {
-      set({ loading: false, _pendingFocusAfterSeek: null, _pendingFocusDelta: null,
+      set({ loading: false, _browseNavigation: null, _pendingFocusAfterSeek: null, _pendingFocusDelta: null,
         _extendForwardInFlight: false, _extendBackwardInFlight: false });
       return;
     }
 
     // If search() opened a new PIT since we captured ours, skip the
     // stale PIT — avoids a 404 round-trip. See es-audit.md Issue #1.
-    const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+    let effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
     // Set cooldown IMMEDIATELY (synchronous, before any await). This prevents
     // extendForward/extendBackward from racing when a scroll event and seek
@@ -2943,9 +3181,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({
       loading: true,
       error: null,
+      _browseNavigation: navigation,
+      ...(navigation && { sortAroundFocusStatus: null }),
       _pendingFocusDelta: null,
       _pendingFocusAfterSeek: pendingFocus && !pendingFocus.signal
-        ? { ...pendingFocus, signal, ...(initialSearchSuperseded && { initialSearchSuperseded: true }) }
+        ? { ...pendingFocus, signal }
         : null,
       _extendForwardInFlight: false,
       _extendBackwardInFlight: false,
@@ -2966,7 +3206,25 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     performance.mark('seek-start');
 
     let committed = false;
+    const discovery = navigation?.discovery;
     try {
+      let metadata: SearchDiscoveryMetadata | null = null;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || discovery.searchGeneration !== _searchGeneration ||
+            discovery.searchKey !== buildSearchKey(get().params)) return;
+        if ("error" in discovered) throw discovered.error;
+        metadata = discovered.metadata;
+        total = metadata.total;
+        params = discovery.phase === "metadata-published" ? frozenParams(discovery.params, get) : discovery.params;
+        effectivePitId = discovery.phase === "metadata-published" ? get().pitId : null;
+        const requested = pendingFocus && !pendingFocus.signal && pendingFocus.edge === "last" ? total - 1 : globalOffset;
+        clampedOffset = Math.max(0, Math.min(requested, Math.max(0, total - 1)));
+        navigation = { ...navigation!, targetOffset: clampedOffset };
+        set({ _browseNavigation: navigation });
+      }
+      const discoveredState = metadata && discovery
+        ? { ...discoveryMetadataState(discovery, metadata), _isInitialLoad: false } : {};
       // Center the buffer around the target offset
       const halfBuffer = Math.floor(PAGE_SIZE / 2);
       const fetchStart = Math.max(0, clampedOffset - halfBuffer);
@@ -2995,7 +3253,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Without this, the keyword/percentile estimation path may land
       // slightly short of the end and the buffer won't reach total.
       // ---------------------------------------------------------------
-      if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
+      if (total === 0 && discovery) {
+        result = { hits: [], total: 0, sortValues: [] };
+        exactOffset = true;
+        skipBackwardFetch = true;
+      } else if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
         result = await searchAfter(
           { ...params, length: PAGE_SIZE },
           null,
@@ -3643,13 +3905,34 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Safety net: all branches above should assign result, but guard
       // against a future edit that introduces a path without assignment.
       if (!result) {
-        set({ loading: false });
+        set({ loading: hasPendingSearch(get()) });
         return;
       }
 
       if (result.pitId === null) set({ pitId: null });
+      if (result.hits.length === 0 && discovery && total > 0) {
+        result = await discovery.page;
+        if (signal.aborted || discovery.searchGeneration !== _searchGeneration) return;
+        actualOffset = 0;
+        total = result.total;
+        clampedOffset = Math.max(0, Math.min(clampedOffset, Math.max(0, total - 1)));
+        exactOffset = true;
+        backwardItemCount = 0;
+      }
       if (result.hits.length === 0) {
-        set({ loading: false });
+        if (discovery) {
+          finishSearchDiscovery(discovery);
+          committed = true;
+          set({ ...discoveredState, results: [], total, bufferOffset: 0, imagePositions: new Map(),
+            startCursor: null, endCursor: null, pitId: null, loading: false, _browseNavigation: null,
+            _pendingFocusAfterSeek: null, _bufferSelfCorrecting: false,
+            _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1, _seekSubRowOffset: 0,
+            _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } });
+          if (discovery.phase === "initial-read") startNewImagesPoll(get, set);
+          traceInteraction(traceAction, "t_store_ready", traceInteractionId, { total, targetOffset: clampedOffset });
+          return;
+        }
+        set({ loading: hasPendingSearch(get()) });
         return;
       }
 
@@ -3746,7 +4029,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           const geo = getScrollGeometry();
           // Total is stable within a search session (frozen params) — always
           // use the store's known total (audit F-01).
-          const effectiveTotal = get().total;
+          const effectiveTotal = discovery ? total : get().total;
 
           const computed = computeScrollTarget({
             currentScrollTop: scrollEl.scrollTop,
@@ -3802,17 +4085,24 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Effect #6 in useScrollEffects will only adjust scrollTop if there's
       // a meaningful difference — otherwise it's a no-op → zero flash.
 
-      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues);
+      retainSortValues(buildSearchKey(rawParams), result.hits, result.sortValues, Boolean(discovery));
       // Commit-to-view (seek): merge enrichment from the committed pages.
-      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      if (result.enrichment) {
+        if (discovery) useEnrichmentStore.getState().setEnrichment(result.enrichment);
+        else useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      }
+      const publishedTotal = discovery ? total : get().total;
+      finishSearchDiscovery(discovery);
       committed = true;
       set({
+        ...discoveredState,
         results: result.hits,
+        _browseNavigation: navigation ? { ...navigation, phase: "ready" } : null,
         bufferOffset: actualOffset,
         // Total is stable within a search session (frozen params) — always
         // use the store's known total (audit F-01).
-        total: get().total,
-        loading: false,
+        total: publishedTotal,
+        loading: hasPendingSearch(get()),
         imagePositions: buildPositions(result.hits, actualOffset),
         startCursor,
         endCursor,
@@ -3851,13 +4141,23 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // - Normal: ≈ clampedOffset (drift is small) → Effect #6 is a no-op
         // - Null zone: ≈ buffer centre → Effect #6 jumps to the data we found
         _seekTargetGlobalIndex: (() => {
-          if (!isTwoTierFromTotal(get().total)) return -1;
+          if (!isTwoTierFromTotal(publishedTotal)) return -1;
           if (exactOffset) return clampedOffset;
           return actualOffset + backwardItemCount;
         })(),
         _seekSubRowOffset,
         seekTime: Date.now() - seekStartTime,
       });
+      if (discovery) {
+        void _topUpScrollModeBuffer(get);
+        if (discovery.phase === "initial-read") {
+          startNewImagesPoll(get, set);
+          if (isTwoTierFromTotal(publishedTotal)) {
+            _positionMapAbortController = new AbortController();
+            _fetchPositionMap(dataSource, params, _positionMapAbortController.signal, get, set);
+          }
+        }
+      }
       traceInteraction(traceAction, "t_store_ready", traceInteractionId, {
         total: get().total,
         targetOffset: clampedOffset,
@@ -3897,16 +4197,21 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       }
 
     } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") {
-        // Don't set loading: false here — the newer seek/search that
-        // aborted us now owns the loading state.
-        return;
-      }
+      if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
       set({
         error: e instanceof Error ? e.message : "Seek failed",
-        loading: false,
+        loading: hasPendingSearch(get()),
       });
     } finally {
+      if (!committed) await finishAbandonedDiscovery(discovery, signal, undefined, get, set);
+      if (!committed && get()._browseNavigation?.signal === signal) {
+        set({ _browseNavigation: null,
+          loading: hasPendingSearch(get()) });
+      }
+      if (_pendingWindowReadSignal === signal) {
+        _pendingWindowReadSignal = null;
+        if (!committed) set({ loading: hasPendingForegroundRead(get()) });
+      }
       if (!committed && get()._pendingFocusAfterSeek?.signal === signal) {
         set({ _pendingFocusAfterSeek: null });
       }
@@ -3936,6 +4241,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       return;
     }
 
+    if (get().params.aiQuery) return;
+
     // Without a cursor, fall back to the approximate seek. This covers
     // old cache entries and images with missing sort fields. Shallow
     // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
@@ -3945,20 +4252,33 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
     const searchGeneration = _searchGeneration;
-    const params = frozenParams(rawParams, get);
+    const discovery = currentSearchDiscovery(get());
+    let params = frozenParams(rawParams, get);
 
     // Abort in-flight extends and previous restores
-    _rangeAbortController.abort();
-    _rangeAbortController = new AbortController();
+    get().abortExtends();
+    _findFocusAbortController.abort();
+    _findFocusAbortController = new AbortController();
     const signal = _rangeAbortController.signal;
+    if (discovery) discovery.replacement = signal;
     _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
     // If search() opened a new PIT since we captured ours, skip the stale PIT.
-    const effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
+    let effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, sortAroundFocusStatus: null });
 
     try {
+      let discoveredTotal: number | undefined;
+      if (discovery) {
+        const discovered = await discovery.ready;
+        if (signal.aborted || _searchGeneration !== searchGeneration) return;
+        if ("error" in discovered) throw discovered.error;
+        discoveredTotal = discovered.metadata.total;
+        adoptDiscoveryMetadata(discovery, discovered.metadata, get, set);
+        params = frozenParams(discovery.params, get);
+        effectivePitId = get().pitId;
+      }
       // Steps 1 + 2 are independent — run in parallel.
       // Step 1: countBefore for exact global offset.
       // Step 2: Fetch the target image by ID for its hit object + fresh sort values.
@@ -3974,6 +4294,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       const targetHit = targetResult.hits[0];
       if (!targetHit) {
+        if (discovery) return;
         // Image no longer matches the query — degrade to standalone mode
         console.warn("[restoreAroundCursor] Image not found in results, falling back");
         set({ loading: false });
@@ -4001,18 +4322,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
       _seekCooldownUntil = Date.now() + SEEK_COOLDOWN_MS;
 
-      const publishedTotal = get().total;
+      const publishedTotal = discoveredTotal ?? get().total;
       const publishedTargetOrdinal = buf.bufferStart + buf.targetLocalIndex;
       const seekTargetGlobalIndex = isTwoTierFromTotal(publishedTotal) ? publishedTargetOrdinal : -1;
 
       retainSortValues(buildSearchKey(rawParams), buf.combinedHits, buf.sortValues);
       // Commit-to-view (restoreAroundCursor buffer-around): merge enrichment.
       if (buf.enrichment) useEnrichmentStore.getState().upsertEnrichment(buf.enrichment);
+      finishSearchDiscovery(discovery ?? undefined);
       set({
         results: buf.combinedHits,
         bufferOffset: buf.bufferStart,
         total: publishedTotal,
         loading: false,
+        ...(discovery && { _isInitialLoad: false }),
         imagePositions: buildPositions(buf.combinedHits, buf.bufferStart),
         startCursor: buf.startCursor,
         endCursor: buf.endCursor,
@@ -4051,6 +4374,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       } catch {
         // Both paths failed — standalone mode
       }
+    } finally {
+      await finishAbandonedDiscovery(discovery ?? undefined, signal, imageId, get, set);
     }
   },
 
