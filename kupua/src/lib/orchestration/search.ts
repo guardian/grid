@@ -279,6 +279,10 @@ export function markUserInitiatedNavigation() {
   _isUserInitiatedNavigation = true;
 }
 
+export function isUserInitiatedNavigation(): boolean {
+  return _isUserInitiatedNavigation;
+}
+
 /**
  * Read and clear the user-initiated flag.
  */

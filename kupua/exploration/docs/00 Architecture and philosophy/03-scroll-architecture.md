@@ -311,24 +311,29 @@ happen off-screen).
 ### Sort-around-focus ("Never Lost")
 
 1. User changes sort from `uploadTime desc` to `credit asc`.
-2. URL updates → `useUrlSearchSync` → `search("focused-image-id")`.
-3. `search()` immediately fetches page 1 of the new sort order → user sees
-   fresh results at position 0 within ~100ms.
-4. In the background: `_findAndFocusImage` runs:
+2. Effect 7 captures ordinary target, placement and focus treatment together before
+   passive effects. URL sync consumes that record and dispatches `search()`.
+3. `search()` fetches page 1. If the target is present, results and owned placement
+   publish together. Otherwise the previous buffer stays visible while resolution runs.
+4. For an out-of-first-page target, `_findAndFocusImage` runs:
    a. Fetches the focused image with current sort → gets its `sort[]` values.
    b. `countBefore` → exact global offset (e.g. position 847,291). When
       the position map is loaded, this step is skipped — the map already
       knows the image's global offset.
-   c. If offset is within the current buffer → just scroll to it. Done.
-   d. If outside → `_loadBufferAroundImage` (bidirectional `search_after`
-      from the cursor) → buffer centered on the image.
+   c. `_loadBufferAroundImage` uses bidirectional `search_after` from that cursor.
+      Where rank is estimated, the exact-rank request and buffer reads run in parallel.
+   d. Final aligned coordinates, cursors, total, buffer and resolved target publish
+      together; the initial page is only a fallback if resolution fails.
 5. `sortAroundFocusGeneration` increments → `useScrollEffects` effect #9
-   scrolls to the focused image, preserving its viewport-relative position
-   (the ratio was saved synchronously before the async search).
+   applies the captured placement using the existing focus owner and current view
+   geometry. A selected target supplies placement without replacing older focus.
 
-The user sees: results appear at the top → brief "Finding image…" status →
-view jumps to the focused image at its new position. The image is at the
-same vertical position in the viewport as before the sort.
+The old content remains until the final target window is ready; there is no deliberate
+first-page flash. Placement retains the captured ratio subject to the existing full-row
+and scroll-range clamps. The placed record cannot replay on density remount; AI/history
+continue to use their compatibility ratio path. If published placement waits for mount
+geometry, newer relevant input retires it across all mount-frame paths; input before
+publication leaves it eligible. No performance equivalence is implied.
 
 ### Keep-position across density switches (table ↔ grid)
 

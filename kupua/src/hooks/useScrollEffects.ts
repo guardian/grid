@@ -26,7 +26,8 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry } from "@/lib/scroll-geometry-ref";
-import { registerVirtualizerReset, registerScrollToFocused } from "@/lib/orchestration/search";
+import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
+import { captureSearchContinuity, saveSearchContinuity } from "@/lib/search-continuity";
 import { SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
@@ -649,6 +650,12 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     );
     const sortOnly = orderByChanged && !nonSortChanged;
 
+    if (isUserInitiatedNavigation() && !prev.aiQuery && !searchParams.aiQuery) {
+      saveSearchContinuity(searchParams, sortOnly, captureSearchContinuity(sortOnly, el, geometryRef.current));
+      consumeSortFocusRatio();
+      return;
+    }
+
     // Skip scroll-reset when sort-around-focus is active OR when focus
     // preservation is active (non-sort change with a focused image — e.g.
     // clicking a metadata value). Capture the anchor item's viewport ratio
@@ -795,12 +802,24 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     resultsLength: number;
     pitGeneration: number;
     seekGeneration: number;
+    owner?: AbortSignal;
   } | null>(null);
 
   useLayoutEffect(() => {
     if (sortAroundFocusGeneration === 0) return;
     if (snapBackHandledGenRef.current === sortAroundFocusGeneration) return;
     const store = useSearchStore.getState();
+    const continuity = store._searchContinuity;
+    if (continuity && (continuity.phase === "retired" || continuity.owner.aborted || continuity.searchGeneration !== getSearchGeneration())) {
+      pendingSortFocusRef.current = null;
+      handledSortFocusGenRef.current = sortAroundFocusGeneration;
+      return;
+    }
+    if (continuity && !densityReady) return;
+    if (continuity?.phase === "placed" && handledSortFocusGenRef.current !== sortAroundFocusGeneration) {
+      handledSortFocusGenRef.current = sortAroundFocusGeneration;
+      return;
+    }
     const el = parentRef.current;
     let pending = pendingSortFocusRef.current;
     if (handledSortFocusGenRef.current === sortAroundFocusGeneration) {
@@ -809,6 +828,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         !el || store.loading || bufferOffset !== 0 ||
         store._pitGeneration !== pending.pitGeneration ||
         store._seekGeneration !== pending.seekGeneration ||
+        (pending.owner !== undefined && (pending.owner.aborted || continuity?.owner !== pending.owner)) ||
         store.focusedImageId !== pending.focusedImageId ||
         store._pendingFocusDelta != null ||
         resultsLength < pending.resultsLength ||
@@ -823,18 +843,22 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       pending = null;
     }
     pendingSortFocusRef.current = null;
-    const savedRatio = pending ? pending.ratio : consumeSortFocusRatio();
-    const id = pending?.imageId ?? store._phantomFocusImageId ?? store.focusedImageId;
+    const geo = geometryRef.current;
+    const savedRatio = pending ? pending.ratio : continuity
+      ? continuity.placement.kind === "ratio" ? continuity.placement.ratio
+        : continuity.placement.kind === "centre" && el && el.clientHeight > 0
+          ? (el.clientHeight - geo.headerOffset - geo.rowHeight) / (2 * el.clientHeight) : null
+      : consumeSortFocusRatio();
+    const id = pending?.imageId ?? continuity?.targetId ?? store._phantomFocusImageId ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);
     if (idx < 0) return;
 
     // Consume phantom focus — it's a one-shot positioning aid, not persistent.
-    if (store._phantomFocusImageId) {
-      useSearchStore.setState({ _phantomFocusImageId: null });
+    if (store._phantomFocusImageId || continuity?.phase === "ready") {
+      useSearchStore.setState({ _phantomFocusImageId: null,
+        ...(continuity?.phase === "ready" && { _searchContinuity: { ...continuity, phase: "placed" } }) });
     }
-
-    const geo = geometryRef.current;
 
     // -------------------------------------------------------------------
     // Arrow snap-back: if there's a pending delta, skip the initial
@@ -894,6 +918,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           resultsLength,
           pitGeneration: store._pitGeneration,
           seekGeneration: store._seekGeneration,
+          owner: continuity?.owner,
         };
       }
     } else {
@@ -901,7 +926,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       virtualizer.scrollToIndex(rowIdx, { align: "start" });
     }
 
-  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef, resultsLength, bufferOffset, total, twoTier, focusedImageId]);
+  }, [sortAroundFocusGeneration, findImageIndex, virtualizer, parentRef, resultsLength, bufferOffset, total, twoTier, focusedImageId, densityReady]);
 
   // -------------------------------------------------------------------------
   // 10. Density-focus: mount restore + unmount save
@@ -930,47 +955,26 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     // peeked, not consumed, so React Strict Mode's double mount still sees it.
     const saved = peekDensityFocusRatio();
 
-    const finishNavigationMount = () => {
-      let secondFrame = 0;
-      const firstFrame = requestAnimationFrame(() => {
-        secondFrame = requestAnimationFrame(() => {
-          clearDensityFocusRatio();
-          const navigation = useSearchStore.getState()._browseNavigation;
-          if (navigation && navigation.phase !== "ready" && isTwoTierFromTotal(useSearchStore.getState().total)) {
-            const geometry = geometryRef.current;
-            el.scrollTop = Math.floor(navigation.targetOffset / geometry.columns) * geometry.rowHeight;
-          }
-          setDensityReady(true);
-          markDensityRestoreComplete();
-        });
-      });
-      return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
-    };
-
-    if (useSearchStore.getState()._browseNavigation) {
-      useSearchStore.getState().cancelWindowMaintenance();
-      return finishNavigationMount();
-    }
-
-    if (saved != null) {
-      // saved branch: globalIndex is the anchor, no id/idx needed
-      const store = useSearchStore.getState();
-      const restoreGeneration = getSearchGeneration();
-      const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
-      if (idx < 0) return finishNavigationMount();
-
+    const watchInput = () => {
       let interrupted = false;
-      const onWheel = (event: WheelEvent) => {
-        if (!event.ctrlKey && event.deltaY !== 0) interrupted = true;
+      const interruptRestore = () => {
+        interrupted = true;
+        const continuity = useSearchStore.getState()._searchContinuity;
+        if (continuity?.phase === "ready") {
+          useSearchStore.setState({ _searchContinuity: { ...continuity, phase: "retired" }, _phantomFocusImageId: null });
+        }
       };
-      const onTouchMove = () => { interrupted = true; };
+      const onWheel = (event: WheelEvent) => {
+        if (!event.ctrlKey && event.deltaY !== 0) interruptRestore();
+      };
+      const onTouchMove = interruptRestore;
       const onKey = (event: KeyboardEvent) => {
         if (isNativeInputTarget(event)) return;
         if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
             (geometryRef.current.columns <= 1 || getEffectiveFocusMode() !== "explicit" ||
               useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
         if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) {
-          interrupted = true;
+          interruptRestore();
         }
       };
       const onBoundaryKey = (event: KeyboardEvent) => {
@@ -986,6 +990,40 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       el.addEventListener("touchmove", onTouchMove, { passive: true });
       document.addEventListener("keydown", onKey);
       document.addEventListener("keydown", onBoundaryKey, true);
+      return { wasInterrupted: () => interrupted, stop: stopWatchingInput };
+    };
+
+    const finishNavigationMount = () => {
+      const input = watchInput();
+      let secondFrame = 0;
+      const firstFrame = requestAnimationFrame(() => {
+        secondFrame = requestAnimationFrame(() => {
+          input.stop();
+          clearDensityFocusRatio();
+          const navigation = useSearchStore.getState()._browseNavigation;
+          if (navigation && navigation.phase !== "ready" && isTwoTierFromTotal(useSearchStore.getState().total)) {
+            const geometry = geometryRef.current;
+            el.scrollTop = Math.floor(navigation.targetOffset / geometry.columns) * geometry.rowHeight;
+          }
+          setDensityReady(true);
+          markDensityRestoreComplete();
+        });
+      });
+      return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); input.stop(); };
+    };
+
+    if (useSearchStore.getState()._browseNavigation) {
+      useSearchStore.getState().cancelWindowMaintenance();
+      return finishNavigationMount();
+    }
+
+    if (saved != null) {
+      // saved branch: globalIndex is the anchor, no id/idx needed
+      const store = useSearchStore.getState();
+      const restoreGeneration = getSearchGeneration();
+      const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
+      if (idx < 0) return finishNavigationMount();
+      const input = watchInput();
 
       // Abort in-flight extends and set a 2-second cooldown BEFORE the
       // rAF restore chain. This prevents extends (and their subsequent
@@ -1009,14 +1047,14 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       let raf2 = 0;
       const raf1 = requestAnimationFrame(() => {
         raf2 = requestAnimationFrame(() => {
-          stopWatchingInput();
+          input.stop();
           setDensityReady(true);
           if (useSearchStore.getState()._browseNavigation) {
             clearDensityFocusRatio();
             markDensityRestoreComplete();
             return;
           }
-          if (interrupted || getSearchGeneration() !== restoreGeneration || peekDensityFocusRatio() !== saved) {
+          if (input.wasInterrupted() || getSearchGeneration() !== restoreGeneration || peekDensityFocusRatio() !== saved) {
             if (peekDensityFocusRatio() === saved) clearDensityFocusRatio();
             return;
           }
@@ -1108,7 +1146,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
           markDensityRestoreComplete();
         });
       });
-      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); stopWatchingInput(); };
+      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); input.stop(); };
     }
 
     // No saved density-focus state — scroll the anchor into view: explicit
@@ -1125,9 +1163,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
 
     // scrollToIndex also may not work on mount — defer similarly
+    const input = watchInput();
     let raf2b = 0;
     const raf1b = requestAnimationFrame(() => {
       raf2b = requestAnimationFrame(() => {
+      input.stop();
         setDensityReady(true);
         if (useSearchStore.getState()._browseNavigation) {
           clearDensityFocusRatio();
@@ -1155,7 +1195,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         markDensityRestoreComplete();
       });
     });
-    return () => { cancelAnimationFrame(raf1b); cancelAnimationFrame(raf2b); };
+    return () => { cancelAnimationFrame(raf1b); cancelAnimationFrame(raf2b); input.stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 

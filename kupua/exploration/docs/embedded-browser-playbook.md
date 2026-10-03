@@ -42,6 +42,27 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 3 October 2026, pending-seek presentation:** sample thumb DOM position and
+viewport-intersecting image identities at frame boundaries, separately from store
+buffer publications. One coherent buffer replacement can still hide a third visible
+neighbourhood during density remount. Record loading/browse phase at the actual density
+click, include a no-density control, keep identities in page memory and return aggregate
+start/end/other labels. Natural overlap can suffice without response gates. Remove rAF,
+store, mutation and click observers, delete probe globals and verify real Home cleanup.
+Current finding: ledger C38/B18.
+
+**[V] Browser-runner snippets must be plain JavaScript.** TypeScript assertions (`as`)
+and typed DOM generics are syntax errors in `run_playwright_code`; repository Playwright
+TypeScript cannot be pasted unchanged.
+
+**[?] Bare stateful-module imports after HMR can invalidate diagnostic identity checks.**
+An empty diagnostic store with still-rendered results appeared after normal module
+imports; reload plus existing app globals restored coherent observation. Preserve the
+original runtime reference before any import and check rendered-ID membership against
+it. Comparing an imported store to a global only after import can be circular because
+module initialization itself exposes that global. Raw-source hashes do not require
+normal store/hook imports. Exclude samples taken against a disconnected observer.
+
 **[V] 3 October 2026, B17 repaired live checks:** repeat the actual datasource and
 served-source hash checks after operator-controlled mode switches. A completed real
 page held before publication makes seek/density overlap deterministic without changing

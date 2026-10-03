@@ -25,7 +25,8 @@ Runtime verification is bounded, not a certification of every timing, device or
 datasource combination. The characterisation itself approved no product repair
 or consolidation. Separately authorized B8/L37 and B17 repairs are recorded below
 with their checkpoint limits. The 3 October operator decisions and first search/sort
-unit below supersede the original blanket D2 policy; B6 is approved, not implemented.
+unit below supersede the original blanket D2 policy. Ordinary search/sort continuity
+and B6 are delivered with independent review repairs and final local acceptance gates.
 No wider repair follows automatically. Both diagnostic probes remain retained.
 
 Focus means the single-image bookmark, not tickbox selection. A bookmark may be
@@ -45,7 +46,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C05](#c05) The preserved image disappears, or its lookup fails | Ordinary search tries nearby survivors; a survivor inherits the old placement and may become focus. No survivor gives first page/no focus. An initial request failure can instead leave old content with an error; these are different failures. | Source-established; existing neighbour assertions; one-shot first-page failure observed in both views/modes/transports | Nearby fallback is established; conflicting descriptions of strictly visible neighbours need reconciliation, not a stronger guarantee by default. | No new requirement proposed |
 | [C06](#c06) Sort with explicit focus A | A remains focus; the view follows it in the new order. Horizontal table position is normally retained, subject to reset/edge paths. | Source-established; observed across all tier/view cells and both transports | No decision needed for focus continuity. | Established |
 | [C07](#c07) Sort without visible focus or selection | No-focus sorting resets to top. Click-to-open ordinary sorting also ignores a hidden last-viewed bookmark. No new selection or visible focus is created. | Source-established; observed across all tier/view cells and both transports | Keep the existing named sort relaxation; no fresh approval needed. | Established current relaxation |
-| [C08](#c08) Sort while images are ticked, with or without older focus | The selection anchor supplies placement. A different older focus is retained, but if focus and selection anchor are the same image, ordinary sorting clears that focus. Membership remains selected. | Distinct focus/selection observed across tiers/transports; equality exception remains source-established | No decision needed: selection must not destroy retained focus. | Source-established exception; B6 |
+| [C08](#c08) Sort while images are ticked, with or without older focus | The selection anchor supplies placement while older focus is retained, including when both identify the same image. Membership remains selected; Clear does not scroll. | Failing-first composed and actual-control equal/distinct checks; independent review repairs and final local gates pass | No decision needed: selection must not destroy retained focus. | B6 resolved; implementation and review evidence below |
 | [C09](#c09) Enter AI search or change its query | A surviving target in the returned images is positioned; an absent target resets to top without the ordinary neighbour search. Selection clears. Results arrive as one finite list. | Source-established; observed from all tier/view source cells in both modes/transports | No new choice about internal fetching; the missing-neighbour difference is retained for assessment. | Evidence/contract qualification |
 | [C10](#c10) Re-sort AI results, then leave AI | Re-sort is immediate and can preserve focus/selection position. Without a target it goes to top but can retain hidden stored focus, unlike ordinary sorting. Leaving AI with no stored focus resets to top; a hidden last-viewed focus can still influence exit. | Source-established; re-sort/exit observed from all tier/view source cells in both modes/transports | Remembered detail image wins, even off-screen. With no remembered image, desired AI exit preserves browsed centre; that improvement is deferred. | Q3 answered; no-bookmark improvement L39 |
 
@@ -67,6 +68,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C21](#c21) Change density, then scroll/focus before placement finishes | Saved restoration respects newer wheel/touch/navigation-key input but places the old image after a newer focus choice. The no-saved fallback can overwrite newer wheel scroll in a mounted fixture, but has no current anchor-bearing production caller. | Saved newer-focus overwrite observed in browser; no-saved overwrite mounted-only and call-path audited | No new requirement for the saved-wheel path. Newer focus must own placement; latent fallback need not survive a rewrite. | B4 |
 | [C34](#c34) Change sort, then switch density while the search is loading | Repaired client ownership: density still cancels buffer movement, but the current search publishes its requested membership/order and settles. Historical direct 13,210 -> 0 and API five-second loading witnesses remain below. | Maintained adapter/local checks and bounded live density checks pass; L37 follow-up has full local gates, not a new live/production/performance certification | No new anchor policy: view changes must not manufacture empty results or strand the current search. | B8 and bounded L37 follow-up resolved; other scopes remain |
 | [C37](#c37) Seek far away, then change density before arrival | Repaired: queued/in-flight navigation reaches its destination in the new view and loading settles. Historical departure-buffer and stuck-indicator failures remain below. Settled density anchor policy is unchanged. | Maintained TDD/full local gates and bounded direct/media-api live checks in both click modes/directions; indexed pre-request and deep/map paths covered | A view change carries the pending destination, not departure. No new Q1 choice or stronger seek-accuracy requirement. | B17 / L38 resolved; wider policy and performance remain separate |
+| [C38](#c38) Seek from halfway to another position, then change density while loading | The thumb returns from the requested destination to the start before arriving again. The results also show a third neighbourhood: the beginning of the departure buffer, not the previously visible start. Final arrival and loading settlement succeed. | Observed with actual controls and foreground frame sampling in both density directions on media-api seek tier; no-density control has only start/end | No new choice: pending thumb stays at the destination; visible navigation content permits only start and end, not a third region | B18 / L40; confirmed, unrepaired |
 
 ### Detail, Selection And History
 
@@ -254,7 +256,7 @@ offset zero and null focus. It does not assert every screen frame. Archive D02/D
 and current guide 02 section 4 agree on the current no-focus sort relaxation.
 
 <a id="c08"></a>
-**C08: Selection sort.** [Producer](../../src/hooks/useUrlSearchSync.ts#L329)
+**C08: Selection sort (pre-repair trace).** [Producer](../../src/hooks/useUrlSearchSync.ts#L329)
 and [ratio capture](../../src/hooks/useScrollEffects.ts#L632) both choose active
 selection first. Ordinary successful publication preserves a *different* older
 focus through `retainExplicitFocus`. The [options branch](../../src/hooks/useUrlSearchSync.ts#L390)
@@ -688,13 +690,17 @@ repair task, and do not silently clear this remembered identity during restructu
 
 <a id="b6"></a>
 **B6 / C08: Sorting a selection whose anchor equals old focus clears focus.**
-Source-established breach of guide 05's "focusedImageId is unchanged" rule.
+Pre-repair source-established breach of guide 05's "focusedImageId is unchanged" rule.
 Focus A -> tick A -> ordinary sort produces `phantomOnly` with retention false;
 search clears focus before results arrive. Distinct focus/anchor is the useful
 control. Cause is the producer's inequality condition, not the geometry consumer.
 No fresh runtime reproduction was performed. A composed URL-producer test should
 assert focus A before/after sort and Clear, while selection/anchor stay unchanged;
 ordinary success, failure and AI re-sort must not be assumed equivalent.
+
+The ordinary-path repair is implemented locally with failing-first composed proof;
+see the implementation and final acceptance records below. Failure and AI policies
+are unchanged. L24 is closed after independent review repairs and final local gates.
 
 <a id="b7"></a>
 **B7 / C18: Temporary buffer-bottom snapping changes policy by tier.**
@@ -1301,10 +1307,56 @@ checkpoint, not proof of these new overlap paths. Local adapter tests are not a 
 Scala certificate. Broader search/sort continuity, Q1-Q7 and other ledger bugs stay outside
 this repair; no general coordinator, backend work or stronger seek exactness was added.
 
+<a id="c38"></a>
+<a id="b18"></a>
+**B18 / C38 / L40: Pending seek/density changes roll the thumb back and expose a third visible region.**
+
+**Confirmed, unrepaired.** Expected navigation presentation has only start and end:
+the thumb stays at the requested destination, and the content does not visit another
+neighbourhood while loading. Final-arrival correctness alone does not meet this contract.
+
+| Observed media-api seek case | Thumb sequence | Visible content while destination is pending |
+|---|---|---|
+| Halfway -> roughly 80%, grid -> table | 51% -> 80% -> 51% -> 80% | Centre moves 91 images earlier within the departure buffer for about 1.7 seconds, then arrives at end |
+| Halfway -> roughly 25%, table -> grid | 51% -> 25% -> 51% -> 25% | Centre moves 105 images earlier within the departure buffer for about 1.5 seconds, then arrives at end |
+| Roughly 80% -> halfway, no density change | 80% -> 51% | Only start and end neighbourhoods |
+
+Each seek publishes its result buffer once, at end; the third region is a viewport
+error over the unchanged departure buffer, not a third data publication. The same
+thumb DOM node survives throughout. Both density clicks occur while the browse owner
+is loading. No ordinary search/sort continuity record is active in these samples.
+
+**Source cause:** [Scrubber](../../src/components/Scrubber.tsx#L351) clears its pending
+destination on any `currentPosition` change, even while the seek is loading. The
+[route](../../src/routes/search.tsx#L138) derives that position from the active view's
+visible range. Meanwhile, [pending-browse unmount](../../src/hooks/useScrollEffects.ts#L1212)
+skips departure capture, and [mount readiness](../../src/hooks/useScrollEffects.ts#L996)
+prepositions only indexed views. A new seek-tier view therefore shows the beginning
+of the old buffer and reports that range, prematurely releasing the thumb's guard.
+Both indicator ownership and departure-viewport presentation need repair; changing
+only the thumb would leave the wrong content visible.
+
+**Attribution and limits:** these thumb/route/data-window implementations are unchanged
+from pre-L8 HEAD `c6c3530d8`; that HEAD also contains the same pending-browse save skip
+and indexed-only mount positioning. Source attribution therefore points to an existing
+B17 presentation gap, not the ordinary search/sort restructuring. The old app was not
+replayed. Runtime proof is bounded to the authorized media-api setup, natural seek tier,
+both density directions, explicit desktop mode and no focus/selection. Served-source
+hashes match the checkout, all sampled frames are foreground, and no responses are held
+or replaced. Direct-ES, indexed/resident, selected/remembered-focus and production-build
+incidence remain unverified. Identities stay in browser memory; probes are removed and
+Home cleanup is verified. No product code or automated test changed.
+
+**Missing check:** [B17's browser composition](../../e2e/shared/browse-density.ts#L124)
+checks pending ownership and final arrival, not the intervening thumb/content sequence.
+A discriminating regression must hold the destination pending across density and assert
+the thumb remains at end and the start viewport anchor remains visible until end arrives,
+with separate publication/cursor/loading checks and a no-density control.
+
 ### Remaining Limits
 
-No open verification gap remains inside the agreed navigation/viewport-continuity
-characterisation boundary. Physical Safari/touch behavior, unbounded timing
+C38/B18 remains an observed pending-navigation presentation defect despite correct
+final arrival. Physical Safari/touch behavior, unbounded timing
 interleavings, production-build incidence and performance/jank remain separate
 certification surfaces. VS Code's native Escape key hijack is an environment
 limitation; the operator confirmed normal Chrome works. These limits do not
@@ -1868,7 +1920,7 @@ independence is already required. Bug fixes require their own scope.
 
 ## Preliminary What Next
 
-The first-unit direction and explicit B6 approval are recorded below; later
+The delivered first-unit boundary and B6 approval are recorded below; later
 expansion remains proposed, not authorized. The goal is a clearer, less brittle
 continuity system whose behaviour can evolve, not a completed bug list or a
 predetermined rewrite. Each delivered unit must remain useful if wider replacement
@@ -1937,6 +1989,9 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
+Steps 1-4 are delivered within the first unit below. Step 5 requires a new operator
+scope decision; completion does not select another bug or structural unit.
+
 1. **Start from the current B8/L37/B17 implementation.** The B17 cold-review
   follow-up retains ordinary query discovery while retiring placement, preserves
   finite AI membership and records Scrubber-wheel intent. Keep its existing owners
@@ -1971,8 +2026,9 @@ independence does not promise identical request counts for every policy.
 
 ### First Search/Sort Unit
 
-This records the direction discussed with the operator and the explicitly approved
-B6 repair, not an implementation-complete claim or wider rewrite authorization.
+This is the delivered boundary discussed with the operator, including the explicitly
+approved B6 repair. The current state below records outcomes and limits, not wider rewrite
+authorization.
 
 | Field | Boundary |
 |---|---|
@@ -1983,12 +2039,45 @@ B6 repair, not an implementation-complete claim or wider rewrite authorization.
 | Proof | B6 failing-first, focused and full applicable local gates, composed interruptions and same-target policy substitution. Existing test expectations change only for the named repair; functional success is not performance equivalence. |
 | Stop | Ask if the unit needs another repair, an unresolved user-visible choice, a third preservation target beyond Q1's accepted true-edge handling, materially greater cost or a wider ownership boundary. Revisit scope rather than growing the patch silently. |
 
+### Ordinary Search/Sort Current State
+
+**L8 and B6/L24 are complete.** Selected sorting retains older focus even when it
+equals the selection anchor. Clear remains stationary; automatic query/filter Clear
+follows retained focus. Missing-target fallback and phantom no-selection sort reset
+are unchanged. No next repair or structural unit is selected.
+
+[search-continuity.ts](../../src/lib/search-continuity.ts) owns one pre-passive capture
+of target, placement, focus treatment and neighbours. URL sync consumes that record;
+resolution publishes its resolved identity with the coherent window and existing owner.
+Placement is consumed once or retired by newer post-publication input during mount-frame
+waits. Retirement does not cancel discovery, mutate focus/selection or settle another
+owner's busy state. Small-result retries remain owner-checked. AI/history retain their
+numeric-ratio compatibility path; direct reset, density policy, coordinates and cursors
+are unchanged.
+
+**Verification:** independent review complete; **2580/2580 unit tests across 82 files**,
+**TypeScript/Vite build passed**, and **352/352 full local E2E cases with retries disabled**,
+including all nine forced-seek cases. Coverage includes equal/distinct anchors in both
+click modes, same-target ratio/centre substitution, missing targets, both adapters and
+map states, superseding search/navigation and input across density readiness. Net test
+addition: 23 unit cases and one browser case; existing assertions are retained.
+
+**Limits:** no live-service, production-race, physical-device or performance certification.
+Some invalid-index/fallback, successor and Strict Mode combinations are source-reviewed
+rather than separately exercised. The bundle-size advisory and existing E2E warnings
+remain; L36 is open. L39 and Q1/Q2/Q7 remain outside this unit.
+
+**Operator-only performance follow-up:** compare P4a/P4b/P6/P9 frame cost/placement and
+PP3/PP4/PP5/PP8 visual settlement against the existing 2 October post-B8 records, matching
+scenario revision, cache state and topology. Use the prescribed jank/perceived runners;
+this is not a further functional gate or a claim of performance equivalence.
+
 ### Preventing A Bug-Fix Detour
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. B8/L37 and B17 including its cold-review follow-up are delivered.
-The next structural milestone is the ordinary search/sort handoff above, with the
-explicitly approved B6 repair, not "fix the next easiest bug". A repair may interrupt that milestone for
+The ordinary search/sort milestone above, including B6, is delivered. The next unit
+requires its own scope decision, not "fix the next easiest bug". A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
 
@@ -2082,7 +2171,6 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 
 | # | Kind | Claim | Disproof check | Depends |
 |---|---|---|---|---|
-| L8 | Consolidate | First-unit hypothesis: ordinary search/sort can elect target and capture its placement coherently, replacing independent Effect 7 election and identity-free ratio handoff without losing pre-transition geometry | Composed search/sort, history/AI compatibility and interruption controls; substitute same-target centre/ratio policy without weakening ownership or publication assertions | L7; first-unit brief; L24 |
 | L9 | Refactor | A shared anchor decision may replace duplicated policy while retaining necessary per-transition differences | Compare the L7 matrix before/after; reconcile `ui-features` "keeps the selected anchor through panel and window resizing" with Q1 before changing assertions; revised D2 is not a blanket visible-centre rule | L7, L8, L15 |
 | L10 | Refactor | The four placement captures (search ratio, density, column change, history snapshot) become one type and one capture/restore pair, with table header offset handled once | Density, sort, history e2e; perceived-perf suggestion | L9 |
 | L11 | Bug | B12: after reload on B then traversal back to historical A, swipe pre-scroll compares mount B while final return compares A, so canceled/completed dismiss displaces the list unlike ordinary Back | Preserve canceled-gesture no-move and ordinary Back controls; unify or explicitly sequence the entry authority without weakening traversal return | C25/B12 |
@@ -2090,14 +2178,13 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 | L13 | Bug | B11: cancelled deep reset-to-home leaves scrubber thumb DOM at top while Back restores a deep logical position | Preserve successful Home's instant top feedback; add Back/newer-navigation cancellation controls that resynchronize to the actual deep position | C31/B11 |
 | L14 | Move | `search-store.ts` (~4.4k lines) mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
-| L16 | Doc | L7 identifies stale/conflicting claims in guides 03/04/05, including first-page flash, history selection survival and layout anchor rules | After operator decisions, reconcile the named claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
+| L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | Violates D5, bounded: a density switch places the anchor's row *top* at the saved ratio, so between 303px grid rows and 32px table rows the visible centre shifts by up to about two grid rows (observed 0-10 items), converging after 1-3 switches. Placing the anchor's row centre at the same fraction of the usable viewport (below the table header) should hold it. Changes placement for focused images too, so the KUP-017 unit expectations in `useScrollEffects.test.ts` will change | Browser: cycle density without focus at several window sizes; record the viewport anchor's global index each switch | L15 |
 | L19 | Decision | Why the buffer tier (total up to `SCROLL_MODE_THRESHOLD`) exists separately from two-tier; it adds the background fill and top-up machinery | Separate audit; check what would break if two-tier covered small results | |
 | L20 | Decision | C27-C30 separate history placement choices from destination-focus defect B1; density push/restore/persist remain independent decisions | Answer Q2 and history placement in Q1 without accepting lost focus; any B1 repair needs separate scope and destination-none coverage | Q1, Q2 |
 | L21 | Bug | B2: a late failed snap-back clears newer focus | Reproduce the recorded deferred missing-target sequence with a successor focus; preserve original deletion-clear control | C12/B2 |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
-| L24 | Bug | B6: ordinary sort clears focus when the selected anchor is that same focused image. Disposition: operator-approved repair alongside the first search/sort unit | Failing-first composed URL producer/store check for focus A -> tick A -> sort -> Clear; compare distinct focus/anchor and AI compatibility controls | C08/B6; first-unit brief |
 | L25 | Bug | B7: density treats seek's temporary local buffer bottom as a real end, changing preservation outcome by coordinate regime | Preserve natural TEST and equal-size/map-absent controls; distinguish source snap from legitimate true-result destination clamp | C18/B7 |
 | L27 | Bug | B9: early close of reloaded traversed detail misses centring while settled controls work | Compare early/settled variants with target availability at the close event; preserve original-image placement and newer-intent cancellation controls | C35/B9 |
 | L28 | Bug | B10: Effect 8 treats ordinary positive-to-zero prepend as Home/search and loses the current viewport anchor | Reproduce gated final prepend in grid/table and both transports; ordinary browsing must retain the held anchor, while true Home/search controls must still reset to top | C36/B10 |
@@ -2108,3 +2195,4 @@ Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
 | L39 | Bug | C10/Q3: without a remembered detail image, AI exit resets to top rather than the operator's desired browsed-centre continuity. Disposition: defer to a named AI-exit unit, not a first ordinary search/sort gate | Start AI without opening detail, browse away from top, exit with a centre image that survives; assert its neighbourhood is preserved without creating explicit focus. Keep remembered-detail precedence and bound any extra lookup cost | Q3; separate implementation scope |
+| L40 | Bug | B18: pending seek plus density change rolls the thumb back and shows the departure buffer's beginning as a third visible neighbourhood. Confirmed, unrepaired; investigation does not authorize implementation | Frame-sample thumb and visible identities across a held pending destination and density remount: thumb must remain at end and content must preserve start until end arrives. Keep coherent publication/loading and no-density controls | C38/B18; existing B17 browse owner |

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createElement, StrictMode } from "react";
+import { createElement, StrictMode, useEffect, type PropsWithChildren } from "react";
 import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,8 @@ vi.hoisted(() => {
   vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 });
 const anchor = vi.hoisted(() => ({ viewportId: null as string | null }));
-vi.mock("@tanstack/react-router", () => ({ useSearch: () => routeParams }));
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock("@tanstack/react-router", () => ({ useSearch: () => routeParams, useNavigate: () => navigate }));
 vi.mock("@/hooks/useDataWindow", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/useDataWindow")>()),
   getViewportAnchorId: () => anchor.viewportId,
@@ -29,8 +30,13 @@ import { useSelectionStore } from "@/stores/selection-store";
 import type { Image } from "@/types/image";
 import { SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { clearDensityFocusRatio, useScrollEffects, type ScrollGeometry } from "./useScrollEffects";
+import { useUrlSearchSync } from "./useUrlSearchSync";
+import { consumeUserInitiatedFlag, markUserInitiatedNavigation, setPrevParamsSerialized, setPrevSearchOnly } from "@/lib/orchestration/search";
+import type { UrlSearchParams } from "@/lib/search-params-schema";
+import * as searchContinuity from "@/lib/search-continuity";
 
-const routeParams = { nonFree: "true" };
+let routeParams: UrlSearchParams = { nonFree: "true" };
+let beforeUrlSync: (() => void) | undefined;
 const initialState = useSearchStore.getState();
 const initialPreferences = useUiPrefsStore.getState();
 const initialSelection = useSelectionStore.getState();
@@ -41,6 +47,12 @@ const grid: ScrollGeometry = { columns: 4, rowHeight: 303, headerOffset: 0, pres
 
 beforeEach(() => {
   vi.useFakeTimers();
+  routeParams = { nonFree: "true" };
+  beforeUrlSync = undefined;
+  setPrevParamsSerialized("");
+  setPrevSearchOnly({});
+  consumeUserInitiatedFlag();
+  navigate.mockClear();
   frames.clear();
   nextFrame = 0;
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -79,7 +91,13 @@ function frame() {
   });
 }
 
-function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false) {
+function UrlSyncHarness({ children }: PropsWithChildren) {
+  useEffect(() => { beforeUrlSync?.(); }, [routeParams]);
+  useUrlSearchSync();
+  return children;
+}
+
+function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false) {
   const dimensions = { width: 1120, height: 600 };
   let geometry = initialGeometry;
   const container = document.createElement("div");
@@ -100,7 +118,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
       : Math.max(0, index * geometry.rowHeight + geometry.headerOffset - container.clientHeight / 2);
   });
   const virtualizer = { options: { count: 0 }, range: { startIndex: 0, endIndex: 1 },
-    scrollToIndex, scrollToOffset: vi.fn(), measure: vi.fn(), getVirtualItems: () => [] } as unknown as Virtualizer<HTMLDivElement, Element>;
+    scrollToIndex, scrollToOffset: vi.fn((offset: number) => { container.scrollTop = offset; }), measure: vi.fn(), getVirtualItems: () => [] } as unknown as Virtualizer<HTMLDivElement, Element>;
   const reportVisibleRange = vi.fn();
   const loadMore = vi.fn().mockResolvedValue(undefined);
   const findImageIndex = (imageId: string) => {
@@ -116,7 +134,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange: reportViewport ? dataWindow.reportVisibleRange : reportVisibleRange, loadMore,
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
       focusedImageId: state.focusedImageId, findImageIndex, twoTier });
-  }, { initialProps: { geometry }, wrapper: strict ? StrictMode : undefined });
+  }, { initialProps: { geometry }, wrapper: syncUrl ? UrlSyncHarness : strict ? StrictMode : undefined });
   return { ...view, container, dimensions, scrollToIndex, virtualizer,
     changeGeometry: (next: ScrollGeometry) => view.rerender({ geometry: next }) };
 }
@@ -133,6 +151,376 @@ function transition(sourceGeometry = grid, targetGeometry = table, extremum?: "t
   const target = mountDensity(targetGeometry, true);
   return target;
 }
+
+describe("B6 selected sort through the URL producer", () => {
+  const cases = (["equal", "distinct"] as const).flatMap(relationship =>
+    (["explicit", "phantom"] as const).map(focusMode => ({ relationship, focusMode })));
+  it.each(cases)("retains $relationship focus and selection anchors through sort and Clear in $focusMode mode", async ({ relationship, focusMode }) => {
+    const dataSource = new MockDataSource(100, [{ field: "lastModified", ratio: 1 }]);
+    routeParams = { nonFree: "true", orderBy: "-uploadTime" };
+    useSearchStore.setState({ ...initialState, dataSource, params: { ...routeParams, length: 200 } }, true);
+    useUiPrefsStore.setState({ focusMode, _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    const focusId = useSearchStore.getState().results[20]!.id;
+    const selectionAnchorId = relationship === "equal" ? focusId : useSearchStore.getState().results[30]!.id;
+    const selectedIds = new Set([selectionAnchorId]);
+    useSearchStore.getState().setFocusedImageId(focusId);
+    useSelectionStore.setState({ selectedIds, anchorId: selectionAnchorId });
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const view = mountDensity(grid, false, false, true);
+    frame();
+    frame();
+    const sourceIndex = useSearchStore.getState().imagePositions.get(selectionAnchorId)!;
+    view.container.scrollTop = Math.floor(sourceIndex / grid.columns) * grid.rowHeight - 120;
+    expect(useSearchStore.getState().focusedImageId).toBe(focusId);
+    expect(search).not.toHaveBeenCalled();
+
+    act(() => {
+      routeParams = { ...routeParams, orderBy: "uploadTime" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(grid);
+    });
+    expect(search).toHaveBeenCalledTimes(1);
+    expect.soft(useSearchStore.getState().focusedImageId).toBe(focusId);
+    await act(async () => { await search.mock.results[0].value; });
+    expect.soft(useSearchStore.getState().focusedImageId).toBe(focusId);
+    expect(useSearchStore.getState()).toMatchObject({ loading: false, sortAroundFocusStatus: null, total: 100 });
+    expect(useSearchStore.getState().imagePositions.has(selectionAnchorId)).toBe(true);
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe(selectionAnchorId);
+    const targetIndex = useSearchStore.getState().imagePositions.get(selectionAnchorId)!;
+    expect(Math.floor(targetIndex / grid.columns) * grid.rowHeight - view.container.scrollTop).toBe(120);
+    const placed = view.container.scrollTop;
+
+    act(() => useSelectionStore.getState().clear());
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect.soft(useSearchStore.getState().focusedImageId).toBe(focusId);
+    expect(view.container.scrollTop).toBe(placed);
+    expect(search).toHaveBeenCalledTimes(1);
+
+    act(() => useSelectionStore.setState({ selectedIds, anchorId: selectionAnchorId }));
+    anchor.viewportId = useSearchStore.getState().results[5]!.id;
+    view.container.scrollTop = 303;
+    act(() => {
+      routeParams = { ...routeParams, query: "retains-bookmark" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(grid);
+    });
+    await act(async () => { await search.mock.results[1].value; });
+    expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+    expect(useSearchStore.getState().focusedImageId).toBe(focusId);
+    expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: focusId, phase: "placed" });
+    const focusedIndex = useSearchStore.getState().imagePositions.get(focusId)!;
+    const focusedTop = Math.floor(focusedIndex / grid.columns) * grid.rowHeight - view.container.scrollTop;
+    expect(focusedTop).toBeGreaterThanOrEqual(0);
+    expect(focusedTop).toBeLessThanOrEqual(view.container.clientHeight - grid.rowHeight);
+    expect(search).toHaveBeenCalledTimes(2);
+    view.unmount();
+    view.container.remove();
+    const density = mountDensity(table, true);
+    frame();
+    frame();
+    expect(density.container.scrollTop).toBe(focusedIndex * table.rowHeight + table.headerOffset - focusedTop);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("ordinary search capture timing", () => {
+  it.each(["ratio", "centre"] as const)("uses %s placement for the same captured target with coherent, owned publication", async (policy) => {
+    const capture = searchContinuity.captureSearchContinuity;
+    const captures = vi.spyOn(searchContinuity, "captureSearchContinuity").mockImplementation((...args) => {
+      const captured = capture(...args);
+      return policy === "centre" ? { ...captured, placement: { kind: "centre" } } : captured;
+    });
+    const dataSource = new MockDataSource(100);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource, params: routeParams }, true);
+    await act(async () => { await useSearchStore.getState().search(); });
+    anchor.viewportId = "img-30";
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 30 * table.rowHeight - 180;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const reads = vi.spyOn(dataSource, "searchAfter");
+    beforeUrlSync = () => { view.container.scrollTop += 100; };
+    act(() => {
+      routeParams = { ...routeParams, query: "changed" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(search).toHaveBeenCalledOnce();
+    expect(captures).toHaveBeenCalledOnce();
+    expect(reads).toHaveBeenCalledOnce();
+    expect(useSearchStore.getState()).toMatchObject({ focusedImageId: null, loading: false, total: 100 });
+    expect(useSearchStore.getState().imagePositions.get("img-30")).toBe(30);
+    expect(30 * table.rowHeight - view.container.scrollTop).toBe(policy === "ratio" ? 180 : (600 - table.headerOffset - table.rowHeight) / 2);
+    expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "img-30", phase: "placed" });
+
+    const originalRead = MockDataSource.prototype.searchAfter.bind(dataSource);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let predecessorSignal: AbortSignal | undefined;
+    reads.mockImplementationOnce(async (...args) => {
+      predecessorSignal = args[3];
+      const result = await originalRead(...args);
+      await held;
+      return result;
+    });
+    act(() => {
+      routeParams = { ...routeParams, query: "predecessor" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    const predecessor = search.mock.results[1].value;
+    try {
+      anchor.viewportId = "img-40";
+      act(() => {
+        routeParams = { ...routeParams, query: "successor" };
+        markUserInitiatedNavigation();
+        view.changeGeometry(table);
+      });
+      await act(async () => { await search.mock.results[2].value; });
+      const owned = useSearchStore.getState();
+      const placed = view.container.scrollTop;
+      expect(owned._searchContinuity).toMatchObject({ targetId: "img-40", phase: "placed" });
+      expect(predecessorSignal?.aborted).toBe(true);
+      expect([...owned.imagePositions]).toEqual(owned.results.map((image, index) => [image!.id, index]));
+      const expected = await MockDataSource.prototype.searchAfter.call(dataSource, { ...owned.params, length: 200 }, null);
+      expect(owned.startCursor).toEqual(expected.sortValues[0]);
+      expect(owned.endCursor).toEqual(expected.sortValues.at(-1));
+      expect(owned).toMatchObject({ loading: false, sortAroundFocusStatus: null, bufferOffset: 0, total: 100, focusedImageId: null });
+      await act(async () => { release(); await predecessor; });
+      expect(useSearchStore.getState()).toBe(owned);
+      expect(view.container.scrollTop).toBe(placed);
+      expect(reads).toHaveBeenCalledTimes(3);
+      expect(search).toHaveBeenCalledTimes(3);
+      let releaseQuery!: () => void;
+      const queryGate = new Promise<void>(resolve => { releaseQuery = resolve; });
+      reads.mockImplementationOnce(async (...args) => {
+        const result = await originalRead(...args);
+        await queryGate;
+        return result;
+      });
+      act(() => {
+        routeParams = { ...routeParams, query: "browse-successor" };
+        markUserInitiatedNavigation();
+        view.changeGeometry(table);
+      });
+      const query = search.mock.results[3].value;
+      try {
+        await act(async () => { await useSearchStore.getState().seek(70); });
+        const browsed = useSearchStore.getState();
+        const browseTop = view.container.scrollTop;
+        expect(browsed).toMatchObject({ total: 100, loading: false, error: null, focusedImageId: null,
+          sortAroundFocusStatus: null, _searchContinuity: null, _browseNavigation: null });
+        expect(browseTop).toBe(70 * table.rowHeight);
+        expect([...browsed.imagePositions]).toEqual(browsed.results.map((image, index) => [image!.id, index]));
+        expect(browsed.startCursor).toEqual(expected.sortValues[0]);
+        expect(browsed.endCursor).toEqual(expected.sortValues.at(-1));
+        await act(async () => { releaseQuery(); await query; });
+        expect(useSearchStore.getState()).toBe(browsed);
+        expect(view.container.scrollTop).toBe(browseTop);
+        expect(reads).toHaveBeenCalledTimes(5);
+        expect(search).toHaveBeenCalledTimes(4);
+      } finally {
+        await act(async () => { releaseQuery(); await query; });
+      }
+      view.container.scrollTop = placed;
+      view.unmount();
+      view.container.remove();
+      const density = mountDensity(grid, true);
+      frame();
+      frame();
+      expect(density.container.scrollTop).toBe(2733);
+      expect(reads).toHaveBeenCalledTimes(5);
+    } finally {
+      await act(async () => { release(); await predecessor; });
+    }
+  });
+
+  it.each([40, 20])("publishes the resolved neighbour or top fallback when membership narrows to %s", async (total) => {
+    const source = new MockDataSource(100);
+    const narrowed = new MockDataSource(total);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: source, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-50");
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 50 * table.rowHeight - 180;
+    const reads = vi.spyOn(source, "searchAfter").mockImplementation((...args) => narrowed.searchAfter(...args));
+    vi.spyOn(source, "countWithTickers").mockImplementation((...args) => narrowed.countWithTickers(...args));
+    const ranks = vi.spyOn(source, "countBefore").mockImplementation((...args) => narrowed.countBefore(...args));
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, query: "narrowed" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    await act(async () => { await search.mock.results[0].value; await vi.advanceTimersByTimeAsync(0); });
+    const state = useSearchStore.getState();
+    expect(state).toMatchObject({ total, bufferOffset: 0, loading: false, sortAroundFocusStatus: null, error: null,
+      focusedImageId: total === 40 ? "img-39" : null });
+    expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+    const expected = await narrowed.searchAfter({ ...state.params, length: 200 }, null);
+    expect(state.results).toEqual(expected.hits);
+    expect(state.startCursor).toEqual(expected.sortValues[0]);
+    expect(state.endCursor).toEqual(expected.sortValues.at(-1));
+    if (total === 40) {
+      expect(state._searchContinuity).toMatchObject({ targetId: "img-39", placement: { kind: "ratio", ratio: 0.3 }, phase: "placed" });
+      const top = 39 * table.rowHeight - view.container.scrollTop;
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(top).toBeLessThanOrEqual(600 - table.rowHeight);
+    } else {
+      expect(state._searchContinuity).toBeNull();
+      expect(view.container.scrollTop).toBe(0);
+    }
+    expect(reads).toHaveBeenCalledTimes(total === 40 ? 6 : 3);
+    expect(ranks).toHaveBeenCalledTimes(total === 40 ? 1 : 0);
+    expect(search).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a no-selection phantom bookmark until its sort publishes the top reset", async () => {
+    const source = new MockDataSource(100);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: source, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "phantom", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-30");
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(table, false, false, true);
+    frame();
+    frame();
+    view.container.scrollTop = 780;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(source, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      return MockDataSource.prototype.searchAfter.call(source, ...args);
+    });
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    act(() => {
+      routeParams = { ...routeParams, orderBy: "uploadTime" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(table);
+    });
+    try {
+      expect(useSearchStore.getState()).toMatchObject({ focusedImageId: "img-30", loading: true });
+      expect(view.container.scrollTop).toBe(780);
+      await act(async () => { release(); await search.mock.results[0].value; });
+      expect(useSearchStore.getState()).toMatchObject({ focusedImageId: null, loading: false, _searchContinuity: null });
+      expect(view.container.scrollTop).toBe(0);
+      expect(reads).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await search.mock.results[0].value; });
+    }
+  });
+});
+
+describe.each(["direct-ES", "media-api"] as const)("ordinary continuity %s resolution", (transport) => {
+  it.each(["mapped", "indexed-unmapped", "unmapped"] as const)("publishes one coherent selected window after %s lookup", async (path) => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const total = path === "unmapped" ? 70000 : 12000;
+    const geometry = path === "mapped" ? grid : table;
+    const corpus = new MockDataSource(total, [{ field: "lastModified", ratio: 1 }]);
+    const dataSource = transport === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    routeParams = { nonFree: "true", orderBy: "-uploadTime" };
+    const offset = path === "unmapped" ? 45000 : 4000;
+    const initial = await corpus.searchAfter({ ...routeParams, offset, length: 200 }, null);
+    const targetId = initial.hits[50].id;
+    const focusId = initial.hits[10].id;
+    const selectedIds = new Set([targetId]);
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: total, tickerCounts: {} });
+    const ranks = vi.spyOn(dataSource, "countBefore").mockImplementation((...args) => corpus.countBefore(...args));
+    const maps = vi.spyOn(dataSource, "fetchPositionIndex").mockImplementation((...args) =>
+      path === "mapped" ? corpus.fetchPositionIndex(...args) : Promise.resolve(null));
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let lookupStarted = false;
+    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      const length = transport === "media-api" ? body.length : body.size;
+      const cursor = (transport === "media-api" ? body.sortValues : body.search_after) as SortValues | undefined;
+      const reverse = transport === "media-api" ? body.reverse === true : parseSortField(body.sort[0]).direction === "desc";
+      const result = await corpus.searchAfter({ nonFree: "true", orderBy: "uploadTime", length,
+        ...(length === 1 && { ids: targetId }) }, cursor ?? null, null, undefined, reverse);
+      if (length === 1) { lookupStarted = true; await held; }
+      init.signal?.throwIfAborted();
+      const hits = transport === "direct-ES" && reverse ? [...result.hits].reverse() : result.hits;
+      const sortValues = transport === "direct-ES" && reverse ? [...result.sortValues].reverse() : result.sortValues;
+      return Response.json(transport === "media-api"
+        ? { data: hits.map(data => ({ data })), total, sortValues }
+        : { hits: { total: { value: total }, hits: hits.map((image, index) => ({
+          _id: image.id, _source: image, sort: sortValues[index],
+        })) } });
+    });
+    vi.stubGlobal("fetch", fetch);
+    useSearchStore.setState({ ...initialState, dataSource, params: routeParams, total, results: initial.hits, bufferOffset: offset,
+      imagePositions: new Map(initial.hits.map((image, index) => [image.id, offset + index])),
+      focusedImageId: focusId, startCursor: initial.sortValues[0], endCursor: initial.sortValues.at(-1)! }, true);
+    useSelectionStore.setState({ selectedIds, anchorId: targetId });
+    useUiPrefsStore.setState({ focusMode: path === "mapped" ? "explicit" : "phantom", _pointerCoarse: false });
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    const view = mountDensity(geometry, false, false, true);
+    frame();
+    frame();
+    const sourceIndex = isTwoTierFromTotal(total) ? offset + 50 : 50;
+    view.container.scrollTop = Math.floor(sourceIndex / geometry.columns) * geometry.rowHeight - 150;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    let publications = 0;
+    const unsubscribe = useSearchStore.subscribe((state, previous) => {
+      if (state.results !== previous.results) publications += 1;
+    });
+    act(() => {
+      routeParams = { ...routeParams, orderBy: "uploadTime" };
+      markUserInitiatedNavigation();
+      view.changeGeometry(geometry);
+    });
+    try {
+      await act(async () => { await search.mock.results[0].value; });
+      await vi.waitFor(() => expect(lookupStarted).toBe(true));
+      if (path === "mapped") await vi.waitFor(() => expect(useSearchStore.getState().positionMap).not.toBeNull());
+      expect(useSearchStore.getState().results).toBe(initial.hits);
+      expect(useSearchStore.getState()).toMatchObject({ total, bufferOffset: offset, loading: true, focusedImageId: focusId });
+      expect(publications).toBe(0);
+      await act(async () => { release(); await vi.advanceTimersByTimeAsync(0); });
+      const state = useSearchStore.getState();
+      expect(state).toMatchObject({ total, loading: false, error: null, sortAroundFocusStatus: null, focusedImageId: focusId });
+      expect(state._searchContinuity).toMatchObject({ targetId, phase: "placed", focus: "retain", placement: { kind: "ratio", ratio: 0.25 } });
+      expect(state._searchContinuity?.owner.aborted).toBe(false);
+      const expected = await corpus.searchAfter({ ...routeParams, offset: state.bufferOffset, length: state.results.length }, null);
+      expect(state.results.map(image => image?.id)).toEqual(expected.hits.map(image => image.id));
+      expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, state.bufferOffset + index]));
+      expect(state.startCursor).toEqual(expected.sortValues[0]);
+      expect(state.endCursor).toEqual(expected.sortValues.at(-1));
+      const targetIndex = state.imagePositions.get(targetId)! - (isTwoTierFromTotal(total) ? 0 : state.bufferOffset);
+      expect(Math.floor(targetIndex / geometry.columns) * geometry.rowHeight - view.container.scrollTop).toBe(150);
+      expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+      expect(useSelectionStore.getState().anchorId).toBe(targetId);
+      expect(publications).toBe(1);
+      expect(search).toHaveBeenCalledOnce();
+      expect(fetch).toHaveBeenCalledTimes(4);
+      expect(ranks).toHaveBeenCalledTimes(path === "mapped" ? 0 : 1);
+      expect(maps).toHaveBeenCalledTimes(path === "unmapped" ? 0 : 1);
+    } finally {
+      unsubscribe();
+      await act(async () => { release(); await search.mock.results[0].value; await vi.advanceTimersByTimeAsync(0); });
+    }
+  });
+});
 
 describe("KUP-017 saved density geometry and input lifetime", () => {
   for (const direction of ["grid-table", "table-grid"] as const) {
@@ -716,6 +1104,83 @@ describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and sav
     }
   });
 
+  const inputTimings = (["before-publication", "after-publication"] as const).flatMap(timing =>
+    (["saved", "browse"] as const).map(mount => ({ timing, mount })));
+  it.each(inputTimings)("respects resident wheel input $timing between density frames ($mount mount)", async ({ timing, mount }) => {
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const dataSource = mode === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    const hits = Array.from({ length: 100 }, (_, index) => ({ id: `image-${350 + index}`,
+      uploadTime: new Date(Date.UTC(2026, 0, 1) + index * 1000).toISOString() }) as Image);
+    const sortValues = hits.map(image => [Date.parse(image.uploadTime!), image.id]);
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: hits.length, tickerCounts: {} });
+    routeParams = { nonFree: "true", orderBy: "-uploadTime" };
+    setPrevParamsSerialized(JSON.stringify(routeParams));
+    setPrevSearchOnly({ ...routeParams });
+    useSearchStore.setState({ dataSource, pitId: null, params: routeParams });
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let requestSignal: AbortSignal | null | undefined;
+    const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+      requestSignal = init.signal;
+      await held;
+      init.signal?.throwIfAborted();
+      return response(hits);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const source = mountDensity(grid, false, false, true);
+    frame();
+    frame();
+    source.container.scrollTop = 50 * grid.rowHeight - 180;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const startSearch = (view: ReturnType<typeof mountDensity>, geometry: ScrollGeometry) => act(() => {
+      routeParams = { ...routeParams, orderBy: "uploadTime", ...(mount === "browse" && { query: "resident" }) };
+      markUserInitiatedNavigation();
+      view.changeGeometry(geometry);
+    });
+    if (mount === "saved") startSearch(source, grid);
+    else act(() => useSearchStore.getState().queueBrowsePosition(5000));
+    let pending: Promise<void> | undefined;
+    try {
+      source.unmount();
+      source.container.remove();
+      const target = mountDensity(table, mount === "saved", true, mount === "browse");
+      frame();
+      if (mount === "browse") {
+        target.container.scrollTop = 200 * table.rowHeight - 180;
+        startSearch(target, table);
+      }
+      pending = search.mock.results[0].value;
+      const browse = () => act(() => {
+        target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 640 }));
+        target.container.scrollTop = 640;
+        target.container.dispatchEvent(new Event("scroll"));
+      });
+      if (timing === "before-publication") browse();
+      await act(async () => { release(); await pending; });
+      expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "image-400", phase: "ready" });
+      const published = useSearchStore.getState().results;
+      if (timing === "after-publication") browse();
+      frame();
+      expect(target.container.scrollTop).toBe(timing === "after-publication" ? 640 : 50 * table.rowHeight - 180);
+      const state = useSearchStore.getState();
+      expect(state.results).toBe(published);
+      expect(state.results.map(image => image?.id)).toEqual(hits.map(image => image.id));
+      expect(state).toMatchObject({ total: 100, bufferOffset: 0, loading: false, error: null,
+        focusedImageId: "image-400", sortAroundFocusStatus: null, _browseNavigation: null });
+      expect([...state.imagePositions]).toEqual(hits.map((image, index) => [image.id, index]));
+      expect(state.startCursor).toEqual(sortValues[0]);
+      expect(state.endCursor).toEqual(sortValues.at(-1));
+      expect(requestSignal?.aborted).toBe(false);
+      expect(state._searchContinuity?.owner.aborted).toBe(false);
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(search).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
   for (const direction of ["grid-table", "table-grid"] as const) {
     for (const focused of [false, true]) {
       it.each([false, true])(`${direction}, focused=${focused}, density=%s publishes the requested order and settles`, async (changeDensity) => {
@@ -727,8 +1192,11 @@ describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and sav
         const sortValues = hits.map((image) => [Date.parse(image.uploadTime!), image.id]);
         vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
         vi.spyOn(dataSource, "countWithTickers").mockResolvedValue({ count: hits.length, tickerCounts: {} });
+        routeParams = { query: 'keyword:"B8 pending"', orderBy: "-uploadTime", nonFree: "true" };
+        setPrevParamsSerialized(JSON.stringify(routeParams));
+        setPrevSearchOnly({ ...routeParams });
         useSearchStore.setState({ dataSource, pitId: null, focusedImageId: focused ? "image-400" : null,
-          params: { query: 'keyword:"B8 pending"', orderBy: "uploadTime", nonFree: "true" } });
+          params: routeParams });
         anchor.viewportId = "image-400";
 
         let release!: () => void;
@@ -753,13 +1221,18 @@ describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and sav
 
         const sourceGeometry = direction === "grid-table" ? grid : table;
         const targetGeometry = direction === "grid-table" ? table : grid;
-        const source = mountDensity(sourceGeometry);
+        const source = mountDensity(sourceGeometry, false, false, true);
         frame();
         frame();
         source.container.scrollTop = 1000;
         const cancelWindowMaintenance = vi.spyOn(useSearchStore.getState(), "cancelWindowMaintenance");
-        let pending!: Promise<void>;
-        act(() => { pending = useSearchStore.getState().search(focused ? "image-400" : null, { sortOnly: true }); });
+        const search = vi.spyOn(useSearchStore.getState(), "search");
+        act(() => {
+          routeParams = { ...routeParams, orderBy: "uploadTime" };
+          markUserInitiatedNavigation();
+          source.changeGeometry(sourceGeometry);
+        });
+        const pending = search.mock.results[0].value;
         try {
           expect(requests).toHaveLength(1);
           expect(requestSignal?.aborted).toBe(false);
@@ -788,6 +1261,9 @@ describe.each(["direct-ES", "media-api"] as const)("B8 %s pending search and sav
           expect(state.startCursor).toEqual(sortValues[0]);
           expect(state.endCursor).toEqual(sortValues[sortValues.length - 1]);
           expect(requestSignal?.aborted).toBe(false);
+          expect(search).toHaveBeenCalledOnce();
+          expect(requests).toHaveLength(1);
+          if (focused) expect(state._searchContinuity).toMatchObject({ targetId: "image-400", phase: "placed" });
         } finally {
           await act(async () => { release(); await pending; });
         }

@@ -149,19 +149,22 @@ Wired via `zustand/middleware` `persist`, matching the established pattern (`col
 Selections surviving a sort change is necessary but not sufficient — without position preservation, the user's viewport resets to the top and they lose their place.
 
 The active selection anchor wins whether or not an older explicit focus remains in
-the store. `useUrlSearchSync` chooses it before `focusedImageId`, and
-`useScrollEffects` captures that same anchor's placement before the search fires.
-The existing phantom preservation path locates it in the new order and restores
-its placement; selection does not become explicit focus.
+the store. `captureSearchContinuity` chooses it with its placement and a retain-focus
+treatment in `useScrollEffects`' pre-passive layout capture. `useUrlSearchSync`
+consumes that record rather than choosing again. The existing resolver locates it in
+the new order and publishes the resolved target with its operation owner; selection
+does not become explicit focus.
 
 **Key properties:**
 - Priority chain on sort change: active `selectionAnchorId` before older `focusedImageId`.
-- `focusedImageId` is unchanged. Clearing selection restores any older focus's ordinary
+- `focusedImageId` is unchanged, including when focus and selection anchor are equal.
+  Clearing selection restores any older focus's ordinary
   role; a selection created without focus does not gain a surprise focus ring.
 - Both cases use the same preservation pipeline, not a second selection scroll engine.
 - Gated by `isSortOnly` / `sortOnly` — only fires on sort changes, independently of the persistence flag (see below).
 
-**Files:** `useUrlSearchSync.ts` (§ sort-only fallback block), `useScrollEffects.ts` (Effect #7 `preserveId` line).
+**Files:** `lib/search-continuity.ts`, `useUrlSearchSync.ts`, `search-store.ts`,
+`useScrollEffects.ts` (capture and owned placement).
 
 ### Position preservation on grid layout changes
 

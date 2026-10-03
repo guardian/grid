@@ -142,11 +142,12 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     await expect(statusBar).toContainText("2");
   });
 
-  test("selection anchor outranks older focus during sort", async ({ kupua }) => {
+  for (const relationship of ["equal", "distinct"] as const) {
+  test(`selection anchor preserves ${relationship} older focus during sort`, async ({ kupua }) => {
     await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
     await clearSelection(kupua.page);
 
-    await kupua.focusNthItem(0);
+    await kupua.focusNthItem(relationship === "equal" ? 8 : 0);
     const focusedId = await kupua.getFocusedImageId();
     expect(focusedId).not.toBeNull();
 
@@ -155,7 +156,8 @@ test.describe("Grid — click to enter/exit selection mode", () => {
       "[data-grid-cell]",
       8,
     );
-    expect(selectionAnchorId).not.toBe(focusedId);
+    if (relationship === "equal") expect(selectionAnchorId).toBe(focusedId);
+    else expect(selectionAnchorId).not.toBe(focusedId);
     const selectionCell = kupua.page.locator(
       `[data-grid-cell][data-image-id="${selectionAnchorId}"]`,
     );
@@ -231,6 +233,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
     expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
   });
+  }
 });
 
 // ===========================================================================

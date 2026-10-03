@@ -17,6 +17,34 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 3 October 2026 - Carry ordinary search continuity with its target
+
+  Ordinary user search/filter and sort transitions capture target identity, placement,
+  focus treatment and fallback neighbours together in the existing pre-passive layout
+  phase. URL sync consumes that capture instead of independently choosing an anchor.
+  The store binds the existing focus signal and search generation, carries placement
+  through neighbour resolution and publishes the resolved identity with final buffer
+  coordinates. Placement is consumed once, respects density readiness and retains
+  owner-checked small-result retries. AI/history keep their compatibility ratio path;
+  discovery, browsing, maintenance, cursors and alignment are unchanged.
+
+  Selected sorting now retains older focus when focus and selection anchor coincide
+  (B6). The composed URL/store regression failed before the repair; equal/distinct
+  anchors retain focus through sort and Clear without changing selection or scrolling
+  solely for Clear. Maintained controls cover off-screen remembered focus, automatic
+  Clear, missing targets, adapter/map regimes and interrupted publication. Same-target
+  ratio/centre fixture substitution preserves ownership and read-budget assertions.
+  No AI-exit policy, wider repair or performance guarantee is introduced.
+
+  Independent review exposed an introduced ordering regression: publication between
+  density frames could defer placement until after newer resident wheel input. The
+  shared mount-frame input watcher now retires only already-published ready placement,
+  including pending-browse and invalid-saved-index readiness paths. Input before
+  publication remains eligible for normal search placement. Retiring placement leaves
+  request/discovery ownership, busy state, focus and selection intact. Paired adapter
+  regressions failed before repair; focused re-review found no remaining actionable
+  issue in that repair, and final unit, build and retry-free full local E2E gates pass.
+
   ### 3 October 2026 - Preserve query discovery through navigation takeover
 
   Explicit browsing now retires ordinary initial placement without discarding its

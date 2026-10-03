@@ -71,6 +71,19 @@ import {
 } from "@/constants/tuning";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
+import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-continuity";
+
+interface SearchOptions {
+  continuity?: SearchContinuity;
+  phantomOnly?: boolean;
+  retainExplicitFocus?: boolean;
+  visibleNeighbours?: string[];
+  snapshotHints?: { anchorOffset: number };
+  frozenUntil?: string;
+  sortOnly?: boolean;
+  traceAction?: string;
+  traceInteractionId?: string;
+}
 
 /** Aggregatable fields derived from the field registry — built once. */
 const AGG_FIELDS = FIELD_REGISTRY
@@ -287,6 +300,7 @@ interface SearchState {
    *  sortAroundFocusGeneration + Effect #9 but never renders a focus ring.
    *  Cleared by Effect #9 after scroll positioning. */
   _phantomFocusImageId: string | null;
+  _searchContinuity: OwnedSearchContinuity | null;
 
   /** Non-null while sort-around-focus is finding the image's new position. */
   sortAroundFocusStatus: string | null;
@@ -486,7 +500,7 @@ interface SearchState {
    * that image's position in the new results and seek to it after the
    * initial page loads. Used for sort-around-focus ("Never Lost").
    */
-  search: (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => Promise<void>;
+  search: (sortAroundFocusId?: string | null, options?: SearchOptions) => Promise<void>;
   /**
    * Extend the buffer forward (append pages after the current end).
    * Uses search_after with endCursor. Evicts from start if over capacity.
@@ -1673,6 +1687,7 @@ async function _findAndFocusImage(
    *  grab each other's controllers. */
   findFocusSignalOverride?: AbortSignal,
   discoveredTotal?: number,
+  continuity?: OwnedSearchContinuity,
 ): Promise<void> {
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
@@ -1769,7 +1784,7 @@ async function _findAndFocusImage(
                   // Recurse: find-and-focus the surviving neighbour.
                   // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
                   clearTimeout(timeoutId);
-                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride, discoveredTotal, continuity);
                   return;
                 }
               }
@@ -1930,6 +1945,7 @@ async function _findAndFocusImage(
             _focusedImageKnownOffset: null,
           }),
           _phantomFocusImageId: imageId,
+          _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
           ...(!suppressPulse && { _phantomPulseImageId: imageId }),
           _isInitialLoad: false,
           sortAroundFocusStatus: null,
@@ -1940,6 +1956,7 @@ async function _findAndFocusImage(
       } else {
         set({
           focusedImageId: imageId,
+          _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
           _isInitialLoad: false,
           _focusedImageKnownOffset: offset,
           sortAroundFocusStatus: null,
@@ -2049,6 +2066,7 @@ async function _findAndFocusImage(
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         sortAroundFocusStatus: null,
+        _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
         ...(phantomOnly
           ? {
               // Phantom: scroll to image via Effect #9, no focus ring.
@@ -2137,6 +2155,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
 
   focusedImageId: null,
   _phantomFocusImageId: null,
+  _searchContinuity: null,
   sortAroundFocusStatus: null,
   sortAroundFocusGeneration: 0,
   _bufferSelfCorrecting: false,
@@ -2255,7 +2274,12 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
   },
 
-  search: async (sortAroundFocusId?: string | null, options?: { phantomOnly?: boolean; retainExplicitFocus?: boolean; visibleNeighbours?: string[]; snapshotHints?: { anchorOffset: number }; frozenUntil?: string; sortOnly?: boolean; traceAction?: string; traceInteractionId?: string }) => {
+  search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
+    if (options?.continuity) {
+      const { targetId, focus, neighbours } = options.continuity;
+      sortAroundFocusId = targetId;
+      options = { ...options, phantomOnly: targetId !== null && focus !== "target", retainExplicitFocus: focus === "retain", visibleNeighbours: neighbours };
+    }
     trace("search", "t_0");
     // Bump generation so any in-flight stale search bails out after its
     // next await. Captured locally — after every await below, if the
@@ -2325,7 +2349,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _browseAbortController.abort();
     _pendingWindowReadSignal = null;
     _initialSearchDiscovery = null;
-    set({ _browseNavigation: null });
+    set({ _browseNavigation: null, _searchContinuity: null });
     _searchAbortController.abort();
     _searchAbortController = new AbortController();
     _rangeAbortController.abort();
@@ -2338,6 +2362,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // _findAndFocusImage so it uses THIS search's controller, not a
     // later search's (which would be non-aborted and run to completion).
     const findFocusSignal = _findFocusAbortController.signal;
+    const continuity: OwnedSearchContinuity | undefined = options?.continuity && sortAroundFocusId
+      ? { ...options.continuity, owner: findFocusSignal, searchGeneration: myGeneration, phase: "ready" }
+      : undefined;
 
     // Abort any in-flight sort distribution or expanded agg fetch
     _sortDistRequest?.controller.abort();
@@ -2602,7 +2629,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal)
+        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? get()._focusedImageKnownOffset ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
           .then(() => {
             if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
               discovery.resultsPublished = true;
@@ -2676,6 +2703,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           focusedImageId: options?.retainExplicitFocus
             ? get().focusedImageId
             : (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
+          _searchContinuity: focusedInFirstPage ? continuity ?? null : null,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
           tickerCounts: tickersResult?.tickerCounts ?? null,
@@ -4392,6 +4420,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       : false;
     set({
       results: sorted,
+      _searchContinuity: null,
       imagePositions: buildPositions(sorted, 0),
       ...(preserveFound
         ? {

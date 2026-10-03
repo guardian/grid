@@ -37,6 +37,7 @@ import { snapshotStore } from "@/lib/history-snapshot";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { saveSortFocusRatio } from "@/hooks/useScrollEffects";
+import { takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -242,6 +243,7 @@ export function useUrlSearchSync() {
     let phantomAnchor: string | null = null;
     let snapshotHints: { anchorOffset: number } | undefined;
     let frozenUntil: string | undefined;
+    let continuity: SearchContinuity | undefined;
 
     if (isPopstate) {
       // Capture a snapshot for the entry we're LEAVING before restoring
@@ -321,6 +323,8 @@ export function useUrlSearchSync() {
           }
         }
       }
+    } else if (!prev.aiQuery && !searchOnly.aiQuery) {
+      continuity = takeSearchContinuity(searchParams, isSortOnly);
     } else {
       const explicitFocus = useSearchStore.getState().focusedImageId;
       const { anchorId: selectionAnchorId, selectedIds } = useSelectionStore.getState();
@@ -383,7 +387,9 @@ export function useUrlSearchSync() {
       return;
     }
 
-    const searchOptions = phantomAnchor && snapshotHints
+    const searchOptions = continuity
+      ? { continuity, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId }
+      : phantomAnchor && snapshotHints
       ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
       : phantomAnchor
         ? { phantomOnly: true, retainExplicitFocus: !!focusPreserveId && focusPreserveId !== useSearchStore.getState().focusedImageId, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
