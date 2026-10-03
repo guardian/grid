@@ -41,13 +41,14 @@ document is the same in every tier.
 | Selection anchor | Last-interacted selected image, while a selection exists | `selection-store.ts` `anchorId` |
 | Viewport centre | Rendered image nearest the centre of the usable viewport (below the table header). Elected from DOM geometry only when a transition asks; not tracked per scroll frame | `getViewportAnchorId()` in `useDataWindow.ts` |
 | User search continuity | Ordinary and AI target, placement and focus treatment; ordinary fallback neighbours; resolved target is published with its existing operation owner | `lib/search-continuity.ts`, `search-store.ts`, effect 9 |
+| History continuity | Matching destination snapshot's represented target, ratio-or-start, focus/NONE and top fallback; no departing chooser/candidates | `historySearchContinuity`, existing store owner and effect 9 |
 | Positioning id | One-shot `_phantomFocusImageId`: search asks the view to place an image without focusing it | `search-store.ts`, consumed by effect 9 |
 
 Anchor precedence depends on the transition; there is no settled universal rule.
 Settled density currently prefers a resolvable focus, then viewport centre; grid reflow
 prefers selection, then focus, then viewport centre. History capture prefers
 explicit focus in explicit mode, otherwise viewport centre. L7 must reconcile
-these paths with D5 and the unsettled D8 policy before L15/L20 changes.
+these layout paths with D5 and the unsettled D8 policy before L15 changes.
 
 A history entry's focus (including no focus) and viewport position are separate
 concerns. Position restoration must not discard that entry's focus or substitute
@@ -70,8 +71,9 @@ decidable. Policy changes must not weaken ownership or coherent-publication chec
 
 Ordinary and user-initiated AI search/sort precedence is chosen once by
 `captureSearchContinuity` in `lib/search-continuity.ts`. Effect 7 captures it; URL
-sync consumes it. History compatibility, density save, grid column change, history snapshots and keyboard
-navigation retain their transition-specific decisions *(L9)*.
+sync consumes it. History derives a separate destination-only handoff and shares
+owned resolution/publication/placement. Density save, grid column change, snapshot
+capture and keyboard navigation retain transition-specific decisions *(L9)*.
 
 ## 3. Engine Map
 
@@ -100,7 +102,7 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 | `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: move only if off by more than a row, then apply Home/End intent |
 | `_scrollReset` | `search` without a surviving anchor, find-focus fallbacks, AI re-sort | Effect 7b: top (table keeps horizontal scroll on sort) |
 | `bufferOffset` deep to 0 | `search`, `seek(0)` | Effect 8: top, except during small-set top-up (`_bufferSelfCorrecting`) |
-| `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary/AI placement once, otherwise history ratio or pending arrow move |
+| `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary/AI/history placement once; limited cursor/arrow consumers remain |
 
 Completion means a scroll write, not proof of indefinitely stable geometry.
 Density remount readiness waits two frames. A pending browsing destination
@@ -118,8 +120,8 @@ A placement is an anchor plus a viewport ratio. Four captures exist *(L10)*:
   together in effect 7's layout phase, before URL sync's passive search dispatch.
   The handoff is scoped by destination and existing search generation. Missing
   matching view capture uses the same chooser against available geometry.
-  History retains the compatibility ratio: effect 7 writes it, history may
-  overwrite it from a snapshot, and effect 9 consumes it.
+  History instead derives target and placement together from its matching snapshot;
+  the independent numeric ratio bridge is removed from these adopted paths.
 - **Density** ratio including header offset, plus source scroll extremes; saved
   on view unmount, restored two frames after the next mount.
 - **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
@@ -133,7 +135,8 @@ when the source was there or the result is within a row of an edge.
 
 - Search generation (`getSearchGeneration`) invalidates search-derived work.
 - Ordinary and AI continuity bind that generation and the existing focus signal. Its
-  resolved target is published atomically with the window; effect 9 checks ownership
+  History shares these owners with destination-derived continuity. The resolved
+  target is published atomically with the window; effect 9 checks ownership
   and density readiness, then marks placement consumed. A later density mount cannot
   replay it. Small-result fill retries retain the same owner plus existing geometry,
   focus, scroll and seek guards.
@@ -147,7 +150,8 @@ when the source was there or the result is within a row of an edge.
   re-sort replaces only the focus/placement signal, not search discovery or its
   generation. Completion adopts the latest handoff and supported sort; settled
   re-sort remains request-free. Exit sends identity into ordinary lookup without
-  an AI rank hint or synthetic cursor. History retains its separate bridge.
+  an AI rank hint or synthetic cursor. Pending AI history waits for owned finite
+  publication rather than reordering/placing departing ordinary data.
 - `_searchAbortController` owns initial ordinary/AI reads. A newer search replaces
   it; explicit browsing retires ordinary initial placement, not query discovery.
   The replacement reuses the existing count (or counted first page on count failure)
@@ -189,8 +193,8 @@ when the source was there or the result is within a row of an edge.
 | Density switch | Pending browsing destination wins across the view change. Once settled: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Settled anchor precedence awaits L7/L15; smaller placement drift remains L18 |
 | Browser resize / panel toggle (grid column change) | Current: resolvable selection, then focus, then viewport centre supplies the placement anchor | Reconcile this with D5 and visibility cases in L7 before consolidation |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
-| Browser Back / Forward | Current search-context restore uses the snapshot anchor for placement and, when explicit, focus; desired independent state restoration awaits L7/L20 | No matching snapshot: top, no focus carried; display-only entries require separate characterisation |
-| Logo (Home) | none | Top of default search; focus, selection and density state cleared |
+| Browser Back / Forward | Destination snapshot supplies represented anchor, placement and focus/NONE in CURRENT density; distinct same-query native entries restore too | Missing/mismatched/null snapshot or genuine missing anchor: top/no focus, no departing neighbour. Marked origin/detail transition retains native list |
+| Logo (Home) | none | Top of default search; focus/selection cleared, grid reset after owned data unless newer density intent wins |
 | New-images ticker | none | Top of refreshed results |
 
 Undecided relaxation candidates are ledger decisions, not behaviour.
@@ -202,7 +206,8 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   sorts retain focus independently of target equality; query/filter ignores
   selection as a placement target. `useUrlSearchSync` classifies navigation,
   clears selection when appropriate and passes the captured record to `search`.
-  History preserves its existing separate target/snapshot policy. AI re-sort passes
+  History derives target/placement/focus/fallback from the destination snapshot, not
+  the departing view. AI re-sort passes
   the same record to its in-memory action, replacing only placement ownership.
 2. `search` fetches the first page, or the finite AI list. Anchor on it: publish
   with the effect-9 signal. A missing finite-AI target resets to top; steps 3-7
@@ -212,6 +217,7 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   a buffer around it and publishes once with the resolved continuity record.
 4. Anchor absent from the new results: neighbours are checked with one ids query,
    nearest first (explicit: ±20 buffer images; phantom: visible images).
+  Destination-history handoffs exclude this fallback and use top/no focus.
 5. First surviving neighbour: positioned as in step 3.
 6. No survivor, error, or 8 s timeout: first page at top, focus cleared.
 7. Small result sets are then topped up to the full set. While the first page is
@@ -242,6 +248,11 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   changing image, context or history entry, or unmounting, cancels only that wait.
 - The deferred centring after traversal re-reads index and geometry when it runs;
   reopening, a newer search, history entry or focus change makes it inert.
+- Marked detail entries record their originating list key separately from the
+  immutable entry image. Return acts only for that origin; unrelated native
+  destinations restore their represented snapshot. A marked entry-key switch
+  adopts destination entry-image identity; same-entry traversal retains it.
+  Unmarked older detail entries keep compatibility close behavior.
 - Reload in detail restores the buffer around the image from its cached cursor
   (`restoreAroundCursor`); the list shows it at the top row.
 - Fullscreen preview owns a history entry so Back closes it. After traversal it
@@ -254,15 +265,25 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   anchor, global offset, ratio and new-images cutoff. On Back/Forward the departing
   entry is recaptured (phantom snapshots only when the anchor image changed).
 - The destination snapshot applies when its search key matches exactly: anchor
-  positioned (phantom: without focus), ratio reused, results capped at the cutoff.
+  positioned (phantom: without focus), ratio reused in current layout; freeze
+  boundary is the later saved/current cutoff, not immutable historic membership.
   Snapshots live in sessionStorage (50 entries) and survive reload.
 - Snapshots do not independently store explicit focus and viewport anchor. Merely
   switching to a viewport anchor can lose the entry's focus; it is not a complete
-  implementation of independent restoration. L20 remains an open decision/design item.
-- Density changes currently push URL/history entries. Search-param deduplication
-  skips the search-context restore for display-only changes. L7 must characterise
-  their focus and placement separately. Push versus replace is undecided; density
-  can remain URL state under either choice.
+  implementation of independent restoration. A new two-identity snapshot model is
+  outside this unit. Phantom capture represents viewport/NONE, not an independently
+  retained hidden bookmark.
+- `historySearchContinuity` binds represented target/ratio-or-start/focus/NONE and
+  top fallback to the existing owner. B13 excludes departing neighbours; B14 applies
+  represented focus/NONE through resident AI re-sort without requests. Pending
+  discovery remains useful even if placement is retired.
+- Router history action records native destination identity before query dedup;
+  raw/validated parameter coherence prevents premature capture/consumption.
+- Density is session-persisted UI state outside URL/history. Read before the first
+  view mounts, write actual choices promptly; fresh independent tabs default grid.
+  Navigation/AI/detail/Back/Forward/reload retain current choice. Invalid/unavailable
+  storage stays usable; no cross-tab sync or legacy density-link handling.
+  B1's density-only producer is removed, not migrated. Q1/Q7 remain unchanged.
 
 ### 4.5 Reset to Home
 
@@ -270,6 +291,12 @@ The logo waits for the fresh first page before changing the URL, avoiding a
 table-to-grid flash. A later history change or newer search cancels it. It
 suppresses a pending `restoreAroundCursor`, the return-from-detail placement and
 the table's density save *(L12)*.
+
+Home also resets the tab's density preference to grid, retaining
+fresh-data-before-layout timing. A later density choice wins without cancelling
+Home's search reset; an abandoned Home cannot change or persist density. Back after
+Home retains the current density. Ownership compares density intent, including
+same-value and away/back actions, not equality of the final preference value.
 
 ## 5. Two UI Modes, One Engine
 

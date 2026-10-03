@@ -127,6 +127,7 @@ async function navigateAndMeasure(
   expectedRegime: "buffer" | "indexed",
   id: "JA1" | "JB1",
 ) {
+  await kupua.initializeDensity("grid");
   const interactionId = `${id.toLowerCase()}-navigation`;
   const startEpochMs = Date.now();
   const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
@@ -160,8 +161,7 @@ async function navigateAndMeasure(
       }));
       const state = store.getState();
       const regime = state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
-      const container = document.querySelector('[aria-label="Image results grid"]')
-        ?? document.querySelector('[aria-label="Image results table"]');
+      const container = document.querySelector('[aria-label="Image results grid"]');
       const item = container?.querySelector('[data-image-id]');
       if (storeReadyEpochMs == null || regime !== targetRegime || !container || !item) {
         first = null;
@@ -521,12 +521,14 @@ async function waitForAggsLoaded(kupua: any, maxWait = 20_000) {
 
 /** Navigate to a journey-specific search. */
 async function gotoJourney(kupua: any, query: string, extraParams = "") {
+  await kupua.initializeDensity("grid");
   const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(
     `/search?nonFree=true&query=${encodeURIComponent(query)}${untilParam}${extra}`,
   );
   await waitForStoreSettled(kupua, 20_000);
+  await kupua.assertDensity("grid");
 }
 
 /** Navigate with a focused image — triggers sort-around-focus. Called only
@@ -534,11 +536,13 @@ async function gotoJourney(kupua: any, query: string, extraParams = "") {
  * plain goto is fine here.
  */
 async function gotoJourneyWithImage(kupua: any, query: string, imageId: string) {
+  await kupua.initializeDensity("grid");
   const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   await kupua.page.goto(
     `/search?nonFree=true&query=${encodeURIComponent(query)}&image=${imageId}${untilParam}`,
   );
   await waitForStoreSettled(kupua, 20_000);
+  await kupua.assertDensity("grid");
 }
 
 /** Log a step result in a human-readable format. */

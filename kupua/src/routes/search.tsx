@@ -11,8 +11,8 @@
  * all preserved. Browser back removes `image` and the view is exactly
  * where you left it.
  *
- * The `density` param switches between grid (default) and table views. Both share
- * the same data layer (`useDataWindow`), focus, and search context.
+ * Per-tab session-persisted density switches between grid and table. Both share
+ * the same data layer (`useDataWindow`), focus, and URL-managed search context.
  */
 
 import { createRoute } from "@tanstack/react-router";
@@ -37,7 +37,7 @@ import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, useSelectionMetadataRevision } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
-import { useEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { useEffectiveFocusMode, useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useVisibleRange } from "@/hooks/useDataWindow";
 import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -56,7 +56,8 @@ export const searchRoute = createRoute({
 });
 
 function SearchPage() {
-  const { image, density } = useSearch({ from: "/search" });
+  const { image } = useSearch({ from: "/search" });
+  const density = useUiPrefsStore((state) => state.density);
   const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.

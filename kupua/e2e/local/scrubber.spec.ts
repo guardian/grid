@@ -97,25 +97,25 @@ test.describe.configure({ mode: "parallel" });
 
 test.describe("Scrubber — basics", () => {
   test("scrubber is visible when results exist", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await expect(kupua.scrubber).toBeVisible();
   });
 
   test("aria-valuemax equals total - 1", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const max = await kupua.getScrubberMax();
     const store = await kupua.getStoreState();
     expect(max).toBe(store.total - 1);
   });
 
   test("scrubber starts at position 0", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const pos = await kupua.getScrubberPosition();
     expect(pos).toBe(0);
   });
 
   test("initial buffer starts at offset 0 with no errors", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const store = await kupua.getStoreState();
     expect(store.bufferOffset).toBe(0);
     expect(store.error).toBeNull();
@@ -129,7 +129,7 @@ test.describe("Scrubber — basics", () => {
 test.describe("Scrubber tick input identity", () => {
   for (const scenario of ["buffer", "single-bucket fallback", "primary distribution", "null-zone distribution"] as const) {
     test(`refreshes ticks after an equal-sized ${scenario} replacement`, async ({ kupua, page }) => {
-      await kupua.goto();
+      await kupua.startSearch();
 
       const replaceInputs = (year: number, initial = false) => page.evaluate(({ scenario, year, initial }) => {
         const store = (window as unknown as { __kupua_store__: typeof useSearchStore }).__kupua_store__;
@@ -186,7 +186,7 @@ test.describe("Scrubber tick input identity", () => {
 
 test.describe("Seek accuracy", () => {
   test("seek to 50% lands near the middle of the dataset", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const total = (await kupua.getStoreState()).total;
 
     await kupua.seekTo(0.5);
@@ -205,7 +205,7 @@ test.describe("Seek accuracy", () => {
   });
 
   test("seek to top (0.02) resets buffer near offset 0", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // First go somewhere deep
     await kupua.seekTo(0.5);
@@ -229,7 +229,7 @@ test.describe("Seek accuracy", () => {
   });
 
   test("seek to bottom (0.98) lands near the end", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const total = (await kupua.getStoreState()).total;
 
     await kupua.seekTo(0.98);
@@ -253,7 +253,7 @@ test.describe("Seek accuracy", () => {
   });
 
   test("consecutive seeks produce different buffers", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.seekTo(0.2);
     const store1 = await kupua.getStoreState();
@@ -277,7 +277,7 @@ test.describe("Seek accuracy", () => {
 
 test.describe("Drag seek", () => {
   test("drag to middle repositions buffer correctly", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.dragScrubberTo(0.5);
 
     const store = await kupua.getStoreState();
@@ -288,7 +288,7 @@ test.describe("Drag seek", () => {
   });
 
   test("drag to bottom then top produces correct ordering", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.dragScrubberTo(0.95);
     const bottomStore = await kupua.getStoreState();
@@ -309,7 +309,7 @@ test.describe("Drag seek", () => {
 
 test.describe("Scroll position after seek", () => {
   test("content is rendered (not blank) after deep seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.seekTo(0.5);
 
     const hasContent = await kupua.page.evaluate(() => {
@@ -328,7 +328,7 @@ test.describe("Scroll position after seek", () => {
     // Regression test for scroll freeze after deep seek.
     // Seeks to multiple positions and verifies programmatic scrollBy
     // actually changes scrollTop.
-    await kupua.goto();
+    await kupua.startSearch();
 
     for (const ratio of [0.5, 0.8, 0.2]) {
       await kupua.seekTo(ratio);
@@ -362,7 +362,7 @@ test.describe("Flash prevention — seek scroll preservation", () => {
     //
     // The scroll-up tests (below) verify that extends work when the user
     // scrolls far enough past the headroom.
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.seekTo(0.5);
     const storeBefore = await kupua.getStoreState();
     // Wait for seek cooldown + deferred scroll + settle
@@ -414,7 +414,7 @@ test.describe("Post-seek scroll-up", () => {
   // Structurally identical — only difference was grid vs table locator.
   for (const density of ["grid", "table"] as const) {
     test(`can scroll up after seeking to 50% (${density})`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       if (density === "table") await kupua.switchToTable();
 
       await kupua.seekTo(0.5);
@@ -523,7 +523,7 @@ test.describe("Post-seek scroll-up", () => {
     // Seek twice in succession, then try to scroll up. This tests that
     // the cooldown and post-extend state reset correctly between seeks —
     // no stale flag or cooldown from the first seek blocks the second.
-    await kupua.goto();
+    await kupua.startSearch();
 
     // First seek to 30%
     await kupua.seekTo(0.3);
@@ -565,7 +565,7 @@ test.describe("Post-seek scroll-up", () => {
     // After seek, the user should be able to scroll up within 2 seconds.
     // This formalises the user-facing deadline independently of the current
     // cooldown and deferred-scroll implementation values.
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.seekTo(0.5);
     const storeAfterSeek = await kupua.getStoreState();
@@ -628,7 +628,7 @@ test.describe("Post-seek scroll-up", () => {
 
 test.describe("Settle-window stability", () => {
   test("no visible content shift during settle window after seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll to a partial-row offset first so scrollTop is non-zero
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
@@ -739,7 +739,7 @@ test.describe("Settle-window stability", () => {
     // Regression test: seeking from half-a-row-2 (or any row in the headroom
     // zone) must NOT show wrong content or swim, AND must preserve the user's
     // vertical position (sub-row pixel offset).
-    await kupua.goto();
+    await kupua.startSearch();
 
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
     const gridBox = await gridEl.boundingBox();
@@ -845,7 +845,7 @@ test.describe("Settle-window stability", () => {
   // -------------------------------------------------------------------------
 
   test("seek from scrollTop=0 lands in buffer middle with headroom", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Verify we're at scrollTop=0 — NO pre-scroll
     const scrollTopBefore = await kupua.getScrollTop();
@@ -923,7 +923,7 @@ test.describe("Settle-window stability", () => {
   // -------------------------------------------------------------------------
 
   test("scrollTop is monotonically non-decreasing during settle window after seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll to a partial-row offset first (non-zero starting point)
     const gridEl = kupua.page.locator('[aria-label="Image results grid"]');
@@ -987,7 +987,7 @@ test.describe("Settle-window stability", () => {
 
 test.describe("Buffer extension", () => {
   test("scrolling down past buffer triggers extendForward", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const store1 = await kupua.getStoreState();
     const endBefore = store1.bufferOffset + store1.resultsLength;
@@ -1023,7 +1023,7 @@ test.describe("Buffer extension", () => {
 
 test.describe("Density switch — strict", () => {
   test("rapid density toggling doesn't corrupt state", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.seekTo(0.3);
     await kupua.focusNthItem(2);
@@ -1048,7 +1048,7 @@ test.describe("Density switch — strict", () => {
 test.describe("KUP-017 queued density restoration", () => {
   for (const scenario of ["ordinary", "query", "order", "wheel", "inert-left", "inert-right", "focused-left"] as const) {
     test(`${scenario}: queued frame respects current density intent`, async ({ kupua, page }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       const toGrid = scenario === "inert-left" || scenario === "inert-right" || scenario === "focused-left";
       if (toGrid) await kupua.switchToTable();
       const firstIds = await page.evaluate(() => (window as any).__kupua_store__.getState().results.slice(0, 100).map((image: { id: string }) => image.id));
@@ -1186,7 +1186,7 @@ test.describe("KUP-017 queued density restoration", () => {
 
 test.describe("Sort change", () => {
   test("changing sort field resets to offset 0 with new data", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Remember first image ID under default sort
     const store1 = await kupua.getStoreState();
@@ -1205,7 +1205,7 @@ test.describe("Sort change", () => {
   });
 
   test("toggling sort direction loads a different first page", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const store1 = await kupua.getStoreState();
     const firstIdBefore = store1.firstImageId;
@@ -1229,7 +1229,7 @@ test.describe("Sort tooltip — date label", () => {
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   test("aria-valuetext includes a date for uploadTime sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const valueText = await kupua.getScrubberValueText();
     expect(valueText).not.toBeNull();
@@ -1243,7 +1243,7 @@ test.describe("Sort tooltip — date label", () => {
   });
 
   test("tooltip shows date after seeking to middle", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Seek to middle — triggers a click which shows the tooltip briefly
     await kupua.seekTo(0.5);
@@ -1259,7 +1259,7 @@ test.describe("Sort tooltip — date label", () => {
   });
 
   test("scrubber opacity transitions to 1 on hover", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.scrubber.hover();
     // Wait for 300ms CSS opacity transition
     await kupua.page.waitForTimeout(400);
@@ -1276,7 +1276,7 @@ test.describe("Sort tooltip — date label", () => {
 
 test.describe("Sort-around-focus", () => {
   test("focused image survives sort direction change", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.seekTo(0.3);
     await kupua.focusNthItem(3);
@@ -1309,7 +1309,7 @@ test.describe("Sort-around-focus", () => {
   // it made is also covered by the direction-change test.
 
   test("focused image is within viewport after sort field change", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus an image
     await kupua.focusNthItem(5);
@@ -1374,7 +1374,7 @@ test.describe("Sort-around-focus", () => {
 
 test.describe("Scroll stability", () => {
   test("rapid concurrent seeks settle cleanly", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const before = await kupua.getStoreState();
     const trackBox = await kupua.scrubber.boundingBox();
@@ -1419,7 +1419,7 @@ test.describe("Scroll stability", () => {
 
 test.describe("Metadata panel", () => {
   test("focused image metadata shown after seek (not 'Focus an image')", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Open details panel
     const detailsBtn = kupua.page.locator('button[aria-label*="Details panel"]');
@@ -1461,7 +1461,7 @@ test.describe("Metadata panel", () => {
 
 test.describe("Full workflow — user journey", () => {
   test("long session: seek, scroll, focus, density, seek again", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // 1. Verify initial
     let store = await kupua.getStoreState();
@@ -1536,7 +1536,7 @@ test.describe("Bug #11 — Date Taken sort seek", () => {
   test.describe.configure({ timeout: 30_000 });
 
   test("seek to middle works under Taken on sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Taken on");
 
     const store1 = await kupua.getStoreState();
@@ -1555,7 +1555,7 @@ test.describe("Bug #11 — Date Taken sort seek", () => {
   });
 
   test("seek to bottom works under Taken on sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Taken on");
 
     await kupua.seekTo(0.95);
@@ -1591,7 +1591,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
   // was redundant with the describe-level timeout.
 
   test("seek to middle works under Credit sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Credit");
 
     const store1 = await kupua.getStoreState();
@@ -1617,7 +1617,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
   });
 
   test("seek to middle works under Source sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Source");
 
     await kupua.seekTo(0.5);
@@ -1636,7 +1636,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
     // Width is a plain integer field (source.dimensions.width) — uses the
     // fast percentile estimation path for deep seek. Replaces the old
     // Dimensions script sort (w×h Painless) which was unusably slow.
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Width");
 
     await kupua.seekTo(0.5);
@@ -1668,7 +1668,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
   // testable locally — local ES skips PIT entirely. That bug class is
   // covered by the PIT fallback in es-adapter.ts and its focused tests.
   test("seek to 75% under Credit sort lands near 75%", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Credit");
 
     await kupua.seekTo(0.75);
@@ -1699,7 +1699,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
 test.describe("Bug #1 — Home after End race", () => {
   test.describe.configure({ timeout: 30_000 });
   test("End then Home returns to offset 0 with no stale data", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Go to the bottom
     await kupua.page.keyboard.press("End");
@@ -1729,7 +1729,7 @@ test.describe("Bug #1 — Home after End race", () => {
   });
 
   test("End then Home then scroll up — nothing above position 0", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.page.keyboard.press("End");
     await kupua.waitForSeekComplete();
@@ -1765,7 +1765,7 @@ test.describe("Bug #1 — Home after End race", () => {
 test.describe("Bug #9 — Table horizontal scrollbar", () => {
   test.describe.configure({ timeout: 30_000 });
   test("table view scroll container allows horizontal overflow", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     const scrollState = await kupua.page.evaluate(() => {
@@ -1799,7 +1799,7 @@ test.describe("Bug #9 — Table horizontal scrollbar", () => {
 test.describe("Bug #3 — Wheel scroll on scrubber", () => {
   test.describe.configure({ timeout: 30_000 });
   test("wheel events on scrubber track scroll the content", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Move mouse to the scrubber track
     const trackBox = await kupua.scrubber.boundingBox();
@@ -1844,7 +1844,7 @@ test.describe("Bug #12 — Wheel scroll after scrubber seek", () => {
   // NOTE: grid and table variants merged (14 Apr 2026 culling).
   for (const density of ["grid", "table"] as const) {
     test(`content area is scrollable after seek to 50% (${density})`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       if (density === "table") await kupua.switchToTable();
       await kupua.seekTo(0.5);
 
@@ -1902,7 +1902,7 @@ test.describe("Bug #14 — End key under non-date sort", () => {
   test.describe.configure({ timeout: 45_000 });
 
   test("End key seeks to last results under Credit sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Credit");
 
     // Scroll down a few pages first (so we're not at position 0)
@@ -1935,7 +1935,7 @@ test.describe("Bug #14 — End key under non-date sort", () => {
   });
 
   test("End key under default sort also works", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll down a bit
     for (let i = 0; i < 3; i++) {
@@ -1990,7 +1990,7 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
   test.describe.configure({ timeout: 30_000 });
 
   test("grid composition changes only once during sort-around-focus", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     // Ensure grid view
     await kupua.switchToGrid();
 
@@ -2054,7 +2054,7 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
   });
 
   test("sort toggle in grid doesn't flash wrong content at scrollTop=0", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToGrid();
 
     // Seek to middle so the focused image is far from position 0
@@ -2131,7 +2131,7 @@ test.describe("Bug #15 — Grid twitch on sort toggle", () => {
 
 
   test("sort toggle preserves focus in table view too (no regression)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     await kupua.focusNthItem(5);
@@ -2163,7 +2163,7 @@ test.describe("Bug #16 — no runaway self-scroll after forward-extend eviction"
   // Identical logic — only difference was initial density.
   for (const density of ["table", "grid"] as const) {
     test(`${density}: bufferOffset stabilises after forward-extend eviction`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       if (density === "table") await kupua.switchToTable();
       else await kupua.switchToGrid();
 
@@ -2267,7 +2267,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
   }
 
   test("PgDown ×3 preserves position across table↔grid round-trip", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);
 
@@ -2324,7 +2324,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
   });
 
   test("End key preserves near-bottom across table↔grid round-trip", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);
 
@@ -2369,7 +2369,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
   });
 
   test("seek 50% in table → grid → table round-trip is stable", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await kupua.page.waitForTimeout(500);
 
@@ -2426,7 +2426,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
   // -------------------------------------------------------------------------
 
   test("Home from grid doesn't break density-switch position keeping (no focus)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Seek to ~50% in grid
     await kupua.seekTo(0.5);
@@ -2465,7 +2465,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
   });
 
   test("Home from grid doesn't break density-switch position keeping (with focus)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Click Home logo from grid (stays in grid)
     await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
@@ -2507,7 +2507,7 @@ test.describe("Density switch without focus — viewport anchor", () => {
 
 test.describe("Home button — sort reset", () => {
   test("Home resets sort order to default after changing sort field", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Remember first image under default sort (uploadTime desc)
     const defaultState = await kupua.getStoreState();
@@ -2543,7 +2543,7 @@ test.describe("Home button — sort reset", () => {
   });
 
   test("Home resets sort order after changing sort direction", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const defaultState = await kupua.getStoreState();
     const defaultFirstId = defaultState.firstImageId;
@@ -2572,7 +2572,7 @@ test.describe("Home button — sort reset", () => {
   });
 
   test("Home from table view resets sort order and switches to grid", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     const defaultState = await kupua.getStoreState();
@@ -2615,7 +2615,7 @@ test.describe("Home button — sort reset", () => {
 
 test.describe("Scroll mode — buffer fill", () => {
   test("scrubber works in scroll mode (no seek, direct scroll)", async ({ kupua }) => {
-    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20");
     const { total } = await kupua.getStoreState();
     test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
     test.skip(total < 50, `Total ${total} too small`);
@@ -2646,7 +2646,7 @@ test.describe("Scroll mode — buffer fill", () => {
   // -------------------------------------------------------------------------
 
   test("scrubber enters scroll mode after sort-around-focus lands outside first page", async ({ kupua }) => {
-    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20");
     const { total } = await kupua.getStoreState();
     test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
     test.skip(total < 50, `Total ${total} too small to be meaningful`);
@@ -2722,7 +2722,7 @@ test.describe("Scroll mode — buffer fill", () => {
     const scenario = firstPageEdge ? "first-page edge" : `focus index ${nth}`;
     test(`sort toggle preserves focused cell row position (${scenario})`, async ({ kupua }) => {
       await kupua.ensureExplicitMode();
-      await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+      await kupua.startSearch("since=2026-03-15&until=2026-03-20");
       const { total } = await kupua.getStoreState();
       test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
       test.skip(total < 50, `Total ${total} too small to be meaningful`);
@@ -2781,7 +2781,7 @@ test.describe("Scroll mode — buffer fill", () => {
 
   for (const interaction of ["scroll", "focus"] as const) {
     test(`first-page sort restoration yields to later ${interaction}`, async ({ kupua }) => {
-      await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+      await kupua.startSearch("since=2026-03-15&until=2026-03-20");
       await kupua.waitForScrollMode();
       await kupua.seekTo(0.5);
       await kupua.scrollBy(-GRID_ROW_HEIGHT);
@@ -2840,7 +2840,7 @@ test.describe("Scroll mode — buffer fill", () => {
   }
 
   test("scrubber enters scroll mode after reload restores deep image detail", async ({ kupua }) => {
-    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20");
     const { total } = await kupua.getStoreState();
     test.skip(total > 1000, `Total ${total} exceeds scroll-mode threshold`);
     test.skip(total < 50, `Total ${total} too small to be meaningful`);
@@ -2916,7 +2916,7 @@ test.describe("Two-tier virtualisation", () => {
   // -------------------------------------------------------------------------
 
   test("position map loads after initial search (two-tier activates)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // With ~10k local docs, the position map should load in the background
     const store = await kupua.getStoreState();
@@ -2932,7 +2932,7 @@ test.describe("Two-tier virtualisation", () => {
   // -------------------------------------------------------------------------
 
   test("scrubber drag scrolls directly in two-tier mode (no seek)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.waitForPositionMap();
 
     const { total } = await kupua.getStoreState();
@@ -2957,7 +2957,7 @@ test.describe("Two-tier virtualisation", () => {
   // -------------------------------------------------------------------------
 
   test("dragging past buffer triggers scroll-seek that fills skeletons", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.waitForPositionMap();
 
     // Drag scrubber to ~80% — the buffer starts at [0..999], so 80%
@@ -2987,7 +2987,7 @@ test.describe("Two-tier virtualisation", () => {
   // -------------------------------------------------------------------------
 
   test("sort change invalidates position map then reloads it", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.waitForPositionMap();
     expect(await kupua.isTwoTierMode()).toBe(true);
 
@@ -3009,7 +3009,7 @@ test.describe("Two-tier virtualisation", () => {
   // -------------------------------------------------------------------------
 
   test("date filter change invalidates and reloads position map", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.waitForPositionMap();
 
     await recordPositionMapReplacement(kupua, () => kupua.page.evaluate(() => {
@@ -3036,7 +3036,7 @@ test.describe("Two-tier virtualisation", () => {
 
 test.describe("Scroll mode — scrubber sync (Bug F regression)", () => {
   async function gotoScrollMode(kupua: any, density: "table" | "grid") {
-    await kupua.gotoWithParams(`since=2026-03-15&until=2026-03-20&density=${density}`);
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20", density);
     await kupua.waitForScrollMode(10_000);
     const state = await kupua.getStoreState();
     expect(state.total).toBeGreaterThanOrEqual(50);

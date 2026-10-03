@@ -8,11 +8,29 @@
 >
 > **Update this file when a new deviation is introduced.**
 
-Last updated: 2026-09-20
+Last updated: 2026-10-03
 
 ---
 
 ## From Grid / Kahuna
+
+### Independent Per-Tab Density And Destination History (3 October 2026)
+
+Grid/table density is a per-tab `sessionStorage` preference outside the URL and
+browser history. Toggling creates no Back step; navigation/history retains current
+density, reload reads it before mounting, and a fresh independent tab defaults grid.
+Home resets grid after owned data unless newer density intent wins. This deliberately
+trades shareable/historical layout for stable browsing and Forward preservation;
+no legacy density-link migration or cross-tab sync is provided.
+
+Kupua's represented destination snapshot restores target/focus/NONE in the current
+layout, without adopting departing neighbours. Missing anchors use top/no focus.
+Marked detail origin metadata preserves the laid-out list for ordinary close while
+unrelated native entries restore their own snapshot. This retains the overlay's
+position continuity rather than emulating Kahuna's route teardown. Snapshots still
+represent one anchor, not independent bookmark and viewport; broader layout policy
+and stronger storage/seek guarantees are not part of this deviation. See the
+[completed unit](not-yet-another-audit-ledger.md#history-and-density-unit).
 
 ### Cumulative Poll Accounting (20 September 2026)
 

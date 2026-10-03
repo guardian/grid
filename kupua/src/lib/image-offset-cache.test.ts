@@ -56,8 +56,8 @@ describe("buildSearchKey", () => {
     expect(a).toBe(b);
   });
 
-  it("strips image and density params", () => {
-    const with_ = buildSearchKey({ query: "cats", image: "abc", density: "2" });
+  it("strips image params", () => {
+    const with_ = buildSearchKey({ query: "cats", image: "abc" });
     const without = buildSearchKey({ query: "cats" });
     expect(with_).toBe(without);
   });

@@ -8,6 +8,7 @@ import { getScrollGeometry } from "@/lib/scroll-geometry-ref";
 import { resolveAnchorVirtIndex } from "@/lib/grid-scroll-anchor";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
+import type { HistorySnapshot } from "@/lib/history-snapshot";
 
 export type SearchPlacement = { kind: "ratio"; ratio: number } | { kind: "start" } | { kind: "centre" };
 
@@ -16,6 +17,8 @@ export interface SearchContinuity {
   placement: SearchPlacement;
   focus: "target" | "none" | "retain";
   neighbours?: string[];
+  fallback?: "top";
+  anchorOffset?: number;
 }
 
 export interface OwnedSearchContinuity extends SearchContinuity {
@@ -25,6 +28,18 @@ export interface OwnedSearchContinuity extends SearchContinuity {
 }
 
 let captured: { key: string; generation: number; sortOnly: boolean; continuity: SearchContinuity } | null = null;
+
+export function historySearchContinuity(snapshot: HistorySnapshot | undefined, params: UrlSearchParams): SearchContinuity {
+  const matching = snapshot?.searchKey === buildSearchKey(params) ? snapshot : undefined;
+  return {
+    targetId: matching?.anchorImageId ?? null,
+    placement: matching?.viewportRatio != null
+      ? { kind: "ratio", ratio: matching.viewportRatio } : { kind: "start" },
+    focus: matching?.anchorImageId && !matching.anchorIsPhantom ? "target" : "none",
+    fallback: "top",
+    ...(matching?.anchorImageId ? { anchorOffset: matching.anchorOffset } : {}),
+  };
+}
 
 export function captureSearchContinuity(
   sortOnly: boolean,

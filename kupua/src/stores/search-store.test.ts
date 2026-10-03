@@ -3789,7 +3789,7 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     const operation = actions().search(anchor, { phantomOnly: mode === "phantom" });
     for (const orderBy of ["-uploadTime", "-relevance", "-uploadTime"]) {
       actions().setParams({ orderBy });
-      actions().resortAiBuffer(orderBy, anchor, mode === "phantom");
+      actions().resortAiBuffer(orderBy, { targetId: anchor, placement: { kind: "start" }, focus: mode === "explicit" ? "target" : "none" });
     }
     release(result);
     await operation;
@@ -3800,7 +3800,7 @@ describe("AI search — sortAroundFocusId (Back-navigation restore)", () => {
     expect(state().loading).toBe(false);
     assertPositionsConsistent();
     actions().setParams({ orderBy: "-relevance" });
-    actions().resortAiBuffer("-relevance", anchor, mode === "phantom");
+    actions().resortAiBuffer("-relevance", { targetId: anchor, placement: { kind: "start" }, focus: mode === "explicit" ? "target" : "none" });
     expect(state().results.map((image) => image?.id)).toEqual(["ai-img-0", "ai-img-1", "ai-img-2"]);
     expect(ai).toHaveBeenCalledTimes(1);
     assertPositionsConsistent();

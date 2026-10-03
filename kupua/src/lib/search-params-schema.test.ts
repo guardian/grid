@@ -3,9 +3,18 @@ import {
   applySearchContextTransitions,
   canonicalizeSearchParams,
   hasCollectionFilter,
+  searchParamsSchema,
+  URL_PARAM_KEYS,
+  URL_DISPLAY_KEYS,
   type SearchContextMemory,
   type UrlSearchParams,
 } from "./search-params-schema";
+
+it("density is neither URL state nor a display-only history key", () => {
+  expect(searchParamsSchema.parse({ nonFree: "true", density: "table" })).toEqual({ nonFree: "true" });
+  expect(URL_PARAM_KEYS).not.toContain("density");
+  expect(URL_DISPLAY_KEYS.has("density" as never)).toBe(false);
+});
 
 describe("hasCollectionFilter", () => {
   it.each([

@@ -47,8 +47,7 @@ test.describe("Phantom focus mode — click behaviour", () => {
 
   test("single-click opens image detail in table", async ({ kupua }) => {
     await setPhantomMode(kupua.page);
-    await kupua.page.goto("/search?nonFree=true&density=table");
-    await kupua.waitForResults();
+    await kupua.startSearch("", "table");
 
     // Click the first data row
     const rows = kupua.page.locator(

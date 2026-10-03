@@ -24,8 +24,8 @@ export interface HistorySnapshot {
   /**
    * Viewport-relative ratio of the anchor image at capture time.
    * Formula: (rowTop - scrollTop) / clientHeight.
-   * Fed into saveSortFocusRatio on restore so Effect #9 positions the
-   * image at the same fraction of the viewport, not always at top row.
+  * Carried by destination continuity so Effect #9 positions the resolved
+  * image at the represented fraction in the current layout.
    * Null when the anchor couldn't be located in the DOM at capture time.
    */
   viewportRatio: number | null;

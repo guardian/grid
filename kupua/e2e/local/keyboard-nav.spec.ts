@@ -26,7 +26,7 @@ test.beforeEach(async ({ kupua }) => {
 test.describe("KUP-013 End with retained hidden focus", () => {
   for (const density of ["grid", "table"] as const) {
     test(`${density}: windowed End preserves selected IDs and hidden focus after Clear`, async ({ kupua, page }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       if (density === "table") await kupua.switchToTable();
       await kupua.focusNthItem(1);
       const origin = await kupua.getFocusedImageId();
@@ -76,7 +76,7 @@ test.describe("KUP-013 End with retained hidden focus", () => {
 
 test.describe("No-focus mode — scroll only", () => {
   test("ArrowDown scrolls by one row without setting focus (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Ensure no focus is set
     const before = await kupua.getFocusedImageId();
@@ -97,7 +97,7 @@ test.describe("No-focus mode — scroll only", () => {
 
 
   test("PageDown scrolls by one page without setting focus (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const scrollBefore = await kupua.getScrollTop();
     expect(scrollBefore).toBe(0);
@@ -116,7 +116,7 @@ test.describe("No-focus mode — scroll only", () => {
   });
 
   test("Home scrolls to top without setting focus", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll down first
     await kupua.pageDown();
@@ -129,7 +129,7 @@ test.describe("No-focus mode — scroll only", () => {
   });
 
   test("End scrolls to bottom without setting focus", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const genBefore = (await kupua.getStoreState()).seekGeneration;
     await kupua.page.keyboard.press("End");
@@ -144,7 +144,7 @@ test.describe("No-focus mode — scroll only", () => {
   });
 
   test("End under Credit sort reaches a missing-Credit tail", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.selectSort("Credit");
 
     await kupua.page.evaluate(() => {
@@ -209,7 +209,7 @@ test.describe("No-focus mode — scroll only", () => {
 
 test.describe("No-focus mode — table view", () => {
   test("ArrowDown scrolls by one row without setting focus (table)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     // Ensure no focus
@@ -230,7 +230,7 @@ test.describe("No-focus mode — table view", () => {
 
 test.describe("Focus mode — arrow keys", () => {
   test("ArrowDown then ArrowUp restores the exact focused image (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.focusNthItem(0);
     const firstFocused = await kupua.getFocusedImageId();
@@ -248,7 +248,7 @@ test.describe("Focus mode — arrow keys", () => {
   });
 
   test("ArrowLeft/Right move focus within row (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus first item
     await kupua.focusNthItem(0);
@@ -275,7 +275,7 @@ test.describe("Focus mode — arrow keys", () => {
 
 test.describe("Focus mode — Home/End", () => {
   test("Home scrolls to top AND focuses first image when focus exists", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll down and set focus
     await kupua.pageDown();
@@ -296,7 +296,7 @@ test.describe("Focus mode — Home/End", () => {
   });
 
   test("Home after deep seek focuses first image (seek path)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Seek deep so buffer is windowed
     await kupua.seekTo(0.5);
@@ -340,7 +340,7 @@ test.describe("Focus mode — Home/End", () => {
   });
 
   test("End scrolls to bottom AND focuses last image when focus exists", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Set focus
     await kupua.focusNthItem(0);
@@ -373,7 +373,7 @@ test.describe("Focus mode — Home/End", () => {
 
 test.describe("Search box key trapping", () => {
   test("ArrowLeft/Right are trapped in search box — don't move grid focus", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // The search box has autofocus. Press ArrowRight — should NOT focus
     // any image (it should stay in the search box for cursor movement).
@@ -392,7 +392,7 @@ test.describe("Search box key trapping", () => {
 
 test.describe("Row alignment", () => {
   test("PageDown from non-aligned position snaps to row boundary (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll by a non-row-aligned amount manually
     await kupua.scrollBy(150); // 150px, not a multiple of GRID_ROW_HEIGHT (303)

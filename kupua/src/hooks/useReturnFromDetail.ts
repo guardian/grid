@@ -4,8 +4,7 @@
  *
  * Extracted from ImageTable and ImageGrid where the logic was duplicated.
  *
- * When the `image` URL param transitions from present → absent (user pressed
- * Back or closed the overlay), this hook:
+ * When detail closes into its originating list entry, this hook:
  *   1. Sets focus to the last viewed image
  *   2. If the user navigated to a different image via prev/next in the
  *      detail view, scrolls that image to the center of the viewport
@@ -20,7 +19,7 @@ import { useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
-import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { getCurrentKupuaKey, getDetailOriginKupuaKey } from "@/lib/orchestration/history-key";
 
 // ---------------------------------------------------------------------------
 // One-shot suppress flag — set by resetToHome() so useReturnFromDetail
@@ -83,6 +82,9 @@ export function useReturnFromDetail({
 }: ReturnFromDetailConfig): void {
   // Track previous image param to detect the closing transition.
   const prevImageParam = useRef(imageParam);
+  const detailOriginKeyRef = useRef(getDetailOriginKupuaKey());
+  const entryKey = getCurrentKupuaKey();
+  const detailEntryKeyRef = useRef(entryKey);
   const detailEntryImageIdRef = useRef<string | undefined>(
     // Traversal uses replace navigation, so this immutable entry identity
     // survives URL image changes and reloads in the current history entry.
@@ -101,6 +103,13 @@ export function useReturnFromDetail({
   useEffect(() => {
     const wasViewing = prevImageParam.current;
     prevImageParam.current = imageParam;
+    if (imageParam && new URL(window.location.href).searchParams.get("image") === imageParam) {
+      detailOriginKeyRef.current = getDetailOriginKupuaKey();
+      if (wasViewing && detailOriginKeyRef.current && entryKey !== detailEntryKeyRef.current) {
+        detailEntryImageIdRef.current = (history.state as { _detailEntryImageId?: string } | null)?._detailEntryImageId ?? imageParam;
+      }
+      detailEntryKeyRef.current = entryKey;
+    }
 
     // Opening transition: detail just opened fresh (was not viewing anything,
     // now viewing an image). resetToHome() sets _suppressReturnFromDetail
@@ -136,14 +145,15 @@ export function useReturnFromDetail({
       _suppressReturnFromDetail = null;
       return;
     }
+    if (detailOriginKeyRef.current && getCurrentKupuaKey() !== detailOriginKeyRef.current) return;
 
     // If focusedImageId was cleared before the image param disappeared,
     // something intentionally reset focus (e.g. resetToHome). Don't undo
     // that by re-setting focus to the old image — it causes flashes when
     // the Home logo navigates away from a deep detail view.
     //
-    // In phantom mode, focusedImageId is always null (phantom never sets an
-    // explicit focus), so the "intentional clear" signal is meaningless there.
+    // Phantom mode may have no remembered focus, so the "intentional clear"
+    // signal does not establish permission to skip an ordinary close there.
     // Skip the guard in phantom mode so we still trigger centring and the
     // phantom pulse on close.
     const previousFocus = focusedImageIdRef.current;
@@ -185,6 +195,6 @@ export function useReturnFromDetail({
         return () => { cancelled = true; cancelAnimationFrame(frame); };
       }
     }
-  }, [imageParam]);
+  }, [imageParam, entryKey]);
 }
 

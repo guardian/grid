@@ -7,7 +7,7 @@ snapshots capture and restore scroll position, and how per-entry identity
 
 ## Overview
 
-URL is the single source of truth. `useUrlSearchSync` reacts to TanStack Router's
+URL is the source of truth for URL-managed search/detail state. `useUrlSearchSync` reacts to TanStack Router's
 `searchParams` and syncs them into the Zustand store, then fires `search()`.
 History entries are created selectively: committed discrete actions (filter toggle,
 sort change, date range) push; incremental changes (debounced typing) replace.
@@ -17,21 +17,38 @@ by `kupuaKey` and restores the user's scroll position and focused image via the
 existing sort-around-focus infrastructure. On reload, a `pagehide` handler persists
 the snapshot to `sessionStorage` so the same restore path fires on mount.
 
+### Independent Density
+
+[Q2 and the completed unit](../not-yet-another-audit-ledger.md#history-and-density-unit)
+remove density from the URL and all history state, not merely change push to replace.
+The current tab's choice survives navigation/Back/Forward and reload, independently
+of entry snapshots, using session storage initialized before the view mounts.
+Fresh independent tabs default to grid; no legacy link support or cross-tab sync.
+Density toggles leave history length, entry identity and Forward availability intact.
+Home resets grid with existing fresh-data timing; later density input wins without
+cancelling the search reset, and abandoned Home work cannot overwrite the preference.
+Back after Home does not restore an old density. B13/B14 are repaired; B1 is
+superseded by removal of its density-only entry producer, not an obsolete-entry fix.
+`ui-prefs-store` reads `kupua-density` synchronously and writes each choice promptly.
+Missing/invalid/unavailable storage defaults quietly to grid; runtime choices stay
+usable. Local preference hydration cannot overwrite this session-owned state.
+
 ## Guiding philosophy
 
 **History should let the user traverse all *useful* views.** A useful view is
-one the user could conceivably want to return to — a search context, a
-density choice, an opened image. App-chrome state (left/right panel
+one the user could conceivably want to return to — a search context or an
+opened image. Density is a viewing preference, not a history
+destination. App-chrome state (left/right panel
 visibility, hover states, in-progress text input) is not a useful view
 and is deliberately divorced from history.
 
 Concretely, this gives:
 
 - **Push** when the action commits a new useful view: filter toggle, sort
-  change, date range, density toggle, opening an image, completed query.
+  change, date range, opening an image, completed query.
 - **Replace** when the action is intermediate or undoes itself naturally:
   debounced typing, image traversal, default-injection redirect.
-- **Outside history entirely** for app chrome: panel toggles, hover,
+- **Outside history entirely** for density and app chrome: panel toggles, hover,
   in-progress text input.
 
 **Continuous content-state — scroll, focus movement, search query typing (debounce), traversal — is also
@@ -50,12 +67,14 @@ useful, don't push. Relieved → useful, push.
 
 ## History entry rules
 
+Current implementation:
+
 | Action | Push/Replace | Marks user-initiated? | Goes through `useUpdateSearchParams`? | Why |
 |---|---|---|---|---|
 | Filter toggle, sort change, date range | **Push** | Yes | Yes | Discrete committed action — back undoes it |
 | Debounced CQL/AI edits | **Push** (session start) then **Replace** (settlement) | Yes | Settled edits use `{ replace: true }` | `pushTypingSearchEntry` captures the predecessor and pushes its URL with a fresh key. Overlapping CQL/AI edits share that entry; settled values replace it. |
-| Density toggle (grid ↔ table) | **Push** | Yes | Yes | Display-only key; URL_DISPLAY_KEYS skips re-search but history still grows. Deliberate — density is a useful view. |
-| Open image detail (click / double-click) | **Push** | Yes (via `pushNavigate`) | No — `pushNavigate()` from `ImageGrid` / `ImageTable` | Display-only `image` key; effect bails on dedup, but marking is belt-and-braces. |
+| Density toggle (grid ↔ table) | **Neither** | No navigation | No | `setDensity` changes/persists per-tab UI state. Entry key, Forward branch, typing and query generation stay intact. |
+| Open image detail (click / double-click) | **Push** | Yes (via `pushNavigate`) | No — `pushNavigate()` from `ImageGrid` / `ImageTable` | Display-only `image` key; marked origin/detail pair preserves the laid-out list without a search. |
 | Close image detail (all affordances) | **history.back()** | Yes (inline `markUserInitiatedNavigation`) | No — `history.back()` in `ImageDetail.closeDetail` | Pops the detail entry; forward re-opens detail. On cold loads (paste/bookmark/reload), deep-link synthesis on mount inserts a bare-list entry so `history.back()` stays inside kupua. Skipped for SPA-entered detail (flag guard). |
 | Prev/next image in detail (traversal) | **Replace** | **No** | No — raw `navigate()` from `useImageTraversal.onNavigate` | Traversal is divorced from history — user doesn't want 50 back-presses. |
 | Logo → reset to home | **Push** | **No** (via `pushNavigateAsPopstate`) | No — `pushNavigateAsPopstate()` after `resetToHome()` | Explicit opt-out from marking. Popstate semantics reset to top with no focus carry — desired "start over" behaviour. |
@@ -91,6 +110,11 @@ cleanup share this local lifetime; restore, return and density suppressions prov
 token-scoped release functions so obsolete cleanup cannot consume a successor's state.
 Neither buffer publication nor ordinary rendering is a new navigation intent.
 
+Home captures `_densityIntent` at launch and resets grid only if that intent remains
+current after its owned search settles. Same-value and away/back choices advance
+intent too; value equality is not ownership. A newer choice wins without cancelling
+Home's query reset. Abandoned Home cannot change or persist density.
+
 ### Push-navigate helpers
 
 All push-navigate sites explicitly declare their intent:
@@ -105,29 +129,30 @@ All push-navigate sites explicitly declare their intent:
 - Replace-only sites (`traversal-onNavigate`, `default-injection`) stay raw.
 - `useUpdateSearchParams()` — the golden path. Marks + captures internally.
 
-## Popstate detection — user-initiated flag
+## Native History And User Navigation
 
 When browser back/forward fires, `useUrlSearchSync` needs to distinguish it from
 user-initiated param changes (where focus preservation / "Never Lost" should apply).
 
-**Mechanism:** A module-level flag in `orchestration/search.ts`:
+User search changes use a module-level flag in `orchestration/search.ts`:
 - `markUserInitiatedNavigation()` — called synchronously in `useUpdateSearchParams()`
   immediately before `navigate()`.
 - `consumeUserInitiatedFlag()` — read-and-clear, called in the `useUrlSearchSync`
-  effect after the dedup guard passes.
+  effect when it consumes a coherent transition, including a dedup return.
 
-If the flag is `true` → user-initiated → preserve focus (pass `focusedImageId` or
-phantom anchor to `search()`).
-If `false` (default) → popstate or programmatic → look up snapshot and restore
-position, or fall back to reset-to-top.
+If true, consume the pre-passive user continuity capture; otherwise derive a
+handoff only from the destination snapshot, or use top/no focus.
 
-**Why not mark popstate instead?** TanStack Router's `onPushPopEvent` handler is
-async. A `window.popstate` listener sets the flag synchronously, but by the time
-the React effect runs, intermediate no-op effect invocations (hitting the dedup
-guard and bailing early) can consume the flag before the effect that actually
-processes the param change. Marking user-initiated navigations is synchronous
-and happens right before `navigate()`, guaranteeing the flag is present when the
-effect runs.
+Query dedup alone is insufficient: distinct native entries may have identical
+params but different represented positions/focus. `useUrlSearchSync` subscribes to
+the existing `router.history` owner. BACK/FORWARD/GO marks the destination key
+before publishing its observed entry identity; PUSH/REPLACE does not. The effect
+waits for raw location and validated route params to agree before consuming that
+notification. There is no competing native `window.popstate` listener.
+
+Same-query native destinations restore unless they are the marked origin/detail
+pair. Every consumed transition, including dedup, updates source entry/image/origin
+bookkeeping. Unmarked pre-existing detail entries retain ordinary-close compatibility.
 
 ## Per-entry identity — kupuaKey
 
@@ -150,6 +175,15 @@ would change the key, and the snapshot lookup on later popstate would miss.
 
 Implementation: `src/lib/orchestration/history-key.ts`.
 
+Detail entries also carry `_detailEntryImageId` and `_detailOriginKupuaKey` as
+navigation metadata, not snapshot fields. `pushNavigate` stamps the originating
+list key from the caller's immutable entry-image marker; cold synthesis stamps its
+new bare-list key. Traversal retains them. A coherent marked present-to-present
+entry change adopts the destination entry-image identity; same-entry traversal
+does not rebase it. Ordinary close to the marked origin retains native placement
+or centres the last-viewed image after traversal. Multi-entry GO elsewhere and
+unrelated native detail re-entry use destination restoration instead.
+
 ## Snapshot system — position preservation across history
 
 ### Snapshot shape
@@ -161,6 +195,7 @@ interface HistorySnapshot {
   anchorIsPhantom: boolean;             // true if anchor is viewport-centre, not explicit focus
   anchorOffset: number;                 // global offset at capture time
   viewportRatio: number | null;         // (rowTop - scrollTop) / clientHeight
+  newCountSince: string | null;         // absorbed-new-images freeze boundary
 }
 ```
 
@@ -197,7 +232,7 @@ Call sites are oblivious to which is in use.
 
 ### Capture
 
-Snapshots are captured at two points:
+Snapshots are captured at three points:
 
 1. **On push** — `markPushSnapshot()` fires inside `useUpdateSearchParams` and
    `pushNavigate`, immediately before `navigate()`. The store still shows pre-edit
@@ -236,18 +271,26 @@ In `useUrlSearchSync`, when `consumeUserInitiatedFlag()` returns `false`:
 2. Match `snapshot.searchKey === buildSearchKey(currentParams)` (strict match only —
    lenient matching was considered but analysis showed the keys are structurally
    identical, making the lenient branch dead code).
-3. If matched with an anchor: pass `anchorImageId` as `sortAroundFocusId` to
-   `search()` with `snapshotHints: { anchorOffset }`. This engages the existing
-   sort-around-focus render gate — no separate restore path. (`anchorOffset` is
-   used as `hintOffset` in the deep-seek path for result sets >65k; for smaller
-   sets the position map provides the offset directly.)
-4. If the anchor is phantom (`anchorIsPhantom`), pass `phantomOnly: true` to
-   `search()` so `_findAndFocusImage` sets `_phantomFocusImageId` instead of
-   `focusedImageId` — no spurious focus ring.
-5. If `viewportRatio` is present, call `saveSortFocusRatio(snapshot.viewportRatio)`
-   before `search()` so Effect #9 in `useScrollEffects` positions the image at the
-   same viewport fraction, not always at the top row.
-6. Fall back to reset-to-top when the snapshot is absent or doesn't match.
+3. `historySearchContinuity(snapshot, params)` produces destination target,
+  ratio-or-start placement, represented target-focus or NONE, top fallback and
+  offset hint. It does not call the live user anchor chooser or capture departing
+  neighbours. Missing/mismatched/null-anchor snapshot means start/no focus.
+4. Pass that handoff to `search`, or `resortAiBuffer` for resident AI sort/entry-only
+  history. Existing generation/focus ownership carries resolution and coherent
+  publication; effect 9 places once using the CURRENT grid/table geometry.
+  Phantom snapshots do not restore a hidden bookmark independently of the anchor.
+5. Genuine missing target means destination top/no focus, not a departing neighbour
+  (B13). Ordinary user-neighbour and adapter error/absence contracts remain.
+6. Restore `newCountSince` only on a matching anchor snapshot, using the later
+  saved/current boundary. This monotonic ratchet is not immutable membership.
+
+Resident AI restoration applies explicit NONE as well as focus, without requests
+(B14). Pending history waits for owned finite publication, adopting latest
+same-query order/continuity; newer work cannot revive obsolete placement. Input
+retirement does not cancel useful query discovery. The adopted `snapshotHints`,
+AI identity arguments and independent `saveSortFocusRatio` bridge are removed.
+Cursor restoration and pending-arrow placement still have limited legacy consumers;
+this is not a global placement-engine rewrite or a larger snapshot model.
 
 **Mount-time restore (reload):** The same restore path fires on mount
 (because `consumeUserInitiatedFlag()` returns `false` on a fresh load).
@@ -264,24 +307,25 @@ image's natural column position. Without this, the column was determined by
 ### Scroll teleport prevention
 
 `findImageIndex` (`useDataWindow.ts`) reads `imagePositions` imperatively via
-`getState()` and has a stable `useCallback(..., [])` — a deliberate 23 May 2026
-perf fix so ordinary buffer extends never change its reference. Effect #9's
-dependency array is `[sortAroundFocusGeneration, findImageIndex, virtualizer,
-parentRef]`, so a plain extend (which does not change the generation counter,
-and never the stable `findImageIndex`) does not
-re-fire the effect at all — there is nothing to teleport.
+`getState()` and keeps a stable callback across ordinary buffer extends. Effect 9
+checks the current owner/phase and density readiness; it marks handoff placement
+consumed. Ordinary rerenders or a later density mount cannot replay a placed or
+retired owner. Small-result fill retries retain the existing geometry/input guards.
 
 No-position-map sort landings run the cursor-buffer fetch and `countBefore`
 concurrently, align before publication, and bump `sortAroundFocusGeneration`
 in the same atomic store commit as final results and coordinates. Effect #9
-applies that generation once; `handledSortFocusGenRef` defensively ignores any
-same-generation rerender caused by dependency identity changes.
+applies the resolved handoff once. Legacy cursor/arrow work keeps its generation
+guard; neither path treats ordinary buffer growth as new placement authority.
 
 ## Case-specific popstate behaviour
 
 **Case A — Back from image detail (same search context):**
-Only the `image` display-only key was removed. `URL_DISPLAY_KEYS` guard skips
-re-search. Focus is preserved. Snapshot path not invoked.
+When returning to that marked detail entry's origin, skip re-search/restore and
+preserve the laid-out list. `useReturnFromDetail` sets last-viewed focus and centres
+only after traversal. Its queued callback is cancelled on entry change; ownership
+guards also reject deliberately delivered obsolete work. GO to another entry
+instead restores that destination's snapshot.
 
 **Case B — Back to a different search context:**
 Search-affecting keys changed. Snapshot looked up → anchor restored at saved
@@ -291,29 +335,25 @@ position. If no snapshot, falls back to reset-to-top.
 Same as Case B in reverse. The forward navigation is also a popstate; the
 snapshot captured on departure enables position restoration.
 
-**Case D — Back across a density toggle (same search context):**
-Only the `density` display-only key changed; dedup guard bails. No re-search,
-focus preserved. Snapshot path not invoked.
+**Case D — Distinct same-query native destination:**
+Entry identity bypasses query dedup for list/list or unrelated marked detail
+destinations. Ordinary search restores once; resident AI uses its request-free
+ordering path. The origin/detail exception is not a blanket display-only bailout.
+
+**Density toggle:** there is no Back step. Back/Forward keeps current density.
 
 ## E2E test coverage
 
-`e2e/local/browser-history.spec.ts` — 32 tests across nine describe blocks:
-
-**kupuaKey identity (6 tests):**
-kupuaKey minted on push, carried on replace, stable across display-only changes,
-synthesised on cold load.
-
-**Basic history (15 tests):**
-Back/forward across sort, query, detail, debounce, density, logo-reset, metadata
-click. Deep-link synthesis. SPA-entry flag guard.
-
-**Snapshot restore on popstate (6 tests):**
-Back after sort change, back after query change, forward-after-back, logo-reset
-back (no snapshot), back without snapshot falls through, deep position restore.
-
-**Reload survival (5 tests):**
-Reload restore via pagehide snapshot, reload-then-back, deep position reload,
-bfcache sessionStorage survival, no scroll teleport after reload restore.
+`e2e/local/browser-history.spec.ts` retains entry keys, typing, search/detail,
+metadata, Home, snapshot and reload controls. Repeated ordinary/AI same-query
+cycles include focused/NONE grid/table destinations, multi-entry GO out of detail,
+direct native detail re-entry and marked detail ratio preservation after reload.
+Grid ring and table outline are asserted independently of stored focus/geometry.
+Density controls assert no entry/key/search-generation change or Forward loss,
+immediate reload and first-mounted view, fresh/reused tab isolation and both-logo
+latest-intent races. Mounted continuity tests cover current-layout composition,
+pending success/absence/failure, supersession and input retirement. Local fixtures
+are not live-system or performance certification; current gates live in the ledger.
 
 ## Other behaviours worth knowing
 
@@ -334,8 +374,9 @@ Not consulted on browser back/forward (the snapshot system handles that).
 these to mirror production navigation semantics.
 
 ### URL display-only keys
-`URL_DISPLAY_KEYS = { "image", "density" }`. Changes to only these keys never
-re-fire a search (dedup guard strips them before serialising).
+`URL_DISPLAY_KEYS = { "image" }`. Ordinary detail-origin transitions do not fire
+a search. Density is absent from schema, producers/consumers and snapshots.
+Query dedup is not permission to skip a distinct native destination's restoration.
 
 ## Key files
 
@@ -346,14 +387,16 @@ re-fire a search (dedup guard strips them before serialising).
 | `src/lib/orchestration/history-key.ts` | `mintKupuaKey`, `getCurrentKupuaKey`, `withCurrentKupuaKey`, `withFreshKupuaKey`, `synthesiseKupuaKeyIfAbsent` |
 | `src/lib/history-snapshot.ts` | `HistorySnapshot` type, `SnapshotStore` interface + impls, `PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD` |
 | `src/lib/build-history-snapshot.ts` | `buildHistorySnapshot()` — reads store + DOM to build snapshot |
-| `src/hooks/useScrollEffects.ts` | Effect #9 (sort-around-focus scroll), `saveSortFocusRatio`, `handledCorrectionGenRef` |
+| `src/lib/search-continuity.ts` | Strict destination snapshot handoff; separate pre-passive user continuity capture |
+| `src/hooks/useScrollEffects.ts` | Effect #9 owned one-shot placement, current geometry/readiness and limited legacy cursor/arrow consumers |
 | `src/stores/search-store.ts` | `_loadBufferAroundImage` (column alignment), `_findAndFocusImage`, sort-around-focus |
 | `src/lib/search-params-schema.ts` | `URL_PARAM_KEYS`, `URL_DISPLAY_KEYS` |
 | `src/lib/reset-to-home.ts` | `resetToHome()`, `suppressNextRestore` |
 | `src/lib/image-offset-cache.ts` | `buildSearchKey`, `extractSortValues`, per-image offset cache |
 | `src/main.tsx` | `pagehide` handler, `scrollRestoration = 'manual'`, `synthesiseKupuaKeyIfAbsent`, dev globals |
 | `src/components/ImageDetail.tsx` | `closeDetail` (`history.back()`), deep-link synthesis, `_bareListSynthesized` guard |
-| `src/routes/search.tsx` | Reads `density` from `useSearch` to swap grid/table |
+| `src/stores/ui-prefs-store.ts` | Synchronous per-tab density initialization, prompt persistence and intent ownership |
+| `src/routes/search.tsx` | Reads preference density to swap grid/table; URL image controls detail |
 
 ---
 

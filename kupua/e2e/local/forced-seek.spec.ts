@@ -23,7 +23,7 @@ for (const transport of ["direct-ES", "media-api-fixture"] as const) {
 
 test("forced seek preserves identity through the core journey", async ({ kupua }) => {
   test.setTimeout(90_000);
-  await kupua.goto();
+  await kupua.startSearch();
 
   await test.step("50% track click paints a stable seek identity", async () => {
     await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "seek");

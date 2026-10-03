@@ -8,6 +8,9 @@
 
 import { cleanup, renderHook } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+vi.hoisted(() => {
+  vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn() }));
+});
 import type { Image } from "@/types/image";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ElasticsearchDataSource } from "@/dal/es-adapter";
@@ -15,6 +18,7 @@ import { ApiDataSource } from "@/dal/api-data-source";
 import type { SortValues } from "@/dal/types";
 import { gridConfig } from "@/lib/grid-config";
 import { useSearchStore } from "@/stores/search-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useSelectionStore, _resetMetadataCache, _resetDebounceState, _resetReconcileQueue } from "@/stores/selection-store";
 import { useToastStore } from "@/stores/toast-store";
 import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
@@ -358,7 +362,8 @@ describe("mounted range ownership", () => {
     initial.setAnchor("img-0");
     await initial.ensureMetadata(["img-9"]);
     await useSelectionStore.getState().hydrate();
-    const params = { ...useSearchStore.getState().params, image: "img-1", density: "table", offset: 20, length: 10 };
+    useUiPrefsStore.getState().setDensity("table");
+    const params = { ...useSearchStore.getState().params, image: "img-1", offset: 20, length: 10 };
     useSearchStore.setState({ params, results: images.slice(3), bufferOffset: 3, focusedImageId: "img-3" });
     rerender();
     expect(useSelectionStore.getState().selectedIds).toBe(initial.selectedIds);

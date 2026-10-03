@@ -15,7 +15,7 @@
  */
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { useSearchStore } from "@/stores/search-store";
 
 // ---------------------------------------------------------------------------
@@ -23,8 +23,26 @@ import { useSearchStore } from "@/stores/search-store";
 // ---------------------------------------------------------------------------
 
 export type FocusMode = "explicit" | "phantom";
+export type Density = "grid" | "table";
+
+export const DENSITY_STORAGE_KEY = "kupua-density";
+
+export function writeDensityPreference(density: Density): void {
+  try { sessionStorage.setItem(DENSITY_STORAGE_KEY, density); } catch {}
+}
+
+function initialDensity(): Density {
+  try {
+    return sessionStorage.getItem(DENSITY_STORAGE_KEY) === "table" ? "table" : "grid";
+  } catch {
+    return "grid";
+  }
+}
 
 interface UiPrefsState {
+  density: Density;
+  _densityIntent: number;
+  setDensity: (density: Density) => void;
   /** User's chosen focus mode (persisted in localStorage). */
   focusMode: FocusMode;
 
@@ -52,6 +70,12 @@ interface UiPrefsState {
 export const useUiPrefsStore = create<UiPrefsState>()(
   persist(
     (set) => ({
+      density: initialDensity(),
+      _densityIntent: 0,
+      setDensity: (density) => {
+        writeDensityPreference(density);
+        set((state) => ({ density, _densityIntent: state._densityIntent + 1 }));
+      },
       focusMode: "explicit" as FocusMode,
       blurGraphicImages: true,
       _pointerCoarse: false,
@@ -67,8 +91,18 @@ export const useUiPrefsStore = create<UiPrefsState>()(
     }),
     {
       name: "kupua-ui-prefs",
+      storage: createJSONStorage(() => ({
+        getItem: (name) => { try { return localStorage.getItem(name); } catch { return null; } },
+        setItem: (name, value) => { try { localStorage.setItem(name, value); } catch {} },
+        removeItem: (name) => { try { localStorage.removeItem(name); } catch {} },
+      })),
       // Only persist user-facing preferences, not the runtime _pointerCoarse flag.
       partialize: (state) => ({ focusMode: state.focusMode, blurGraphicImages: state.blurGraphicImages }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<Pick<UiPrefsState, "focusMode" | "blurGraphicImages">> | undefined;
+        return { ...current, focusMode: saved?.focusMode ?? current.focusMode,
+          blurGraphicImages: saved?.blurGraphicImages ?? current.blurGraphicImages };
+      },
     },
   ),
 );

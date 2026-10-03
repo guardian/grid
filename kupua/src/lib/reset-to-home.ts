@@ -7,7 +7,7 @@
  * **Async by design.** The caller must `await` this function and only
  * navigate (change the URL) AFTER it resolves. This prevents the
  * "flash of wrong content" when the density switches from table→grid:
- * if the URL changed synchronously (dropping `density=table`), the grid
+ * if the preference changed synchronously, the grid
  * would mount with stale deep-offset data for ~100ms before search()
  * completed. By awaiting search() first, the buffer already contains
  * fresh page-1 data when the density switch happens.
@@ -25,6 +25,7 @@ import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { isMobile } from "@/lib/is-mobile";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import type { RouterHistory } from "@tanstack/react-router";
 
 let cancelHome: (() => void) | null = null;
@@ -39,7 +40,7 @@ let cancelHome: (() => void) | null = null;
  * 3. Scroll position resets to top + CQL input is focused
  * 4. Search params reset to defaults (no query, offset 0)
  * 5. `search()` is awaited — buffer gets fresh page-1 data
- * 6. Caller navigates to /search?nonFree=true (density switch now safe)
+ * 6. Reset density only if its original intent is current, then navigate
  *
  * @param navigate — callback that performs the URL navigation. Called
  *   AFTER search() resolves so the density switch (table→grid) sees
@@ -48,6 +49,7 @@ let cancelHome: (() => void) | null = null;
  */
 export async function resetToHome(navigate: () => void | string, traceInteractionId?: string, history?: RouterHistory) {
   cancelHome?.();
+  const densityIntent = useUiPrefsStore.getState()._densityIntent;
   let active = true;
   let committing = false;
   let observedCommit = false;
@@ -128,7 +130,7 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   //
   // When already in grid view (no density switch), the scroll container
   // SURVIVES the navigation — the eager reset IS needed to scroll to top.
-  const willSwitchDensity = new URL(window.location.href).searchParams.get("density") === "table";
+  const willSwitchDensity = useUiPrefsStore.getState().density === "table";
   resetScrollAndFocusSearch({ skipEagerScroll: willSwitchDensity, isCurrent });
 
   // Set params and fire the search. We AWAIT completion so the buffer
@@ -197,8 +199,10 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   // true — breaking ALL subsequent density switches (the grid unmount save
   // is suppressed, so the table mount finds no saved state and falls back
   // to scrollToIndex which lands at the wrong position).
-  if (willSwitchDensity) {
-    releases.push(suppressDensityFocusSave());
+  const preferences = useUiPrefsStore.getState();
+  if (preferences._densityIntent === densityIntent) {
+    if (preferences.density === "table") releases.push(suppressDensityFocusSave());
+    preferences.setDensity("grid");
   }
 
   // Navigate AFTER data is ready. The density switch (table→grid) now

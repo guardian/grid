@@ -50,6 +50,10 @@ export function getCurrentKupuaKey(): string | undefined {
   return (history.state as any)?.kupuaKey as string | undefined;
 }
 
+export function getDetailOriginKupuaKey(): string | undefined {
+  return (history.state as { _detailOriginKupuaKey?: string } | null)?._detailOriginKupuaKey;
+}
+
 // ---------------------------------------------------------------------------
 // State builders — for TSR navigate({ state })
 // ---------------------------------------------------------------------------

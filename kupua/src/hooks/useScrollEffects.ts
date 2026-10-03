@@ -124,27 +124,6 @@ export function suppressDensityFocusSave(): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Sort-focus bridge
-//
-// Module-level state for preserving the focused item's viewport-relative
-// position across sort changes. Written synchronously before the async
-// search, consumed by the sortAroundFocusGeneration effect after search
-// completes.
-// ---------------------------------------------------------------------------
-
-let _sortFocusRatio: number | null = null;
-
-export function saveSortFocusRatio(ratio: number): void {
-  _sortFocusRatio = ratio;
-}
-
-function consumeSortFocusRatio(): number | null {
-  const r = _sortFocusRatio;
-  _sortFocusRatio = null;
-  return r;
-}
-
-// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Geometry descriptor — captures grid vs table structural differences
 // ---------------------------------------------------------------------------
@@ -653,51 +632,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     if (isUserInitiatedNavigation()) {
       saveSearchContinuity(searchParams, sortOnly, captureSearchContinuity(sortOnly, el, geometryRef.current));
-      consumeSortFocusRatio();
-      return;
     }
-
-    // Skip scroll-reset when sort-around-focus is active OR when focus
-    // preservation is active (non-sort change with a focused image — e.g.
-    // clicking a metadata value). Capture the anchor item's viewport ratio
-    // BEFORE the change so effect 9 can restore exact position.
-    // NOTE: sort-focus ratio does NOT include headerOffset — it measures
-    // the pure row-to-viewport ratio. Density-focus DOES include headerOffset
-    // because the two density modes have different headers and need to
-    // compensate. These are independent save/restore cycles.
-    //
-    // Phantom promotion: when there's no explicit focus but there IS a
-    // viewport anchor and the change isn't sort-only, phantom focus
-    // promotion will fire in search(). Save the anchor's viewport ratio
-    // and return — same path as explicit focus. Effect #9 will restore
-    // the ratio when sortAroundFocusGeneration bumps.
-    //
-    // Explicit focus: save the focused image's viewport ratio for
-    // restoration by effect #9 after the buffer swap.
-    const selState = useSelectionStore.getState();
-    const selectionAnchorId = sortOnly && selState.selectedIds.size > 0 ? selState.anchorId : null;
-    const preserveId = selectionAnchorId ?? focusedImageId ?? (!sortOnly ? getViewportAnchorId() : null);
-    if (preserveId) {
-      const store = useSearchStore.getState();
-      const gIdx = store.imagePositions.get(preserveId);
-      if (gIdx != null) {
-        const localIdx = toVirtualizerIdx(gIdx, store.bufferOffset, isTwoTierFromTotal(store.total));
-        if (localIdx >= 0) {
-          const geo = geometryRef.current;
-          const rowTop = localIndexToPixelTop(localIdx, geo);
-          const ratio = (rowTop - el.scrollTop) / el.clientHeight;
-          saveSortFocusRatio(ratio);
-        }
-      }
-      return;
-    }
-
-    // [Bug 2 fix] Don't reset scroll eagerly — the old buffer is still
-    // visible and resetting scrollTop here causes a flash of old data at
-    // the top. The _scrollReset effect (below) resets scroll atomically
-    // with the data swap when search() completes.
-    // For deep→shallow transitions, effect #8 (bufferOffset→0 guard)
-    // also fires and resets scroll.
   }, [searchParams, virtualizer, focusedImageId, parentRef]);
 
   // -------------------------------------------------------------------------
@@ -850,7 +785,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       ? continuity.placement.kind === "ratio" ? continuity.placement.ratio
         : continuity.placement.kind === "centre" && el && el.clientHeight > 0
           ? (el.clientHeight - geo.headerOffset - geo.rowHeight) / (2 * el.clientHeight) : null
-      : consumeSortFocusRatio();
+      : null;
     const id = pending?.imageId ?? continuity?.targetId ?? store._phantomFocusImageId ?? store.focusedImageId;
     if (!id) return;
     const idx = findImageIndex(id);

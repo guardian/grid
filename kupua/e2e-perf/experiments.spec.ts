@@ -593,10 +593,12 @@ function logProbeDiagnostics(diags: ProbeDiag[], experimentId: string) {
 // ---------------------------------------------------------------------------
 
 async function gotoExperiment(kupua: any, extraParams?: string) {
+  await kupua.initializeDensity("grid");
   const untilParam = `until=${STABLE_UNTIL}`;
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true&${untilParam}${extra}`);
   await kupua.waitForResults();
+  await kupua.assertDensity("grid");
 }
 
 // ---------------------------------------------------------------------------

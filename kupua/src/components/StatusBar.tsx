@@ -97,7 +97,8 @@ export function StatusBar() {
   const reSearch = useSearchStore((s) => s.search);
   const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
-  const isGrid = searchParams.density !== "table";
+  const isGrid = useUiPrefsStore((state) => state.density === "grid");
+  const setDensity = useUiPrefsStore((state) => state.setDensity);
   const currentQuery = searchParams.query ?? "";
 
   const leftVisible = usePanelStore((s) => s.config.left.visible);
@@ -108,11 +109,8 @@ export function StatusBar() {
 
   const toggleDensity = useCallback(() => {
     beginTraceInteraction("density-swap", { from: isGrid ? "grid" : "table" });
-    // Deliberate push (not replace). Density is a useful view per the
-    // guiding philosophy: back after a density toggle re-toggles density
-    // without re-search (display-only-key dedup guard bails).
-    updateSearch({ density: isGrid ? "table" : undefined });
-  }, [isGrid, updateSearch]);
+    setDensity(isGrid ? "table" : "grid");
+  }, [isGrid, setDensity]);
 
   // Prefetch aggregations on hover — intentionally invisible ("magic") UX.
   // Only fires if panel is closed AND the Filters section is expanded in

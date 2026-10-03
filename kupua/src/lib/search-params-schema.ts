@@ -59,8 +59,6 @@ export const searchParamsSchema = z.object({
   /** Currently viewed image ID — when present, image detail overlay is shown.
    *  Named `image` (not `imageId`) to match Grid URL style: `?image=abc123`. */
   image: z.string().optional().catch(undefined),
-  /** View density — "grid" (default) or "table" (data table). */
-  density: z.enum(["table", "grid"]).optional().catch(undefined),
 });
 
 export type UrlSearchParams = z.infer<typeof searchParamsSchema>;
@@ -173,7 +171,6 @@ export const URL_PARAM_KEYS = Object.keys(
  */
 export const URL_DISPLAY_KEYS: ReadonlySet<keyof UrlSearchParams> = new Set([
   "image",
-  "density",
 ]);
 
 /**

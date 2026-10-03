@@ -71,7 +71,7 @@ export function buildHistorySnapshot(): HistorySnapshot {
   // consumer): geometry-based pixel positions from localIndexToPixelTop.
   // Earlier this used DOM getBoundingClientRect which includes container
   // padding (e.g. pt-1 = 4px), causing a 4px/cycle drift when the ratio
-  // round-tripped through saveSortFocusRatio → Effect #9.
+  // round-tripped through history placement in Effect #9.
   let viewportRatio: number | null = null;
   const scrollContainer = getScrollContainer();
   if (anchorImageId && scrollContainer && imagePositions.has(anchorImageId)) {

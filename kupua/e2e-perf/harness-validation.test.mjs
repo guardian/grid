@@ -668,6 +668,137 @@ function decodedDetailHarness({ readyAt = 64, wrongIdentity = false, moving = fa
   return { run: () => new Helper(page).waitForDecodedDetailImage("fixture-target", 160), elapsed: () => now, decodes: () => decodes };
 }
 
+function densityInitializationHarness() {
+  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const start = source.indexOf("  async initializeDensity(");
+  assert.ok(start >= 0, "shared helpers must expose independent-case density initialization");
+  const method = source.slice(start, source.indexOf("  /** Navigate to the search page", start));
+  const { outputText } = ts.transpileModule(`class DensityHelper { constructor(public page: any) {} ${method} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  let values = new Map();
+  const scripts = [];
+  let sequence = 0;
+  let currentUrl = "about:blank";
+  const chosen = [];
+  const page = {
+    url: () => currentUrl,
+    addInitScript: async (callback, argument) => { scripts.push({ identifier: String(++sequence), run: () => callback(argument) }); },
+    context: () => ({ newCDPSession: async () => ({
+      enabled: false,
+      send: async function (method, params) {
+        if (method === "Page.enable") { this.enabled = true; return {}; }
+        if (method === "Page.addScriptToEvaluateOnNewDocument") {
+          assert.equal(this.enabled, true, "the external Page domain must be enabled before seeding a document");
+          const identifier = String(++sequence);
+          scripts.push({ identifier, run: () => runInNewContext(params.source, globals) });
+          return { identifier };
+        }
+        if (method === "Page.removeScriptToEvaluateOnNewDocument") {
+          const index = scripts.findIndex(script => script.identifier === params.identifier);
+          assert.ok(index >= 0, "remove only the owned density seed");
+          scripts.splice(index, 1);
+          return {};
+        }
+        throw new Error(`Unexpected initializer method ${method}`);
+      },
+      detach: async () => {},
+    }) }),
+    evaluate: async (_callback, density) => { chosen.push(density); values.set("kupua-density", density); },
+  };
+  const globals = { crypto: { randomUUID: () => String(++sequence) }, sessionStorage: {
+    getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value),
+  } };
+  const Helper = runInNewContext(`${outputText}\nDensityHelper`, globals);
+  const helper = new Helper(page);
+  return { helper, scripts, chosen, storage: () => values, load: (reverse = false) => {
+    const pending = reverse ? [...scripts].reverse() : [...scripts];
+    pending.forEach(script => script.run());
+  }, setUrl: (url) => { currentUrl = url; }, changeOrigin: (next) => { values = next; } };
+}
+
+test("shared density initialization is deliberate and cannot overwrite navigation/reload persistence", async () => {
+  const harness = densityInitializationHarness();
+  const { helper, scripts, chosen } = harness;
+  const values = harness.storage();
+  await helper.initializeDensity("table");
+  harness.load();
+  assert.equal(values.get("kupua-density"), "table");
+  values.set("kupua-density", "grid");
+  harness.load();
+  assert.equal(values.get("kupua-density"), "grid", "reload must retain the actual later choice");
+  harness.setUrl("http://localhost:3000/search");
+  await helper.initializeDensity("table");
+  assert.deepEqual(chosen, ["table"], "reused cases initialize through production preference storage");
+  assert.equal(scripts.length, 0, "a storage-only initialization must retire its old document seed");
+  harness.setUrl("about:blank");
+  await helper.initializeDensity("grid");
+  harness.load();
+  assert.equal(values.get("kupua-density"), "grid", "independent initialization must override a reused blank tab's choice");
+  values.set("kupua-density", "table");
+  harness.load();
+  assert.equal(values.get("kupua-density"), "table", "the newly initialized case must still preserve later reload choices");
+});
+
+for (const reverse of [false, true]) {
+  test(`latest pending density initialization wins with ${reverse ? "reversed" : "registration"} script order and new origin storage`, async () => {
+    const harness = densityInitializationHarness();
+    await harness.helper.initializeDensity("grid");
+    await harness.helper.initializeDensity("table");
+    harness.load(reverse);
+    assert.equal(harness.storage().get("kupua-density"), "table");
+    assert.equal(harness.scripts.length, 1, "obsolete density registrations cannot remain eligible");
+    const secondOrigin = new Map([["kupua-density", "grid"], ["unrelated", "keep"]]);
+    harness.changeOrigin(secondOrigin);
+    harness.load(reverse);
+    assert.equal(secondOrigin.get("kupua-density"), "table");
+    assert.equal(secondOrigin.get("unrelated"), "keep");
+    secondOrigin.set("kupua-density", "grid");
+    harness.load(reverse);
+    assert.equal(secondOrigin.get("kupua-density"), "grid", "reload retains the actual choice on each origin");
+  });
+}
+
+test("independent case starts retain the existing corpus-pinned navigation path", async () => {
+  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const method = source.slice(source.indexOf("  async startSearch("), source.indexOf("  async assertDensity("));
+  const { outputText } = ts.transpileModule(`class StartHelper { ${method} }`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } });
+  const Helper = runInNewContext(`${outputText}\nStartHelper`);
+  const calls = [];
+  const helper = new Helper();
+  helper.initializeDensity = async choice => calls.push(["initialize", choice]);
+  helper.gotoWithParams = async params => calls.push(["un-pinned", params]);
+  helper.gotoPerfStable = async params => calls.push(["pinned", params]);
+  helper.assertDensity = async choice => calls.push(["rendered", choice]);
+  await helper.startSearch("query=fixture", "table");
+  assert.deepEqual(calls, [["initialize", "table"], ["pinned", "query=fixture"], ["rendered", "table"]]);
+});
+
+test("perf grid readiness rejects a rendered table, including PP7c and PP10 starts", async () => {
+  const source = readFileSync(join(import.meta.dirname, "../e2e/shared/helpers.ts"), "utf8");
+  const method = source.slice(source.indexOf("  async waitForResults("), source.indexOf("  // Store state", source.indexOf("  async waitForResults(")));
+  const { outputText } = ts.transpileModule(`class ReadyHelper { constructor(public page: any) {} ${method} }`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  });
+  for (const rendered of ["grid", "table"]) {
+    const rect = { top: 0, bottom: 600 };
+    const container = { getBoundingClientRect: () => rect, querySelectorAll: () => [{ getBoundingClientRect: () => ({ top: 20, bottom: 50 }) }] };
+    const Helper = runInNewContext(`${outputText}\nReadyHelper`, { document: {
+      querySelector: selector => selector.includes(rendered) ? container : null,
+    } });
+    const page = { waitForFunction: async (callback, density) => { assert.equal(callback(density), true, "wrong rendered density"); } };
+    const operation = new Helper(page).waitForResults(15_000, "grid");
+    if (rendered === "table") await assert.rejects(operation, /wrong rendered density/);
+    else await operation;
+  }
+  const short = readFileSync(join(import.meta.dirname, "perceived-short.spec.ts"), "utf8");
+  for (const id of ["PP7c", "PP10"]) {
+    const start = short.indexOf(`test("${id}:`);
+    const scenario = short.slice(start, short.indexOf("\n  test(", start + 1));
+    assert.match(scenario, /waitForResults\(15_000, "grid"\)/, `${id} must guard its effective grid startup`);
+  }
+});
+
 test("detail readiness cannot pass on an async predicate resolving false before image load", async () => {
   const harness = decodedDetailHarness();
   await harness.run();

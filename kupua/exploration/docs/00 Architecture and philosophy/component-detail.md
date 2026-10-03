@@ -124,7 +124,14 @@ Single source of truth for static image fields and config-driven aliases. Fields
 
 ## URL Sync
 
-Single source of truth. `useUrlSearchSync` → store → search. Zod-validated params (`search-params-schema.ts`). `resetSearchSync()` for forced re-search. Custom `URLSearchParams`-based serialisation. Sort-only change detection triggers `sortAroundFocusId` when only `orderBy` changes while an image is focused. Sort-around-focus falls back to `anchorId` when `focusedImageId` is null and selection mode is active (so sort changes in selection mode preserve position). `useDocumentTitle` hook sets `document.title` to `{query} | the Grid`, with `(N new)` prefix from the new-images ticker. Selections clear-on-navigation hook wired here (gated on `SELECTIONS_PERSIST_ACROSS_NAVIGATION` in `tuning.ts`, skips sort-only and first-mount).
+URL owns search/detail params; density is independent UI state. `useUrlSearchSync`
+consumes pre-passive user continuity or builds a strict destination-snapshot handoff.
+Existing store ownership carries target, placement and focus through publication.
+Router history notifications mark native entry identity before query dedup, with
+raw/validated route coherence; distinct same-query destinations restore too.
+Marked origin/detail transitions retain the laid-out list. Selection clearing keeps
+its existing search/sort/detail boundaries. `resetSearchSync` forces search sync;
+`useDocumentTitle` sets query/title and the new-images prefix.
 
 ## CQL
 
@@ -197,7 +204,9 @@ Shared hook for all scroll lifecycle — parameterised by `ScrollGeometry` descr
 - **Post-extend cooldown:** prevents cascading prepend compensations (swimming).
 - **`seekGeneration` ref guard:** on seek, skips one stale `handleScroll` to prevent spurious `extendBackward`.
 - **Keyboard edge ownership:** pending Home/End work owns its initiating edge independently from nullable explicit-focus permission. A later resident opposite edge aborts and clears obsolete edge/loading work before applying resident placement; no successor read is required.
-- Module-level bridges for density-focus and sort-focus.
+- Module-level density-focus bridge; owned ordinary/AI/history target/placement
+	handoff replaces the adopted numeric sort/history bridge. Limited cursor/arrow
+	placement consumers remain; effect 9 checks owner, phase and density readiness.
 
 ## List Navigation (`hooks/useListNavigation.ts`)
 
@@ -212,8 +221,12 @@ Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniform
 Handles detail close for ImageTable and ImageGrid. The immutable detail-entry image is retained
 in history state across traversal/reload. Closing on that original image preserves native list
 placement; closing after traversal centres the last-viewed image with current geometry and the
-appropriate focus mode. Deferred work is guarded against newer navigation/search, and Home has
-an owned suppression path. It does not unconditionally re-centre every close.
+appropriate focus mode. Marked entries carry their originating list key: return acts
+only for that origin, while unrelated native destinations restore their snapshot.
+Marked present-to-present entry switches adopt stored destination entry-image
+identity; same-entry traversal does not. Unmarked old detail keeps compatibility.
+Deferred work is cancelled/guarded against newer entry/search/focus or unmount;
+Home retains owned suppression. It does not unconditionally re-centre every close.
 
 ## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
@@ -231,6 +244,12 @@ Imperative coordination functions extracted from UI components and hooks. Holds:
 ## Reset-to-Home (`lib/reset-to-home.ts`)
 
 Single `resetToHome()` function deduplicating the reset sequence from SearchBar and ImageDetail logo click handlers. Clears `focusedImageId`, density-focus saved state, and selection (`selection.clear()`) **before** navigation — prevents the table unmount from saving a stale viewport ratio and the grid mount from restoring it (which would fight the go-home scroll-to-top intent).
+
+After owned data settlement, Home resets/persists grid only if its captured density
+intent remains current. Later same-value or away/back choices win without cancelling
+the query reset; abandoned Home cannot overwrite density. `ui-prefs-store` initializes
+from session storage before view mount, writes each choice promptly and degrades
+quietly on unavailable storage. Local hydration owns only focus/blur fields.
 
 ## Keyboard Shortcuts (`lib/keyboard-shortcuts.ts`)
 
@@ -251,7 +270,13 @@ its separately owned scope.
 
 ## Browser History (`lib/orchestration/history-key.ts`, `lib/history-snapshot.ts`, `lib/build-history-snapshot.ts`)
 
-`kupuaKey` scheme attaches a per-entry UUID to every `pushState`/`replaceState`. `history-snapshot.ts` stores/retrieves `HistorySnapshot` (scroll position, buffer state, focus, etc.) in sessionStorage keyed by `kupuaKey`. `build-history-snapshot.ts` constructs the snapshot from current store state. `useUrlSearchSync.ts` popstate handler restores the snapshot (if present) rather than doing a fresh search. Full architecture: `exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md`.
+`kupuaKey` is minted on push and retained on replace. Session snapshots store one
+represented anchor, offset, ratio and freeze boundary, not independent bookmark and
+viewport or density. `buildHistorySnapshot` captures current state; strict destination
+continuity restores through existing search resolution or request-free resident AI
+ordering. Missing history targets use top/no focus, never departing neighbours.
+Phantom capture cannot independently restore a hidden bookmark. Full architecture:
+`exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md`.
 
 ## Touch Gesture Hooks
 

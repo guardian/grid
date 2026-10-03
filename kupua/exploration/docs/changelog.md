@@ -17,6 +17,42 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 3 October 2026 - Destination-owned history and independent per-tab density
+
+  Back/Forward derives target, placement, represented focus/NONE, top fallback and
+  offset only from the matching destination snapshot. Existing search/focus owners
+  carry resolution, coherent publication and one-shot placement in current geometry.
+  B13 no longer adopts departing neighbours when a historical target is missing;
+  ordinary user-neighbour fallback remains. B14 resident AI restores destination
+  focus/NONE without requests, and pending AI retains latest same-query order and
+  handoff without reviving retired placement or cancelling useful discovery.
+
+  Router history actions identify native destinations before query dedup; raw and
+  validated route params must agree before capture/dispatch. Distinct same-query
+  entries restore too. Marked detail origin and immutable entry-image metadata
+  distinguish normal close/traversal from unrelated native destinations, including
+  detail-to-detail history. Snapshot shape stays one represented anchor; unmarked
+  older detail and unadopted cursor/arrow placement retain limited compatibility.
+  Adopted snapshot hints, independent AI identity arguments and numeric history
+  ratio capture/consumption are removed rather than wrapped.
+
+  Density is synchronous session-owned UI state, removed from URL/history/search
+  fingerprints. Choices persist immediately, including same-value intent, without
+  navigation, Forward loss, typing cancellation or density-only searches. Storage
+  failure stays quiet; local preference hydration owns only focus/blur fields.
+  Both-logo Home resets/persists grid after owned data only if no later density
+  intent exists, without treating preference changes as query cancellation.
+  B1 is superseded by removal of its density-only entry producer, not migrated.
+
+  Maintained E2E, forced-seek, diagnostics and perf setup explicitly initialize and
+  assert density while navigation/reload retains later choices. Blank/reused setup
+  owns one removable, per-origin consumed CDP seed. Corpus pinning, workload and
+  measured boundaries remain; no live campaign or historical-result rewrite follows.
+  Composed and repeated router controls retain focus/geometry/request and pending
+  ownership proof. L39's image fixture falls through to its health stub; KUP-018
+  proves entry-change cancellation then rejects deliberately delivered stale work.
+  Q1/Q7, wider bugs and stronger seek/snapshot guarantees remain separate.
+
   ### 3 October 2026 - Adopt AI transitions into the search continuity handoff
 
   User-initiated AI entry, query/filter changes, in-memory re-sort and exit share

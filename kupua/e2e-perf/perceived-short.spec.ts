@@ -160,10 +160,12 @@ for (const changedTuple of [false, true]) {
 }
 
 async function gotoPerfSearch(kupua: any, extraParams?: string) {
+  await kupua.initializeDensity("grid");
   const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
   await kupua.waitForResults();
+  await kupua.assertDensity("grid");
 }
 
 // ---------------------------------------------------------------------------
@@ -1275,6 +1277,7 @@ function emitMetrics(metrics: PerceivedMetrics) {
 
 // Enable explicit focus mode for all tests (same as perf.spec.ts).
 test.beforeEach(async ({ kupua }) => {
+  await kupua.initializeDensity("grid");
   await kupua.ensureExplicitMode();
   await enablePerceivedTrace(kupua);
 });
@@ -1687,7 +1690,7 @@ test.describe("Perceived Performance Suite", () => {
     await kupua.page.goto(
       `/search?nonFree=true&query=${encodeURIComponent('by:"David Young"')}${untilParam}`,
     );
-    await kupua.waitForResults();
+    await kupua.waitForResults(15_000, "grid");
 
     const filteredTotal = (await kupua.getStoreState()).total;
     expect(filteredTotal).toBeGreaterThan(1);
@@ -1891,7 +1894,7 @@ test.describe("Perceived Performance Suite", () => {
     await kupua.page.goto(
       `/search?nonFree=true&query=${encodeURIComponent("uploader:avalonred")}${untilParam}`,
     );
-    await kupua.waitForResults();
+    await kupua.waitForResults(15_000, "grid");
     await kupua.page.waitForFunction(
       () => {
         const s = (window as any).__kupua_store__?.getState();

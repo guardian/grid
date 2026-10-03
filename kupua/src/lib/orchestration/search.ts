@@ -362,7 +362,7 @@ export function consumeDetailEnteredViaSpaFlag(): boolean {
  * Use this for every raw `navigate()` push call **except** logo-reset
  * (which deliberately opts out — see `pushNavigateAsPopstate`).
  *
- * Today, sites that touch only display-only keys (`image`, `density`) hit
+ * Today, sites that touch only display-only `image` state hit
  * the dedup guard before reading the flag, so marking is a no-op — but it
  * removes a footgun: any future change that makes one of these sites touch
  * a search-affecting key would silently trigger popstate (reset-to-top)
@@ -376,7 +376,8 @@ export function pushNavigate(navigate: NavigateFn, opts: Parameters<NavigateFn>[
   markDetailEnteredViaSpa();
   // Mint a fresh kupuaKey for the new history entry. Shallow-merge with
   // any caller-supplied state so both survive.
-  const state = withFreshKupuaKey(opts.state);
+  const state = withFreshKupuaKey({ ...opts.state,
+    ...(opts.state?._detailEntryImageId ? { _detailOriginKupuaKey: getCurrentKupuaKey() } : {}) });
   navigate({ ...opts, state });
   return state.kupuaKey as string;
 }

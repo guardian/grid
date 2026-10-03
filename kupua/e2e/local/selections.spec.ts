@@ -83,7 +83,7 @@ test.beforeEach(async ({ kupua }) => {
 
 test.describe("Grid — tickbox hover affordance", () => {
   test("hovering a grid cell reveals the tickbox button", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Playwright Desktop Chrome uses pointer: fine by default.
     // Hover the first grid cell.
@@ -102,7 +102,7 @@ test.describe("Grid — tickbox hover affordance", () => {
 
 test.describe("Grid — click to enter/exit selection mode", () => {
   test("clicking a tickbox enters selection mode and shows SelectionStatusBar", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     const firstCell = kupua.page.locator('[data-grid-cell]').first();
@@ -123,7 +123,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
   });
 
   test("clicking a second tickbox adds to selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     const cells = kupua.page.locator('[data-grid-cell]');
@@ -144,7 +144,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
 
   for (const relationship of ["equal", "distinct"] as const) {
   test(`selection anchor preserves ${relationship} older focus during sort`, async ({ kupua }) => {
-    await kupua.gotoWithParams("since=2026-03-15&until=2026-03-20");
+    await kupua.startSearch("since=2026-03-15&until=2026-03-20");
     await clearSelection(kupua.page);
 
     await kupua.focusNthItem(relationship === "equal" ? 8 : 0);
@@ -242,7 +242,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
 
 test.describe("Table — selection column", () => {
   test("selection column is present (leftmost) in table view", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     const firstHeader = kupua.page.locator('[aria-label="Image results table"] [role="columnheader"]').first();
@@ -250,7 +250,7 @@ test.describe("Table — selection column", () => {
   });
 
   test("hovering a table row reveals the tickbox in the selection column", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
 
@@ -263,7 +263,7 @@ test.describe("Table — selection column", () => {
   });
 
   test("clicking a table tickbox enters selection mode", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
 
@@ -284,7 +284,7 @@ test.describe("Table — selection column", () => {
 
 test.describe("Grid — body click in selection mode", () => {
   test("body click in selection mode toggles the image, not navigate", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     const cells = kupua.page.locator('[data-grid-cell]');
@@ -310,7 +310,7 @@ test.describe("Grid — body click in selection mode", () => {
 
 test.describe("S3a — Grid: shift-click range selection", () => {
   test("shift+click selects all images between anchor and target (grid)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     const cells = kupua.page.locator('[data-grid-cell]');
@@ -341,7 +341,7 @@ test.describe("S3a — Grid: shift-click range selection", () => {
 
 test.describe("S3a — Table: shift-click range selection", () => {
   test("shift+click tickbox range selects all rows between anchor and target (table)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
 
@@ -360,7 +360,7 @@ test.describe("S3a — Table: shift-click range selection", () => {
   });
 
   test("shift+click on field-value cell ranges instead of searching in selection mode", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
 
@@ -439,7 +439,7 @@ test.describe("S4 -- multi-image Details panel", () => {
     await page.route("**/*", (route) => route.request().resourceType() === "image"
       ? route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN2kAAAAASUVORK5CYII=", "base64") })
       : route.fallback());
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(page);
     await page.locator('button[aria-label*="Details panel"]').click();
     try {
@@ -484,7 +484,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
   for (const initialCount of [1, 2]) {
     test(`keeps a coherent panel while changing ${initialCount} selected images`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       await kupua.waitForPositionMap();
       await clearSelection(kupua.page);
       await kupua.page.locator('button[aria-label*="Details panel"]').click();
@@ -640,7 +640,7 @@ test.describe("S4 -- multi-image Details panel", () => {
 
   for (const count of [1, 2]) {
     test(`publishes late off-buffer metadata to Details and Usages for ${count} selected images`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       await kupua.waitForPositionMap();
       await clearSelection(kupua.page);
       await kupua.page.locator('button[aria-label*="Details panel"]').click();
@@ -736,7 +736,7 @@ test.describe("S4 -- multi-image Details panel", () => {
   }
 
   test("selecting 2+ images renders MultiImageMetadata (not the focus placeholder)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // Open the Details panel (closed by default)
@@ -764,7 +764,7 @@ test.describe("S4 -- multi-image Details panel", () => {
   });
 
   test("partial chips have data-partial attribute in the panel", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // Open the Details panel (closed by default)
@@ -827,7 +827,7 @@ test.describe("S4 -- multi-image Details panel", () => {
   });
 
   test("clearing selection removes MultiImageMetadata and restores focus placeholder", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // Open the Details panel (closed by default)
@@ -865,7 +865,7 @@ test.describe("S4 -- multi-image Details panel", () => {
     // Regression: multi-image panel was passing the raw accessor value "image/jpeg"
     // to ValueLink instead of the formatter output "jpeg", so click produced
     // fileType:image%2Fjpeg instead of fileType:jpeg.
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // Open Details panel
@@ -965,7 +965,7 @@ async function selectNGridCells(
 
 test.describe("S6 — clear-on-search navigation", () => {
   test("query change clears selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
     await selectNGridCells(kupua.page, 2);
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -980,7 +980,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("sort-only change preserves selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
     const selectedIds = await selectNGridCells(kupua.page, 2);
     expect(selectedIds).toHaveLength(2);
@@ -994,7 +994,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("density toggle preserves selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
     await selectNGridCells(kupua.page, 2);
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -1008,7 +1008,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("image detail open and close preserves selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
     await selectNGridCells(kupua.page, 2);
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -1041,7 +1041,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("reload preserves selection and populates multi-panel", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // Select 2 images.
@@ -1070,7 +1070,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("new-images ticker click clears selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
     await selectNGridCells(kupua.page, 2);
     expect(await getSelectionCount(kupua.page)).toBe(2);
@@ -1094,7 +1094,7 @@ test.describe("S6 — clear-on-search navigation", () => {
   });
 
   test("browser back clears selection", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await clearSelection(kupua.page);
 
     // First navigate within the session to a different query so there is

@@ -9,7 +9,7 @@ export async function pendingBrowseAcrossDensity(
   changeDensity = true,
 ) {
   const page = kupua.page;
-  await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+  await kupua.startSearch("", sourceView);
   await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
   const regime = await kupua.scrubber.getAttribute("data-scrubber-mode");
   expect(["indexed", "seek"]).toContain(regime);

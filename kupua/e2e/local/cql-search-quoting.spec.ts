@@ -56,7 +56,7 @@ test("preserves a quoted key:value chip (key contains a colon) across load and r
 
 test.describe("CQL resolver ownership", () => {
   test.beforeEach(async ({ kupua, page }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
     await page.evaluate(async () => {
       const { LazyTypeahead } = await import("/src/lib/lazy-typeahead.ts");

@@ -166,10 +166,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
     // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
     // so this synthesised entry can participate in the snapshot system.
-    history.replaceState({ kupuaKey: mintKupuaKey() }, "", bareListUrl);
+    const originKey = mintKupuaKey();
+    history.replaceState({ kupuaKey: originKey }, "", bareListUrl);
     // Step 2: push the detail URL back with the original TSR state intact
     // (including its kupuaKey, if any). Stamp it so re-mounts skip.
-    history.pushState({ ...detailState, _bareListSynthesized: true }, "", detailUrl);
+    history.pushState({ ...detailState, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
   }, []);
 
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.

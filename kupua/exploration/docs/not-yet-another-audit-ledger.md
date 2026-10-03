@@ -1,8 +1,9 @@
 # Core Logic Cleanup Ledger
 
 Working deliverable for characterising Kupua's position behaviour, recording
-operator decisions and actionable bugs, and tracking later cleanup. Follow the
-[session prompt](not-yet-another-audit-prompt.md). The
+operator decisions and actionable bugs, and tracking later cleanup. The original
+[characterisation prompt](not-yet-another-audit-prompt.md) owns that investigation,
+not the execution sequence for approved slices; use the current unit below. The
 [focus and position architecture guide](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md)
 is a contract source, not a destination for this investigation's tables or bugs.
 
@@ -16,23 +17,30 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Snapshot: 3 October 2026, `e2e319026`.** Ordinary search/sort handoff and B6 are
+**Implementation baseline: 3 October 2026, `08e9c5fb0`.** Ordinary search/sort handoff and B6 are
 delivered (`d9b70c013`); pending seek/density presentation is delivered (`e2e319026`).
 User-initiated AI continuity and L39 are complete within the local verification
 boundary below. Independent cold review, repair re-review and final gates pass.
-No broader history/layout repair or live-system work is authorized by that scope.
 
-Final gates: **382 focused regressions and 2,632 unit tests / 82 files pass;
-TypeScript/Vite passes; all 358 local E2E cases pass with retries disabled,
-including 11 forced-seek cases.** The unit run took 61.64 seconds; E2E took
-5.2 minutes. Net additions are 46 unit cases and four browser cases in existing
-suites; no existing assertions were removed or weakened. Run times are not a paired
-performance comparison. The existing bundle-size advisory and E2E warnings remain.
-Per-unit live/checkpoint limits remain attached to the repair records.
+**History/density delivered in the worktree:** Back/Forward restores the destination's
+represented target, placement and focus/none in the current layout. B13/B14 are
+repaired. Q2 density is independent per-tab UI state, retained across refresh;
+Home resets grid after owned data completion unless newer density intent wins.
+B1 is superseded by removal of its density-only entry producer, not by an
+obsolete-entry repair. See [the completed unit](#history-and-density-unit).
+
+Final gates: **2,765 unit tests / 83 files, TypeScript/Vite, 104 pure harness checks
+and all 394 local E2E cases pass**, with retries disabled and all 11 forced-seek
+cases included. Independent cold reviews and repair re-reviews have no remaining
+actionable findings. Excluded E2E/perf source checks add zero diagnostics against
+HEAD (52/32 inherited diagnostics remain; those configurations are not clean).
+The existing bundle-size advisory and E2E warnings remain. These are functional
+local gates, not paired performance evidence or live-system certification;
+historical live/checkpoint limits remain attached to their repair records.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
-| [B1](#b1) | Open | Destination focus lost across density history | L20 |
+| [B1](#b1) | **Superseded** | Destination focus lost across density history | L20 closed by producer removal; supported search-entry focus/none controls remain |
 | [B2](#b2) | Recheck | Late snap-back failure clearing newer focus was observed before later ownership repairs | L21; do not presume current reproduction or closure |
 | [B3](#b3) | Open | Asynchronous long-press range cancels itself | L22 |
 | [B4](#b4) | Open | Density restore can overwrite newer focus; no-saved fallback is latent | L23 |
@@ -44,13 +52,13 @@ Per-unit live/checkpoint limits remain attached to the repair records.
 | [B10](#b10) | Open | Ordinary prepend-to-zero is treated as reset | L28 |
 | [B11](#b11) | Open | Cancelled deep Home strands thumb at top | L13 |
 | [B12](#b12) | Open | Reloaded swipe pre-scroll and final return use different entry identities | L11 |
-| [B13](#b13) | Open | Missing history anchor adopts a departing-context neighbour | L32 |
-| [B14](#b14) | Open | AI sort history leaks newer focus into an unfocused destination | L33; outside the AI adoption unit |
+| [B13](#b13) | **Done** | Missing history anchor no longer adopts departing-context neighbours | L32 closed; ordinary user-neighbour fallback retained |
+| [B14](#b14) | **Done** | AI history restores represented destination focus/none | L33 closed; finite resident ordering stays request-free |
 | [B15](#b15) | Open | Immediate reload loses selection before persistence debounce | L34 |
 | [B16](#b16) | Open | New-images refresh exposes stale top before fresh publication | L35 |
 | [B17](#b17) | **Done** | Pending browsing survives density; discovery, AI membership and completion retain ownership | L38 closed |
 | [B18](#b18) | **Done** | Pending seek/density retains departure content and destination thumb | L40 closed |
-| L39 / [C10](#c10) | **Done** | AI exit without remembered detail identity preserves browsed centre without creating focus | Local verification limits below; no wider repair selected |
+| L39 / [C10](#c10) | **Done** | AI exit without remembered detail identity preserves browsed centre without creating focus | Local verification limits below; retain as a control for the next unit |
 
 **Read by purpose:** [operator choices](#operator-questions), [policy rules](#decisions),
 [next-unit scope](#proposed-sequence), [open work](#open-items),
@@ -126,10 +134,10 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C25](#c25) Reload while detail is open, traverse, then swipe-dismiss or close | Cached image position can rebuild surrounding results. Swipe background preparation and final close compare against different entry identities after reload; returning to the original image can cause unnecessary pre-centring. Missing cache can leave standalone detail without traversal. | Source-established; canceled/completed synthetic dismiss reproduced displacement in grid/table with ordinary Backspace controls | Original/last-viewed return requirements are settled. Competing entry identities are a bug, not a new design choice. | B12/L11 |
 | [C35](#c35) Traverse in detail, reload, then close quickly | In every paired tier/view sample, closing before the underlying list was ready left the last image visible but not centred. In explicit mode it also left the ring/focus on another image. Waiting for that list restored the expected centre and identity. Original-image return without traversal kept its prior placement. | Observed identically by transport in both focus modes: early and settled grid/table cases in all three tiers | No new choice needed for the established traversed-return target. Do not replace the early-close case with a wait and claim the problem is solved. | B9 |
 | [C26](#c26) Tick images, clear selection, then act again | Clear alone does not scroll or create focus. Older focus can reappear and again influence later arrows, sort or layout. Removing the current selection anchor elects a remaining selected image. | Source-established; stationary Clear/focus eligibility observed across paired matrices | No decision needed: reveal retained focus without moving solely because of Clear. | Established |
-| [C27](#c27) Back/Forward between different searches with distinct focus, or none | A matching destination snapshot normally restores its anchor and whether it was focus or inferred position. It does not separately save both focus and viewport. Phantom same-anchor focus is intentionally omitted; AI sort history instead leaks newer focus into an originally unfocused entry. | Source-established; same-anchor mode controls and AI sort-history none/focus controls observed | Which viewport to restore when an entry's focus was off-screen? The entry's own explicit focus/none must survive either answer. Revised D2 does not authorize carrying departing focus into history. | Q1 history placement open; B14 |
-| [C28](#c28) Toggle density, change focus, then Back | Back changes density but carries the later focus into the destination, including a destination that originally had none. Forward changes density again, not an independent focus restore. | Observed locally for focused and unfocused destinations | Three separate choices: does toggling add a Back step; does Back restore density; should current density persist? Losing destination focus is not one of those choices. | Q2 open; B1 is a bug |
-| [C29](#c29) Reload the list or share its URL | Reload uses this tab's current-entry snapshot and selected IDs when storage is available. Density is in the URL. A shared/new-session URL does not carry viewport, focus or selection. A reload before the 250 ms selection persistence write loses a just-ticked selection. | Source-established; selected reload and immediate/delayed persistence controls observed; shared/new-session limit inferred | URL density and Back-step policy are separate. No universal cross-tab position promise exists. | Q2 URL dimension; B15 |
-| [C30](#c30) Back/reload without a usable snapshot, or after its image disappears | Missing snapshot normally gives first page/no focus. A missing saved phantom image currently adopts a visible neighbour from the departing context, even when that lands near the opposite result end. | Observed with controlled matching-key snapshot and same-membership sort entries | Do not silently substitute departing context. Historical missing-target fallback is top/no focus. | B13 |
+| [C27](#c27) Back/Forward between searches or distinct same-query entries with focus, or none | A matching destination snapshot supplies target, placement and represented focus/none in the current layout, including resident AI. It does not separately save bookmark and viewport; phantom same-anchor focus is omitted. | Mounted and repeated real-router local controls; cold review and final gates pass | Off-screen bookmark versus viewport remains Q1. No departing focus may replace represented destination state. | B14 resolved; Q1 remains open |
+| [C28](#c28) Toggle density, change focus, then Back | Toggle creates no history entry or key change. Back reaches the previous supported entry and retains current density; Forward survives toggling. | Actual controls assert entry, query generation, Forward and rendered view | B1's density-only reproduction is removed, not migrated. Surviving destination focus/none is covered separately. | Q2 delivered; L20 closed; B1 superseded |
+| [C29](#c29) Reload the list or share its URL | Reload uses per-tab snapshot, selected IDs and synchronously initialized density. Fresh independent tab defaults grid; shared URL carries no density/viewport/focus/selection. Selection's pre-debounce loss is unchanged. | Immediate table/grid reload and first-mounted-view controls; storage failure controls; older selection evidence retained | No cross-tab sync, legacy density-link migration or B15 repair follows. | Q2 delivered; B15 remains open |
+| [C30](#c30) Back/reload without a usable snapshot, or after its image disappears | Missing/mismatched/null-anchor snapshot or genuinely absent destination target falls back to top/no focus without departing candidates. Ordinary user transitions still try neighbours. | Failing-first B13 discriminator and surviving/invalid snapshot/user-neighbour controls | Read failure is not redefined as genuine absence; existing adapter contracts remain. | B13 resolved |
 | [C31](#c31) Click logo deep in grid/table/detail; interrupt or fail its search | Focus and selection clear immediately. Fresh data normally precedes navigation to default grid. Newer history/search cancels the continuation; current failure still navigates. A cancelled deep reset can leave the position indicator waiting for top. | Source-established; deep Home held-response/Back browser sequence reproduced the stranded thumb | Reset behaviour is established. Indicator cancellation is a bug, not a new policy question. | B11/L13 |
 | [C32](#c32) Click the new-images refresh badge | Current search refreshes from top, clears selection, and clears focus on fresh publication. No new Back entry is added. With a first-page buffer it eagerly reveals old top content while the response is pending; deep buffers retain their neighbourhood until fresh publication. | Source-established; held real-response first/deep controls observed | No decision needed for top/reset. Showing old top content before fresh data is a presentation bug. | B16 |
 | [C33](#c33) Long-press a second image to select a range | If the whole range is loaded, it selects the range and moves the selection anchor. If the starting image is no longer loaded, the same gesture cancels its own fetch: selection stays unchanged while the anchor moves to the endpoint. Focus does not change. | Observed in paired controlled mounted tests | No decision needed: loading must not make the same range gesture silently fail. | B3 |
@@ -148,10 +156,19 @@ were performed to record these answers.
   Density, column reflow, height-only resize and history can choose differently.
   Stop and ask if a selected unit needs another exception or an undecided preference;
   do not demand all these answers before ordinary search/sort restructuring.
-2. **Q2: Density history deferred.** Density currently adds history entries. The
-  operator probably prefers otherwise, but retains current behaviour until a named
-  density/history unit decides and implements the change. Push, destination density,
-  persistence and URL reload/share semantics remain distinct, revisable choices.
+2. **Q2: Independent density delivered.** Remove density from the
+  URL and history entirely. Search/filter/sort, AI, detail and Back/Forward retain
+  the current density; toggling density adds no entry and preserves the Forward
+  branch. Reload retains the choice through per-tab `sessionStorage`, initialized
+  before the view mounts to avoid a grid flash. A fresh independent tab defaults
+  to grid; duplicated-tab inheritance needs no special handling. No localStorage
+  density preference, cross-tab synchronization or legacy density-link support.
+  Home resets to grid with existing fresh-data-before-layout timing, but a newer
+  density choice wins without cancelling Home's search reset. Abandoned Home work
+  cannot later change or persist density. Back after Home retains the current
+  density, not the historical view. Storage absence degrades quietly to runtime
+  state. Preserve focus/selection/position semantics in the current geometry;
+  this does not settle Q1 layout preferences or Q7 horizontal restoration.
 3. **Q3: Remembered detail image accepted; no-bookmark AI exit has a desired improvement.**
   In Click-to-Open, the last image returned from detail takes precedence over the
   browsed centre for ordinary query/filter changes and AI exit, even after scrolling
@@ -204,9 +221,9 @@ active migration plan. Code establishes current behaviour, not desired policy.
 | `selection-store.anchorId` | Range pivot and sort/grid-reflow target while membership exists. Tick dispatch changes it; remove can elect another selected ID. Detail/preview traversal does not update it. It is not a universal last-interaction bookmark. |
 | `getViewportAnchorId()` | Fresh DOM election among intersecting identified cells, nearest usable centre; table excludes sticky header and ignores horizontal distance. No durable viewport identity is maintained during ordinary scroll. |
 | `_phantomFocusImageId` | One-operation placement identity; Effect 9 consumes it after resolving a loaded index. `_phantomPulseImageId` is separate presentation with a timeout, not focus or completion. |
-| `_searchContinuity` | Ordinary and user-initiated AI capture bind target, placement and focus treatment to the existing focus owner. AI retains a pending handoff through same-query sorts; accepted publication supplies the resolved identity. Placement is consumed or retired without cancelling discovery. History retains numeric-ratio compatibility. |
+| `_searchContinuity` | User capture or strict destination-history handoff binds target, placement, focus treatment and fallback to the existing owner. AI retains pending handoff/latest same-query order; coherent publication supplies resolved identity. Placement is consumed or retired without cancelling useful discovery. Adopted numeric ratio compatibility is removed. |
 | `_browseNavigation` | Search-scoped queued/loading/ready destination survives density. Maintenance has a separate owner. The scrubber follows this destination; B18 carries owned departure geometry until arrival. |
-| Density / legacy history captures | Density stores global index, row-top ratio and source DOM extrema across unmount; history still uses a numeric sort ratio. Grid capture stores virtualizer index and ratio. These payloads are not interchangeable. |
+| Density / layout captures | Density stores global index, row-top ratio and source DOM extrema across unmount. Grid reflow stores virtualizer index and ratio. History derives represented ratio with its destination target/owner, not an identity-free numeric bridge. Payloads remain transition-specific. |
 | History / cursor cache | History stores one anchor plus `anchorIsPhantom`, offset, ratio and freeze boundary under an entry key. The image cache stores per-image cursor/offset under a search key. Neither is a complete independent focus-and-viewport snapshot. |
 
 Sources: [focus setter and snap-back](../../src/stores/search-store.ts#L2056),
@@ -330,7 +347,8 @@ without a new search generation or request; pending AI completion adopts its lat
 handoff and supported sort. No-target AI re-sort retains focus. Exit carries image
 identity into ordinary lookup and discards the AI offset hint; without remembered
 focus it follows the browsed centre, without creating focus (L39 repaired locally).
-History keeps its legacy arguments/ratio bridge; B14 is not repaired.
+History now derives destination continuity; B14 restores represented focus/NONE
+and placement through that same owner without resident AI requests.
 
 **Original L7 observation:** AI exit suppressed viewport inference but tested stored
 focus, not conscious-mode provenance. The original guide
@@ -537,46 +555,50 @@ selection/anchor; late metadata can remain useful without resurrecting selection
 <a id="c27"></a>
 **C27: Search-history ownership.** [Snapshot](../../src/lib/build-history-snapshot.ts#L35)
 uses explicit focus in explicit mode even when off-buffer; unresolved rank becomes
-0 and ratio null. Otherwise it captures viewport identity as phantom. [Restore](../../src/hooks/useUrlSearchSync.ts#L255)
-strict-matches destination search key, restores anchor through search and ratchets
+0 and ratio null. Otherwise it captures viewport identity as phantom. [Restore](../../src/hooks/useUrlSearchSync.ts)
+strict-matches destination search key, derives target/placement/focus/top-fallback
+through `historySearchContinuity` and ratchets
 freeze boundary to the later saved/current boundary. This is not immutable historical
 membership. Phantom departure capture skips replacement while viewport identity is
 unchanged, even if focus changed. [Repeated-history test](../../e2e/local/browser-history.spec.ts#L1987)
-proves a no-focus destination stays unfocused through two cycles in its setup;
-it does not cover changing focus while keeping the same centre identity, or AI
-sort-only restore. Paired same-anchor and AI-sort controls now delimit B14; they do
-not imply that all ordinary history fails.
+retains no-focus history coverage. Repeated real-router ordinary/AI entry-only
+focused/NONE cycles now assert keys, stored focus, rendered ring/outline and geometry,
+including detail GO/marked re-entry. Snapshot remains one represented anchor;
+changing hidden focus while the phantom centre stays identical is not independently
+represented or a new snapshot requirement.
 
 <a id="c28"></a>
-**C28: Display-only history (L20/B1).** [Density toggle](../../src/components/StatusBar.tsx#L109)
-pushes and captures a predecessor snapshot. [URL dedup](../../src/hooks/useUrlSearchSync.ts#L153)
-consumes the flag and refreshes entry identity, then returns before snapshot
-restore. Density save therefore reads departing current focus and feeds it to
-the destination view. The two local browser probes used actual focus clicks,
+**C28: Density outside history (L20/B1 superseded).** The current
+[toggle](../../src/components/StatusBar.tsx) changes only the per-tab preference.
+The old producer pushed and captured a predecessor snapshot, while display-only
+dedup skipped restore and density save read departing focus. The historical two
+local browser probes used actual focus clicks,
 waited for destination grid and changed density-restore generation, and failed
 the original-focus equality check both for A and null destinations. Existing
-[density-history control](../../e2e/local/browser-history.spec.ts#L1101) passed
-because it asserts view type only. D8's independent per-entry focus requirement
-is explicit; no density-history product choice excuses this mismatch.
+[density-history control](../../e2e/local/browser-history.spec.ts) was insufficient
+because it asserted view type only. Its supported replacement proves no entry/key
+or query-generation change, preserved Forward and current-layout history restore.
+Represented focus/none remains covered on actual search and entry-only history.
 
 <a id="c29"></a>
 **C29: Reload/storage.** [Startup/pagehide](../../src/main.tsx#L36) sets manual
 browser restoration, synthesizes the entry key and captures current snapshot.
 [Storage](../../src/lib/history-snapshot.ts#L118) is per-tab, 50-entry capped,
 quiet on unavailable storage/invalid JSON; JSON shape is not validated. Density
-is excluded from the search fingerprint but remains URL state. Selection persists
+is absent from the schema/fingerprint/history payload; `kupua-density` is read
+synchronously from session storage and written on each choice. Local preference
+hydration owns only focus/blur fields and cannot overwrite density. Selection persists
 IDs/anchor with a 250 ms debounce and no pagehide flush in its store; B15's
 immediate/delayed controls establish that pre-debounce reload loses the tick.
 No cross-tab or stronger persistence protocol is proposed.
 
 <a id="c30"></a>
-**C30: History failure.** Missing/mismatched/null-anchor snapshot calls normal
-no-target search. A phantom matching snapshot instead passes current
-`getVisibleImageIds()` from the departing view; a missing target can therefore
-select a departing-context survivor through ordinary resolver fallback. Archive
-D10/T16 specifies top when the historical anchor genuinely disappears. This is a
-code/contract conflict proved by B13, not evidence that destination focus
-is always replaced or that new neighbour persistence is needed.
+**C30: History fallback (B13 repaired).** Destination-derived continuity sets
+`fallback: "top"`; missing/mismatched/null-anchor snapshots and genuine missing
+targets cannot elect departing neighbours. Archive D10/T16's top/no-focus contract
+is retained without changing read-failure semantics or ordinary user fallbacks.
+The historical matching phantom snapshot passed departing `getVisibleImageIds()`;
+that source/contract conflict remains the pre-repair witness, not current behavior.
 
 <a id="c31"></a>
 **C31: Logo.** [Reset](../../src/lib/reset-to-home.ts#L46) clears focus/selection,
@@ -675,7 +697,7 @@ Open records retain the last established reproduction and its limits; Done recor
 lead with the repaired contract. Only unresolved work belongs in Open Items.
 
 <a id="b1"></a>
-**B1 / C28 / L20: OPEN. Destination focus lost across density history.** Established-contract
+**B1 / C28 / L20: SUPERSEDED by producer removal.** Historical destination-focus
 violation (D8; guide 02 section 2). Expected A or none from the destination; actual
 later B. Reproduce grid A/none -> toggle table -> focus B -> Back. Two local Chromium
 checks failed after density completion, with ElasticsearchDataSource and 10,000
@@ -683,6 +705,13 @@ fixture results (indexed). Cause demonstrated: display-only dedup skips snapshot
 restore. Existing density control checks only density. Missing assertions: destination
 focus including null, Forward after departure changes, then reload, across equivalent
 buffer/seek setups. Confidence high for observed scope, not all sequences.
+
+**Disposition:** `StatusBar` uses `setDensity`, not navigation; density is absent
+from route schema, display keys and history snapshots. Real controls prove toggle
+does not change history length/key, query generation or Forward availability. Thus
+the supported grid -> table density Back step in this witness no longer exists.
+Repeated ordinary/AI, focused/NONE and same-query entry history controls retain
+the surviving contract. No claim of repairing or migrating obsolete density entries.
 
 <a id="b2"></a>
 **B2 / C12: RECHECK. Old snap-back failure cleared newer focus.** Original focus
@@ -873,23 +902,38 @@ Confidence high for synthetic Chromium grid/table in both transports; coarse mod
 phantom, and physical Safari animation is not claimed. No repair.
 
 <a id="b13"></a>
-**B13 / C30: OPEN. Missing phantom history target adopts a departing-context neighbour.**
+**B13 / C30 / L32: DONE. Missing destination target falls back to top/no focus.**
+`historySearchContinuity` derives only from the matching destination snapshot and
+binds top fallback to the existing owner. Store resolution excludes departing
+candidate capture/adoption for that handoff; ordinary user-neighbour fallback remains.
+Mounted controls reproduced the old neighbour adoption before repair and cover
+surviving target, null/invalid snapshot and ordinary fallback in both transports.
+Read failure/absence contracts and approximate seek remain unchanged.
+
+**Historical witness:**
 Expected archived history fallback: top/no focus when destination anchor genuinely
 disappears. A controlled matching-key snapshot used a missing phantom ID while
 departing sort B exposed same-membership visible neighbours. Back to default sort A
 restored no focus but adopted B's tracked neighbour, visible near A's opposite end
 (`bufferOffset` about 1,221,456; non-top). This proves the source/contract conflict;
 the snapshot fixture changed only browser-memory storage. Reproduced equivalently
-in both transports. No repair.
+in both transports. This is pre-repair evidence.
 
 <a id="b14"></a>
-**B14 / C27: OPEN. AI sort history leaks newer focus into an originally unfocused entry.**
+**B14 / C27 / L33: DONE. Resident AI history restores represented focus/none.**
+The in-memory re-sort consumes the same destination handoff instead of retaining
+departing focus or choosing it independently. Repeated A-none/B-focus and focused
+destination controls assert stored focus, grid ring/table outline and geometry.
+Same-query native entries restore too, without AI requests; pending completion
+retains latest ordering/owner and cannot revive input-retired placement.
+
+**Historical witness:**
 AI entry A and re-sort entry B both began unfocused. After adding focus only in B,
 Back to A retained that same focus in explicit and phantom modes; explicit A showed
 no ring despite stored focus, while Forward to B showed the ring. Phantom retained
 the hidden focus both ways. Expected A's entry-specific none state. Reproduced in
 both modes and transports. Cause scope is
-the AI in-memory sort/history fast path, distinct from density-history B1. No repair.
+the AI in-memory sort/history fast path, distinct from density-history B1.
 
 <a id="b15"></a>
 **B15 / C29: OPEN. Immediate reload loses a just-ticked selection before persistence
@@ -1353,19 +1397,21 @@ independence is already required. Bug fixes require their own scope.
 - **D7 Tiers are invisible.** Buffer, two-tier and seek tiers are implementation
   detail. Every preservation behaviour must be identical across tiers; a
   tier-dependent outcome is a bug. Characterisation (L7) covers every tier.
-- **D8 Under reconsideration: position and focus.** No blanket anchor policy
+- **D8 Destination ownership; broader placement remains open.** No blanket anchor policy
   for layout changes or history is approved by this entry. A history entry's
   own focus (including no focus) and its viewport position are separate concerns:
   restoring position must not discard that focus or substitute another entry's.
-  L7 must expose the cases before the operator settles their scrolling policy.
-  Whether density changes should create history entries is also undecided;
-  keeping density in the URL does not require pushing a new entry.
+  Preserve the existing snapshot's representable contract; independently storing
+  both bookmark and viewport remains outside this slice. Q2 delivers
+  density outside URL/history, persisted per tab across refresh, with Home and
+  latest-action ownership. Density does not create a historical destination.
 
 <a id="preliminary-what-next"></a>
 ## Structural Work
 
 Ordinary search/sort, B6 and AI adoption/L39 are delivered within their recorded
-verification boundaries. No subsequent unit is selected.
+verification boundaries. Destination history and independent density are delivered
+within local limits, including B13/B14 and producer-removal supersession of B1.
 Other expansion remains proposed, not authorized. The goal is a clearer, less brittle
 continuity system whose behaviour can evolve, not a completed bug list or a
 predetermined rewrite. Each delivered unit must remain useful if wider replacement
@@ -1435,14 +1481,33 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-1. **Complete: AI continuity adoption, including L39.** Independent review and final
-  focused/unit/build/retry-free E2E gates pass within the recorded local boundary.
-2. **Accept only demonstrated simplification.** Preserve capture timing and existing
-  owners, exercise policy substitution without weakening invariants, pass cold
-  review and full applicable gates, and remove replaced decisions in adopted paths.
-3. **Choose subsequent responsibility after that result.** Density/reflow and
-  history/return remain candidates, not an authorized sequence. B1/B9/B14 and
-  Q1/Q2/Q7 do not become automatic repair or policy gates for AI adoption.
+1. **History/density unit complete.** Q2, B13/B14 and B1 supersession are delivered
+  with destination-owned handoff, migrated setup, cold review and local gates.
+2. **Select later work separately.** Q1/Q7, detail return, broader snapshot modelling
+  and unrelated bugs remain outside this slice. A dependency requiring expansion
+  returns to the operator; a completed unit does not authorize the next one.
+
+### History And Density Unit
+
+**Complete within local limits.** The current outcome, responsibilities and
+remaining limits follow; the completed execution prompt has been removed.
+
+| Field | Boundary |
+|---|---|
+| Outcome | Destination-derived restoration for ordinary/AI Back/Forward; density is current per-tab UI state, never a URL parameter or history payload. |
+| Policy | Q2: retain density through search, detail, Back/Forward and reload; initialize session storage before mounting the view. Fresh independent tab defaults to grid. Home resets grid only while its density intent remains current; later toggles win without cancelling Home's search. No legacy link migration or cross-tab synchronization. |
+| Repairs | B13/L32 top/no-focus fallback excludes departing neighbours; ordinary fallbacks survive. B14/L33 resident AI restores represented destination focus/NONE and placement without requests. Both had intended baseline reds. |
+| B1 disposition | Superseded: toggle no longer produces an entry; actual length/key/Forward/query-generation controls prove removal. Ordinary/AI and distinct same-query focus/NONE history remain covered. No obsolete-entry migration. |
+| Structure | `historySearchContinuity` strict-matches snapshot identity and produces target/ratio-or-start/focus/top-fallback/offset. Existing store owner governs resolution, coherent publication and one-shot placement. Adopted snapshot-hint, AI identity-argument and numeric history-ratio decisions are removed. Router history action marks native restoration before entry publication; coherent route params prevent premature dedup. |
+| Detail boundary | Marked entries carry immutable entry-image and originating list key as navigation metadata, not a larger snapshot. Origin/detail transitions preserve the laid-out list; unrelated native destinations consume their snapshot. Marked present-to-present entry changes adopt destination identity, not traversal identity. Unmarked old detail entries retain close compatibility. |
+| Tests and harnesses | Maintained local/forced-seek/diagnostic and perf starts explicitly initialize and assert density. One removable, consumed-per-origin seed handles blank/reused documents; navigation/reload retains later choices. Corpus pin, source depth, cache/actions/readiness and measured boundaries are retained; no workload/result/threshold rewrite or live campaign. |
+| Proof | Repeated real-router entry-only, ordinary/finite AI, current-layout ratio/centre across buffer/indexed/seek, pending-history success/absence/failure/supersession/retirement, storage startup/failure, held-data Home and both-logo latest-intent races. B6/B8/B17/B18/L39, freeze/key/selection rules and request budgets remain controls. KUP-018 asserts cancellation and deliberately delivered obsolete callback rejection. |
+| Gates | Full unit/build, retry-free normal plus forced-seek E2E and pure harness pass; final counts are in Current Status. Independent cold reviews and repair re-reviews have no remaining actionable findings. Excluded test-source comparison adds zero diagnostics, not clean-config status. |
+| Compatibility and limits | Snapshot remains one represented anchor: phantom capture cannot separately retain a hidden bookmark. Existing unadopted cursor/arrow/layout placement consumers remain; no global removal claim. Functional/harness checks do not certify live perf equivalence. Canonical earlier campaigns remain historical evidence, not measurements of this worktree; no new campaign is selected here. |
+| Exclusions | Q1/Q7 layout policies, B2/B3/B4/B7/B9/B10/B11/B12/B15/B16 repairs, global history coordinator, new snapshot schema storing independent focus plus viewport, durable-storage redesign, stronger seek exactness and backend/transport alignment. |
+| Stop | New visible behaviour, another required repair, materially greater backend work, removed ownership invariants or broader storage/geometry redesign needs approval. Do not quietly bundle a dependency. |
+
+L20/L32/L33 are closed and removed from Open Items; their stable records remain here.
 
 ### AI Continuity Unit
 
@@ -1466,10 +1531,11 @@ coherent publication and newer-query rejection.
 **Ownership and compatibility:** AI-R1 and AI-R2 are resolved and independently
 re-reviewed. Input-retired re-sort placement stays retired at discovery completion;
 neither target-placement nor reset signals override newer scrolling. History-cleared
-continuity cannot resurrect an aborted closure owner. History retains its legacy
-numeric bridge: resident re-sort can consume the snapshot ratio once, so final AI
-arrival uses legacy start placement, not a two-publication ratio guarantee. B14
-remains unresolved and outside scope.
+continuity cannot resurrect an aborted closure owner. At this AI-adoption checkpoint,
+history still retained a numeric bridge and B14 was outside scope. The later
+[history/density unit](#history-and-density-unit) supersedes that boundary with
+destination-derived history ownership and pending publication/retirement proof;
+the earlier checkpoint is not its verification evidence.
 
 **Verification boundary:** 46 mounted cases use actual direct/API AI mapping with
 synthetic responses and MockDataSource ordinary reads. Existing paired ordinary
@@ -1545,8 +1611,8 @@ this is not a further functional gate or a claim of performance equivalence.
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. B8/L37 and B17 including its cold-review follow-up are delivered.
-The ordinary search/sort milestone, B18 and AI adoption/L39 are delivered; no next
-implementation unit is selected. A repair may interrupt an active milestone for
+The ordinary search/sort milestone, B18 and AI adoption/L39 are delivered;
+history/independent density is the next approved unit. A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
 
@@ -1638,9 +1704,8 @@ B10 targets Effect 8's reset classification, not prepend compensation.
 Kinds: **Delete**, **Comment**, **Bug**, **Decision**, **Characterise**,
 **Consolidate**, **Refactor**, **Move**, **Doc**.
 
-Only unresolved tasks appear here. L39 is resolved in the completed AI unit;
-other rows do not
-grant implementation permission. Completed bugs/units remain in Current Status and
+Only unresolved tasks appear here. Rows do not grant implementation permission.
+Completed bugs/units remain in Current Status and
 their evidence records, not in this backlog.
 
 | # | Kind | Claim | Disproof check | Depends |
@@ -1655,7 +1720,6 @@ their evidence records, not in this backlog.
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
 | L19 | Decision | Why the buffer tier (total up to `SCROLL_MODE_THRESHOLD`) exists separately from two-tier; it adds the background fill and top-up machinery | Separate audit; check what would break if two-tier covered small results | |
-| L20 | Decision | C27-C30 separate history placement choices from destination-focus defect B1; density push/restore/persist remain independent decisions | Answer Q2 and history placement in Q1 without accepting lost focus; any B1 repair needs separate scope and destination-none coverage | Q1, Q2 |
 | L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
@@ -1663,8 +1727,6 @@ their evidence records, not in this backlog.
 | L27 | Bug | B9: early close of reloaded traversed detail misses centring while settled controls work | Compare early/settled variants with target availability at the close event; preserve original-image placement and newer-intent cancellation controls | C35/B9 |
 | L28 | Bug | B10: Effect 8 treats ordinary positive-to-zero prepend as Home/search and loses the current viewport anchor | Reproduce gated final prepend in grid/table and both transports; ordinary browsing must retain the held anchor, while true Home/search controls must still reset to top | C36/B10 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
-| L32 | Bug | B13: missing phantom history target adopts departing-context neighbour instead of destination top fallback | Preserve ordinary query-neighbour behavior; add history-specific missing-target control that cannot consume departing candidates | C30/B13 |
-| L33 | Bug | B14: AI sort Back leaks B focus into originally unfocused A; explicit ring and stored focus also disagree | Add A-none/B-focus Back/Forward contracts in both focus modes without changing ordinary AI re-sort placement | C27/B14 |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |

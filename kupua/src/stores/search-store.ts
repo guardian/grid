@@ -79,7 +79,6 @@ interface SearchOptions {
   phantomOnly?: boolean;
   retainExplicitFocus?: boolean;
   visibleNeighbours?: string[];
-  snapshotHints?: { anchorOffset: number };
   frozenUntil?: string;
   sortOnly?: boolean;
   traceAction?: string;
@@ -583,8 +582,6 @@ interface SearchState {
    */
   resortAiBuffer: (
     orderBy: string,
-    preserveImageId?: string | null,
-    phantomOnly?: boolean,
     continuity?: SearchContinuity,
   ) => void;
 }
@@ -2298,7 +2295,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // of _captureNeighbours — restricts fallback to images the user actually
     // saw, not ±20 buffer positions that may include off-screen images.
     const prevNeighbours = sortAroundFocusId
-      ? (options?.visibleNeighbours ?? _captureNeighbours(
+      ? (options?.continuity?.fallback === "top" ? [] : options?.visibleNeighbours ?? _captureNeighbours(
           sortAroundFocusId,
           get().results,
           get().bufferOffset,
@@ -2642,7 +2639,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           endCursor,
           pitId: result.pitId ?? newPitId,
           total: result.total,
-        }, prevNeighbours, options?.snapshotHints?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
+        }, prevNeighbours, continuity?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
           .then(() => {
             if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
               discovery.resultsPublished = true;
@@ -4424,15 +4421,20 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   // Aggregation actions (unchanged from pre-buffer architecture)
   // -------------------------------------------------------------------------
 
-  resortAiBuffer: (orderBy, preserveImageId = null, phantomOnly = false, continuity) => {
+  resortAiBuffer: (orderBy, continuity) => {
+    const preserveImageId = continuity?.targetId ?? null;
+    const phantomOnly = continuity?.focus !== "target";
     let ownedContinuity: OwnedSearchContinuity | null = null;
     if (continuity) {
-      preserveImageId = continuity.targetId;
-      phantomOnly = continuity.focus !== "target";
       _findFocusAbortController.abort();
       _findFocusAbortController = new AbortController();
       ownedContinuity = { ...continuity, owner: _findFocusAbortController.signal,
         searchGeneration: _searchGeneration, phase: "ready" };
+    }
+    if (ownedContinuity?.fallback === "top" && hasPendingSearch(get())) {
+      set({ _searchContinuity: { ...ownedContinuity, phase: "pending" }, _phantomFocusImageId: null,
+        ...(ownedContinuity.focus === "none" ? { focusedImageId: null, _focusedImageKnownOffset: null } : {}) });
+      return;
     }
     const { results } = get();
     const populated = results.filter((image): image is Image => image !== null);
@@ -4446,6 +4448,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         ? { ...ownedContinuity, phase: preserveFound ? "ready" : "pending" } : null,
       _phantomFocusImageId: null,
       imagePositions: buildPositions(sorted, 0),
+      ...(continuity ? { focusedImageId: continuity.focus === "retain" ? get().focusedImageId
+        : preserveFound && continuity.focus === "target" ? preserveImageId : null,
+        _focusedImageKnownOffset: null } : {}),
       ...(preserveFound
         ? {
             sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,

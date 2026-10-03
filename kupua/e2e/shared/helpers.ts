@@ -10,7 +10,7 @@
  * - Viewport/scroll position assertions
  */
 
-import { test as base, expect, type Page, type Locator } from "@playwright/test";
+import { test as base, expect, type Page, type Locator, type CDPSession } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Extended test fixture — adds `kupua` helper object to every test
@@ -83,6 +83,7 @@ export async function waitForStableNthImageId(
 
 export class KupuaHelpers {
   readonly page: Page;
+  private densitySeed: { session: CDPSession; identifier: string } | undefined;
 
   constructor(page: Page) {
     this.page = page;
@@ -91,6 +92,35 @@ export class KupuaHelpers {
   // -------------------------------------------------------------------------
   // Navigation & waiting
   // -------------------------------------------------------------------------
+
+  async initializeDensity(density: "grid" | "table") {
+    if (this.densitySeed) {
+      await this.densitySeed.session.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: this.densitySeed.identifier });
+      await this.densitySeed.session.detach();
+      this.densitySeed = undefined;
+    }
+    if (this.page.url().startsWith("http")) {
+      await this.page.evaluate(async (choice) => {
+        const path = "/src/stores/ui-prefs-store.ts";
+        const { writeDensityPreference } = await import(path);
+        writeDensityPreference(choice);
+      }, density);
+    } else {
+      const initializationKey = `kupua:e2e-density-init:${crypto.randomUUID()}`;
+      const seed = ({ choice, initializationKey }: { choice: "grid" | "table"; initializationKey: string }) => {
+        if (sessionStorage.getItem(initializationKey) !== "done") {
+          sessionStorage.setItem("kupua-density", choice);
+          sessionStorage.setItem(initializationKey, "done");
+        }
+      };
+      const session = await this.page.context().newCDPSession(this.page);
+      await session.send("Page.enable");
+      const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", {
+        source: `(${seed.toString()})(${JSON.stringify({ choice: density, initializationKey })});`,
+      });
+      this.densitySeed = { session, identifier };
+    }
+  }
 
   /** Navigate to the search page and wait for initial data to load.
    *  Respects PERF_STABLE_UNTIL when set (perf audit runs) so the corpus
@@ -107,6 +137,17 @@ export class KupuaHelpers {
   async gotoWithParams(extraParams: string) {
     await this.page.goto(`/search?nonFree=true&${extraParams}`);
     await this.waitForResults();
+  }
+
+  async startSearch(extraParams = "", density: "grid" | "table" = "grid") {
+    await this.initializeDensity(density);
+    await this.gotoPerfStable(extraParams);
+    await this.assertDensity(density);
+  }
+
+  async assertDensity(density: "grid" | "table") {
+    await expect(this.page.getByLabel(`Image results ${density}`, { exact: true })).toBeAttached();
+    await expect(this.page.getByLabel(`Image results ${density === "grid" ? "table" : "grid"}`, { exact: true })).toHaveCount(0);
   }
 
   /**
@@ -127,12 +168,12 @@ export class KupuaHelpers {
   }
 
   /** Wait until at least one real image is visibly rendered in the results viewport. */
-  async waitForResults(timeout = 15_000) {
+  async waitForResults(timeout = 15_000, density?: "grid" | "table") {
     await this.page.waitForFunction(
-      () => {
+      (density) => {
         const grid = document.querySelector('[aria-label="Image results grid"]');
         const table = document.querySelector('[aria-label="Image results table"]');
-        const container = grid ?? table;
+        const container = density === "grid" ? grid : density === "table" ? table : grid ?? table;
         if (!container) return false;
         const containerRect = container.getBoundingClientRect();
         return Array.from(container.querySelectorAll("[data-image-id]"))
@@ -142,7 +183,7 @@ export class KupuaHelpers {
               && itemRect.top < containerRect.bottom;
           });
       },
-      null,
+      density,
       { timeout },
     );
   }
@@ -898,8 +939,8 @@ export class KupuaHelpers {
   /**
    * Wait until the store's extend cooldown has expired after a density switch.
    *
-   * Density switches trigger a search() which sets SEARCH_FETCH_COOLDOWN_MS
-   * (2000ms) on the store. During this cooldown, extendForward/extendBackward
+  * A query may still be completing around a density switch. Its existing
+  * cooldown blocks extendForward/extendBackward
    * are blocked — so wheel events can only scroll within the initial buffer.
    * Once scrollTop hits the buffer's max, further wheel events are no-ops.
    *

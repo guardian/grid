@@ -19,7 +19,13 @@ const fixture = vi.hoisted(() => {
     setFocusedImageId: vi.fn(),
     abortExtends: vi.fn(),
   };
-  return { state, operation, flags, suppress, listeners, generation: 0, mobile: false, clearSelection: vi.fn() };
+  const preferences = { density: "grid" as "grid" | "table", _densityIntent: 0,
+    setDensity: vi.fn((density: "grid" | "table") => {
+      preferences.density = density;
+      preferences._densityIntent += 1;
+      sessionStorage.setItem("kupua-density", density);
+    }) };
+  return { state, preferences, operation, flags, suppress, listeners, generation: 0, mobile: false, clearSelection: vi.fn() };
 });
 const search = fixture.state.search;
 const clearSelection = fixture.clearSelection;
@@ -43,6 +49,7 @@ vi.mock("@/stores/search-store", () => ({
 vi.mock("@/stores/selection-store", () => ({
   useSelectionStore: { getState: () => ({ clear: clearSelection }) },
 }));
+vi.mock("@/stores/ui-prefs-store", () => ({ useUiPrefsStore: { getState: () => fixture.preferences } }));
 
 vi.mock("@/hooks/useReturnFromDetail", () => ({ suppressReturnFromDetail: () => fixture.suppress("detail") }));
 vi.mock("@/hooks/useScrollEffects", () => ({
@@ -66,6 +73,9 @@ describe("resetToHome", () => {
     fixture.mobile = true;
     fixture.flags.restore = fixture.flags.density = fixture.flags.detail = null;
     fixture.listeners.clear();
+    fixture.preferences.density = "grid";
+    fixture.preferences._densityIntent = 0;
+    sessionStorage.removeItem("kupua-density");
     window.history.replaceState(null, "", "/search?nonFree=true&until=2026-03-04T00:00:00Z&query=city%3ADublin");
   });
 
@@ -96,8 +106,8 @@ describe("resetToHome", () => {
         const { resetToHome } = await import("./reset-to-home");
         const pending = deferred();
         fixture.operation.mockReturnValueOnce(pending.promise);
-        const history = createMemoryHistory({ initialEntries: ["/search?density=table"] });
-        window.history.replaceState({}, "", "/search?density=table");
+        const history = createMemoryHistory({ initialEntries: ["/search?nonFree=true"] });
+        fixture.preferences.setDensity("table");
         const navigate = vi.fn();
         const home = resetToHome(navigate, undefined, history);
         if (supersession === "search") await fixture.state.search();
@@ -106,6 +116,8 @@ describe("resetToHome", () => {
         else pending.reject(Object.assign(new Error(completion), { name: completion === "abort" ? "AbortError" : "Error" }));
         await home;
         expect(navigate).not.toHaveBeenCalled();
+        expect(fixture.preferences.density).toBe("table");
+        expect(sessionStorage.getItem("kupua-density")).toBe("table");
         expect(fixture.flags).toEqual({ restore: null, density: null, detail: null });
         expect(fixture.listeners.size).toBe(0);
       });
@@ -133,26 +145,53 @@ describe("resetToHome", () => {
 
   it("waits for data before density suppression and ordinary Home navigation", async () => {
     const { resetToHome } = await import("./reset-to-home");
-    window.history.replaceState({}, "", "/search?density=table");
+    fixture.preferences.setDensity("table");
     const pending = deferred();
     fixture.operation.mockReturnValueOnce(pending.promise);
     const navigate = vi.fn();
     const home = resetToHome(navigate);
     expect(navigate).not.toHaveBeenCalled();
     expect(fixture.flags.density).toBeNull();
+    expect(fixture.preferences.density).toBe("table");
     expect(clearSelection).toHaveBeenCalledOnce();
     pending.resolve();
     await home;
     expect(navigate).toHaveBeenCalledOnce();
     expect(fixture.flags.density).not.toBeNull();
+    expect(fixture.preferences.density).toBe("grid");
+    expect(sessionStorage.getItem("kupua-density")).toBe("grid");
+  });
+
+  it.each([{ choices: ["grid"] as const }, { choices: ["grid", "table"] as const }, { choices: ["table"] as const }])("later density intent $choices survives Home without cancelling its query reset", async ({ choices }) => {
+    const { resetToHome } = await import("./reset-to-home");
+    fixture.preferences.setDensity("table");
+    const pending = deferred();
+    fixture.operation.mockReturnValueOnce(pending.promise);
+    const navigate = vi.fn();
+    const home = resetToHome(navigate);
+    for (const choice of choices) fixture.preferences.setDensity(choice);
+    const last = choices.at(-1)!;
+    const intent = fixture.preferences._densityIntent;
+    expect(navigate).not.toHaveBeenCalled();
+    expect(fixture.preferences.density).toBe(last);
+    pending.resolve();
+    await home;
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(fixture.state.params).toMatchObject({ query: undefined, nonFree: "true", offset: 0 });
+    expect(fixture.preferences.density).toBe(last);
+    expect(fixture.preferences._densityIntent).toBe(intent);
+    expect(sessionStorage.getItem("kupua-density")).toBe(last);
+    expect(fixture.flags.density).toBeNull();
   });
 
   it("current Home failure still navigates gracefully", async () => {
     const { resetToHome } = await import("./reset-to-home");
     fixture.operation.mockRejectedValueOnce(new Error("current failure"));
     const navigate = vi.fn();
+    fixture.preferences.setDensity("table");
     await resetToHome(navigate);
     expect(navigate).toHaveBeenCalledOnce();
+    expect(fixture.preferences.density).toBe("grid");
   });
 
   it("obsolete safety cleanup cannot clear a newer Home's suppression", async () => {
@@ -179,7 +218,7 @@ describe("resetToHome", () => {
     const input = document.createElement("cql-input");
     document.body.append(input);
     const focus = vi.spyOn(input, "focus");
-    const history = createMemoryHistory({ initialEntries: ["/search?density=table"] });
+    const history = createMemoryHistory({ initialEntries: ["/search?nonFree=true"] });
     await resetToHome(() => history.push("/search?nonFree=true"), undefined, history);
     history.push("/search?query=newer");
     frames.forEach((callback) => callback(0));

@@ -3,6 +3,39 @@
 > Quick reference for humans and agents interpreting perf audit results.
 > Tests live under `e2e-perf/`; the harness is `run-audit.mjs`.
 
+## Session-Aware Density Setup
+
+The [completed history/density slice](../exploration/docs/not-yet-another-audit-ledger.md#history-and-density-unit)
+migrates jank, perceived short/long journeys, experiments and shared helpers to
+explicit density initialization and rendered-grid readiness. Plain `/search`
+navigation/reload retains the current per-tab choice; URL density cannot choose
+a view. Independent starts use `startSearch` or `initializeDensity` before the
+existing navigation, without clearing unrelated storage. One removable blank-page
+seed is consumed once per origin; later reload choices survive, and the next
+independent case retires the old seed. Corpus pinning and explicit `until` precedence
+remain those of `gotoPerfStable`.
+
+P1 initializes before bootstrap probes and checks grid inside existing readiness;
+JA/JB initialize before their start epoch and retain grid in their existing observer.
+Short-suite setup covers plain starts; PP7c/PP10 require grid inside their original
+wait. Original source depth, focus/selection, cache, action direction, measured
+boundaries and scenario revisions remain; no extra measured Home/toggle/read/wait
+was added. Pure harness and actual local fixture checks cover reused/blank/reload
+isolation and wrong-table rejection. All 104 pure checks pass.
+
+Keep initialization outside measurement unless it is the measured action. Do not
+silently insert a density transition, Home reset, reload, wait or extra read into
+a benchmark. Preserve its starting depth, cache/readiness assumptions, direction
+and measured boundary; if the workload changes, follow scenario revision rules
+and declare incompatible comparisons. Do not rewrite old results, baselines or
+thresholds. Run applicable pure harness checks and local fixture validation;
+formal perf, dry runs and live-system replay still require operator authorization.
+No live perf, experiment or dry run was performed for this slice, and no historical
+logs, dashboards, thresholds or baselines were rewritten. Functional/harness gates
+do not certify performance equivalence. Existing canonical paired campaigns retain
+their version/topology limits; any proposed new operator-run campaign must name an
+unanswered regression question that those records cannot answer.
+
 ## Two measurement systems
 
 This directory contains **two independent measurement systems** that run from

@@ -70,17 +70,17 @@ export function getRetainedSortValues(imageId: string, searchKey: string): SortV
 
 /**
  * Build a stable fingerprint from URL search params for cache keying.
- * Strips display-only keys (image, density) and sorts the rest so
+ * Strips display-only image state and sorts the rest so
  * key order doesn't affect the fingerprint.
  */
 export function buildSearchKey(params: SearchParams | Record<string, unknown>): string {
-  // Exclude display-only keys (image, density) and internal pagination
+  // Exclude display-only image state and internal pagination
   // fields (offset, length) — they describe fetch mechanics,
   // not the search context. This ensures keys match regardless of
   // whether params come from the URL or from the store.
   const entries = Object.entries(params)
     .filter(([k, v]) =>
-      k !== "image" && k !== "density" &&
+      k !== "image" &&
       k !== "offset" && k !== "length" &&
       v != null && v !== "")
     .sort(([a], [b]) => a.localeCompare(b));

@@ -22,7 +22,7 @@ for (const focusMode of ["explicit", "phantom"] as const) {
     for (const kind of ["ordinary", "AI"] as const) {
       test(`B17 discovery ${kind} ${focusMode} ${sourceView} retains new membership during browsing`, async ({ kupua }) => {
         const page = kupua.page;
-        await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+        await kupua.startSearch("", sourceView);
         await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
         await page.evaluate(async ({ kind, focusMode }) => {
           const configPath = "/src/dal/es-config.ts";

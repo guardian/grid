@@ -2,6 +2,31 @@
 
 > Agent: read this before touching any test file.
 
+## Session-Aware Density Setup
+
+Density is per-tab UI state, not a URL parameter. Use
+`kupua.startSearch(extraParams, "grid" | "table")` for an independent case (grid
+default); it initializes density, delegates to the corpus-pinned navigation helper
+and asserts the rendered view. `initializeDensity` writes through production
+preference handling on an existing document without a throwaway mount/toggle/read.
+For a blank document it owns one removable CDP seed, consumed once per origin;
+the next initialization retires the prior registration. This is Chromium setup,
+not a cross-browser storage guarantee. No global session-storage clear is used.
+
+`goto`, `gotoWithParams`, `gotoPerfStable`, SPA navigation and reload retain the
+case's choice. Do not reinitialize within persistence/history controls. An obsolete
+`density=table` URL does not select table, and URL absence does not prove grid:
+use `assertDensity` or layout-specific `waitForResults` readiness. Maintained
+local, forced-seek and diagnostic setups follow this distinction.
+
+Density-history controls prove no entry/key/query-generation change or Forward
+loss, immediate reload/first-mounted view, fresh/reused initialization and current
+layout destination restoration. Both-logo Home races and held-data frame controls
+retain pending-content, focus, geometry and request assertions. KUP-018 proves
+queued return cancellation and rejects a deliberately delivered obsolete callback.
+The completed slice passes 394 retry-free habitual cases, including 11 forced-seek
+cases; local fixtures do not authorize or certify live/perf execution.
+
 ## Directory Structure
 
 ```
@@ -166,14 +191,15 @@ than a production event bus.
 
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `local/scrubber.spec.ts` | 76 | Seek accuracy, scroll preservation, settle-window stability, density switch, sort change, buffer extension, scroll-up after seek, scroll mode, two-tier, and retained bug regressions |
+| `local/scrubber.spec.ts` | 89 | Seek accuracy, scroll preservation, settle-window stability, density switch, sort change, buffer extension, scroll-up after seek, scroll mode, two-tier, and retained bug regressions |
 | `local/keyboard-nav.spec.ts` | 15 | Two-mode keyboard nav (no-focus scroll vs focused movement), Home/End, search box key trapping, row-aligned snapping |
-| `local/buffer-corruption.spec.ts` | 12 | Logo click / metadata click / query change after deep seek — stale prepend regression |
+| `local/browser-history.spec.ts` | 108 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership |
+| `local/buffer-corruption.spec.ts` | 23 | Logo / metadata / query changes after deep seek, pending sort/density ownership and held-data Home layout frames |
 | `local/browse-density.spec.ts` | 32 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; rendered narrowing-query and finite-AI ownership in local memory fixtures; both click modes/views |
-| `local/ui-features.spec.ts` | 15 | Feature specs: image detail (open, close, navigate, position counter), Enter key, result count, panel toggles, keyboard shortcuts, sort dropdown, column header sort, URL state |
+| `local/ui-features.spec.ts` | 47 | Detail, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
 | `local/forced-seek.spec.ts` | 11 | Core midpoint/End/Home journey, eight pending-browse density cases with frame-level departure/thumb assertions, and two no-density controls; runs habitually against port 3030 |
-| `local/focus-preservation.spec.ts` | ~30 | Focus preservation across sort/filter/scrubber/density in explicit and phantom mode |
+| `local/focus-preservation.spec.ts` | 13 | Focus/viewport continuity, neighbour fallback, snap-back and four adapter-backed L39 AI-exit cases |
 
 ### Shared (`e2e/shared/` — imported by maintained test modes)
 

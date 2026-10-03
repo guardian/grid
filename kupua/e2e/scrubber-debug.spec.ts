@@ -607,7 +607,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S1: Default sort (uploadTime desc), full dataset, normal viewport
   test("S1 — default sort, full dataset", async ({ kupua }) => {
     console.log("\n[S1] Default sort, full dataset...");
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}`);
     await triggerDistribution(kupua);
     const r = await runScan(kupua, "S1: default sort, full", 50);
     allReports.push(r);
@@ -617,7 +617,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S2: Default sort, last 24h (sub-hour ticks — original bug report)
   test("S2 — default sort, last 24h", async ({ kupua }) => {
     console.log("\n[S2] Default sort, last 24h...");
-    await kupua.gotoWithParams(`since=${STABLE_24H_SINCE}&until=${STABLE_24H_UNTIL}`);
+    await kupua.startSearch(`since=${STABLE_24H_SINCE}&until=${STABLE_24H_UNTIL}`);
     const state = await kupua.getStoreState();
     if (state.total < 10) { console.log("  SKIP: too few results"); test.skip(); return; }
     await triggerDistribution(kupua);
@@ -629,7 +629,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S3: Default sort, last week (daily ticks)
   test("S3 — default sort, last week", async ({ kupua }) => {
     console.log("\n[S3] Default sort, last week...");
-    await kupua.gotoWithParams(`since=${STABLE_WEEK_SINCE}&until=${STABLE_WEEK_UNTIL}`);
+    await kupua.startSearch(`since=${STABLE_WEEK_SINCE}&until=${STABLE_WEEK_UNTIL}`);
     const state = await kupua.getStoreState();
     if (state.total < 10) { console.log("  SKIP: too few results"); test.skip(); return; }
     await triggerDistribution(kupua);
@@ -641,7 +641,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S4: "Taken on" sort — null zone (images without dateTaken)
   test("S4 — taken sort (null zone)", async ({ kupua }) => {
     console.log("\n[S4] Taken on sort (null zone expected)...");
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}&orderBy=-taken`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}&orderBy=-taken`);
     await triggerDistribution(kupua);
     // Extra wait for null-zone distribution to load
     await kupua.page.waitForTimeout(5000);
@@ -653,7 +653,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S5: "Last modified" sort — likely large null zone
   test("S5 — lastModified sort (null zone)", async ({ kupua }) => {
     console.log("\n[S5] Last modified sort (null zone expected)...");
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}&orderBy=-lastModified`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}&orderBy=-lastModified`);
     await triggerDistribution(kupua);
     await kupua.page.waitForTimeout(5000);
     const r = await runScan(kupua, "S5: lastModified sort (null zone)", 50);
@@ -664,7 +664,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   // S6: Credit sort (keyword — no date ticks, different distribution type)
   test("S6 — credit sort (keyword)", async ({ kupua }) => {
     console.log("\n[S6] Credit sort (keyword)...");
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}&orderBy=-credit`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}&orderBy=-credit`);
     await triggerDistribution(kupua);
     const r = await runScan(kupua, "S6: credit sort (keyword)", 40);
     allReports.push(r);
@@ -675,7 +675,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   test("S7 — default sort, small viewport 768×600", async ({ kupua }) => {
     console.log("\n[S7] Default sort, small viewport...");
     await kupua.page.setViewportSize({ width: 768, height: 600 });
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}`);
     await triggerDistribution(kupua);
     const r = await runScan(kupua, "S7: default sort, 768×600", 40);
     allReports.push(r);
@@ -687,7 +687,7 @@ test.describe("Scrubber diagnostic — multi-scenario", () => {
   test("S8 — default sort, tall viewport 1987×1800", async ({ kupua }) => {
     console.log("\n[S8] Default sort, tall viewport...");
     await kupua.page.setViewportSize({ width: 1987, height: 1800 });
-    await kupua.gotoWithParams(`until=${STABLE_UNTIL}`);
+    await kupua.startSearch(`until=${STABLE_UNTIL}`);
     await triggerDistribution(kupua);
     const r = await runScan(kupua, "S8: default sort, 1987×1800", 50);
     allReports.push(r);

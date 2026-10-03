@@ -9,13 +9,14 @@
  * calling `setParams` + `search`.
  */
 
-import { useCallback, useEffect, useRef } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useRouter, useRouterState, useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
-import { getViewportAnchorId, getVisibleImageIds } from "@/hooks/useDataWindow";
+import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import {
   applySearchContextTransitions,
   canonicalizeSearchParams,
+  searchParamsSchema,
   URL_PARAM_KEYS,
   URL_DISPLAY_KEYS,
   type UrlSearchParams,
@@ -31,12 +32,11 @@ import {
   setExternalQuery,
 } from "@/lib/orchestration/search";
 import { withFreshKupuaKey, withCurrentKupuaKey } from "@/lib/orchestration/history-key";
-import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { getCurrentKupuaKey, getDetailOriginKupuaKey } from "@/lib/orchestration/history-key";
 import { snapshotStore } from "@/lib/history-snapshot";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
-import { saveSortFocusRatio } from "@/hooks/useScrollEffects";
-import { takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
+import { historySearchContinuity, takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -50,6 +50,8 @@ import { traceActionsForNavigation } from "@/lib/orchestration/perceived-navigat
 // Starts undefined — intentional: on the first effect run there is no
 // predecessor to capture a departure snapshot for.
 let _lastKupuaKey: string | undefined;
+let _lastImage: string | undefined;
+let _lastDetailOriginKey: string | undefined;
 
 // ---------------------------------------------------------------------------
 // Collection auto-sort — atomically adjust sort when a `collection:` chip
@@ -85,24 +87,36 @@ function cleanParams(
 
 export function useUrlSearchSync() {
   const searchParams = useSearch({ from: "/search" });
+  const location = useRouterState({ select: (state) => state.location });
+  const router = useRouter();
   const { setParams, search } = useSearchStore();
   const navigate = useNavigate();
   const hasAppliedDefaults = useRef(false);
   const unmountedRef = useRef(false);
+  const pendingPopKey = useRef<string | undefined>(undefined);
+  const [observedEntryKey, setObservedEntryKey] = useState<string | undefined>(undefined);
 
   // Guard: mark as unmounted so the effect body (which React may still call
   // during the commit phase of a route transition) doesn't trigger navigations
   // or searches after the search page has been left.
   useEffect(() => {
     unmountedRef.current = false;
+    const unsubscribe = router.history.subscribe(({ location, action }) => {
+      const key = (location.state as { kupuaKey?: string }).kupuaKey;
+      pendingPopKey.current = action.type === "BACK" || action.type === "FORWARD" || action.type === "GO" ? key : undefined;
+      setObservedEntryKey(key);
+    });
     return () => {
       unmountedRef.current = true;
+      unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   // When URL search params change → push to store and search
   useEffect(() => {
     if (unmountedRef.current) return;
+    const observedParams = searchParamsSchema.parse(location.search);
+    if (buildSearchKey(observedParams) !== buildSearchKey(searchParams) || observedParams.image !== searchParams.image) return;
 
     // On first mount, if the URL has no search params at all, apply defaults
     // (e.g. nonFree=true).  This is a one-time redirect — once any interaction
@@ -150,15 +164,29 @@ export function useUrlSearchSync() {
       )
     );
     const serialized = JSON.stringify(searchOnly);
-    if (serialized === _prevParamsSerialized) {
+    const sameQuery = serialized === _prevParamsSerialized;
+    const currentKey = getCurrentKupuaKey();
+    // Origin/detail transitions keep the native list. Other history entries
+    // own their represented restoration, even with identical query params.
+    const detailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : _lastDetailOriginKey;
+    const nativeDetailTransition = searchParams.image
+      ? !detailOriginKey || detailOriginKey === _lastKupuaKey
+      : !!_lastImage && (!detailOriginKey || detailOriginKey === currentKey);
+    const sameQueryHistoryDestination = sameQuery && currentKey !== _lastKupuaKey
+      && currentKey !== undefined && pendingPopKey.current === currentKey
+      && !nativeDetailTransition;
+    pendingPopKey.current = undefined;
+    if (sameQuery && !sameQueryHistoryDestination) {
       // Consume the user-initiated flag even on dedup bail to prevent it
       // leaking into a future effect run. Display-only navigations (image
-      // detail open/close, density toggle) trigger pushNavigate → markUser
+      // detail open/close) trigger pushNavigate → markUser
       // InitiatedNavigation, but the effect deduplicates them. Without
       // this, the stale flag is consumed by the NEXT real param change
       // (e.g. browser Back), making it look user-initiated when it's not.
       consumeUserInitiatedFlag();
-      _lastKupuaKey = getCurrentKupuaKey();
+      _lastKupuaKey = currentKey;
+      _lastImage = searchParams.image;
+      _lastDetailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : undefined;
       return;
     }
 
@@ -208,9 +236,8 @@ export function useUrlSearchSync() {
     // isUrlNavigation = true when this is NOT the first search AND NOT
     // a sort-only change.  Both user-initiated and popstate (back/forward)
     // navigate through this code path, so a single check covers both.
-    // Sort-only changes, density toggles, and image-detail open/close are
-    // all correctly excluded (sort-only via isSortOnly; display-only-key
-    // changes deduplicate above and never reach this point).
+    // User sort-only and native detail-origin changes are excluded;
+    // density never changes the URL. Other history destinations restore.
     if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
       const isUrlNavigation = _prevParamsSerialized !== "" && !isSortOnly;
       if (isUrlNavigation) {
@@ -218,31 +245,10 @@ export function useUrlSearchSync() {
       }
     }
 
-    // Focus-preservation strategy:
-    //
-    // Browser back/forward (isPopstate=true): DON'T carry focus into the
-    // restored search context. The user is returning to a previous search
-    // and expects to see it from the top. Passing focusedImageId from the
-    // CURRENT context into OLD results would place them at a random-seeming
-    // position (or trigger an unnecessary ES lookup for an image that may
-    // not exist in the old results).
-    //
-    // UNLESS we have a snapshot for this history entry — in that case,
-    // pass the snapshot's anchor as sortAroundFocusId to restore near
-    // where the user left this search context.
-    //
-    // User-initiated changes (isPopstate=false): "Never Lost" — pass
-    // focusedImageId to search() so the store can find the image in the
-    // new results and scroll to it.
-    //
-    // Phantom focus promotion: when there's no explicit focus, fall back
-    // to the viewport anchor — the image nearest the viewport centre.
-    // Sort-only relaxation: skip viewport anchor when only orderBy changed.
-    let focusPreserveId: string | null = null;
-    let phantomAnchor: string | null = null;
-    let snapshotHints: { anchorOffset: number } | undefined;
+    // User changes consume pre-passive view capture. History derives its
+    // target, placement, focus and fallback only from the destination.
     let frozenUntil: string | undefined;
-    let continuity: SearchContinuity | undefined;
+    let continuity: SearchContinuity;
 
     if (isPopstate) {
       // Capture a snapshot for the entry we're LEAVING before restoring
@@ -281,6 +287,7 @@ export function useUrlSearchSync() {
       // (freshly minted kupuaKey), so they fall through to reset-to-top.
       const kupuaKey = getCurrentKupuaKey();
       const snapshot = kupuaKey ? snapshotStore.get(kupuaKey) : undefined;
+      continuity = historySearchContinuity(snapshot, searchParams);
       if (snapshot && snapshot.anchorImageId) {
         const currentSearchKey = buildSearchKey(
           searchOnly as Record<string, string | undefined>,
@@ -288,21 +295,6 @@ export function useUrlSearchSync() {
         const isStrictMatch = snapshot.searchKey === currentSearchKey;
 
         if (isStrictMatch) {
-          if (snapshot.anchorIsPhantom) {
-            // Viewport anchor — restore position without promoting to
-            // explicit focus. Pass as phantom so search() positions the
-            // buffer but doesn't set focusedImageId.
-            phantomAnchor = snapshot.anchorImageId;
-          }
-          focusPreserveId = snapshot.anchorImageId;
-          snapshotHints = {
-            anchorOffset: snapshot.anchorOffset,
-          };
-          // Inject the viewport ratio so Effect #9 restores the image
-          // at the same row position, not always at the top of the viewport.
-          if (snapshot.viewportRatio != null) {
-            saveSortFocusRatio(snapshot.viewportRatio);
-          }
           // Restore the freeze boundary so new images don't silently
           // leak into back/forward results. Use the LATER of the
           // snapshot's and the store's current newCountSince — this is
@@ -329,6 +321,8 @@ export function useUrlSearchSync() {
     setPrevParamsSerialized(serialized);
     setPrevSearchOnly({ ...searchOnly });
     _lastKupuaKey = getCurrentKupuaKey();
+    _lastImage = searchParams.image;
+    _lastDetailOriginKey = searchParams.image ? getDetailOriginKupuaKey() : undefined;
 
     // Build a full replacement for URL-managed keys: start with all undefined,
     // then overlay what's actually in the URL. This ensures that params removed
@@ -345,30 +339,17 @@ export function useUrlSearchSync() {
 
     // AI mode sort-only: re-sort the in-memory buffer client-side.
     // No ES round-trip or Bedrock call needed — all ≤200 results are already in memory.
-    if (isSortOnly && !!searchOnly.aiQuery) {
+    if ((isSortOnly || sameQueryHistoryDestination) && !!searchOnly.aiQuery) {
       useSearchStore.getState().resortAiBuffer(
         searchParams.orderBy ?? "-relevance",
-        focusPreserveId,
-        !!phantomAnchor,
         continuity,
       );
       setExternalQuery(null);
       return;
     }
 
-    const searchOptions = continuity
-        ? { continuity, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
-          sortOnly: isSortOnly || undefined, traceAction, traceInteractionId }
-      : phantomAnchor && snapshotHints
-      ? { phantomOnly: true, visibleNeighbours: getVisibleImageIds(), snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
-      : phantomAnchor
-        ? { phantomOnly: true, retainExplicitFocus: !!focusPreserveId && focusPreserveId !== useSearchStore.getState().focusedImageId, visibleNeighbours: getVisibleImageIds(), frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
-        : snapshotHints
-          ? { snapshotHints, frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
-          : frozenUntil || isSortOnly
-            ? { frozenUntil, sortOnly: isSortOnly || undefined, traceAction, traceInteractionId } as const
-            : traceAction ? { traceAction, traceInteractionId } as const : undefined;
-    search(focusPreserveId, searchOptions);
+    search(null, { continuity, frozenUntil, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
+      sortOnly: isSortOnly || undefined, traceAction, traceInteractionId });
 
     // Clear the external-query latch. cancelSearchDebounce(newQuery) sets
     // _externalQuery so the debounce callback can detect stale updates from
@@ -378,7 +359,7 @@ export function useUrlSearchSync() {
     // means no matching debounce ever fires to clear it), and every future
     // debounced query from the CQL editor is silently dropped.
     setExternalQuery(null);
-  }, [searchParams, setParams, search, navigate]);
+  }, [searchParams, location, observedEntryKey, setParams, search, navigate]);
 }
 
 /**

@@ -19,14 +19,14 @@ test.beforeEach(async ({ kupua }) => {
 
 test.describe("Visual regression baselines", () => {
   test("grid view baseline", async ({ kupua, page }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await expect(page).toHaveScreenshot("grid-view.png", {
       maxDiffPixelRatio: 0.001,
     });
   });
 
   test("table view baseline", async ({ kupua, page }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await expect(page).toHaveScreenshot("table-view.png", {
       maxDiffPixelRatio: 0.001,
@@ -34,7 +34,7 @@ test.describe("Visual regression baselines", () => {
   });
 
   test("image detail baseline", async ({ kupua, page }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.openDetailForNthItem(0);
     await expect(page).toHaveScreenshot("image-detail.png", {
       maxDiffPixelRatio: 0.001,
@@ -42,7 +42,7 @@ test.describe("Visual regression baselines", () => {
   });
 
   test("search with query baseline", async ({ kupua, page }) => {
-    await kupua.gotoWithParams("query=test&orderBy=-taken");
+    await kupua.startSearch("query=test&orderBy=-taken");
     await expect(page).toHaveScreenshot("search-query.png", {
       maxDiffPixelRatio: 0.001,
     });

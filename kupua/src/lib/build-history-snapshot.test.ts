@@ -51,7 +51,7 @@ vi.mock("@/lib/scroll-geometry-ref", () => ({
 vi.mock("@/lib/image-offset-cache", () => ({
   buildSearchKey: (params: Record<string, unknown>) => {
     const entries = Object.entries(params)
-      .filter(([k, v]) => k !== "image" && k !== "density" && v != null && v !== "")
+      .filter(([k, v]) => k !== "image" && v != null && v !== "")
       .sort(([a], [b]) => a.localeCompare(b));
     return JSON.stringify(entries);
   },

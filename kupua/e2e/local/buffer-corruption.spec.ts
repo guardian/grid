@@ -45,7 +45,7 @@ test.describe("B8 pending sort survives saved density", () => {
       for (const sourceView of ["grid", "table"] as const) {
         test(`${transport}, ${focusMode}, ${sourceView} preserves the pending search`, async ({ kupua }) => {
           const page = kupua.page;
-          await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+          await kupua.startSearch("", sourceView);
           await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
           const initial = await kupua.getStoreState();
           expect(initial.total).toBeGreaterThan(1000);
@@ -191,7 +191,7 @@ test.describe("L37 End supersedes pending initial sort", () => {
     for (const sourceView of ["grid", "table"] as const) {
       test(`${focusMode}, ${sourceView} retains End after late first-page success`, async ({ kupua }) => {
         const page = kupua.page;
-        await kupua.gotoWithParams(sourceView === "table" ? "density=table" : "");
+        await kupua.startSearch("", sourceView);
         await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
         const before = await page.evaluate(async focusMode => {
           const configPath = "/src/dal/es-config.ts";
@@ -345,7 +345,7 @@ async function assertCleanTopState(kupua: any, label: string) {
 test.describe("Buffer corruption — logo click after deep seek", () => {
 
   test("grid: logo click returns to clean top state after deep seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -370,7 +370,7 @@ test.describe("Buffer corruption — logo click after deep seek", () => {
   });
 
   test("repeated logo clicks always return to top", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -399,7 +399,7 @@ test.describe("Buffer corruption — logo click after deep seek", () => {
 test.describe("Buffer corruption — logo click from ImageDetail after deep seek", () => {
 
   test("logo click from detail view returns to clean top state", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -469,7 +469,7 @@ test.describe("Buffer corruption — logo click from ImageDetail after deep seek
 test.describe("Buffer corruption — metadata click from ImageDetail after deep seek", () => {
 
   test("metadata click triggers new search with clean buffer", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -569,7 +569,7 @@ test.describe("Buffer corruption — metadata click from ImageDetail after deep 
 test.describe("Buffer corruption — real-time integrity monitoring", () => {
 
   test("no transient buffer corruption during logo click after deep seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -649,7 +649,7 @@ test.describe("Buffer corruption — real-time integrity monitoring", () => {
 test.describe("Buffer corruption — query change after deep seek", () => {
 
   test("CQL query change returns to clean top state after deep seek", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -703,7 +703,7 @@ test.describe("Buffer corruption — query change after deep seek", () => {
 test.describe("Extends recover after cooldown", () => {
 
   test("extendForward works after logo click + cooldown expiry", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
     test.skip(
@@ -770,7 +770,7 @@ test.describe("Extends recover after cooldown", () => {
 test.describe("Seek data arrival — no rogue extends", () => {
 
   test("buffer is stable immediately after seek completes", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
 
@@ -819,7 +819,7 @@ test.describe("Seek data arrival — no rogue extends", () => {
 test.describe("Logo click resets scroll without prior deep seek", () => {
 
   test("grid: logo click scrolls to top when scrolled within first page", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     const initial = await kupua.getStoreState();
     expect(initial.bufferOffset).toBe(0);
 
@@ -844,7 +844,7 @@ test.describe("Logo click resets scroll without prior deep seek", () => {
   });
 
   test("table: logo click scrolls to top when scrolled within first page", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     const initial = await kupua.getStoreState();
     expect(initial.bufferOffset).toBe(0);
@@ -874,8 +874,8 @@ test.describe("Logo click resets scroll without prior deep seek", () => {
 // This is the definitive test for the "Home logo flash" bug.
 //
 // When clicking the Home logo from a deep-seeked TABLE view, the old code
-// would: (1) fire search() async, (2) navigate immediately (dropping
-// density=table from URL), (3) grid mounts with stale deep-offset buffer
+// would: (1) fire search() async, (2) switch layout immediately,
+// (3) grid mounts with stale deep-offset buffer
 // → flash of wrong images for ~50-200ms. The fix makes resetToHome() async
 // — it awaits search() completion before navigating, so the grid only
 // mounts after fresh page-1 data is in the store.
@@ -888,7 +888,7 @@ test.describe("Logo click resets scroll without prior deep seek", () => {
 test.describe("Home logo from deep table — no flash of wrong grid content", () => {
 
   test("grid never mounts with stale deep-offset data during Home from table", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     const initial = await kupua.getStoreState();
     test.skip(initial.total < MIN_TOTAL_FOR_SEEK, `Total ${initial.total} too small for seek`);
@@ -900,109 +900,65 @@ test.describe("Home logo from deep table — no flash of wrong grid content", ()
     const afterSeek = await kupua.getStoreState();
     expect(afterSeek.bufferOffset, "should be at a deep offset").toBeGreaterThan(0);
 
-    // Install a recorder that captures the store state at every change.
-    // We specifically watch for the moment when:
-    //   - The URL no longer has density=table (grid is about to mount)
-    //   - AND bufferOffset > 0 (stale data still in buffer)
-    // That combination IS the flash.
     await kupua.page.evaluate(() => {
-      const snapshots: Array<{
-        bufferOffset: number;
-        resultsLength: number;
-        density: string | null;
-        firstImageId: string | null;
-        ts: number;
-      }> = [];
-
       const store = (window as any).__kupua_store__;
-
-      // Record store state changes
-      const unsub = store.subscribe((s: any) => {
-        const url = new URL(window.location.href);
-        snapshots.push({
-          bufferOffset: s.bufferOffset,
-          resultsLength: s.results.length,
-          density: url.searchParams.get("density"),
-          firstImageId: s.results[0]?.id ?? null,
-          ts: Date.now(),
-        });
-      });
-
-      // Also watch for URL changes via a MutationObserver on the DOM
-      // (TanStack Router uses History API, which we can catch via
-      // periodic URL checks in a rAF loop)
-      let lastUrl = window.location.href;
-      const urlSnapshots: Array<{ url: string; bufferOffset: number; ts: number }> = [];
-      const checkUrl = () => {
-        const currentUrl = window.location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
-          const s = store.getState();
-          urlSnapshots.push({
-            url: currentUrl,
-            bufferOffset: s.bufferOffset,
-            ts: Date.now(),
-          });
+      const source = store.getState().dataSource;
+      const original = source.searchAfter;
+      const own = Object.getOwnPropertyDescriptor(source, "searchAfter");
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const probe = { ready: false, held: false, released: false, done: false,
+        departure: store.getState().results, samples: [] as { grid: boolean; offset: number; fresh: boolean }[],
+        release: () => { probe.released = true; release(); }, cleanup: () => {} };
+      source.searchAfter = async function (...args: any[]) {
+        const result = await original.apply(this, args);
+        if (!probe.held && args[0].trackTotalHits && !args[1]) {
+          probe.held = true;
+          probe.ready = true;
+          await held;
         }
-        if (!(window as any).__flash_test_done__) {
-          requestAnimationFrame(checkUrl);
-        }
+        return result;
       };
-      requestAnimationFrame(checkUrl);
-
-      (window as any).__flash_snapshots__ = snapshots;
-      (window as any).__flash_url_snapshots__ = urlSnapshots;
-      (window as any).__flash_unsub__ = unsub;
-      (window as any).__flash_test_done__ = false;
+      const sample = () => {
+        const state = store.getState();
+        probe.samples.push({ grid: !!document.querySelector('[aria-label="Image results grid"]'),
+          offset: state.bufferOffset, fresh: state.results !== probe.departure && !state.loading });
+      };
+      const observer = new MutationObserver(sample);
+      observer.observe(document, { childList: true, subtree: true });
+      const frame = () => { sample(); if (!probe.done) requestAnimationFrame(frame); };
+      requestAnimationFrame(frame);
+      probe.cleanup = () => {
+        probe.release();
+        probe.done = true;
+        observer.disconnect();
+        if (own) Object.defineProperty(source, "searchAfter", own);
+        else delete source.searchAfter;
+      };
+      (window as any).__homeData = probe;
     });
-
-    // Click the Home logo
-    await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
-    await kupua.waitForResults();
-    await kupua.page.waitForTimeout(1500);
-
-    // Stop the recorder
-    const { snapshots, urlSnapshots } = await kupua.page.evaluate(() => {
-      (window as any).__flash_test_done__ = true;
-      const snaps = (window as any).__flash_snapshots__;
-      const urlSnaps = (window as any).__flash_url_snapshots__;
-      const unsub = (window as any).__flash_unsub__ as () => void;
-      if (unsub) unsub();
-      delete (window as any).__flash_snapshots__;
-      delete (window as any).__flash_url_snapshots__;
-      delete (window as any).__flash_unsub__;
-      delete (window as any).__flash_test_done__;
-      return { snapshots: snaps, urlSnapshots: urlSnaps };
-    });
-
-    // Assert: when the URL changed (dropping density=table), the buffer
-    // must already have been at offset 0 with fresh data.
-    for (const snap of urlSnapshots) {
-      const url = new URL(snap.url);
-      const density = url.searchParams.get("density");
-      if (density !== "table") {
-        // Grid view is now active — buffer must be at offset 0
-        expect(
-          snap.bufferOffset,
-          `Flash detected: URL changed to grid view while bufferOffset=${snap.bufferOffset}. ` +
-          `The grid would show stale deep-offset images.`,
-        ).toBe(0);
+    try {
+      await kupua.page.locator('a[title="Grid — clear all filters"]').first().click();
+      await kupua.page.waitForFunction(() => (window as any).__homeData.ready);
+      await kupua.assertDensity("table");
+      const pending = await kupua.page.evaluate(async () => {
+        for (let frame = 0; frame < 12; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const probe = (window as any).__homeData;
+        const state = (window as any).__kupua_store__.getState();
+        return { sameResults: state.results === probe.departure, loading: state.loading,
+          prematureGrid: probe.samples.some((sample: any) => sample.grid), offset: state.bufferOffset };
+      });
+      expect(pending).toEqual({ sameResults: true, loading: true, prematureGrid: false, offset: afterSeek.bufferOffset });
+      await kupua.page.evaluate(() => (window as any).__homeData.release());
+      await kupua.assertDensity("grid");
+      await kupua.waitForResults();
+      const samples = await kupua.page.evaluate(() => (window as any).__homeData.samples);
+      expect(samples.some((sample: any) => sample.grid)).toBe(true);
+      for (const sample of samples.filter((sample: any) => sample.grid)) {
+        expect(sample).toEqual({ grid: true, offset: 0, fresh: true });
       }
-    }
-
-    // Assert: no store state snapshot shows bufferOffset > 0 after the
-    // URL dropped density=table. Find the first snapshot where density
-    // is not "table" — all subsequent snapshots must have bufferOffset 0.
-    let gridModeStarted = false;
-    for (const snap of snapshots) {
-      if (snap.density !== "table") gridModeStarted = true;
-      if (gridModeStarted) {
-        expect(
-          snap.bufferOffset,
-          `Store had bufferOffset=${snap.bufferOffset} while in grid mode ` +
-          `(firstImage=${snap.firstImageId}). This is the flash.`,
-        ).toBe(0);
-      }
+    } finally {
+      await kupua.page.evaluate(() => { (window as any).__homeData?.cleanup(); delete (window as any).__homeData; });
     }
 
     // Final state: clean top, first image matches

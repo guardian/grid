@@ -75,8 +75,8 @@ test.describe("AI continuity L39", () => {
         await page.route("**/bedrock/health", route => route.fulfill({ json: { available: true } }));
         await page.route("**/*", route => route.request().resourceType() === "image"
           ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
-          : route.continue());
-        await kupua.gotoWithParams(view === "table" ? "density=table" : "");
+          : route.fallback());
+        await kupua.startSearch("", view);
         await page.waitForFunction(() => {
           const state = (window as any).__kupua_store__.getState();
           const lifecycle = (window as any).__kupua_getSearchLifecycle__();
@@ -173,7 +173,7 @@ test.describe("Focus survives search context change", () => {
   test("focus preserved when query changes and image is in new results", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus the 3rd image
     await kupua.focusNthItem(2);
@@ -215,7 +215,7 @@ test.describe("Focus survives search context change", () => {
   test("focus cleared when query changes and image is NOT in new results", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus the 3rd image
     await kupua.focusNthItem(2);
@@ -251,7 +251,7 @@ test.describe("Neighbour fallback", () => {
   test("focuses nearest neighbour when focused image drops out of results", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus the 3rd image
     await kupua.focusNthItem(2);
@@ -329,7 +329,7 @@ test.describe("Arrow snap-back after seek", () => {
   test("arrow key snaps back to focused image and moves focus", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus the 5th image (gives some room for delta)
     await kupua.focusNthItem(4);
@@ -384,7 +384,7 @@ test.describe("Arrow snap-back after seek", () => {
   test("snap-back works then normal arrow navigation continues", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Focus the 5th image
     await kupua.focusNthItem(4);
@@ -420,7 +420,7 @@ test.describe("Phantom focus promotion", () => {
   test("viewport anchor is the rendered image nearest the usable table centre", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await kupua.page.evaluate(() => {
       const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]');
@@ -471,7 +471,7 @@ test.describe("Phantom focus promotion", () => {
   test("viewport anchor preserves position without focus ring", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // No click — no explicit focus. Scroll down to build a viewport anchor.
     await kupua.scrollBy(1500);
@@ -529,7 +529,7 @@ test.describe("Phantom focus promotion", () => {
   test("position NOT preserved across sort-only change without explicit focus", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll down — build a viewport anchor
     await kupua.scrollBy(1500);
@@ -574,7 +574,7 @@ test.describe("Phantom focus promotion", () => {
   test("explicit focus still takes precedence over phantom for sort change", async ({
     kupua,
   }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Set explicit focus
     await kupua.focusNthItem(2);

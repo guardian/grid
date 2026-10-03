@@ -72,10 +72,12 @@ const P17_BACKWARD_EXTEND_THRESHOLD = 50;
  * likely return zero results anyway.
  */
 async function gotoPerfSearch(kupua: any, extraParams?: string) {
+  await kupua.initializeDensity("grid");
   const untilParam = STABLE_UNTIL ? `&until=${STABLE_UNTIL}` : "";
   const extra = extraParams ? `&${extraParams}` : "";
   await kupua.page.goto(`/search?nonFree=true${untilParam}${extra}`);
   await kupua.waitForResults();
+  await kupua.assertDensity("grid");
 }
 
 function captureSuccessfulDataRoutes(
@@ -1548,13 +1550,14 @@ test.describe("Rendering Performance Smoke", () => {
 
   // ─── P1: Initial load + settle ─────────────────────────────────────
   test("P1: initial load — CLS and frame jank during first render", async ({ kupua }) => {
+    await kupua.initializeDensity("grid");
     await installP1BootstrapProbes(kupua);
     await kupua.page.goto(
       STABLE_UNTIL
         ? `/search?nonFree=true&until=${STABLE_UNTIL}`
         : "/search?nonFree=true",
     );
-    await kupua.waitForResults();
+    await kupua.waitForResults(15_000, "grid");
     await kupua.page.evaluate(() => new Promise<void>((resolve) =>
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     ));

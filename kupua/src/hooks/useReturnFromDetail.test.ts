@@ -110,6 +110,29 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
+describe("marked detail entry identity", () => {
+  it.each([false, true])("entry switch=%s distinguishes native destination from same-entry traversal", (changedEntry) => {
+    history.replaceState({ kupuaKey: "detail-J", _detailOriginKupuaKey: "list-B", _detailEntryImageId: "img-J" }, "", "/search?image=img-J");
+    const center = vi.fn();
+    mockStoreState.focusedImageId = "img-J";
+    const props = makeProps({ imageParam: "img-J", focusedImageId: "img-J", findImageIndex: () => 40,
+      setFocusedImageId: (imageId) => { mockStoreState.focusedImageId = imageId; }, scrollRowToCenter: center });
+    const { rerender } = renderHook((props: Props) => useReturnFromDetail(props), { initialProps: props });
+    act(() => {
+      history.replaceState({ kupuaKey: changedEntry ? "detail-H" : "detail-J",
+        _detailOriginKupuaKey: changedEntry ? "list-A" : "list-B", _detailEntryImageId: changedEntry ? "img-H" : "img-J" }, "", "/search?image=img-H");
+      mockStoreState.focusedImageId = "img-H";
+      rerender({ ...props, imageParam: "img-H", focusedImageId: "img-H" });
+    });
+    act(() => {
+      history.replaceState({ kupuaKey: changedEntry ? "list-A" : "list-B" }, "", "/search");
+      rerender({ ...props, imageParam: undefined, focusedImageId: "img-H" });
+    });
+    expect(mockStoreState.focusedImageId).toBe("img-H");
+    expect(center).toHaveBeenCalledTimes(changedEntry ? 0 : 1);
+  });
+});
+
 describe("useReturnFromDetail — phantom mode", () => {
   it("calls setFocusedImageId(wasViewing) when detail closes with null focusedImageId in phantom mode", () => {
     // Bug #8: in phantom mode focusedImageId is always null, yet closing the

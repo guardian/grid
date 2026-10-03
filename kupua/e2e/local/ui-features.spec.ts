@@ -28,7 +28,7 @@ test("top-level date bounds exclude equality from results, counts and ranks", as
     new URL(request.url()).pathname === "/es/images/_search" &&
     request.postDataJSON()?.size > 0,
   );
-  await kupua.goto();
+  await kupua.startSearch();
   const query = (await initialSearch).postDataJSON().query;
 
   for (const [field, lower, upper] of [
@@ -73,7 +73,7 @@ test("top-level date bounds exclude equality from results, counts and ranks", as
       [lower, samples[2].id],
       [upper, samples[0].id],
     ]) {
-      await kupua.gotoWithParams(new URLSearchParams({
+      await kupua.startSearch(new URLSearchParams({
         ids: samples.map((sample) => sample.id).join(","),
         orderBy: "uploadTime",
         [parameter]: samples[1].date,
@@ -99,7 +99,7 @@ test("top-level date bounds exclude equality from results, counts and ranks", as
 test.describe("API-shaped cursors", () => {
   for (const view of ["grid", "table"] as const) {
     test(`${view}: retains range anchors and detail history across cache eviction`, async ({ kupua }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       const alias = await kupua.page.evaluate(async () => {
         const mockPath = "/src/dal/mock-data-source.ts";
         const configPath = "/src/lib/grid-config.ts";
@@ -211,7 +211,7 @@ test.describe("API-shaped cursors", () => {
 
 test.describe("Image detail — opening", () => {
   test("double-click on grid cell opens image detail with correct image", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Note the ID of the image at position 2 (third cell)
     const targetImage = await kupua.page.evaluate(() => {
@@ -236,7 +236,7 @@ test.describe("Image detail — opening", () => {
   });
 
   test("double-click on table row opens image detail with correct image", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     // Note the ID of the image at position 2
@@ -268,7 +268,7 @@ test.describe("Image detail — opening", () => {
 
 test.describe("Image detail — closing", () => {
   test("Back to search button returns to grid with opened image focused and in view", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Scroll down a bit so the focused image isn't at scrollTop=0
     const scrollBefore = await kupua.getScrollTop();
@@ -314,7 +314,7 @@ test.describe("Image detail — closing", () => {
   });
 
   test("Backspace key returns to search with image focused", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.openDetailForNthItem(3);
     const focusedId = await kupua.getFocusedImageId();
@@ -336,7 +336,7 @@ test.describe("Image detail — closing", () => {
 
 test.describe("Image detail — navigation", () => {
   test("arrow keys navigate between images in detail view", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.openDetailForNthItem(2);
 
     // Note the starting image
@@ -370,7 +370,7 @@ test.describe("Image detail — navigation", () => {
 
 test.describe("Keyboard — Enter", () => {
   test("Enter key on focused image opens detail view", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Click an image to focus it (moves focus out of the search input)
     await kupua.focusNthItem(3);
@@ -402,7 +402,7 @@ test.describe("Keyboard — Enter", () => {
 
 test.describe("Image detail — position counter", () => {
   test("detail header shows correct position (N of total)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const store = await kupua.getStoreState();
     const total = store.total;
@@ -471,7 +471,7 @@ test.describe("Panel toggles", () => {
   for (const focusSetup of ["no focus", "older focus"] as const) {
     test(`keeps the selected anchor through panel and window resizing (${focusSetup})`, async ({ kupua }) => {
       await kupua.page.setViewportSize({ width: 1720, height: 960 });
-      await kupua.goto();
+      await kupua.startSearch();
       await kupua.waitForPositionMap();
 
       const targetPosition = 257;
@@ -582,7 +582,7 @@ test.describe("Panel toggles", () => {
   }
 
   test("Browse and Details buttons independently toggle their panels", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const leftSeparator = kupua.page.locator('[aria-label*="Resize left panel"]');
     const rightSeparator = kupua.page.locator('[aria-label*="Resize right panel"]');
@@ -610,7 +610,7 @@ test.describe("Panel toggles", () => {
   });
 
   test("[ and ] keyboard shortcuts toggle panels", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const leftSeparator = kupua.page.locator('[aria-label*="Resize left panel"]');
     const rightSeparator = kupua.page.locator('[aria-label*="Resize right panel"]');
@@ -636,7 +636,7 @@ test.describe("Panel toggles", () => {
   });
 
   test("explicit Filters expansion requests aggregations immediately", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     await kupua.page.evaluate(() => {
       const globalObject = window as any;
@@ -669,7 +669,7 @@ test.describe("Panel toggles", () => {
   // stable image identity — a full open+close round trip didn't cancel out.
   // ---------------------------------------------------------------------
   test("repeated panel toggles without explicit focus do not progressively shift the viewport", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     const readAnchor = () =>
       kupua.page.evaluate(() => {
@@ -715,7 +715,7 @@ test.describe("Panel toggles", () => {
 
 test.describe("Sort dropdown", () => {
   test("sort dropdown opens, shows options, and selecting one changes results", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Note the first image under the default sort (Upload time)
     const store1 = await kupua.getStoreState();
@@ -760,7 +760,7 @@ test.describe("Sort dropdown", () => {
 
 test.describe("Table column header sort", () => {
   test("clicking a sortable column header changes the primary sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     // The default sort is "Upload time" descending.
@@ -795,7 +795,7 @@ test.describe("Table column header sort", () => {
   });
 
   test("shift-clicking sort controls selects one primary and comma URLs are canonicalized", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
 
     // First, sort by Credit (primary)
@@ -841,7 +841,7 @@ test.describe("Table column header sort", () => {
     });
 
     // Pasted comma URLs keep only a valid first token and replace in place.
-    await kupua.gotoWithParams("orderBy=credit,dateAddedToCollection");
+    await kupua.startSearch("orderBy=credit,dateAddedToCollection");
     await expect.poll(async () => {
       const state = await kupua.getStoreState();
       return state.orderBy === "credit" && !state.loading;
@@ -868,7 +868,7 @@ test.describe("Table column header sort", () => {
 test.describe("URL state", () => {
   test("navigating to a URL with query and sort loads the correct results", async ({ kupua }) => {
     // Navigate directly to a URL with query + custom sort
-    await kupua.gotoWithParams("query=london&orderBy=credit");
+    await kupua.startSearch("query=london&orderBy=credit");
 
     const store = await kupua.getStoreState();
 
@@ -925,7 +925,7 @@ test.describe("KUP-021 media fallback", () => {
       }
       await route.fulfill({ contentType: "image/gif", body: Buffer.from(pixel, "base64") });
     });
-    await kupua.goto();
+    await kupua.startSearch();
     await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
     await page.evaluate(() => {
       const results = (window as any).__kupua_store__.getState().results;
@@ -1035,7 +1035,7 @@ test.describe("KUP-019 mounted traversal consumers", () => {
     await page.route("**/*", (route) => route.request().resourceType() === "image"
       ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
       : route.fallback());
-    await kupua.goto();
+    await kupua.startSearch();
     await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
     await page.evaluate(() => {
       const store = (window as any).__kupua_store__;
@@ -1158,7 +1158,7 @@ test.describe("KUP-027 native preview exit settlement", () => {
     await page.route("**/*", (route) => route.request().resourceType() === "image"
       ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
       : route.fallback());
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
   });
 
@@ -1323,7 +1323,7 @@ test.describe("KUP-027 native preview exit settlement", () => {
 
 test.describe("Fullscreen preview — navigation", () => {
   test("ArrowLeft in fullscreen preview moves focus by exactly one image (no skip)", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.seekTo(0.5);
 
     // Focus an image in the middle of the grid (not the edge — avoids boundary issues)
@@ -1391,7 +1391,7 @@ test.describe("Fullscreen preview — navigation", () => {
   });
 
   test("table fullscreen preview returns the last-viewed image to usable centre", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     await kupua.focusNthItem(8);
     const startId = await kupua.getFocusedImageId();
@@ -1418,7 +1418,7 @@ test.describe("Fullscreen preview — navigation", () => {
 
 test.describe("Table image detail — return placement", () => {
   test("table detail returns the last-viewed image to usable centre", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.switchToTable();
     const entryId = await kupua.openDetailForNthItem(8);
     await kupua.detailNextAndWait();
@@ -1436,7 +1436,7 @@ test.describe("Table image detail — return placement", () => {
 test.describe("KUP-018 queued detail return", () => {
   for (const scenario of ["ordinary", "reopen", "query", "resize"] as const) {
     test(`${scenario}: queued return respects ownership and current geometry`, async ({ kupua, page }) => {
-      await kupua.goto();
+      await kupua.startSearch();
       await kupua.switchToTable();
       const alternateIds = await page.evaluate(() => (window as any).__kupua_store__.getState().results.slice(100, 200).map((image: { id: string }) => image.id));
       await kupua.openDetailForNthItem(5);
@@ -1447,13 +1447,15 @@ test.describe("KUP-018 queued detail return", () => {
         const originalRequest = window.requestAnimationFrame;
         const originalCancel = window.cancelAnimationFrame;
         const pending = new Map<number, { callback: FrameRequestCallback; timestamp?: number }>();
+        const cancelled = new Map<number, { callback: FrameRequestCallback; timestamp?: number }>();
         const gate = (window as any).__detailReturnGate = {
-          pending, originalRequest, originalCancel, captured: 0, executed: 0,
+          pending, cancelled, originalRequest, originalCancel, captured: 0, executed: 0,
           container: document.querySelector('[aria-label="Image results table"]'),
-          release() {
-            for (const [handle, entry] of pending) {
+          release(deliverCancelled = false) {
+            for (const [handle, entry] of [...pending, ...(deliverCancelled ? cancelled : [])]) {
               if (entry.timestamp === undefined) continue;
               pending.delete(handle);
+              cancelled.delete(handle);
               gate.executed += 1;
               entry.callback(entry.timestamp);
             }
@@ -1461,6 +1463,7 @@ test.describe("KUP-018 queued detail return", () => {
           cleanup() {
             for (const handle of pending.keys()) originalCancel.call(window, handle);
             pending.clear();
+            cancelled.clear();
             window.requestAnimationFrame = originalRequest;
             window.cancelAnimationFrame = originalCancel;
           },
@@ -1477,6 +1480,8 @@ test.describe("KUP-018 queued detail return", () => {
           return handle;
         };
         window.cancelAnimationFrame = (handle) => {
+          const entry = pending.get(handle);
+          if (entry) cancelled.set(handle, entry);
           pending.delete(handle);
           originalCancel.call(window, handle);
         };
@@ -1496,16 +1501,20 @@ test.describe("KUP-018 queued detail return", () => {
             return !state.loading && state.total === 100 &&
               document.querySelector('[aria-label="Image results table"]')!.scrollTop === 0;
           });
+          expect(await page.evaluate(() => {
+            const gate = (window as any).__detailReturnGate;
+            return { pending: gate.pending.size, cancelled: gate.cancelled.size, executed: gate.executed };
+          })).toEqual({ pending: 0, cancelled: 1, executed: 0 });
         }
-        const placement = await page.evaluate(async () => {
+        const placement = await page.evaluate(async (deliverCancelled) => {
           const gate = (window as any).__detailReturnGate;
           const container = document.querySelector('[aria-label="Image results table"]')!;
           const before = container.scrollTop;
-          gate.release();
+          gate.release(deliverCancelled);
           await new Promise<void>((resolve) => gate.originalRequest.call(window, () => gate.originalRequest.call(window, resolve)));
           return { before, after: container.scrollTop, captured: gate.captured, executed: gate.executed,
             sameContainer: container === gate.container };
-        });
+        }, scenario === "query");
         expect(placement.captured).toBe(1);
         expect(placement.sameContainer).toBe(true);
         if (scenario === "reopen") {
@@ -1555,7 +1564,7 @@ test.describe("Image detail — buffer boundary traversal", () => {
    * practical in an E2E test.
    */
   test("arrow-left past backward buffer edge triggers extend and continues navigation", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Seek to ~50% so bufferOffset > 0
     await kupua.seekTo(0.5);
@@ -1637,7 +1646,7 @@ test.describe("Image detail — buffer boundary traversal", () => {
 
 test.describe("Stability — image detail reload", () => {
   test("restores distinct cached detail images without repeating a handled image", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.waitForFunction(() => (window as any).__kupua_store__.getState().positionMap !== null);
     await kupua.page.evaluate(async () => {
       const mockPath = "/src/dal/mock-data-source.ts";
@@ -1711,7 +1720,7 @@ test.describe("Stability — image detail reload", () => {
   });
 
   test("reload in image detail does not cause restoreAroundCursor flood", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Seek to ~50% to get a deep bufferOffset
     await kupua.seekTo(0.5);
@@ -1783,7 +1792,7 @@ test.describe("Click-to-search", () => {
     // This tests for a bug where cancelSearchDebounce() set _externalQuery
     // which was never cleared, permanently blocking debounced CQL input
     // updates. Affected: metadata clicks, table cell clicks (plain, Shift, Alt).
-    await kupua.goto();
+    await kupua.startSearch();
 
     // Open image detail to see metadata
     await kupua.openDetailForNthItem(0);

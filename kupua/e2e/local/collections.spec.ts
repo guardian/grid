@@ -108,7 +108,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("renders root-level nodes in left panel", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
@@ -116,7 +116,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("child nodes hidden until parent is expanded", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
@@ -125,7 +125,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("clicking the collapse chevron hides child nodes", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
@@ -140,7 +140,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("clicking a collection node adds filter and auto-switches sort", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     const travelNode = kupua.page.getByText("Travel", { exact: true });
@@ -159,7 +159,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("clearing a collection query reverts sort to previous", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     // Capture the default sort before clicking a collection
@@ -187,7 +187,7 @@ test.describe("CollectionTree — with mock service", () => {
   });
 
   test("clicking an active collection node is a no-op", async ({ kupua }) => {
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     const travelNode = kupua.page.getByText("Travel", { exact: true });
@@ -216,7 +216,7 @@ test.describe("CollectionTree — graceful absence", () => {
       (url) => url.pathname === "/collections",
       (route) => route.fulfill({ status: 503, body: "" }),
     );
-    await kupua.goto();
+    await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     // Wait for absent state: the whole section (header + content) disappears.
