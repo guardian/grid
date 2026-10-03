@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.imaging
 
-import app.photofox.vipsffm.enums.VipsIntent
-import app.photofox.vipsffm.{VImage, VipsOption}
+import app.photofox.vipsffm.enums.{VipsIntent, VipsInterpretation}
+import app.photofox.vipsffm.{VImage, VipsHelper, VipsOption}
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
@@ -80,7 +80,33 @@ class VipsImageOperations extends GridLogging with ImageOperations {
 
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = ???
 
-  def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit logMarker: LogMarker): Future[Option[String]] = ???
+  def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit logMarker: LogMarker): Future[Option[String]] = {
+    Future {
+      val arena = Arena.ofConfined()
+      try {
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+
+        val interpretationRawValue = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
+        // TODO better way to go straight from int to enum?
+        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == interpretationRawValue)
+        maybeInterpretation match {
+          case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
+          case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
+          case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
+          case Some(VipsInterpretation.INTERPRETATION_LABS) => Some("LAB")
+          case Some(VipsInterpretation.INTERPRETATION_RGB16) => Some("RGB")
+          case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
+          case _ => None
+        }
+      } catch {
+        case e: Exception =>
+          logger.error(logMarker, "Error during identifyColourModel", e)
+          throw e
+      } finally {
+        arena.close()
+      }
+    }
+  }
 
   private def saveImageToFile(image: VImage, qual: Double, outputFile: File): File = {
     logger.info(s"Saving image to file: " + outputFile.getAbsolutePath)
