@@ -17,7 +17,7 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Committed baseline: 4 October 2026, `ae08e779d`.** Ordinary search/sort and B6
+**Committed baseline: 4 October 2026, `85dae28b3` (includes L41).** Ordinary search/sort and B6
 (`d9b70c013`), AI continuity/L39 (`08e9c5fb0`), history/density (`7b82b13f8`)
 and detail return (`ae08e779d`) are delivered within their recorded limits.
 
@@ -28,11 +28,13 @@ Home resets grid after owned data completion unless newer density intent wins.
 B1 is superseded by removal of its density-only entry producer, not by an
 obsolete-entry repair. See [the completed unit](#history-and-density-unit).
 
-Recorded local gates at this baseline: **2,836 unit tests / 83 files, TypeScript/Vite, 104 pure harness
-checks and all 423 local E2E cases pass**, with retries disabled and all 11
-forced-seek cases included. Independent product cold reviews and repair re-reviews
-have no remaining actionable findings. The build covers `src`, not excluded
-E2E/perf configurations; those are not certified clean by this build.
+Final L42 local gates: **2,850 unit tests / 83 files, TypeScript/Vite and all
+435 local E2E cases pass**, with retries disabled and all 11 forced-seek cases
+included. Two independent full-diff product cold reviews accept the bounded change;
+documentation qualifications preserve its remaining limits. The 104 pure harness
+checks retain their L41 result; no helper/harness source changed in L42, so that
+surface was not rerun. The build covers `src`, not excluded E2E/perf configurations;
+those are not certified clean by this build.
 The bundle-size advisory and E2E warnings remain. These are functional local
 gates, not paired performance evidence or live-system certification; existing
 live/checkpoint limits remain attached to their repair records.
@@ -44,15 +46,15 @@ Original-image native placement and traversed centring remain distinct.
 See [the completed unit](#detail-return-unit) for composed proof, fixture changes
 and verification limits. No live-system or performance campaign ran for that unit.
 
-**Continuity checkpoint:** L41 is complete in the working tree; L42 is approved,
-not implemented.
+**Continuity checkpoint:** L41 is included in actual HEAD `85dae28b3`; L42's
+provenance separation and nine-lifetime map are complete within local limits.
 
 | Unit | Purpose | Dependency / boundary |
 |---|---|---|
 | [L41: test-refresh pilot](#test-refresh-pilot-l41) | Complete: one hit-tested point observer across browsing and detail, with explicit proof mapping | Tests/helpers only; unchanged product assertions, 12 helper controls; runtime impact unmeasured |
-| [L42: ownership consolidation](continuity-ownership-consolidation-prompt.md) | Explicit provenance independent of policy; compact ownership map and fewer competing control decisions | Independently executable on current tests; no new behaviour or universal coordinator |
+| [L42: ownership consolidation](#ownership-consolidation-l42) | Complete: explicit provenance independent of policy and a compact ownership map | Production policies/cost retained; status/legacy limits explicit; no new coordinator |
 
-L42 remains independent and unstarted; its existing tests suffice without adopting
+L42 remains independent; its existing tests suffice without adopting
 the L41 observer or demonstrating a wallclock reduction. Select further behavioural slices after the consolidation
 checkpoint, not automatically. Independent urgent repairs still need their own
 scope decision; this sequence is not a universal technical dependency.
@@ -1400,9 +1402,9 @@ pending return. These are real improvements, not merely bug closures. Necessary
 ownership distinctions are more explicit, but whole-flow reasoning remains spread
 across records, signals, generations and status fields.
 
-One concrete gap remains: `fallback === "top"` in search/AI reorder also selects
-history focus-intent protection and pending-history handling. Fallback is policy,
-not provenance. L42 separates those responsibilities without changing live policy.
+The inspected baseline coupled `fallback === "top"` in search/AI reorder to
+history focus-intent protection and pending-history handling. L42 now separates
+those responsibilities with explicit provenance, without changing live policy.
 The current ratio/centre substitution proof is useful but does not prove independence
 of all policy dimensions. `hasPendingSearch` also uses status-shaped state; inspect
 its authority before replacing it, rather than inventing a universal pending owner.
@@ -1460,8 +1462,8 @@ this assessment is not a runtime or performance re-certification.
 Ordinary search/sort, B6 and AI adoption/L39 are delivered within their recorded
 verification boundaries. Destination history and independent density are delivered
 within local limits, including B13/B14 and producer-removal supersession of B1.
-Detail return closes B9/B12. L41's tests-only refresh is delivered in the working
-tree; L42 is the next approved work, bounded below;
+Detail return closes B9/B12. L41 is included in HEAD; L42 is completed within
+its recorded local limits. Subsequent scope requires operator selection;
 other expansion remains proposed, not authorized. The goal is a clearer, less brittle
 continuity system whose behaviour can evolve, not a completed bug list or a
 predetermined rewrite. Each delivered unit must remain useful if wider replacement
@@ -1476,8 +1478,8 @@ intervention:
 - **Mixed meanings:** focus also carries last-viewed identity; history cannot
   independently represent the bookmark and the place being browsed (C03/C27).
 - **Policy/ownership coupling:** ordinary/AI/history now share owned handoffs,
-  but fallback policy still doubles as history provenance in control decisions.
-  L42 targets this coupling, not a return to identity-free ratio capture.
+  but at the inspected baseline fallback also selected history lifecycle authority.
+  L42 removes that coupling with explicit provenance, not identity-free ratio capture.
 - **Inferred intent:** a buffer reaching zero is treated as a reset, and a loaded
   DOM bottom as a result boundary (B10/B7).
 - **Mismatched ownership:** long-press can cancel its own range operation (B3).
@@ -1587,28 +1589,29 @@ impact is unmeasured: available results lack a comparable phase breakdown, and
 focused/full gate durations are not a speed comparison. No production changes,
 live work, perf campaign, metric/threshold rewrite or Git mutation occurred.
 Existing build/E2E warnings and physical-device/live/performance limits remain.
-L42 is independent and unstarted; the observer is optional reusable input proof,
+L42 is complete within its local limits; the observer is optional reusable input proof,
 not a new prerequisite or permission for a wider test migration.
 
 ### Ownership Consolidation (L42)
 
-**Approved, not implemented; independent of L41.** Current APIs and tests suffice.
-Start with the three history-control uses of `fallback === "top"` in `search()`
-and `resortAiBuffer()`. Make provenance explicit in adopted handoffs; keep the
-neighbour-suppression check as a genuine fallback-policy decision. Prove history
-ownership survives an alternate fallback fixture and user provenance does not
-gain history-only lifecycle behaviour merely by choosing top fallback.
+**Complete within local limits; independent of L41.** Actual starting
+HEAD is `85dae28b35047c9fbf887e288b7edb83f71c7d70`, which already includes L41.
+No L41 helper adoption or runtime reduction is required by this unit.
 
-Update a compact ownership map in guide 02: producer, authority to publish data,
-write focus, place viewport and settle busy state, plus invalidation/handoff and
-surviving useful work. Cover adopted search/discovery, browsing, maintenance,
-focus/continuity, history, detail-return/cursor reuse and Home/density boundaries.
-Inspect status-derived control and duplicated predicates locally. Replace them
-only where existing authority represents the same lifetime; otherwise retain and
-name the exact limitation. No inferred-origin substitute based on ratio, neighbours
-or another incidental payload. No universal epoch, mass file move, new snapshot
-model, UX change, extra-read repair or unrelated bug fix. Full local gates and cold
-cross-slice plan/structure review are required; do not claim global simplification.
+| Responsibility | Current result / boundary |
+|---|---|
+| Structure | `SearchContinuity` requires `provenance: "user" | "history"`; both adopted factories declare it. Three history-control checks in search/AI reorder use that tag. The actual top-fallback neighbour-suppression check stays a policy decision. No origin inference from geometry/focus/neighbours replaces it. |
+| Behaviour | Production history remains top/no focus on absence, ordinary user changes retain neighbour fallback and finite AI keeps its distinct membership/absence/failure contracts. Existing target, ratio/centre, owner replacement, data-survives-retirement, density, native detail return and request budgets remain controls. Legacy no-handoff callers are not absorbed. |
+| Ownership map | [Guide 02 Engine Map](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md#34-ownership-lifetimes) gives nine source-backed lifetimes with publication/focus/placement/busy authority, invalidation and surviving useful work. No new register/coordinator/epoch or module movement. |
+| Retained control | `hasPendingSearch`, `hasPendingForegroundRead` and `startBrowseNavigation` retain resolver status and queued/loading/ready distinctions. A live signal does not distinguish idle/completed resolution; continuity phase governs presentation, and legacy snap-back lacks that record. Replacing status needs a separately scoped active/settled resolver lifetime, not `!signal.aborted`. Necessary after-await guards stay. Focus intent guards completion, not every already-ready handoff; post-publication click/clear before density readiness remains uncertified and unmodified. |
+| Proof / maintenance | Twelve new mounted adapter controls failed behaviourally before production edits; they cover ordinary first-page/lookup retirement, alternate-fallback pending AI adoption and transport-specific success/absence/failure, plus user top fallback's immediate reorder. Two existing detail AI replacement controls gain alternate-fallback variants. No assertions/cases removed; existing frame/adapter fixtures reused, no browser helper or setup extraction. Added fixture execution is proof cost, not speed evidence. |
+| Future local change | An approved history neighbour fallback would change constructor policy without changing history intent retirement or pending AI authority. Different missing-target reads could be legitimate; surviving-target substitution retains existing reads. The alternate policy remains fixture-only. |
+| Review / gates | Two fresh full-diff inline cold reviews accept plan/structure and correctness/proof. The map's completion-versus-ready-placement qualification and stale routing/changelog findings are repaired; no product repair or scope expansion followed. Final gates pass: 2,850 unit tests / 83 files, TypeScript/Vite and 435 retry-free E2E cases, including all 11 forced-seek. Scoped source diagnostics are clean; app TypeScript covers the changed source tests. No E2E/perf code changed, so inherited excluded-config diagnostics remain qualified and the prior 104 harness checks are not a new L42 run. Existing bundle/E2E warnings remain. |
+
+This is bounded provenance separation and accurate authority documentation, not
+global engine completion or a closure claim for B2/B3/B4/B7/B10/B11/B15/B16 or
+Q1/Q7. No snapshot/storage redesign, extra resolution work, backend change,
+live/perf campaign or Git mutation is authorized by this checkpoint.
 
 ### Detail Return Unit
 
@@ -1754,7 +1757,8 @@ this is not a further functional gate or a claim of performance equivalence.
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. Completed continuity units remain regression controls;
-L41 is complete; L42 is the next separately bounded work. A repair may interrupt an active milestone for
+L41 and L42 are complete within their recorded limits; subsequent scope requires
+operator selection. A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
 
@@ -1985,4 +1989,3 @@ their evidence records, not in this backlog.
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
-| L42 | Consolidate | Approved, not implemented: adopted history ownership currently inferred from fallback policy; whole-flow authority needs a compact map | Vary provenance and fallback independently through composed tests; preserve data/placement/busy ownership, request budgets and behaviour; replace other inference only with evidenced existing authority | Independent of L41; dedicated prompt; no new behavioural slice |

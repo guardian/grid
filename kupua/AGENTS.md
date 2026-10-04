@@ -48,7 +48,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Position-engine cleanup** | [Ledger status](exploration/docs/not-yet-another-audit-ledger.md#current-status) and [session skeleton](exploration/docs/not-yet-another-audit-ledger.md#session-prompt-skeleton) own durable routing. [L41 input pilot](e2e/README.md#continuity-input-pilot) is complete in the working tree. Next approved, not implemented: [L42 ownership consolidation](exploration/docs/continuity-ownership-consolidation-prompt.md), independently executable without adopting L41's observer. Require test-impact/reuse analysis and inline cold reviews of plan/structure as well as correctness/coverage. Completed units and evidence limits remain controls; Q1/Q7 and unrelated bugs stay separate. |
+| **Position-engine cleanup** | [Ledger status](exploration/docs/not-yet-another-audit-ledger.md#current-status) and [session skeleton](exploration/docs/not-yet-another-audit-ledger.md#session-prompt-skeleton) own durable routing. [L41 input pilot](e2e/README.md#continuity-input-pilot) is included in HEAD. [L42 ownership consolidation](exploration/docs/not-yet-another-audit-ledger.md#ownership-consolidation-l42) is reviewed and locally verified: provenance is independent of fallback, with nine mapped lifetimes. Independent of L41's observer; resolver status, legacy consumers and post-publication intent limits remain. Next scope requires operator selection; Q1/Q7 and unrelated bugs stay separate. |
 | **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md` (source-derived behaviour map; ledger items marked *(Lx)*), `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx` and its composed identity/return tests, `lib/detail-return.ts` (shared session identity and native/centre policy), `useReturnFromDetail.ts`, `search-store.ts` (`_focusIntent`, `_cursorRestore`), `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
@@ -77,8 +77,11 @@ the three observed GC sites, with synchronous readiness/error propagation/dispos
 L41's tests-only pilot is complete in the working tree: one hit-tested input
 observer removes browsing/detail duplication, with 12 negative/lifetime controls
 and unchanged product proof. Cold reviews and full local gates pass; runtime impact
-is unmeasured. Next approved checkpoint is L42 explicit provenance/ownership
-consolidation, independent and unstarted. Later behavioural scope remains separate.
+is unmeasured. L42 requires explicit user/history provenance, retaining production
+fallback policies and nine distinct mapped lifetimes. Two full-diff cold reviews and
+full unit/build/retry-free E2E gates pass. Status-shaped resolver control and legacy
+consumers remain; completion intent guards do not certify every post-publication
+click/clear. Later behavioural scope requires operator selection; no live/perf claim.
 
 B8/L37 and B17 pending-browse/density are repaired;
 the cold-review follow-up preserves query discovery through navigation/replacement,
@@ -159,10 +162,10 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 
 ### Testing Summary
 
-- **2836 Vitest unit/integration tests across 83 files** -- final detail-return gate passed; `npm --prefix kupua test`
+- **2850 Vitest unit/integration tests across 83 files** -- final L42 gate passed; `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **435 Playwright E2E** cases (~6min, 3 workers) -- `npm --prefix kupua run test:e2e`; final L41 gate passed with retries disabled, including 27 detail-return, two fixture-lifetime and 12 hit-tested input controls
+- **435 Playwright E2E** cases (~6min, 3 workers) -- `npm --prefix kupua run test:e2e`; final L42 gate passed with retries disabled, including 27 detail-return, two fixture-lifetime and 12 hit-tested input controls
 - **11 forced-seek habitual cases** — isolated port-3030 project; eight B17/B18 density cases with pending-frame assertions, two no-density controls and the core journey
 - **22 jank perf tests / 33 metric IDs** + experiment infrastructure — `npm run test:perf`. P13c measures non-resident detail with warm media; P14 guards zero image-hydration reads. Both dashboards show these shared audit records; live two-mode preflight remains operator-run.
 - **104 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). Session-aware density initialization, reused/blank/reload isolation, rendered-grid readiness and corpus pinning join these existing contracts:

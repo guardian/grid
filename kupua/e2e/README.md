@@ -69,16 +69,19 @@ and app build does not cover it. Existing bundle/E2E warnings remain. No live/pe
 campaign ran, and performance equivalence is not certified.
 
 Historical B9/B12 IDs now route to the descriptively named `Detail close during list
-restoration` and `Reloaded detail gesture return` suites. L42 remains independent
-and unstarted; the point observer is reusable only where this input contract fits,
-not a prerequisite for ownership consolidation or a reason to migrate more families.
+restoration` and `Reloaded detail gesture return` suites. L42's independent
+provenance separation is complete within local limits; the point observer is reusable
+only where this input contract fits, not a prerequisite or reason to migrate more families.
+The L42 final gate retains all 435 retry-free browser cases, including 11 forced-seek,
+and passes 2,850 source unit tests plus TypeScript/Vite. No browser/perf helper or
+scenario source changed; excluded-config diagnostics and performance limits remain.
 
 ## Further Helper Reuse Assessment
 
 Report-only assessment, 4 October 2026: `ae08e779d` plus the completed, uncommitted
 L41 source changes. Nothing below is implemented or adds approval to L41/L42.
-L42 remains the next priority. Once it is underway, the operator may select one
-candidate as a separate test-only unit, scheduled apart from overlapping L42 edits.
+L42 is now complete within its recorded local limits. The operator may select one
+candidate as a separate test-only unit; no candidate is selected by this checkpoint.
 This is an optional maintenance queue, not a prerequisite or automatic follow-on.
 Do not batch every candidate into one refresh.
 

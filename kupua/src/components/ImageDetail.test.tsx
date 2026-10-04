@@ -851,7 +851,9 @@ describe("bounded detail return composition", () => {
     });
   }
 
-  it.each(["replace-old-history", "adopt-history-then-clear"])("pending AI %s uses the latest history presentation's focus intent", async (scenario) => {
+  it.each(["replace-old-history", "adopt-history-then-clear"].flatMap(scenario =>
+    (["top", "neighbours"] as const).map(fallback => ({ scenario, fallback }))))(
+    "pending AI $scenario uses the latest history presentation's focus intent with $fallback fallback", async ({ scenario, fallback }) => {
     const dataSource = new ApiDataSource();
     const pending = deferred<AiSearchResult | null>();
     const ai = vi.spyOn(dataSource, "searchByAi").mockReturnValue(pending.promise);
@@ -862,10 +864,11 @@ describe("bounded detail return composition", () => {
       imagePositions: new Map(), focusedImageId: null, params: { aiQuery: "fixture" } });
     useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
     render(<List imageId="B" />);
-    const destination = historySearchContinuity({ searchKey: "detail-test", anchorImageId: "A",
-      anchorIsPhantom: false, anchorOffset: 0, viewportRatio: 0.25, newCountSince: null }, { aiQuery: "fixture" });
+    const destination = { ...historySearchContinuity({ searchKey: "detail-test", anchorImageId: "A",
+      anchorIsPhantom: false, anchorOffset: 0, viewportRatio: 0.25, newCountSince: null }, { aiQuery: "fixture" }),
+      fallback: fallback === "top" ? "top" as const : undefined };
     const launch = scenario === "replace-old-history" ? destination : {
-      targetId: "A", focus: "target" as const, placement: { kind: "ratio" as const, ratio: 0.25 },
+      provenance: "user" as const, targetId: "A", focus: "target" as const, placement: { kind: "ratio" as const, ratio: 0.25 },
     };
     let work!: Promise<void>;
     act(() => { work = useSearchStore.getState().search(undefined, { continuity: launch }); });

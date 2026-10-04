@@ -205,6 +205,150 @@ async function aiContinuityFixture(transport: "direct-ES" | "media-api", total =
 }
 
 describe.each(["direct-ES", "media-api"] as const)("destination history %s through publication and placement", (transport) => {
+  it.each([{ total: 100, intent: "clear" }, { total: 12000, intent: "same-id" }] as const)(
+    "L42 history with neighbour fallback retains $intent retirement through $total-result discovery", async ({ total, intent }) => {
+      const fixture = await aiContinuityFixture(transport, total);
+      routeParams = { nonFree: "true" };
+      useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+      useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+      const targetId = total === 100 ? "img-40" : fixture.aiHits[10].id;
+      useSearchStore.getState().setFocusedImageId(targetId);
+      const view = mountDensity(table);
+      frame();
+      frame();
+      view.container.scrollTop = 640;
+      const continuity = { ...searchContinuity.historySearchContinuity({ searchKey: buildSearchKey(routeParams),
+        anchorImageId: targetId, anchorIsPhantom: false, anchorOffset: total === 100 ? 40 : Math.floor(total / 2) + 69,
+        viewportRatio: 0.3, newCountSince: null }, routeParams), fallback: undefined };
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      const read = fixture.pages.getMockImplementation()!;
+      fixture.pages.mockImplementationOnce(async (...args) => { const result = await read(...args); await gate; return result; });
+      let pending!: Promise<void>;
+      act(() => { pending = useSearchStore.getState().search(undefined, { continuity }); });
+      const before = useSearchStore.getState();
+      act(() => useSearchStore.getState().setFocusedImageId(intent === "clear" ? null : targetId));
+      try {
+        await act(async () => { release(); await pending; await vi.advanceTimersByTimeAsync(0); });
+        await vi.waitFor(() => expect(useSearchStore.getState().loading).toBe(false));
+        const state = useSearchStore.getState();
+        expect(state.focusedImageId).toBe(intent === "clear" ? null : targetId);
+        expect(state._searchContinuity).toMatchObject({ provenance: "history", targetId, phase: "retired" });
+        expect(state._searchContinuity?.owner.aborted).toBe(false);
+        expect(state.sortAroundFocusGeneration).toBe(before.sortAroundFocusGeneration);
+        expect(state._scrollReset).toEqual(before._scrollReset);
+        expect(view.container.scrollTop).toBe(640);
+        expect(state.total).toBe(total);
+        expect(state.error).toBeNull();
+        expect(state.imagePositions.has(targetId)).toBe(true);
+        expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, state.bufferOffset + index]));
+        expect(fixture.pages).toHaveBeenCalledTimes(total === 100 ? 1 : 4);
+        expect(fixture.counts).toHaveBeenCalledOnce();
+        expect(fixture.ranks).toHaveBeenCalledTimes(total === 100 ? 0 : 1);
+      } finally {
+        await act(async () => { release(); await pending; });
+      }
+    });
+
+  it.each(["success", "empty", "failure"] as const)("L42 adopted AI history with neighbour fallback retains retirement on %s", async (outcome) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-40");
+    const view = mountDensity(table);
+    frame();
+    frame();
+    view.container.scrollTop = 640;
+    const release = fixture.hold(outcome);
+    let pending!: Promise<void>;
+    act(() => {
+      useSearchStore.getState().setParams({ aiQuery: "L42-history", orderBy: "-relevance" });
+      pending = useSearchStore.getState().search(undefined, { continuity: searchContinuity.captureSearchContinuity(false) });
+    });
+    const predecessor = useSearchStore.getState()._searchContinuity!;
+    const departure = useSearchStore.getState();
+    const params = { ...departure.params, orderBy: "uploadTime" };
+    const continuity = { ...searchContinuity.historySearchContinuity({ searchKey: buildSearchKey(params),
+      anchorImageId: "img-49", anchorIsPhantom: false, anchorOffset: 49, viewportRatio: 0.3,
+      newCountSince: null }, params), fallback: undefined };
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      act(() => {
+        useSearchStore.getState().setParams({ orderBy: "uploadTime" });
+        useSearchStore.getState().resortAiBuffer("uploadTime", continuity);
+      });
+      const adopted = useSearchStore.getState();
+      expect(adopted.results).toBe(departure.results);
+      expect(adopted.sortAroundFocusGeneration).toBe(departure.sortAroundFocusGeneration);
+      expect(adopted._scrollReset).toEqual(departure._scrollReset);
+      expect(adopted._searchContinuity).toMatchObject({ provenance: "history", targetId: "img-49", phase: "pending" });
+      expect(predecessor.owner.aborted).toBe(true);
+      expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(false);
+      expect(view.container.scrollTop).toBe(640);
+      act(() => useSearchStore.getState().setFocusedImageId(outcome === "success" ? "img-49" : null));
+      await act(async () => { release(); await pending; });
+      const state = useSearchStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.focusedImageId).toBe(outcome === "success" ? "img-49" : null);
+      expect(state.sortAroundFocusGeneration).toBe(departure.sortAroundFocusGeneration);
+      expect(state._scrollReset).toEqual(departure._scrollReset);
+      expect(view.container.scrollTop).toBe(640);
+      if (outcome === "failure" && transport === "direct-ES") {
+        expect(state.results).toBe(departure.results);
+        expect(state.error).not.toBeNull();
+        expect(state._searchContinuity).toBeNull();
+      } else {
+        expect(state.total).toBe(outcome === "success" ? 80 : 0);
+        expect(state.error).toBeNull();
+        expect(state._searchContinuity).toMatchObject({ owner: adopted._searchContinuity!.owner, phase: "retired" });
+        expect([...state.imagePositions]).toEqual(state.results.map((image, index) => [image!.id, index]));
+        if (outcome === "success") expect(state.results.map(image => image?.id)).toEqual([...fixture.aiHits].reverse().map(image => image.id));
+      }
+      expect(fixture.ai).toHaveBeenCalledOnce();
+      expect(fixture.pages).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it("L42 user top fallback keeps immediate pending AI reorder rather than adopting history departure handling", async () => {
+    const fixture = await aiContinuityFixture(transport);
+    routeParams = { nonFree: "true" };
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: routeParams }, true);
+    useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+    await act(async () => { await useSearchStore.getState().search(); });
+    useSearchStore.getState().setFocusedImageId("img-40");
+    const release = fixture.hold();
+    useSearchStore.getState().setParams({ aiQuery: "L42-user", orderBy: "-relevance" });
+    const pending = useSearchStore.getState().search(undefined, { continuity: searchContinuity.captureSearchContinuity(false) });
+    const departure = useSearchStore.getState();
+    const continuity = { ...searchContinuity.captureSearchContinuity(true), fallback: "top" as const };
+    try {
+      act(() => {
+        useSearchStore.getState().setParams({ orderBy: "-uploadTime" });
+        useSearchStore.getState().resortAiBuffer("-uploadTime", continuity);
+      });
+      const state = useSearchStore.getState();
+      expect(state.results).not.toBe(departure.results);
+      expect(state.results.map(image => image?.id)).toEqual([...departure.results].reverse().map(image => image?.id));
+      expect(state._searchContinuity).toMatchObject({ provenance: "user", targetId: "img-40", phase: "ready" });
+      expect(state._searchContinuity?.historyFocusIntent).toBeUndefined();
+      expect(state.sortAroundFocusGeneration).toBe(departure.sortAroundFocusGeneration + 1);
+      expect(state.loading).toBe(true);
+      expect(fixture.ai.mock.calls[0][1]?.aborted).toBe(false);
+      act(() => useSearchStore.getState().setFocusedImageId(null));
+      await act(async () => { release(); await pending; });
+      expect(useSearchStore.getState()).toMatchObject({ focusedImageId: "img-40", total: 80, loading: false, error: null });
+      expect(fixture.ai).toHaveBeenCalledOnce();
+      expect(fixture.pages).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
   const layouts = [100, 12000, 70000].flatMap(total => (["explicit", "phantom"] as const).flatMap(focusMode =>
     (["grid", "table"] as const).flatMap(layout => (["ratio", "centre"] as const).map(policy => ({ total, focusMode, layout, policy })))));
   it.each(layouts)("restores captured $total $focusMode destination in current $layout with $policy policy", async ({ total, focusMode, layout, policy }) => {
@@ -588,7 +732,7 @@ describe.each(["direct-ES", "media-api"] as const)("AI continuity %s through the
       expect(useEnrichmentStore.getState().data.size).toBe(transport === "media-api" ? 80 : 0);
       const requests = fixture.fetch.mock.calls.length;
       act(() => useSearchStore.getState().resortAiBuffer("-relevance",
-        { targetId: "img-70", placement: { kind: "ratio", ratio: 0.3 }, focus: "retain" }));
+        { provenance: "user", targetId: "img-70", placement: { kind: "ratio", ratio: 0.3 }, focus: "retain" }));
       expect(owner.aborted).toBe(true);
       expect(useSearchStore.getState()._searchContinuity).toMatchObject({ targetId: "img-70", phase: "placed" });
       expect(fixture.fetch).toHaveBeenCalledTimes(requests);

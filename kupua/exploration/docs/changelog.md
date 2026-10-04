@@ -17,6 +17,16 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - Explicit continuity provenance independent of fallback
+
+  Adopted user/history handoffs require explicit provenance. Search and finite-AI
+  reorder use it for history intent capture and pending destination presentation,
+  leaving top-versus-neighbour fallback as resolution policy. Completion still
+  adopts the current presentation owner; retirement preserves useful data without
+  reviving focus or placement. Production policies and legacy no-handoff paths stay
+  unchanged. Bounded composed controls substitute fallback independently of
+  ownership, including user top fallback and late history/AI owner replacement.
+
   ### 4 October 2026 - Shared hit-tested continuity input observation
 
   Browsing and reload-detail tests share one synchronous result-cell point observer,

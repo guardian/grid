@@ -2284,7 +2284,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
-    const historyFocusIntent = options?.continuity?.fallback === "top" ? get()._focusIntent : undefined;
+    const historyFocusIntent = options?.continuity?.provenance === "history" ? get()._focusIntent : undefined;
     const historyPresentationCurrent = () => historyFocusIntent === undefined || get()._focusIntent === historyFocusIntent;
     if (options?.continuity) {
       const { targetId, focus, neighbours } = options.continuity;
@@ -4458,9 +4458,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       _findFocusAbortController = new AbortController();
       ownedContinuity = { ...continuity, owner: _findFocusAbortController.signal,
         searchGeneration: _searchGeneration,
-        historyFocusIntent: continuity.fallback === "top" ? get()._focusIntent : undefined, phase: "ready" };
+        historyFocusIntent: continuity.provenance === "history" ? get()._focusIntent : undefined, phase: "ready" };
     }
-    if (ownedContinuity?.fallback === "top" && hasPendingSearch(get())) {
+    if (ownedContinuity?.provenance === "history" && hasPendingSearch(get())) {
       set({ _searchContinuity: { ...ownedContinuity, phase: "pending" }, _phantomFocusImageId: null,
         ...(ownedContinuity.focus === "none" ? { focusedImageId: null, _focusedImageKnownOffset: null } : {}) });
       return;

@@ -13,6 +13,7 @@ import type { HistorySnapshot } from "@/lib/history-snapshot";
 export type SearchPlacement = { kind: "ratio"; ratio: number } | { kind: "start" } | { kind: "centre" };
 
 export interface SearchContinuity {
+  provenance: "user" | "history";
   targetId: string | null;
   placement: SearchPlacement;
   focus: "target" | "none" | "retain";
@@ -33,6 +34,7 @@ let captured: { key: string; generation: number; sortOnly: boolean; continuity: 
 export function historySearchContinuity(snapshot: HistorySnapshot | undefined, params: UrlSearchParams): SearchContinuity {
   const matching = snapshot?.searchKey === buildSearchKey(params) ? snapshot : undefined;
   return {
+    provenance: "history",
     targetId: matching?.anchorImageId ?? null,
     placement: matching?.viewportRatio != null
       ? { kind: "ratio", ratio: matching.viewportRatio } : { kind: "start" },
@@ -57,7 +59,7 @@ export function captureSearchContinuity(
   const placement: SearchPlacement = index !== null && container && container.clientHeight > 0
     ? { kind: "ratio", ratio: (Math.floor(index / geometry.columns) * geometry.rowHeight - container.scrollTop) / container.clientHeight }
     : { kind: "start" };
-  return { targetId, placement, focus,
+  return { provenance: "user", targetId, placement, focus,
     ...(targetId && focus !== "target" ? { neighbours: getVisibleImageIds() } : {}) };
 }
 
