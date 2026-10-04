@@ -6,6 +6,65 @@ test.beforeEach(async ({ kupua }) => {
   await kupua.ensureExplicitMode();
 });
 
+test("B7 forced-seek temporary tail preserves the chosen identity instead of the buffer end", async ({ kupua }) => {
+  const page = kupua.page;
+  await kupua.startSearch("", "table");
+  await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "seek");
+  const source = await page.evaluate(async () => {
+    const configPath = "/src/dal/es-config.ts";
+    if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B7 requires local ES");
+    const store = (window as any).__kupua_store__;
+    await store.getState().seek(6000);
+    const state = store.getState();
+    if (state.bufferOffset === 0 || state.bufferOffset + state.results.length >= state.total) throw new Error("B7 needs an interior window");
+    state.cancelWindowMaintenance();
+    const id = state.results[state.results.length - 20].id;
+    state.setFocusedImageId(id);
+    const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+    container.scrollTop = container.scrollHeight - container.clientHeight - 150;
+    const originalPage = state.dataSource.searchAfter;
+    const ownPage = Object.getOwnPropertyDescriptor(state.dataSource, "searchAfter");
+    const probe = { reads: 0, cleanup: () => {
+      if (ownPage) Object.defineProperty(state.dataSource, "searchAfter", ownPage);
+      else delete state.dataSource.searchAfter;
+      delete (window as any).__b7;
+    } };
+    state.dataSource.searchAfter = function (...args: any[]) { probe.reads += 1; return originalPage.apply(this, args); };
+    (window as any).__b7 = probe;
+    return { id, rank: state.imagePositions.get(id) };
+  });
+  try {
+    await kupua.waitForUsableViewportPlacement(source.id);
+    const ratio = await page.locator(`[data-image-id="${source.id}"]`).evaluate(cell => {
+      const container = cell.closest<HTMLElement>('[aria-label="Image results table"]')!;
+      return (cell.getBoundingClientRect().top - container.getBoundingClientRect().top) / container.clientHeight;
+    });
+    await kupua.switchToGrid();
+    await kupua.waitForUsableViewportPlacement(source.id);
+    const placed = await page.locator(`[data-image-id="${source.id}"]`).evaluate(cell => {
+      const container = cell.closest<HTMLElement>('[aria-label="Image results grid"]')!;
+      const bounds = container.getBoundingClientRect();
+      const rect = cell.getBoundingClientRect();
+      const state = (window as any).__kupua_store__.getState();
+      return { rank: state.imagePositions.get(cell.getAttribute("data-image-id")),
+        ratio: (rect.top - bounds.top) / container.clientHeight,
+        tailGap: container.scrollHeight - container.clientHeight - container.scrollTop,
+        top: rect.top - bounds.top, bottom: rect.bottom - bounds.top, height: container.clientHeight,
+        reads: (window as any).__b7.reads, focus: state.focusedImageId };
+    });
+    expect(placed.rank).toBe(source.rank);
+    expect(placed.focus).toBe(source.id);
+    expect(placed.top).toBeGreaterThanOrEqual(0);
+    expect(placed.bottom).toBeLessThanOrEqual(placed.height + 1);
+    expect(Math.abs(placed.ratio - ratio)).toBeLessThan(0.06);
+    expect(placed.tailGap).toBeGreaterThan(303);
+    expect(placed.reads).toBe(0);
+    await kupua.assertPositionsConsistent();
+  } finally {
+    await page.evaluate(() => { (window as any).__b7?.cleanup(); });
+  }
+});
+
 for (const transport of ["direct-ES", "media-api-fixture"] as const) {
   for (const view of ["grid", "table"] as const) {
     test(`B10 forced-seek ${transport} ${view} compensates every prepend through zero`, async ({ kupua }) => {

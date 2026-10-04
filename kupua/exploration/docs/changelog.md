@@ -17,6 +17,18 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - One owned density restoration lifecycle
+
+  Saved ratios, unsaved Home centring and pending navigation now share one capture,
+  two-frame readiness chain and active finalizer. Settled focus intent and existing
+  publication generations prevent obsolete placement; retirement persists across
+  unready remounts and resident Scrubber input without cancelling useful reads.
+  Departure remains navigation-owned. Source and destination edge snapping require
+  real result extent, independently of visibility clipping and physical DOM limits.
+  Browsed-neighbourhood/bookmark, row-top and horizontal policies remain unchanged.
+  Duplicate settled browser journeys and their arithmetic centre oracle are replaced
+  by identified-row proof; pending matrices and the real failing-Home input remain.
+
   ### 4 October 2026 - Preserve pending new-image counts across browser reload
 
   History snapshots now carry the last-known arrival count alongside their search

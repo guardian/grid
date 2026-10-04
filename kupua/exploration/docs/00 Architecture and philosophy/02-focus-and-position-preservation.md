@@ -99,11 +99,16 @@ keeps global coordinates. Small-set top-up remains maintenance. Only explicit
 publication or current navigation authorizes a top reset.
 
 Placement completion records a scroll write, not ongoing geometry stabilization.
-Density remount readiness waits two frames. A pending browsing destination
-survives until its ready placement can be consumed by the current view.
-While a seek-tier destination loads, the density bridge retains the visible departure
-anchor under the same navigation signal. The thumb follows the owned destination;
-neither departure restoration nor a viewport report declares navigation complete.
+Density has one capture slot, geometry calculation and two-frame readiness lifecycle.
+Settled captures retain focus intent and existing search/publication generations;
+newer input retires presentation without cancelling useful discovery. The shared
+chooser admits either an unmount ratio or Home's unsaved centre input once. A retired
+record survives unready remounts until its active finalizer acknowledges readiness.
+Continuity ready at mount entry excludes unsaved centring; an older placed record
+does not veto a fresh density capture.
+Pending seek departure is a distinct navigation-signal-owned role, applied before
+paint until arrival; indexed browsing carries destination geometry instead. The thumb
+follows the destination, and only ready placement consumes that navigation.
 
 ### 3.3 Placement Values
 
@@ -115,14 +120,19 @@ A placement is an anchor plus a viewport ratio. Four captures exist:
   The handoff is scoped by destination and existing search generation. Missing
   matching view capture uses the same chooser against available geometry.
   History instead derives target and placement together from its matching snapshot.
-- **Density** ratio including header offset, plus source scroll extremes; saved
-  on view unmount, restored two frames after the next mount.
+- **Density** ratio including header offset and a logical source edge; saved on
+  ready view unmount. An unsaved anchor-bearing Home mount supplies centre placement
+  through the same chooser and readiness lifecycle, without edge snapping.
 - **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
 - **History snapshot** `viewportRatio`, same formula as the search ratio.
 
-Edge rules: a row that would be clipped is shown whole at the nearest edge;
-results are clamped to the scroll range; density restore snaps to top or bottom
-when the source was there or the result is within a row of an edge.
+Edge rules: header/full-row visibility clipping and physical DOM clamping are
+independent of semantic result edges. Density's source/destination snapping requires
+the actual start/end: indexed geometry spans the result set; local geometry reaches
+start only at offset zero and end only when the buffer covers the total. Temporary
+buffer limits cannot elect an unrelated tail. Target choices and row-top placement
+remain provisional; density retains the browsed neighbourhood and offscreen bookmark
+for later arrow snap-back. Horizontal behaviour is unchanged.
 
 ### 3.4 Ownership and Cancellation
 

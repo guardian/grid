@@ -17,33 +17,33 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Checkpoint: 4 October 2026, `4c2a14f8e`.** Ordinary/AI continuity, destination
-history, independent session density, detail return and L41-L43 are complete within
+**Checkpoint: 4 October 2026, L45 baseline `cef50fef9`.** Ordinary/AI continuity, destination
+history, independent session density, detail return and L41-L43/L45 are complete within
 their recorded limits. Their [short completion records](#owned-reset-presentation-l43)
 name the structural result; the C/B records retain witnesses and disproof boundaries.
 
-**Latest recorded gates:** 2,888 unit tests/83 files, TypeScript/Vite and 453
-retry-free E2E, including 15 forced-seek; two final L43 repair reviews accepted.
-The 104 pure harness checks retain their L41 result, not a new L43 run. Excluded
+**Latest recorded gates:** 2,911 unit tests/83 files, TypeScript/Vite and 453
+retry-free E2E, including 16 forced-seek; two final L45 repair reviews accepted.
+The 104 pure harness checks passed before the fixture-only final repair on unchanged
+source/harness; they were not rerun at resumption. Excluded
 E2E/perf configs retain 86/34 inherited diagnostic identities with zero additions;
 they are not clean. Build/E2E warnings remain. These are implementing-session
 results, not coordinator reruns, native server-cancellation proof or current
 direct/API performance equivalence. Live evidence keeps its original scope/revision.
 
-**Next recommendation:** [L45 density-restoration replacement](#density-restoration-replacement-l45),
-starting with a bounded design/deletion decision, not immediate product edits.
-Operator approval of that design precedes implementation. Optional helper/L44 work
-is not selected. Read the [coordinator brief](#coordinator-brief) before choosing work.
+**Next action:** stop after [L45 completion](#density-restoration-replacement-l45).
+No next slice is selected. Optional helper/L44 work and B19/B20 remain separate;
+further implementation, live/perf work or Git mutations need operator approval.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
 | [B1](#b1) | **Superseded** | Destination focus lost across density history | L20 closed by producer removal; supported search-entry focus/none controls remain |
 | [B2](#b2) | Recheck | Late snap-back failure clearing newer focus was observed before later ownership repairs | L21; do not presume current reproduction or closure |
 | [B3](#b3) | Open | Asynchronous long-press range cancels itself | L22 |
-| [B4](#b4) | Open | Density restore can overwrite newer focus; no-saved fallback is latent | L23 |
+| [B4](#b4) | **Done within local limits** | Owned density placement retires on newer focus/input; genuine no-saved Home centring remains | L23 closed by L45; original evidence retained, no new live certificate |
 | [B5](#b5) | Accepted policy for query/filter and AI exit | Remembered detail identity may anchor off-screen; not a repair | Layout preference remains Q1/L15 |
 | [B6](#b6) | **Done** | Ordinary selected-sort equality no longer clears retained focus | L24 closed; L8 structural unit complete |
-| [B7](#b7) | Open | Temporary buffer bottom treated as true result bottom | L25 |
+| [B7](#b7) | **Done within local limits** | Density edges require logical result extent, not temporary buffer extrema | L25 closed by L45; actual forced-seek geometry and true-edge controls retained |
 | [B8](#b8) | **Done** | Search survives density; obsolete initial placement cannot replace newer keyboard-edge intent | L26/L37 closed; current discovery ownership is also covered by B17 |
 | [B9](#b9) | **Done** | Early close retains owned focus/centring until list readiness | L27 closed within local limits |
 | [B10](#b10) | **Done** | Ordinary prepend compensates without offset reset inference | L28 closed; actual wheel/every held prepend/client DTO and true-top controls retained |
@@ -166,7 +166,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C13](#c13) Home/End, including a later opposite-edge action | The view goes to the real result edge. Only active explicit focus moves to first/last; hidden focus and selection stay unchanged. A later owned edge action supersedes the old one. | Source-established; observed in every tier/view, mode policy and transport | No decision needed; do not confuse Home with logo reset. | Established |
 | [C14](#c14) Browse across a loaded-content boundary | The buffer moves while compensation attempts to keep current content stationary. Unloaded positions can show skeleton slots; failed extension can leave a temporary boundary. Focus/selection are not re-elected. | Source-established; paired lifetime matrices observed delayed edges, eviction and prepend | Different fetch/coordinate machinery is not itself a policy choice. | No decision needed |
 | [C15](#c15) Switch grid/table with a visible focused image | Focus stays the same; its row placement is carried across and nudged fully into view at edges. Image centres are not preserved exactly across different row heights. | Source-established; repeated paired density matrices observed current geometry | Preserve focused image placement or visible centre when they differ? | Q1 open |
-| [C16](#c16) Focus A, scroll away, switch grid/table | If A is still loaded, the switch pulls A into view. If A is no longer loaded, the visible centre is used while focus remains A. Matched loaded conditions agree across tiers; eviction changes the choice within a tier too. | Observed across paired modes/transports: loaded in all tiers, evicted in both windowed tiers | Should an off-screen bookmark pull the view back? Decide separately from retaining A as focus. No tier-specific policy is permitted. | Q1 open |
+| [C16](#c16) Focus A, scroll away, switch grid/table | Current accepted baseline: retain the browsed neighbourhood B while remembering A; arrows can return to A in the other density. | Operator-confirmed 4 October; older residency-dependent L7 evidence remains in the case trace, not as a current requirement | Preserve the current outcome; no new policy correction or investigation is selected | Q1 provisionally settled for L45 |
 | [C17](#c17) Tick images, seek away, repeatedly switch density | With older loaded focus hidden by selection, density follows that focus, not the ticked anchor. Once both leave the loaded data, the viewed neighbourhood wins. Selection and the intended focus state survived the repeated switches; one original centre image became partly clipped after a round-trip. | Observed across paired repeated-density/lifetime matrices; limits below | Same layout choice as C15/C16; no need to answer it twice. | Q1 open |
 | [C18](#c18) Repeatedly switch density; approach a loaded-data boundary | Centre images can change between switches. A temporary loaded-data bottom is also treated as an end: indexed follows loaded focus while seek snaps to its local buffer bottom despite being far from actual result end. | Observed in TEST plus equal-size/map-absent mounted control; repeated-switch limits below | Exact centre placement remains a policy question. Different tier outcomes for the same preservation situation are not an operator choice. | Q1 placement details; B7 tier violation |
 | [C36](#c36) Forward-evict near the top, then prepend until the buffer reaches global zero | Ordinary backward browsing preserves the hidden bookmark but the final prepend to offset zero resets scroll to top and loses the actual viewport anchor. | Observed identically in direct and API seek grid/table with every prepend gated | No decision needed: ordinary prepend compensation must not masquerade as Home/search reset. | B10 |
@@ -197,18 +197,26 @@ scrolling retain it. Focus and viewport movement are stated separately.
 
 ### Operator Questions
 
-**Current operator decisions, 3 October 2026.** These supersede conflicting earlier
+**Current operator decisions, 3 October with Q1/Q7 clarified 4 October 2026.** These supersede conflicting earlier
 policy descriptions below, not the recorded observations or their limits. Accepted
 policy remains revisable; it is not a usability certification. No new browser checks
 were performed to record these answers.
 
-1. **Q1: Allowed layout anchors settled; per-transition preference remains open.**
+1. **Q1: Provisional current policies; no general UX gate on L45.**
   Preserve meaningful focus/selection or the currently browsed centre, never an
   accidental third target. Legitimate handling of the true result bottom remains
   permitted; a temporary buffer bottom is not that boundary. Retain focus separately.
-  Density, column reflow, height-only resize and history can choose differently.
-  Stop and ask if a selected unit needs another exception or an undecided preference;
-  do not demand all these answers before ordinary search/sort restructuring.
+  Explicit settled-density example: focus A, scroll to view B, then change density
+  -> stay around B, retain A as the bookmark and preserve later arrow snap-back to A.
+  The operator confirms this is current and accepted behaviour. Preserve it as a
+  regression baseline, not a new policy repair. Older residency-dependent wording
+  is historical evidence only; it does not add an investigation or correction to L45.
+  Other target/selection choices and existing row-height placement remain provisional
+  as implemented; density, reflow, height-only resize and history may differ. This is
+  not blanket certification of every current outcome or permission for random drift.
+  Keeping focus visible on vertical resize is a deferred nicety, not an L45 gate.
+  Make policies locally revisable; do not require a huge choice table or browser tour
+  before refactoring. Escalate only a concrete new policy outside these boundaries.
 2. **Q2: Independent density delivered.** Remove density from the
   URL and history entirely. Search/filter/sort, AI, detail and Back/Forward retain
   the current density; toggling density adds no entry and preserves the Forward
@@ -246,10 +254,10 @@ were performed to record these answers.
 6. **Q6: Coarse-pointer override accepted.** A coarse pointer forces effective
   Click-to-Open even with a stored Click-to-Focus preference. Treat this as the working
   rule, not an unresolved refactor gate or an immutable promise for future UX.
-7. **Q7: Horizontal density restoration deferred.** Preserving the table's previous
-  horizontal position is the operator's likely preference, but the current reset
-  remains until a named density unit decides it. Preserve existing sort/filter/panel
-  horizontal behaviour; this question does not block ordinary search/sort work.
+7. **Q7: Keep current horizontal behaviour for L45.** On 4 October the operator
+  left restoration undecided and explicitly non-blocking. Do not add table-horizontal
+  persistence/restoration in this unit; preserve current density and sort/filter/panel
+  behaviour. A later policy choice must not require rewriting vertical ownership.
 
 ## L7 Engineering Evidence
 
@@ -481,16 +489,18 @@ returned at 0 while retaining focus. Q7 owns that horizontal density policy; it 
 not evidence that sort/filter/panel horizontal continuity is broken.
 
 <a id="c16"></a>
-**C16: Off-screen focus.** Density resolves stored focus from resident
+**C16: Off-screen focus, historical L7 trace.** At the original baseline, density resolved stored focus from resident
 `imagePositions` without visibility or mode checks; otherwise it uses viewport
 identity. Restore clamps the chosen row visible, unless extremum rules take
 precedence. The [unloaded-focus controls](../../src/hooks/useScrollEffects.test.ts#L259)
 cover seek and indexed coordinates with map absent. Loaded off-screen focus
-instead wins by source proof. This is residency-dependent policy, not merely
-different index arithmetic; D8 leaves its desired placement unsettled.
+instead won by source proof. This recorded residency-dependent result is not the
+current L45 contract: the operator confirmed on 4 October that density stays around
+browsed B while retaining A. Preserve that current outcome; do not revive this old
+account as a new bug or policy task.
 
 <a id="c17"></a>
-**C17: Selection, seek, density sequence.** Selection does not enter density's
+**C17: Selection, seek, density sequence (original L7 evidence).** Selection did not enter density's
 chooser at all. Tick-only/no-focus therefore uses a fresh visible anchor every
 switch; older loaded focus wins if present. Seeking it out of the buffer changes
 the winner without clearing either focus or selection. Repeated switches re-elect
@@ -824,7 +834,7 @@ isolate dispatch. Missing assertion is their production composition. No server
 or mobile browser needed for this bounded proof; physical gesture remains untested.
 
 <a id="b4"></a>
-**B4 / C21: OPEN. Density restore can overwrite newer intent.** Two bounded defects share
+**B4 / C21: DONE within local limits. Density restore no longer overwrites newer intent.** Historically, two bounded defects shared
 the same two-frame ownership gap. First, the no-saved fallback has no input/search
 guards: mounted real hook, 70,000-result fixture, buffer offset 200, focused global
 index 400, table geometry; wheel/set scrollTop 320 between frames, then frame 2
@@ -838,7 +848,15 @@ Second, the saved branch watches wheel/touch/navigation keys but not focus chang
 A gated direct explicit density switch clicked newer focus B between frames; B
 remained focused/ringed, but old A's frame-2 placement moved B from +17 to -604 px
 and offscreen. Density generation acknowledged completion. This is browser-confirmed
-focus ownership failure, not a regression of the saved-wheel repair. No repair.
+focus ownership failure, not a regression of the saved-wheel repair.
+
+**L45 repair:** separate failing-first newer-focus/same-ID/Clear controls and an
+actual-click browser case now pass through the common owned lifecycle; passive
+writes remain distinct. Source/capture/publication/input guards and persistent
+retirement also cover unsaved centring. The original no-caller inference was
+superseded by a real-store failing-Home/new-resident-focus/non-Strict suppression
+control that passed before and after replacement. Preserve that compatibility input,
+not a parallel fallback. L23 closes locally; no new live or HMR/recovery proof follows.
 
 <a id="b5"></a>
 **B5 / C03 / former L6: ACCEPTED POLICY for query/filter and AI exit.** Historical
@@ -868,7 +886,7 @@ click modes; independent review and local acceptance are complete. Failure and A
 policies are unchanged. L24 is closed; see [the structural outcome](#ordinary-searchsort-current-state).
 
 <a id="b7"></a>
-**B7 / C18: OPEN. Temporary buffer-bottom snapping changes policy by tier.**
+**B7 / C18: DONE within local limits. Temporary buffer-bottom snapping is removed.**
 Established D7 violation in the controlled natural-tier browser comparison.
 Both sources were 150 px before their loaded-window bottom, far from real result
 end, with a still-loaded off-screen focus and visible anchor at +98.5 px from
@@ -876,8 +894,8 @@ usable centre. Indexed source had 199 loaded images ending at rank 6,868 of
 13,210; seek source had 300 ending at rank 629,091 of 1,221,837. The indexed switch
 brought focus fully visible at -367 px. Seek switched to its DOM maximum (8,834 px)
 and left that loaded focus off-screen. Both retained focus and had no selection.
-Cause: density's [source-bottom test](../../src/hooks/useScrollEffects.ts#L978)
-uses DOM extrema without distinguishing temporary buffer end from true result end.
+Historical cause: density's source-bottom test used DOM extrema without
+distinguishing temporary buffer end from true result end.
 The policy difference is proved independently of map readiness/window size: a
 temporary mounted control used identical 300-image windows at offset 6000, the same
 loaded offscreen focus/source ratio and `positionMap=null`. Indexed total 12,000
@@ -885,6 +903,13 @@ restored focus at scrollTop 193,600 (global coordinates); seek total 70,000 snap
 to local max 9,036. The focused test passed 19/19 and was removed afterward. Live
 setup used production `abortExtends()` without response/threshold changes. All sorts
 and timing interleavings remain outside the claim.
+
+**L45 repair:** matched 300-item/map-absent interior windows reproduced the defect
+before replacement and now preserve the chosen identity/ratio. Source and destination
+snapping require logical result edges; independent clipping/physical-clamp and true
+start/end controls remain. A local forced-seek browser case proves real spacer/header
+temporary-tail placement with zero reads. L25 closes within this bounded local proof,
+not a rerun of the original natural-tier TEST comparison or performance certification.
 
 <a id="b8"></a>
 **B8 / C34: DONE. Search survives density; L37 keyboard-edge supersession is also done.**
@@ -1639,16 +1664,16 @@ is delayed, abandoned or rolled back.
 ### Direction And Evidence
 
 The code supports structural work, but does not yet establish the scope of a
-replacement **Navigation and Viewport Continuity Engine**. Four problems justify
-intervention:
+replacement **Navigation and Viewport Continuity Engine**. Four problems motivated
+intervention; delivered repairs do not certify every remaining boundary:
 
 - **Mixed meanings:** focus also carries last-viewed identity; history cannot
   independently represent the bookmark and the place being browsed (C03/C27).
 - **Policy/ownership coupling:** ordinary/AI/history now share owned handoffs,
   but at the inspected baseline fallback also selected history lifecycle authority.
   L42 removes that coupling with explicit provenance, not identity-free ratio capture.
-- **Inferred intent:** L43 removed buffer-zero-as-reset (B10); loaded DOM bottom
-  still supplies result-edge policy in settled density (B7).
+- **Inferred intent:** L43 removed buffer-zero-as-reset (B10); L45 removed loaded
+  DOM bottom as settled density result-edge authority (B7).
 - **Mismatched ownership:** long-press can cancel its own range operation (B3).
   B8/B17 separate discovery, browsing and maintenance; B18 uses that browsing owner
   for presentation. These repairs do not settle every continuity boundary.
@@ -1700,10 +1725,9 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-1. L41-L43 are complete; do not reopen their execution prompts.
-2. The coordinator recommends **L45 Stage A**, a bounded density-restoration
-   replacement/deletion design. Confirm this choice with the operator before starting.
-3. Stage B implements only the approved design. No next slice follows automatically.
+1. L41-L43 and L45 are complete within their recorded limits; do not reopen their execution prompts.
+2. Retain the adopted Home compatibility and B-neighbourhood/A-bookmark/arrow controls.
+3. Stop for operator selection of the next bounded task; no next slice follows automatically.
 
 Keep one active unit, including across sessions. Resume the same brief/worklog;
 do not create another plan or widen scope because a session ended. The
@@ -1714,54 +1738,14 @@ selected bug repair may interrupt the programme without being called consolidati
 
 ### Density Restoration Replacement (L45)
 
-**Proposed next slice; design not yet executed, product implementation not approved.**
-One responsibility: capture a density transition's placement intent and consume it
-under the right lifetime in the new geometry. B4/L23 and B7/L25 belong here; this is
-not a batch of unrelated bugs or a general continuity-engine rewrite.
-
-**Why this slice:** settled density still mixes target choice, source-edge inference,
-two-frame readiness and competing saved/no-saved restoration paths in
-[useScrollEffects](../../src/hooks/useScrollEffects.ts). The existing geometry
-descriptor already shares grid/table mechanics. A new wrapper alone would add no value.
-
-**Stage A, one bounded design session:** read the complete density producer/consumer,
-Home suppression caller and existing density/browse tests. Recheck the current B4/B7
-code hypotheses without live work or product edits. Amend this brief with a compact
-design (aim at 40 lines, not a new report): current authority; proposed ownership and
-policy/geometry boundary; exact obsolete branches/state to remove; preserved callers;
-test replacement/deletion map; risks, gates and stop condition. Explain what another
-density must supply and where an approved anchor-policy change would become local.
-No new density implementation, framework or exhaustive audit is needed to answer that.
-
-**Replacement hypothesis, not a mandated API:** one owned density-restoration path
-can retain a captured target/placement while separating current input permission from
-geometry readiness. Reuse existing focus intent and browsing ownership rather than
-inventing another global epoch. Delete the no-saved anchor fallback only if its
-current caller audit confirms it is unnecessary; otherwise account for its real
-contract in the replacement. Source DOM bottom is not a logical result end (B7).
-If the proposal only moves code/adds guards or cannot identify meaningful removals,
-stop and recommend against implementation; do not substitute another slice silently.
-
-**Stage B, only after design approval:** replace and remove the agreed machinery;
-prove B4's newer-focus interruption and B7's temporary-versus-true-end discriminator
-failing-first if still present. Preserve pending B17/B18 destination/departure frames,
-Strict Mode, current header/column geometry, saved-wheel controls, Home/latest-density
-ownership and existing focus/selection policy. Reuse or strengthen owning tests;
-retire superseded proof with an explicit contract map. Net production/test cost and
-actual decisions removed are acceptance evidence, not just a green suite.
-
-**Non-goals:** deciding Q1 anchor preferences or Q7 horizontal restoration; grid-width
-reflow, height-only resize, history snapshot/schema, detail return, buffer/seek algorithms,
-transport contracts, B19 or the reported badge issue. Preserve current settled target
-precedence and legitimate true-edge clamping. Any necessary new UX choice goes back
-to the operator. Do not bundle L12 suppressions or L44 mock expansion.
-
-**Gates/bounds:** Stage A is source/design work, not a new runtime certificate.
-Stage B needs focused proof, full unit/build/retry-free normal and forced-seek E2E,
-plus the standing two inline cold reviews and repair re-review. Inspect existing
-performance evidence before proposing a specific operator-run density check; no
-live/perf authority transfers from old results or the shared tab. Apply the session
-prompt skeleton below with the stage named explicitly.
+**Done, 4 October 2026; baseline `cef50fef9`; B4/L23 and B7/L25 close locally.**
+One owned capture/chooser, numeric solver, two-frame scheduler and finalizer replace saved/fallback/navigation chains, duplicate arithmetic and raw-extrema authority.
+Home's real no-saved centre input, B17/B18, useful discovery, Strict Mode and external consumers remain; settled and departure permissions stay distinct.
+Q1 browsed B/remembered A/arrow return, row-top placement and Q7 are preserved. Fixed-row geometry and fixture-only A/B policy reuse the same ownership path.
+Production removes 232/adds 156 noncomment code lines (**-76; -59 executable statements**). Tests remove 185/add 484 (**+299**): two browser bodies and the arithmetic oracle are deleted; growth adds independent ownership/edge/compatibility controls within existing fixtures.
+Proof lives in [mounted density controls](../../src/hooks/useScrollEffects.test.ts#L1805), [queued/settled browser journeys](../../e2e/local/scrubber.spec.ts#L1068) and [real temporary-tail geometry](../../e2e/local/forced-seek.spec.ts#L9), retaining pending matrices and independent DOM/numeric oracles.
+Separate failing-first B4/B7 proof, two complete-snapshot cold repair reviews and final unit/build/retry-free normal+forced-seek gates pass; cancelled delivery/disposal is explicitly asserted while a successor is held.
+No new requests/subscriptions/polling/per-scroll reads or universal epoch. No live/perf certificate, variable-height capability, wider Q1/Q7 decision, B19/B20 or next slice follows.
 
 ### Owned Reset Presentation (L43)
 
@@ -1889,7 +1873,7 @@ matching 2 October post-B8 records, not a newly authorized campaign.
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. Completed continuity units remain regression controls;
-L41/L42/L43 are complete; L45 is the proposed next design, pending operator selection.
+L41/L42/L43/L45 are complete within their recorded limits; the next unit needs operator selection.
 A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
@@ -1994,7 +1978,19 @@ the full changed slice and necessary boundary context, with complementary briefs
   coverage, negative controls, helper/oracle independence and fixture/metric integrity.
 
 Supply the approved plan, actual baseline/diff, affected consumers and tests, not
-only a success narrative. Require file/line evidence, concrete failure/disproof
+only a success narrative. **Reviewers must not need Git access.** The coordinator
+captures and delivers the complete scoped baseline-to-current patch, including
+staged/unstaged edits and full added/untracked file contents. Identify the baseline
+SHA, starting dirty state, exact file manifest and pre-existing changes separately;
+do not include unrelated work or ask the reviewer to reconstruct the diff.
+Provide the full material inline or as a verified-readable, immutable review artifact
+under `kupua/test-results/`; if split, include all ordered parts and a manifest.
+Do not send only diffstat, selected hunks, final files or a completion summary.
+Each reviewer confirms receipt and complete reading; supply inaccessible/missing
+material yourself, and disclose an incomplete review if it cannot be supplied.
+Re-review gets the updated complete snapshot plus the repair delta; do not overwrite
+a snapshot while a reviewer is reading it. Exclude review artifacts from commits.
+Require file/line evidence, concrete failure/disproof
 checks, scope deviations and unread/uncertified boundaries. Both reviewers may
 raise cross-boundary findings; split briefs must not create an unreviewed gap.
 Reviewers do not mutate shared docs/code, run tests/live checks or own the worklog.
@@ -2069,6 +2065,11 @@ Map contracts/timing to retained proof. Strengthen/rewrite existing tests and RE
 superseded cases/fixtures where coverage survives. Justify additions and actual cost;
 no assertion weakening, hidden waits/retries or combinatorial expansion by default.
 Invoke two fresh read-only reviewers INLINE for plan/structure and correctness/proof.
+Deliver the full scoped diff/new-file contents to BOTH, with baseline SHA, file
+manifest and pre-existing-change attribution. Use inline content or verified-readable
+immutable review artifacts, all parts if split. They must not need Git access or
+reconstruct patches. Confirm complete receipt/read; missing material blocks acceptance.
+For repair re-review, supply the updated full snapshot plus the repair delta.
 They must assess actual removals, retained bug protection, doc proportionality and
 unread limits. Fix in-scope findings and invoke repair re-review yourself.
 Run full required local gates with normal port/safety/streaming rules; qualify
@@ -2142,11 +2143,8 @@ their evidence records, not in this backlog.
 | L19 | Decision | Why the buffer tier (total up to `SCROLL_MODE_THRESHOLD`) exists separately from two-tier; it adds the background fill and top-up machinery | Separate audit; check what would break if two-tier covered small results | |
 | L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
-| L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
-| L25 | Bug | B7: density treats seek's temporary local buffer bottom as a real end, changing preservation outcome by coordinate regime | Preserve natural TEST and equal-size/map-absent controls; distinguish source snap from legitimate true-result destination clamp | C18/B7 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
 | L44 | Characterise | Optional expansion of MockDataSource nullable-field capabilities; eight unsupported new composed drafts deleted rather than left failing or quarantined | Independently verify dateTaken tuple extraction, nested Credit missing-field filtering, full sort order and reverse pages before adding composition coverage; no product defect is established | [Optional nullable mock coverage](#optional-nullable-mock-coverage-l44); unselected, not an L43 gate |
-| L45 | Refactor | Proposed density-restoration replacement, including B4/B7, should reduce competing paths and localise policy/geometry | Stage A must identify actual removable machinery and retained proof; reject a wrapper-only design. Stage B requires approval | [Two-stage brief](#density-restoration-replacement-l45); proposed, not executing |
 | B20 | Characterise | Operator reports disappearing new-images badge after reload; no cause or agent reproduction established | Only if selected: compare normal reload with the intended badge lifecycle before defining a repair | [User report](#b20); uninvestigated, separate from L45 |

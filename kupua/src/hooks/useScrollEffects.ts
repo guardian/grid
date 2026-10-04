@@ -59,17 +59,13 @@ function toVirtualizerIdx(globalIdx: number, bufferOffset: number, isTwoTier: bo
 // ---------------------------------------------------------------------------
 
 interface DensityFocusState {
-  ratio: number;
-  globalIndex: number;
-  navigationSignal?: AbortSignal;
-  /** scrollTop of the source density at save time. When 0, the restore
-   *  should snap to 0 instead of computing from the ratio — avoids small
-   *  pixel offsets from geometry mismatch at the top edge. */
-  sourceScrollTop: number;
-  /** scrollHeight - clientHeight of the source density at save time.
-   *  When sourceScrollTop is within one row of this value, the restore
-   *  should snap to the target's maxScroll (bottom-edge extremum). */
-  sourceMaxScroll: number;
+  target: { id: string; globalIndex: number };
+  placement: { kind: "ratio"; ratio: number } | { kind: "centre" };
+  searchGeneration: number;
+  publication: { seek: number; sort: number; reset: number };
+  mode: { kind: "settled"; focusIntent: number; edge: "none" | "start" | "end" }
+    | { kind: "departure"; navigationSignal: AbortSignal };
+  retired: boolean;
 }
 
 let _densityFocusSaved: DensityFocusState | null = null;
@@ -92,19 +88,6 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
  * the density-focus state.
  */
 let _suppressDensityFocusSave: symbol | null = null;
-
-function saveDensityFocusRatio(ratio: number, globalIndex: number, sourceScrollTop: number, sourceMaxScroll: number, navigationSignal?: AbortSignal): void {
-  if (_suppressDensityFocusSave) {
-    devLog(`[density-focus SAVE SUPPRESSED] going home — ignoring save`);
-    return;
-  }
-  _densityFocusSaved = { ratio, globalIndex, sourceScrollTop, sourceMaxScroll, navigationSignal };
-}
-
-/** Read without clearing — for deferred consumption (survives React Strict Mode double-mount). */
-function peekDensityFocusRatio(): DensityFocusState | null {
-  return _densityFocusSaved;
-}
 
 /** Clear the saved state — call after the deferred scroll has been applied. */
 export function clearDensityFocusRatio(): void {
@@ -209,6 +192,8 @@ export interface UseScrollEffectsConfig {
    * for the sticky header.  When absent, falls back to scrollToIndex.
    */
   scrollRowToCenter?: (rowIdx: number) => void;
+
+  chooseDensityAnchor?: (residentFocus: string | null, viewportAnchor: () => string | null) => string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -245,7 +230,11 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
   const searchParams = useSearch({ from: "/search" });
   const [densityReady, setDensityReady] = useState(() =>
-    peekDensityFocusRatio() === null && useSearchStore.getState()._browseNavigation === null);
+    _densityFocusSaved === null && useSearchStore.getState()._browseNavigation === null);
+  const densityMountedReadyRef = useRef(false);
+  const densityMountHadReadyPublicationRef = useRef(useSearchStore.getState()._searchContinuity?.phase === "ready");
+  const densityAnchorPolicyRef = useRef(config.chooseDensityAnchor);
+  densityAnchorPolicyRef.current = config.chooseDensityAnchor;
 
   // Ref-stabilise the optional centering callback so closures in
   // mount-only effects always see the latest version.
@@ -823,345 +812,169 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   // 10. Density-focus: mount restore + unmount save
   // -------------------------------------------------------------------------
 
-  // Mount: restore scroll position for focused image.
-  //
-  // Bug #17 fix: uses peekDensityFocusRatio() (non-destructive read) instead of
-  // consumeDensityFocusRatio() (destructive). In React Strict Mode (dev), mount
-  // effects fire twice: mount → cleanup → mount. If the first mount consumes the
-  // saved state and cleanup cancels the rAF, the second mount sees null and can't
-  // restore. Peeking lets the state survive the double-mount; clearDensityFocusRatio()
-  // is called inside the rAF callback after the scroll is actually applied.
-  const restoreBrowseDeparture = () => {
-    const saved = peekDensityFocusRatio();
+  const captureDensity = (placement: "ratio" | "centre"): DensityFocusState | null => {
     const state = useSearchStore.getState();
     const navigation = state._browseNavigation;
     const el = parentRef.current;
-    if (!el || !saved?.navigationSignal || saved.navigationSignal.aborted ||
-        navigation?.signal !== saved.navigationSignal || navigation.phase === "ready" ||
-        isTwoTierFromTotal(state.total)) return;
-    const index = saved.globalIndex - state.bufferOffset;
-    if (index < 0 || index >= state.results.length) return;
-    const geometry = geometryRef.current;
-    const columns = geometry.minCellWidth
-      ? Math.max(1, Math.floor(el.clientWidth / geometry.minCellWidth)) : geometry.columns;
-    const rowTop = Math.floor(index / columns) * geometry.rowHeight;
-    const placement = Math.max(geometry.headerOffset,
-      Math.min(el.clientHeight - geometry.rowHeight, saved.ratio * el.clientHeight));
-    el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight,
-      rowTop + geometry.headerOffset - placement));
+    const indexed = isTwoTierFromTotal(state.total);
+    if (!el || !el.clientHeight || (navigation && (placement === "centre" || indexed || navigation.phase === "ready"))) return null;
+    const resolve = (id: string | null) => {
+      const globalIndex = id ? state.imagePositions.get(id) : undefined;
+      return id && globalIndex !== undefined && state.results[globalIndex - state.bufferOffset]?.id === id
+        ? { id, globalIndex } : null;
+    };
+    const focus = resolve(state.focusedImageId);
+    const target = resolve(navigation ? getViewportAnchorId() : densityAnchorPolicyRef.current
+      ? densityAnchorPolicyRef.current(focus?.id ?? null, getViewportAnchorId)
+      : focus?.id ?? getViewportAnchorId());
+    if (!target) return null;
+    const geo = geometryRef.current;
+    const index = toVirtualizerIdx(target.globalIndex, state.bufferOffset, indexed);
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    const edge = (indexed || state.bufferOffset === 0) && el.scrollTop === 0 ? "start"
+      : (indexed || state.bufferOffset + state.results.length >= state.total) && maxScroll > 0 &&
+        maxScroll - el.scrollTop < GRID_ROW_HEIGHT ? "end" : "none";
+    return { target, placement: placement === "centre" ? { kind: "centre" }
+      : { kind: "ratio", ratio: (localIndexToPixelTop(index, geo) + geo.headerOffset - el.scrollTop) / el.clientHeight },
+      searchGeneration: getSearchGeneration(),
+      publication: { seek: state._seekGeneration, sort: state.sortAroundFocusGeneration, reset: state._scrollReset.gen },
+      mode: navigation ? { kind: "departure", navigationSignal: navigation.signal }
+        : { kind: "settled", focusIntent: state._focusIntent, edge: placement === "centre" ? "none" : edge },
+      retired: false };
+  };
+
+  const placeDensity = (saved: DensityFocusState | null) => {
+    if (!saved || saved.retired || _densityFocusSaved !== saved) return;
+    const state = useSearchStore.getState();
+    const navigation = state._browseNavigation;
+    const publication = saved.publication;
+    if (saved.searchGeneration !== getSearchGeneration() || publication.seek !== state._seekGeneration ||
+        publication.sort !== state.sortAroundFocusGeneration || publication.reset !== state._scrollReset.gen ||
+        state._searchContinuity?.phase === "ready" ||
+        (saved.mode.kind === "settled" ? saved.mode.focusIntent !== state._focusIntent || navigation !== null
+          : saved.mode.navigationSignal.aborted || navigation?.signal !== saved.mode.navigationSignal || navigation.phase === "ready")) {
+      saved.retired = true;
+      return;
+    }
+    const el = parentRef.current;
+    if (!el) return;
+    if (state.results[saved.target.globalIndex - state.bufferOffset]?.id !== saved.target.id) {
+      saved.retired = true;
+      return;
+    }
+    const geo = geometryRef.current;
+    const columns = geo.minCellWidth ? Math.max(1, Math.floor(el.clientWidth / geo.minCellWidth)) : geo.columns;
+    const indexed = isTwoTierFromTotal(state.total);
+    const row = Math.floor(toVirtualizerIdx(saved.target.globalIndex, state.bufferOffset, indexed) / columns);
+    const start = indexed || state.bufferOffset === 0;
+    const end = indexed || state.bufferOffset + state.results.length >= state.total;
+    if (saved.placement.kind === "centre") {
+      if (scrollRowToCenterRef.current) scrollRowToCenterRef.current(row);
+      else virtualizerRef.current.scrollToIndex(row, { align: "center" });
+    } else if (saved.mode.kind === "settled" && saved.mode.edge === "end" && end) {
+      virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
+    } else {
+      const rowTop = row * geo.rowHeight;
+      let placement = saved.placement.ratio * el.clientHeight;
+      if (placement < geo.headerOffset) placement = geo.headerOffset;
+      else if (placement + geo.rowHeight > el.clientHeight) placement = el.clientHeight - geo.rowHeight;
+      const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight);
+      let offset = Math.max(0, Math.min(maxScroll, rowTop + geo.headerOffset - placement));
+      if (saved.mode.kind === "settled") {
+        if (start && (saved.mode.edge === "start" || offset < geo.rowHeight)) offset = 0;
+        else if (end && maxScroll - offset < geo.rowHeight) offset = maxScroll;
+      }
+      el.scrollTop = offset;
+    }
   };
 
   useLayoutEffect(() => {
-    if (!densityReady) restoreBrowseDeparture();
+    if (!densityReady && _densityFocusSaved?.mode.kind === "departure") placeDensity(_densityFocusSaved);
   });
 
   useLayoutEffect(() => {
-    // Clear the suppress flag — it only needs to survive one navigate()
-    // cycle (resetToHome sets it before navigate, table unmount is
-    // suppressed, grid mount clears it here).
     _suppressDensityFocusSave = null;
-
     const el = parentRef.current;
     if (!el) return;
-
-    // Saved density-focus state (from the previous view's unmount) carries
-    // the anchor's global index, ratio and scroll extrema. Without it, fall
-    // back to focusedImageId or the viewport-centre image. The state is
-    // peeked, not consumed, so React Strict Mode's double mount still sees it.
-    const saved = peekDensityFocusRatio();
-
-    const watchInput = () => {
-      let interrupted = false;
-      const interruptRestore = () => {
-        interrupted = true;
-        const continuity = useSearchStore.getState()._searchContinuity;
-        if (continuity?.phase === "ready") {
-          useSearchStore.setState({ _searchContinuity: { ...continuity, phase: "retired" }, _phantomFocusImageId: null });
-        }
-      };
-      const onWheel = (event: WheelEvent) => {
-        if (!event.ctrlKey && event.deltaY !== 0) interruptRestore();
-      };
-      const onTouchMove = interruptRestore;
-      const onKey = (event: KeyboardEvent) => {
-        if (isNativeInputTarget(event)) return;
-        if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
-            (geometryRef.current.columns <= 1 || getEffectiveFocusMode() !== "explicit" ||
-              useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
-        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) {
-          interruptRestore();
-        }
-      };
-      const onBoundaryKey = (event: KeyboardEvent) => {
-        if (event.key === "Home" || event.key === "End") onKey(event);
-      };
-      const stopWatchingInput = () => {
-        el.removeEventListener("wheel", onWheel);
-        el.removeEventListener("touchmove", onTouchMove);
-        document.removeEventListener("keydown", onKey);
-        document.removeEventListener("keydown", onBoundaryKey, true);
-      };
-      el.addEventListener("wheel", onWheel, { passive: true });
-      el.addEventListener("touchmove", onTouchMove, { passive: true });
-      document.addEventListener("keydown", onKey);
-      document.addEventListener("keydown", onBoundaryKey, true);
-      return { wasInterrupted: () => interrupted, stop: stopWatchingInput };
-    };
-
-    const finishNavigationMount = () => {
-      const input = watchInput();
-      let secondFrame = 0;
-      const firstFrame = requestAnimationFrame(() => {
-        secondFrame = requestAnimationFrame(() => {
-          input.stop();
-          if (!input.wasInterrupted()) restoreBrowseDeparture();
-          clearDensityFocusRatio();
-          const navigation = useSearchStore.getState()._browseNavigation;
-          if (navigation && navigation.phase !== "ready" && isTwoTierFromTotal(useSearchStore.getState().total)) {
-            const geometry = geometryRef.current;
-            el.scrollTop = Math.floor(navigation.targetOffset / geometry.columns) * geometry.rowHeight;
-          }
-          setDensityReady(true);
-          markDensityRestoreComplete();
-        });
-      });
-      return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); input.stop(); };
-    };
-
-    if (useSearchStore.getState()._browseNavigation) {
-      useSearchStore.getState().cancelWindowMaintenance();
-      return finishNavigationMount();
-    }
-
-    if (saved?.navigationSignal) {
-      clearDensityFocusRatio();
-      return finishNavigationMount();
-    }
-
-    if (saved != null) {
-      // saved branch: globalIndex is the anchor, no id/idx needed
-      const store = useSearchStore.getState();
-      const restoreGeneration = getSearchGeneration();
-      const idx = toVirtualizerIdx(saved.globalIndex, store.bufferOffset, isTwoTierFromTotal(store.total));
-      if (idx < 0) return finishNavigationMount();
-      const input = watchInput();
-
-      // Abort in-flight extends and set a 2-second cooldown BEFORE the
-      // rAF restore chain. This prevents extends (and their subsequent
-      // prepend/evict compensation) from firing during the density-switch
-      // settle window. Without this, the restore's scroll position triggers
-      // reportVisibleRange → extendBackward → prepend compensation, and if
-      // the compensated scrollTop exceeds maxScroll the browser clamps it —
-      // losing pixels each cycle (density-focus drift bug).
-      // The cooldown is identical to what resetScrollAndFocusSearch() and
-      // scrubber seek() use — 2 seconds is plenty for the restore to settle.
-      useSearchStore.getState().cancelWindowMaintenance();
-
-      // Bug #17 fix: virtualizer.scrollToOffset() doesn't work at mount time
-      // because the virtualizer hasn't measured the spacer element yet (scrollHeight
-      // is too small to clamp against). The ResizeObserver also hasn't fired yet
-      // to set the correct column count (grid) — that fires in the first frame
-      // and triggers a React re-render. We need to wait for:
-      //   Frame 1: ResizeObserver fires, React re-renders with real columns
-      //   Frame 2: virtualizer spacer has correct total size, scrollHeight is valid
-      // Then we can safely set scrollTop directly on the DOM.
-      let raf2 = 0;
-      const raf1 = requestAnimationFrame(() => {
-        raf2 = requestAnimationFrame(() => {
-          input.stop();
-          setDensityReady(true);
-          if (useSearchStore.getState()._browseNavigation) {
-            clearDensityFocusRatio();
-            markDensityRestoreComplete();
-            return;
-          }
-          if (input.wasInterrupted() || getSearchGeneration() !== restoreGeneration || peekDensityFocusRatio() !== saved) {
-            if (peekDensityFocusRatio() === saved) clearDensityFocusRatio();
-            return;
-          }
-          // Extremum snapping: if the source density was at the very top
-          // (scrollTop=0), snap the target to 0 instead of computing from
-          // the ratio. The ratio math maps viewport-centre positions between
-          // different row heights, which can produce small non-zero offsets
-          // (e.g. 4px) at the edges. At the top, the user expects to stay
-          // at the top.
-          if (saved.sourceScrollTop === 0) {
-            devLog(`[density-focus RESTORE] extremum snap → 0 (source was at top)`);
-            el.scrollTop = 0;
-            clearDensityFocusRatio();
-            markDensityRestoreComplete();
-            return;
-          }
-
-          // Bottom extremum snap: if the source density was at (or within one
-          // row of) the bottom edge, snap to the target's maxScroll. The
-          // ratio-based restore uses the viewport-centre anchor which is
-          // naturally a few rows above the bottom — landing 2-3 rows short.
-          // Use GRID_ROW_HEIGHT as threshold — the largest row height
-          // of any density, so this catches "near bottom" in both table and grid.
-          const targetMaxScroll = el.scrollHeight - el.clientHeight;
-          if (saved.sourceMaxScroll > 0 &&
-              saved.sourceMaxScroll - saved.sourceScrollTop < GRID_ROW_HEIGHT) {
-            devLog(`[density-focus RESTORE] extremum snap → maxScroll=${targetMaxScroll} (source was at bottom: scrollTop=${saved.sourceScrollTop} maxScroll=${saved.sourceMaxScroll} gap=${saved.sourceMaxScroll - saved.sourceScrollTop})`);
-            virtualizerRef.current.scrollToIndex(virtualizerRef.current.options.count - 1, { align: "end" });
-            clearDensityFocusRatio();
-            markDensityRestoreComplete();
-            return;
-          }
-
-          // Re-lookup local index from the saved globalIndex — the buffer
-          // may have extended between mount and rAF2, shifting bufferOffset.
-          // We use saved.globalIndex directly (a stable global position)
-          // rather than looking up the viewport anchor id via imagePositions,
-          // because the viewport anchor can be overwritten by the NEW
-          // component's initial scroll/render before rAF2 fires — causing
-          // the re-lookup to find a completely different image near the top.
-          const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
-          const idxNow = toVirtualizerIdx(saved.globalIndex, boNow, isTwoTierFromTotal(totalNow));
-
-          // Recompute with the now-correct geometry
-          const geoNow = geometryRef.current;
-          const colsNow = geoNow.minCellWidth
-            ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
-            : geoNow.columns;
-          const rowTopNow = Math.floor(idxNow / colsNow) * geoNow.rowHeight;
-          const rawTarget = rowTopNow + geoNow.headerOffset - saved.ratio * el.clientHeight;
-          // Edge clamping: if the focused item would be partially clipped at
-          // a viewport edge, nudge scrollTop so the full row is visible at
-          // that edge. This improves on the raw ratio restore — a partially
-          // off-screen image in grid becomes fully visible at the nearest
-          // edge in table (and vice versa). Same pattern as sort-around-focus
-          // (effect #9), adjusted for headerOffset.
-          let targetNow = rawTarget;
-          const itemY = rowTopNow + geoNow.headerOffset - rawTarget;
-          let edgeClamp: "top" | "bottom" | "none" = "none";
-          if (itemY < geoNow.headerOffset) {
-            // Clipped at top (behind sticky header or above viewport)
-            targetNow = rowTopNow;
-            edgeClamp = "top";
-          } else if (itemY + geoNow.rowHeight > el.clientHeight) {
-            // Clipped at bottom
-            targetNow = rowTopNow + geoNow.headerOffset - el.clientHeight + geoNow.rowHeight;
-            edgeClamp = "bottom";
-          }
-          const maxScroll = el.scrollHeight - el.clientHeight;
-          let clampedNow = Math.max(0, Math.min(maxScroll, targetNow));
-          // Extremum snapping: when the computed position is within one row
-          // of an edge, snap to the edge. This prevents small pixel offsets
-          // (e.g. 4px) when switching densities at the top/bottom — the
-          // ratio math can't perfectly map between grid (303px rows) and
-          // table (32px rows) geometry at the extremes.
-          if (clampedNow < geoNow.rowHeight) clampedNow = 0;
-          else if (maxScroll - clampedNow < geoNow.rowHeight) clampedNow = maxScroll;
-          // DIAG: density-focus restore
-          devLog(`[density-focus RESTORE] savedGlobalIdx=${saved.globalIndex} localIdx=${idxNow} bo=${boNow} cols=${colsNow} rowH=${geoNow.rowHeight} headerOff=${geoNow.headerOffset} rowTop=${rowTopNow} savedRatio=${saved.ratio.toFixed(6)} clientH=${el.clientHeight} scrollTopBefore=${el.scrollTop.toFixed(1)} rawTarget=${rawTarget.toFixed(1)} edgeClamp=${edgeClamp} target=${targetNow.toFixed(1)} scrollH=${el.scrollHeight} maxScroll=${maxScroll} clamped=${clampedNow.toFixed(1)} wasClamped=${Math.abs(targetNow - clampedNow) > 1}`);
-          el.scrollTop = clampedNow;
-          // NOTE: We intentionally do NOT dispatch a synthetic scroll event here.
-          // The old code had `el.dispatchEvent(new Event("scroll"))` which triggered
-          // reportVisibleRange → extendBackward → prepend compensation. When the
-          // compensated scrollTop exceeded maxScroll, the browser clamped it — losing
-          // pixels each density-switch cycle (the "drift" bug). The scrubber thumb
-          // syncs via effect #3 (buffer-change re-fire) and the next real user scroll,
-          // so this event was always redundant. Removing it eliminates the drift.
-          clearDensityFocusRatio();
-          markDensityRestoreComplete();
-        });
-      });
-      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); input.stop(); };
-    }
-
-    // No saved density-focus state — scroll the anchor into view: explicit
-    // focus when it is in the buffer, otherwise the viewport anchor.
-    const focusIdx = focusedImageId ? findImageIndex(focusedImageId) : -1;
-    const id = focusIdx >= 0 ? focusedImageId : getViewportAnchorId();
-    if (!id) return;
-    const idx = focusIdx >= 0 ? focusIdx : findImageIndex(id);
-    if (idx < 0) return;
-
-    // Capture the anchor's global index NOW (mount time), before the
-    // new component's scroll events can overwrite the viewport anchor.
-    const store = useSearchStore.getState();
-    const anchorGlobalIdx = store.imagePositions.get(id) ?? -1;
-
-    // scrollToIndex also may not work on mount — defer similarly
-    const input = watchInput();
-    let raf2b = 0;
-    const raf1b = requestAnimationFrame(() => {
-      raf2b = requestAnimationFrame(() => {
-      input.stop();
-        setDensityReady(true);
-        if (useSearchStore.getState()._browseNavigation) {
-          clearDensityFocusRatio();
-          markDensityRestoreComplete();
-          return;
-        }
-        // Re-derive local index from the stable global index.
-        // In two-tier mode, the virtualizer uses global indices.
-        const { bufferOffset: boNow, total: totalNow } = useSearchStore.getState();
-        const isTT = isTwoTierFromTotal(totalNow);
-        const idxNow = isTT
-          ? (anchorGlobalIdx >= 0 ? anchorGlobalIdx : idx)
-          : (anchorGlobalIdx >= 0 ? anchorGlobalIdx - boNow : idx);
-        const geoNow = geometryRef.current;
-        const colsNow = geoNow.minCellWidth
-          ? Math.max(1, Math.floor(el.clientWidth / geoNow.minCellWidth))
-          : geoNow.columns;
-        const rowIdxNow = localIndexToRowIndex(idxNow, { ...geoNow, columns: colsNow });
-        if (scrollRowToCenterRef.current) {
-          scrollRowToCenterRef.current(rowIdxNow);
-        } else {
-          virtualizer.scrollToIndex(rowIdxNow, { align: "center" });
-        }
-        clearDensityFocusRatio();
-        markDensityRestoreComplete();
-      });
-    });
-    return () => { cancelAnimationFrame(raf1b); cancelAnimationFrame(raf2b); input.stop(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
-  }, []);
-
-  // Unmount: save the scroll anchor's viewport ratio for density-switch restore.
-  // Uses focusedImageId when it is in the buffer, otherwise the viewport anchor
-  // (viewport-centre image): a focus seeked out of the buffer cannot anchor,
-  // and skipping the save would land the next view at its buffer top.
-  // Separate from mount so the cleanup is registered unconditionally —
-  // even when focusedImageId was null at mount time (Bug #17).
-  useLayoutEffect(() => {
-    return () => {
-      const el = parentRef.current;
-      if (!el) return;
-      const navigation = useSearchStore.getState()._browseNavigation;
-      if (navigation?.phase === "ready") return;
-      const { focusedImageId: fid, imagePositions, bufferOffset: bo, total: t } = useSearchStore.getState();
-      const isTT = isTwoTierFromTotal(t);
-      if (navigation && isTT) return;
-      const resolve = (id: string | null) => {
-        const globalIdx = id ? imagePositions.get(id) ?? -1 : -1;
-        const localIdx = globalIdx < 0 ? -1 : toVirtualizerIdx(globalIdx, bo, isTT);
-        return localIdx < 0 ? null : { anchorId: id!, globalIdx, localIdx };
-      };
-      const anchor = navigation ? resolve(getViewportAnchorId()) : resolve(fid) ?? resolve(getViewportAnchorId());
-      if (!anchor) return;
-      const { anchorId, globalIdx, localIdx } = anchor;
-      const geo = geometryRef.current;
-      const rowTop = localIndexToPixelTop(localIdx, geo);
-      const ratio = (rowTop + geo.headerOffset - el.scrollTop) / el.clientHeight;
-      // Bug #17: Don't overwrite a save from a real unmount with a save from
-      // React Strict Mode's cleanup of the first phantom mount. The real
-      // component (table) unmounts and saves correctly; then the grid mounts
-      // (Strict Mode phantom), immediately unmounts, and would overwrite with
-      // wrong geometry (columns=4 default, scrollTop=0). Only save if there's
-      // no pending unconsumed state.
-      if (_densityFocusSaved == null) {
-        const sourceMaxScroll = el.scrollHeight - el.clientHeight;
-        // DIAG: density-focus save
-        devLog(`[density-focus SAVE] anchor=${anchorId} (focus=${!!fid}) globalIdx=${globalIdx} bo=${bo} localIdx=${localIdx} cols=${geo.columns} rowH=${geo.rowHeight} headerOff=${geo.headerOffset} rowTop=${rowTop} scrollTop=${el.scrollTop.toFixed(1)} maxScroll=${sourceMaxScroll} clientH=${el.clientHeight} ratio=${ratio.toFixed(6)}`);
-        saveDensityFocusRatio(ratio, globalIdx, el.scrollTop, sourceMaxScroll, navigation?.signal);
-      } else {
-        devLog(`[density-focus SAVE SKIPPED] pending state exists (Strict Mode guard)`);
+    const inherited = _densityFocusSaved;
+    const saved = inherited ?? (densityMountHadReadyPublicationRef.current ? null : captureDensity("centre"));
+    if (saved) _densityFocusSaved = saved;
+    if (inherited || useSearchStore.getState()._browseNavigation) useSearchStore.getState().cancelWindowMaintenance();
+    let active = true;
+    const interrupt = () => {
+      if (!active) return;
+      if (saved) saved.retired = true;
+      const continuity = useSearchStore.getState()._searchContinuity;
+      if (continuity?.phase === "ready") {
+        useSearchStore.setState({ _searchContinuity: { ...continuity, phase: "retired" }, _phantomFocusImageId: null });
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
+    const onWheel = (event: WheelEvent) => { if (!event.ctrlKey && event.deltaY !== 0) interrupt(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (isNativeInputTarget(event)) return;
+      if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
+          (geometryRef.current.columns <= 1 || getEffectiveFocusMode() !== "explicit" ||
+            useSearchStore.getState().focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interrupt();
+    };
+    const onBoundaryKey = (event: KeyboardEvent) => { if (event.key === "Home" || event.key === "End") onKey(event); };
+    const onScrubber = (event: Event) => {
+      if (!(event.target instanceof Element) || !event.target.closest("[data-testid='scrubber-track']")) return;
+      if (event instanceof WheelEvent && (event.ctrlKey || event.deltaY === 0)) return;
+      interrupt();
+    };
+    const stop = () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchmove", interrupt);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onBoundaryKey, true);
+      document.removeEventListener("pointerdown", onScrubber, true);
+      document.removeEventListener("click", onScrubber, true);
+      document.removeEventListener("wheel", onScrubber, true);
+    };
+    const finishDensityReady = () => {
+      if (!active) return;
+      active = false;
+      stop();
+      placeDensity(saved);
+      if (_densityFocusSaved === saved) _densityFocusSaved = null;
+      const state = useSearchStore.getState();
+      const navigation = state._browseNavigation;
+      if (navigation && !navigation.signal.aborted && navigation.phase !== "ready" && isTwoTierFromTotal(state.total)) {
+        const geo = geometryRef.current;
+        el.scrollTop = Math.floor(navigation.targetOffset / geo.columns) * geo.rowHeight;
+      }
+      densityMountedReadyRef.current = true;
+      setDensityReady(true);
+      markDensityRestoreComplete();
+    };
+    let secondFrame = 0;
+    let firstFrame = 0;
+    densityMountedReadyRef.current = false;
+    if (saved || useSearchStore.getState()._browseNavigation) {
+      el.addEventListener("wheel", onWheel, { passive: true });
+      el.addEventListener("touchmove", interrupt, { passive: true });
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("keydown", onBoundaryKey, true);
+      document.addEventListener("pointerdown", onScrubber, true);
+      document.addEventListener("click", onScrubber, true);
+      document.addEventListener("wheel", onScrubber, { capture: true, passive: true });
+      firstFrame = requestAnimationFrame(() => {
+        if (active) secondFrame = requestAnimationFrame(finishDensityReady);
+      });
+    } else finishDensityReady();
+    return () => {
+      active = false;
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      stop();
+    };
+  }, []);
+
+  useLayoutEffect(() => () => {
+    if (densityMountedReadyRef.current && !_suppressDensityFocusSave && _densityFocusSaved === null) {
+      _densityFocusSaved = captureDensity("ratio");
+    }
   }, []);
 }
 

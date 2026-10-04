@@ -122,7 +122,8 @@ function UrlSyncHarness({ children }: PropsWithChildren) {
   return children;
 }
 
-function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false) {
+function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false,
+  chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"]) {
   const dimensions = { width: 1120, height: 600 };
   let geometry = initialGeometry;
   const container = document.createElement("div");
@@ -158,7 +159,7 @@ function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportVie
     virtualizer.options.count = Math.ceil((twoTier ? state.total : state.results.length) / geometry.columns);
     useScrollEffects({ virtualizer, parentRef, geometry, reportVisibleRange: reportViewport ? dataWindow.reportVisibleRange : reportVisibleRange, loadMore,
       resultsLength: state.results.length, total: state.total, bufferOffset: state.bufferOffset,
-      focusedImageId: state.focusedImageId, findImageIndex, twoTier });
+      focusedImageId: state.focusedImageId, findImageIndex, twoTier, chooseDensityAnchor });
   }, { initialProps: { geometry }, wrapper: syncUrl ? UrlSyncHarness : strict ? StrictMode : undefined });
   return { ...view, container, dimensions, scrollToIndex, virtualizer,
     changeGeometry: (next: ScrollGeometry) => view.rerender({ geometry: next }) };
@@ -1808,6 +1809,272 @@ describe("L43 reset publication versus buffer bookkeeping", () => {
 });
 
 describe("KUP-017 saved density geometry and input lifetime", () => {
+  it.each(["ready", "already-placed"] as const)("unsaved mount yields to %s publication without vetoing older compatibility input", async (phase) => {
+    const dataSource = new MockDataSource(100);
+    const reads = vi.spyOn(dataSource, "searchAfter");
+    useSearchStore.setState({ ...initialState, dataSource, params: routeParams }, true);
+    await act(async () => { await useSearchStore.getState().search(undefined, { continuity: {
+      provenance: "user", targetId: "img-40", placement: { kind: "ratio", ratio: 0.3 }, focus: "target",
+    } }); });
+    expect(useSearchStore.getState()._searchContinuity?.phase).toBe("ready");
+    if (phase === "already-placed") {
+      const consumer = mountDensity(table);
+      expect(consumer.container.scrollTop).toBe(1100);
+      expect(useSearchStore.getState()._searchContinuity?.phase).toBe("placed");
+      consumer.unmount();
+      clearDensityFocusRatio();
+    }
+    const target = mountDensity(table);
+    if (phase === "ready") expect(target.container.scrollTop).toBe(1100);
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBe(phase === "ready" ? 1100 : 1016);
+    expect(useSearchStore.getState()._searchContinuity?.phase).toBe("placed");
+    expect(reads).toHaveBeenCalledOnce();
+  });
+
+  it("completed callback delivery cannot reposition later indexed browsing", () => {
+    useSearchStore.setState({ total: 12000 });
+    const target = transition();
+    frame();
+    const completed = [...frames.values()][0];
+    frame();
+    act(() => {
+      useSearchStore.getState().queueBrowsePosition(5000);
+      target.container.scrollTop = 320;
+      completed(performance.now());
+    });
+    expect(target.container.scrollTop).toBe(320);
+    expect(useSearchStore.getState()._browseNavigation).toMatchObject({ phase: "queued", targetOffset: 5000 });
+  });
+
+  it("pending browsing without a departure handoff acknowledges readiness without electing a mount target", async () => {
+    const dataSource = new MockDataSource(70000);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      await held;
+      return MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+    });
+    useSearchStore.setState({ dataSource, pitId: null, focusedImageId: null });
+    const source = mountDensity(table);
+    frame();
+    frame();
+    let pending!: Promise<void>;
+    act(() => { pending = useSearchStore.getState().seek(5000, "scrubber-seek"); });
+    source.unmount();
+    anchor.viewportId = "image-600";
+    try {
+      const target = mountDensity(grid, true);
+      frame();
+      frame();
+      expect(target.container.scrollTop).toBe(0);
+      expect(reads.mock.calls[0][3]?.aborted).toBe(false);
+      expect(reads).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+  });
+
+  it("obsolete callback delivery cannot place or consume a successor handoff", () => {
+    const target = transition();
+    frame();
+    const obsolete = [...frames.values()][0];
+    target.unmount();
+    target.container.scrollTop = 777;
+    const successor = mountDensity(table, true);
+    frame();
+    act(() => obsolete(performance.now()));
+    expect(target.container.scrollTop).toBe(777);
+    expect(successor.container.scrollTop).toBe(0);
+    frame();
+    expect(successor.container.scrollTop).toBe(6136);
+    successor.unmount();
+    const next = mountDensity(grid, true);
+    frame();
+    act(() => obsolete(performance.now()));
+    frame();
+    expect(next.container.scrollTop).toBe(14853);
+  });
+
+  it("retired input remains a tombstone across unready remount without fallback revival", () => {
+    const target = transition();
+    frame();
+    act(() => target.container.dispatchEvent(new WheelEvent("wheel", { deltaY: 320 })));
+    target.unmount();
+    const successor = mountDensity(table, true);
+    frame();
+    frame();
+    expect(successor.container.scrollTop).toBe(0);
+    expect(successor.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it.each(["wheel", "click", "pointerdown"] as const)("resident Scrubber %s retires placement without changing ownership counters or reading", (input) => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    const state = useSearchStore.getState();
+    useSearchStore.setState({ total: 800, bufferOffset: 0,
+      imagePositions: new Map(state.results.map((image, index) => [image!.id, index])) });
+    const read = vi.spyOn(state.dataSource, "searchAfter");
+    const target = transition();
+    frame();
+    const before = useSearchStore.getState();
+    const scrubber = render(createElement(Scrubber, { total: 800, currentPosition: 200, visibleCount: 20,
+      bufferLength: 800, loading: false, onSeek: before.seek, onBrowsePosition: before.queueBrowsePosition }));
+    const track = scrubber.getByRole("slider");
+    act(() => {
+      target.container.scrollTop = 320;
+      if (input === "wheel") fireEvent.wheel(track, { deltaY: 100 });
+      else if (input === "click") fireEvent.click(track, { clientY: 150 });
+      else {
+        const thumb = track.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+        thumb.setPointerCapture = vi.fn();
+        fireEvent.pointerDown(thumb, { pointerId: 1, clientY: 150 });
+        fireEvent.pointerUp(document, { pointerId: 1 });
+      }
+    });
+    const position = target.container.scrollTop;
+    frame();
+    expect(target.container.scrollTop).toBe(position);
+    const after = useSearchStore.getState();
+    expect([after._seekGeneration, after.sortAroundFocusGeneration, after._scrollReset.gen, after._focusIntent])
+      .toEqual([before._seekGeneration, before.sortAroundFocusGeneration, before._scrollReset.gen, before._focusIntent]);
+    expect(after._browseNavigation).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it.each(["focus-A", "viewport-B"] as const)("fixture %s policy changes only capture, retaining publication ownership and read budget", (policy) => {
+    const read = vi.spyOn(useSearchStore.getState().dataSource, "searchAfter");
+    anchor.viewportId = "image-600";
+    const source = mountDensity(grid, false, false, false,
+      (focus, viewport) => policy === "focus-A" ? focus : viewport());
+    frame();
+    frame();
+    source.container.scrollTop = 30000;
+    source.unmount();
+    const target = mountDensity(table, true);
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBe(policy === "focus-A" ? 6400 : 12536);
+    expect(useSearchStore.getState().focusedImageId).toBe("image-400");
+    target.unmount();
+    const successor = mountDensity(grid, true);
+    frame();
+    act(() => useSearchStore.setState({ _scrollReset: { gen: 1, sortOnly: false } }));
+    frame();
+    expect(successor.container.scrollTop).toBe(0);
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("supports a third fixed-row geometry without another lifecycle", () => {
+    const target = transition(grid, { columns: 2, rowHeight: 64, headerOffset: 12, preserveScrollLeftOnSort: true });
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBe(6112);
+  });
+
+  it("acknowledges an empty mount without inventing or reviving a target", () => {
+    useSearchStore.setState({ results: [], total: 0, focusedImageId: null, imagePositions: new Map() });
+    const target = mountDensity(table, true);
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBe(0);
+    expect(target.scrollToIndex).not.toHaveBeenCalled();
+    expect(frames.size).toBe(0);
+  });
+
+  it.each(["top", "bottom", "clamp"] as const)("temporary destination %s does not confer result-edge permission", (edge) => {
+    const source = mountDensity(table);
+    frame();
+    frame();
+    source.container.scrollTop = 5944;
+    source.unmount();
+    const offset = edge === "top" ? 385 : 204;
+    act(() => {
+      const results = Array.from({ length: edge === "top" ? 100 : 200 }, (_, index) => ({ id: `image-${offset + index}` }) as Image);
+      useSearchStore.setState({ results, bufferOffset: offset,
+        imagePositions: new Map(results.map((image, index) => [image.id, offset + index])) });
+    });
+    const target = mountDensity({ ...table, rowHeight: edge === "clamp" ? 16 : 32 }, true);
+    frame();
+    frame();
+    expect(target.container.scrollTop).toBeCloseTo(edge === "top" ? 24 : edge === "bottom" ? 5816 : 2636, 6);
+    expect(target.scrollToIndex).not.toHaveBeenCalled();
+  });
+
+  it("preserves held failing Home with newer resident focus and a suppressed non-Strict mount", async () => {
+    useUiPrefsStore.setState({ density: "table" });
+    const dataSource = new MockDataSource(70000);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async () => {
+      await held;
+      throw new Error("Held Home refusal");
+    });
+    useSearchStore.setState({ dataSource, pitId: null });
+    const source = mountDensity(table);
+    frame();
+    frame();
+    source.container.scrollTop = 9000;
+    let target: ReturnType<typeof mountDensity> | undefined;
+    let home!: Promise<void>;
+    act(() => { home = resetToHome(() => {
+      source.unmount();
+      source.container.remove();
+      target = mountDensity(grid);
+    }); });
+    try {
+      expect(reads).toHaveBeenCalledOnce();
+      act(() => useSearchStore.getState().setFocusedImageId("image-600"));
+      await act(async () => { release(); await home; });
+      expect(target).toBeDefined();
+      expect(useSearchStore.getState()).toMatchObject({ focusedImageId: "image-600", bufferOffset: 200,
+        error: "Held Home refusal", loading: false });
+      expect(useUiPrefsStore.getState().density).toBe("grid");
+      frame();
+      frame();
+      expect(target!.container.scrollTop).toBe(30000);
+      expect(reads).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await home; });
+    }
+  });
+
+  it.each(["new-focus", "same-id", "clear", "passive"] as const)(
+    "B4 respects %s focus intent between frames independently of target policy", (input) => {
+      const target = transition();
+      frame();
+      const intent = useSearchStore.getState()._focusIntent;
+      act(() => {
+        target.container.scrollTop = 320;
+        if (input === "passive") useSearchStore.setState({ focusedImageId: "image-500" });
+        else useSearchStore.getState().setFocusedImageId(input === "clear" ? null : input === "same-id" ? "image-400" : "image-500");
+      });
+      expect(useSearchStore.getState()._focusIntent).toBe(intent + (input === "passive" ? 0 : 1));
+      frame();
+      expect(target.container.scrollTop).toBe(input === "passive" ? 6136 : 320);
+      expect(useSearchStore.getState().focusedImageId).toBe(input === "clear" ? null : input === "same-id" ? "image-400" : "image-500");
+    });
+
+  it.each([12000, 70000])("B7 preserves the chosen row at a temporary bottom with total=%s", (total) => {
+    const results = Array.from({ length: 300 }, (_, index) => ({ id: `interior-${index}` }) as Image);
+    useSearchStore.setState({ results, total, bufferOffset: 6000, positionMap: null,
+      focusedImageId: "interior-275", imagePositions: new Map(results.map((image, index) => [image.id, 6000 + index])) });
+    const source = mountDensity(table);
+    frame();
+    frame();
+    source.container.scrollTop = (total === 12000 ? 192000 : 0) + 8886;
+    source.unmount();
+    source.container.remove();
+    const target = mountDensity(grid, true);
+    frame();
+    frame();
+    const chosenRowTop = total === 12000 ? 475104 : 20604;
+    expect(chosenRowTop - target.container.scrollTop).toBe(0);
+    expect(useSearchStore.getState().focusedImageId).toBe("interior-275");
+    expect(useSearchStore.getState().positionMap).toBeNull();
+  });
+
   for (const direction of ["grid-table", "table-grid"] as const) {
     it(`preserves the source ratio across ${direction} and Strict Mode replay`, () => {
       const target = direction === "grid-table" ? transition() : transition(table, grid);
@@ -1861,12 +2128,15 @@ describe("KUP-017 saved density geometry and input lifetime", () => {
   });
 
   for (const extremum of ["top", "bottom"] as const) {
-    it(`retains the ${extremum} extremum`, () => {
+    it(`retains the true result ${extremum} extremum`, () => {
+      const offset = extremum === "top" ? 0 : 69200;
+      const results = Array.from({ length: 800 }, (_, index) => ({ id: `edge-${offset + index}` }) as Image);
+      useSearchStore.setState({ results, bufferOffset: offset, focusedImageId: `edge-${offset + 400}`,
+        imagePositions: new Map(results.map((image, index) => [image.id, offset + index])) });
       const target = transition(grid, table, extremum);
       frame();
       frame();
       expect(target.container.scrollTop).toBe(extremum === "top" ? 0 : target.container.scrollHeight - target.container.clientHeight);
-      if (extremum === "bottom") expect(target.scrollToIndex).toHaveBeenCalledWith(799, { align: "end" });
     });
   }
 
