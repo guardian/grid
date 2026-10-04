@@ -108,6 +108,24 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     }
   }
 
+  def dimensions(sourceFile: File)(implicit logMarker: LogMarker): Future[Option[Dimensions]] = {
+    Future {
+      val arena = Arena.ofConfined()
+      try {
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+        val width = image.getWidth
+        val height = image.getHeight
+        Some(Dimensions(width = width, height = height))
+      } catch {
+        case e: Exception =>
+          logger.error(logMarker, "Error during dimensions", e)
+          throw e
+      } finally {
+        arena.close()
+      }
+    }
+  }
+
   def hasAlpha(image: VImage)(implicit arena: Arena): Boolean = image.hasAlpha
 
   private def saveImageToFile(image: VImage, qual: Double, outputFile: File): File = {
