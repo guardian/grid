@@ -832,6 +832,43 @@ function aggregateMetrics(allRunMetrics) {
       frameCount: Math.round(median(entries.map((e) => e.frameCount))),
       report: entries[0].report !== false, // default true
     };
+    const networkFields = ["networkRequests", "networkBytes", "networkAvgBytes", "networkAvgDurationMs", "networkZeroTransferRequests"];
+    const networkKeys = ["networkCaptureRevision", "networkTransport", ...networkFields];
+    if (entries.some((entry) => networkKeys.some((key) => key in entry))) {
+      for (const key of ["networkCaptureRevision", "networkTransport"]) {
+        const values = entries.map((entry) => entry[key]);
+        if (values.some((value) => value === undefined) || new Set(values).size !== 1) {
+          throw new Error(`${id} changed or missing ${key} across repetitions`);
+        }
+        agg[key] = values[0];
+      }
+      if (agg.networkCaptureRevision !== 1 || !["direct-es", "media-api"].includes(agg.networkTransport)) {
+        throw new Error(`${id} invalid network capture contract`);
+      }
+      for (const key of networkFields) {
+        const present = entries.filter((entry) => key in entry);
+        if (present.length !== entries.length) throw new Error(`${id} missing ${key} across repetitions`);
+        const values = entries.map((entry) => entry[key]);
+        if (values.some((value) => value !== null && (typeof value !== "number" || !Number.isFinite(value) || value < 0))) {
+          throw new Error(`${id} invalid ${key}`);
+        }
+        agg[key] = values.includes(null) ? null : median(values);
+      }
+      for (const entry of entries) {
+        if (entry.networkRequests === null && networkFields.slice(1).some((key) => entry[key] != null)) {
+          throw new Error(`${id} unavailable network capture has numeric diagnostics`);
+        }
+        if (entry.networkRequests === 0 && (entry.networkBytes !== 0 || entry.networkAvgDurationMs != null || entry.networkZeroTransferRequests !== 0)) {
+          throw new Error(`${id} invalid empty network capture`);
+        }
+        if (entry.networkZeroTransferRequests > 0 && (entry.networkBytes != null || entry.networkAvgBytes != null)) {
+          throw new Error(`${id} restricted network bytes must be null`);
+        }
+        if (entry.networkRequests != null && entry.networkZeroTransferRequests > entry.networkRequests) {
+          throw new Error(`${id} invalid network zero-transfer coverage`);
+        }
+      }
+    }
     // Preserve focus drift fields when present (P4a, P4b, P6).
     // These measure "Never Lost" accuracy — how far the focused item drifts
     // in the viewport during density switches and sort changes.
@@ -982,9 +1019,25 @@ function formatDelta(key, delta) {
   return `(${sign}${delta}${unit})`;
 }
 
-function buildBaselineTable(entry) {
+function buildBaselineTable(entry, networkOnly = false) {
   const ids = Object.keys(entry.metrics).filter((id) => entry.metrics[id].report !== false);
   if (ids.length === 0) return "";
+
+  const networkRows = ids.filter((id) => entry.metrics[id].networkCaptureRevision === 1).map((id) => {
+    const metric = entry.metrics[id];
+    const value = (key) => Number.isFinite(metric[key]) ? metric[key] : "unavailable";
+    return `| ${id} | ${metric.sampleCount} | ${metric.networkTransport} | ${entry.environment?.apiTopology ?? "unknown"} | ${metric.networkCaptureRevision} | ${value("networkRequests")} | ${value("networkBytes")} | ${value("networkAvgBytes")} | ${value("networkAvgDurationMs")} | ${value("networkZeroTransferRequests")} |`;
+  });
+  const networkTable = networkRows.length > 0 ? [
+    "### Network",
+    "",
+    "Browser network diagnostics: per-run medians, not server load. Missing capture stays unavailable; bytes are unavailable when any transfer size is zero (restricted or ambiguous). Lower is not necessarily better across differing capture, transport or topology. No cross-mode deltas.",
+    "",
+    "| Test | Samples | Transport | API topology | Capture revision | Requests | Bytes | Avg bytes/request | Avg duration (ms) | Zero-transfer requests (coverage) |",
+    "|------|---|---|---|---|---|---|---|---|---|",
+    ...networkRows,
+  ].join("\n") : "";
+  if (networkOnly) return networkTable;
 
   const header = `| Test | Samples | ${METRIC_COLS.map((k) => METRIC_LABELS[k]).join(" | ")} |`;
   const sep = `|------|---|${METRIC_COLS.map(() => "---").join("|")}|`;
@@ -1018,7 +1071,7 @@ function buildBaselineTable(entry) {
       ].join("\n")
     : null;
 
-  return [[header, sep, ...rows].join("\n"), ...(p14Table ? ["", p14Table] : [])].join("\n");
+  return [[header, sep, ...rows].join("\n"), ...(p14Table ? ["", p14Table] : []), ...(networkTable ? ["", networkTable] : [])].join("\n");
 }
 
 function buildDiffTable(current, previous) {
@@ -1122,7 +1175,8 @@ function buildAuditMarkdown(existing, entry, previousEntry) {
   if (!previousEntry) {
     section = [heading, "", meta, "", buildBaselineTable(entry)].join("\n");
   } else {
-    section = [heading, "", meta, "", buildDiffTable(entry, previousEntry)].join("\n");
+    const networkTable = buildBaselineTable(entry, true);
+    section = [heading, "", meta, "", buildDiffTable(entry, previousEntry), ...(networkTable ? ["", networkTable] : [])].join("\n");
   }
 
   if (!existing) {

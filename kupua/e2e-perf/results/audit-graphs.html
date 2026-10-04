@@ -166,6 +166,11 @@ const KNOWN_METRICS = {
   inputEvents: { label: "Reverse input events before prepend", lowerIsBetter: null, defaultShow: true },
   prependGenerationDelta: { label: "Backward prepend count", lowerIsBetter: null, defaultShow: true },
   bufferOffsetDelta: { label: "Buffer offset delta", lowerIsBetter: null, defaultShow: true },
+  networkRequests: { label: "Network requests (browser diagnostic)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " requests" },
+  networkBytes: { label: "Network transfer bytes (capture-dependent)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " bytes" },
+  networkAvgBytes: { label: "Network average bytes/request", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " bytes/request" },
+  networkAvgDurationMs: { label: "Network average request duration (ms)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: "ms" },
+  networkZeroTransferRequests: { label: "Network zero-transfer requests (restricted/ambiguous coverage)", lowerIsBetter: null, defaultShow: true, quietThreshold: 0, group: "Network", unit: " requests" },
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
@@ -173,6 +178,7 @@ const KNOWN_ENTRY_KEYS = new Set([
 ]);
 const KNOWN_METRIC_META_KEYS = new Set([
   "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
+  "networkCaptureRevision", "networkTransport",
   "lookupGuardRevision",
   "traversals", "cadenceMs", "speed", "direction", "clsEvents",
   "completionBoundary", "detailDecoded",
@@ -283,14 +289,17 @@ function renderWarnings({ unknownEntryKeys, unknownMetricKeys }) {
 
 function buildMetricDropdown(unknownMetricKeys) {
   metricSel.innerHTML = "";
+  const networkGroup = document.createElement("optgroup");
+  networkGroup.label = "Network";
   for (const [key, meta] of Object.entries(KNOWN_METRICS)) {
     if (!meta.defaultShow) continue;
     const o = document.createElement("option");
     o.value = key;
     o.textContent = meta.label + (meta.lowerIsBetter ? " — lower better" : "");
     if (key === "severeRate") o.selected = true;
-    metricSel.appendChild(o);
+    (meta.group === "Network" ? networkGroup : metricSel).appendChild(o);
   }
+  metricSel.appendChild(networkGroup);
   if (unknownMetricKeys.size) {
     const grp = document.createElement("optgroup");
     grp.label = "Unknown (no labels — please update page)";
@@ -306,6 +315,10 @@ function buildMetricDropdown(unknownMetricKeys) {
 
 function pickValue(metric, m) {
   if (!m) return null;
+  if (isNetworkMetric(metric)) {
+    return m.networkCaptureRevision === 1 && ["direct-es", "media-api"].includes(m.networkTransport)
+      && typeof m[metric] === "number" && Number.isFinite(m[metric]) && m[metric] >= 0 ? m[metric] : null;
+  }
   if (metric === "severeRate") {
     if (!Number.isFinite(m.frameCount) || m.frameCount < 30) return null;
     if (typeof m.severeRate === "number") return m.severeRate;
@@ -323,6 +336,7 @@ function metricLabel(metric) {
 }
 
 function metricUnit(metric) {
+  if (isNetworkMetric(metric)) return KNOWN_METRICS[metric].unit;
   if (["cls", "clsMax", "focusDriftRatio", "clsOccurrenceRate", "clsConditionalMagnitude"].includes(metric)) return "";
   if (["focusVisible", "landingAlreadyRendered", "landingCacheHit"].includes(metric)) return "";
   if (metric === "severeRate") return "‰";
@@ -357,8 +371,11 @@ function environmentKey(entry) {
   });
 }
 
-function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
+function metricsComparable(entry, metric, referenceEntry, referenceMetric, metricName) {
   if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
+  if (metricName?.startsWith("network") && (metric.networkCaptureRevision !== referenceMetric.networkCaptureRevision
+    || metric.networkTransport !== referenceMetric.networkTransport
+    || entry.environment?.apiTopology !== referenceEntry.environment?.apiTopology)) return false;
   if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
   if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
   if ((referenceMetric.completionBoundary ?? null) !== (metric.completionBoundary ?? null)) return false;
@@ -376,6 +393,7 @@ function sourceMatchLabel(directEntry, apiEntry) {
 }
 
 function pairedModeSummary(modeSeries, metric) {
+  if (isNetworkMetric(metric)) return "";
   const direct = modeSeries.find((series) => series.mode === "direct-es");
   const api = modeSeries.find((series) => series.mode === "media-api");
   if (!direct || !api) return "";
@@ -387,6 +405,15 @@ function pairedModeSummary(modeSeries, metric) {
 function entryMode(entry) {
   const mode = entry.environment?.dataMode;
   return mode === "direct-es" || mode === "media-api" ? mode : "unknown";
+}
+
+function isNetworkMetric(metric) {
+  return KNOWN_METRICS[metric]?.group === "Network";
+}
+
+function networkSeriesKey(entry, metric) {
+  return JSON.stringify([entryMode(entry), entry.environment?.apiTopology ?? "unknown",
+    metric?.networkTransport ?? "unknown", metric?.networkCaptureRevision ?? null]);
 }
 
 const MODE_STYLES = {
@@ -435,27 +462,35 @@ function buildCharts() {
   const xLabels = entries.map((e, i) => showLabels ? `${e.label} [${entryMode(e)}]` : String(i + 1));
 
   for (const t of TESTS) {
-    const modeSeries = selectedModes.flatMap((mode) => {
+    const seriesKeys = isNetworkMetric(metric)
+      ? [...new Set(entries.map((entry) => networkSeriesKey(entry, entry.metrics?.[t])))]
+      : selectedModes;
+    const modeSeries = seriesKeys.flatMap((seriesKey) => {
+      const mode = isNetworkMetric(metric) ? JSON.parse(seriesKey)[0] : seriesKey;
+      const matchesSeries = (entry) => isNetworkMetric(metric)
+        ? networkSeriesKey(entry, entry.metrics?.[t]) === seriesKey : entryMode(entry) === mode;
       const referenceIndex = entries.findLastIndex((entry) =>
-        entryMode(entry) === mode && pickValue(metric, entry.metrics?.[t]) != null
+        matchesSeries(entry) && pickValue(metric, entry.metrics?.[t]) != null
       );
       if (referenceIndex < 0) return [];
       const referenceEntry = entries[referenceIndex];
       const referenceMetric = referenceEntry.metrics[t];
       const data = entries.map((entry) => {
-        if (entryMode(entry) !== mode) return null;
+        if (!matchesSeries(entry)) return null;
         const current = entry.metrics?.[t];
         if (!current) return null;
-        if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric)) return null;
+        if (comparableOnly && !metricsComparable(entry, current, referenceEntry, referenceMetric, metric)) return null;
         return pickValue(metric, current);
       });
       const latestIndex = data.findLastIndex((value) => value != null && Number.isFinite(value));
       if (latestIndex < 0) return [];
       const previousIndex = data.findLastIndex(
-        (value, index) => index < latestIndex && value != null && Number.isFinite(value),
+        (value, index) => index < latestIndex && value != null && Number.isFinite(value)
+          && (!isNetworkMetric(metric) || metricsComparable(entries[index], entries[index].metrics[t], entries[latestIndex], entries[latestIndex].metrics[t], metric)),
       );
       return [{
         mode,
+        label: isNetworkMetric(metric) ? `${referenceMetric.networkTransport}/${referenceEntry.environment?.apiTopology ?? "unknown"} (capture r${referenceMetric.networkCaptureRevision})` : MODE_STYLES[mode].label,
         data,
         latestIndex,
         latestValue: data[latestIndex],
@@ -479,19 +514,20 @@ function buildCharts() {
         : `Δ ${delta > 0 ? "+" : ""}${formatMetricValue(metric, delta)}`;
       const actualRoute = entries[series.latestIndex].metrics[t]?.routes?.join("+");
       const routeLabel = actualRoute ? ` · route: ${actualRoute}` : "";
-      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${style.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}${routeLabel}</span>`;
+      return `<span class="mode-summary"><span class="mode-dot" style="background:${style.color}"></span><strong style="color:${style.color}">${series.label}</strong> ${formatMetricValue(metric, series.latestValue)} · ${deltaText}${routeLabel}</span>`;
     }).join("") + pairedModeSummary(modeSeries, metric);
 
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}</div><canvas></canvas>`;
+    const diagnosticContext = isNetworkMetric(metric) ? " · Browser diagnostic; lower is not necessarily better across differing capture/topology." : "";
+    card.innerHTML = `<h3>${t}</h3><div class="meta">${metricLabel(metric)} — ${summaries}${diagnosticContext}</div><canvas></canvas>`;
     grid.appendChild(card);
     const ctx = card.querySelector("canvas").getContext("2d");
 
     const datasets = modeSeries.map((series) => {
       const style = MODE_STYLES[series.mode];
       return {
-        label: style.label,
+        label: series.label,
         data: series.data,
         borderColor: style.color,
         backgroundColor: style.fill,
@@ -500,7 +536,7 @@ function buildCharts() {
         pointBorderWidth: entries.map((_, index) => index === series.latestIndex ? 2 : 0),
         pointRadius: entries.map((_, index) => index === series.latestIndex ? 5 : 2.5),
         tension: 0.2,
-        spanGaps: true,
+        spanGaps: !isNetworkMetric(metric),
       };
     });
 

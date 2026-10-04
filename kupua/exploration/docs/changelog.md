@@ -9,13 +9,38 @@
 ## Phase 2 — Live Elasticsearch (Read-Only)
 
 <!-- AGENT INSTRUCTIONS:
-     New entries go IMMEDIATELY BELOW this comment.
-     Format:  ### D Month YYYY — Title
-     Order:   newest at top, oldest at bottom.
-     Content: implementation, fixes and rationale; routine testing is assumed.
-     Keep test counts, pass reports, timings and session workflow out of entries.
-     Use ordinary Markdown indentation, not four-space code blocks.
-     DO NOT delete or reorder existing entries. -->
+New entries go IMMEDIATELY BELOW this comment, newest first.
+INDENTATION: headings and paragraph lines MUST start in column 1: ZERO leading
+spaces or tabs, including wrapped paragraph lines. Four spaces create a CODE BLOCK.
+Do not indent an entry to match this comment! Leave older entries unchanged.
+Use this exact unindented shape:
+
+### D Month YYYY - Title
+
+Implementation, fixes and rationale. Wrapped paragraph lines also start in column 1.
+
+Before finishing, check the raw new entry: no nonblank heading or prose line may
+match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
+Keep test counts, pass reports, timings and session workflow out of entries.
+DO NOT delete or reorder existing entries. -->
+
+### 4 October 2026 - Transport-labelled browser network diagnostics
+
+The main jank audit's Network group now observes both direct ES and media-api
+resources through a shared passive collector for startup and ordinary probes.
+Counts, response-transfer bytes and mean browser duration retain existing capture
+windows, without new requests, interception, quiescence waits or altered scenario
+completion. Captures store numeric evidence only, not request URLs or identifiers;
+legacy raw ES fields remain ES-only. Missing capture, ambiguous zero-size transfer
+and genuinely zero requests stay distinct.
+
+New optional history fields aggregate conservatively across repetitions; missing
+historical diagnostics are not backfilled. Markdown and the dashboard expose one
+Network category with transport/topology/capture-specific series, visible gaps and
+no cross-transport subtraction. Existing non-network comparisons are preserved.
+Pure collector/reporting controls, local media-api startup/seek dry-run validation
+and a synthetic browser dashboard check cover the new path; deployed byte visibility
+and live direct-ES parity remain unverified. Existing histories are untouched.
 
   ### 4 October 2026 - One owned density restoration lifecycle
 

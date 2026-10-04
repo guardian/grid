@@ -275,10 +275,22 @@ async function appendFocusedSortVisualPhases(
       };
     };
 
+    const timeoutMs = 30_000;
+    const startedAt = performance.now();
+    const deadline = startedAt + timeoutMs;
+    let sampledFrames = 0;
+    let lastReadiness: Record<string, boolean> | null = null;
     let first = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
+    while (performance.now() < deadline) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      sampledFrames += 1;
+      if (performance.now() >= deadline) break;
       const current = snapshot();
+      lastReadiness = {
+        focusedCellVisible: current !== null,
+        resultsContainerPresent: Boolean(document.querySelector('[aria-label="Image results grid"]')
+          ?? document.querySelector('[aria-label="Image results table"]')),
+      };
       if (!current) {
         first = null;
         continue;
@@ -321,7 +333,8 @@ async function appendFocusedSortVisualPhases(
       }
       first = current;
     }
-    throw new Error(`${targetScenarioId} focused cell did not become visibly stable within 120 frames`);
+    throw new Error(`${targetScenarioId} focused cell did not become visibly stable within ${timeoutMs}ms: ` +
+      JSON.stringify({ elapsedMs: Math.round(performance.now() - startedAt), sampledFrames, ...lastReadiness }));
 
     function stateTotal(state: any): number {
       if (!Number.isFinite(state.total)) throw new Error(`${targetScenarioId} settled total is unavailable`);

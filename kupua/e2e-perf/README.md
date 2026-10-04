@@ -44,6 +44,15 @@ unanswered regression question that those records cannot answer.
 
 ## Two measurement systems
 
+### Network Diagnostics
+
+The jank audit's Network group reports browser Resource Timing observations for
+the active transport (ES or media-api), not backend ES calls. Existing buffered/reset
+windows are unchanged; pending requests and POST bodies are not counted. Zero-size
+entries make transfer bytes unavailable (cache or timing restrictions). New history
+retains these diagnostics; older history stays missing. Charts separate transport,
+API topology and capture revision, with no API-minus-ES network delta or added waits.
+
 This directory contains **two independent measurement systems** that run from
 the same harness but answer different questions:
 

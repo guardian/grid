@@ -17,7 +17,7 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Checkpoint: 4 October 2026, L45 baseline `cef50fef9`.** Ordinary/AI continuity, destination
+**Checkpoint: 4 October 2026, committed L45 `89b19e6f2` (baseline `cef50fef9`).** Ordinary/AI continuity, destination
 history, independent session density, detail return and L41-L43/L45 are complete within
 their recorded limits. Their [short completion records](#owned-reset-presentation-l43)
 name the structural result; the C/B records retain witnesses and disproof boundaries.
@@ -31,9 +31,10 @@ they are not clean. Build/E2E warnings remain. These are implementing-session
 results, not coordinator reruns, native server-cancellation proof or current
 direct/API performance equivalence. Live evidence keeps its original scope/revision.
 
-**Next action:** stop after [L45 completion](#density-restoration-replacement-l45).
-No next slice is selected. Optional helper/L44 work and B19/B20 remain separate;
-further implementation, live/perf work or Git mutations need operator approval.
+**Next decision:** the [L19 tier/startup document sweep](#tier-and-startup-cost-reassessment-l19)
+reframes the question around API performance, shared ES load and UX, not removing
+the 1,000-result tier by default. No implementation or live profile is selected.
+Optional helper/L44 work and B19 remain separate; L45 is complete.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
@@ -56,7 +57,7 @@ further implementation, live/perf work or Git mutations need operator approval.
 | [B17](#b17) | **Done** | Pending browsing survives density; discovery, AI membership and completion retain ownership | L38 closed |
 | [B18](#b18) | **Done** | Pending seek/density retains departure content and destination thumb | L40 closed |
 | [B19](#b19) | Open, parked | Native Back from a true Credit-null table tail restores the correct target 36px below departure | Separate geometry discriminator; no L43 repair or additional gate |
-| [B20](#b20) | User-reported, uninvestigated | New-images badge disappears on browser reload until data returns later | Recorded only; separate approval before investigation, no L43 cause attribution |
+| [B20](#b20) | **Done** | Pending new-images count survives reload with its matching search/admission boundary | Closed separately in `cef50fef9`; recorded local gates, no new live/perf certificate |
 | L39 / [C10](#c10) | **Done** | AI exit without remembered detail identity preserves browsed centre without creating focus | Local verification limits below; retain as a control for the next unit |
 
 **Read by purpose:** [operator choices](#operator-questions), [policy rules](#decisions),
@@ -73,6 +74,12 @@ that engineers can understand and the operator can keep changing. Preserve smoot
 arbitrary-position browsing among millions, position continuity and traversal across
 densities. More architecture, less competing logic, fewer bugs and locally revisable
 UX are the goal; a closed ledger or a new universal engine is not.
+
+**Performance priority, operator clarification 4 October:** API-backed Kupua is
+the primary design/measurement target; direct ES must remain functional but need
+not dictate the architecture. Everyday default startup should be gentle on shared
+services. Evaluate initial, background and idle work, not first paint alone. Local
+media-api/tunnel results are not deployed-API or multi-user capacity evidence.
 
 **Finish criteria:** an engineer can explain the ownership model; a representative
 new density supplies rendering/geometry and explicit policy without duplicating
@@ -112,11 +119,24 @@ resume. Update this brief when decisions change, not after every tool call. A ch
 can age; explicit revision and verification limits make that visible rather than
 promising an automatically fresh narrative. Read-only orientation is not certification.
 
+Recover context in layers: brief/status, applicable Q decisions and selected unit;
+then its owning architecture guide; then the complete current code for the affected
+responsibility, its producers/consumers, tests and recent diff. For continuity, guide
+02 is the model entry point and AGENTS routes the specific paths. Read necessary
+ownership boundaries end to end, not just changed lines, but do not require an
+all-repository read or replay the L7 audit on every restart. State what was read,
+inferred and executed. Another agent's reading manifest is not inherited verification.
+
 **Knowledge boundary:** earlier coordinator reading covered the full source/test diff
 through `ae08e779d`; later L41/L42 inspection was selective. The 4 October orientation
 read the full ledger, L43 production delta and 38 mounted controls plus current core
-ownership paths, not every browser test body or store branch. No tests/live checks
-were rerun. Wider API migration remains owned by the
+ownership paths, not every browser test body or store branch. The L45 follow-up read
+the complete production/test delta and current changed lifecycle; all four code/test
+files matched final review-packet hashes. Saved unit/E2E logs were inspected, not
+rerun. This is scoped source/evidence reading, not fresh whole-app or performance
+certification. Local ignored review artifacts may be cleaned; the committed diff,
+tests and these qualified records remain the durable reference. No next task selected.
+Wider API migration remains owned by the
 [API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
 
 ## L7 Characterisation: Observable Behaviour
@@ -1298,15 +1318,15 @@ backend, snapshot-policy or performance change is authorized. Identities, raw
 tuples and live payloads were kept in browser memory; owned probes were removed.
 
 <a id="b20"></a>
-**B20: USER-REPORTED, UNINVESTIGATED. New-images badge after reload.**
-On 4 October the operator reported that the badge disappears after browser reload
-until data comes back later, and explicitly asked not to investigate at that point.
-The later prioritisation discussion makes it an alternative task, not a confirmed
-cause or an approved repair. No agent reproduction, source diagnosis, regression
-attribution or desired count-persistence contract is established. If separately
-selected, first compare the reported normal-reload sequence with the intended
-badge lifecycle; a correct result would disconfirm the proposed defect. Do not
-bundle it into L45, silently reopen B16, or infer a need for new storage.
+**B20: DONE in `cef50fef9c856faaacb8a845919b11a4b91034e4`. New-images badge after reload.**
+The operator's original report was disappearance until later data returned.
+The separately completed repair restores the last-known count with its matching
+search identity and admission boundary through existing history snapshots, replacing
+the independent StatusBar cache. The newer-boundary ratchet, polling cadence and
+admission semantics remain. Existing tests were extended without adding cases/files.
+The commit records 2,888 units, build, 453 retry-free E2Es and independent approval;
+the operator confirmed this closes B20. These are recorded results, not coordinator
+reruns. Live post-fix backend parity/performance were not measured. Not an L45 repair.
 
 ### TEST Browser Follow-Up: 1 October
 
@@ -1736,9 +1756,66 @@ do not create another plan or widen scope because a session ended. The
 not the recommended next step or evidence of a runtime bottleneck. A separately
 selected bug repair may interrupt the programme without being called consolidation.
 
+### Tier And Startup Cost Reassessment (L19)
+
+**Document sweep, 4 October 2026, `89b19e6f2`; research only.** The operator widened
+the question: prioritise API UX/performance and shared ES load, especially daily
+default startup. Direct ES remains supported. Keeping all three regimes is a valid
+outcome; no threshold, map strategy, backend change or profiling run is approved.
+
+| Evidence | What it establishes / limit |
+|---|---|
+| [March dual-mode rationale](zz%20Archive/Scrolling%20bonanza/scrubber-dual-mode-ideation.md#L31) and [March implementation](changelog.md#L12987) | Eager fill fixed 201-1000-result searches that initially behaved as seek controls because only 200 hits were loaded. Fully resident dragging avoids interaction-time reads; 1000 is a bounded policy/capacity choice, not a law. |
+| [April two-tier workplan](zz%20Archive/Scrolling%20bonanza/scroll-real-scrolling-two-tier-virtualisation-workplan.md#L12), [audit](zz%20Archive/Scrolling%20bonanza/scroll-real-scrolling-two-tier-audit-report.md#L77), [current coordinate rule](00%20Architecture%20and%20philosophy/03-scroll-architecture.md#L180) | The goal was actual scrubber-driven content motion, not wheel scrolling. The original map-ready coordinate switch was superseded by total-based coordinates: a map accelerates retrieval but is not required for indexed drag to start. |
+| [Large-set drag research](01%20Research/scrubber-nonlinear-research.md#L8) and [scroll-24 corrections](zz%20Archive/Scrolling%20bonanza/scroll-real-scrolling-through-24-workplan.md#L643) | Track precision, browser height, data residency and seek latency are distinct constraints. A nominal 800px track maps 9M results to about 11,250 items/pixel. Nonlinear/coarse-fine interaction ideas are historical candidates, not current validated solutions. Early fast-seek assumptions were corrected by profiling. |
+| [April map measurements](zz%20Archive/Scrolling%20bonanza/scroll-real-position-map-measurements.md#L54) | 65,100 entries took about 5.3s with 10k chunks; date JSON was about 11.6MB and retained heap was structurally estimated at about 18MB. Historical TEST/tunnel/projection evidence, not current API bytes, isolated parse CPU or concurrency proof; the referenced measurement script is no longer present. |
+| [Canonical PP10 history](../../e2e-perf/results/perceived-log.json), [measurement/topology rules](../../e2e-perf/README.md) | Revision-2, four-run 21,627-entry samples: 28/29 Sep deployed TEST 1,943ms versus local matched-home 1,984ms; latest 3 Oct local API 2,175ms. These are background-publication spans with recorded dirty/topology differences, not exact 65k comparisons, ES CPU, thumbnail settlement or a current-L45 certificate. |
+| [Current API collector](../../src/dal/api-data-source.ts#L320), [U5 routing](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md#L483) | API mode collects bounded source-free `/keys` pages; it does not require the old direct-ES dedicated-PIT path. Avoiding a map can remove up-front work but add later rank/estimate/window work. Compare total session work and discarded work, not HTTP count alone. |
+| [Kupua startup](../../src/stores/search-store.ts#L2534), [map trigger](../../src/stores/search-store.ts#L2803), [Kahuna owner](../../../kahuna/public/js/search/results.js#L312) | A broad default result set above 65k does not trigger a Kupua map. Kupua starts a 200-hit counted page plus count/tickers; Kahuna starts a one-hit counted probe then viewport ranges with `countAll:false`. This is a bounded source comparison, not a complete startup network inventory or proof of duplicate server work. |
+| [April ES audit](zz%20Archive/es-audit.md#L367), [later capacity qualification](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/api-boundary-11-candidate-plan.md#L534) | The old 50-user request model predates maps; later single-client timing does not certify hundreds of users. Shared JVM/ES work, queueing, bursts, cancellation and cache effectiveness remain workload-specific questions. Browser abort is not proof that ES stopped. |
+| [D3 performance findings](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-04-performance.md#L1) and [Kahuna-shaped runbook](zz%20Archive/media-api-work/phase-3-d3-searchafter-perf-deep-dive-F1-measurements.md#L112) | Existing endpoint/projection/compression evidence is reusable, but is not a current whole-page Kahuna comparison. Gzip shipped; some optimisations were reverted. The runbook is marked unexecuted and its old defaults/auth instructions are not new authority. |
+
+**Broader decision frame:** evaluate drag interaction, virtualizer coordinates,
+full-image residency/prefetch and map acquisition/reuse separately. Map-not-ready
+navigation must not cause coordinate flips. The [current threshold predicate](../../src/lib/two-tier.ts#L10)
+still feeds both coordinate eligibility and map triggering: lowering/disabling
+`POSITION_MAP_THRESHOLD` changes UX too, not just map cost. Candidate changes include keeping tiers
+but changing eager work, bounded/on-demand map strategies, or simplifying small-set
+loading; none is prescribed. New cache/partial-map designs must account for query,
+sort, admission boundary, authorization, freshness and explicit completeness. Existing
+read safeguards/useful limits remain until an approved change justifies replacing them.
+The [old scroll-audit mandate](zz%20Archive/Scrolling%20bonanza/scroll-audit.md#L30)
+forbade redesign within that audit; it is not a permanent ban on critical research.
+
+**Recommended next measurement decision:** a bounded API-first default-startup
+footprint comparison with Kahuna, not a broad behaviour tour or concurrent load test.
+Separate actual defaults from matched-scope controls (permissions, free/non-free,
+sort, corpus, viewport, build and cold/warm caches). Separate useful first render,
+post-render background work and visible/hidden idle polling. Source currently gives
+Kupua 10s/30s polling versus Kahuna's response-following 15s scheduling; these are
+schedules, not measured load. Count/classify requests, transferred/decoded bytes,
+returned rows, cancelled/wasted work and user-visible timing; distinguish JS/media/CDN
+from API and ES work. Use available server timing/queue/CPU evidence before making
+capacity claims: fewer requests or bytes need not mean less ES work. Do not compare
+Kupua Vite module requests with Kahuna production bundles as product overhead.
+Profile approval, topology and bounded sampling must be agreed first; never save
+raw HARs, cookies, signed URLs or live payloads in this public repository.
+
+**Coverage:** full reads of the linked map report, scroll-24 plan, two-tier workplan/
+audit, nonlinear research, current scroll guide, perf README and April ES audit;
+also full [Kahuna scroll analysis](01%20Research/kahuna-scroll-analysis.md) and
+[data-transfer ADR](zz%20Archive/Scrolling%20bonanza/scroll-real-scrolling-through-24-data-transfer-adr.md).
+Selected sections: dual-mode lines 1-420; March/September changelog entries; U5;
+candidate 11 section 8; D3 findings lines 1-340; F1 runbook lines 1-390; safeguards
+section 6; historical D7-D9 design lines 1-340. Canonical PP10 entries since 10 Sep
+were extracted read-only. Narrow current-source checks covered default params,
+startup/map triggers, API map loop, polling and Kahuna initial/range search. No full
+server/bootstrap audit, live capture, load test, experiment or product change; capacity
+and current request/payload totals remain unmeasured. No universal performance claim.
+
 ### Density Restoration Replacement (L45)
 
-**Done, 4 October 2026; baseline `cef50fef9`; B4/L23 and B7/L25 close locally.**
+**Done, `89b19e6f2`, 4 October 2026; baseline `cef50fef9`; B4/L23 and B7/L25 close locally.**
 One owned capture/chooser, numeric solver, two-frame scheduler and finalizer replace saved/fallback/navigation chains, duplicate arithmetic and raw-extrema authority.
 Home's real no-saved centre input, B17/B18, useful discovery, Strict Mode and external consumers remain; settled and departure permissions stay distinct.
 Q1 browsed B/remembered A/arrow return, row-top placement and Q7 are preserved. Fixed-row geometry and fixture-only A/B policy reuse the same ownership path.
@@ -1934,6 +2011,13 @@ cost or fixture machinery is added. Keep this in the unit/worklog, not a new aud
 register. Small local improvements belong in the slice; cross-suite changes require
 a named pitstop such as L41. Test refresh is not permission to fix application bugs.
 
+Before adding tests, inspect the owning suite, immediate consumer suites and shared
+fixtures. For each addition, identify the distinct failure it proves and why an
+existing test cannot be strengthened at an adequate layer. Review unnecessary tests,
+repeated setup and fixture complexity as seriously as coverage gaps; recommend
+deletions/replacements where justified. Keep this accounting in the worklog/review
+packet, not another permanent report or a mandatory whole-suite excavation.
+
 **Replacement is allowed and expected where justified.** Do not interpret preserving
 behaviour as preserving every historical test. Name old cases, duplicated fixtures
 and implementation-specific assertions that the stronger contract proof replaces;
@@ -1976,6 +2060,8 @@ the full changed slice and necessary boundary context, with complementary briefs
   operator policy, actual decisions removed and justified remaining boundaries.
 2. **Correctness and proof:** judge lifecycle/data/geometry risks, old-to-new test
   coverage, negative controls, helper/oracle independence and fixture/metric integrity.
+  Assess unnecessary added tests, repeated setup and fixture complexity as well as
+  missing proof; recommend justified deletions/replacements, not additions alone.
 
 Supply the approved plan, actual baseline/diff, affected consumers and tests, not
 only a success narrative. **Reviewers must not need Git access.** The coordinator
@@ -2064,6 +2150,9 @@ atomic publication, coordinates, cursor/alignment and performance safeguards.
 Map contracts/timing to retained proof. Strengthen/rewrite existing tests and REMOVE
 superseded cases/fixtures where coverage survives. Justify additions and actual cost;
 no assertion weakening, hidden waits/retries or combinatorial expansion by default.
+Before adding cases, inspect owning/adjacent consumer suites and shared fixtures;
+name each distinct gap and why an existing test cannot adequately cover it. Review
+excess proof/setup complexity as well as missing proof. Keep accounting temporary.
 Invoke two fresh read-only reviewers INLINE for plan/structure and correctness/proof.
 Deliver the full scoped diff/new-file contents to BOTH, with baseline SHA, file
 manifest and pre-existing-change attribution. Use inline content or verified-readable
@@ -2140,11 +2229,10 @@ their evidence records, not in this backlog.
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
-| L19 | Decision | Why the buffer tier (total up to `SCROLL_MODE_THRESHOLD`) exists separately from two-tier; it adds the background fill and top-up machinery | Separate audit; check what would break if two-tier covered small results | |
+| L19 | Decision | Reassess tier interaction/loading/map strategy around API UX, shared ES load and gentle default startup; tier removal is not the premise | Use the documented sweep and existing measurements; select a bounded startup/map cost question before profiling or proposing changes | [Tier/startup evidence](#tier-and-startup-cost-reassessment-l19); research complete, no implementation/profile selected |
 | L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
 | L44 | Characterise | Optional expansion of MockDataSource nullable-field capabilities; eight unsupported new composed drafts deleted rather than left failing or quarantined | Independently verify dateTaken tuple extraction, nested Credit missing-field filtering, full sort order and reverse pages before adding composition coverage; no product defect is established | [Optional nullable mock coverage](#optional-nullable-mock-coverage-l44); unselected, not an L43 gate |
-| B20 | Characterise | Operator reports disappearing new-images badge after reload; no cause or agent reproduction established | Only if selected: compare normal reload with the intended badge lifecycle before defining a repair | [User report](#b20); uninvestigated, separate from L45 |

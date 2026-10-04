@@ -41,6 +41,7 @@ import {
   TABLE_ROW_HEIGHT,
 } from "@/constants/layout";
 import { classifyImageLookup, deriveNavigationTiming, landingElapsedMs, sanitizeLayoutShift } from "./p14-metrics.mjs";
+import { installNetworkProbe } from "./network-probe.mjs";
 
 // Pin to explicit focus mode — P4a/b, P6, P12–P15 use focusNthItem.
 test.beforeEach(async ({ kupua }) => {
@@ -583,6 +584,7 @@ async function getFocusedViewportPos(kupua: any): Promise<FocusPos | null> {
  * Returns a handle to read accumulated metrics.
  */
 async function injectPerfProbes(kupua: any) {
+  await kupua.page.evaluate(installNetworkProbe);
   await kupua.page.evaluate(() => {
     // ── Layout Shift (CLS) ──────────────────────────────────────────
     const layoutShifts: Array<{
@@ -835,32 +837,6 @@ async function injectPerfProbes(kupua: any) {
       }
     } catch { /* blank flash detection not critical */ }
 
-    // ── Network payload tracking ──────────────────────────────────
-    // Tracks transfer size and duration of ES requests via Resource Timing.
-    const esRequests: Array<{
-      url: string;
-      transferSize: number;
-      duration: number;
-      startTime: number;
-    }> = [];
-
-    try {
-      const resourceObserver = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          const re = entry as PerformanceResourceTiming;
-          if (re.name.includes("/es/")) {
-            esRequests.push({
-              url: re.name.split("/es/").pop() ?? re.name,
-              transferSize: re.transferSize ?? 0,
-              duration: re.duration,
-              startTime: re.startTime,
-            });
-          }
-        }
-      });
-      resourceObserver.observe({ type: "resource", buffered: true });
-    } catch { /* resource timing not always available */ }
-
     // ── Expose on window for later extraction ───────────────────────
     (window as any).__perfProbes = {
       layoutShifts,
@@ -870,23 +846,22 @@ async function injectPerfProbes(kupua: any) {
       mutationStats,
       paintEntries,
       blankFlashes,
-      esRequests,
       resetFrameClock: () => {
         _lastFrameTime = performance.now();
         _lastScrollTop = -1;
       },
-      stop: () => { _rafRunning = false; mutObserver.disconnect(); },
+      stop: () => { _rafRunning = false; mutObserver.disconnect(); (window as any).__perfNetwork?.stop(); },
     };
   });
 }
 
 async function installP1BootstrapProbes(kupua: any) {
+  await kupua.page.addInitScript(installNetworkProbe);
   await kupua.page.addInitScript(() => {
     const layoutShifts: any[] = [];
     const longFrames: any[] = [];
     const frameTimes: number[] = [];
     const paintEntries: Array<{ name: string; startTime: number }> = [];
-    const esRequests: any[] = [];
     const mutationStats = {
       additions: 0,
       removals: 0,
@@ -948,22 +923,6 @@ async function installP1BootstrapProbes(kupua: any) {
       });
       paintObserver.observe({ type: "paint", buffered: true });
     } catch { /* paint entries unsupported */ }
-    try {
-      const resourceObserver = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
-          if (entry.name.includes("/es/")) {
-            esRequests.push({
-              url: entry.name.split("/es/").pop() ?? "",
-              transferSize: entry.transferSize ?? 0,
-              duration: entry.duration,
-              startTime: entry.startTime,
-            });
-          }
-        }
-      });
-      resourceObserver.observe({ type: "resource", buffered: true });
-    } catch { /* resource timing unavailable */ }
-
     const mutationObserver = new MutationObserver((mutations) => {
       let adds = 0;
       let removes = 0;
@@ -1008,10 +967,10 @@ async function installP1BootstrapProbes(kupua: any) {
       mutationStats,
       paintEntries,
       blankFlashes: { count: 0, totalDurationMs: 0, maxDurationMs: 0, _pending: new Map() },
-      esRequests,
       stop: () => {
         rafRunning = false;
         mutationObserver.disconnect();
+        (window as any).__perfNetwork?.stop();
       },
     };
   });
@@ -1029,7 +988,17 @@ interface PerfSnapshot {
   paints: { count: number };
   scroll: { maxVelocity: number; avgVelocity: number; samples: number };
   flashes: { count: number; totalDurationMs: number; maxDurationMs: number; pendingCount: number };
-  network: { requestCount: number; totalBytes: number; avgBytes: number; avgDurationMs: number; requests: any[] };
+  network: {
+    networkCaptureRevision: number;
+    networkTransport: "direct-es" | "media-api";
+    networkRequests: number | null;
+    networkBytes: number | null;
+    networkAvgBytes: number | null;
+    networkAvgDurationMs: number | null;
+    networkZeroTransferRequests: number | null;
+    esRequests: number;
+    esBytes: number;
+  };
 }
 
 async function collectPerfSnapshot(kupua: any, _label?: string): Promise<PerfSnapshot> {
@@ -1103,19 +1072,10 @@ async function collectPerfSnapshot(kupua: any, _label?: string): Promise<PerfSna
         maxDurationMs: p.blankFlashes.maxDurationMs,
         pendingCount: p.blankFlashes._pending.size,
       },
-      network: (() => {
-        const reqs = p.esRequests as Array<{ url: string; transferSize: number; duration: number; startTime: number }>;
-        const totalBytes = reqs.reduce((s: number, r) => s + r.transferSize, 0);
-        const avgBytes = reqs.length > 0 ? totalBytes / reqs.length : 0;
-        const avgDuration = reqs.length > 0 ? reqs.reduce((s: number, r) => s + r.duration, 0) / reqs.length : 0;
-        return {
-          requestCount: reqs.length,
-          totalBytes,
-          avgBytes,
-          avgDurationMs: avgDuration,
-          requests: reqs.slice(-10), // last 10 for debugging
-        };
-      })(),
+      network: (window as any).__perfNetwork.snapshot(
+        (window as any).__kupua_store__?.getState().dataSource?.constructor.name === "ApiDataSource"
+          ? "media-api" : "direct-es",
+      ),
     };
   });
 
@@ -1192,11 +1152,14 @@ function logPerfReport(label: string, snap: PerfSnapshot) {
   console.log(`  Max duration:          ${snap.flashes.maxDurationMs.toFixed(0)}ms`);
   console.log(`  Still pending:         ${snap.flashes.pendingCount}`);
 
-  console.log(`\n  ── Network (ES requests) ──`);
-  console.log(`  Request count:         ${snap.network.requestCount}`);
-  console.log(`  Total transferred:     ${(snap.network.totalBytes / 1024).toFixed(0)} KB`);
-  console.log(`  Avg per request:       ${(snap.network.avgBytes / 1024).toFixed(0)} KB`);
-  console.log(`  Avg duration:          ${snap.network.avgDurationMs.toFixed(0)}ms`);
+  const network = snap.network;
+  const bytes = (value: number | null) => value === null ? "unavailable" : `${(value / 1024).toFixed(1)} KiB`;
+  console.log(`\n  ── Network (${network.networkTransport}; observed resources) ──`);
+  console.log(`  Request count:         ${network.networkRequests ?? "unavailable"}`);
+  console.log(`  Response transferred:  ${bytes(network.networkBytes)}`);
+  console.log(`  Avg per request:       ${bytes(network.networkAvgBytes)}`);
+  console.log(`  Avg duration:          ${network.networkAvgDurationMs === null ? "unavailable" : `${network.networkAvgDurationMs.toFixed(0)}ms`}`);
+  console.log(`  Zero-size entries:     ${network.networkZeroTransferRequests ?? "unavailable"} (cache or timing restrictions)`);
 
   console.log(`${"═".repeat(70)}\n`);
 }
@@ -1222,7 +1185,7 @@ async function resetPerfProbes(kupua: any) {
     p.blankFlashes.totalDurationMs = 0;
     p.blankFlashes.maxDurationMs = 0;
     p.blankFlashes._pending.clear();
-    p.esRequests.length = 0;
+    (window as any).__perfNetwork.reset();
     p.resetFrameClock?.();
   });
 }
@@ -1253,8 +1216,7 @@ function emitMetric(id: string, snap: PerfSnapshot, extra?: Record<string, unkno
     scrollAvgVelocity: Math.round(snap.scroll.avgVelocity),
     blankFlashes: snap.flashes.count,
     blankFlashMaxMs: Math.round(snap.flashes.maxDurationMs),
-    esRequests: snap.network.requestCount,
-    esBytes: snap.network.totalBytes,
+    ...snap.network,
     ...(extra ?? {}),
   }) + "\n";
   try {
