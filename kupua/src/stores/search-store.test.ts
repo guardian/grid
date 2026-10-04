@@ -1904,11 +1904,6 @@ describe("scroll mode — buffer fill", () => {
   });
 
   it("_bufferSelfCorrecting is true only while the post-sort-around-focus top-up is in flight", async () => {
-    // Review 4.2 (R-2026-07-31-buffer-self-correcting-fix-review.md): pins
-    // the store-side half of the F3/F4 fix's contract deterministically.
-    // The React-commit-ordering half (effect #8 must still see this flag
-    // true on the commit carrying the LAST bufferOffset->0 write) can't be
-    // tested here — see the comment on _topUpScrollModeBuffer's `finally`.
     setupSmallDataset(700);
     await actions().search();
 
@@ -1921,7 +1916,7 @@ describe("scroll mode — buffer fill", () => {
     );
 
     // Landed centred on img-500 (bufferOffset > 0) — top-up hasn't reached
-    // 0 yet, so the flag must be true for effect #8's guard to work.
+    // 0 yet, so maintenance remains in flight.
     expect(state().bufferOffset).toBeGreaterThan(0);
     expect(state()._bufferSelfCorrecting).toBe(true);
 
@@ -1931,9 +1926,7 @@ describe("scroll mode — buffer fill", () => {
       "buffer fill to full total",
     );
 
-    // Top-up complete — bufferOffset settled at 0, flag must have cleared
-    // (a stuck `true` would permanently disable effect #8's real "go home"
-    // resets for this tab).
+    // Top-up complete — bufferOffset settled at 0, flag must have cleared.
     expect(state().bufferOffset).toBe(0);
     expect(state()._bufferSelfCorrecting).toBe(false);
   });
@@ -2419,8 +2412,7 @@ describe("neighbour fallback", () => {
     // Scenario: focused image is in the first page (bufferOffset=0). User
     // scrolls down within that page. User then searches with a query that
     // excludes the focused image AND all its neighbours. fallbackFirstPage is
-    // used but neither Effect #8 (bufferOffset 0→0, no transition) nor
-    // Effect #7b (gen unchanged) would fire without an explicit gen bump.
+    // used; Effect #7b requires an explicit publication generation bump.
     mock = new MockDataSource(1000);
     useSearchStore.setState({ dataSource: mock });
 

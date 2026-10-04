@@ -1,18 +1,11 @@
 # Focus, Phantom Focus, and Position Preservation
 
-> Describes current behaviour and the code that delivers it. Timeless by design:
-> no history. Where code and this document knowingly disagree, the disagreement
-> is an item in the [cleanup ledger](../not-yet-another-audit-ledger.md), marked
-> here as *(Lx)*. Buffer, seek and tier mechanics: [scroll architecture](03-scroll-architecture.md).
+> Describes current behaviour and the code that delivers it.
+> Buffer, seek and tier mechanics: [scroll architecture](03-scroll-architecture.md).
 > kupuaKey and snapshot storage: [browser history](04-browser-history-architecture.md).
 > Selection lifecycle: [selections](05-selections.md).
-
-> **Policy status:** D8 is under reconsideration. Sections below mix source-based
-> descriptions and intended guarantees; they are not a completed characterisation.
-> Characterisation, written-contract conflicts, bugs and operator decisions belong
-> in the [working ledger](../not-yet-another-audit-ledger.md), not this architecture
-> guide. Update this guide with settled behaviour after that work is complete.
-> Do not derive new fixes from an unresolved policy.
+> The principle states the design aim; the engine map and transition rules
+> describe the implementation and its limits.
 
 ## 1. Principle: Preserve Strictly, Relax Deliberately
 
@@ -29,8 +22,7 @@ Explicit focus is the scaffolding that makes the strict guarantee testable: one
 identified image the user chose. Phantom mode hides the scaffolding; the engine
 underneath is the same.
 
-Scroll tiers (§3.1) are an implementation detail: every behaviour in this
-document is the same in every tier.
+Scroll tiers (§3.1) select coordinate mechanics, not anchor policy.
 
 ## 2. Anchors
 
@@ -47,27 +39,20 @@ document is the same in every tier.
 Anchor precedence depends on the transition; there is no settled universal rule.
 Settled density currently prefers a resolvable focus, then viewport centre; grid reflow
 prefers selection, then focus, then viewport centre. History capture prefers
-explicit focus in explicit mode, otherwise viewport centre. L7 must reconcile
-these layout paths with D5 and the unsettled D8 policy before L15 changes.
+explicit focus in explicit mode, otherwise viewport centre.
 
-A history entry's focus (including no focus) and viewport position are separate
-concerns. Position restoration must not discard that entry's focus or substitute
-another entry's. This requirement does not prescribe every scrolling outcome:
-the operator will decide those cases from the characterisation table.
+History restoration derives focus (including no focus) and placement from the
+destination snapshot's represented anchor, not another entry's bookmark.
 
 Click-to-Open has no explicit focus affordance, but may remember the last image
 returned from detail. For ordinary query/filter changes and AI exit, that identity
 takes precedence over the browsed centre, even off-screen, if it survives. Ordinary
 query/filter and AI exit without that identity use the browsed centre without
-creating explicit focus. L39 is reviewed and locally verified; wider verification
-limits remain in the ledger.
+creating explicit focus.
 Ordinary sorting without selection retains its clear-and-top relaxation.
 
-This is revisable policy, not permission to carry a departing bookmark into a
-different history entry. Layout may preserve meaningful focus/selection or browsed
-centre, with legitimate true-result-edge handling; no accidental third target is
-accepted. Density, reflow, height-only and history preferences remain separately
-decidable. Policy changes must not weaken ownership or coherent-publication checks.
+Density, reflow, height-only changes and history have transition-specific anchor
+and edge rules. They do not carry a departing bookmark into a different history entry.
 
 Ordinary and user-initiated AI search/sort precedence is chosen once by
 `captureSearchContinuity` in `lib/search-continuity.ts`. Effect 7 captures it; URL
@@ -78,7 +63,7 @@ and defers pending AI presentation because of provenance, not missing-target
 fallback. `fallback: "top"` only suppresses neighbour resolution; production
 history still selects top and ordinary users still retain neighbours.
 Density save, grid column change, snapshot
-capture and keyboard navigation retain transition-specific decisions *(L9)*.
+capture and keyboard navigation retain transition-specific decisions.
 
 ## 3. Engine Map
 
@@ -104,12 +89,16 @@ and one layout effect in `useScrollEffects.ts` places the viewport before paint.
 | Signal | Published by | Placement |
 |---|---|---|
 | `_prependGeneration`, `_forwardEvictGeneration` | `extendBackward`, `extendForward` | Effects 4/5: shift `scrollTop` by the exact row shift of the top visible item (not in two-tier) |
-| `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: move only if off by more than a row, then apply Home/End intent |
+| `_seekGeneration` with target index and sub-row offset | `seek`, `restoreAroundCursor` | Effect 6: ready zero-destination browsing lands exactly at top; other seeks move only if off by more than a row, then apply Home/End intent |
 | `_scrollReset` | `search` without a surviving anchor, find-focus fallbacks, AI re-sort | Effect 7b: top (table keeps horizontal scroll on sort) |
-| `bufferOffset` deep to 0 | `search`, `seek(0)` | Effect 8: top, except during small-set top-up (`_bufferSelfCorrecting`) |
 | `sortAroundFocusGeneration` with resolved continuity or legacy positioning id | `search`, `_findAndFocusImage`, `resortAiBuffer` | Effect 9: owned ordinary/AI/history placement once; limited cursor/arrow consumers remain |
 
-Completion means a scroll write, not proof of indefinitely stable geometry.
+Offset zero is coordinate state, not reset authority. Ordinary backward prepend,
+including its final page to zero, retains local compensation; indexed publication
+keeps global coordinates. Small-set top-up remains maintenance. Only explicit
+publication or current navigation authorizes a top reset.
+
+Placement completion records a scroll write, not ongoing geometry stabilization.
 Density remount readiness waits two frames. A pending browsing destination
 survives until its ready placement can be consumed by the current view.
 While a seek-tier destination loads, the density bridge retains the visible departure
@@ -118,15 +107,14 @@ neither departure restoration nor a viewport report declares navigation complete
 
 ### 3.3 Placement Values
 
-A placement is an anchor plus a viewport ratio. Four captures exist *(L10)*:
+A placement is an anchor plus a viewport ratio. Four captures exist:
 
 - **Search/sort ratio** `(rowTop − scrollTop) / clientHeight`, without header.
   Ordinary and AI user changes capture target, ratio, focus treatment and neighbours
   together in effect 7's layout phase, before URL sync's passive search dispatch.
   The handoff is scoped by destination and existing search generation. Missing
   matching view capture uses the same chooser against available geometry.
-  History instead derives target and placement together from its matching snapshot;
-  the independent numeric ratio bridge is removed from these adopted paths.
+  History instead derives target and placement together from its matching snapshot.
 - **Density** ratio including header offset, plus source scroll extremes; saved
   on view unmount, restored two frames after the next mount.
 - **Grid column change**: `captureAnchorAtIndex` / `restoreAnchorScrollTop`.
@@ -136,99 +124,37 @@ Edge rules: a row that would be clipped is shown whole at the nearest edge;
 results are clamped to the scroll range; density restore snaps to top or bottom
 when the source was there or the result is within a row of an edge.
 
-### 3.4 Ownership Lifetimes
+### 3.4 Ownership and Cancellation
 
-The rows name authority, not another coordinator. Data publication, focus writes,
-viewport placement and busy completion are separate permissions. A handoff carries
-policy under an existing owner; neither its provenance tag nor a reuse descriptor
-creates a request. Source links identify controlling boundaries; proof names the
-maintained local tests, not live-service or performance certification.
+Data work and presentation have separate lifetimes. Retiring focus or placement
+permission need not discard useful data. The [search store](../../../src/stores/search-store.ts)
+guards publication and request completion; [scroll effects](../../../src/hooks/useScrollEffects.ts)
+guard viewport placement. Neither a loading flag nor an un-aborted signal alone
+identifies the current owner.
 
-| Lifetime / producer and identity | Publication and focus authority | Placement and busy completion | Invalidation / surviving useful work / proof |
-|---|---|---|---|
-| Initial query discovery: [search](../../../src/stores/search-store.ts#L2286) creates `_searchAbortController`, `_pendingInitialSearchSignal` and `InitialSearchDiscovery`; signal, search generation/key and datasource bind membership | Current search publishes the first page or finite AI list. Ordinary replacement adopts the existing count/counted page and publishes total with its window; `resultsPublished` ends discovery. Initial focus permission is separate | First-page/fallback reset or focus placement is emitted with publication. Search settles its request; pending-signal cleanup compares identity, not a global `loading` guess | New search replaces discovery. Browsing/cursor/snap-back can retire initial placement while retaining the page/count and transferring `replacement`. No restart/map/poll duplication. Proof: B8/B17 store/API and [navigation](../../../src/hooks/useListNavigation.test.ts) controls |
-| Browsing: [queue/seek](../../../src/stores/search-store.ts#L3148) create `_browseNavigation`; signal, generation/key, target and queued/loading/ready phase identify destination | Live browse signal publishes aligned window, positions, tuples and enrichment with current-query total. Browsing retains focus; Home/End permission lives separately in `_pendingFocusAfterSeek` | [Effect 6](../../../src/hooks/useScrollEffects.ts#L501) waits for current density geometry, consumes ready navigation once and rechecks edge-focus eligibility. Request completion recomputes pending-search busy state, not placement completion | New search/navigation, cursor restore or snap-back cancels old navigation; density cancels maintenance only. Discovery can survive cancellation via an owned fallback. Pending seek density carries departure geometry under this same signal. Proof: B17/B18, forced-seek and keyboard-edge controls |
-| Maintenance: [range cancellation](../../../src/stores/search-store.ts#L654) owns `_rangeAbortController` / `_pendingWindowReadSignal`; fill and extends capture the signal at launch | Current range appends/prepends/fills coherent windows; no focus election. Top-up retains total/PIT-generation limits, alignment and cooldowns | Effects 4/5 compensate local coordinates; refill uses seek placement without browse authority. Fill/extends settle their own flags; refill preserves another foreground owner's `loading` | Search/new window work/density cancel maintenance, not current initial discovery or browse. Accepted pages remain useful; aborted reads cannot append. Fill flag cleanup is existing shared state, not a newly certified universal owner. Proof: B8 fill and B17 refill/store/API controls |
-| Target resolution: [find-and-focus](../../../src/stores/search-store.ts#L1690) uses captured `_findFocusAbortController` plus timeout; search or `seekToFocused` launches it | Signal/timeout guard target lookup, rank and centred publication. Captured history intent may retire focus and placement without preventing useful current data. Ordinary neighbours and history top remain policy choices | Resolver clears `sortAroundFocusStatus` and request busy state; emits effect-9 placement only when presentation is current. The status distinguishes active lookup from idle/completed signal | Search, browsing, cursor restore or new snap-back supersedes it; automatic refill/density does not. Useful discovery may transfer to replacement. Late publication guards remain at each await. Proof: ordinary continuity, snap-back, B6 and L42 first-page/lookup controls |
-| Adopted presentation: [continuity producers](../../../src/lib/search-continuity.ts), [URL sync](../../../src/hooks/useUrlSearchSync.ts#L248), search/AI reorder bind `OwnedSearchContinuity` to focus signal, generation and pending/ready/placed/retired phase | User/history provenance is explicit and independent of target, placement, focus and fallback. Each history owner captures its own `historyFocusIntent`; finite AI completion adopts the current record, never the launch closure. Retirement does not cancel finite/discovery data | [Effect 9](../../../src/hooks/useScrollEffects.ts#L744) checks owner/generation/readiness, resolves current geometry and consumes placement. Small-set retry keeps owner and geometry/input guards. Pending history AI cannot reorder departing data. Presentation owns no independent busy flag | AI re-sort replaces only presentation owner; new query replaces discovery too. Monitored mount wheel/touch/navigation keys retire ready placement; placed/retired owners cannot replay. History focus/clear before completion retires focus/placement publication permission, including same-ID input, not useful data publication. Proof: ratio/centre, pending history, L42 alternate fallback and detail AI owner-replacement controls |
-| Focus input: [focus setter](../../../src/stores/search-store.ts#L2228) and keyboard producers advance `_focusIntent`; identity equality is not intent equality | Real focus/clear, including same-ID input, records intent and current/known offset. Passive restoration writes do not advance it. It guards adopted history/cursor completion and the detail-return subscription, not all focus/placement paths | Setter does not scroll or settle requests. Keyboard commands retain their own navigation and focus permissions | New input blocks captured history/cursor presentation at late completion and retires detail return, while useful data work stays alive. It does not generally cancel an already-ready continuity handoff. No extension to legacy density (B4) or universal focus epoch. Proof: detail keyboard/clear/same-ID composition and L42 retirement controls |
-| Detail session/return: [shared identity policy](../../../src/lib/detail-return.ts), [return hook](../../../src/hooks/useReturnFromDetail.ts#L155) capture entry image/key/origin and local return subscription | Original/traversed target is chosen once; closing records last-viewed focus passively. Publication schedules frames, but the subscription owns neither data requests nor `loading` | Native original return writes no scroll; traversal rereads residency/index/current geometry before centring. Search generation, history key, intent and local retirement guard each frame. Readiness is not data publication | Reopen, entry/search/input change or cleanup retires subscription/frame; existing restoration continues. Shared entry identity also governs swipe preparation after reload. Proof: B9/B12 early/settled and actual-touch controls, KUP-018 hostile callback replay |
-| Cursor reuse: [restore](../../../src/stores/search-store.ts#L4291) exposes `_cursorRestore` image/generation/signal descriptor; [detail mount](../../../src/components/ImageDetail.tsx#L220) joins it | Descriptor is not another owner. Range signal plus search generation guard cursor reads; cursorless/error fallback uses existing seek/browse signal. Captured intent independently gates focus/seek generation | Data completion clears `loading` through the existing restore/seek path; descriptor cleanup compares object identity. No extra lookup/poll or remount restart | Search/cancellation/successor restore retires descriptor; fallback updates its signal. Intent retirement leaves useful data alive. Proof: cursor/cursorless/fallback remount, late outcomes and focus/clear controls in composed detail/store tests |
-| Home and density: [Home](../../../src/lib/reset-to-home.ts#L49) owns local active/search-generation/history continuation and symbol suppressions; [preference](../../../src/stores/ui-prefs-store.ts#L74) owns `_densityIntent` | Home clears focus/selection, launches existing default search and commits navigation only while current. Density writes session choice and advances intent even for same-value input; it owns no query publication | Fresh data precedes grid reset/navigation. Newer density intent wins without cancelling Home search. Home releases only its suppression tokens; search owns busy completion | New history/search/Home invalidates continuation; newer density only invalidates preference reset. Useful Home search may settle without obsolete navigation/density writes. Proof: both-logo held-data/overlap controls and session-density reload/history controls |
+- **Search and browsing:** a newer query invalidates older search-derived work.
+  Browsing or target restoration can replace initial placement while reusing its
+  pending page/count. A browsing destination survives density changes, but not
+  newer navigation.
+- **Maintenance:** extends, fill and refill have a cancellable window lifetime.
+  Density cancels maintenance, not the current query or browsing destination.
+  Obsolete completion cannot clear another foreground operation's busy state.
+- **Presentation:** a continuity handoff carries target and placement policy,
+  not a new request. Placement waits for current data and density geometry,
+  then is consumed once; retired work cannot replay. Same-query AI sorting can
+  replace presentation without restarting discovery.
+- **Focus intent:** user focus/clear records intent, including same-image input;
+  passive restoration does not. History, cursor restoration and detail return
+  check captured intent independently of useful data completion.
+- **Home:** [resetToHome](../../../src/lib/reset-to-home.ts) owns its continuation,
+  temporary thumb hold and suppression releases. Completion or supersession
+  releases only its own tokens. Newer density intent wins without cancelling
+  Home's query reset.
 
-**Retained control state:** `hasPendingSearch` combines the pending initial signal
-with `sortAroundFocusStatus`; `hasPendingForegroundRead` additionally requires a
-non-ready browse phase. `startBrowseNavigation` uses discovery/status to remember
-whether resident data belongs to a retired initial placement. A non-aborted focus
-signal can be idle or completed, and legacy snap-back may have no continuity record.
-`OwnedSearchContinuity.phase` describes presentation, not active resolver work.
-Consequently none of those predicates is equivalent to `!signal.aborted`. Removing
-status-shaped authority would first require an explicit active/settled resolver
-lifetime covering the legacy callers and DEV lifecycle observer; that follow-up is
-not implemented. Identity checks after separate awaits are necessary publication
-guards, not competing policy choosers.
-
-The focus setter does not itself retire continuity, and effect 9 does not compare
-`historyFocusIntent` after publication. A click/clear between ready publication
-and delayed density readiness is therefore not certified by completion-time
-retirement proof; adding that protection would be a separately scoped change.
-
-Legacy cursor/arrow placement, density/reflow captures, one-anchor snapshots and
-unmarked detail compatibility remain outside adopted provenance. B2/B4/B7/B10/B11/
-B15/B16 and Q1/Q7 retain their ledger status. For example, a future approved history
-neighbour fallback can change the history constructor's fallback locally without
-rewriting intent retirement or pending AI authority; it may legitimately require
-different missing-target reads. The test-only substitution does not ship that policy.
-
-### 3.5 Staleness
-
-- Search generation (`getSearchGeneration`) invalidates search-derived work.
-- Ordinary, AI and history continuity bind that generation and the existing focus
-  signal with explicit provenance. The resolved
-  target is published atomically with the window; effect 9 checks ownership
-  and density readiness, then marks placement consumed. A later density mount cannot
-  replay it. Small-result fill retries retain the same owner plus existing geometry,
-  focus, scroll and seek guards.
-  Relevant newer input during any mount-frame wait retires an already-published
-  ready placement without cancelling its request owner or changing focus/selection.
-  Input before publication does not suppress the later search's placement. Saved,
-  navigation/invalid-index and fallback mount chains share this input watcher and
-  dispose it on completion or unmount. Readiness is not permission to overwrite
-  post-publication input; legacy density target policy remains separate.
-- AI's pending continuity record waits for owned finite publication. Same-query
-  re-sort replaces only the focus/placement signal, not search discovery or its
-  generation. Completion adopts the latest handoff and supported sort; settled
-  re-sort remains request-free. Exit sends identity into ordinary lookup without
-  an AI rank hint or synthetic cursor. Pending AI history waits for owned finite
-  publication rather than reordering/placing departing ordinary data.
-- `_searchAbortController` owns initial ordinary/AI reads. A newer search replaces
-  it; explicit browsing retires ordinary initial placement, not query discovery.
-  The replacement reuses the existing count (or counted first page on count failure)
-  and publishes the current total with its window. Initial placement stays retired
-  even after a later cursor/focus replacement. Automatic refill/density cannot take
-  this authority; AI never enters ordinary window reads.
-- `_browseNavigation` retains a scoped destination through queued, loading and
-  ready phases. Its separate signal survives density but not newer navigation,
-  search, cursor restore or snap-back. Indexed scrubber intent is recorded before
-  native scrolling, including the sibling Scrubber's wheel bridge; real scroll input
-  can queue it before the data request exists.
-- The pending initial signal is cleared by identity. Browsing records whether
-  it invalidated the resident page, so Home rebuilds the
-  current-order first page in that case rather than using its normal resident shortcut.
-- Cursor/focus replacements inherit unfinished discovery and cannot use old resident
-  membership. Missing targets, failed replacements or cancellation without a successor
-  can use the already-requested first page; a newer owner suppresses that fallback.
-  Failure of both discovery requests settles loading without inventing a result set.
-- `_rangeAbortController` owns extends, fill, automatic refill and cursor restore.
-  Density's `cancelWindowMaintenance` cancels that work without cancelling initial
-  search or browsing. Reset callers retain broad `abortExtends` cancellation.
-  Fill captures its signal at launch; refill completion cannot clear another
-  foreground owner's loading state. Focus lookup/centred loading retain their own
-  controller, superseded by search, explicit browsing, cursor restore or a newer
-  snap-back. Cursor takeover clears the superseded focus status as well as its signal.
-- `_seekCooldownUntil` blocks extends after search, seek and backward extend.
-- History subscriptions cancel reset-to-home, pending traversal and delayed sort.
-- One-shot suppression flags are symbol-owned with release functions.
+Focus-intent checks are not universal: the focus setter does not itself retire
+continuity, and effect 9 does not recheck the history revision after publication
+while waiting for density readiness. Cursor/arrow and layout placement retain
+their separate rules; detail-return identity and cancellation are described in §4.3.
 
 ## 4. Transitions and Relaxations
 
@@ -239,8 +165,8 @@ different missing-target reads. The test-only substitution does not ship that po
 | Scrubber seek | Viewport goes where asked; explicit focus stays a bookmark | none |
 | Home / End | Viewport at the edge; explicit focus moves to first/last only if it existed | none |
 | Buffer extend / evict | Visible content does not move | none |
-| Density switch | Pending browsing destination wins across the view change. Once settled: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Settled anchor precedence awaits L7/L15; smaller placement drift remains L18 |
-| Browser resize / panel toggle (grid column change) | Current: resolvable selection, then focus, then viewport centre supplies the placement anchor | Reconcile this with D5 and visibility cases in L7 before consolidation |
+| Density switch | Pending browsing destination wins across the view change. Once settled: resolvable focus supplies the placement anchor, otherwise viewport centre; top/bottom snapping applies | Current geometry and true-edge clamping determine placement |
+| Browser resize / panel toggle (grid column change) | Resolvable selection, then focus, then viewport centre supplies the placement anchor | Current column geometry determines placement |
 | Detail / preview close | Entry image: native placement. After traversal: last viewed image centred | Click-to-Open pulses without a ring; remembered detail identity remains eligible for later query/filter and AI-exit anchoring |
 | Browser Back / Forward | Destination snapshot supplies represented anchor, placement and focus/NONE in CURRENT density; distinct same-query native entries restore too | Missing/mismatched/null snapshot or genuine missing anchor: top/no focus, no departing neighbour. Marked origin/detail transition retains native list |
 | Logo (Home) | none | Top of default search; focus/selection cleared, grid reset after owned data unless newer density intent wins |
@@ -337,11 +263,10 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   Snapshots live in sessionStorage (50 entries) and survive reload.
 - Snapshots do not independently store explicit focus and viewport anchor. Merely
   switching to a viewport anchor can lose the entry's focus; it is not a complete
-  implementation of independent restoration. A new two-identity snapshot model is
-  outside this unit. Phantom capture represents viewport/NONE, not an independently
+  implementation of independent restoration. Phantom capture represents viewport/NONE, not an independently
   retained hidden bookmark.
 - `historySearchContinuity` binds represented target/ratio-or-start/focus/NONE and
-  top fallback to the existing owner. B13 excludes departing neighbours; B14 applies
+  top fallback to the existing owner. History excludes departing neighbours and applies
   represented focus/NONE through resident AI re-sort without requests. Pending
   discovery remains useful even if placement is retired.
 - Router history action records native destination identity before query dedup;
@@ -350,20 +275,35 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   view mounts, write actual choices promptly; fresh independent tabs default grid.
   Navigation/AI/detail/Back/Forward/reload retain current choice. Invalid/unavailable
   storage stays usable; no cross-tab sync or legacy density-link handling.
-  B1's density-only producer is removed, not migrated. Q1/Q7 remain unchanged.
 
 ### 4.5 Reset to Home
 
 The logo waits for the fresh first page before changing the URL, avoiding a
 table-to-grid flash. A later history change or newer search cancels it. It
 suppresses a pending `restoreAroundCursor`, the return-from-detail placement and
-the table's density save *(L12)*.
+the table's density save.
 
 Home also resets the tab's density preference to grid, retaining
 fresh-data-before-layout timing. A later density choice wins without cancelling
 Home's search reset; an abandoned Home cannot change or persist density. Back after
 Home retains the current density. Ownership compares density intent, including
 same-value and away/back actions, not equality of the final preference value.
+
+The temporary top thumb/tooltip feedback belongs to that Home operation. Completion,
+failure, history/search/Home supersession or accepted discovery takeover releases
+only its token, never a successor's hold. A near-zero position report does not
+complete it, and cancellation itself triggers resynchronization independently of
+position/total/loading equality. Scrubber owns its pre-paint DOM synchronization;
+Home supplies the temporary hold's lifetime.
+
+### 4.6 New-Images Refresh
+
+Refresh keeps the current query/order and density, clears selection under the
+existing policy and starts one ordinary unanchored search without a history push.
+Both first-page and deep departure content/geometry remain while pending. Accepted
+fresh publication emits the existing top/horizontal reset and focus treatment;
+failure retains existing data rather than pretending a fresh page arrived. Refresh
+does not acquire Home's defaults, density reset or temporary thumb hold.
 
 ## 5. Two UI Modes, One Engine
 

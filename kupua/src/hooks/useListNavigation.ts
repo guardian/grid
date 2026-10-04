@@ -499,8 +499,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
             // If the buffer is windowed and not at the start, seek to 0.
             // DON'T reset scrollTop eagerly — that would flash the top of
             // the stale deep-offset buffer. Let seek(0) replace the buffer
-            // with fresh data; effect #8 (BufferOffset→0 guard) resets
-            // scrollTop in the same render frame. Same pattern as deep-to-deep
+            // with fresh data; effect #6 consumes the owned zero destination
+            // in the same layout frame. Same pattern as deep-to-deep
             // seeks which already have zero flash.
             if (((c.bufferOffset && c.bufferOffset > 0) ||
               !useSearchStore.getState().canReuseResidentResults() ||

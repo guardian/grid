@@ -17,7 +17,7 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Committed baseline: 4 October 2026, `85dae28b3` (includes L41).** Ordinary search/sort and B6
+**Committed baseline: 4 October 2026, `244a32633` (includes L41/L42).** Ordinary search/sort and B6
 (`d9b70c013`), AI continuity/L39 (`08e9c5fb0`), history/density (`7b82b13f8`)
 and detail return (`ae08e779d`) are delivered within their recorded limits.
 
@@ -27,6 +27,10 @@ repaired. Q2 density is independent per-tab UI state, retained across refresh;
 Home resets grid after owned data completion unless newer density intent wins.
 B1 is superseded by removal of its density-only entry producer, not by an
 obsolete-entry repair. See [the completed unit](#history-and-density-unit).
+
+A separate live table true-tail history-placement displacement is recorded in
+[B19](#b19). The target/data remain correct; the observed geometry does not.
+It is parked outside L43 and does not reopen B13/B14's ownership repairs.
 
 Final L42 local gates: **2,850 unit tests / 83 files, TypeScript/Vite and all
 435 local E2E cases pass**, with retries disabled and all 11 forced-seek cases
@@ -46,18 +50,32 @@ Original-image native placement and traversed centring remain distinct.
 See [the completed unit](#detail-return-unit) for composed proof, fixture changes
 and verification limits. No live-system or performance campaign ran for that unit.
 
-**Continuity checkpoint:** L41 is included in actual HEAD `85dae28b3`; L42's
-provenance separation and nine-lifetime map are complete within local limits.
+**Continuity checkpoint complete:** L41's input-helper pilot and L42's provenance
+separation/nine-lifetime map are committed and complete within local limits.
+
+**L43 complete within the recorded local/live limits.** Explicit reset
+publication/navigation replaces offset-zero inference; Home owns revocable
+thumb/tooltip feedback and refresh waits for accepted fresh publication. The 38
+source controls, bounded actual live API core/tier/null checks and eighteen durable
+local browser cases pass. Two fresh final full-diff repair reviews approve source
+and new tests with no actionable findings. Final separate gates pass: 2,888 unit
+tests/83 files, TypeScript/Vite and all 453 retry-free E2E cases, including 15 forced
+seek. Excluded E2E/perf configs retain 86/34 inherited diagnostic identities with
+zero additions; they are not clean-config claims. B10/B11/B16 and L13/L28/L35/L43
+are closed. Client DTO/fetch/Response fixtures are not native local media-api or
+server-cancellation proof; live direct-ES/performance equivalence is not certified.
+Deleted unsupported nullable mock drafts have no claimed composition coverage;
+[L44](#optional-nullable-mock-coverage-l44) remains optional and unselected.
 
 | Unit | Purpose | Dependency / boundary |
 |---|---|---|
 | [L41: test-refresh pilot](#test-refresh-pilot-l41) | Complete: one hit-tested point observer across browsing and detail, with explicit proof mapping | Tests/helpers only; unchanged product assertions, 12 helper controls; runtime impact unmeasured |
 | [L42: ownership consolidation](#ownership-consolidation-l42) | Complete: explicit provenance independent of policy and a compact ownership map | Production policies/cost retained; status/legacy limits explicit; no new coordinator |
+| [L43: owned reset presentation](reset-presentation-execution-prompt.md) | Complete: source, bounded live/local proof, final gates and independent repair reviews | B10/L28, B11/L13 and B16/L35 closed; client/live/performance and parked geometry limits retained |
 
-L42 remains independent; its existing tests suffice without adopting
-the L41 observer or demonstrating a wallclock reduction. Select further behavioural slices after the consolidation
-checkpoint, not automatically. Independent urgent repairs still need their own
-scope decision; this sequence is not a universal technical dependency.
+L43 is complete; no next behavioural slice is selected. Optional helper/mock work,
+further bugs, policy changes and live/perf work need their own approval. Completion
+does not authorize a general reset/history/layout rewrite or expand scope.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
@@ -70,15 +88,16 @@ scope decision; this sequence is not a universal technical dependency.
 | [B7](#b7) | Open | Temporary buffer bottom treated as true result bottom | L25 |
 | [B8](#b8) | **Done** | Search survives density; obsolete initial placement cannot replace newer keyboard-edge intent | L26/L37 closed; current discovery ownership is also covered by B17 |
 | [B9](#b9) | **Done** | Early close retains owned focus/centring until list readiness | L27 closed within local limits |
-| [B10](#b10) | Open | Ordinary prepend-to-zero is treated as reset | L28 |
-| [B11](#b11) | Open | Cancelled deep Home strands thumb at top | L13 |
+| [B10](#b10) | **Done** | Ordinary prepend compensates without offset reset inference | L28 closed; actual wheel/every held prepend/client DTO and true-top controls retained |
+| [B11](#b11) | **Done** | Home thumb hold retires under its operation owner | L13 closed; native Back/exact destination paint/stale-delivery controls retained |
 | [B12](#b12) | **Done** | Swipe preparation and close share session-entry identity after reload | L11 closed within local limits |
 | [B13](#b13) | **Done** | Missing history anchor no longer adopts departing-context neighbours | L32 closed; ordinary user-neighbour fallback retained |
 | [B14](#b14) | **Done** | AI history restores represented destination focus/none | L33 closed; finite resident ordering stays request-free |
 | [B15](#b15) | Open | Immediate reload loses selection before persistence debounce | L34 |
-| [B16](#b16) | Open | New-images refresh exposes stale top before fresh publication | L35 |
+| [B16](#b16) | **Done** | Refresh defers movement until accepted fresh publication | L35 closed; first/deep badge frames, classified refusal and fixture lifetime controls retained |
 | [B17](#b17) | **Done** | Pending browsing survives density; discovery, AI membership and completion retain ownership | L38 closed |
 | [B18](#b18) | **Done** | Pending seek/density retains departure content and destination thumb | L40 closed |
+| [B19](#b19) | Open, parked | Native Back from a true Credit-null table tail restores the correct target 36px below departure | Separate geometry discriminator; no L43 repair or additional gate |
 | L39 / [C10](#c10) | **Done** | AI exit without remembered detail identity preserves browsed centre without creating focus | Local verification limits below; retain as a control for the next unit |
 
 **Read by purpose:** [operator choices](#operator-questions), [policy rules](#decisions),
@@ -156,7 +175,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C25](#c25) Reload while detail is open, traverse, then swipe-dismiss or close | Swipe preparation and final return now share history-backed session identity. Returning to original A after reload on B adds no displacement; genuine traversal still centres. Missing cache can leave standalone detail without traversal. | Composed and actual touch-listener controls; historical failure and physical-device limits below | Original/last-viewed rules are preserved, not replaced by unconditional centring. | B12/L11 done |
 | [C35](#c35) Traverse in detail, reload, then close quickly | Close remains immediate; an owned return waits for the pending list/target before applying current-geometry centring and focus. Original return remains native. Newer intent retires presentation, not useful restoration. | Early/settled composed and rendered local controls; no new live timing certificate | Early close must remain distinct from the settled control; never hide the race with an unconditional readiness wait. | B9/L27 done |
 | [C26](#c26) Tick images, clear selection, then act again | Clear alone does not scroll or create focus. Older focus can reappear and again influence later arrows, sort or layout. Removing the current selection anchor elects a remaining selected image. | Source-established; stationary Clear/focus eligibility observed across paired matrices | No decision needed: reveal retained focus without moving solely because of Clear. | Established |
-| [C27](#c27) Back/Forward between searches or distinct same-query entries with focus, or none | A matching destination snapshot supplies target, placement and represented focus/none in the current layout, including resident AI. It does not separately save bookmark and viewport; phantom same-anchor focus is omitted. | Mounted and repeated real-router local controls; cold review and final gates pass | Off-screen bookmark versus viewport remains Q1. No departing focus may replace represented destination state. | B14 resolved; Q1 remains open |
+| [C27](#c27) Back/Forward between searches or distinct same-query entries with focus, or none | A matching destination snapshot supplies target, placement and represented focus/none in the current layout, including resident AI. It does not separately save bookmark and viewport; phantom same-anchor focus is omitted. | Mounted and repeated real-router local controls; cold review and final gates pass; separate live true-tail table displacement recorded as B19 | Off-screen bookmark versus viewport remains Q1. No departing focus may replace represented destination state. | B14 resolved; B19 geometry follow-up parked; Q1 remains open |
 | [C28](#c28) Toggle density, change focus, then Back | Toggle creates no history entry or key change. Back reaches the previous supported entry and retains current density; Forward survives toggling. | Actual controls assert entry, query generation, Forward and rendered view | B1's density-only reproduction is removed, not migrated. Surviving destination focus/none is covered separately. | Q2 delivered; L20 closed; B1 superseded |
 | [C29](#c29) Reload the list or share its URL | Reload uses per-tab snapshot, selected IDs and synchronously initialized density. Fresh independent tab defaults grid; shared URL carries no density/viewport/focus/selection. Selection's pre-debounce loss is unchanged. | Immediate table/grid reload and first-mounted-view controls; storage failure controls; older selection evidence retained | No cross-tab sync, legacy density-link migration or B15 repair follows. | Q2 delivered; B15 remains open |
 | [C30](#c30) Back/reload without a usable snapshot, or after its image disappears | Missing/mismatched/null-anchor snapshot or genuinely absent destination target falls back to top/no focus without departing candidates. Ordinary user transitions still try neighbours. | Failing-first B13 discriminator and surviving/invalid snapshot/user-neighbour controls | Read failure is not redefined as genuine absence; existing adapter contracts remain. | B13 resolved |
@@ -630,7 +649,7 @@ The historical matching phantom snapshot passed departing `getVisibleImageIds()`
 that source/contract conflict remains the pre-repair witness, not current behavior.
 
 <a id="c31"></a>
-**C31: Logo.** [Reset](../../src/lib/reset-to-home.ts#L46) clears focus/selection,
+**C31: Logo (historical witness).** [Reset](../../src/lib/reset-to-home.ts#L46) clears focus/selection,
 cancels typing, preloads defaults and owns post-await navigation via search/history
 guards and symbol-owned suppression releases. It deliberately does not capture
 a predecessor snapshot in the logo push helper. [Thumb reset](../../src/lib/orchestration/search.ts#L177)
@@ -642,15 +661,38 @@ Logical slider position and buffer returned deep (~431k), while Home's direct DO
 write left thumb `style.top`/rendered top at 0 before and after stale response
 release. The stale Home did not replace A. This reproduces L13's mechanism as B11;
 focus mode is not implicated because Home clears focus/selection before the race.
+Current L43 source adds an operation-owned hold and captured discovery takeover
+check; unit composition proves retirement before obsolete delivery. Live API native
+Back now passes in grid/table and in a genuine Taken on null-region grid departure:
+destination data/tuples/geometry and rendered thumb/tooltip precede deliberate
+obsolete delivery. Durable local native Back/paint and direct/API client fixtures,
+final retry-free E2E and independent repair reviews pass; B11/L13 are closed.
+
+**Later-density placement limit (4 October):** repeated real logo Home with unchanged
+first-page responses held before publication preserves the successor's busy/top
+hold after obsolete delivery. A newer real grid -> table choice survives, current
+default data publishes with one current navigation, and Home's search is not
+cancelled. That control ends at scrollTop 1017.6px versus departure 985.6px rather
+than top. Existing [Q2 browser assertions](../../e2e/local/browser-history.spec.ts#L107)
+and [unit assertions](../../src/lib/reset-to-home.test.ts#L167) certify preference
+and default-query ownership, not that branch's final viewport. Ordinary Home
+without later density input reaches exact content/rendered top. Retain the
+newer-layout geometry as a qualified separate limit: cause/desired placement are
+not established here, no new repair or stronger Q2 guarantee is approved, and it
+is not an added L43 gate. This does not weaken ordinary Home or refresh placement.
 
 <a id="c32"></a>
-**C32: New-image refresh.** [Badge handler](../../src/components/StatusBar.tsx#L177)
+**C32: New-image refresh (historical witness).** [Badge handler](../../src/components/StatusBar.tsx#L177)
 calls reset orchestration, selection clear and unanchored search, with no push.
 Polling only updates counts and does not reorder the visible buffer. Refresh
 advances the freeze boundary; Back uses its monotonic ratchet, not an immutable
 old upload set. At offset zero reset orchestration eagerly scrolls old content;
 deep data waits for atomic zero-offset publication. B16 establishes the stale
 first-page intermediate presentation, not permission to redesign final top/reset.
+Current L43 source defers both paths to accepted publication with pending/failure
+unit controls. Actual first/deep grid/table badge frames and classified refusal
+controls pass locally, with bounded live API success/supersession proof. Final
+gates/reviews pass; B16/L35 are closed and final policy stays.
 
 <a id="c33"></a>
 **C33: Long-press composition.** [Detection](../../src/hooks/useLongPress.ts#L103)
@@ -700,7 +742,7 @@ extra capture, while later paired controls confirmed the same gap. Detail identi
 readiness is not a claim that the bitmap was decoded at the early-close instant.
 
 <a id="c36"></a>
-**C36: Ordinary prepend reaches offset zero.** The paired probes used production
+**C36: Ordinary prepend reaches offset zero (historical witness).** The paired probes used production
 `seek(600)` only to establish a low seek window, then real wheel motion for all
 browsing in both modes/transports. Table sought offset 500, forward-evicted to 900 and gated
 backward prepends 900 -> 500 -> 100 -> 0. Grid sought 501, evicted to 900 and
@@ -715,7 +757,11 @@ buffer transition outside `_bufferSelfCorrecting` as Home/search replacement and
 writes `scrollTop = 0`. Its comment names natural indexed top and fresh page-one
 replacement, but this observed third path is ordinary seek-tier prepend after
 forward eviction. That guard is therefore over-broad for this sequence. No product
-repair or stronger persistence guarantee follows from the characterisation.
+repair or stronger persistence guarantee follows from the characterisation alone.
+Current L43 source removes that inference, with production seek/evict/prepend
+unit controls and independent order/tuple proof. Four durable actual-wheel/every-
+prepend frame cases and bounded live API counterparts pass with independent data
+and client DTO checks. Final gates/reviews pass; B10/L28 are closed.
 
 ### Bugs And Qualified Suspicions
 
@@ -903,8 +949,9 @@ image correctly. This is part of the same availability-dependent return failure,
 not a separate placement policy or a new durable-focus requirement.
 
 <a id="b10"></a>
-**B10 / C36: OPEN. Ordinary prepend-to-zero is reset as Home and loses the viewport
-anchor.** Expected compensated backward browsing to keep the elected visible image
+**B10 / C36: DONE. Ordinary prepend-to-zero preserves the viewport anchor.**
+Recorded pre-repair witness: ordinary prepend was reset as Home and lost the viewport
+anchor. Expected compensated backward browsing to keep the elected visible image
 in view when its final page reaches global offset zero. Actual paired seek outcomes
 made the stable held anchor non-visible in both table (+15 px signed-centre change)
 and grid (-47.5 px), while hidden focus remained. Minimal sequence: seek near global
@@ -912,10 +959,20 @@ and grid (-47.5 px), while hidden focus remained. Minimal sequence: seek near gl
 prepends until the final positive offset publishes zero. Earlier prepends in the
 same runs are controls. Confidence: observed identically in both views and
 transports with production store/scroll code and real wheel motion. Source owner:
-Effect 8's unconditional non-self-correcting positive-to-zero reset. No repair.
+Effect 8's unconditional non-self-correcting positive-to-zero reset (pre-L43 witness).
+**Local source repair:** that guard is removed; compensation remains intact and
+explicit search/browse publication retains true top paths. Failing-first and
+production buffer/tuple unit proof pass. Four durable forced-seek cases cover real
+forward eviction and every held prepend through zero in table/three-column grid,
+direct ES and faithful API DTO/client fixtures. Independent corpus membership/all
+tuples/positions and 12 pending/post frames retain geometry and bookmark/selection.
+No-read-at-zero, actual Home and deliberately unnecessary zero-hit fixture-read
+rejection controls remain. Bounded live API table/grid witnesses match. L28 closes
+with final gates and independent reviews; this is not server/performance certification.
 
 <a id="b11"></a>
-**B11 / C31 / L13: OPEN. Cancelled deep Home strands the scrubber thumb at top.**
+**B11 / C31 / L13: DONE. Cancelled Home releases thumb/tooltip presentation.**
+Recorded pre-repair witness: cancelled deep Home stranded the scrubber thumb at top.
 Expected Back's restored deep entry to show a deep logical and rendered thumb.
 Paired browser sequences restored deep logical positions (about 431k direct / 429k
 API), but thumb CSS/rendered top remained 0 before and after the
@@ -923,7 +980,18 @@ held stale Home response was released. Minimal sequence: deep A, push/deep B, ho
 Home's successful first-page response, Back to A, release stale Home. Search/history
 ownership correctly preserved A; only the thumb-reset generation remained waiting
 for a near-zero position that will never arrive. Confidence high for seek table in
-both transports; focus mode is irrelevant because Home clears it. No repair.
+both transports; focus mode is irrelevant because Home clears it (pre-L43 witness).
+**Local source repair:** Home owns a symbol hold and observes existing discovery
+replacement/abort, with revocable pre-paint Scrubber synchronization. Unchanged
+numeric props, current completion/failure, successor cleanup and actual URL-sync
+destination publication before hostile delivery pass at unit layer. Native deep
+A -> B -> held Home -> Back passes in local grid/table and bounded live API cells:
+A's data and exact logical/painted thumb/tooltip own presentation before deliberately
+delivered obsolete success, with no reclaim afterward. A real-DOM wrong-deep thumb
+negative rejects B paint at A's logical position; Home and Back first-page discovery
+are separately bounded. Fully visible interior anchors retain established clipping
+policy, not a stronger true-edge guarantee. L13 closes with final gates/reviews;
+[B19](#b19) and C31's later-density placement limit remain separate.
 
 <a id="b12"></a>
 **B12 / C25 / L11: DONE. Swipe preparation and final return share session identity.**
@@ -987,8 +1055,9 @@ survival once the user action commits; pagehide currently does not flush the pen
 selection write. Client-only, transport-independent evidence. No repair.
 
 <a id="b16"></a>
-**B16 / C32: OPEN. First-page new-images refresh exposes stale top content before fresh
-publication.** A real refresh badge click from `bufferOffset=0`, `scrollTop=2000`
+**B16 / C32: DONE. Refresh retains old geometry until fresh publication.**
+Recorded pre-repair witness: first-page refresh exposed stale top content before fresh
+publication. A real refresh badge click from `bufferOffset=0`, `scrollTop=2000`
 immediately set scrollTop 0 while a successful first-page response was held. For
 the full 600 ms watch, the previously viewed image moved offscreen and the old
 buffer's first image was visible with `loading=true`; release then published fresh
@@ -996,7 +1065,19 @@ top data. A deep seek control held its exact viewed identity/geometry until rele
 then moved to fresh top. Expected the first-page path to defer visible movement like
 the deep atomic path, avoiding stale old-top presentation. The badge count was a
 client-only fixture; search/control/response were real and read-only. Reproduced
-pixel-identically in direct and media-api. No repair.
+pixel-identically in direct and media-api (pre-L43 witness).
+**Local source repair:** badge preparation skips eager movement/range/thumb writes;
+one existing unanchored search publishes the final reset with fresh data. First/deep
+grid/table pending and failure controls retain identity/geometry and existing
+focus/selection/query/density/history policy. Eight durable actual-badge success
+cases cover first/deep grid/table through direct ES and faithful API client fixtures:
+12 pending frames retain the old anchor, then accepted publication owns painted
+top/left with one refresh page. Two supplied-503 controls require the real adapter's
+refused/status503 classification; a backing-error negative cannot substitute for it.
+Interrupted cleanup owns listeners, blocks late registration and drains observations.
+Bounded live API success, populated selection and newer-query supersession remain
+complementary evidence. L35 closes with final gates/reviews; no native local server
+failure/cancellation or performance certificate is inferred.
 
 <a id="c37"></a>
 <a id="b17"></a>
@@ -1125,6 +1206,58 @@ interleavings, production-build incidence and performance/jank remain separate
 certification surfaces. VS Code's native Escape key hijack is an environment
 limitation; the operator confirmed normal Chrome works. These limits do not
 authorize repairs or imply comprehensive runtime/performance certification.
+
+<a id="b19"></a>
+**B19 / C27: OPEN, PARKED. Table native Back from a true Credit-null tail restores
+the correct anchor one header-height below its departure.**
+
+**Observed contract/result:** destination identity, rank, membership and tuples
+restore correctly, but the represented viewport does not return to its departure
+geometry. In the repeated witness the anchor moves **+36px** and scrollTop changes
+**-36px**, equal to the measured sticky-header height. Cause and the precise
+interaction with legitimate true-edge clamping remain unconfirmed; this is not
+proof that missing values themselves cause the displacement.
+
+**Reproduction (4 October 2026):** visible shared Chromium, non-local
+`ApiDataSource`, indexed table, `city:Dublin`, `nonFree=true`, until
+`2026-03-05T00:00:00Z`, descending Credit. The complete independent position map
+contains 13,205 results and 44 null-primary tuples beginning at rank 13,161.
+With no focus/selection, use actual End to reach the true tail in entry A, choose
+Uploaded through the sort menu to create entry B, then use native browser Back.
+The represented anchor remains at rank 13,195. Departure scrollTop
+421971.1875 becomes 421935.1875; the same anchor's viewport Y increases by 36px.
+Twelve subsequent visible frames have 0px further movement. The restored
+44-image buffer starts at 13,161 and matches independent-map membership and
+all authoritative tuples; loading is false and no error is present.
+
+**Controls/attribution:** the plain A -> B -> Back witness uses no Home action
+and no response hold. A deep-B variant with Home's unchanged completed first page
+held before Back produces the same displacement, while the logical/rendered
+thumb and tooltip correctly represent the null destination before stale delivery;
+obsolete Home delivery cannot reclaim data/history/density/geometry. Thus this
+is distinct from [B11](#b11), missing-target fallback [B13](#b13), density at a
+temporary buffer end [B7](#b7), and the data-prefix defects
+[KUP-033/034](bug-backlog.md#kup-033). No source repair or clean-baseline browser
+comparison was performed.
+
+**Owning surfaces / next discriminator:** inspect the
+[snapshot ratio](../../src/lib/build-history-snapshot.ts#L87),
+[table virtualizer/header geometry](../../src/components/ImageTable.tsx#L747)
+and [history ratio placement/clamp](../../src/hooks/useScrollEffects.ts#L791).
+These formulas are unchanged by L43; that fact is not an executed baseline test.
+A bounded local plain-Back fixture should compare true-tail and away-from-tail
+departures, with valued and null anchors, recording the saved ratio, measured
+header, actual scroll writes/clamp and exact DOM departure/restoration geometry.
+Correct geometry in that matched case would disconfirm generalization; differing
+header/coordinate calculations would discriminate the cause. Direct ES, grid,
+Taken on, reload and broader incidence remain unverified. Confidence is high for
+the repeated live displacement, not its root cause or null-specificity.
+
+**Kind/disposition:** separate observed geometry bug with qualified cause; parked,
+unselected and not an additional L43 acceptance gate. Operator instruction is to
+record it, not repair it here. Preserve exact geometry tolerances; no product,
+backend, snapshot-policy or performance change is authorized. Identities, raw
+tuples and live payloads were kept in browser memory; owned probes were removed.
 
 ### TEST Browser Follow-Up: 1 October
 
@@ -1533,31 +1666,92 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-1. **L41: bounded test-refresh pilot, complete in the working tree.** One observed
-  input boundary is shared across browsing and detail, with preserved proof and
-  explicit cost limits. No production changes. [Delivery](#test-refresh-pilot-l41).
-2. **L42: ownership consolidation checkpoint.** Make provenance independent of
-  fallback policy and document actual publication/placement/completion authority.
-  Preserve behaviour and justified lifetimes. [Prompt](continuity-ownership-consolidation-prompt.md).
-3. **Operator selects the next behavioural slice after that checkpoint.** Q1/Q7,
-  remaining bugs and larger snapshot/layout changes retain separate scopes.
+1. **L41/L42 complete.** The input-helper pilot and explicit provenance checkpoint
+  retain their bounded proof and remaining limits; neither certifies all placement.
+2. **L43 complete within recorded limits.** B10/B11/B16 close under the explicit
+  contract below; offset shape and near-top thumb geometry no longer authorize reset.
+  [Execution prompt](reset-presentation-execution-prompt.md) retains the approved scope.
+3. **Select later work separately.** Q1/Q7, remaining bugs, wider layout/snapshot
+  work and optional helper candidates are not automatically included.
 
-L41 is complete; L42 does not depend on adopting its helper or proving a speed-up.
-Do not run overlapping edits concurrently. Neither unit authorizes the third step
-or makes independent urgent repairs impossible.
+Keep one active implementation unit and avoid overlapping edits. A longer
+unattended run changes the execution window, not the approved scope.
 
 **Optional test-maintenance queue:** [assessed strong helper candidates](../../e2e/README.md#strong-candidates).
 Use the [one-candidate execution prompt](continuity-test-refresh-prompt.md) after
 the operator names a candidate; it replaces the completed L41 execution brief.
-Once L42 is underway, the operator may select one as a separate test-only unit,
-scheduled apart from overlapping consolidation edits. The shortlist is not
+The operator may select one as a separate test-only unit, scheduled apart from
+overlapping L43 edits. The shortlist is not
 implementation approval, an automatic follow-on, or a gate on starting/completing
-L42. Retain the bounded brief, coverage mapping, negative controls, inline cold
+the behavioural slice. Retain the bounded brief, coverage mapping, negative controls, inline cold
 reviews and local gates; maintenance payoff does not imply a wallclock reduction.
+
+### Owned Reset Presentation (L43)
+
+**Complete within recorded limits; baseline `244a32633`, 4 October 2026.**
+[Detailed execution prompt](reset-presentation-execution-prompt.md).
+
+| Field | Contract / boundary |
+|---|---|
+| Outcome | Distinguish an authorized top reset from buffer compensation, and give temporary reset presentation an explicit completion/cancellation lifetime. B10/L28, B11/L13 and B16/L35 are the only named repairs. |
+| B10 | Ordinary backward extension reaching offset zero preserves the viewed anchor through existing compensation. Offset zero alone is not a reset command. Real Home, seek-to-top, new-search/fallback and small-result top-up controls must keep their established outcomes. |
+| B11 | Successful Home retains its immediate top-intent feedback. If Home is superseded by Back/new search/new Home, the obsolete thumb hold retires and rendered thumb/tooltip reflect the current destination before any stale Home response is released. Old cleanup cannot release a newer hold. |
+| B16 | Refresh from a first-page buffer preserves departure content/geometry while the new read is pending, as the deep-buffer control does. Only accepted fresh publication moves content to top. Keep final focus/selection, horizontal reset, query/freeze and history/density semantics; preserve existing failure policy. |
+| Structure | Producers distinguish semantic reset intent from data-offset bookkeeping and presentation timing. Reuse existing request/Home/history lifetimes; explicit reset publication and revocable thumb presentation replace competing inference, not a universal coordinator or new loading owner. |
+| Mechanical boundary | Inspect all current callers of `resetScrollAndFocusSearch`, `_scrollReset` producers/consumer, Effect 8, Scrubber reset generation and Home cleanup. Account for every legitimate zero-offset path before retiring the guard. Keep prepend/evict math, coordinates, cursor/rank contracts, useful discovery and density readiness. |
+| Proof | Reproduce each bug failing-first at actual HEAD; do not force stale evidence to fail. Independent pending-frame, identity/geometry, data/tuple, loading and logical/rendered thumb assertions; early prepends, no-reset, current/superseded Home and first/deep refresh controls. Reuse maintained helpers; test-impact map names changed assertions and new interactions. |
+| Validation | 38 source controls, bounded live API witnesses and eighteen durable local cases; final 2,888 unit tests/83 files, TypeScript/Vite and 453 retry-free E2E including 15 forced-seek pass. Two fresh final full-diff repair reviewers approve source/new tests. Excluded-config identities match 86 E2E/34 perf inherited diagnostics, zero additions; shared helpers/perf/config unchanged, so no new perf-harness gate. Client JSON/fetch/Response proof is not native local server cancellation, live direct-ES parity or performance certification. |
+| Non-goals | B2/B3/B4/B7/B15 and other unrelated repairs; Q1/Q7 decisions; L12 blanket suppression deletion; frame-gate/helper pilot; snapshot/persistence redesign; new backend reads, retries, stronger seek exactness or a generic viewport engine. |
+| Autonomy / stop | Complete routine scoped work and review cycles without asking the operator to arrange reviewers. Required startup/port permission still applies. If policy, safety, cost or an unapproved dependency blocks the unit, retain verified work and report the blocker; do not enlarge scope because the operator is offline. |
+
+Delivered source removes Effect 8, the thumb-generation/near-zero proxy and unowned
+helper DOM writes. Existing `_scrollReset` writers retain search/fallback authority;
+ready zero browse intent uses Effect 6. Home's token releases independently of
+numeric position/loading and cannot retire a successor; its captured existing
+discovery record detects accepted same-generation takeover without adding a request
+owner. Refresh keeps policy separate by deferring movement, not borrowing Home's
+defaults or hold. Maintenance markers, compensation, suppression releases and
+existing request/focus/density owners remain. The original witnesses are preserved;
+Local browser proof uses four actual-wheel B10, two native-Back B11 and twelve
+B16 badge/refusal/fixture-lifetime cases in the existing owning specs. Independent
+oracles and adversarial predicate/resource controls survived review; no established
+case or geometry assertion was removed. B10 adds fifteen oracle cursor pages and
+one deliberate zero-hit fixture read per case, not application request cost.
+Natural buffer/indexed, map absence, Credit/Taken on null-region and repeated Home
+live API checks retain their bounded limits. B19, later-density placement and
+optional L44 remain separate; no next unit or performance campaign follows.
+
+### Optional Nullable Mock Coverage (L44)
+
+**Optional, unselected test-infrastructure follow-up; not an L43 gate or an
+application bug.** Eight new L43 draft composed Credit/Taken on null-boundary
+cases were deleted, not skipped or moved into an opt-in suite. Their unused
+fixture extension was removed too. The full owning scroll-effects unit file
+passes all 511 retained tests; no established coverage was removed. Exact local
+composed coverage from those drafts is not claimed.
+
+The [mock tuple extractor](../../src/dal/mock-data-source.ts#L128) handles Credit
+and lastModified but not metadata.dateTaken. Its [missing-field filter](../../src/dal/mock-data-source.ts#L233)
+does not handle nested metadata.credit, and [full-corpus ordering](../../src/dal/mock-data-source.ts#L284)
+is opt-in through sparse/skewed source configuration. Those limitations invalidated
+the drafts' valued/null preconditions; they are not evidence of a product defect.
+
+We MAY return to expanding those mock capabilities in a separately selected unit.
+First require independent ordered corpora, missing-last in both directions,
+primary/suffix/ID tuples, nested missing-field filtering and reverse-boundary page
+controls; keep fixture failures separate from application red-to-green proof.
+Retain existing sparse-date adapter tests and the recorded live Credit/Taken on
+evidence without treating them as the deleted composition tests.
+
+The [special-sort ES oracle](../../integration/special-sort-es.test.ts) is a
+separate real-local-ES mutation oracle, not a home for unsupported mock tests.
+Its [dedicated config](../../vitest.special-sort-es.config.ts) remains opt-in;
+habitual [Vitest](../../vite.config.ts#L139) and [Playwright](../../playwright.config.ts#L23)
+do not run it. It was neither modified nor executed for this disposition.
 
 ### Test Refresh Pilot (L41)
 
-**Complete in the working tree, 4 October 2026; baseline `ae08e779d`.** One
+**Committed as `85dae28b3`, 4 October 2026; baseline `ae08e779d`.** One
 `waitForHitTestedImagePoint` observer replaces duplicated point-selection loops in
 B17/B18 browsing and B9/B12 detail. It owns synchronous usable-container/header
 geometry, optional exact identity, hit testing and observation-handle disposal,
@@ -1594,7 +1788,7 @@ not a new prerequisite or permission for a wider test migration.
 
 ### Ownership Consolidation (L42)
 
-**Complete within local limits; independent of L41.** Actual starting
+**Committed as `244a32633`, complete within local limits; independent of L41.** Actual starting
 HEAD is `85dae28b35047c9fbf887e288b7edb83f71c7d70`, which already includes L41.
 No L41 helper adoption or runtime reduction is required by this unit.
 
@@ -1602,7 +1796,7 @@ No L41 helper adoption or runtime reduction is required by this unit.
 |---|---|
 | Structure | `SearchContinuity` requires `provenance: "user" | "history"`; both adopted factories declare it. Three history-control checks in search/AI reorder use that tag. The actual top-fallback neighbour-suppression check stays a policy decision. No origin inference from geometry/focus/neighbours replaces it. |
 | Behaviour | Production history remains top/no focus on absence, ordinary user changes retain neighbour fallback and finite AI keeps its distinct membership/absence/failure contracts. Existing target, ratio/centre, owner replacement, data-survives-retirement, density, native detail return and request budgets remain controls. Legacy no-handoff callers are not absorbed. |
-| Ownership map | [Guide 02 Engine Map](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md#34-ownership-lifetimes) gives nine source-backed lifetimes with publication/focus/placement/busy authority, invalidation and surviving useful work. No new register/coordinator/epoch or module movement. |
+| Ownership map | [Guide 02 Ownership and Cancellation](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md#34-ownership-and-cancellation) summarizes separate data/presentation lifetimes, cancellation, focus intent and Home ownership. Retiring presentation need not discard useful data. No new register/coordinator/epoch or module movement. |
 | Retained control | `hasPendingSearch`, `hasPendingForegroundRead` and `startBrowseNavigation` retain resolver status and queued/loading/ready distinctions. A live signal does not distinguish idle/completed resolution; continuity phase governs presentation, and legacy snap-back lacks that record. Replacing status needs a separately scoped active/settled resolver lifetime, not `!signal.aborted`. Necessary after-await guards stay. Focus intent guards completion, not every already-ready handoff; post-publication click/clear before density readiness remains uncertified and unmodified. |
 | Proof / maintenance | Twelve new mounted adapter controls failed behaviourally before production edits; they cover ordinary first-page/lookup retirement, alternate-fallback pending AI adoption and transport-specific success/absence/failure, plus user top fallback's immediate reorder. Two existing detail AI replacement controls gain alternate-fallback variants. No assertions/cases removed; existing frame/adapter fixtures reused, no browser helper or setup extraction. Added fixture execution is proof cost, not speed evidence. |
 | Future local change | An approved history neighbour fallback would change constructor policy without changing history intent retirement or pending AI authority. Different missing-target reads could be legitimate; surviving-target substitution retains existing reads. The alternate policy remains fixture-only. |
@@ -1757,7 +1951,7 @@ this is not a further functional gate or a claim of performance equivalence.
 
 Maintain a structural milestone and a bounded repair lane, with one active
 implementation unit. Completed continuity units remain regression controls;
-L41 and L42 are complete within their recorded limits; subsequent scope requires
+L41/L42/L43 are complete within their limits; no next unit is selected. Further scope requires
 operator selection. A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
@@ -1974,7 +2168,6 @@ their evidence records, not in this backlog.
 | L9 | Refactor | Remaining layout anchor decisions may share policy after the relevant Q1 choices; adopted search/history/detail decisions are already consolidated within their boundaries | Identify an actual remaining duplicated decision and prove policy/invariant independence; retain off-screen selection, true-edge and geometry contracts unless explicitly revised | L15; L42 checkpoint |
 | L10 | Refactor | Layout captures may reuse placement values where that removes real duplication; one universal capture type/pair is not a predetermined outcome | Preserve header, global/local coordinates, capture timing and semantic versus compensating scroll in composed density/reflow/history controls | L9; explicit scoped proposal |
 | L12 | Delete | After L8-L11, some reset-to-home suppressions (`suppressNextRestore`, `suppressReturnFromDetail`, `suppressDensityFocusSave`, dedup preset) may no longer be needed | Disable each alone in a throwaway change; run reset-to-home unit and e2e from grid, table and detail | L8, L11 |
-| L13 | Bug | B11: cancelled deep reset-to-home leaves scrubber thumb DOM at top while Back restores a deep logical position | Preserve successful Home's instant top feedback; add Back/newer-navigation cancellation controls that resynchronize to the actual deep position | C31/B11 |
 | L14 | Move | `search-store.ts` mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
@@ -1984,8 +2177,7 @@ their evidence records, not in this backlog.
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
 | L25 | Bug | B7: density treats seek's temporary local buffer bottom as a real end, changing preservation outcome by coordinate regime | Preserve natural TEST and equal-size/map-absent controls; distinguish source snap from legitimate true-result destination clamp | C18/B7 |
-| L28 | Bug | B10: Effect 8 treats ordinary positive-to-zero prepend as Home/search and loses the current viewport anchor | Reproduce gated final prepend in grid/table and both transports; ordinary browsing must retain the held anchor, while true Home/search controls must still reset to top | C36/B10 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
-| L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
+| L44 | Characterise | Optional expansion of MockDataSource nullable-field capabilities; eight unsupported new composed drafts deleted rather than left failing or quarantined | Independently verify dateTaken tuple extraction, nested Credit missing-field filtering, full sort order and reverse pages before adding composition coverage; no product defect is established | [Optional nullable mock coverage](#optional-nullable-mock-coverage-l44); unselected, not an L43 gate |

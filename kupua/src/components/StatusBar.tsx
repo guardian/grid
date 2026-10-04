@@ -175,7 +175,7 @@ export function StatusBar() {
         {displayNewCount > 0 && (
           <button
             onClick={() => {
-              resetScrollAndFocusSearch();
+              resetScrollAndFocusSearch({ skipEagerScroll: true });
               // S6: clear selection before reSearch so the multi-panel doesn't
               // briefly flash old reconciled state against the new results.
               if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {

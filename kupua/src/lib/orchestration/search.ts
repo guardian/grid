@@ -6,6 +6,7 @@ import { isMobile } from "@/lib/is-mobile";
 import { withFreshKupuaKey, getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { snapshotStore } from "@/lib/history-snapshot";
+import { useSyncExternalStore } from "react";
 
 // ===========================================================================
 // Debounce cancellation (from SearchBar.tsx)
@@ -83,15 +84,27 @@ export function resetCqlInputComponents() {
 
 let _virtualizerReset: (() => void) | null = null;
 
-/**
- * Generation counter incremented by resetScrollAndFocusSearch().
- * In seek mode, the Scrubber's discrete thumb sync skips stale deep
- * positions after a bump (keeping the 0px written below) until the
- * position settles near the top. See Scrubber.tsx discrete thumb sync.
- */
-let _thumbResetGeneration = 0;
-export function getThumbResetGeneration(): number {
-  return _thumbResetGeneration;
+let homeThumbReset: symbol | null = null;
+const thumbResetListeners = new Set<() => void>();
+const subscribeThumbReset = (listener: () => void) => {
+  thumbResetListeners.add(listener);
+  return () => { thumbResetListeners.delete(listener); };
+};
+const getHomeThumbReset = () => homeThumbReset;
+
+export function useHomeThumbReset(): symbol | null {
+  return useSyncExternalStore(subscribeThumbReset, getHomeThumbReset, getHomeThumbReset);
+}
+
+export function holdHomeThumbAtTop(): () => void {
+  const owner = Symbol();
+  homeThumbReset = owner;
+  thumbResetListeners.forEach(listener => listener());
+  return () => {
+    if (homeThumbReset !== owner) return;
+    homeThumbReset = null;
+    thumbResetListeners.forEach(listener => listener());
+  };
 }
 
 /**
@@ -155,13 +168,12 @@ export function enterFullscreenPreview(): void {
 }
 
 /**
- * Imperatively prepare for a "go home" transition — called by SearchBar logo,
- * ImageDetail logo, and metadata clicks. Orchestrates:
+ * Prepare Home or refresh without authorizing the later data placement.
+ * Home owns its temporary thumb hold separately; refresh defers movement.
+ * Orchestrates:
  * 1. Abort in-flight extends (buffer corruption prevention)
- * 2. Scroll reset (eager when safe, deferred when stale — see below)
- * 3. Reset visible range (Scrubber thumb sync)
- * 4. Direct scrubber thumb DOM reset (instant visual signal)
- * 5. Focus CQL input (next frame)
+ * 2. Optional eager resident-content scroll and visible-range reset
+ * 3. Focus CQL input (next frame)
  *
  * Scroll-reset strategy (same logic as the Home key handler in
  * useListNavigation.ts):
@@ -172,9 +184,8 @@ export function enterFullscreenPreview(): void {
  *
  * - **bufferOffset > 0:** The buffer has stale deep-offset data. Eager
  *   `scrollTop = 0` would briefly show wrong images (the "flash"). Leave
- *   the scroll reset to effect #8 (BufferOffset→0 guard) in useScrollEffects,
- *   which fires in the same layout frame as the data swap when `search()`
- *   sets bufferOffset back to 0.
+ *   the explicit publication reset in useScrollEffects, in the same layout
+ *   frame as the accepted fresh data swap.
  *
  * - **skipEagerScroll:** When called from `resetToHome()`, the current view
  *   is about to be unmounted by a programmatic navigation. Resetting its
@@ -190,7 +201,7 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; is
   // Scroll reset — only when the buffer is at the start (bufferOffset 0)
   // and the caller hasn't asked to skip (resetToHome skips because the
   // view is about to be replaced by navigation).
-  // When deep (bufferOffset > 0), effect #8 handles it after data arrives.
+  // Accepted search publication handles the deferred reset.
   if (!opts?.skipEagerScroll && useSearchStore.getState().bufferOffset === 0) {
     const scrollContainer = getScrollContainer();
     if (scrollContainer) {
@@ -198,20 +209,8 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; is
       scrollContainer.scrollLeft = 0;
     }
     _virtualizerReset?.();
+    resetVisibleRange();
   }
-
-  // Reset the visible range so the Scrubber thumb reflects position 0
-  // without waiting for the scroll handler to fire.
-  resetVisibleRange();
-
-  // Directly reset the scrubber thumb DOM position to top — instant
-  // visual signal that "I'm going home" without flashing wrong images.
-  const thumb = document.querySelector<HTMLElement>("[data-scrubber-thumb]");
-  if (thumb) thumb.style.top = "0px";
-
-  // Bump the thumb-reset generation so the Scrubber keeps this 0px while
-  // the stale deep position is still rendered, until fresh data arrives.
-  _thumbResetGeneration++;
 
   // Focus CQL input — but only if we're in search/results view, not image
   // detail view. The CQL input exists in the DOM even when image detail is

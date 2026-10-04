@@ -18,7 +18,7 @@ vi.mock("@/lib/scroll-container-ref", () => ({
 }));
 
 vi.mock("@/lib/orchestration/search", () => ({
-  getThumbResetGeneration: () => 0,
+  useHomeThumbReset: () => null,
 }));
 
 vi.mock("@/lib/perceived-trace", () => ({

@@ -42,6 +42,57 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 4 October 2026, L43 stall investigation:** a completed-response hold spanning
+tool calls leaves the real UI loading for model/tool overhead, even after the API
+has finished. The operator observed this artificial stall. After restoring the
+datasource, one unheld indexed refill completed wheel-to-visible in 1042ms (218ms
+dispatch, 646ms API request, publication at 879ms); no stranded loading reproduced.
+This is one functional timing witness, not a performance certificate. Keep future
+holds inside one retained bounded browser job with finally release and an elapsed
+deadline; reject a deadline-released sample as controlled proof. Unknown tool output
+must be inspected before retry: the attempted grid driver had not executed.
+
+**[V] Same continuation, bounded publication jobs:** retaining a job before native
+wheel input, sampling 12 pending frames, releasing, then sampling 12 post frames
+within that job avoids cross-tool stalls. A two-second ready-response failsafe
+was not reached in the valid indexed controls. A background map hold had its own
+six-second bound and was released by the job after refill proof. Classify the
+actual publication: an indexed tail/reverse read may prepend to resident data,
+not replace it. Compare the composed buffer with an independent complete map;
+a replacement-only response equality check is invalid for that case.
+
+**[V] Same continuation, null-boundary and refresh oracles:** crossing from null
+to valued rows inside an already resident window legitimately issues no request.
+Do not wait for an RPC merely because the semantic boundary was crossed; retain
+that no-read control and move beyond the loaded prefix for publication proof.
+Small-set refresh first publishes 200 then fills in the background: subscribe to
+the first buffer publication before release, and verify later fill separately.
+RPC params include transport-only fields such as trackTotalHits; comparing their
+whole buildSearchKey with UI params falsely excludes responses. Use the captured
+operation identity and actual query/order, retaining independent membership/tuple
+checks. These fixes changed diagnostic accounting, not app data or policy.
+
+**[V] 4 October 2026, L43 boundary/refresh checkpoint:** a single completed-read
+gate can miss automatic backward successors after release. Queue a separate gate
+for every reverse cursor read, reserve it before awaiting the original method, and
+address release/result by gate identity rather than one mutable current slot.
+Retain each request's old buffer/tuples/signal/origin/generation in page memory.
+Start post-publication frame sampling before release; a successor's busy flag is
+not proof that the prior generation failed to publish. This verified media-api
+table 700/500/300/100/0 and three-column grid 702/504/306/108/0 at 0px geometry,
+with canonical membership/tuple checks. Cleanup drained all reads and restored the
+original method descriptor; no identities or raw payloads were persisted.
+
+**[V] Same checkpoint, thumb and badge setup:** Scrubber's existing top transition
+is 0.1s, so immediate CSS/ARIA zero can coexist with a still-moving rendered thumb.
+Use bounded visible paint-frame geometry and tooltip checks, not CSS alone.
+Polling can overwrite a count-only refresh badge seed between tools; tightly
+coupling render and actual DOM badge click avoids that invalid setup without
+changing the returned page, freeze policy or poll implementation. Retained
+page-memory async jobs successfully handled source/config imports after an
+unknown-output attempt; inspect state before retrying. Reload remained necessary
+because the Vite websocket was disconnected.
+
 **[V] 3 October 2026, pending-seek presentation verification:** sample thumb DOM position and
 viewport-intersecting image identities at frame boundaries, separately from store
 buffer publications. Capture the actual visible departure anchor, not the bookmark.

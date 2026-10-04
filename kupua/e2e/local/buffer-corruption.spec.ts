@@ -39,6 +39,267 @@ import type { Route } from "@playwright/test";
 
 const MIN_TOTAL_FOR_SEEK = 500;
 
+test.describe("B16 refresh owns fresh publication", () => {
+  for (const transport of ["direct-ES", "media-api-fixture"] as const) {
+    for (const view of ["grid", "table"] as const) {
+      for (const { departure, outcome, fault, interruption } of [
+        { departure: "first", outcome: "success", fault: false, interruption: false }, { departure: "deep", outcome: "success", fault: false, interruption: false },
+        ...(transport === "media-api-fixture" ? [{ departure: "first", outcome: "http-failure", fault: false, interruption: false }] : []),
+        ...(transport === "media-api-fixture" && view === "table" ? [{ departure: "first", outcome: "http-failure", fault: true, interruption: false }] : []),
+        ...(transport === "direct-ES" && view === "table" ? [{ departure: "first", outcome: "success", fault: false, interruption: true }] : []),
+      ] as const) {
+        test(`${transport} ${view} ${departure} badge preserves pending geometry (${outcome}${fault ? "; rejects backing read failure" : ""}${interruption ? "; interrupted observer cleanup" : ""})`, async ({ kupua }) => {
+          const page = kupua.page;
+          await kupua.ensureExplicitMode();
+          await kupua.startSearch("", view);
+          if (departure === "deep") await kupua.seekTo(0.5);
+          else await kupua.scrollBy(900);
+          const point = await kupua.waitForHitTestedImagePoint({ view });
+          await page.mouse.click(point.x, point.y);
+          const setup = await page.evaluate(async ({ transport, view, departure, identity, outcome, fault, interruption }) => {
+            const configPath = "/src/dal/es-config.ts";
+            if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B16 requires local ES");
+            const store = (window as any).__kupua_store__;
+            const originalSource = store.getState().dataSource;
+            const originalFetch = window.fetch;
+            const selectionPath = "/src/stores/selection-store.ts";
+            const selection = (await import(selectionPath)).useSelectionStore;
+            const prefsPath = "/src/stores/ui-prefs-store.ts";
+            const prefs = (await import(prefsPath)).useUiPrefsStore;
+            const cachePath = "/src/lib/image-offset-cache.ts";
+            const cache = await import(cachePath);
+            const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+            if (view === "table") container.scrollLeft = 320;
+            const anchor = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+            const frames = async (count: number) => {
+              for (let frame = 0; frame < count; frame++) {
+                await new Promise(requestAnimationFrame);
+                if (document.visibilityState !== "visible") throw new Error("B16 backgrounded frame");
+              }
+            };
+            const deadline = performance.now() + 1000;
+            while (getComputedStyle(anchor).animationName === "kupua-arrive" && anchor.getAnimations().some(animation => animation.playState === "running")) {
+              await frames(1);
+              if (performance.now() > deadline) throw new Error("B16 arrival animation did not finish");
+            }
+            const old = store.getState();
+            if (old.focusedImageId !== identity || container.scrollTop <= 500 || (departure === "first" ? old.bufferOffset !== 0 : old.bufferOffset <= 0)) throw new Error("B16 wrong departure");
+            selection.setState({ selectedIds: new Set([identity]), anchorId: identity });
+            const rect = anchor.getBoundingClientRect();
+            const geometry = { top: rect.top, left: rect.left, scrollTop: container.scrollTop, scrollLeft: container.scrollLeft };
+            const context = { params: JSON.stringify(old.params), key: history.state?.kupuaKey, length: history.length,
+              density: prefs.getState().density, intent: prefs.getState()._densityIntent, freeze: old.newCountSince };
+            const apiPath = "/src/dal/api-data-source.ts";
+            const source = transport === "media-api-fixture" ? new (await import(apiPath)).ApiDataSource() : originalSource;
+            const errorPath = "/src/dal/grid-api-search-adapter.ts";
+            const { SearchAfterApiError } = await import(errorPath);
+            let httpReads = 0;
+            let expectedDtoHits: any[] = [];
+            let refusedReplySupplied = false;
+            let expectedRefusal: unknown;
+            if (transport === "media-api-fixture") {
+              source.countWithTickers = originalSource.countWithTickers.bind(originalSource);
+              source.fetchPositionIndex = originalSource.fetchPositionIndex.bind(originalSource);
+              window.fetch = async (input, init) => {
+                const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.origin);
+                if (!url.pathname.endsWith("/api/images/search-after")) return originalFetch(input, init);
+                httpReads += 1;
+                const body = JSON.parse(init?.body as string);
+                const result = await originalSource.searchAfter({ query: body.q, orderBy: body.orderBy,
+                  nonFree: body.free ? undefined : "true", since: body.since, until: body.until,
+                  length: body.length, offset: body.offset, trackTotalHits: body.countAll },
+                body.sortValues ?? null, null, init?.signal, body.reverse, body.seekToEnd);
+                expectedDtoHits = result.hits;
+                if (fault) throw new TypeError("B16 fixture backing read failure");
+                if (outcome === "http-failure") {
+                  refusedReplySupplied = true;
+                  return new Response("", { status: 503 });
+                }
+                return Response.json({ data: result.hits.map((image: any) => ({ data: { ...image,
+                  userMetadata: image.userMetadata ? { data: { ...image.userMetadata,
+                    archived: { data: image.userMetadata.archived }, labels: { data: image.userMetadata.labels?.map((data: unknown) => ({ data })) },
+                    metadata: { data: image.userMetadata.metadata }, usageRights: { data: image.userMetadata.usageRights }, photoshoot: { data: image.userMetadata.photoshoot } } } : undefined,
+                  fileMetadata: image.fileMetadata ? { data: image.fileMetadata } : undefined,
+                  usages: { data: (image.usages ?? []).map((data: unknown) => ({ data })) },
+                  leases: { data: image.leases ?? { leases: [] } }, collections: (image.collections ?? []).map((data: unknown) => ({ data })) } })),
+                  total: result.total, sortValues: result.sortValues });
+              };
+            }
+            const originalPage = source.searchAfter;
+            const ownPage = Object.getOwnPropertyDescriptor(source, "searchAfter");
+            let closed = false;
+            const subscriptions = new Set<() => void>();
+            const ownSubscription = (listener: (current: any) => void) => {
+              if (closed) return () => {};
+              const unsubscribe = store.subscribe(listener);
+              const stop = () => { unsubscribe(); subscriptions.delete(stop); };
+              subscriptions.add(stop);
+              return stop;
+            };
+            const probe = { calls: 0, pending: 0, painted: 0, done: false, error: "", publication: false,
+              cleanupComplete: false, cleanupWork: null as Promise<void> | null,
+              observationsStarted: 0, activeSubscriptions: () => subscriptions.size,
+              work: [] as Promise<unknown>[], unsubscribe: () => {}, cleanup: async () => {}, httpReads: () => httpReads,
+              refusedReply: () => refusedReplySupplied };
+            const checkPending = () => {
+              const current = store.getState();
+              const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`);
+              const bounds = cell?.getBoundingClientRect();
+              if (current.results !== old.results || current.focusedImageId !== identity || !current.loading || selection.getState().selectedIds.size !== 0 || !bounds || Math.abs(bounds.top - geometry.top) >= 1 || Math.abs(bounds.left - geometry.left) >= 1 || container.scrollTop !== geometry.scrollTop || container.scrollLeft !== geometry.scrollLeft) throw new Error("B16 pending content/geometry/selection changed");
+            };
+            source.searchAfter = function (...args: any[]) {
+              probe.calls += 1;
+              const work = (async () => {
+                if (args[1] || args[0].ids || (args[0].offset ?? 0) !== 0) throw new Error("B16 refresh is not one first page");
+                let result: any;
+                let failure: unknown;
+                try { result = await originalPage.apply(this, args); }
+                catch (error) {
+                  if (outcome !== "http-failure") throw error;
+                  const refusal = error as { kind?: unknown; status?: unknown } | null;
+                  if (!refusedReplySupplied || !(error instanceof SearchAfterApiError) || refusal?.kind !== "refused" || refusal?.status !== 503) throw new Error(`B16 unexpected refusal: ${String(error)}`);
+                  failure = error;
+                  expectedRefusal = error;
+                }
+                if (transport === "media-api-fixture" && outcome === "success") {
+                  const project = (image: any) => ({ metadata: image.userMetadata ? {
+                    archived: image.userMetadata.archived, labels: image.userMetadata.labels, metadata: image.userMetadata.metadata,
+                    usageRights: image.userMetadata.usageRights, photoshoot: image.userMetadata.photoshoot, lastModified: image.userMetadata.lastModified } : undefined,
+                    fileMetadata: image.fileMetadata, usages: image.usages ?? [], leases: image.leases ?? { leases: [] }, collections: image.collections ?? [] });
+                  if (JSON.stringify(result.hits.map(project)) !== JSON.stringify(expectedDtoHits.map(project))) throw new Error("B16 decoded API DTO fields differ from independent ES images");
+                }
+                for (let frame = 0; frame < 12; frame++) {
+                  await frames(1);
+                  if (closed) {
+                    if (failure) throw failure;
+                    return result;
+                  }
+                  checkPending();
+                  probe.pending += 1;
+                  if (interruption && frame === 0) probe.cleanupWork = probe.cleanup().then(() => { probe.cleanupComplete = true; });
+                }
+                if (outcome === "http-failure") {
+                  if (!failure) throw new Error("B16 HTTP refusal did not reach the adapter");
+                  probe.unsubscribe = ownSubscription((current: any) => {
+                    if (current.loading) return;
+                    probe.unsubscribe();
+                    probe.observationsStarted += 1;
+                    const observe = (async () => {
+                      for (let frame = 0; frame < 12; frame++) {
+                        await frames(1);
+                        if (closed) return;
+                        const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+                        const bounds = cell.getBoundingClientRect();
+                        const final = store.getState();
+                        if (final.results !== old.results || final.focusedImageId !== identity || final._scrollReset.gen !== old._scrollReset.gen || final.newCountSince !== context.freeze || Math.abs(bounds.top - geometry.top) >= 1 || Math.abs(bounds.left - geometry.left) >= 1 || container.scrollTop !== geometry.scrollTop || container.scrollLeft !== geometry.scrollLeft || !final.error) throw new Error("B16 refusal incorrectly published or moved retained data");
+                        if (JSON.stringify(final.params) !== context.params || history.state?.kupuaKey !== context.key || history.length !== context.length || prefs.getState().density !== context.density || prefs.getState()._densityIntent !== context.intent || selection.getState().selectedIds.size !== 0) throw new Error("B16 refusal changed refresh policy");
+                        probe.painted += 1;
+                      }
+                      probe.done = true;
+                    })().catch(error => { probe.error = String(error); });
+                    probe.work.push(observe);
+                  });
+                  throw failure;
+                }
+                probe.unsubscribe = ownSubscription((current: any) => {
+                  if (current.results === old.results) return;
+                  probe.unsubscribe();
+                  probe.observationsStarted += 1;
+                  probe.publication = true;
+                  const observe = (async () => {
+                    if (current.bufferOffset !== 0 || JSON.stringify(current.results.map((image: any) => image.id)) !== JSON.stringify(result.hits.map((image: any) => image.id))) throw new Error("B16 first publication membership mismatch");
+                    const key = cache.buildSearchKey(current.params);
+                    for (const [index, image] of current.results.entries()) {
+                      if (current.imagePositions.get(image.id) !== index || JSON.stringify(cache.getRetainedSortValues(image.id, key)) !== JSON.stringify(result.sortValues[index])) throw new Error("B16 position/tuple mismatch");
+                    }
+                    if (JSON.stringify(current.startCursor) !== JSON.stringify(result.sortValues[0]) || JSON.stringify(current.endCursor) !== JSON.stringify(result.sortValues.at(-1))) throw new Error("B16 cursor mismatch");
+                    for (let frame = 0; frame < 12; frame++) {
+                      await frames(1);
+                      if (closed) return;
+                      if (container.scrollTop !== 0 || container.scrollLeft !== 0) throw new Error("B16 accepted content is not top");
+                      probe.painted += 1;
+                    }
+                    const final = store.getState();
+                    const thumb = document.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+                    const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+                    if (Math.abs(thumb.getBoundingClientRect().top - track.getBoundingClientRect().top) >= 1) throw new Error("B16 painted thumb is not top");
+                    if (final.focusedImageId !== null || selection.getState().selectedIds.size !== 0 || JSON.stringify(final.params) !== context.params || history.state?.kupuaKey !== context.key || history.length !== context.length || prefs.getState().density !== context.density || prefs.getState()._densityIntent !== context.intent || !(final.newCountSince >= context.freeze) || final.loading || final.error) throw new Error("B16 final policy/context mismatch");
+                    probe.done = true;
+                  })().catch(error => { probe.error = String(error); });
+                  probe.work.push(observe);
+                });
+                return result;
+              })().catch(error => { if (error !== expectedRefusal) probe.error = String(error); throw error; });
+              probe.work.push(work);
+              return work;
+            };
+            store.setState({ dataSource: source, newCount: 5 });
+            probe.cleanup = async () => {
+              closed = true;
+              for (const unsubscribe of subscriptions) unsubscribe();
+              if (ownPage) Object.defineProperty(source, "searchAfter", ownPage);
+              else delete source.searchAfter;
+              let drained = 0;
+              while (drained < probe.work.length) {
+                const pending = probe.work.slice(drained);
+                drained = probe.work.length;
+                await Promise.all(pending.map(work => work.catch(() => {})));
+              }
+              window.fetch = originalFetch;
+              store.setState({ dataSource: originalSource });
+              delete (window as any).__b16;
+            };
+            (window as any).__b16 = probe;
+            return geometry;
+          }, { transport, view, departure, identity: point.imageId, outcome, fault, interruption });
+          const cleanupControl = interruption ? await page.evaluateHandle(() => (window as any).__b16) : null;
+          try {
+            expect(setup.scrollTop).toBeGreaterThan(500);
+            await page.getByRole("button", { name: "5 new", exact: true }).click();
+            if (interruption) {
+              await page.waitForFunction((probe: any) => probe.cleanupComplete, cleanupControl);
+              const disposed = await page.evaluate((probe: any) => ({ publication: probe.publication, pending: probe.pending }), cleanupControl);
+              expect(disposed.publication).toBe(false);
+              expect(disposed.pending).toBe(1);
+              const retired = await page.evaluate((probe: any) => {
+                const store = (window as any).__kupua_store__;
+                const results = store.getState().results;
+                store.setState({ results: [...results] });
+                store.setState({ results });
+                return { observers: probe.observationsStarted, subscriptions: probe.activeSubscriptions() };
+              }, cleanupControl);
+              expect(retired).toEqual({ observers: 0, subscriptions: 0 });
+              return;
+            }
+            if (fault) {
+              await page.waitForFunction(() => { const probe = (window as any).__b16; return probe.done || probe.error; });
+              const rejected = await page.evaluate(() => { const probe = (window as any).__b16; return { done: probe.done, error: probe.error, refusedReply: probe.refusedReply() }; });
+              expect(rejected.done).toBe(false);
+              expect(rejected.refusedReply).toBe(false);
+              expect(rejected.error).toContain("B16 unexpected refusal");
+              return;
+            }
+            await page.waitForFunction(() => {
+              const probe = (window as any).__b16;
+              if (probe.error) throw new Error(probe.error);
+              return probe.done;
+            });
+            const proof = await page.evaluate(() => {
+              const probe = (window as any).__b16;
+              return { calls: probe.calls, pending: probe.pending, painted: probe.painted, publication: probe.publication, httpReads: probe.httpReads(), refusedReply: probe.refusedReply() };
+            });
+            expect(proof).toEqual({ calls: 1, pending: 12, painted: 12, publication: outcome === "success", httpReads: transport === "media-api-fixture" ? 1 : 0, refusedReply: outcome === "http-failure" });
+            await kupua.assertPositionsConsistent();
+          } finally {
+            await page.evaluate(async () => { await (window as any).__b16?.cleanup(); });
+            await cleanupControl?.dispose();
+          }
+        });
+      }
+    }
+  }
+});
+
 test.describe("B8 pending sort survives saved density", () => {
   for (const transport of ["direct-ES", "media-api-fixture"] as const) {
     for (const focusMode of ["explicit", "phantom"] as const) {

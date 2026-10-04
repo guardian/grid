@@ -10,7 +10,7 @@
  *   - Prepend/forward-evict scroll compensation
  *   - Seek scroll-to-target
  *   - Search params scroll reset (with sort-around-focus detection)
- *   - BufferOffset→0 guard
+ *   - Explicit fresh-publication scroll reset
  *   - Sort-around-focus generation scroll restoration
  *   - Density-focus mount restore + unmount save
  *
@@ -515,7 +515,10 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
 
     const el = parentRef.current;
 
-    if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight)) {
+    if (el && browseNavigation?.targetOffset === 0) {
+      el.scrollTop = 0;
+      el.scrollLeft = 0;
+    } else if (el && (seekSubRowOffset > 0 || Math.abs(el.scrollTop - targetPixelTop) > geo.rowHeight)) {
       // Only adjust scrollTop if there's a large difference (> 1 row).
       // The store's seek() reverse-computes _seekTargetLocalIndex from the
       // user's current scrollTop, so the delta is typically 0–15px (sub-row
@@ -665,55 +668,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     virtualizer.scrollToOffset(0);
     queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
   }, [scrollReset, parentRef, virtualizer]);
-
-  // 8. BufferOffset→0 guard — primary scroll-reset for "go home" transitions
-  // -------------------------------------------------------------------------
-  //
-  // When bufferOffset transitions from deep (>0) to 0, the buffer has been
-  // replaced with fresh page-1 data. Reset scroll in the SAME layout frame
-  // so the user never sees the old deep-offset content at scrollTop 0.
-  //
-  // This is the mechanism that eliminates the "flash of wrong content" on
-  // Home key / logo click. The eager scrollTop=0 was removed from those
-  // handlers — the old buffer stays visible (harmlessly, at its deep scroll
-  // position) until this effect fires with the new data.
-
-  const prevBufferStateRef = useRef({ bufferOffset, seekGeneration });
-  useLayoutEffect(() => {
-    const previous = prevBufferStateRef.current;
-    prevBufferStateRef.current = { bufferOffset, seekGeneration };
-    const placedSeek = previous.seekGeneration !== seekGeneration &&
-      (twoTier ? seekTargetGlobalIndex : seekTargetLocalIndex) > 0;
-    // NOTE: no twoTier guard here. In two-tier mode, bufferOffset→0 happens
-    // in two cases: (a) the user scrolled to the top naturally (scrollTop is
-    // already ~0 — the reset is a harmless no-op), or (b) a search()/resetToHome
-    // replaced the buffer (scrollTop may be at ~1.3M — must be reset to 0).
-    // Case (b) would fail without the reset, and case (a) is safe, so we
-    // always fire. The original twoTier guard was added assuming only case (a)
-    // exists, but the position-map-independent twoTier derivation makes
-    // case (b) real.
-    //
-    // _bufferSelfCorrecting guard: scroll-mode top-up (buffer tier only)
-    // walks bufferOffset back down to 0 in several steps AFTER a
-    // sort-around-focus/restoreAroundCursor scroll already landed the
-    // viewport at a non-zero position — this is internal bookkeeping, not
-    // a "go home" event, and must not clobber that scroll. See F3/F4 in
-    // wandering-findings/W-2026-07-31-focus-bookmark-across-tiers.md.
-    if (previous.bufferOffset > 0 && bufferOffset === 0 && !placedSeek && !useSearchStore.getState()._bufferSelfCorrecting) {
-      const el = parentRef.current;
-      if (el) {
-        el.scrollTop = 0;
-        el.scrollLeft = 0;
-        virtualizer.scrollToOffset(0);
-        // Dispatch scroll event AFTER React finishes rendering — triggers
-        // reportVisibleRange for Scrubber thumb sync and gap detection.
-        // Must be deferred: dispatching from inside useLayoutEffect causes
-        // "flushSync inside lifecycle method" errors because the scroll
-        // handler triggers state updates while React is still rendering.
-        queueMicrotask(() => el.dispatchEvent(new Event("scroll")));
-      }
-    }
-  }, [bufferOffset, virtualizer, parentRef, twoTier, seekGeneration, seekTargetGlobalIndex, seekTargetLocalIndex]);
 
   // -------------------------------------------------------------------------
   // 9. Sort-around-focus generation — scroll to focused image at new position

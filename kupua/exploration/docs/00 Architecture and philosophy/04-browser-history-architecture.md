@@ -19,16 +19,14 @@ the snapshot to `sessionStorage` so the same restore path fires on mount.
 
 ### Independent Density
 
-[Q2 and the completed unit](../not-yet-another-audit-ledger.md#history-and-density-unit)
-remove density from the URL and all history state, not merely change push to replace.
-The current tab's choice survives navigation/Back/Forward and reload, independently
+Density is absent from the URL and history state. The current tab's choice
+survives navigation/Back/Forward and reload, independently
 of entry snapshots, using session storage initialized before the view mounts.
 Fresh independent tabs default to grid; no legacy link support or cross-tab sync.
 Density toggles leave history length, entry identity and Forward availability intact.
 Home resets grid with existing fresh-data timing; later density input wins without
 cancelling the search reset, and abandoned Home work cannot overwrite the preference.
-Back after Home does not restore an old density. B13/B14 are repaired; B1 is
-superseded by removal of its density-only entry producer, not an obsolete-entry fix.
+Back after Home does not restore an old density.
 `ui-prefs-store` reads `kupua-density` synchronously and writes each choice promptly.
 Missing/invalid/unavailable storage defaults quietly to grid; runtime choices stay
 usable. Local preference hydration cannot overwrite this session-owned state.
@@ -90,7 +88,7 @@ SearchBar shares pending CQL/AI edits only while their entry and input-reset lif
 remain current. `pushTypingSearchEntry` captures the predecessor snapshot, mints the
 new entry's key and returns that key to the producer; capturing the predecessor key
 would incorrectly cancel the typing session's own completion.
-The CQL (300ms) and AI (600ms) delays are unchanged. Their settled updates replace
+The CQL (300ms) and AI (600ms) delays debounce their updates, which replace
 the shared entry and retain its key; a later edit after both timers clear starts
 a new entry. There is no independent history timer or generic history state machine.
 
@@ -102,18 +100,20 @@ ownership; double-click cancels it and retains the existing fit/restore interact
 
 ### Home completion ownership
 
-Home owns its post-await continuation independently of the search request. Both logos
-provide caller history; departure, a newer search generation or another Home invalidates
-the old action. The owned search still finishes before navigation switches table to grid.
-A genuine current failure still navigates. Initial/post-navigation focus and suppression
-cleanup share this local lifetime; restore, return and density suppressions provide
-token-scoped release functions so obsolete cleanup cannot consume a successor's state.
-Neither buffer publication nor ordinary rendering is a new navigation intent.
+Both logos call [resetToHome](../../../src/lib/reset-to-home.ts), which clears
+focus/selection and awaits the default search before navigating or switching to
+grid. A current search failure still permits navigation. History departure, a
+newer search, another Home, or replacement/abort of its captured discovery retires
+the continuation without necessarily cancelling useful data work.
 
-Home captures `_densityIntent` at launch and resets grid only if that intent remains
-current after its owned search settles. Same-value and away/back choices advance
-intent too; value equality is not ownership. A newer choice wins without cancelling
-Home's query reset. Abandoned Home cannot change or persist density.
+Home owns a temporary top thumb/tooltip hold and token-scoped restore, return and
+density suppressions. Completion or cancellation releases only its own tokens.
+Scrubber resynchronizes when the hold releases even if numeric props are unchanged;
+near-top geometry is not completion authority. Ordinary rendering is not navigation.
+
+Home resets density to grid only if its captured `_densityIntent` remains current.
+Same-value and away/back choices advance intent too. A newer density choice wins
+without cancelling the query reset; retired Home work cannot overwrite it.
 
 ### Push-navigate helpers
 
@@ -275,9 +275,7 @@ search before navigation, preserving the density-switch ordering.
 In `useUrlSearchSync`, when `consumeUserInitiatedFlag()` returns `false`:
 
 1. Look up the snapshot for the current `kupuaKey`.
-2. Match `snapshot.searchKey === buildSearchKey(currentParams)` (strict match only —
-   lenient matching was considered but analysis showed the keys are structurally
-   identical, making the lenient branch dead code).
+2. Require `snapshot.searchKey === buildSearchKey(currentParams)`.
 3. `historySearchContinuity(snapshot, params)` produces destination target,
   ratio-or-start placement, represented target-focus or NONE, top fallback and
   offset hint. It does not call the live user anchor chooser or capture departing
@@ -287,17 +285,16 @@ In `useUrlSearchSync`, when `consumeUserInitiatedFlag()` returns `false`:
   publication; effect 9 places once using the CURRENT grid/table geometry.
   Phantom snapshots do not restore a hidden bookmark independently of the anchor.
 5. Genuine missing target means destination top/no focus, not a departing neighbour
-  (B13). Ordinary user-neighbour and adapter error/absence contracts remain.
+  fallback. Ordinary user-neighbour and adapter error/absence contracts remain.
 6. Restore `newCountSince` only on a matching anchor snapshot, using the later
   saved/current boundary. This monotonic ratchet is not immutable membership.
 
-Resident AI restoration applies explicit NONE as well as focus, without requests
-(B14). Pending history waits for owned finite publication, adopting latest
+Resident AI restoration applies explicit NONE as well as focus, without requests.
+Pending history waits for owned finite publication, adopting latest
 same-query order/continuity; newer work cannot revive obsolete placement. Input
-retirement does not cancel useful query discovery. The adopted `snapshotHints`,
-AI identity arguments and independent `saveSortFocusRatio` bridge are removed.
-Cursor restoration and pending-arrow placement still have limited legacy consumers;
-this is not a global placement-engine rewrite or a larger snapshot model.
+retirement does not cancel useful query discovery. Cursor restoration and pending-arrow
+placement retain separate consumers. Snapshots represent one anchor, not independent
+focus and viewport identities.
 
 **Mount-time restore (reload):** The same restore path fires on mount
 (because `consumeUserInitiatedFlag()` returns `false` on a fresh load).
@@ -335,7 +332,7 @@ list restoration; publication schedules a placement frame when loading has
 settled and the target is available. It re-reads the current index and geometry,
 does no extra data lookup, and never scrolls an original-image return.
 Search generation, origin/history key, `_focusIntent`, reopening and cleanup
-reject obsolete work, including a deliberately delivered cancelled callback.
+reject obsolete callbacks.
 Passive focus publication does not count as user input. Cursor restoration exposes
 its pending signal for detail remount reuse, and guards focus/placement independently
 of useful data publication. Destination-history publication uses the current
@@ -356,19 +353,6 @@ destinations. Ordinary search restores once; resident AI uses its request-free
 ordering path. The origin/detail exception is not a blanket display-only bailout.
 
 **Density toggle:** there is no Back step. Back/Forward keeps current density.
-
-## E2E test coverage
-
-`e2e/local/browser-history.spec.ts` retains entry keys, typing, search/detail,
-metadata, Home, snapshot and reload controls. Repeated ordinary/AI same-query
-cycles include focused/NONE grid/table destinations, multi-entry GO out of detail,
-direct native detail re-entry and marked detail ratio preservation after reload.
-Grid ring and table outline are asserted independently of stored focus/geometry.
-Density controls assert no entry/key/search-generation change or Forward loss,
-immediate reload and first-mounted view, fresh/reused tab isolation and both-logo
-latest-intent races. Mounted continuity tests cover current-layout composition,
-pending success/absence/failure, supersession and input retirement. Local fixtures
-are not live-system or performance certification; current gates live in the ledger.
 
 ## Other behaviours worth knowing
 
@@ -416,8 +400,6 @@ Query dedup is not permission to skip a distinct native destination's restoratio
 ---
 
 ## Appendix: How kahuna handles browser history
-
-Investigated for reference — not to emulate, but to ensure kupua is never worse.
 
 **Routing:** AngularJS `ui-router` (v0.4.3) with `ui-router-extras` Deep State
 Redirect. Image detail is a **separate top-level route** (`/images/:imageId`),

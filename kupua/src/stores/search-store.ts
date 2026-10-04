@@ -313,9 +313,8 @@ interface SearchState {
   /**
    * True while `_topUpScrollModeBuffer` is walking the buffer back to
    * `bufferOffset: 0` after a sort-around-focus/restoreAroundCursor landing
-   * centred it elsewhere. Lets scroll effects distinguish this internal,
-   * already-scrolled self-correction from a genuine "go home" reset (new
-   * search, Home key) that also transitions bufferOffset to 0.
+  * centred it elsewhere. Tracks maintenance completion, not top-reset
+  * authority: scroll placement follows explicit publication/navigation.
    */
   _bufferSelfCorrecting: boolean;
 
@@ -693,6 +692,14 @@ function adoptDiscoveryMetadata(discovery: InitialSearchDiscovery, metadata: Sea
     _positionMapAbortController = new AbortController();
     _fetchPositionMap(discovery.dataSource, discovery.params, _positionMapAbortController.signal, get, set);
   }
+}
+
+export function getInitialSearchPresentation(): {
+  readonly signal: AbortSignal;
+  readonly replacement: AbortSignal | null;
+  readonly searchGeneration: number;
+} | null {
+  return _initialSearchDiscovery;
 }
 
 async function finishAbandonedDiscovery(discovery: InitialSearchDiscovery | undefined, owner: AbortSignal,
@@ -1412,11 +1419,6 @@ async function _topUpScrollModeBuffer(
     }
   } finally {
     _topUpInFlight = false;
-    // Effect #8 in useScrollEffects.ts must still see _bufferSelfCorrecting=true
-    // on the React commit carrying the LAST bufferOffset->0 write above — this
-    // only holds because that commit is a same-microtask-queue zustand/React
-    // sync-lane flush that runs before this finally's continuation. If either
-    // ever moves off the sync-lane microtask path, this ordering breaks silently.
     useSearchStore.setState({ _bufferSelfCorrecting: false });
   }
 }
@@ -1816,9 +1818,8 @@ async function _findAndFocusImage(
           _seekTargetLocalIndex: -1,
           _seekTargetGlobalIndex: -1,
           // Bump _scrollReset.gen so Effect #7b resets scroll to top.
-          // Effect #8 only fires when bufferOffset transitions >0→0; if the
-          // old buffer was already at offset 0 (image in first page), that
-          // transition never happens and scroll would stay stale-deep.
+          // The fallback publishes an explicit top intent regardless of
+          // whether the departing buffer was already at offset zero.
           ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
             _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
         });

@@ -17,8 +17,8 @@
  * `<a>` + `e.preventDefault()` so the browser doesn't navigate eagerly.
  */
 
-import { resetScrollAndFocusSearch, setPrevParamsSerialized, setPrevSearchOnly, resetCqlInputComponents } from "@/lib/orchestration/search";
-import { useSearchStore, suppressNextRestore, getSearchGeneration } from "@/stores/search-store";
+import { resetScrollAndFocusSearch, holdHomeThumbAtTop, setPrevParamsSerialized, setPrevSearchOnly, resetCqlInputComponents } from "@/lib/orchestration/search";
+import { useSearchStore, suppressNextRestore, getSearchGeneration, getInitialSearchPresentation } from "@/stores/search-store";
 import { suppressReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { clearDensityFocusRatio, suppressDensityFocusSave } from "@/hooks/useScrollEffects";
 import { URL_PARAM_KEYS, URL_DISPLAY_KEYS } from "@/lib/search-params-schema";
@@ -55,11 +55,13 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   let observedCommit = false;
   let pendingCommitKey: string | undefined;
   let generation = getSearchGeneration();
+  let searchPresentation: ReturnType<typeof getInitialSearchPresentation> = null;
   let unsubscribeSearch = () => {};
   let unsubscribeHistory = () => {};
   let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
   const releases: (() => void)[] = [];
-  const isCurrent = () => active && generation === getSearchGeneration();
+  const isCurrent = () => active && generation === getSearchGeneration() &&
+    (!searchPresentation || (!searchPresentation.signal.aborted && searchPresentation.replacement === null));
   const cancel = () => {
     active = false;
     unsubscribeSearch();
@@ -77,6 +79,8 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
     }
     cancel();
   }) ?? (() => {});
+  const releaseThumb = holdHomeThumbAtTop();
+  releases.push(releaseThumb);
   // Pre-compute the home URL dedup key BEFORE clearing state. This is set
   // on _prevParamsSerialized immediately to prevent useUrlSearchSync from
   // firing a rogue search() during the await below. Without this, the race
@@ -165,12 +169,14 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
       ? { traceAction: "home-logo", traceInteractionId }
       : undefined);
     generation = getSearchGeneration();
+    searchPresentation = getInitialSearchPresentation();
     unsubscribeSearch = useSearchStore.subscribe(() => { if (!isCurrent()) cancel(); });
     await search;
   } catch {
     // If search fails, navigate anyway — graceful degradation.
     // The error state will be displayed on the home page.
   }
+  releaseThumb();
   if (!isCurrent()) { cancel(); return; }
 
   // The dedup state was already set to match the home URL at the top of
@@ -184,7 +190,7 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   // React may or may not commit this re-render before navigate() fires
   // (set() inside an async function — React may batch). If the re-render
   // DOES commit, the table renders 200 items but scrollTop is browser-clamped
-  // to the shorter maxScroll (not reset to 0 — effect #8 may not have fired).
+  // to the shorter maxScroll before the publication reset is committed.
   // The table's unmount save then captures scrollTop=maxScroll, gap=0 →
   // "source was at bottom". The grid mount extremum-snaps to its own
   // maxScroll, landing the user at ~image 198 instead of the top.

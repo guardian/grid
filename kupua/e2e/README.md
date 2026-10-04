@@ -76,6 +76,40 @@ The L42 final gate retains all 435 retry-free browser cases, including 11 forced
 and passes 2,850 source unit tests plus TypeScript/Vite. No browser/perf helper or
 scenario source changed; excluded-config diagnostics and performance limits remain.
 
+## Reset Presentation Proof
+
+L43 is complete within recorded limits: 38 source controls, bounded live API checks
+and eighteen new local browser cases in existing owners. Final separate gates pass:
+2,888 unit tests/83 files, TypeScript/Vite and 453 retry-free E2E, including 15 forced
+seek. Two fresh final full-diff repair reviews approve source and new tests.
+
+| Contract | Maintained unit proof | Executed browser boundary |
+|---|---|---|
+| Prepend versus reset | Production low seek, forward eviction and held positive/final prepends; independent order/positions/all tuples and bookmark | Four [forced-seek B10](local/forced-seek.spec.ts) cases: actual wheel, measured three-column grid/table, every held page through zero, no-read-at-zero and real Home; bounded live API counterpart |
+| Revocable Home feedback | Real Home lifetime, unchanged numeric props, failure/successor/hostile outcome matrices | Two [native B11](local/browser-history.spec.ts) cases: exact A logical/painted thumb/tooltip before and after deliberate obsolete success; wrong-deep DOM paint is rejected; Home and Back discovery budgets separate |
+| Destination restoration | URL-sync destination publication and placement before hostile Home success/error/abort | Native local/live Back with interior anchor geometry; existing clipping policy retained, no stronger true-tail guarantee |
+| Refresh publication | Actual badge, first/deep success/failure, query/freeze/history/density/focus/selection | Eight [B16 success cases](local/buffer-corruption.spec.ts), two supplied-503 refusals, backing-error rejection and pending-frame cleanup interruption; bounded live API populated-selection/supersession proof |
+| Preserved composition | Existing Home/navigation, density, history, detail, continuity, fallback and small-set suites retained | All 453 habitual normal/forced-seek cases pass without retries, including Q2/L42/detail and fixture-lifetime controls |
+
+Intervention: local completed-client-read holds keep successful data unchanged;
+API fixtures execute real client JSON/Response encoding/decoding with faithful Argo
+fields backed by local ES. They replace `window.fetch`, not a native local media-api
+server, and do not certify network/server cancellation. Live API success uses real
+HTTP reads. Exact source and browser oracles plus deliberate fixture negatives
+distinguish publication, paint, read budgets, refusal classification and cleanup.
+B10 adds fifteen independent corpus pages plus one explicit zero-hit fixture read
+per case; those are test costs, not additional application requests.
+
+The E2E/perf compiler configs match all 86/34 inherited diagnostic identities with
+zero additions, not clean-config status. No shared helper/perf/config source changed;
+no new `test:perf-harness` gate or performance campaign follows. B19's table true-tail
+36px placement and C31's later-density non-top limit remain parked/qualified. Eight
+unsupported new nullable mock drafts were deleted, not skipped or hidden in the
+opt-in ES oracle; [optional L44](../exploration/docs/not-yet-another-audit-ledger.md#optional-nullable-mock-coverage-l44)
+is unselected, and their local composition coverage is not claimed. Existing
+nullable adapter tests and bounded live Credit/Taken on evidence remain distinct.
+Port/execution coordination is still required for future runs.
+
 ## Further Helper Reuse Assessment
 
 Report-only assessment, 4 October 2026: `ae08e779d` plus the completed, uncommitted
@@ -366,12 +400,12 @@ than a production event bus.
 |------|-------|----------------|
 | `local/scrubber.spec.ts` | 89 | Seek accuracy, scroll preservation, settle-window stability, density switch, sort change, buffer extension, scroll-up after seek, scroll mode, two-tier, and retained bug regressions |
 | `local/keyboard-nav.spec.ts` | 15 | Two-mode keyboard nav (no-focus scroll vs focused movement), Home/End, search box key trapping, row-aligned snapping |
-| `local/browser-history.spec.ts` | 108 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership |
-| `local/buffer-corruption.spec.ts` | 23 | Logo / metadata / query changes after deep seek, pending sort/density ownership and held-data Home layout frames |
+| `local/browser-history.spec.ts` | 110 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership; exact native B11 destination paint before stale delivery |
+| `local/buffer-corruption.spec.ts` | 35 | Logo / metadata / query changes after deep seek, pending sort/density ownership, held-data Home layout frames and twelve B16 badge/refusal/fixture-lifetime cases |
 | `local/browse-density.spec.ts` | 32 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; rendered narrowing-query and finite-AI ownership in local memory fixtures; both click modes/views |
 | `local/ui-features.spec.ts` | 86 | Detail/list restoration, reload gesture return, 12 hit-tested input controls, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
-| `local/forced-seek.spec.ts` | 11 | Core midpoint/End/Home journey, eight pending-browse density cases with frame-level departure/thumb assertions, and two no-density controls; runs habitually against port 3030 |
+| `local/forced-seek.spec.ts` | 15 | Four B10 actual-wheel/every-prepend/tuple/geometry cases, core midpoint/End/Home journey, eight pending-browse density cases and two no-density controls; runs habitually against port 3030 |
 | `local/focus-preservation.spec.ts` | 13 | Focus/viewport continuity, neighbour fallback, snap-back and four adapter-backed L39 AI-exit cases |
 | `local/selections.spec.ts` | 30 | Selection membership/ranges/persistence, panel coherence and two retained async-fixture GC/rejection/disposal controls |
 

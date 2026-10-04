@@ -21,7 +21,11 @@ const router = vi.hoisted(() => {
   } };
 });
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => routeParams, useNavigate: () => navigate,
-  useRouter: () => router, useRouterState: () => ({ search: routeParams, state: window.history.state }) }));
+  useRouter: () => router, useRouterState: () => {
+    const state = window.history.state;
+    if (routeLocation?.search !== routeParams || routeLocation.state !== state) routeLocation = { search: routeParams, state };
+    return routeLocation;
+  } }));
 vi.mock("@/hooks/useDataWindow", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useDataWindow")>();
   return { ...actual, getViewportAnchorId: () => anchor.viewportId,
@@ -48,10 +52,13 @@ import { consumeUserInitiatedFlag, markUserInitiatedNavigation, setPrevParamsSer
 import type { UrlSearchParams } from "@/lib/search-params-schema";
 import * as searchContinuity from "@/lib/search-continuity";
 import { snapshotStore } from "@/lib/history-snapshot";
-import { buildSearchKey } from "@/lib/image-offset-cache";
+import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
+import { StatusBar } from "@/components/StatusBar";
+import { resetToHome } from "@/lib/reset-to-home";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
+let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
 let beforeUrlSync: (() => void) | undefined;
 const initialState = useSearchStore.getState();
 const initialPreferences = useUiPrefsStore.getState();
@@ -64,6 +71,7 @@ const grid: ScrollGeometry = { columns: 4, rowHeight: 303, headerOffset: 0, pres
 beforeEach(() => {
   vi.useFakeTimers();
   routeParams = { nonFree: "true" };
+  routeLocation = undefined;
   beforeUrlSync = undefined;
   setPrevParamsSerialized("");
   setPrevSearchOnly({});
@@ -195,7 +203,7 @@ async function aiContinuityFixture(transport: "direct-ES" | "media-api", total =
   });
   vi.stubGlobal("fetch", fetch);
   const ai = vi.spyOn(dataSource, "searchByAi");
-  return { dataSource, pages, counts, ranks, fetch, ai, aiHits,
+  return { dataSource, corpus, pages, counts, ranks, fetch, ai, aiHits,
     hold: (nextOutcome: typeof outcome = "success") => {
       outcome = nextOutcome;
       let release!: () => void;
@@ -1382,6 +1390,416 @@ describe.each(["direct-ES", "media-api"] as const)("ordinary continuity %s resol
       await act(async () => { release(); await search.mock.results[0].value; await vi.advanceTimersByTimeAsync(0); });
     }
   });
+});
+
+describe("L43 reset publication versus buffer bookkeeping", () => {
+  it.each([table, grid])("B10 final prepend to zero retains the viewed anchor ($columns columns)", (geometry) => {
+    const view = mountDensity(geometry);
+    frame();
+    frame();
+    const before = geometry.rowHeight * 20 + 7;
+    view.container.scrollTop = before;
+    useSelectionStore.setState({ selectedIds: new Set(["image-400"]), anchorId: "image-400" });
+    const viewedIndex = 200 + 20 * geometry.columns;
+    const anchorBefore = Math.floor((viewedIndex - 200) / geometry.columns) * geometry.rowHeight - before;
+    act(() => {
+      const results = Array.from({ length: 1000 }, (_, index) => ({ id: `image-${index}` }) as Image);
+      useSearchStore.setState({ results, bufferOffset: 0, _prependGeneration: 1, _lastPrependCount: 200,
+        imagePositions: new Map(results.map((image, index) => [image.id, index])) });
+    });
+    const anchorAfter = Math.floor(viewedIndex / geometry.columns) * geometry.rowHeight - view.container.scrollTop;
+    expect(anchorAfter).toBe(anchorBefore);
+    expect(view.container.scrollTop).toBe(before + 200 / geometry.columns * geometry.rowHeight);
+    expect(useSearchStore.getState().focusedImageId).toBe("image-400");
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["image-400"]));
+    expect(useSearchStore.getState()._scrollReset.gen).toBe(0);
+  });
+
+  const refreshCases = [table, grid].flatMap(geometry => [0, 500].flatMap(offset =>
+    ["success", "failure"].map(outcome => ({ geometry, offset, outcome, columns: geometry.columns }))));
+  it.each(refreshCases)("B16 actual refresh at $offset in $columns columns retains pending placement ($outcome)", async ({ geometry, offset, outcome }) => {
+    const dataSource = new MockDataSource(70000);
+    const oldPage = await dataSource.searchAfter({ offset, length: 200 }, null);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const read = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const page = await MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+      await gate;
+      if (outcome === "failure") throw new Error("Current refresh failure");
+      return page;
+    });
+    const oldFocus = oldPage.hits[70].id;
+    useSearchStore.setState({ dataSource, results: oldPage.hits, total: 70000, bufferOffset: offset, newCount: 5,
+      focusedImageId: oldFocus, newCountSince: "2020-01-01T00:00:00.000Z",
+      _isInitialLoad: false, imagePositions: new Map(oldPage.hits.map((image, index) => [image.id, index + offset])) });
+    useSelectionStore.setState({ selectedIds: new Set([oldFocus]), anchorId: oldFocus });
+    const params = useSearchStore.getState().params;
+    const historyLength = window.history.length;
+    const densityIntent = useUiPrefsStore.getState()._densityIntent;
+    const view = mountDensity(geometry);
+    frame();
+    frame();
+    view.container.scrollTop = 2000;
+    view.container.scrollLeft = 120;
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const bar = render(createElement(StatusBar));
+    try {
+      act(() => fireEvent.click(bar.getByRole("button", { name: "5 new" })));
+      expect(useSearchStore.getState().loading).toBe(true);
+      expect(useSearchStore.getState().results).toBe(oldPage.hits);
+      expect(view.container.scrollTop).toBe(2000);
+      expect(view.container.scrollLeft).toBe(120);
+      expect(useSearchStore.getState().focusedImageId).toBe(oldFocus);
+      expect(useSelectionStore.getState().selectedIds.size).toBe(0);
+      frame();
+      frame();
+      expect(view.container.scrollTop).toBe(2000);
+    } finally {
+      await act(async () => { release(); await search.mock.results[0].value; });
+    }
+    expect(read).toHaveBeenCalledOnce();
+    expect(search).toHaveBeenCalledExactlyOnceWith();
+    expect(useSearchStore.getState().loading).toBe(false);
+    expect(window.history.length).toBe(historyLength);
+    expect(useUiPrefsStore.getState()._densityIntent).toBe(densityIntent);
+    expect(useSearchStore.getState().params).toEqual(params);
+    if (outcome === "success") {
+      expect(view.container.scrollTop).toBe(0);
+      expect(view.container.scrollLeft).toBe(0);
+      expect(useSearchStore.getState().focusedImageId).toBeNull();
+      expect(useSearchStore.getState().newCountSince! > "2020-01-01T00:00:00.000Z").toBe(true);
+      expect(useSearchStore.getState()._scrollReset.gen).toBe(1);
+    } else {
+      expect(view.container.scrollTop).toBe(2000);
+      expect(view.container.scrollLeft).toBe(120);
+      expect(useSearchStore.getState().results).toBe(oldPage.hits);
+      expect(useSearchStore.getState().focusedImageId).toBe(oldFocus);
+      expect(useSearchStore.getState()._scrollReset.gen).toBe(0);
+    }
+  });
+
+  const homeCancellationCases = ["history", "browse"].flatMap(supersession =>
+    ["success", "failure", "abort"].map(outcome => ({ supersession, outcome })));
+  it.each(homeCancellationCases)("B11 actual Home $supersession cancellation rejects late $outcome with unchanged deep props", async ({ supersession, outcome }) => {
+    const { createMemoryHistory } = await vi.importActual<typeof import("@tanstack/react-router")>("@tanstack/react-router");
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    const dataSource = new MockDataSource(70000);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    let delivered = false;
+    const read = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const page = await MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+      await gate;
+      delivered = true;
+      if (outcome === "failure") throw new Error("Obsolete Home failure");
+      if (outcome === "abort") throw new DOMException("Obsolete Home abort", "AbortError");
+      return page;
+    });
+    useSearchStore.setState({ dataSource });
+    const scrubber = render(createElement(Scrubber, { total: 70000, currentPosition: 35000, visibleCount: 20,
+      bufferLength: 200, loading: true, onSeek: vi.fn() }));
+    const thumb = scrubber.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+    const deepTop = Number.parseFloat(thumb.style.top);
+    expect(deepTop).toBeGreaterThan(200);
+    const history = createMemoryHistory({ initialEntries: ["/search?query=A", "/search?query=B"], initialIndex: 1 });
+    const navigateHome = vi.fn();
+    let home!: Promise<void>;
+    act(() => { home = resetToHome(navigateHome, undefined, history); });
+    try {
+      expect(thumb.style.top).toBe("0px");
+      expect(scrubber.container.textContent).toContain("1 of 70,000");
+      act(() => {
+        if (supersession === "history") history.back();
+        else useSearchStore.getState().queueBrowsePosition(5000);
+      });
+      expect(Number.parseFloat(thumb.style.top)).toBe(deepTop);
+      expect(scrubber.container.textContent).toContain("35,001 of 70,000");
+    } finally {
+      await act(async () => { release(); await home; });
+    }
+    expect(read).toHaveBeenCalledOnce();
+    expect(delivered).toBe(true);
+    expect(navigateHome).not.toHaveBeenCalled();
+    expect(Number.parseFloat(thumb.style.top)).toBe(deepTop);
+    expect(scrubber.container.textContent).toContain("35,001 of 70,000");
+  });
+
+  it.each(["success", "failure", "abort"] as const)("B11 obsolete Home %s cannot retire a successor's hold or busy state", async (outcome) => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    const dataSource = new MockDataSource(70000);
+    let releaseFirst!: () => void;
+    let releaseSecond!: () => void;
+    const firstGate = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const secondGate = new Promise<void>(resolve => { releaseSecond = resolve; });
+    let obsoleteDelivered = false;
+    const reads = vi.spyOn(dataSource, "searchAfter")
+      .mockImplementationOnce(async (...args) => {
+        const page = await MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+        await firstGate;
+        obsoleteDelivered = true;
+        if (outcome === "failure") throw new Error("Obsolete Home failure");
+        if (outcome === "abort") throw new DOMException("Obsolete Home abort", "AbortError");
+        return page;
+      })
+      .mockImplementationOnce(async (...args) => {
+        const page = await MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+        await secondGate;
+        return page;
+      });
+    useSearchStore.setState({ dataSource });
+    const props = { total: 70000, currentPosition: 35000, visibleCount: 20, bufferLength: 200, loading: true, onSeek: vi.fn() };
+    const scrubber = render(createElement(Scrubber, props));
+    const thumb = scrubber.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+    const obsoleteNavigation = vi.fn();
+    const currentNavigation = vi.fn();
+    let firstHome!: Promise<void>;
+    let secondHome!: Promise<void>;
+    act(() => { firstHome = resetToHome(obsoleteNavigation); });
+    act(() => { secondHome = resetToHome(currentNavigation); });
+    const successor = useSearchStore.getState()._pitGeneration;
+    try {
+      await act(async () => { releaseFirst(); await firstHome; });
+      expect(obsoleteDelivered).toBe(true);
+      expect(obsoleteNavigation).not.toHaveBeenCalled();
+      expect(currentNavigation).not.toHaveBeenCalled();
+      expect(useSearchStore.getState()).toMatchObject({ loading: true, _pitGeneration: successor });
+      expect(thumb.style.top).toBe("0px");
+      scrubber.rerender(createElement(Scrubber, { ...props, currentPosition: 0 }));
+      scrubber.rerender(createElement(Scrubber, props));
+      expect(thumb.style.top).toBe("0px");
+      expect(scrubber.container.textContent).toContain("1 of 70,000");
+    } finally {
+      await act(async () => { releaseSecond(); await secondHome; });
+    }
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(currentNavigation).toHaveBeenCalledOnce();
+    expect(useSearchStore.getState().loading).toBe(false);
+    expect(Number.parseFloat(thumb.style.top)).toBeGreaterThan(200);
+  });
+
+  it.each(["success", "failure", "fixture-rejection"] as const)("B11 current Home %s retires only its hold; later density remains independent", async (outcome) => {
+    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    const dataSource = new MockDataSource(70000);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const reads = vi.spyOn(dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const page = await MockDataSource.prototype.searchAfter.call(dataSource, ...args);
+      await gate;
+      if (outcome === "failure") throw new Error("Current Home failure");
+      return page;
+    });
+    useSearchStore.setState({ dataSource });
+    const props = { total: 70000, currentPosition: 35000, visibleCount: 20, bufferLength: 200, loading: true, onSeek: vi.fn() };
+    const scrubber = render(createElement(Scrubber, props));
+    const thumb = scrubber.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+    const navigateHome = vi.fn();
+    let home!: Promise<void>;
+    act(() => { home = resetToHome(navigateHome); });
+    const fixtureInterruption = new Error("Fixture assertion interruption");
+    try {
+      try {
+        try {
+          act(() => useUiPrefsStore.getState().setDensity("table"));
+          scrubber.rerender(createElement(Scrubber, { ...props, currentPosition: 0 }));
+          scrubber.rerender(createElement(Scrubber, props));
+          expect(thumb.style.top).toBe("0px");
+          expect(navigateHome).not.toHaveBeenCalled();
+          if (outcome === "fixture-rejection") throw fixtureInterruption;
+        } finally {
+          await act(async () => { release(); await home; });
+        }
+      } catch (error) {
+        if (outcome !== "fixture-rejection") throw error;
+        expect(error).toBe(fixtureInterruption);
+      }
+      expect(navigateHome).toHaveBeenCalledOnce();
+      expect(reads).toHaveBeenCalledOnce();
+      expect(useUiPrefsStore.getState().density).toBe("table");
+      expect(Number.parseFloat(thumb.style.top)).toBeGreaterThan(200);
+      expect(scrubber.container.textContent).toContain("35,001 of 70,000");
+    } finally {
+      await act(async () => { release(); await home; });
+    }
+  });
+
+  for (const transport of ["direct-ES", "media-api"] as const) {
+    it.each([table, grid])(`B10 ${transport} production seek/evict/prepend retains each held anchor ($columns columns)`, async (geometry) => {
+      const fixture = await aiContinuityFixture(transport, 70000);
+      useSearchStore.setState({ dataSource: fixture.dataSource, focusedImageId: null });
+      await act(async () => { await useSearchStore.getState().search(); });
+      const view = mountDensity(geometry);
+      frame();
+      frame();
+      await act(async () => { await useSearchStore.getState().seek(600); });
+      const bookmark = useSearchStore.getState().results[100]!.id;
+      useSearchStore.setState({ focusedImageId: bookmark });
+      useSelectionStore.setState({ selectedIds: new Set([bookmark]), anchorId: bookmark });
+      for (let step = 0; step < 8 && useSearchStore.getState()._forwardEvictGeneration === 0; step++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000);
+          await useSearchStore.getState().extendForward();
+        });
+      }
+      expect(useSearchStore.getState()._forwardEvictGeneration).toBeGreaterThan(0);
+      let positiveControls = 0;
+      for (let step = 0; step < 8 && useSearchStore.getState().bufferOffset > 0; step++) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+        const before = useSearchStore.getState();
+        view.container.scrollTop = 10 * geometry.rowHeight + 7;
+        const image = before.results[10 * geometry.columns + geometry.columns]!;
+        const heldTop = view.container.scrollTop;
+        const anchorTop = Math.floor((before.imagePositions.get(image.id)! - before.bufferOffset) / geometry.columns) * geometry.rowHeight - heldTop;
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        let delivered = false;
+        fixture.pages.mockImplementationOnce(async (...args) => {
+          const page = await fixture.corpus.searchAfter(...args);
+          await gate;
+          delivered = true;
+          return page;
+        });
+        let prepend!: Promise<void>;
+        await act(async () => { prepend = useSearchStore.getState().extendBackward(); await Promise.resolve(); });
+        try {
+          expect(useSearchStore.getState()._extendBackwardInFlight).toBe(true);
+          expect(view.container.scrollTop).toBe(heldTop);
+          expect(useSearchStore.getState().results).toBe(before.results);
+          frame();
+          frame();
+          expect(view.container.scrollTop).toBe(heldTop);
+        } finally {
+          await act(async () => { release(); await prepend; });
+        }
+        const after = useSearchStore.getState();
+        expect(delivered).toBe(true);
+        expect(after.bufferOffset).toBeLessThan(before.bufferOffset);
+        expect(after._scrollReset.gen).toBe(before._scrollReset.gen);
+        expect(Math.floor((after.imagePositions.get(image.id)! - after.bufferOffset) / geometry.columns) * geometry.rowHeight - view.container.scrollTop).toBe(anchorTop);
+        const expected = await fixture.corpus.searchAfter({ ...after.params, offset: after.bufferOffset, length: after.results.length }, null);
+        expect(after.results).toEqual(expected.hits);
+        expect(after.startCursor).toEqual(expected.sortValues[0]);
+        expect(after.endCursor).toEqual(expected.sortValues.at(-1));
+        for (const [index, resident] of after.results.entries()) {
+          if (resident) {
+            expect(after.imagePositions.get(resident.id)).toBe(after.bufferOffset + index);
+            expect(getRetainedSortValues(resident.id, buildSearchKey(after.params))).toEqual(expected.sortValues[index]);
+          }
+        }
+        expect(after.focusedImageId).toBe(bookmark);
+        expect(useSelectionStore.getState().selectedIds).toEqual(new Set([bookmark]));
+        if (after.bufferOffset > 0) positiveControls++;
+      }
+      expect(positiveControls).toBeGreaterThan(0);
+      expect(useSearchStore.getState().bufferOffset).toBe(0);
+    });
+  }
+
+  it.each([table, grid].flatMap(geometry => [800, 12000, 70000].map(total => ({ geometry, total, columns: geometry.columns }))))(
+    "owned seek(0) lands exactly at top within one row in $columns columns / $total results", async ({ geometry, total }) => {
+      const dataSource = new MockDataSource(total);
+      const page = await dataSource.searchAfter({ offset: 200, length: 200 }, null);
+      useSearchStore.setState({ dataSource, results: page.hits, total, bufferOffset: 200, focusedImageId: null,
+        imagePositions: new Map(page.hits.map((image, index) => [image.id, index + 200])) });
+      const view = mountDensity(geometry);
+      frame();
+      frame();
+      view.container.scrollTop = 7;
+      view.container.scrollLeft = 120;
+      await act(async () => { await useSearchStore.getState().seek(0); });
+      expect(view.container.scrollTop).toBe(0);
+      expect(view.container.scrollLeft).toBe(0);
+      expect(useSearchStore.getState()._browseNavigation).toBeNull();
+    });
+
+  it.each([table, grid].flatMap(geometry => ["success", "failure", "abort"].map(outcome => ({ geometry, outcome, columns: geometry.columns }))))(
+    "B11 destination history publication in $columns columns rejects delivered obsolete Home $outcome", async ({ geometry, outcome }) => {
+      vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+      const fixture = await aiContinuityFixture("direct-ES", 70000);
+      const destination = { nonFree: "true" };
+      routeParams = destination;
+      const entry = `L43-home-history-${geometry.columns}-${outcome}`;
+      const oldHistory = window.history.state;
+      window.history.replaceState({ kupuaKey: entry }, "");
+      useUiPrefsStore.setState({ focusMode: "explicit", _pointerCoarse: false });
+      useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource, params: destination }, true);
+      await act(async () => { await useSearchStore.getState().search("img-40000"); });
+      await vi.waitFor(() => expect(useSearchStore.getState().loading).toBe(false));
+      setPrevParamsSerialized(JSON.stringify(destination));
+      setPrevSearchOnly({ ...destination });
+      const view = mountDensity(geometry, false, false, true);
+      frame();
+      frame();
+      const targetId = useSearchStore.getState().focusedImageId!;
+      const sourceIndex = useSearchStore.getState().imagePositions.get(targetId)! - useSearchStore.getState().bufferOffset;
+      view.container.scrollTop = Math.floor(sourceIndex / geometry.columns) * geometry.rowHeight - 180;
+      snapshotStore.set(entry, buildHistorySnapshot());
+      const search = vi.spyOn(useSearchStore.getState(), "search");
+      act(() => {
+        window.history.replaceState({ kupuaKey: `${entry}-B` }, "");
+        routeParams = { ...destination, orderBy: "uploadTime" };
+        markUserInitiatedNavigation();
+        view.changeGeometry(geometry);
+      });
+      await act(async () => { await search.mock.results[0].value; });
+      await vi.waitFor(() => expect(useSearchStore.getState().loading).toBe(false));
+      const props = { total: 70000, currentPosition: 30000, visibleCount: 20, bufferLength: 200, loading: true, onSeek: vi.fn() };
+      const scrubber = render(createElement(Scrubber, props));
+      const thumb = scrubber.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
+      let release!: () => void;
+      const gate = new Promise<void>(resolve => { release = resolve; });
+      let delivered = false;
+      fixture.pages.mockImplementationOnce(async (...args) => {
+        const page = await fixture.corpus.searchAfter(...args);
+        await gate;
+        delivered = true;
+        if (outcome === "failure") throw new Error("Obsolete Home failure");
+        if (outcome === "abort") throw new DOMException("Obsolete Home abort", "AbortError");
+        return page;
+      });
+      const navigateHome = vi.fn();
+      let home!: Promise<void>;
+      act(() => { home = resetToHome(navigateHome, undefined, router.history as Parameters<typeof resetToHome>[2]); });
+      try {
+        expect(thumb.style.top).toBe("0px");
+        act(() => {
+          window.history.replaceState({ kupuaKey: entry }, "");
+          routeParams = destination;
+          router.notify("BACK");
+          view.changeGeometry(geometry);
+        });
+        await act(async () => { await search.mock.results[2].value; });
+        await vi.waitFor(() => expect(useSearchStore.getState().loading).toBe(false));
+        const accepted = useSearchStore.getState();
+        expect(accepted._searchContinuity).toMatchObject({ provenance: "history", targetId, phase: "placed" });
+        expect(accepted.focusedImageId).toBe(targetId);
+        const targetIndex = accepted.imagePositions.get(targetId)! - accepted.bufferOffset;
+        expect(Math.floor(targetIndex / geometry.columns) * geometry.rowHeight - view.container.scrollTop).toBe(180);
+        const currentPosition = accepted.bufferOffset + Math.floor(view.container.scrollTop / geometry.rowHeight) * geometry.columns;
+        scrubber.rerender(createElement(Scrubber, { ...props, currentPosition, loading: false }));
+        const expectedTop = currentPosition / (70000 - 20) * 580;
+        expect(Number.parseFloat(thumb.style.top)).toBeCloseTo(expectedTop);
+        expect(scrubber.container.textContent).toContain(`${(currentPosition + 1).toLocaleString()} of 70,000`);
+        const reads = fixture.pages.mock.calls.length;
+        await act(async () => { release(); await home; });
+        expect(delivered).toBe(true);
+        expect(navigateHome).not.toHaveBeenCalled();
+        expect(search).toHaveBeenCalledTimes(3);
+        expect(fixture.pages).toHaveBeenCalledTimes(reads);
+        expect(useSearchStore.getState().results).toBe(accepted.results);
+        expect(useSearchStore.getState()._scrollReset).toBe(accepted._scrollReset);
+        expect(useSearchStore.getState()).toMatchObject({ focusedImageId: targetId, loading: false, error: null });
+        expect(view.container.scrollTop).toBe(Math.floor(targetIndex / geometry.columns) * geometry.rowHeight - 180);
+        expect(Number.parseFloat(thumb.style.top)).toBeCloseTo(expectedTop);
+      } finally {
+        await act(async () => { release(); await home; });
+        snapshotStore.delete(entry);
+        window.history.replaceState(oldHistory, "");
+      }
+    });
 });
 
 describe("KUP-017 saved density geometry and input lifetime", () => {

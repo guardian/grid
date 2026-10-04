@@ -14,9 +14,9 @@
  * Position Control" for the full design.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getScrollContainer, useScrollContainerGeneration } from "@/lib/scroll-container-ref";
-import { getThumbResetGeneration } from "@/lib/orchestration/search";
+import { useHomeThumbReset } from "@/lib/orchestration/search";
 import { beginTraceInteraction, consumeTraceInteraction, trace } from "@/lib/perceived-trace";
 
 // ---------------------------------------------------------------------------
@@ -385,7 +385,8 @@ export function Scrubber({
   // Thumb geometry
   // -------------------------------------------------------------------------
 
-  const effectivePosition = (isDragging ? dragPositionRef.current : pendingPosition) ?? currentPosition;
+  const homeThumbReset = useHomeThumbReset();
+  const effectivePosition = homeThumbReset ? 0 : (isDragging ? dragPositionRef.current : pendingPosition) ?? currentPosition;
   const thumbHeight = Math.max(
     MIN_THUMB_HEIGHT,
     trackHeight > 0 ? (thumbVisibleCount / total) * trackHeight : MIN_THUMB_HEIGHT,
@@ -411,31 +412,9 @@ export function Scrubber({
   // In scroll mode, the continuous sync effect below handles positioning
   // from the actual scroll ratio — skip here to avoid the two fighting.
   //
-  const prevThumbResetGenRef = useRef(getThumbResetGeneration());
-  useEffect(() => {
-    if (isDragging) return;
+  useLayoutEffect(() => {
+    if (isDragging && !homeThumbReset) return;
     if (isScrollMode) return; // scroll mode — handled by scroll listener below
-
-    // If resetScrollAndFocusSearch() bumped the thumb-reset generation, this
-    // is a legitimate Home/logo reset. But we can't just
-    // let the write through — the first render after reset still has a
-    // stale deep thumbTop (~518). We must SKIP that stale write (preserving
-    // the direct DOM 0px set by resetScrollAndFocusSearch), then ACCEPT
-    // when thumbTop settles near 0 after search() completes with fresh data.
-    const resetGen = getThumbResetGeneration();
-    const isHomeReset = resetGen !== prevThumbResetGenRef.current;
-
-    if (isHomeReset) {
-      if (thumbTop < 10) {
-        // Fresh data arrived, thumbTop settled at ~0. Consume the
-        // generation and fall through to write 0px.
-        prevThumbResetGenRef.current = resetGen;
-      } else {
-        // Still stale deep value — skip write to preserve the direct
-        // DOM 0px. Don't consume the generation so we keep waiting.
-        return;
-      }
-    }
 
     const thumbEl = thumbRef.current;
     if (thumbEl) thumbEl.style.top = `${thumbTop}px`;
@@ -444,7 +423,7 @@ export function Scrubber({
       const tipH = tipEl.offsetHeight || 28;
       tipEl.style.top = `${Math.max(0, Math.min(trackHeight - tipH, thumbTop))}px`;
     }
-  }, [thumbTop, isDragging, trackHeight, isScrollMode]);
+  }, [thumbTop, isDragging, trackHeight, isScrollMode, homeThumbReset]);
 
   // -------------------------------------------------------------------------
   // Scroll-mode continuous sync
@@ -460,7 +439,7 @@ export function Scrubber({
   // This exactly matches native scrollbar behavior — pixel-perfect.
   // -------------------------------------------------------------------------
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isScrollMode) return; // seek mode — handled by the discrete sync above
 
     // --- inner helper: attach scroll listener to the current scroll container ---
@@ -478,14 +457,14 @@ export function Scrubber({
 
       const scrollEl = currentScrollEl; // capture for closure
       currentHandler = () => {
-        if (isDragging) return; // drag handler controls thumb during drag
+        if (isDragging && !homeThumbReset) return; // drag handler controls thumb during drag
         const thumbEl = thumbRef.current;
         if (!thumbEl) return;
 
         const maxScroll = scrollEl.scrollHeight - scrollEl.clientHeight;
         const ratio = maxScroll > 0 ? scrollEl.scrollTop / maxScroll : 0;
         const clampedRatio = Math.max(0, Math.min(1, ratio));
-        const top = clampedRatio * maxThumbTop;
+        const top = homeThumbReset ? 0 : clampedRatio * maxThumbTop;
 
         thumbEl.style.top = `${top}px`;
         const tipEl = tooltipRef.current;
@@ -517,7 +496,7 @@ export function Scrubber({
         currentScrollEl.removeEventListener("scroll", currentHandler);
       }
     };
-  }, [isScrollMode, isDragging, maxThumbTop, trackHeight, scrollContainerGen]);
+  }, [isScrollMode, isDragging, maxThumbTop, trackHeight, scrollContainerGen, homeThumbReset]);
 
   // -------------------------------------------------------------------------
   // Position → offset and back

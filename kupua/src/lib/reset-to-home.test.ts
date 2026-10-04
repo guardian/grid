@@ -32,6 +32,7 @@ const clearSelection = fixture.clearSelection;
 
 vi.mock("@/lib/orchestration/search", () => ({
   resetScrollAndFocusSearch: vi.fn(),
+  holdHomeThumbAtTop: vi.fn(() => () => {}),
   setPrevParamsSerialized: vi.fn(),
   setPrevSearchOnly: vi.fn(),
   resetCqlInputComponents: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("@/lib/orchestration/search", () => ({
 vi.mock("@/stores/search-store", () => ({
   suppressNextRestore: () => fixture.suppress("restore"),
   getSearchGeneration: () => fixture.generation,
+  getInitialSearchPresentation: () => null,
   useSearchStore: {
     getState: () => fixture.state,
     subscribe: (listener: () => void) => { fixture.listeners.add(listener); return () => fixture.listeners.delete(listener); },

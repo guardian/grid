@@ -19,6 +19,189 @@ import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
+test.describe("B11 native Back retires Home presentation", () => {
+  for (const view of ["grid", "table"] as const) {
+    test(`${view} restores painted destination before obsolete Home delivery`, async ({ kupua, page }) => {
+      await kupua.ensureExplicitMode();
+      await kupua.startSearch("", view);
+      await kupua.seekTo(0.4);
+      const anchorId = await page.evaluate(view => {
+        const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+        const bounds = container.getBoundingClientRect();
+        const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+        return Array.from(container.querySelectorAll<HTMLElement>('[data-image-id]')).find(cell => {
+          const rect = cell.getBoundingClientRect();
+          return rect.top >= top && rect.bottom <= bounds.bottom;
+        })?.dataset.imageId;
+      }, view);
+      expect(anchorId).toBeTruthy();
+      const point = await kupua.waitForHitTestedImagePoint({ view, imageId: anchorId });
+      await page.mouse.click(point.x, point.y);
+      const departure = await page.evaluate(async ({ view, identity }) => {
+        for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
+        const configPath = "/src/dal/es-config.ts";
+        if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("B11 requires local ES");
+        const state = (window as any).__kupua_store__.getState();
+        if (state.focusedImageId !== identity || !state.positionMap) throw new Error("B11 departure has no focused map anchor");
+        const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+        const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+        const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+        const tooltip = track.querySelector<HTMLElement>('[data-sort-label]')!.parentElement!;
+        (window as any).__b11Departure = { map: state.positionMap, params: state.params, identity,
+          top: cell.getBoundingClientRect().top, left: cell.getBoundingClientRect().left,
+          scrollTop: container.scrollTop, key: (window as any).__kupua_getKupuaKey__(),
+          logical: Number(track.getAttribute("aria-valuenow")),
+          thumbTop: track.querySelector<HTMLElement>('[data-scrubber-thumb]')!.getBoundingClientRect().top - track.getBoundingClientRect().top,
+          tooltipTop: tooltip.getBoundingClientRect().top - track.getBoundingClientRect().top };
+        return { scrollTop: container.scrollTop, key: (window as any).__kupua_getKupuaKey__() };
+      }, { view, identity: point.imageId });
+      expect(departure.scrollTop).toBeGreaterThan(1000);
+      await runSearchAction(page, () => page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click());
+      await kupua.seekTo(0.6);
+      expect(await page.evaluate(() => (window as any).__kupua_getKupuaKey__())).not.toBe(departure.key);
+      await page.evaluate(() => {
+        const store = (window as any).__kupua_store__;
+        const source = store.getState().dataSource;
+        const original = source.searchAfter;
+        const own = Object.getOwnPropertyDescriptor(source, "searchAfter");
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        const probe = { ready: false, delivered: false, calls: 0, destinationCalls: 0, signal: null as AbortSignal | null,
+          entryKey: (window as any).__kupua_getKupuaKey__(),
+          deadlineReleased: false, timer: 0, work: null as Promise<unknown> | null,
+          previousThumbTop: document.querySelector<HTMLElement>('[data-scrubber-thumb]')!.getBoundingClientRect().top - document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!.getBoundingClientRect().top,
+          release: () => { clearTimeout(probe.timer); release(); }, cleanup: async () => {} };
+        source.searchAfter = function (...args: any[]) {
+          if (!args[0].trackTotalHits || args[1] || args[0].ids) return original.apply(this, args);
+          if (probe.signal && args[3] !== probe.signal && (window as any).__kupua_getKupuaKey__() !== probe.entryKey) {
+            probe.destinationCalls += 1;
+            return original.apply(this, args);
+          }
+          probe.calls += 1;
+          if (probe.work) return original.apply(this, args);
+          probe.signal = args[3];
+          probe.work = (async () => {
+            const result = await original.apply(this, args);
+            probe.ready = true;
+            probe.timer = window.setTimeout(() => { probe.deadlineReleased = true; release(); }, 6000);
+            await held;
+            probe.delivered = true;
+            return result;
+          })();
+          return probe.work;
+        };
+        probe.cleanup = async () => {
+          probe.release();
+          await probe.work?.catch(() => {});
+          if (own) Object.defineProperty(source, "searchAfter", own);
+          else delete source.searchAfter;
+          delete (window as any).__b11;
+          delete (window as any).__b11Departure;
+        };
+        (window as any).__b11 = probe;
+      });
+      try {
+        await page.locator('header[role="toolbar"] a[title*="Grid"]').click();
+        await page.waitForFunction(() => (window as any).__b11.ready);
+        await page.evaluate(async () => { for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame); });
+        const pending = await page.evaluate(() => {
+          const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+          const thumb = track.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+          return { logical: Number(track.getAttribute("aria-valuenow")), painted: thumb.getBoundingClientRect().top - track.getBoundingClientRect().top,
+            delivered: (window as any).__b11.delivered };
+        });
+        expect(pending.logical).toBe(0);
+        expect(pending.painted).toBeLessThan(1);
+        expect(pending.delivered).toBe(false);
+        await goBackSearchAndWait(page);
+        const restoredDiagnostic = await page.evaluate(async ({ view, identity }) => {
+          for (let frame = 0; frame < 12; frame++) await new Promise(requestAnimationFrame);
+          const state = (window as any).__kupua_store__.getState();
+          const departure = (window as any).__b11Departure;
+          const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+          const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`);
+          const snapshot = (window as any).__kupua_inspectSnapshot__(departure.key);
+          return { focused: state.focusedImageId === identity, cell: !!cell,
+            delta: cell ? cell.getBoundingClientRect().top - departure.top : null,
+            scrollDelta: container.scrollTop - departure.scrollTop, loading: state.loading,
+            error: state.error, status: state.sortAroundFocusStatus, keyMatches: (window as any).__kupua_getKupuaKey__() === departure.key,
+            snapshot: snapshot ? { anchorMatches: snapshot.anchorImageId === identity, viewportRatio: snapshot.viewportRatio, globalOffset: snapshot.anchorOffset } : null,
+            deadlineReleased: (window as any).__b11.deadlineReleased };
+        }, { view, identity: point.imageId });
+        expect(restoredDiagnostic, JSON.stringify(restoredDiagnostic)).toMatchObject({ focused: true, cell: true, loading: false, error: null, keyMatches: true, deadlineReleased: false });
+        expect(Math.abs(restoredDiagnostic.delta ?? Infinity), JSON.stringify(restoredDiagnostic)).toBeLessThan(1);
+        await page.waitForFunction(({ view, identity }) => {
+          const state = (window as any).__kupua_store__.getState();
+          const cell = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"] [data-image-id="${CSS.escape(identity)}"]`);
+          return !state.loading && state.focusedImageId === identity && cell && Math.abs(cell.getBoundingClientRect().top - (window as any).__b11Departure.top) < 1;
+        }, { view, identity: point.imageId });
+        await kupua.scrubber.locator('[data-scrubber-thumb]').hover();
+        const proof = await page.evaluate(async ({ view, identity }) => {
+          const cachePath = "/src/lib/image-offset-cache.ts";
+          const cache = await import(cachePath);
+          const store = (window as any).__kupua_store__;
+          const departure = (window as any).__b11Departure;
+          const probe = (window as any).__b11;
+          const container = document.querySelector<HTMLElement>(`[aria-label="Image results ${view}"]`)!;
+          const track = document.querySelector<HTMLElement>('[data-testid="scrubber-track"]')!;
+          const thumb = track.querySelector<HTMLElement>('[data-scrubber-thumb]')!;
+          const tooltip = track.querySelector<HTMLElement>('[data-sort-label]')!.parentElement!;
+          const state = store.getState();
+          const key = cache.buildSearchKey(state.params);
+          for (const [index, image] of state.results.entries()) {
+            const rank = state.bufferOffset + index;
+            if (image.id !== departure.map.ids[rank] || state.imagePositions.get(image.id) !== rank || JSON.stringify(cache.getRetainedSortValues(image.id, key)) !== JSON.stringify(departure.map.sortValues[rank])) throw new Error("B11 restored membership/position/tuple mismatch");
+          }
+          const sample = () => {
+            const cell = container.querySelector<HTMLElement>(`[data-image-id="${CSS.escape(identity)}"]`)!;
+            const logical = Number(track.getAttribute("aria-valuenow"));
+            const rect = cell.getBoundingClientRect();
+            const text = Array.from(tooltip.childNodes).find(node => node.nodeType === Node.TEXT_NODE)?.textContent?.trim();
+            const observed = { logical, thumbTop: thumb.getBoundingClientRect().top - track.getBoundingClientRect().top,
+              tooltipTop: tooltip.getBoundingClientRect().top - track.getBoundingClientRect().top, text,
+              deltaTop: rect.top - departure.top, deltaLeft: rect.left - departure.left };
+            if (Math.abs(observed.deltaTop) >= 1 || Math.abs(observed.deltaLeft) >= 1 || logical !== departure.logical || Math.abs(observed.thumbTop - departure.thumbTop) >= 1 || Math.abs(observed.tooltipTop - departure.tooltipTop) >= 1 || text !== `${(departure.logical + 1).toLocaleString()} of ${state.total.toLocaleString()}`) throw new Error(`B11 restored geometry/painted thumb/tooltip mismatch: ${JSON.stringify({ observed, expected: { logical: departure.logical, thumbTop: departure.thumbTop, tooltipTop: departure.tooltipTop } })}`);
+          };
+          sample();
+          const originalStyle = thumb.style.cssText;
+          let wrongDestinationRejected = false;
+          try {
+            thumb.style.transition = "none";
+            thumb.style.top = `${probe.previousThumbTop}px`;
+            try { sample(); } catch { wrongDestinationRejected = true; }
+          } finally {
+            thumb.style.cssText = originalStyle;
+            thumb.style.transition = "none";
+            thumb.getBoundingClientRect();
+            thumb.style.cssText = originalStyle;
+          }
+          if (!wrongDestinationRejected) throw new Error("B11 predicate accepted B paint with A logical destination");
+          sample();
+          for (let frame = 0; frame < 12; frame++) {
+            await new Promise(requestAnimationFrame);
+            if (document.visibilityState !== "visible" || probe.delivered || probe.deadlineReleased) throw new Error("B11 stale delivery escaped held paint proof");
+            sample();
+          }
+          const before = store.getState();
+          probe.release();
+          await probe.work;
+          for (let frame = 0; frame < 12; frame++) { await new Promise(requestAnimationFrame); sample(); }
+          const after = store.getState();
+          return { delivered: probe.delivered, aborted: probe.signal?.aborted, calls: probe.calls,
+            destinationCalls: probe.destinationCalls,
+            deadlineReleased: probe.deadlineReleased, key: (window as any).__kupua_getKupuaKey__(),
+            retained: after.results === before.results && after.imagePositions === before.imagePositions && after.focusedImageId === identity && after.params === before.params && after._scrollReset === before._scrollReset,
+            loading: after.loading, error: after.error };
+        }, { view, identity: point.imageId });
+        expect(proof).toEqual({ delivered: true, aborted: true, calls: 1, deadlineReleased: false,
+          destinationCalls: 1, key: departure.key, retained: true, loading: false, error: null });
+      } finally {
+        await page.evaluate(async () => { await (window as any).__b11?.cleanup(); });
+      }
+    });
+  }
+});
+
 test.describe("KUP-015 Home completion ownership", () => {
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => {

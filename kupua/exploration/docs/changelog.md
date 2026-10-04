@@ -17,6 +17,43 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - Durable reset presentation browser regressions
+
+  Existing forced-seek, buffer and history specs now exercise actual wheel prepends
+  through zero, actual first/deep refresh badges including HTTP refusals, and native
+  Back with painted thumb/tooltip checks before deliberately delivered obsolete Home
+  success. Data/tuple/position oracles and request budgets remain independent.
+  Arrival animation readiness is distinct from compensation, and history geometry
+  uses a fully visible anchor rather than changing the established clipping policy.
+  API fixtures encode nested Argo fields and check decoded metadata independently.
+  Adversarial controls reject wrong-deep thumb paint, extra empty reads and backing
+  failures misclassified as HTTP refusals; interrupted publication observers are
+  owned by fixture cleanup, with closed registration and dynamically drained work.
+  Home and native Back discovery have separate read budgets.
+
+  Unsupported new nullable mock composition drafts and their unused fixture extension
+  were deleted rather than skipped or moved into the real-ES mutation oracle.
+  Optional mock capability expansion is recorded separately in ledger L44; existing
+  nullable coverage and production sorting are unchanged.
+
+  ### 4 October 2026 - Explicit reset publication and owned Home feedback
+
+  Ordinary prepend reaching offset zero retains compensation instead of being
+  classified as Home. Explicit search/fallback publication and ready zero browse
+  intent now own top placement; positive seek/cursor and maintenance paths retain
+  their distinct coordinate mechanics. The competing buffer-offset reset is removed.
+
+  Home owns temporary thumb/tooltip top feedback with a token released on completion,
+  failure or genuine supersession. Its captured existing discovery record detects
+  accepted same-generation takeover without discarding useful data. Near-zero thumb
+  geometry and an unowned generation no longer decide completion, and obsolete
+  cleanup cannot retire a successor. Later density intent remains independent.
+
+  New-images refresh defers content and horizontal movement until its accepted fresh
+  publication, preserving query/order, freeze, selection/focus and history policy.
+  Existing suites add composed reset/hostile-delivery, independent buffer/tuple and
+  fixture-failure cleanup controls; router mocks preserve real location identity.
+
   ### 4 October 2026 - Explicit continuity provenance independent of fallback
 
   Adopted user/history handoffs require explicit provenance. Search and finite-AI
