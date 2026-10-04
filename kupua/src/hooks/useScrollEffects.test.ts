@@ -381,9 +381,11 @@ describe.each(["direct-ES", "media-api"] as const)("destination history %s throu
     const sourceState = useSearchStore.getState();
     const sourceIndex = sourceState.imagePositions.get(targetId)! - (isTwoTierFromTotal(total) ? 0 : sourceState.bufferOffset);
     view.container.scrollTop = Math.floor(sourceIndex / sourceGeometry.columns) * sourceGeometry.rowHeight - 180;
+    useSearchStore.setState({ newCount: 134 });
     const snapshot = buildHistorySnapshot();
     expect(snapshot.anchorImageId).toBe(targetId);
     expect(snapshot.viewportRatio).toBe(0.3);
+    expect(snapshot.newCount).toBe(134);
     const key = `layout-history-${total}-${focusMode}-${layout}-${policy}`;
     const oldState = window.history.state;
     snapshotStore.set(key, snapshot);
@@ -392,6 +394,7 @@ describe.each(["direct-ES", "media-api"] as const)("destination history %s throu
       ({ ...original(...args), placement: { kind: "centre" } }));
     const search = vi.spyOn(useSearchStore.getState(), "search");
     try {
+      vi.setSystemTime(Date.now() + 1000);
       act(() => {
         routeParams = { ...destination, orderBy: "uploadTime" };
         markUserInitiatedNavigation();
@@ -414,6 +417,8 @@ describe.each(["direct-ES", "media-api"] as const)("destination history %s throu
         .toBe(policy === "ratio" ? 180 : (600 - currentGeometry.headerOffset - currentGeometry.rowHeight) / 2);
       expect(state.total).toBe(total);
       expect(state.error).toBeNull();
+      expect(state.newCountSince! > snapshot.newCountSince!).toBe(true);
+      expect(state.newCount).toBe(0);
     } finally {
       snapshotStore.delete(key);
       window.history.replaceState(oldState, "");

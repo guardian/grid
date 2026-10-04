@@ -4,6 +4,11 @@
 > the user's last search) silently appear in results vs require explicit
 > user action.
 
+> Historical comparison, updated 4 October 2026: the pre-fix descriptions below
+> are not current Kupua behavior. A browser reload restoring a matching snapshot
+> retains its admission boundary and pending count; it does not admit new images.
+> See the [current history guide](../00%20Architecture%20and%20philosophy/04-browser-history-architecture.md#snapshot-system--position-preservation-across-history).
+
 ## Background
 
 **Kahuna** freezes the result set by setting `lastSearchFirstResultTime` on every
@@ -11,7 +16,7 @@ fresh search and passing it as `until` on every subsequent pagination/loadRange
 request. New images are invisible until the user takes an action that triggers a
 **new** search (which resets `lastSearchFirstResultTime`).
 
-**Kupua** does _not_ apply an `until` cap. It uses PIT (Point In Time) on
+**Kupua before the freeze-boundary fix** did _not_ apply an `until` cap. It used PIT (Point In Time) on
 non-local ES for snapshot isolation, but PIT expires after ~5 minutes of
 inactivity. After PIT expiry, extend/seek requests hit a live index and may
 include newly uploaded images.
@@ -21,7 +26,7 @@ include newly uploaded images.
 | User action | Kahuna | Kupua (before)                                 | Kupua (after `frozenUntil`) | Notes |
 |---|---|------------------------------------------------|---|---|
 | **Initial page load / browser navigate** | ✅ Yes — fresh `lastSearchFirstResultTime` | ✅ Yes — fresh `search()`, new PIT              | ✅ Yes — same, new `frozenUntil` set | All three: clean start |
-| **Browser refresh (F5)** | ✅ Yes — controller re-init | ✅ Yes — full page reload                       | ✅ Yes — same | All three: clean start |
+| **Browser refresh (F5)** | ✅ Yes — controller re-init | ✅ Yes — full page reload | ❌ No when restoring a matching snapshot; pending count also survives | Supersedes the original clean-start claim; absent restore state remains a fresh load |
 | **Type a search query** | ✅ Yes — route reload | ✅ Yes — `search()` via URL sync                | ✅ Yes — same, `frozenUntil` reset | No change needed |
 | **Clear search query (✕ button)** | ✅ Yes — route reload | ✅ Yes — `search()` via URL sync                | ✅ Yes — same | No change needed |
 | **Click Home / Grid logo** | ✅ Yes — controller re-init | ✅ Yes — `resetToHome()` → `search()`           | ✅ Yes — same, `frozenUntil` reset | No change needed |
@@ -72,7 +77,7 @@ Example:
 Without the max rule, Back would roll `newCountSince` back to T1, hiding
 the 50 images the user already saw and resurrecting the ticker — confusing.
 
-## 🐛 Ticker-consistency bug (current Kupua)
+## Historical ticker-consistency bug (before the freeze-boundary fix)
 
 The ticker polls every 10s: "how many docs have `uploadTime > newCountSince`?"
 It displays e.g. **"5 new"** — meaning 5 images exist that the user hasn't seen.
@@ -126,9 +131,10 @@ title.** This is correct and matches Kahuna's behaviour.
 ## Recommendation
 
 **Implemented.** `frozenParams()` in `search-store.ts` applies
-`until: newCountSince` to all extend/seek/fill/restore requests. Every
-action that calls `search()` (the entire top section of the table — all
-✅/✅ rows) automatically gets a fresh freeze timestamp. The extend/seek
+`until: newCountSince` to extend/seek/fill/restore requests. Fresh searches
+advance the boundary; matching history/reload restoration instead retains the
+effective saved/current boundary. Calling `search()` alone does not imply admission.
+The extend/seek
 paths (the previously-⚠️ rows) now gain the `until` cap.
 
 Aggregation queries (`fetchAggregations`, `fetchExpandedAgg`) also use

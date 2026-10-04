@@ -37,6 +37,26 @@ export interface HistorySnapshot {
    * Null when the snapshot was captured before the first search completed.
    */
   newCountSince: string | null;
+  newCount?: number;
+}
+
+export function restoreArrivalState(
+  snapshot: HistorySnapshot | undefined,
+  searchKey: string,
+  current?: Pick<HistorySnapshot, "searchKey" | "newCountSince" | "newCount">,
+): { frozenUntil?: string; frozenNewCount?: number } {
+  if (snapshot?.searchKey !== searchKey) return {};
+  const snapshotSince = typeof snapshot.newCountSince === "string" && Number.isFinite(Date.parse(snapshot.newCountSince))
+    ? snapshot.newCountSince : null;
+  const currentSince = typeof current?.newCountSince === "string" && Number.isFinite(Date.parse(current.newCountSince))
+    ? current.newCountSince : null;
+  const frozenUntil = snapshotSince && currentSince
+    ? (currentSince > snapshotSince ? currentSince : snapshotSince) : snapshotSince ?? currentSince;
+  if (!frozenUntil) return {};
+  const matching = current?.searchKey === searchKey && current.newCountSince === frozenUntil
+    ? current : snapshot.newCountSince === frozenUntil ? snapshot : undefined;
+  const count = matching?.newCount;
+  return { frozenUntil, frozenNewCount: typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? count : 0 };
 }
 
 // ---------------------------------------------------------------------------

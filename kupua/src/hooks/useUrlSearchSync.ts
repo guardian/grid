@@ -33,7 +33,7 @@ import {
 } from "@/lib/orchestration/search";
 import { withFreshKupuaKey, withCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { getCurrentKupuaKey, getDetailOriginKupuaKey } from "@/lib/orchestration/history-key";
-import { snapshotStore } from "@/lib/history-snapshot";
+import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { historySearchContinuity, takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
@@ -247,7 +247,7 @@ export function useUrlSearchSync() {
 
     // User changes consume pre-passive view capture. History derives its
     // target, placement, focus and fallback only from the destination.
-    let frozenUntil: string | undefined;
+    let arrivalState: ReturnType<typeof restoreArrivalState> = {};
     let continuity: SearchContinuity;
 
     if (isPopstate) {
@@ -288,31 +288,13 @@ export function useUrlSearchSync() {
       const kupuaKey = getCurrentKupuaKey();
       const snapshot = kupuaKey ? snapshotStore.get(kupuaKey) : undefined;
       continuity = historySearchContinuity(snapshot, searchParams);
-      if (snapshot && snapshot.anchorImageId) {
-        const currentSearchKey = buildSearchKey(
-          searchOnly as Record<string, string | undefined>,
-        );
-        const isStrictMatch = snapshot.searchKey === currentSearchKey;
-
-        if (isStrictMatch) {
-          // Restore the freeze boundary so new images don't silently
-          // leak into back/forward results. Use the LATER of the
-          // snapshot's and the store's current newCountSince — this is
-          // a monotonic ratchet: history never advances the boundary to
-          // `now` (no surprise images), but also never rolls it backward
-          // (if the user absorbed new images via ticker on ANY entry,
-          // going back to an older entry still includes those images).
-          {
-            const snapshotSince = snapshot.newCountSince;
-            const storeSince = useSearchStore.getState().newCountSince;
-            const effective = snapshotSince && storeSince
-              ? (snapshotSince > storeSince ? snapshotSince : storeSince)
-              : snapshotSince ?? storeSince;
-            if (effective) {
-              frozenUntil = effective;
-            }
-          }
-        }
+      if (!searchOnly.aiQuery) {
+        const current = useSearchStore.getState();
+        arrivalState = restoreArrivalState(snapshot, buildSearchKey(searchOnly), {
+          searchKey: buildSearchKey(current.params),
+          newCountSince: current.newCountSince,
+          newCount: current.newCount,
+        });
       }
     } else {
       continuity = takeSearchContinuity(searchParams, isSortOnly);
@@ -348,7 +330,7 @@ export function useUrlSearchSync() {
       return;
     }
 
-    search(null, { continuity, frozenUntil, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
+    search(null, { continuity, ...arrivalState, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
       sortOnly: isSortOnly || undefined, traceAction, traceInteractionId });
 
     // Clear the external-query latch. cancelSearchDebounce(newQuery) sets

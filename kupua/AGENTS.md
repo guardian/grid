@@ -31,6 +31,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 
 | Working on… | Read these files |
 |---|---|
+| **Continuity coordination / next-step planning** | The [ledger Coordinator Brief](exploration/docs/not-yet-another-audit-ledger.md#coordinator-brief) owns goals, scope and restart discipline. L45 density restoration is the proposed next design, not approved implementation. Preserve bug/evidence records; require actual code/test subtraction and locally revisable UX. |
 | **Scroll behaviour / swimming / position preservation** | `useScrollEffects.ts`, `search-store.ts` (seek/extend), `constants/tuning.ts`, `e2e/local/scrubber.spec.ts` |
 | **Two-tier virtualisation (real scrolling 1k-65k)** | `03-scroll-architecture.md`, `useDataWindow.ts`, `dal/position-map.ts`, `lib/two-tier.ts` |
 | **Image traversal (prev/next in detail + fullscreen)** | `useImageTraversal.ts`, `ImageDetail.tsx`, `FullscreenPreview.tsx`, `image-prefetch.ts`, `image-prefetch.test.ts` |
@@ -48,7 +49,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Position-engine cleanup** | [Ledger status](exploration/docs/not-yet-another-audit-ledger.md#current-status) owns routing. L41/L42 are committed; L43 is complete within recorded local/live limits. Explicit publication replaces offset inference, Home owns revocable thumb feedback and refresh waits for fresh data. Final unit/build/453 retry-free E2E and independent repair reviews pass; B10/B11/B16 close. B19, Q1/Q7, optional L44 and helper pilots remain separate; no next unit selected. |
+| **Position-engine cleanup** | [Ledger status](exploration/docs/not-yet-another-audit-ledger.md#current-status) owns routing. L41-L43 are complete within recorded limits. [L45](exploration/docs/not-yet-another-audit-ledger.md#density-restoration-replacement-l45) proposes a bounded density replacement/deletion design with B4/B7; Stage B needs approval. B19, user-reported B20, Q1/Q7, optional L44 and helper pilots remain separate. |
 | **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md` (source-derived behaviour map; ledger items marked *(Lx)*), `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx` and its composed identity/return tests, `lib/detail-return.ts` (shared session identity and native/centre policy), `useReturnFromDetail.ts`, `search-store.ts` (`_focusIntent`, `_cursorRestore`), `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
@@ -93,7 +94,8 @@ or live direct-ES/performance parity. B19 and later-density geometry stay qualif
 Unsupported new nullable mock drafts were deleted, not quarantined; optional mock
 expansion is [ledger L44](exploration/docs/not-yet-another-audit-ledger.md#optional-nullable-mock-coverage-l44),
 not a new gate. The existing guarded ES sort oracle remains separate and opt-in.
-The execution prompt owns completion; no next slice, perf work or Git mutation follows.
+The ledger owns completion and the proposed L45 design; no implementation, perf work
+or Git mutation follows from that proposal.
 
 B8/L37 and B17 pending-browse/density are repaired;
 the cold-review follow-up preserves query discovery through navigation/replacement,

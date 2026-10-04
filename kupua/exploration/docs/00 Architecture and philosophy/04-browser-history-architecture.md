@@ -203,8 +203,13 @@ interface HistorySnapshot {
   anchorOffset: number;                 // global offset at capture time
   viewportRatio: number | null;         // (rowTop - scrollTop) / clientHeight
   newCountSince: string | null;         // absorbed-new-images freeze boundary
+  newCount?: number;
 }
 ```
+
+`newCount` is the last-known unadmitted count for the snapshot's search key and
+boundary. It is optional for older snapshots. It is not the total result count or
+a category aggregate, and it is not reusable with another query/boundary.
 
 ### Anchor selection
 
@@ -286,8 +291,11 @@ In `useUrlSearchSync`, when `consumeUserInitiatedFlag()` returns `false`:
   Phantom snapshots do not restore a hidden bookmark independently of the anchor.
 5. Genuine missing target means destination top/no focus, not a departing neighbour
   fallback. Ordinary user-neighbour and adapter error/absence contracts remain.
-6. Restore `newCountSince` only on a matching anchor snapshot, using the later
-  saved/current boundary. This monotonic ratchet is not immutable membership.
+6. `restoreArrivalState` restores the later saved/current admission boundary for a
+  matching search snapshot, independently of its image anchor. It prefers a current
+  count belonging to that query/boundary, otherwise the corresponding saved count;
+  missing/invalid or older-boundary counts fall back to zero. A missing saved boundary
+  can still use the current one. This monotonic ratchet is not immutable membership.
 
 Resident AI restoration applies explicit NONE as well as focus, without requests.
 Pending history waits for owned finite publication, adopting latest
@@ -300,6 +308,18 @@ focus and viewport identities.
 (because `consumeUserInitiatedFlag()` returns `false` on a fresh load).
 On reload, the URL IS the source of truth — stale snapshots from a
 different search context must not restore.
+
+Browser reload does not admit pending images when restoring this matching state.
+The snapshot also supplies the initial StatusBar badge; search hydrates the count
+and boundary synchronously before requests begin, and the badge uses live state
+as soon as the store has a boundary. First-search settlement therefore cannot
+erase the retained count. The document title reads that same store count.
+The independent `kupua-sb-new` cache is no longer read or written; total-count
+presentation remains unchanged. Ordinary polling replaces the last-known count
+(including a successful zero), and failure retains it. Query/filter/sort changes,
+Home and ticker admission keep their existing reset semantics; AI does not restore
+an ordinary arrivals badge. Poll cadence and request budgets are unchanged across
+direct ES with/without PIT and media-api without PIT.
 
 ### Column alignment
 

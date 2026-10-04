@@ -32,7 +32,7 @@ import { isTwoTierFromTotal } from "@/lib/two-tier";
  * same as click-to-open mode.
  */
 export function buildHistorySnapshot(): HistorySnapshot {
-  const { params, focusedImageId, imagePositions, bufferOffset, newCountSince } =
+  const { params, focusedImageId, imagePositions, bufferOffset, newCountSince, newCount } =
     useSearchStore.getState();
 
   // --- searchKey ---
@@ -98,5 +98,6 @@ export function buildHistorySnapshot(): HistorySnapshot {
     anchorOffset,
     viewportRatio,
     newCountSince,
+    newCount,
   };
 }

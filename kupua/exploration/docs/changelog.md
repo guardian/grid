@@ -17,6 +17,23 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - Preserve pending new-image counts across browser reload
+
+  History snapshots now carry the last-known arrival count alongside their search
+  identity and admission boundary. Shared arrival restoration preserves the existing
+  newer-boundary ratchet without tying it to an image anchor, and never pairs an
+  older or different-query count with the effective boundary. Search hydrates that
+  state before asynchronous work; initial StatusBar presentation reads the same
+  snapshot and hands over to live state once the boundary exists. The independent
+  `kupua-sb-new` cache and stale immediate-poll assumption are removed.
+
+  Browser reload preserves pending admission; ticker/Home/fresh-search and AI reset
+  semantics remain distinct. Poll cadence, requests, PIT lifecycle and API endpoints
+  are unchanged. Existing snapshot, component, polling, paired history and reload
+  cases are strengthened rather than adding cases or files, covering count handoff,
+  ratchet, absence/zero and direct PIT/null versus API-no-PIT restoration. The archived
+  comparison now marks its old browser-refresh admission claim as superseded.
+
   ### 4 October 2026 - Durable reset presentation browser regressions
 
   Existing forced-seek, buffer and history specs now exercise actual wheel prepends

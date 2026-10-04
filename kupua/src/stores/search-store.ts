@@ -80,6 +80,7 @@ interface SearchOptions {
   retainExplicitFocus?: boolean;
   visibleNeighbours?: string[];
   frozenUntil?: string;
+  frozenNewCount?: number;
   sortOnly?: boolean;
   traceAction?: string;
   traceInteractionId?: string;
@@ -2329,10 +2330,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     trace("search", "t_ack");
     if (options?.sortOnly && !sortAroundFocusId) trace("sort-no-focus", "t_ack");
     if (options?.traceAction) traceInteraction(options.traceAction, "t_ack", options.traceInteractionId);
-    // When restoring via frozenUntil (history back/forward), keep the
-    // current newCount so the ticker doesn't flash off and back on.
-    // The immediate poll tick will correct the count within milliseconds.
-    //
     // phantomOnly invariant: phantom-mode search/restore must NEVER leave
     // focusedImageId set. Without this, a leaked focusedImageId from a
     // previous explicit-focus context survives across phantom restores
@@ -2342,7 +2339,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // and would clobber the phantom snapshot with the leaked focus on
     // the next departure-capture. See
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
-    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }), ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+    set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }),
+      ...(options?.frozenUntil && options.frozenNewCount !== undefined && { newCount: options.frozenNewCount, newCountSince: options.frozenUntil }),
+      ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
     if (import.meta.env.DEV) {
       _searchLifecycle = {
         ..._searchLifecycle,

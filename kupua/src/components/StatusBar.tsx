@@ -27,6 +27,9 @@ import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { gridConfig } from "@/lib/grid-config";
 import { upsertFieldTerm, findFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import type { TickerCountResult } from "@/dal";
+import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { buildSearchKey } from "@/lib/image-offset-cache";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -56,7 +59,6 @@ function buildTickerTooltip(
 }
 
 const SB_TOTAL_KEY = "kupua-sb-total";
-const SB_NEW_KEY = "kupua-sb-new";
 
 export function StatusBar() {
   const total = useSearchStore((s) => s.total);
@@ -72,30 +74,30 @@ export function StatusBar() {
   // It's the correct "has a search ever settled?" signal — unlike `total > 0`,
   // it distinguishes "app just loaded, no results yet" from "search returned 0".
   const isInitialLoad = useSearchStore((s) => s._isInitialLoad);
+  const searchParams = useSearch({ from: "/search" });
+  const storeSince = useSearchStore((s) => s.newCountSince);
 
-  // Seed display from sessionStorage so counters survive a tab reload.
-  // Once the first search completes (!isInitialLoad), store values are
-  // authoritative and the cache is just kept in sync for next reload.
-  const [cached] = useState(() => ({
-    total: parseInt(sessionStorage.getItem(SB_TOTAL_KEY) ?? "0", 10) || 0,
-    newCount: parseInt(sessionStorage.getItem(SB_NEW_KEY) ?? "0", 10) || 0,
-  }));
+  const [cached] = useState(() => {
+    const key = getCurrentKupuaKey();
+    return {
+      total: parseInt(sessionStorage.getItem(SB_TOTAL_KEY) ?? "0", 10) || 0,
+      searchKey: buildSearchKey(searchParams),
+      ...(!searchParams.aiQuery && key
+        ? restoreArrivalState(snapshotStore.get(key), buildSearchKey(searchParams)) : {}),
+    };
+  });
   useEffect(() => { if (total > 0) sessionStorage.setItem(SB_TOTAL_KEY, String(total)); }, [total]);
-  // Gate ticker write on !isInitialLoad — on mount newCount=0 in the fresh
-  // store; writing it unconditionally would wipe the cached value before the
-  // poll has a chance to restore it.
-  useEffect(() => { if (!isInitialLoad) sessionStorage.setItem(SB_NEW_KEY, String(newCount)); }, [newCount, isInitialLoad]);
 
   // storeReady = first search has completed. Use cached sessionStorage values
   // only during the brief loading window before the first response arrives.
   const storeReady = !isInitialLoad;
   const displayTotal = storeReady ? total : cached.total;
-  const displayNewCount = storeReady ? newCount : cached.newCount;
+  const useSavedArrivals = isInitialLoad && !storeSince && cached.searchKey === buildSearchKey(searchParams);
+  const displayNewCount = useSavedArrivals ? cached.frozenNewCount ?? newCount : newCount;
   // AI results show the pool they were ranked from; never paired with a cached total.
   const displayPool = storeReady && total > 0 ? aiPoolTotal : null;
-  const newCountSince = useSearchStore((s) => s.newCountSince);
+  const newCountSince = storeSince ?? (useSavedArrivals ? cached.frozenUntil : null);
   const reSearch = useSearchStore((s) => s.search);
-  const searchParams = useSearch({ from: "/search" });
   const updateSearch = useUpdateSearchParams();
   const isGrid = useUiPrefsStore((state) => state.density === "grid");
   const setDensity = useUiPrefsStore((state) => state.setDensity);

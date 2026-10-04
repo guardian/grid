@@ -274,12 +274,15 @@ describe("KUP-006 cumulative poll accounting", () => {
     await tick();
     const oldBoundary = state().newCountSince!;
     if (context === "new search") actions().setParams({ query: "replacement" });
-    const searching = actions().search(undefined, context === "history" ? { frozenUntil: oldBoundary } : undefined);
+    if (context === "history") useSearchStore.setState({ newCount: 0, newCountSince: null, _isInitialLoad: true });
+    const searching = actions().search(undefined, context === "history" ? { frozenUntil: oldBoundary, frozenNewCount: 2 } : undefined);
+    expect(state().newCount).toBe(context === "history" ? 2 : 0);
     const callsAtStop = vi.mocked(mock.countWithTickers).mock.calls.length;
     await tick();
     expect(mock.countWithTickers).toHaveBeenCalledTimes(callsAtStop);
     replacement.resolve({ count: 200, tickerCounts: { agency: { value: 200 } } });
     await searching;
+    expect(state().newCount).toBe(context === "history" ? 2 : 0);
     vi.mocked(mock.countWithTickers).mockResolvedValue({ count: 3, tickerCounts: { agency: { value: 3 } } });
     await tick();
     stale.resolve(arrival(90));

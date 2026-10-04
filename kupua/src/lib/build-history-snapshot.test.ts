@@ -11,6 +11,7 @@ const mockStoreState = {
   bufferOffset: 0,
   results: [] as Array<{ id: string; uploadTime: string; uploadedBy: string; source: { mimeType: string; dimensions: { width: number; height: number } }; metadata: Record<string, unknown> } | undefined>,
   newCountSince: null as string | null,
+  newCount: 0,
 };
 
 vi.mock("@/stores/search-store", () => ({
@@ -96,6 +97,7 @@ describe("buildHistorySnapshot", () => {
     mockStoreState.bufferOffset = 0;
     mockStoreState.results = [];
     mockStoreState.newCountSince = null;
+    mockStoreState.newCount = 0;
     mockFocusMode = "explicit";
     mockViewportAnchorId = null;
   });
@@ -177,11 +179,13 @@ describe("buildHistorySnapshot", () => {
     expect(snap.anchorOffset).toBe(500);
   });
 
-  it("captures newCountSince from store", () => {
+  it("captures the admission boundary and pending count even without an anchor", () => {
     mockStoreState.newCountSince = "2026-04-26T10:00:00.000Z";
+    mockStoreState.newCount = 134;
 
     const snap = buildHistorySnapshot();
     expect(snap.newCountSince).toBe("2026-04-26T10:00:00.000Z");
+    expect(snap).toMatchObject({ newCount: 134, anchorImageId: null });
   });
 
   it("captures null newCountSince when no search has completed", () => {

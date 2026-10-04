@@ -2167,6 +2167,34 @@ test.describe("Reload survival — position restoration on reload", () => {
     const deepOffset = preState.bufferOffset;
     expect(deepOffset).toBeGreaterThan(500);
 
+    await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      store.setState({ newCount: 134 });
+    });
+    await expect(kupua.page.getByRole("button", { name: "134 new", exact: true })).toBeVisible();
+    const boundary = await kupua.page.evaluate(() => (window as any).__kupua_store__.getState().newCountSince);
+    await kupua.page.addInitScript(() => {
+      const observations = { sawBadge: false, lostBadge: false, stopped: false };
+      (window as any).__tickerReloadFrames = observations;
+      const deadline = performance.now() + 15000;
+      const sample = () => {
+        const statusBar = document.querySelector('button[aria-label$="Browse panel"]')?.parentElement;
+        const mounted = !!statusBar && statusBar.getBoundingClientRect().height > 0;
+        const badge = statusBar && [...statusBar.querySelectorAll("button")].find(button => button.textContent?.trim() === "134 new");
+        const present = !!badge && badge.getBoundingClientRect().width > 0 && badge.getBoundingClientRect().height > 0
+          && getComputedStyle(badge).visibility !== "hidden" && getComputedStyle(badge).opacity !== "0";
+        if (mounted && !present) observations.lostBadge = true;
+        observations.sawBadge ||= present;
+        const state = (window as any).__kupua_store__?.getState();
+        if ((mounted && state && !state._isInitialLoad && !state.loading) || performance.now() > deadline) {
+          observations.stopped = true;
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
     // Reload — pagehide captures snapshot for current entry's kupuaKey.
     // On mount, the popstate path finds the snapshot and restores.
     await reloadSearchAndWait(kupua.page);
@@ -2175,6 +2203,14 @@ test.describe("Reload survival — position restoration on reload", () => {
     expect(await kupua.getFocusedImageId()).toBe(deepAnchor);
     const restoredState = await kupua.getStoreState();
     expect(restoredState.bufferOffset).toBeGreaterThan(500);
+    await expect(kupua.page.getByRole("button", { name: "134 new", exact: true })).toBeVisible();
+    await expect(kupua.page).toHaveTitle(/^\(134 new\)/);
+    await kupua.page.waitForFunction(() => (window as any).__tickerReloadFrames?.stopped);
+    expect(await kupua.page.evaluate(() => ({
+      ...((window as any).__tickerReloadFrames),
+      count: (window as any).__kupua_store__.getState().newCount,
+      boundary: (window as any).__kupua_store__.getState().newCountSince,
+    }))).toEqual({ sawBadge: true, lostBadge: false, stopped: true, count: 134, boundary });
   });
 
   test("reload then back still restores previous entry", async ({ kupua }) => {

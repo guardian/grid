@@ -2,7 +2,7 @@
 // SessionStorageSnapshotStore needs a real Storage. Node only exposes sessionStorage as a
 // global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
 import { describe, it, expect, beforeEach } from "vitest";
-import { MapSnapshotStore, SessionStorageSnapshotStore } from "./history-snapshot";
+import { MapSnapshotStore, SessionStorageSnapshotStore, restoreArrivalState } from "./history-snapshot";
 import type { HistorySnapshot } from "./history-snapshot";
 
 // ---------------------------------------------------------------------------
@@ -105,10 +105,30 @@ describe("SessionStorageSnapshotStore", () => {
   });
 
   it("set then get round-trips through JSON", () => {
-    const snap = makeSnap();
+    const boundary = "2026-04-26T10:00:00.000Z";
+    const later = "2026-04-26T11:00:00.000Z";
+    const snap = makeSnap({ newCountSince: boundary, newCount: 134, anchorImageId: null });
     store.set("key-1", snap);
     const retrieved = store.get("key-1");
     expect(retrieved).toEqual(snap);
+    expect(restoreArrivalState(retrieved, snap.searchKey)).toEqual({ frozenUntil: boundary, frozenNewCount: 134 });
+    expect(restoreArrivalState(retrieved, "other-query")).toEqual({});
+    expect(restoreArrivalState(undefined, snap.searchKey)).toEqual({});
+    expect(restoreArrivalState(makeSnap(), snap.searchKey)).toEqual({});
+    expect(restoreArrivalState(makeSnap(), snap.searchKey, { searchKey: snap.searchKey, newCountSince: later, newCount: 2 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 2 });
+    expect(restoreArrivalState({ ...snap, newCountSince: "invalid" }, snap.searchKey)).toEqual({});
+    for (const newCount of [undefined, -1, NaN, Infinity, 0.5]) {
+      expect(restoreArrivalState({ ...snap, newCount }, snap.searchKey)).toEqual({ frozenUntil: boundary, frozenNewCount: 0 });
+    }
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: snap.searchKey, newCountSince: boundary, newCount: 135 }))
+      .toEqual({ frozenUntil: boundary, frozenNewCount: 135 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: snap.searchKey, newCountSince: later, newCount: 2 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 2 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: "other-query", newCountSince: later, newCount: 99 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 0 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: "other-query", newCountSince: boundary, newCount: 99 }))
+      .toEqual({ frozenUntil: boundary, frozenNewCount: 134 });
   });
 
   it("delete removes the entry", () => {

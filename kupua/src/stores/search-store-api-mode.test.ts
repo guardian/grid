@@ -541,7 +541,7 @@ afterEach(() => {
 });
 
 describe("API mode: routing and counting", () => {
-  it("opens no PIT, counts the first page exactly and nothing else", async () => {
+  it("opens no API PIT, counts exactly once and restores arrivals with either direct PIT outcome", async () => {
     useApiMode(120_000);
     await state().search();
     await waitPastCooldown();
@@ -557,6 +557,28 @@ describe("API mode: routing and counting", () => {
     expect(counted).toHaveLength(1);
     expect(counted[0]).toMatchObject({ path: "/images/search-after", body: { reverse: false } });
     expect(calls.every((c) => !("pitId" in c.body))).toBe(true);
+
+    try {
+      for (const pitId of [null, "fixture-restored-pit"]) {
+        const direct = new ElasticsearchDataSource();
+        const openPit = vi.spyOn(direct, "openPit");
+        if (pitId) openPit.mockResolvedValue(pitId);
+        else openPit.mockRejectedValue(new Error("PIT unavailable"));
+        vi.spyOn(direct, "closePit").mockResolvedValue();
+        vi.spyOn(direct, "searchAfter").mockResolvedValue({ hits: [], total: 0, sortValues: [] });
+        vi.spyOn(direct, "countWithTickers").mockResolvedValue({ count: 0, tickerCounts: {} });
+        useSearchStore.setState({ dataSource: direct, params: { nonFree: "true" }, pitId: null, newCount: 0, newCountSince: null });
+        const frozenUntil = "2026-04-26T10:00:00.000Z";
+        await state().search(undefined, { frozenUntil, frozenNewCount: 134 });
+        expect(state()).toMatchObject({ pitId, newCount: 134, newCountSince: frozenUntil, total: 0, loading: false });
+        expect(direct.openPit).toHaveBeenCalledOnce();
+        expect(direct.searchAfter).toHaveBeenCalledWith(expect.objectContaining({ until: frozenUntil }), null, null, expect.any(AbortSignal));
+        expect(direct.countWithTickers).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ until: frozenUntil }));
+      }
+    } finally {
+      useSearchStore.setState({ dataSource: Object.assign(corpus, { searchByAi: undefined }), params: { aiQuery: "poll-cleanup" }, pitId: null });
+      await state().search();
+    }
   });
 
   it("publishes the first page's tickers from media-api's count, without a sort", async () => {
@@ -1008,8 +1030,15 @@ describe("U6z API polling", () => {
         return { total: value, tickerCounts: { "GNM-owned": { value } } };
       },
     } });
-    await state().search();
+    const frozenUntil = "2026-04-26T10:00:00.000Z";
+    const restoring = state().search(undefined, { frozenUntil, frozenNewCount: 134 });
+    expect(state().newCount).toBe(134);
+    await restoring;
+    expect(state()).toMatchObject({ newCount: 134, newCountSince: frozenUntil, pitId: null });
     const initial = state();
+    outcome = "failure";
+    await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
+    expect(state().newCount).toBe(134);
     outcome = "arrival";
     await vi.advanceTimersByTimeAsync(NEW_IMAGES_POLL_INTERVAL);
     expect(state().newCount).toBe(2);
@@ -1027,8 +1056,9 @@ describe("U6z API polling", () => {
     expect(state().results).toBe(initial.results);
     expect(state().total).toBe(initial.total);
     expect(state().error).toBeNull();
-    expect(bodiesFor("/images/count")).toHaveLength(4);
-    expect(bodiesFor("/images/count").slice(1).map(body => body.since)).toEqual(Array(3).fill(initial.newCountSince));
+    expect(bodiesFor("/images/count")).toHaveLength(5);
+    expect(bodiesFor("/images/count")[0].until).toBe(frozenUntil);
+    expect(bodiesFor("/images/count").slice(1).map(body => body.since)).toEqual(Array(4).fill(initial.newCountSince));
     vi.clearAllTimers();
   });
 });
