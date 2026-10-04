@@ -24,8 +24,41 @@ loss, immediate reload/first-mounted view, fresh/reused initialization and curre
 layout destination restoration. Both-logo Home races and held-data frame controls
 retain pending-content, focus, geometry and request assertions. KUP-018 proves
 queued return cancellation and rejects a deliberately delivered obsolete callback.
-The completed slice passes 394 retry-free habitual cases, including 11 forced-seek
+The complete local gate passes 423 retry-free habitual cases, including 11 forced-seek
 cases; local fixtures do not authorize or certify live/perf execution.
+
+## Async Fixture Setup
+
+Controlled Home-density, selection-panel and L39 AI setup returns a job object
+from a synchronous `page.evaluateHandle` callback, not an async evaluation promise.
+The handle retains the job and its pending promise while imports/setup run. The
+job exposes `complete` and nullable `error`; success sets completion and rejection
+stores the error. `waitForFixtureSetup(page, handle)` polls these fields with a
+synchronous predicate, throws setup failures and disposes the handle in `finally`.
+The runner's wait timeout bounds unfinished setup; it never retries the setup or
+relaxes workflow assertions. Do not use an async `waitForFunction` predicate.
+
+Two selection-spec controls hold a module response while forcing browser GC and
+check rejection plus handle disposal. They establish this retained-job contract,
+not the original intermittent GC trigger or every async evaluation in the suite.
+Home intent reads reuse the imported preference store rather than repeating imports.
+The four touched E2E files have no added TypeScript diagnostics against HEAD;
+their 16 inherited diagnostics remain. The app build does not cover E2E/perf.
+
+## Detail Return Coverage
+
+B9 controls close as soon as detail identity is ready while existing list
+restoration is held, rather than replacing early close with a readiness wait.
+Early/settled original return preserves native geometry; genuine traversal centres
+the returned image with the correct focus/ring or phantom policy. Grid/table
+keyboard and background-clear controls defeat obsolete return presentation while
+retaining restoration request budgets and session-persisted density/selection.
+B12 drives the actual touch listeners after A -> B -> reload B -> A: cancelled
+and completed dismiss leave original placement alone, matching Backspace;
+traversed return still centres. Existing KUP-018 queued-frame controls remain.
+The composed unit surface covers all three coordinate regimes, late restoration
+outcomes, history/AI owner adoption and policy substitution. Browser/API response
+fixtures are local evidence, not live-service or physical-device certification.
 
 ## Directory Structure
 
@@ -196,16 +229,17 @@ than a production event bus.
 | `local/browser-history.spec.ts` | 108 | Entry/query identity, destination focus/NONE and geometry, marked detail native transitions, session density/reload/Forward and Home/input ownership |
 | `local/buffer-corruption.spec.ts` | 23 | Logo / metadata / query changes after deep seek, pending sort/density ownership and held-data Home layout frames |
 | `local/browse-density.spec.ts` | 32 | Pending/pre-debounce indexed browsing and Scrubber wheel across density in direct/API-adapter fixtures; rendered narrowing-query and finite-AI ownership in local memory fixtures; both click modes/views |
-| `local/ui-features.spec.ts` | 47 | Detail, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
+| `local/ui-features.spec.ts` | 74 | Detail, B9 pending return and B12 reload gesture identity, queued return/traversal and preview ownership, media fallback, panel/selection geometry, sort, cursor and URL controls |
 | `local/visual-baseline.spec.ts` | 4 | Screenshot comparison: grid, table, detail, search-with-query |
 | `local/forced-seek.spec.ts` | 11 | Core midpoint/End/Home journey, eight pending-browse density cases with frame-level departure/thumb assertions, and two no-density controls; runs habitually against port 3030 |
 | `local/focus-preservation.spec.ts` | 13 | Focus/viewport continuity, neighbour fallback, snap-back and four adapter-backed L39 AI-exit cases |
+| `local/selections.spec.ts` | 30 | Selection membership/ranges/persistence, panel coherence and two retained async-fixture GC/rejection/disposal controls |
 
 ### Shared (`e2e/shared/` — imported by maintained test modes)
 
 | File | What it provides |
 |------|------------------|
-| `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()` |
+| `shared/helpers.ts` | `KupuaHelpers` fixture class, `sampleScrollTopAtFrameRate()`, `waitForFixtureSetup()` (synchronous readiness/error check and handle disposal) |
 | `shared/browse-density.ts` | Real-control pending destination/density checks, including wheel before dispatch; local-ES safety gate, pass-through response hold and API response-shape fixture. Seek-tier cases start deep and sample pending departure identity and thumb position across rendered frames. Clicks result cells, including No thumbnail placeholders. |
 
 ### Infrastructure (`e2e/` root)

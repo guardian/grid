@@ -524,7 +524,7 @@ interface SearchState {
   * Replace the buffer at a global destination. Navigation owns that destination
   * across views; a refill is layout maintenance and cannot supersede it.
    */
-  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill") => Promise<void>;
+  seek: (globalOffset: number, traceAction?: string, traceInteractionId?: string, purpose?: "navigation" | "refill", restoreFocusIntent?: number) => Promise<void>;
 
   /**
    * Restore the buffer around a specific image using its cached sort cursor.
@@ -550,7 +550,9 @@ interface SearchState {
   // Thin wrapper over extendForward — the canonical public API for views.
   loadMore: () => Promise<void>;
 
-  setFocusedImageId: (id: string | null) => void;
+  _focusIntent: number;
+  _cursorRestore: { imageId: string; generation: number; signal: AbortSignal } | null;
+  setFocusedImageId: (id: string | null, recordIntent?: boolean) => void;
   /**
    * Seek the buffer back to the focused image's position.
    * Used by arrow snap-back: when the user pressed an arrow key but the
@@ -655,6 +657,7 @@ function cancelWindowReads(get: () => SearchState, set: (state: Partial<SearchSt
   _rangeAbortController.abort();
   _rangeAbortController = new AbortController();
   set({ _extendForwardInFlight: false, _extendBackwardInFlight: false,
+    _cursorRestore: get()._cursorRestore?.signal.aborted ? null : get()._cursorRestore,
     ...(cancelledRead && { loading: hasPendingForegroundRead(get()) }) });
 }
 
@@ -1691,6 +1694,8 @@ async function _findAndFocusImage(
   const { dataSource } = get();
   // Apply frozen-until cap — sort-around-focus should not include new images.
   const fp = frozenParams(params, get);
+  const presentationCurrent = () => continuity?.historyFocusIntent === undefined
+    || get()._focusIntent === continuity.historyFocusIntent;
 
   trace("sort-around-focus", "t_ack");
   trace("sort-around-focus", "t_status_visible", { status: "Finding image\u2026" });
@@ -1726,12 +1731,11 @@ async function _findAndFocusImage(
         startCursor: fallbackFirstPage.startCursor,
         endCursor: fallbackFirstPage.endCursor,
         pitId: get().pitId,
-        focusedImageId: null,
-        _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
         _seekTargetLocalIndex: -1,
         _seekTargetGlobalIndex: -1,
-        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
       });
       // Only the first page landed — top up for small result sets (see
       // _topUpScrollModeBuffer doc above _fillBufferForScrollMode).
@@ -1808,8 +1812,6 @@ async function _findAndFocusImage(
           startCursor: fallbackFirstPage.startCursor,
           endCursor: fallbackFirstPage.endCursor,
           pitId: get().pitId,
-          focusedImageId: null,
-          _phantomFocusImageId: null,
           sortAroundFocusStatus: null,
           _seekTargetLocalIndex: -1,
           _seekTargetGlobalIndex: -1,
@@ -1817,7 +1819,8 @@ async function _findAndFocusImage(
           // Effect #8 only fires when bufferOffset transitions >0→0; if the
           // old buffer was already at offset 0 (image in first page), that
           // transition never happens and scroll would stay stale-deep.
-          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+          ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+            _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
         });
         // Only the first page landed (target not found, no surviving
         // neighbour) — top up for small result sets. This is the dominant
@@ -1933,7 +1936,10 @@ async function _findAndFocusImage(
       // Image is in the buffer — just focus it (or scroll to it in phantom mode).
       // Guard: if the timeout already fired, don't overwrite fallback state.
       if (timeoutController.signal.aborted) return;
-      if (phantomOnly) {
+      if (!presentationCurrent()) {
+        set({ _searchContinuity: continuity ? { ...continuity, targetId: imageId, phase: "retired" } : null,
+          _isInitialLoad: false, sortAroundFocusStatus: null, loading: false });
+      } else if (phantomOnly) {
         // Phantom promotion: position around image but don't set focusedImageId.
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
@@ -2065,8 +2071,9 @@ async function _findAndFocusImage(
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
         sortAroundFocusStatus: null,
-        _searchContinuity: continuity ? { ...continuity, targetId: imageId } : null,
-        ...(phantomOnly
+        _searchContinuity: continuity ? { ...continuity, targetId: imageId,
+          ...(!presentationCurrent() && { phase: "retired" as const }) } : null,
+        ...(presentationCurrent() ? (phantomOnly
           ? {
               // Phantom: scroll to image via Effect #9, no focus ring.
               ...(!retainExplicitFocus && {
@@ -2082,10 +2089,10 @@ async function _findAndFocusImage(
               focusedImageId: imageId,
               _focusedImageKnownOffset: exactOffset ?? (finalBufferOffset + buf.targetLocalIndex),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
-            }),
+            }) : {}),
       });
 
-      if (phantomOnly && !get()._isInitialLoad) {
+      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad) {
         setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
       }
       set({ _isInitialLoad: false });
@@ -2109,10 +2116,9 @@ async function _findAndFocusImage(
         startCursor: fallbackFirstPage.startCursor,
         endCursor: fallbackFirstPage.endCursor,
         pitId: get().pitId,
-        focusedImageId: null,
-        _phantomFocusImageId: null,
         sortAroundFocusStatus: null,
-        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+        ...(presentationCurrent() && { focusedImageId: null, _phantomFocusImageId: null,
+          _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
       });
     } else {
       set({ sortAroundFocusStatus: null, loading: false });
@@ -2217,9 +2223,13 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }));
   },
 
-  setFocusedImageId: (id) => {
-    const offset = id ? get().imagePositions.get(id) ?? null : null;
-    set({ focusedImageId: id, _focusedImageKnownOffset: offset });
+  _focusIntent: 0,
+  _cursorRestore: null,
+  setFocusedImageId: (id, recordIntent = true) => {
+    const offset = id ? get().imagePositions.get(id)
+      ?? (get().focusedImageId === id ? get()._focusedImageKnownOffset : null) : null;
+    set({ focusedImageId: id, _focusedImageKnownOffset: offset,
+      ...(recordIntent && { _focusIntent: get()._focusIntent + 1 }) });
   },
 
   seekToFocused: async () => {
@@ -2274,6 +2284,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   },
 
   search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
+    const historyFocusIntent = options?.continuity?.fallback === "top" ? get()._focusIntent : undefined;
+    const historyPresentationCurrent = () => historyFocusIntent === undefined || get()._focusIntent === historyFocusIntent;
     if (options?.continuity) {
       const { targetId, focus, neighbours } = options.continuity;
       sortAroundFocusId = targetId;
@@ -2348,7 +2360,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     _browseAbortController.abort();
     _pendingWindowReadSignal = null;
     _initialSearchDiscovery = null;
-    set({ _browseNavigation: null, _searchContinuity: null });
+    set({ _browseNavigation: null, _searchContinuity: null, _cursorRestore: null });
     _searchAbortController.abort();
     _searchAbortController = new AbortController();
     _rangeAbortController.abort();
@@ -2362,7 +2374,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // later search's (which would be non-aborted and run to completion).
     const findFocusSignal = _findFocusAbortController.signal;
     const continuity: OwnedSearchContinuity | undefined = options?.continuity
-      ? { ...options.continuity, owner: findFocusSignal, searchGeneration: myGeneration, phase: "ready" }
+      ? { ...options.continuity, owner: findFocusSignal, searchGeneration: myGeneration, historyFocusIntent, phase: "ready" }
       : undefined;
 
     // Abort any in-flight sort distribution or expanded agg fetch
@@ -2436,8 +2448,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // "in the first page". Mirror the focusedInFirstPage logic from the
         // normal path so Back-navigation position restoration works correctly.
         const currentContinuity = get()._searchContinuity;
+        const completionFocusCurrent = () => currentContinuity?.historyFocusIntent === undefined
+          || get()._focusIntent === currentContinuity.historyFocusIntent;
         const completionContinuity = currentContinuity?.searchGeneration === myGeneration && !currentContinuity.owner.aborted
-          ? { ...currentContinuity, phase: currentContinuity.phase === "retired" ? "retired" as const : "ready" as const }
+          ? { ...currentContinuity, phase: currentContinuity.phase === "retired" || !completionFocusCurrent() ? "retired" as const : "ready" as const }
           : undefined;
         const placementRetired = completionContinuity?.phase === "retired";
         const targetId = completionContinuity ? completionContinuity.targetId : sortAroundFocusId;
@@ -2471,9 +2485,9 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor,
           endCursor,
           pitId: null,
-          focusedImageId: completionContinuity?.focus === "retain" ? get().focusedImageId
+          ...(completionFocusCurrent() && { focusedImageId: completionContinuity?.focus === "retain" ? get().focusedImageId
             : (focusedInAiResults && !phantomOnly) ? targetId! : null,
-          _focusedImageKnownOffset: null,
+          _focusedImageKnownOffset: null }),
           newCount: 0,
           newCountSince: now,
           tickerCounts: aiResult.tickerCounts ?? null,
@@ -2710,10 +2724,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
-          focusedImageId: options?.retainExplicitFocus
+          ...(historyPresentationCurrent() && { focusedImageId: options?.retainExplicitFocus
             ? get().focusedImageId
-            : (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null,
-          _searchContinuity: focusedInFirstPage ? continuity ?? null : null,
+            : (focusedInFirstPage && !options?.phantomOnly) ? sortAroundFocusId! : null }),
+          _searchContinuity: focusedInFirstPage && continuity
+            ? { ...continuity, ...(!historyPresentationCurrent() && { phase: "retired" as const }) } : null,
           ...(!options?.frozenUntil && { newCount: 0 }),
           newCountSince: now,
           tickerCounts: tickersResult?.tickerCounts ?? null,
@@ -2735,18 +2750,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
           // this, the scroll-reset effect leaves scrollTop=0 and the
           // focused image may be off-screen in its new sort position.
           // Phantom mode uses the same bump with _phantomFocusImageId below.
-          ...(focusedInFirstPage
+          ...(historyPresentationCurrent() ? (focusedInFirstPage
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
-            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: !!options?.sortOnly } }),
-          ...(focusedInFirstPage && options?.phantomOnly && !suppressPulse
+            : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: !!options?.sortOnly } }) : {}),
+          ...(historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly && !suppressPulse
             ? { _phantomFocusImageId: sortAroundFocusId!, _phantomPulseImageId: sortAroundFocusId! }
-            : focusedInFirstPage && options?.phantomOnly
+            : historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly
               ? { _phantomFocusImageId: sortAroundFocusId! }
               : {}),
           _isInitialLoad: false,
         });
 
-        if (focusedInFirstPage && options?.phantomOnly && !suppressPulse) {
+        if (historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly && !suppressPulse) {
           setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
         }
 
@@ -3161,7 +3176,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     navigation.signal.addEventListener("abort", cancel, { once: true });
   },
 
-  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation") => {
+  seek: async (globalOffset: number, traceAction: string = "seek", traceInteractionId?: string, purpose = "navigation", restoreFocusIntent?: number) => {
     if (get().params.aiQuery) {
       set({ _pendingFocusAfterSeek: null });
       return;
@@ -3172,6 +3187,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const searchAfter = createExpiryAwareSearchAfter(dataSource, get, set);
     const offsetReadLimit = Math.min(dataSource.offsetReadLimit ?? MAX_RESULT_WINDOW, MAX_RESULT_WINDOW);
     const pendingFocus = get()._pendingFocusAfterSeek;
+    const presentationCurrent = () => restoreFocusIntent === undefined || get()._focusIntent === restoreFocusIntent;
 
     // Clamp to valid range
     let { total } = get();
@@ -3181,7 +3197,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     const queuedNavigation = previousNavigation?.phase === "queued" &&
       previousNavigation.targetOffset === clampedOffset && !previousNavigation.signal.aborted
       ? previousNavigation : null;
-    let navigation = purpose === "navigation"
+    let navigation = purpose === "navigation" && presentationCurrent()
       ? { ...(queuedNavigation ?? startBrowseNavigation(get(), clampedOffset)), phase: "loading" as const }
       : null;
 
@@ -3194,6 +3210,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // read the module-level _rangeAbortController (which may have been
     // replaced by a newer seek), allowing stale seeks to complete uncancelled.
     const signal = navigation?.signal ?? _rangeAbortController.signal;
+    if (restoreFocusIntent === undefined && get()._cursorRestore?.signal.aborted) set({ _cursorRestore: null });
     _pendingWindowReadSignal = purpose === "refill" ? signal : null;
 
     const reuseResidentStart = (pendingFocus?.signal !== undefined || previousNavigation !== null) &&
@@ -4135,7 +4152,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       set({
         ...discoveredState,
         results: result.hits,
-        _browseNavigation: navigation ? { ...navigation, phase: "ready" } : null,
+        _browseNavigation: navigation && presentationCurrent() ? { ...navigation, phase: "ready" } : null,
         bufferOffset: actualOffset,
         // Total is stable within a search session (frozen params) — always
         // use the store's known total (audit F-01).
@@ -4149,7 +4166,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         pitId: get().pitId === null ? null : result.pitId !== undefined ? result.pitId : effectivePitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
-        _seekGeneration: get()._seekGeneration + 1,
+        _seekGeneration: get()._seekGeneration + (presentationCurrent() ? 1 : 0),
         _seekTargetLocalIndex: scrollTargetIndex,
         // In two-tier mode, effect #6 needs the global index to compute the
         // correct pixel offset (virtualizer row 0 = global 0). Two-tier is
@@ -4280,12 +4297,18 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     }
 
     if (get().params.aiQuery) return;
+    const focusIntent = get()._focusIntent;
 
     // Without a cursor, fall back to the approximate seek. This covers
     // old cache entries and images with missing sort fields. Shallow
     // offsets (<DEEP_SEEK_THRESHOLD) will still work perfectly.
     if (!cursor) {
-      return get().seek(cachedOffset);
+      const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
+      const pending = { imageId, generation: _searchGeneration,
+        signal: get()._browseNavigation?.signal ?? _rangeAbortController.signal };
+      set({ _cursorRestore: pending });
+      try { return await work; }
+      finally { if (get()._cursorRestore === pending) set({ _cursorRestore: null }); }
     }
 
     const { dataSource, params: rawParams, pitId, _pitGeneration } = get();
@@ -4304,7 +4327,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     // If search() opened a new PIT since we captured ours, skip the stale PIT.
     let effectivePitId = get()._pitGeneration === _pitGeneration ? pitId : null;
 
-    set({ loading: true, error: null, sortAroundFocusStatus: null });
+    const cursorRestore = { imageId, generation: searchGeneration, signal };
+    set({ loading: true, error: null, sortAroundFocusStatus: null, _cursorRestore: cursorRestore });
 
     try {
       let discoveredTotal: number | undefined;
@@ -4380,7 +4404,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         pitId: get().pitId === null ? null : buf.pitId,
         _extendForwardInFlight: false,
         _extendBackwardInFlight: false,
-        _seekGeneration: get()._seekGeneration + 1,
+        _seekGeneration: get()._seekGeneration + (get()._focusIntent === focusIntent ? 1 : 0),
         _seekTargetLocalIndex: buf.targetLocalIndex,
         _seekTargetGlobalIndex: seekTargetGlobalIndex,
         _seekSubRowOffset: 0,
@@ -4388,7 +4412,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         // (phantom invariant: focusedImageId is always null). Without this,
         // useReturnFromDetail's `previousFocus === null` guard fires and
         // detail-close skips centring on the restored image (audit #16).
-        ...(setFocus && { focusedImageId: imageId, _focusedImageKnownOffset: publishedTargetOrdinal }),
+        ...(setFocus && get()._focusIntent === focusIntent
+          && { focusedImageId: imageId, _focusedImageKnownOffset: publishedTargetOrdinal }),
       });
 
       devLog(
@@ -4408,12 +4433,15 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       // Fall back to approximate seek on any error
       set({ loading: false });
       try {
-        return get().seek(cachedOffset);
+        const work = get().seek(cachedOffset, "seek", undefined, "navigation", focusIntent);
+        cursorRestore.signal = get()._browseNavigation?.signal ?? _rangeAbortController.signal;
+        return await work;
       } catch {
         // Both paths failed — standalone mode
       }
     } finally {
       await finishAbandonedDiscovery(discovery ?? undefined, signal, imageId, get, set);
+      if (get()._cursorRestore === cursorRestore) set({ _cursorRestore: null });
     }
   },
 
@@ -4429,7 +4457,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       _findFocusAbortController.abort();
       _findFocusAbortController = new AbortController();
       ownedContinuity = { ...continuity, owner: _findFocusAbortController.signal,
-        searchGeneration: _searchGeneration, phase: "ready" };
+        searchGeneration: _searchGeneration,
+        historyFocusIntent: continuity.fallback === "top" ? get()._focusIntent : undefined, phase: "ready" };
     }
     if (ownedContinuity?.fallback === "top" && hasPendingSearch(get())) {
       set({ _searchContinuity: { ...ownedContinuity, phase: "pending" }, _phantomFocusImageId: null,

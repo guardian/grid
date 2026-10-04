@@ -840,7 +840,6 @@ export function ImageGrid({ handleRange }: ImageGridProps = {}) {
 
   useReturnFromDetail({
     imageParam: searchParams.image,
-    focusedImageId,
     setFocusedImageId,
     findImageIndex,
     virtualizer,

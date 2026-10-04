@@ -184,6 +184,13 @@ does not rebase it. Ordinary close to the marked origin retains native placement
 or centres the last-viewed image after traversal. Multi-entry GO elsewhere and
 unrelated native detail re-entry use destination restoration instead.
 
+`lib/detail-return.ts` is the shared session-entry authority for the list return
+hook and detail swipe preparation. Reload captures historical entry identity,
+not the image at component mount; same-key cold synthesis can finalize the
+origin without changing that entry image. Fresh list-to-detail opening, including
+Forward re-entry, preserves the established new-session boundary at the reopened
+image. These markers do not add independent focus/viewport snapshot fields.
+
 ## Snapshot system — position preservation across history
 
 ### Snapshot shape
@@ -323,8 +330,16 @@ guard; neither path treats ordinary buffer growth as new placement authority.
 **Case A — Back from image detail (same search context):**
 When returning to that marked detail entry's origin, skip re-search/restore and
 preserve the laid-out list. `useReturnFromDetail` sets last-viewed focus and centres
-only after traversal. Its queued callback is cancelled on entry change; ownership
-guards also reject deliberately delivered obsolete work. GO to another entry
+only after traversal. An early close keeps its target through existing pending
+list restoration; publication schedules a placement frame when loading has
+settled and the target is available. It re-reads the current index and geometry,
+does no extra data lookup, and never scrolls an original-image return.
+Search generation, origin/history key, `_focusIntent`, reopening and cleanup
+reject obsolete work, including a deliberately delivered cancelled callback.
+Passive focus publication does not count as user input. Cursor restoration exposes
+its pending signal for detail remount reuse, and guards focus/placement independently
+of useful data publication. Destination-history publication uses the current
+adopted owner's focus-intent capture, also for finite AI. GO to another entry
 instead restores that destination's snapshot.
 
 **Case B — Back to a different search context:**

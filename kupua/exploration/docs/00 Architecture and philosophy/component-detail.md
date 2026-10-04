@@ -219,14 +219,23 @@ Shared prev/next navigation for ImageDetail and FullscreenPreview. Works uniform
 ## Return from Detail (`hooks/useReturnFromDetail.ts`)
 
 Handles detail close for ImageTable and ImageGrid. The immutable detail-entry image is retained
-in history state across traversal/reload. Closing on that original image preserves native list
+in history state across traversal/reload. `lib/detail-return.ts` supplies that session identity
+and one native/centre target policy to both this hook and swipe preparation.
+Closing on that original image preserves native list
 placement; closing after traversal centres the last-viewed image with current geometry and the
 appropriate focus mode. Marked entries carry their originating list key: return acts
 only for that origin, while unrelated native destinations restore their snapshot.
 Marked present-to-present entry switches adopt stored destination entry-image
 identity; same-entry traversal does not. Unmarked old detail keeps compatibility.
-Deferred work is cancelled/guarded against newer entry/search/focus or unmount;
-Home retains owned suppression. It does not unconditionally re-centre every close.
+Fresh opening/Forward re-entry starts a new session at the reopened image.
+Close records last-viewed focus without waiting for list readiness, then retains
+an owned target through a store-publication subscription. Publication schedules
+a frame, not repeated reads or a polling loop; loading/target absence defers
+placement until later publication. Traversed placement uses current index and
+grid/table geometry (sticky header included); native placement is scroll-free.
+Generation, history/origin, `_focusIntent`, reopening and unmount cancel or guard
+obsolete work. Internal focus writes do not advance user intent; newer input,
+including same-ID focus or clear, wins. Home retains owned suppression.
 
 ## Prefetch Pipeline (`lib/image-prefetch.ts`)
 
@@ -407,6 +416,15 @@ Restoration tracks the last handled image ID. Finding that image in the buffer o
 attempting its cached-cursor restore suppresses repeat restoration when it later
 leaves the buffer. A distinct missing cached image can still restore during the same
 mounted overlay lifetime; the cached cursor and offset are passed through unchanged.
+
+Remount joins the search store's `_cursorRestore` signal when that image already
+owns cursor, cursorless or fallback restoration. Cancellation, replacement search
+and direct successor seek retire stale descriptors synchronously. Loading remains
+useful independently of presentation: late data can publish, but cursor/fallback
+and destination-history focus compare captured `_focusIntent`. Each adopted
+history owner captures its own intent, including finite-AI completion.
+Swipe preparation uses the historical session entry rather than mount identity;
+returning to original A after reload on B adds no swipe-preparation displacement.
 
 For a non-resident ID, ImageDetail calls the app's `getById(id, signal)` and stores image,
 enrichment and failure together with that requested ID. Identity changes or becoming resident

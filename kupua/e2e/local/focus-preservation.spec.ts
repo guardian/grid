@@ -10,7 +10,7 @@
  *   npx playwright test e2e/local/focus-preservation.spec.ts --headed
  */
 
-import { test, expect } from "../shared/helpers";
+import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 
 // Pin to explicit focus mode — these tests validate focus-ring behaviour,
 // sort-around-focus, and neighbour fallback which are explicit-mode features.
@@ -82,43 +82,49 @@ test.describe("AI continuity L39", () => {
           const lifecycle = (window as any).__kupua_getSearchLifecycle__();
           return !state.loading && lifecycle.started === lifecycle.settled;
         });
-        await page.evaluate(async transport => {
-          const store = (window as any).__kupua_store__;
-          const configPath = "/src/dal/es-config.ts";
-          if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("AI continuity fixture requires local ES");
-          const mockPath = "/src/dal/mock-data-source.ts";
-          const esPath = "/src/dal/es-adapter.ts";
-          const apiPath = "/src/dal/api-data-source.ts";
-          const prefsPath = "/src/stores/ui-prefs-store.ts";
-          (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("phantom");
-          const source = new (await import(mockPath)).MockDataSource(800);
-          const adapter = transport === "media-api" ? new (await import(apiPath)).ApiDataSource()
-            : new (await import(esPath)).ElasticsearchDataSource();
-          adapter.countWithTickers = source.countWithTickers.bind(source);
-          source.searchByAi = adapter.searchByAi.bind(adapter);
-          const hits = (await source.getByIds(Array.from({ length: 80 }, (_, index) => `img-${400 + index}`))).reverse();
-          if ((window as any).__kupua_store__ !== store) throw new Error("AI fixture imports replaced the mounted store");
-          const originalFetch = window.fetch;
-          const fixture = { originalSource: store.getState().dataSource, originalFetch,
-            aiRequests: 0, targetId: null as string | null, targetTop: 0, work: null as Promise<void> | null };
-          (window as any).__aiContinuity = fixture;
-          window.fetch = async (input, init) => {
-            const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.origin);
-            if (url.pathname === "/bedrock/embed") return Response.json({ embedding: Array(256).fill(0) });
-            const aiRead = url.pathname === "/api/images" && url.searchParams.get("useAISearch") === "true"
-              || url.pathname.startsWith("/es/") && init?.body && JSON.parse(String(init.body)).knn;
-            if (aiRead) {
-              fixture.aiRequests++;
-              return Response.json(transport === "media-api"
-                ? { data: hits.map((image: any) => ({ data: { ...image, cost: "free", valid: true } })), total: 800 }
-                : { hits: { hits: hits.map((image: any, index: number) => ({ _id: image.id, _source: image, _score: 80 - index })) } });
-            }
-            return originalFetch(input, init);
-          };
-          store.setState({ dataSource: source, focusedImageId: null });
-          fixture.work = store.getState().search();
-          await fixture.work;
+        const setup = await page.evaluateHandle(transport => {
+          const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+          job.pending = (async () => {
+            const store = (window as any).__kupua_store__;
+            const configPath = "/src/dal/es-config.ts";
+            if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("AI continuity fixture requires local ES");
+            const mockPath = "/src/dal/mock-data-source.ts";
+            const esPath = "/src/dal/es-adapter.ts";
+            const apiPath = "/src/dal/api-data-source.ts";
+            const prefsPath = "/src/stores/ui-prefs-store.ts";
+            (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("phantom");
+            const source = new (await import(mockPath)).MockDataSource(800);
+            const adapter = transport === "media-api" ? new (await import(apiPath)).ApiDataSource()
+              : new (await import(esPath)).ElasticsearchDataSource();
+            adapter.countWithTickers = source.countWithTickers.bind(source);
+            source.searchByAi = adapter.searchByAi.bind(adapter);
+            const hits = (await source.getByIds(Array.from({ length: 80 }, (_, index) => `img-${400 + index}`))).reverse();
+            if ((window as any).__kupua_store__ !== store) throw new Error("AI fixture imports replaced the mounted store");
+            const originalFetch = window.fetch;
+            const fixture = { originalSource: store.getState().dataSource, originalFetch,
+              aiRequests: 0, targetId: null as string | null, targetTop: 0, work: null as Promise<void> | null };
+            (window as any).__aiContinuity = fixture;
+            window.fetch = async (input, init) => {
+              const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.origin);
+              if (url.pathname === "/bedrock/embed") return Response.json({ embedding: Array(256).fill(0) });
+              const aiRead = url.pathname === "/api/images" && url.searchParams.get("useAISearch") === "true"
+                || url.pathname.startsWith("/es/") && init?.body && JSON.parse(String(init.body)).knn;
+              if (aiRead) {
+                fixture.aiRequests++;
+                return Response.json(transport === "media-api"
+                  ? { data: hits.map((image: any) => ({ data: { ...image, cost: "free", valid: true } })), total: 800 }
+                  : { hits: { hits: hits.map((image: any, index: number) => ({ _id: image.id, _source: image, _score: 80 - index })) } });
+              }
+              return originalFetch(input, init);
+            };
+            store.setState({ dataSource: source, focusedImageId: null });
+            fixture.work = store.getState().search();
+            await fixture.work;
+          })();
+          job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+          return job;
         }, transport);
+        await waitForFixtureSetup(page, setup);
         await page.waitForFunction(() => (window as any).__kupua_store__.getState().results.length === 800);
         await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
         await page.getByRole("searchbox", { name: "AI image search query" }).fill("fixture continuity");

@@ -17,6 +17,28 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - Owned pending detail return and shared session identity
+
+  B9 close retains the last-viewed target through existing pending list restoration.
+  Publication schedules owned placement with current grid/table geometry, without
+  polling or a duplicate read path. Original-image return stays native; genuine
+  traversal centres. B12 swipe preparation and final close use one history-backed
+  session entry, so reload on B followed by return to original A adds no displacement.
+  Fresh opening and Forward preserve their established new-session boundary.
+
+  Focus intent separates user input from passive restoration. Same-ID nonresident
+  input retains its known offset, and off-buffer Arrow/Page records intent before
+  asynchronous snap-back even before total publication. Cursor/cursorless/fallback
+  restoration exposes its existing pending owner for remount reuse; search,
+  cancellation and successor seek retire obsolete descriptors synchronously.
+  Late data can remain useful without reclaiming focus/placement. Each adopted
+  history presentation owner captures its own intent, including finite AI.
+
+  Controlled E2E setup at the Home-density, selection-panel and L39 AI sites uses
+  retained job handles and synchronous readiness rather than returning setup
+  promises to Chromium. Setup rejection propagates and handles are disposed;
+  no setup retries or weaker workflow assertions are introduced.
+
   ### 3 October 2026 - Destination-owned history and independent per-tab density
 
   Back/Forward derives target, placement, represented focus/NONE, top fallback and

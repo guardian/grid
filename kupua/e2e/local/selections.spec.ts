@@ -9,7 +9,7 @@
  *   npm --prefix kupua run test:e2e -- selections.spec.ts --headed
  */
 
-import { test, expect, waitForStableNthImageId } from "../shared/helpers";
+import { test, expect, waitForStableNthImageId, waitForFixtureSetup } from "../shared/helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers — read selection store state
@@ -435,6 +435,54 @@ async function waitForReconcile(page: Parameters<typeof test>[1]["page"], timeou
 }
 
 test.describe("S4 -- multi-image Details panel", () => {
+  test("async fixture setup survives browser garbage collection", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    let releaseModule!: () => void;
+    let moduleRequested!: () => void;
+    const moduleGate = new Promise<void>((resolve) => { releaseModule = resolve; });
+    const requested = new Promise<void>((resolve) => { moduleRequested = resolve; });
+    await page.route("**/src/dal/mock-data-source.ts?fixture-gc", async (route) => {
+      moduleRequested();
+      await moduleGate;
+      await route.continue();
+    });
+    const setup = await page.evaluateHandle(() => {
+      const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+      job.pending = (async () => {
+        const path = "/src/dal/mock-data-source.ts?fixture-gc";
+        const { MockDataSource } = await import(path);
+        (window as any).__fixtureGcImageId = (await new MockDataSource(1).getById("img-0")).image.id;
+      })();
+      job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+      return job;
+    });
+    await requested;
+    expect(await setup.evaluate((job) => job.complete)).toBe(false);
+    const session = await page.context().newCDPSession(page);
+    try {
+      await session.send("HeapProfiler.collectGarbage");
+    } finally {
+      releaseModule();
+      await session.detach();
+    }
+    await waitForFixtureSetup(page, setup);
+    expect(await page.evaluate(() => (window as any).__fixtureGcImageId)).toBe("img-0");
+    await expect(setup.evaluate((job) => job.complete)).rejects.toThrow("jsHandle.evaluate: Target page, context or browser has been closed");
+    expect(page.isClosed()).toBe(false);
+  });
+
+  test("async fixture setup reports rejection and releases its handle", async ({ page }) => {
+    const setup = await page.evaluateHandle(() => {
+      const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+      job.pending = Promise.reject(new Error("Controlled fixture setup failure"));
+      job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+      return job;
+    });
+    await expect(waitForFixtureSetup(page, setup)).rejects.toThrow("Controlled fixture setup failure");
+    await expect(setup.evaluate((job) => job.complete)).rejects.toThrow("jsHandle.evaluate: Target page, context or browser has been closed");
+    expect(page.isClosed()).toBe(false);
+  });
+
   test("cached scalar add retains empty members in the published panel", async ({ kupua, page }) => {
     await page.route("**/*", (route) => route.request().resourceType() === "image"
       ? route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN2kAAAAASUVORK5CYII=", "base64") })
@@ -490,77 +538,83 @@ test.describe("S4 -- multi-image Details panel", () => {
       await kupua.page.locator('button[aria-label*="Details panel"]').click();
       await kupua.page.getByRole("button", { name: "Usages", exact: true }).click();
 
-      await kupua.page.evaluate(async (initialCount) => {
-        const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
-        const template = (await new MockDataSource(1).getById("img-0")).image;
-        const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
-          ...template,
-          id: `panel-snapshot-${index}`,
-          metadata: {
-            ...template.metadata,
-            description: "Stable selection description",
-            credit: index < initialCount ? "Shared selection credit" : "Different selection credit",
-          },
-          usages: index < initialCount ? [{
-            id: `panel-usage-${index}`, platform: "digital", status: "published",
-            title: "Selection panel usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
-          }] : [],
-          leases: { leases: index < initialCount ? [{
-            id: `panel-lease-${index}`, access: "allow-use",
-            startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
-          }] : [] },
-        }));
-        const addedId = images[initialCount].id;
-        let releaseMetadata = () => {};
-        let settleLateFetch = () => {};
-        const metadataGate = new Promise<void>((resolve) => { releaseMetadata = resolve; });
-        const callbacks: IdleRequestCallback[] = [];
-        const originalIdle = window.requestIdleCallback;
-        const flush = () => {
-          for (const callback of callbacks.splice(0)) callback({ didTimeout: false, timeRemaining: () => 50 });
-        };
-        const selection = (window as any).__kupua_selection_store__;
-        selection.setState({ dataSource: {
-          ...selection.getState().dataSource,
-          getByIds: async (ids: string[]) => {
-            if (ids.includes(addedId)) await metadataGate;
-            return images.filter(image => ids.includes(image.id));
-          },
-        } });
-        (window as any).__selection_panel_fixture__ = {
-          addedId,
-          releaseMetadata,
-          flush,
-          hold: () => {
-            window.requestIdleCallback = (callback) => {
-              callbacks.push(callback);
-              return callbacks.length;
-            };
-          },
-          beginLateFetch: () => {
-            const fixture = (window as any).__selection_panel_fixture__;
-            const lateId = "panel-late-selection";
-            const request = new Promise<typeof images>((resolve, reject) => {
-              fixture.resolveLate = () => resolve([{ ...images[0], id: lateId }]);
-              fixture.rejectLate = () => reject(new Error("Expected metadata absence"));
-              settleLateFetch = () => resolve([]);
-            });
-            selection.setState({ dataSource: {
-              ...selection.getState().dataSource,
-              getByIds: () => request,
-            } });
-            selection.getState().add([lateId]);
-          },
-          cleanup: () => {
-            window.requestIdleCallback = originalIdle;
-            releaseMetadata();
-            settleLateFetch();
-            flush();
-            delete (window as any).__selection_panel_fixture__;
-          },
-        };
-        selection.getState().add(images.slice(0, initialCount).map(image => image.id));
+      const setup = await kupua.page.evaluateHandle((initialCount) => {
+        const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+        job.pending = (async () => {
+          const { MockDataSource } = await import("/src/dal/mock-data-source.ts");
+          const template = (await new MockDataSource(1).getById("img-0")).image;
+          const images = Array.from({ length: initialCount + 1 }, (_, index) => ({
+            ...template,
+            id: `panel-snapshot-${index}`,
+            metadata: {
+              ...template.metadata,
+              description: "Stable selection description",
+              credit: index < initialCount ? "Shared selection credit" : "Different selection credit",
+            },
+            usages: index < initialCount ? [{
+              id: `panel-usage-${index}`, platform: "digital", status: "published",
+              title: "Selection panel usage", references: [], dateAdded: "2026-01-01T00:00:00.000Z",
+            }] : [],
+            leases: { leases: index < initialCount ? [{
+              id: `panel-lease-${index}`, access: "allow-use",
+              startDate: "2020-01-01T00:00:00.000Z", endDate: "2099-01-01T00:00:00.000Z",
+            }] : [] },
+          }));
+          const addedId = images[initialCount].id;
+          let releaseMetadata = () => {};
+          let settleLateFetch = () => {};
+          const metadataGate = new Promise<void>((resolve) => { releaseMetadata = resolve; });
+          const callbacks: IdleRequestCallback[] = [];
+          const originalIdle = window.requestIdleCallback;
+          const flush = () => {
+            for (const callback of callbacks.splice(0)) callback({ didTimeout: false, timeRemaining: () => 50 });
+          };
+          const selection = (window as any).__kupua_selection_store__;
+          selection.setState({ dataSource: {
+            ...selection.getState().dataSource,
+            getByIds: async (ids: string[]) => {
+              if (ids.includes(addedId)) await metadataGate;
+              return images.filter(image => ids.includes(image.id));
+            },
+          } });
+          (window as any).__selection_panel_fixture__ = {
+            addedId,
+            releaseMetadata,
+            flush,
+            hold: () => {
+              window.requestIdleCallback = (callback) => {
+                callbacks.push(callback);
+                return callbacks.length;
+              };
+            },
+            beginLateFetch: () => {
+              const fixture = (window as any).__selection_panel_fixture__;
+              const lateId = "panel-late-selection";
+              const request = new Promise<typeof images>((resolve, reject) => {
+                fixture.resolveLate = () => resolve([{ ...images[0], id: lateId }]);
+                fixture.rejectLate = () => reject(new Error("Expected metadata absence"));
+                settleLateFetch = () => resolve([]);
+              });
+              selection.setState({ dataSource: {
+                ...selection.getState().dataSource,
+                getByIds: () => request,
+              } });
+              selection.getState().add([lateId]);
+            },
+            cleanup: () => {
+              window.requestIdleCallback = originalIdle;
+              releaseMetadata();
+              settleLateFetch();
+              flush();
+              delete (window as any).__selection_panel_fixture__;
+            },
+          };
+          selection.getState().add(images.slice(0, initialCount).map(image => image.id));
+        })();
+        job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+        return job;
       }, initialCount);
+      await waitForFixtureSetup(kupua.page, setup);
 
       try {
         await kupua.page.waitForFunction(() => {

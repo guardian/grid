@@ -3104,6 +3104,27 @@ describe("KUP-025 restore tuple ownership", () => {
     }
   });
 
+  it.each([false, true])("direct successor seek retires pending restore before obsolete completion (reject=%s)", async (reject) => {
+    const test = await fixture();
+    const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
+    try {
+      useSearchStore.setState({ dataSource: new MockDataSource(10_000) });
+      await useSearchStore.getInitialState().seek(2500);
+      await drain();
+      expect(state()._cursorRestore).toBeNull();
+      const current = state();
+      if (reject) test.lookup.reject(new Error("obsolete lookup"));
+      test.release();
+      await operation;
+      expect(state()).toBe(current);
+      expect(recovery).not.toHaveBeenCalled();
+      expect(warning).not.toHaveBeenCalled();
+    } finally {
+      test.release();
+      await operation;
+    }
+  });
+
   it.each([false, true])("discards superseded unchanged-rank completion (reject=%s)", async (reject) => {
     const test = await fixture();
     const operation = actions().restoreAroundCursor("img-6100", test.saved, 123, true);
@@ -3179,7 +3200,7 @@ describe("KUP-025 restore tuple ownership", () => {
       if (failed === "backward") test.backwardPage.reject(new Error("selected backward page"));
       else test.backwardPage.resolve(test.backwardResult);
       await operation;
-      expect(recovery).toHaveBeenCalledExactlyOnceWith(123);
+      expect(recovery).toHaveBeenCalledExactlyOnceWith(123, "seek", undefined, "navigation", initial._focusIntent);
       expect(state().results).toBe(initial.results);
       expect(state()._seekGeneration).toBe(test.generation);
       expect(state().focusedImageId).toBeNull();

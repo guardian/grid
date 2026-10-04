@@ -18,8 +18,10 @@ test.describe.configure({ mode: "parallel" });
 
 // Pin to explicit focus mode — tests validate focus ring, Enter-to-open,
 // return-from-detail with focus, and fullscreen entry which are explicit-only.
-test.beforeEach(async ({ kupua }) => {
-  await kupua.ensureExplicitMode();
+test.beforeEach(async ({ kupua }, testInfo) => {
+  if (!testInfo.titlePath.some(part => part === "B9 delayed detail return" || part === "B12 reload gesture identity")) {
+    await kupua.ensureExplicitMode();
+  }
 });
 
 test("top-level date bounds exclude equality from results, counts and ranks", async ({ kupua }) => {
@@ -1431,6 +1433,226 @@ test.describe("Table image detail — return placement", () => {
     expect(placement).toMatchObject({ imageId: lastViewedId, visible: true });
     expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
   });
+});
+
+async function openVisibleDetail(kupua: import("../shared/helpers").KupuaHelpers, mode: "explicit" | "phantom") {
+  const page = kupua.page;
+  const handle = await page.waitForFunction(() => {
+    const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]');
+    if (!container) return false;
+    const bounds = container.getBoundingClientRect();
+    const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+    for (const cell of container.querySelectorAll<HTMLElement>('[data-image-id]')) {
+      const rect = cell.getBoundingClientRect();
+      const x = rect.left + 48;
+      const y = rect.top + (cell.getAttribute('role') === 'row' ? 16 : 80);
+      if (x > bounds.left && x < bounds.right && y > top + 20 && y < bounds.bottom
+        && document.elementFromPoint(x, y)?.closest('[data-image-id]') === cell) return { imageId: cell.dataset.imageId!, x, y };
+    }
+    return false;
+  });
+  const point = await handle.jsonValue() as { imageId: string; x: number; y: number };
+  await handle.dispose();
+  await page.mouse.click(point.x, point.y, { clickCount: mode === "explicit" ? 2 : 1 });
+  await expect(page.locator('[data-detail-image-id]')).toHaveAttribute('data-detail-image-id', point.imageId);
+  return point.imageId;
+}
+
+test.describe("B9 delayed detail return", () => {
+  for (const view of ["grid", "table"] as const) {
+    for (const mode of ["explicit", "phantom"] as const) {
+      for (const variant of ["early-traversed", "settled-traversed", "early-original", "settled-original", "early-keyboard", "early-clear"] as const) {
+        if (variant === "early-keyboard" && mode !== "explicit") continue;
+        if (variant === "early-clear" && (mode !== "explicit" || view !== "grid")) continue;
+        test(`${view} ${mode} ${variant}: reload close reuses pending restoration`, async ({ kupua, page }) => {
+          if (mode === "phantom") await kupua.ensurePhantomMode();
+          else await kupua.ensureExplicitMode();
+          await kupua.startSearch("", view);
+          await kupua.seekTo(0.5);
+          const entry = await openVisibleDetail(kupua, mode);
+          const original = variant.endsWith("original");
+          const settled = variant.startsWith("settled");
+          const nativePlacement = await kupua.waitForUsableViewportPlacement(entry);
+          if (!original) await kupua.detailNextAndWait();
+          const target = (await kupua.getDetailImageId())!;
+          expect(target === entry).toBe(original);
+          await page.addInitScript((target) => {
+            let store: any;
+            const probe = (window as any).__detailReload = { ready: 0, targetReads: 0, released: false,
+              release: () => {}, cleanup: () => {} };
+            Object.defineProperty(window, "__kupua_store__", { configurable: true,
+              get: () => store,
+              set: (value) => {
+                store = value;
+                const source = store.getState().dataSource;
+                const original = source.searchAfter;
+                let release!: () => void;
+                const pending = new Promise<void>(resolve => { release = resolve; });
+                probe.release = () => { probe.released = true; release(); };
+                source.searchAfter = async function (...args: any[]) {
+                  const result = await original.apply(this, args);
+                  if (args[0].ids && args[0].length === 1) {
+                    if (args[0].ids === target) probe.targetReads += 1;
+                    probe.ready += 1;
+                    await pending;
+                  }
+                  return result;
+                };
+                probe.cleanup = () => { probe.release(); source.searchAfter = original; };
+              },
+            });
+          }, target);
+          await page.reload({ waitUntil: "load" });
+          try {
+            await page.waitForFunction(target => {
+              const state = (window as any).__kupua_store__?.getState();
+              return (window as any).__detailReload?.ready > 0 && state?.loading
+                && !state.imagePositions.has(target)
+                && document.querySelector(`[data-detail-image-id="${CSS.escape(target)}"]`);
+            }, target);
+            const restorationReads = await page.evaluate(() => ({
+              lookups: (window as any).__detailReload.ready,
+              targetLookups: (window as any).__detailReload.targetReads,
+            }));
+            expect(restorationReads.lookups).toBe(1);
+            await kupua.assertDensity(view);
+            expect(await page.evaluate(() => history.state._detailEntryImageId)).toBe(entry);
+            if (settled) {
+              await page.evaluate(() => (window as any).__detailReload.release());
+              await page.waitForFunction(target => {
+                const state = (window as any).__kupua_store__.getState();
+                return !state.loading && state.imagePositions.has(target);
+              }, target);
+              await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+            }
+            await page.getByRole("button", { name: /Back to search/ }).click();
+            await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+            if (!settled) {
+              expect(await page.evaluate(() => (window as any).__kupua_store__.getState().loading)).toBe(true);
+              if (variant === "early-keyboard") {
+                await page.waitForFunction(target => (window as any).__kupua_store__.getState().focusedImageId === target, target);
+                await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+                await page.keyboard.press("ArrowDown");
+                expect(await page.evaluate(() => (window as any).__kupua_store__.getState()._pendingFocusDelta)).toBeGreaterThan(0);
+              }
+              if (variant === "early-clear") {
+                await page.waitForFunction(target => (window as any).__kupua_store__.getState().focusedImageId === target, target);
+                await page.locator('[aria-label="Image results grid"]').click({ position: { x: 10, y: 10 } });
+                expect(await kupua.getFocusedImageId()).toBeNull();
+              }
+              await page.evaluate(() => (window as any).__detailReload.release());
+            }
+            if (variant === "early-clear") {
+              await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+              await page.evaluate(async () => {
+                for (let frame = 0; frame < 12; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+              });
+              expect(await kupua.getFocusedImageId()).toBeNull();
+              expect(await kupua.getScrollTop()).toBe(0);
+              await expect(page.locator('[aria-label="Image results grid"] [data-image-id].ring-2')).toHaveCount(0);
+              expect(await page.evaluate(() => (window as any).__detailReload.ready)).toBe(1);
+              return;
+            }
+            if (variant === "early-keyboard") {
+              await page.waitForFunction(target => {
+                const state = (window as any).__kupua_store__.getState();
+                return !state.loading && state._pendingFocusDelta === null
+                  && state.focusedImageId && state.focusedImageId !== target;
+              }, target);
+              const focused = (await kupua.getFocusedImageId())!;
+              const placement = await kupua.waitForUsableViewportPlacement(focused);
+              expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(1);
+              const delta = await page.evaluate(async target => {
+                const state = (window as any).__kupua_store__.getState();
+                const path = "/src/lib/scroll-geometry-ref.ts";
+                return { actual: state.imagePositions.get(state.focusedImageId) - state.imagePositions.get(target),
+                  expected: (await import(path)).getScrollGeometry().columns };
+              }, target);
+              expect(delta.actual).toBe(delta.expected);
+              expect(await page.evaluate(() => (window as any).__detailReload.ready)).toBe(2);
+              await expect(page.locator(`[aria-label="Image results ${view}"] [data-image-id].${view === "table" ? "outline-2" : "ring-2"}`))
+                .toHaveAttribute("data-image-id", focused);
+              return;
+            }
+            await expect.poll(() => page.evaluate(target => {
+              const state = (window as any).__kupua_store__.getState();
+              return { loading: state.loading, targetResident: state.imagePositions.has(target),
+                targetFocused: state.focusedImageId === target };
+            }, target)).toEqual({ loading: false, targetResident: true, targetFocused: true });
+            const placement = await kupua.waitForUsableViewportPlacement(target);
+            if (original) expect(Math.abs(placement.signedCenterDistance - nativePlacement.signedCenterDistance)).toBeLessThan(1);
+            else expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(1);
+            await kupua.assertDensity(view);
+            expect(await page.evaluate(() => ({ lookups: (window as any).__detailReload.ready,
+              targetLookups: (window as any).__detailReload.targetReads }))).toEqual(restorationReads);
+            const rings = page.locator(`[aria-label="Image results ${view}"] [data-image-id].${view === "table" ? "outline-2" : "ring-2"}`);
+            await expect(rings).toHaveCount(mode === "explicit" ? 1 : 0);
+            if (mode === "explicit") await expect(rings).toHaveAttribute("data-image-id", target);
+            await kupua.assertPositionsConsistent();
+          } finally {
+            await page.evaluate(() => (window as any).__detailReload?.cleanup());
+          }
+        });
+      }
+    }
+  }
+});
+
+test.describe("B12 reload gesture identity", () => {
+  for (const view of ["grid", "table"] as const) {
+    for (const outcome of ["cancel", "complete", "backspace", "traversed"] as const) {
+      test(`${view} ${outcome}: preparation and final return share original entry`, async ({ kupua, page }) => {
+        await page.route("**/*", route => route.request().resourceType() === "image"
+          ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+          : route.fallback());
+        await kupua.ensurePhantomMode();
+        await kupua.startSearch("", view);
+        await kupua.seekTo(0.5);
+        const entry = await openVisibleDetail(kupua, "phantom");
+        await kupua.detailNextAndWait();
+        const traversed = (await kupua.getDetailImageId())!;
+        await page.reload({ waitUntil: "load" });
+        await page.waitForFunction(target => {
+          const state = (window as any).__kupua_store__?.getState();
+          return state && !state.loading && state.imagePositions.has(target)
+            && document.querySelector(`[data-detail-image-id="${CSS.escape(target)}"]`);
+        }, traversed);
+        await page.evaluate(async () => {
+          const path = "/src/stores/ui-prefs-store.ts";
+          (await import(path)).useUiPrefsStore.setState({ _pointerCoarse: true });
+        });
+        if (outcome !== "traversed") await kupua.detailPrevAndWait();
+        expect(await kupua.getDetailImageId()).toBe(outcome === "traversed" ? traversed : entry);
+        const before = await kupua.getScrollTop();
+        if (outcome === "backspace") await kupua.closeDetailViaBackspace();
+        else {
+          await page.evaluate(outcome => {
+            const container = document.querySelector('[data-detail-image-id] .touch-none');
+            if (!container) throw new Error("Dismiss image surface absent");
+            const dispatch = (type: string, vertical: number, timestamp: number) => {
+              const event = new Event(type, { bubbles: true, cancelable: true });
+              Object.defineProperties(event, { touches: { value: type === "touchend" ? [] : [{ clientX: 100, clientY: vertical }] },
+                timeStamp: { value: timestamp } });
+              container.dispatchEvent(event);
+            };
+            dispatch("touchstart", 100, 0);
+            dispatch("touchmove", outcome === "cancel" ? 125 : 300, 500);
+            dispatch("touchend", 125, 600);
+          }, outcome);
+          if (outcome === "cancel") {
+            await expect.poll(() => page.locator("[data-detail-image-id]").evaluate(element => (element as HTMLElement).style.transform)).toBe("");
+          } else await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+        }
+        if (outcome === "traversed") {
+          const placement = await kupua.waitForUsableViewportPlacement(traversed);
+          expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(1);
+        } else expect(await kupua.getScrollTop()).toBe(before);
+        if (outcome !== "cancel") expect(await kupua.getFocusedImageId()).toBe(outcome === "traversed" ? traversed : entry);
+        await expect(page.locator(`[aria-label="Image results ${view}"] [data-image-id].${view === "table" ? "outline-2" : "ring-2"}`)).toHaveCount(0);
+        await kupua.assertDensity(view);
+      });
+    }
+  }
 });
 
 test.describe("KUP-018 queued detail return", () => {

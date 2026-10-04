@@ -19,10 +19,11 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 // ---------------------------------------------------------------------------
 
 // vi.mock factories are hoisted; variables they reference must also be hoisted.
-const { mockStoreSetState, mockSearchGeneration, mockStoreState } = vi.hoisted(() => ({
+const { mockStoreSetState, mockSearchGeneration, mockStoreState, subscribers } = vi.hoisted(() => ({
   mockStoreSetState: vi.fn(),
   mockSearchGeneration: vi.fn(() => 0),
-  mockStoreState: { focusedImageId: null as string | null },
+  mockStoreState: { focusedImageId: null as string | null, _focusIntent: 0, loading: false },
+  subscribers: new Set<() => void>(),
 }));
 
 let mockFocusMode: "explicit" | "phantom" = "explicit";
@@ -39,6 +40,10 @@ vi.mock("@/stores/search-store", () => ({
     {
       getState: () => mockStoreState,
       setState: mockStoreSetState,
+      subscribe: (callback: () => void) => {
+        subscribers.add(callback);
+        return () => subscribers.delete(callback);
+      },
     },
   ),
 }));
@@ -63,7 +68,7 @@ function makeVirtualizer(): Virtualizer<HTMLDivElement, Element> {
 interface Props {
   imageParam: string | undefined;
   focusedImageId: string | null;
-  setFocusedImageId: (id: string | null) => void;
+  setFocusedImageId: (id: string | null, recordIntent?: boolean) => void;
   findImageIndex: (id: string) => number;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   flatIndexToRow: (flatIndex: number) => number;
@@ -71,7 +76,7 @@ interface Props {
 }
 
 function makeProps(overrides: Partial<Props> = {}): Props {
-  return {
+  const props = {
     imageParam: "img-1",
     focusedImageId: null,
     setFocusedImageId: vi.fn(),
@@ -80,6 +85,12 @@ function makeProps(overrides: Partial<Props> = {}): Props {
     flatIndexToRow: vi.fn().mockReturnValue(0),
     ...overrides,
   };
+  const setFocus = props.setFocusedImageId;
+  props.setFocusedImageId = vi.fn((imageId: string | null, recordIntent?: boolean) => {
+    mockStoreState.focusedImageId = imageId;
+    setFocus(imageId, recordIntent);
+  });
+  return props;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +102,9 @@ beforeEach(() => {
   mockStoreSetState.mockClear();
   mockSearchGeneration.mockReturnValue(0);
   mockStoreState.focusedImageId = null;
+  mockStoreState._focusIntent = 0;
+  mockStoreState.loading = false;
+  subscribers.clear();
   history.replaceState({}, "");
   // Make requestAnimationFrame fire synchronously so scroll-centering
   // assertions don't need timer management.
@@ -151,7 +165,7 @@ describe("useReturnFromDetail — phantom mode", () => {
     });
 
     expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-1");
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-1", false);
   });
 
   it("emits a phantom pulse when detail closes in phantom mode", () => {
@@ -173,10 +187,7 @@ describe("useReturnFromDetail — phantom mode", () => {
 });
 
 describe("useReturnFromDetail — explicit mode", () => {
-  it("does NOT call setFocusedImageId when focusedImageId is null in explicit mode (intentional reset)", () => {
-    // The guard exists to protect against resetToHome: when something
-    // intentionally clears focusedImageId before the detail closes (e.g. logo
-    // click), we must not re-set it.  This only applies in explicit mode.
+  it("returns despite null reload focus; Home uses explicit suppression rather than null inference", () => {
     mockFocusMode = "explicit";
     const setFocusedImageId = vi.fn();
     const props = makeProps({ imageParam: "img-1", focusedImageId: null, setFocusedImageId });
@@ -189,7 +200,7 @@ describe("useReturnFromDetail — explicit mode", () => {
       rerender({ ...props, imageParam: undefined });
     });
 
-    expect(setFocusedImageId).not.toHaveBeenCalled();
+    expect(setFocusedImageId).toHaveBeenCalledExactlyOnceWith("img-1", false);
   });
 
   it("calls setFocusedImageId(wasViewing) when explicit mode has a non-null previous focus", () => {
@@ -210,7 +221,7 @@ describe("useReturnFromDetail — explicit mode", () => {
     });
 
     expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-1");
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-1", false);
   });
 
   it("scrolls to center when user navigated to a different image via prev/next in detail (explicit mode)", () => {
@@ -294,7 +305,7 @@ describe("useReturnFromDetail — explicit mode", () => {
     expect(scrollToIndex).not.toHaveBeenCalled();
   });
 
-  it("rebases entry identity when forward navigation starts a new detail session", () => {
+  it("reads destination entry identity when navigation starts a new detail session", () => {
     mockFocusMode = "explicit";
     history.replaceState({ _detailEntryImageId: "img-1" }, "");
     const findImageIndex = vi.fn().mockReturnValue(7);
@@ -311,6 +322,7 @@ describe("useReturnFromDetail — explicit mode", () => {
     });
 
     act(() => {
+      history.replaceState({ _detailEntryImageId: "img-2" }, "", "/search?image=img-2");
       rerender({ ...props, imageParam: "img-2" });
     });
     act(() => {
@@ -371,7 +383,7 @@ describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () =>
       rerender({ ...props, imageParam: undefined });
     });
     expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-2");
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-2", false);
   });
 
   it("stale flag from Home-on-grid must not suppress a later, unrelated detail close", () => {
@@ -416,7 +428,7 @@ describe("useReturnFromDetail — suppressReturnFromDetail (resetToHome)", () =>
     });
 
     expect(setFocusedImageId).toHaveBeenCalledOnce();
-    expect(setFocusedImageId).toHaveBeenCalledWith("img-K");
+    expect(setFocusedImageId).toHaveBeenCalledWith("img-K", false);
   });
 });
 
@@ -454,7 +466,7 @@ describe("KUP-018 queued return ownership and geometry", () => {
     const closed = { ...props, imageParam: undefined };
     act(() => view.rerender(closed));
     expect(frames.size).toBe(1);
-    expect(props.setFocusedImageId).toHaveBeenCalledExactlyOnceWith("img-2");
+    expect(props.setFocusedImageId).toHaveBeenCalledExactlyOnceWith("img-2", false);
     return { view, props, closed, scrollToIndex };
   }
 
@@ -474,8 +486,8 @@ describe("KUP-018 queued return ownership and geometry", () => {
         if (change === "dispose") fixture.view.unmount();
         if (change === "query") mockSearchGeneration.mockReturnValue(1);
         if (change === "history") history.replaceState({ ...history.state, kupuaKey: "new-entry" }, "");
-        if (change === "focus") mockStoreState.focusedImageId = "img-3";
-        if (change === "clear-focus") mockStoreState.focusedImageId = null;
+        if (change === "focus") { mockStoreState.focusedImageId = "img-3"; mockStoreState._focusIntent++; }
+        if (change === "clear-focus") { mockStoreState.focusedImageId = null; mockStoreState._focusIntent++; }
       });
       frame();
       expect(fixture.scrollToIndex).not.toHaveBeenCalled();

@@ -10,7 +10,7 @@
  * - Viewport/scroll position assertions
  */
 
-import { test as base, expect, type Page, type Locator, type CDPSession } from "@playwright/test";
+import { test as base, expect, type Page, type Locator, type CDPSession, type JSHandle } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Extended test fixture — adds `kupua` helper object to every test
@@ -41,6 +41,21 @@ export const test = base.extend<{ kupua: KupuaHelpers }>({
 });
 
 export { expect };
+
+export async function waitForFixtureSetup(
+  page: Page,
+  setup: JSHandle<{ complete: boolean; error: string | null }>,
+): Promise<void> {
+  try {
+    const ready = await page.waitForFunction((job) => {
+      if (job.error !== null) throw new Error(job.error);
+      return job.complete;
+    }, setup);
+    await ready.dispose();
+  } finally {
+    await setup.dispose();
+  }
+}
 
 /**
  * Poll the nth match of `selector` until the same `data-image-id` occupies

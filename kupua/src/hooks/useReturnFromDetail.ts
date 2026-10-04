@@ -19,7 +19,8 @@ import { useEffect, useRef } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
-import { getCurrentKupuaKey, getDetailOriginKupuaKey } from "@/lib/orchestration/history-key";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { captureDetailEntry, startDetailSession, chooseDetailReturn, type DetailReturnTarget, type DetailEntry } from "@/lib/detail-return";
 
 // ---------------------------------------------------------------------------
 // One-shot suppress flag — set by resetToHome() so useReturnFromDetail
@@ -48,11 +49,8 @@ interface ReturnFromDetailConfig {
   /** Current `image` URL search param (undefined when detail is closed). */
   imageParam: string | undefined;
 
-  /** Current focused image ID. */
-  focusedImageId: string | null;
-
   /** Set the focused image ID. */
-  setFocusedImageId: (id: string | null) => void;
+  setFocusedImageId: (id: string | null, recordIntent?: boolean) => void;
 
   /** Find the flat index of an image by ID, or -1. */
   findImageIndex: (imageId: string) => number;
@@ -69,46 +67,33 @@ interface ReturnFromDetailConfig {
    * for the sticky header.  When absent, falls back to scrollToIndex.
    */
   scrollRowToCenter?: (rowIdx: number) => void;
+  chooseReturn?: (entry: DetailEntry, imageId: string) => DetailReturnTarget;
 }
 
 export function useReturnFromDetail({
   imageParam,
-  focusedImageId,
   setFocusedImageId,
   findImageIndex,
   virtualizer,
   flatIndexToRow,
   scrollRowToCenter,
+  chooseReturn = chooseDetailReturn,
 }: ReturnFromDetailConfig): void {
   // Track previous image param to detect the closing transition.
   const prevImageParam = useRef(imageParam);
-  const detailOriginKeyRef = useRef(getDetailOriginKupuaKey());
   const entryKey = getCurrentKupuaKey();
-  const detailEntryKeyRef = useRef(entryKey);
-  const detailEntryImageIdRef = useRef<string | undefined>(
-    // Traversal uses replace navigation, so this immutable entry identity
-    // survives URL image changes and reloads in the current history entry.
-    // Fall back to the current image for old or cold-loaded entries.
-    (history.state as { _detailEntryImageId?: string } | null)?._detailEntryImageId
-      ?? imageParam,
-  );
-
-  // Track focusedImageId via ref to avoid re-running the effect when focus
-  // changes (we only want to fire on imageParam transitions).
-  const focusedImageIdRef = useRef(focusedImageId);
-  focusedImageIdRef.current = focusedImageId;
-  const callbacksRef = useRef({ findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId });
-  callbacksRef.current = { findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId };
+  const detailEntryRef = useRef(imageParam ? captureDetailEntry(imageParam) : null);
+  const callbacksRef = useRef({ findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId, chooseReturn });
+  callbacksRef.current = { findImageIndex, virtualizer, flatIndexToRow, scrollRowToCenter, setFocusedImageId, chooseReturn };
 
   useEffect(() => {
     const wasViewing = prevImageParam.current;
     prevImageParam.current = imageParam;
     if (imageParam && new URL(window.location.href).searchParams.get("image") === imageParam) {
-      detailOriginKeyRef.current = getDetailOriginKupuaKey();
-      if (wasViewing && detailOriginKeyRef.current && entryKey !== detailEntryKeyRef.current) {
-        detailEntryImageIdRef.current = (history.state as { _detailEntryImageId?: string } | null)?._detailEntryImageId ?? imageParam;
+      const entry = captureDetailEntry(imageParam);
+      if (entryKey !== detailEntryRef.current?.key || (!detailEntryRef.current?.originKey && entry.originKey)) {
+        detailEntryRef.current = entry;
       }
-      detailEntryKeyRef.current = entryKey;
     }
 
     // Opening transition: detail just opened fresh (was not viewing anything,
@@ -122,14 +107,7 @@ export function useReturnFromDetail({
     // eventual close.
     if (!wasViewing && imageParam) {
       _suppressReturnFromDetail = null;
-      // This hook remains mounted behind the detail overlay. An absent→present
-      // transition therefore starts a new detail session (including Forward),
-      // unlike a full-page reload where the hook mounts already present.
-      detailEntryImageIdRef.current = imageParam;
-      history.replaceState({
-        ...history.state,
-        _detailEntryImageId: imageParam,
-      }, "");
+      detailEntryRef.current = startDetailSession(imageParam);
       return;
     }
 
@@ -145,56 +123,67 @@ export function useReturnFromDetail({
       _suppressReturnFromDetail = null;
       return;
     }
-    if (detailOriginKeyRef.current && getCurrentKupuaKey() !== detailOriginKeyRef.current) return;
-
-    // If focusedImageId was cleared before the image param disappeared,
-    // something intentionally reset focus (e.g. resetToHome). Don't undo
-    // that by re-setting focus to the old image — it causes flashes when
-    // the Home logo navigates away from a deep detail view.
-    //
-    // Phantom mode may have no remembered focus, so the "intentional clear"
-    // signal does not establish permission to skip an ordinary close there.
-    // Skip the guard in phantom mode so we still trigger centring and the
-    // phantom pulse on close.
-    const previousFocus = focusedImageIdRef.current;
-    if (previousFocus === null && getEffectiveFocusMode() !== "phantom") return;
-
-    callbacksRef.current.setFocusedImageId(wasViewing);
+    const detailEntry = detailEntryRef.current;
+    if (!detailEntry || (detailEntry.originKey && entryKey !== detailEntry.originKey)) return;
+    const target = callbacksRef.current.chooseReturn(detailEntry, wasViewing);
+    callbacksRef.current.setFocusedImageId(target.imageId, false);
 
     // In phantom mode the focus ring is invisible — pulse the image so
     // the user understands why they're looking at this scroll position.
     if (getEffectiveFocusMode() === "phantom") {
-      useSearchStore.setState({ _phantomPulseImageId: wasViewing });
-      setTimeout(() => useSearchStore.setState({ _phantomPulseImageId: null }), 2500);
+      useSearchStore.setState({ _phantomPulseImageId: target.imageId });
+      setTimeout(() => {
+        if (useSearchStore.getState()._phantomPulseImageId === target.imageId) {
+          useSearchStore.setState({ _phantomPulseImageId: null });
+        }
+      }, 2500);
     }
 
     // If the user navigated to a different image (prev/next in detail),
     // the focused row changed — center it in the viewport. "center" not
     // "auto" because the user has never seen this row's position in the
     // list, so placing it in the middle gives equal context above and below.
-    if (wasViewing !== detailEntryImageIdRef.current) {
-      const idx = callbacksRef.current.findImageIndex(wasViewing);
-      if (idx >= 0) {
-        const generation = getSearchGeneration();
-        const historyKey = getCurrentKupuaKey();
-        const returnFocus = useSearchStore.getState().focusedImageId;
-        let cancelled = false;
-        const frame = requestAnimationFrame(() => {
-          if (cancelled || getSearchGeneration() !== generation || getCurrentKupuaKey() !== historyKey ||
-              useSearchStore.getState().focusedImageId !== returnFocus) return;
-          const current = callbacksRef.current;
-          const currentIndex = current.findImageIndex(wasViewing);
-          if (currentIndex < 0) return;
-          const rowIdx = current.flatIndexToRow(currentIndex);
-          if (current.scrollRowToCenter) {
-            current.scrollRowToCenter(rowIdx);
-          } else {
-            current.virtualizer.scrollToIndex(rowIdx, { align: "center" });
-          }
-        });
-        return () => { cancelled = true; cancelAnimationFrame(frame); };
-      }
-    }
+    const generation = getSearchGeneration();
+    const historyKey = entryKey;
+    const state = useSearchStore.getState();
+    const focusIntent = state._focusIntent;
+    let retired = false;
+    let frame: number | undefined;
+    const ownsReturn = () => !retired && getSearchGeneration() === generation
+      && getCurrentKupuaKey() === historyKey && useSearchStore.getState()._focusIntent === focusIntent;
+    const retire = () => {
+      retired = true;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      unsubscribe();
+    };
+    const schedule = () => {
+      if (!ownsReturn()) { retire(); return; }
+      if (frame !== undefined) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        if (!ownsReturn()) { retire(); return; }
+        const current = callbacksRef.current;
+        if (useSearchStore.getState().loading) return;
+        if (target.placement === "native") {
+          if (useSearchStore.getState().focusedImageId !== target.imageId) current.setFocusedImageId(target.imageId, false);
+          retire();
+          return;
+        }
+        const currentIndex = current.findImageIndex(target.imageId);
+        if (currentIndex < 0) return;
+        if (useSearchStore.getState().focusedImageId !== target.imageId) current.setFocusedImageId(target.imageId, false);
+        const rowIdx = current.flatIndexToRow(currentIndex);
+        if (current.scrollRowToCenter) {
+          current.scrollRowToCenter(rowIdx);
+        } else {
+          current.virtualizer.scrollToIndex(rowIdx, { align: "center" });
+        }
+        retire();
+      });
+    };
+    const unsubscribe = useSearchStore.subscribe(schedule);
+    schedule();
+    return retire;
   }, [imageParam, entryKey]);
 }
 

@@ -630,9 +630,17 @@ from interfering with user-initiated seeks or extends.
 
 When the user reloads the page while viewing image detail at a deep offset,
 the offset cache (`sessionStorage`) stores both the numeric offset AND the
-`search_after` cursor. `restoreAroundCursor` uses the cursor for exact
-restoration via bidirectional `search_after` — guaranteed to land the image
-in the buffer regardless of depth.
+`search_after` cursor. `restoreAroundCursor` uses bidirectional cursor reads around
+the selected current target tuple, retaining session coordinates and total.
+Cursor/read failure falls back to existing approximate seek; a genuinely missing
+image can remain standalone, so exact landing is not a universal guarantee.
+`_cursorRestore` exposes the existing image/generation/signal across cursor,
+cursorless and fallback work; detail remount joins it instead of restarting reads.
+Search, cancellation and successor seek retire obsolete descriptors. Captured
+focus intent separately guards late focus/placement while useful data may publish.
+An early close retains its return target until publication permits placement,
+without a second loading path; see [the detail-return contract](../../../src/lib/detail-return.ts)
+and [ledger unit](../not-yet-another-audit-ledger.md#detail-return-unit).
 
 ---
 

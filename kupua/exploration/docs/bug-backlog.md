@@ -17,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 27 September 2026.** The 20 entries below have an open defect,
-approval/integration/review task or explicit residual; 34 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 3 October 2026.** The 19 entries below have an open defect,
+approval/integration/review task or explicit residual; 35 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -53,7 +53,9 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
-| [KUP-038](#kup-038) | Density switch and Home/End keys cancel an in-flight search | Open; code reading only (U9-B cold review follow-up) | Independent client lifetime bug, both modes; not an M2a gate |
+
+KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
+KUP-011/035/037 have no closure evidence from continuity work and remain separately scoped.
 
 ### Open Grid Work
 
@@ -77,7 +79,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 
 <details>
-<summary>Completed bounded repairs and verification: 34 other IDs</summary>
+<summary>Completed bounded repairs and verification: 35 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -93,6 +95,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | Date recovery, measurement trust and latest keyboard-edge ownership | [KUP-013](#kup-013), [KUP-028](#kup-028), [KUP-031](#kup-031), [KUP-032](#kup-032) |
 | Post-U6z ordinary effective-rights mismatch refuted | [KUP-029](#kup-029) |
 | Same-ID AI overlay retention, closed by U9-B replacement | [KUP-030](#kup-030) |
+| Search discovery versus density/keyboard browsing, covered by ledger B8/L37/B17 | [KUP-038](#kup-038) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -174,6 +177,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-002
 **Range completion outlives selection context and can finalize another request**
+- **Distinct follow-up:** [ledger B3/L22](not-yet-another-audit-ledger.md#b3) is the long-press producer cancelling its own valid range, not a reopening of this external-supersession repair.
 - **Component / responsibility:** useRangeSelection, route selection owner and busy-state publication; human owner-to-confirm.
 - **Trigger:** clear/search/sort or a newer range occurs while a server range is pending; an old success or rejection arrives afterwards.
 - **Expected / actual:** membership and busy finalization must belong to the current range/context. The former range-only generation missed clear/search/unmount and stale catch/fast-path finalization. Request-local cancellation now covers membership/anchor intent, query/order, supersession and unmount, without clearing surviving selection; only the current request publishes success/failure/timing.
@@ -322,6 +326,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-015
 **Home's post-await navigation can supersede a newer action**
+- **Distinct follow-up:** [ledger B11/L13](not-yet-another-audit-ledger.md#b11) concerns the thumb remaining at top after cancelled Home, not obsolete Home navigation winning.
 - **Component / responsibility:** reset-to-home orchestration; human owner-to-confirm.
 - **Trigger:** Home awaits a search; a newer navigation supersedes it and the old search resolves normally.
 - **Expected / actual:** an obsolete Home action must not navigate after newer intent. Before repair, post-await navigation was unconditional; search result guards did not own that later action.
@@ -340,6 +345,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-017
 **Density restoration can apply an old ordinal to new membership**
+- **Distinct follow-up:** [ledger B4/L23](not-yet-another-audit-ledger.md#b4) covers newer-focus overwrite and a latent no-saved fallback; this completed repair covers saved-state search/wheel supersession.
 - **Component / responsibility:** useScrollEffects density state and deferred frames; human owner-to-confirm.
 - **Trigger:** a same-mounted search or newer scroll changes intent before the scheduled second restoration frame.
 - **Expected / actual:** preserve valid fresh geometry/origin calculations, not an old search or superseded scroll action. Before repair, the saved ordinal/ratio closure lacked that ownership. Existing unmount cancellation was real and remains intact.
@@ -349,6 +355,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-018
 **Detail-return centring retains a row across newer entry or geometry changes**
+- **Distinct completed repairs:** [B9/L27](not-yet-another-audit-ledger.md#b9) owns return before list readiness; [B12/L11](not-yet-another-audit-ledger.md#b12) unifies swipe/final-return session identity after reload. Both are Done within the [detail-return unit's local limits](not-yet-another-audit-ledger.md#detail-return-unit), separately from this deferred-frame certificate.
 - **Component / responsibility:** useReturnFromDetail and grid/table callback owners; human owner-to-confirm.
 - **Trigger:** close schedules a frame; reopen, query, columns/header or buffer origin changes before it executes.
 - **Expected / actual:** preserve unchanged-entry native placement and centre the original valid traversed image using current geometry. Before repair, a precomputed row/virtualizer outlived its entry; an unmounted mock alone was not enough to establish the consequence.
@@ -465,6 +472,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-035
 **A full selection reconcile runs in one idle callback and blocks a frame at large selections**
+- **Scope:** separate from [ledger B3's range-gesture ownership](not-yet-another-audit-ledger.md#b3); fixing that gesture does not address this measured reconciliation cost.
 - **Component / owner:** `requestFullReconcile` in the selection store, and `recomputeAll`; human owner-to-confirm.
 - **Trigger:** metadata arrives for a large selection (range select, reload hydration) while Details is open.
 - **Expected / actual:** the multi-image Details summary should settle without a visible stall. Instead, one idle callback recomputes every field over every selected image. The callback's 2 s timeout lets it run as a single long task.
@@ -493,12 +501,11 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-038
 **Density switch and Home/End keys cancel an in-flight search without replacing it**
-- **Component / responsibility:** search-store abort lifetimes; human owner-to-confirm.
-- **Intended behaviour (operator, 27 September):** the Home button should cancel any search, and it does (`resetToHome` aborts, then starts the Home search). Home/End keys and a density switch should not cancel an in-flight search.
-- **Mechanism (code reading):** `search()` captures `_rangeAbortController.signal` for its first page ([search-store.ts:2163](../../src/stores/search-store.ts#L2163)). The same controller is aborted by `abortExtends()` ([search-store.ts:2719](../../src/stores/search-store.ts#L2719)), called on density switch ([useScrollEffects.ts:949](../../src/hooks/useScrollEffects.ts#L949)) and by End while a seek focus is pending ([useListNavigation.ts:542](../../src/hooks/useListNavigation.ts#L542)), and by `seek()` ([search-store.ts:2921](../../src/stores/search-store.ts#L2921)), which windowed Home/End keys use. The aborted search returns silently (ordinary and, since U9-B, AI), with no newer search to publish; `loading` is left to whatever runs next. A seek started during the pending search also works from the old buffer's total with the new params.
-- **Evidence:** code reading only; not reproduced in a browser or test. User-visible effect (stale results under new params, lingering spinner) is unconfirmed.
-- **Smallest discriminator:** store test holding a first page or AI result pending, then a density switch (or `abortExtends()`) and an End-key seek; assert the search still publishes. A Home-button control must still cancel it.
-- **Dependency / disposition:** OPEN, independent client bug in both modes. Likely fix direction: give `search()` its own controller aborted only by a newer search or Home, while extends/seeks keep the range controller. Check sort-around-focus and seek ownership before changing either lifetime.
+- **Historical finding:** shared range cancellation could abandon ordinary/AI initial reads and strand loading; keyboard navigation could also use predecessor-query totals. Source-only at intake on 27 September.
+- **Current contract:** density cancels obsolete maintenance, not current query discovery. Home/End may retire initial placement while retaining current-query discovery; an old first page must not overwrite the newer destination. New search/Home-logo supersedes the prior query; finite AI retains its own membership.
+- **Resolution:** covered by [B8/L37](not-yet-another-audit-ledger.md#b8) and [B17](not-yet-another-audit-ledger.md#b17), not another repair. [Search-store](../../src/stores/search-store.ts) now separates search, browsing and maintenance owners and settles only owned completion.
+- **Maintained proof:** [mounted density/search tests](../../src/hooks/useScrollEffects.test.ts), [keyboard/discovery tests](../../src/hooks/useListNavigation.test.ts) and [API/store controls](../../src/stores/search-store-api-mode.test.ts) cover delayed reads, current totals, newer destinations, finite AI and supersession in both adapters. Recorded gates and bounded live-checkpoint limits remain with the linked ledger entries.
+- **Disposition: DONE (3 October, reconciled at `7b82b13f8`).** This is a closure against existing repairs and verification, not a new test/live run or a claim that every density/keyboard defect is fixed.
 
 ### Dependency Unresolved
 

@@ -225,6 +225,47 @@ function holdInitialRead(
   return { release, releaseEnd, releaseCount, counts, observed, pending };
 }
 
+describe("detail return newer keyboard intent", () => {
+  it.each(["ArrowDown", "PageDown"])("%s retains the deep bookmark hint when rank fails", async (key) => {
+    const fixture = await mountNavigation(true, "explicit", 70000);
+    const params = useSearchStore.getState().params;
+    const targetId = "img-60000";
+    const target = await fixture.source.searchAfter({ ...params, ids: targetId, length: 1 }, null);
+    const offset = await fixture.source.countBefore(params, target.sortValues[0]);
+    const delta = key === "ArrowDown" ? 1 : 18;
+    const expected = await fixture.source.searchAfter({ ...params, offset: offset + delta, length: 1 }, null);
+    act(() => useSearchStore.setState({ focusedImageId: targetId, _focusedImageKnownOffset: offset }));
+    vi.spyOn(fixture.source, "countBefore").mockRejectedValue(new Error("fixture rank unavailable"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const pending = fixture.holdRead();
+    act(() => fixture.dispatchKey(key));
+    expect(useSearchStore.getState()._focusedImageKnownOffset).toBe(offset);
+    await act(async () => pending.release());
+    expect(useSearchStore.getState().focusedImageId).toBe(expected.hits[0].id);
+    expect(useSearchStore.getState().imagePositions.get(expected.hits[0].id)).toBe(offset + delta);
+  });
+
+  it.each(["ArrowDown", "PageDown"])("%s records focus intent while initial list total is unpublished", async (key) => {
+    const fixture = await mountNavigation(true, "explicit");
+    act(() => useSearchStore.setState({ focusedImageId: "img-6000", total: 0, results: [], imagePositions: new Map() }));
+    const intent = useSearchStore.getState()._focusIntent;
+    const pending = fixture.holdRead();
+    act(() => fixture.dispatchKey(key));
+    expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(intent);
+    await act(async () => pending.release());
+  });
+
+  it.each(["ArrowDown", "PageDown"])("%s records off-buffer focus intent before asynchronous snap-back", async (key) => {
+    const fixture = await mountNavigation(true, "explicit");
+    act(() => useSearchStore.setState({ focusedImageId: "img-6000" }));
+    const intent = useSearchStore.getState()._focusIntent;
+    const pending = fixture.holdRead();
+    act(() => fixture.dispatchKey(key));
+    expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(intent);
+    await act(async () => pending.release());
+  });
+});
+
 describe("B17 browse, cursor restore and snap-back ownership", () => {
   for (const successor of ["cursor", "focus"] as const) {
     it.each([false, true])(`${successor} inherits new query membership (missing target=%s)`, async (missing) => {

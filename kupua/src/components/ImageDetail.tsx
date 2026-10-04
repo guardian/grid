@@ -42,7 +42,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
-import { useSearchStore } from "@/stores/search-store";
+import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
 import { useFullscreen } from "@/hooks/useFullscreen";
@@ -50,6 +50,7 @@ import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useSwipeCarousel } from "@/hooks/useSwipeCarousel";
 import { useSwipeDismiss } from "@/hooks/useSwipeDismiss";
+import { captureDetailEntry, chooseDetailReturn } from "@/lib/detail-return";
 import { usePinchZoom } from "@/hooks/usePinchZoom";
 import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
 import { isFullResLoaded, markFullResLoaded, onFullResDecoded, getCarouselImageUrl } from "@/lib/image-prefetch";
@@ -96,10 +97,6 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // The fullscreen container ref — must be stable across imageId changes
   const containerRef = useRef<HTMLDivElement>(null);
-  // The imageId the user entered detail with — used to detect traversal.
-  // Only set once (on mount). If the user navigates prev/next, imageId changes
-  // but entryImageIdRef stays the same.
-  const entryImageIdRef = useRef(imageId);
 
   // ── Deep-link synthesis ────────────────────────────────────────────
   //
@@ -235,6 +232,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     const cached = getImageOffset(imageId, searchKey);
     if (cached == null) return; // no cached position — standalone mode
     restoreAttemptedForRef.current = imageId;
+    const pending = useSearchStore.getState()._cursorRestore;
+    if (pending?.imageId === imageId && pending.generation === getSearchGeneration() && !pending.signal.aborted) return;
     restoreAroundCursor(imageId, cached.cursor, cached.offset, getEffectiveFocusMode() !== "phantom");
   }, [imageId, currentIndex, restoreAroundCursor, searchKey, total]);
 
@@ -390,7 +389,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // still on the entry image, the grid's scroll position is already
       // perfect (preserved via opacity:0). Scrolling would re-center the
       // image when it was originally at a viewport edge.
-      if (imageId !== entryImageIdRef.current) {
+      if (chooseDetailReturn(captureDetailEntry(imageId), imageId).placement === "center") {
         useSearchStore.getState().setFocusedImageId(imageId);
         scrollFocusedIntoView();
       }

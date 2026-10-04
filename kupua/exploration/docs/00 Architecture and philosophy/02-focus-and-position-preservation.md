@@ -236,25 +236,43 @@ Undecided relaxation candidates are ledger decisions, not behaviour.
   then consumes its owner once. Deferred viewport notification has its own timer
   lifetime and yields to newer search, navigation, input or unmount.
 - An arrow key with explicit focus outside the buffer seeks back to the focus,
-  then applies the move (`_pendingFocusDelta`).
+  then applies the move (`_pendingFocusDelta`). Arrow/Page input records focus
+  intent before this asynchronous branch, even before the initial count is known.
+  Repeating the same nonresident focus retains its known global-offset hint.
 
 ### 4.3 Detail, Preview and Reload
 
 - Detail overlays the list, which stays laid out at opacity 0, so list placement
   persists natively. Traversal replaces the URL `image`. The entry image is
-  `_detailEntryImageId` in history state and survives traversal and reload
-  *(L11: also tracked by component refs)*.
+  `_detailEntryImageId` in history state and survives traversal and reload.
+  `lib/detail-return.ts` supplies the same session identity and native/centre
+  policy to swipe preparation and final return. Reloading on B then traversing
+  back to entry A does not make A a traversed return; cancelled or completed
+  dismiss on A leaves native list placement alone. Fresh entry, including
+  Forward re-entry, starts a new session at the reopened image.
 - Traversal works in global indices. An off-buffer neighbour waits for the buffer;
   changing image, context or history entry, or unmounting, cancels only that wait.
-- The deferred centring after traversal re-reads index and geometry when it runs;
-  reopening, a newer search, history entry or focus change makes it inert.
+- Close records last-viewed focus immediately without waiting for list data.
+  A store-publication subscription retains the return target while loading or
+  target residency prevents placement. It schedules frames on publication,
+  not a polling loop or new lookup. Traversed placement re-reads index and
+  current grid/table geometry, including the table's sticky header; original
+  placement never adds a scroll. `_focusIntent` distinguishes newer user input
+  from passive restoration writes. Reopening, a newer search/history owner,
+  focus/clear intent or unmount makes obsolete return work inert.
 - Marked detail entries record their originating list key separately from the
   immutable entry image. Return acts only for that origin; unrelated native
   destinations restore their represented snapshot. A marked entry-key switch
   adopts destination entry-image identity; same-entry traversal retains it.
   Unmarked older detail entries keep compatibility close behavior.
 - Reload in detail restores the buffer around the image from its cached cursor
-  (`restoreAroundCursor`); the list shows it at the top row.
+  (`restoreAroundCursor`); the list shows it at the top row. `_cursorRestore`
+  exposes the existing pending restoration signal, including cursorless/fallback
+  work, so a remount joins rather than duplicates it. Useful data may still
+  publish after presentation is retired; cursor/fallback and destination-history
+  focus publication compare captured intent. Each adopted history presentation
+  owner captures its own intent, including finite AI; no ordinary pagination or
+  stronger seek guarantee is added to AI.
 - Fullscreen preview owns a history entry so Back closes it. After traversal it
   centres the last image once window resizing settles; each entry owns its own
   centring, so re-entry makes an older one inert.

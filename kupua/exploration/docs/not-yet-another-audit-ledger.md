@@ -29,14 +29,27 @@ Home resets grid after owned data completion unless newer density intent wins.
 B1 is superseded by removal of its density-only entry producer, not by an
 obsolete-entry repair. See [the completed unit](#history-and-density-unit).
 
-Final gates: **2,765 unit tests / 83 files, TypeScript/Vite, 104 pure harness checks
-and all 394 local E2E cases pass**, with retries disabled and all 11 forced-seek
-cases included. Independent cold reviews and repair re-reviews have no remaining
-actionable findings. Excluded E2E/perf source checks add zero diagnostics against
-HEAD (52/32 inherited diagnostics remain; those configurations are not clean).
-The existing bundle-size advisory and E2E warnings remain. These are functional
-local gates, not paired performance evidence or live-system certification;
-historical live/checkpoint limits remain attached to their repair records.
+Current local gates: **2,836 unit tests / 83 files, TypeScript/Vite, 104 pure harness
+checks and all 423 local E2E cases pass**, with retries disabled and all 11
+forced-seek cases included. Independent product cold reviews and repair re-reviews
+have no remaining actionable findings. The build covers `src`, not excluded
+E2E/perf configurations; those are not certified clean by this build.
+The bundle-size advisory and E2E warnings remain. These are functional local
+gates, not paired performance evidence or live-system certification; existing
+live/checkpoint limits remain attached to their repair records.
+
+**Detail return complete from `7b82b13f8`:** B9/L27 retains an owned
+last-viewed return through pending list restoration; B12/L11 shares one
+history-backed session identity between gesture preparation and final return.
+Original-image native placement and traversed centring remain distinct.
+Two fresh full-diff product cold reviewers have no remaining actionable findings.
+The complete retry-free gate includes all 27 added B9/B12 cases and two retained
+async-fixture lifetime checks. Home density, selection-panel and L39 AI setup use
+retained job handles with synchronous readiness, propagated rejection and disposal;
+no setup retry or workflow-assertion weakening is used. Forced GC with a held module
+verifies the retained-job contract, not the original intermittent GC trigger or
+every async evaluation in the suite. See [the completed unit](#detail-return-unit).
+No live-system or performance campaign ran.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
@@ -48,10 +61,10 @@ historical live/checkpoint limits remain attached to their repair records.
 | [B6](#b6) | **Done** | Ordinary selected-sort equality no longer clears retained focus | L24 closed; L8 structural unit complete |
 | [B7](#b7) | Open | Temporary buffer bottom treated as true result bottom | L25 |
 | [B8](#b8) | **Done** | Search survives density; obsolete initial placement cannot replace newer keyboard-edge intent | L26/L37 closed; current discovery ownership is also covered by B17 |
-| [B9](#b9) | Open | Early close after traversed-detail reload misses centring/focus | L27 |
+| [B9](#b9) | **Done** | Early close retains owned focus/centring until list readiness | L27 closed within local limits |
 | [B10](#b10) | Open | Ordinary prepend-to-zero is treated as reset | L28 |
 | [B11](#b11) | Open | Cancelled deep Home strands thumb at top | L13 |
-| [B12](#b12) | Open | Reloaded swipe pre-scroll and final return use different entry identities | L11 |
+| [B12](#b12) | **Done** | Swipe preparation and close share session-entry identity after reload | L11 closed within local limits |
 | [B13](#b13) | **Done** | Missing history anchor no longer adopts departing-context neighbours | L32 closed; ordinary user-neighbour fallback retained |
 | [B14](#b14) | **Done** | AI history restores represented destination focus/none | L33 closed; finite resident ordering stays request-free |
 | [B15](#b15) | Open | Immediate reload loses selection before persistence debounce | L34 |
@@ -527,12 +540,16 @@ Physical Esc, macOS animation and pre-native-entry races retain prior limits.
 
 <a id="c25"></a>
 **C25: Detail reload and gesture identity (L11).** Pagehide saves the list-derived
-snapshot; detail separately [restores cached cursor](../../src/components/ImageDetail.tsx#L219)
-once per image. [Cursor restore](../../src/stores/search-store.ts#L3920) checks
+snapshot; detail [joins pending restoration or restores once per image](../../src/components/ImageDetail.tsx#L219).
+[Cursor restore](../../src/stores/search-store.ts) checks
 current target tuple/rank, publishes retained-total coordinates, and falls back
 to approximate seek when cursor/read fails. Missing target becomes standalone.
-The persistent `_detailEntryImageId` and [mount-only detail ref](../../src/components/ImageDetail.tsx#L102)
-are different authorities. Paired phantom probes entered off-centre A, traversed
+The baseline persistent `_detailEntryImageId` and mount-only detail ref were
+different authorities; current [shared session policy](../../src/lib/detail-return.ts)
+governs both gesture preparation and final close. Original A stays native even
+after reload on B; genuine traversal centres. [B12](#b12) is closed within the
+[completed unit's local limits](#detail-return-unit).
+Recorded pre-repair phantom probes entered off-centre A, traversed
 B, reloaded on B, returned to A, then began/cancelled swipe-dismiss. [Pre-scroll](../../src/components/ImageDetail.tsx#L381)
 compared A with mount B and moved the hidden list -168.5 px in grid or -353 px in
 table. Completing dismiss preserved that displacement; matched reload/traverse-back
@@ -650,7 +667,12 @@ The [bounded repair](#b8) separates search/range cancellation; adapter contracts
 endpoint schemas and two-frame geometry remain unchanged.
 
 <a id="c35"></a>
-**C35: Early versus settled detail reload/close.** Both focus-mode matrices
+**C35: Early versus settled detail reload/close.** Current close retains an owned
+last-viewed target through existing pending restoration; original placement is
+native and traversal centres when loading/target residency permits. Newer
+input/history/search/reopen retires presentation without restarting discovery.
+[B9](#b9) is closed within [local limits](#detail-return-unit).
+The recorded pre-repair focus-mode matrices
 exercised early and settled variants in both transports through actual detail/close
 controls. Settled controls waited for the parent list to finish, contain the current
 detail ID and consume placement before closing; all tier/view cells retained
@@ -845,8 +867,17 @@ client publication, not server work. Physical devices, production races and
 performance equivalence remain unverified. L36's render warning is separate work.
 
 <a id="b9"></a>
-**B9 / C35: OPEN. Closing reloaded traversed detail before list readiness misses
-centring.** Expected last-viewed image at the established traversed-return centre;
+**B9 / C35 / L27: DONE. Early close retains the owned last-viewed return.**
+Close is immediate even while detail is ready and list restoration is pending.
+Publication-driven placement waits for loading to settle and the target to be
+available, then resolves current index/geometry and centres genuine traversal.
+Original-image placement remains scroll-free. Focus/clear intent, search/history,
+reopen and unmount retire obsolete work; existing restoration is reused, not
+restarted. Composed and rendered controls cover early/settled focus and placement,
+original/traversed targets and pending-data interleavings. The KUP-018 controls
+remain distinct and intact. See [Detail Return Unit](#detail-return-unit).
+
+Recorded pre-repair evidence: expected last-viewed image at the established traversed-return centre;
 actual paired grid outcomes were +79.5/-115.5/+47.5 px and table outcomes were
 +32/+34/+17 px across buffer/indexed/seek.
 Minimal sequence: enter A, traverse to adjacent B, reload, close once detail
@@ -856,10 +887,9 @@ correctly; all six early variants did not. Original-image/no-traversal reload
 kept its placement in both variants. A changed stored hidden ID is recorded
 separately from the visible placement failure; this is not approval to make hidden
 focus a durable product bookmark. Confidence: observed with identical geometry
-in direct and API;
-exact handler-time availability and late-publication causality need a composed
-trace. Existing KUP-018
-certification explicitly excludes broader data-availability composition. No repair.
+in direct and API. Current composed tests cover handler-time availability and
+late-publication ownership; this does not broaden the earlier KUP-018 certificate
+or certify all live timing combinations.
 
 The paired Click-to-Focus passes reproduced the same six offsets in both transports.
 They also showed that every early traversed return left the returned image unfocused while
@@ -891,15 +921,23 @@ for a near-zero position that will never arrive. Confidence high for seek table 
 both transports; focus mode is irrelevant because Home clears it. No repair.
 
 <a id="b12"></a>
-**B12 / C25 / L11: OPEN. Reloaded swipe pre-scroll uses remount identity and survives
-cancel/final return.** Expected a canceled dismiss to leave the hidden list where
+**B12 / C25 / L11: DONE. Swipe preparation and final return share session identity.**
+Historical entry A remains original after A -> B -> reload B -> A. Preparation
+and cancelled/completed dismiss on A add no displacement; ordinary Backspace
+matches. Genuine traversal still centres. Fresh opening/Forward re-entry retains
+the established new-session boundary, not an immutable identity across sessions.
+Grid/table touch-listener controls and composed policy-substitution tests cover
+this boundary. Gesture physics and fullscreen lifecycle are unchanged; physical
+Safari animation remains unverified. See [Detail Return Unit](#detail-return-unit).
+
+Recorded pre-repair evidence: expected a canceled dismiss to leave the hidden list where
 it was, and returning to historical entry A to match ordinary Backspace. Actual
 paired phantom sequences A -> B -> reload B -> A -> cancel dismiss moved background
 -168.5 px grid / -353 px table; completed dismiss retained the displacement.
 Matched ordinary Backspace controls were 0 px and visible. Cause: gesture start
 compares A with mount-time B, while final return compares A with historical A.
 Confidence high for synthetic Chromium grid/table in both transports; coarse mode is necessarily
-phantom, and physical Safari animation is not claimed. No repair.
+phantom, and physical Safari animation is not claimed.
 
 <a id="b13"></a>
 **B13 / C30 / L32: DONE. Missing destination target falls back to top/no focus.**
@@ -1483,9 +1521,32 @@ independence does not promise identical request counts for every policy.
 
 1. **History/density unit complete.** Q2, B13/B14 and B1 supersession are delivered
   with destination-owned handoff, migrated setup, cold review and local gates.
-2. **Select later work separately.** Q1/Q7, detail return, broader snapshot modelling
+2. **Detail-return unit complete.** B9/L27 and B12/L11 are delivered within the
+  bounded contract below; existing search/history discovery and layout policy remain.
+3. **Select later work separately.** Q1/Q7, broader snapshot modelling
   and unrelated bugs remain outside this slice. A dependency requiring expansion
   returns to the operator; a completed unit does not authorize the next one.
+
+### Detail Return Unit
+
+**Complete within local limits.** B9/L27 and B12/L11 are closed; no wider engine,
+snapshot, gesture or performance change follows.
+
+| Field | Current contract |
+|---|---|
+| Policy | One history-backed session entry and native/centre target chooser serves swipe preparation and final return. Original-image return adds no scroll; genuine traversal centres the last viewed image. Reload/traversal retains entry identity; fresh opening/Forward starts a new session. |
+| Pending close | Closing while list data is pending records the target immediately. A store-publication subscription retains placement through loading/target absence and schedules frames only on publication. It adds no polling, new lookup or duplicate loading owner. |
+| Placement ownership | Search generation, destination/origin history key, focus-intent revision, reopen and unmount reject obsolete work. Index and geometry are read when the frame runs; grid row conversion and table sticky-header centring stay with their existing owners. Home suppression remains. |
+| Focus ownership | `_focusIntent` records user intent, including same-ID focus and clear. Internal return focus writes are passive. Same-ID nonresident input preserves its known offset; off-buffer Arrow/Page records intent before asynchronous snap-back even before initial total is published. |
+| Restoration reuse | `_cursorRestore` exposes the existing image/generation/signal for cursor, cursorless and fallback work. Remount joins it. Search, cancellation and successor seek retire obsolete descriptors synchronously; late cleanup cannot mutate successor state. |
+| Data versus presentation | Useful restoration/history data can publish after presentation is retired. Cursor/fallback and ordinary/finite-AI history focus publication compare intent. `historyFocusIntent` belongs to each adopted history presentation owner; AI completion uses the current owner. User-search policy, finite AI and approximate seek remain unchanged. |
+| Coverage | Composed early/settled original/traversed close across buffer/indexed/seek, grid/table and both focus policies; real close/touch controls; existing KUP-018 geometry/cancelled-callback tests; late success/absence/failure, fallback/re-entry, keyboard/clear, history/AI adoption and policy substitution. Browser cases retain selection/session density, cold/Forward/native-history controls and restoration request budgets. |
+| Fixtures | Three observed async setup sites retain a job through `evaluateHandle`, poll synchronous completion, propagate rejection and dispose the handle. Held-module forced GC and rejection/disposal checks cover this setup contract; setup is not retried. The original intermittent GC trigger and all other async evaluations are not certified. |
+| Verification | Two fresh complete-diff product cold reviewers report no actionable findings. Full unit/build, retry-free normal plus forced-seek E2E and pure harness checks pass; counts are in Current Status. Build coverage excludes E2E/perf TypeScript configurations. The four fixture-touched E2E files add no diagnostics against HEAD; their same 16 inherited diagnostics remain. |
+| Limits | Local direct-ES and controlled API/AI response fixtures, not new live-system or perf evidence. No physical-device/Safari animation certificate, durable storage redesign, independent-focus/viewport snapshot, Q1/Q7 policy change, universal seek exactness or unrelated repair. |
+
+L11/L27 are closed and removed from Open Items. Earlier case IDs and evidence remain
+references, not claims of current failure.
 
 ### History And Density Unit
 
@@ -1712,7 +1773,6 @@ their evidence records, not in this backlog.
 |---|---|---|---|---|
 | L9 | Refactor | A shared anchor decision may replace duplicated policy while retaining necessary per-transition differences | Compare the L7 matrix before/after; reconcile `ui-features` "keeps the selected anchor through panel and window resizing" with Q1 before changing assertions; revised D2 is not a blanket visible-centre rule | L7, L8, L15 |
 | L10 | Refactor | The four placement captures (search ratio, density, column change, history snapshot) become one type and one capture/restore pair, with table header offset handled once | Density, sort, history e2e; perceived-perf suggestion | L9 |
-| L11 | Bug | B12: after reload on B then traversal back to historical A, swipe pre-scroll compares mount B while final return compares A, so canceled/completed dismiss displaces the list unlike ordinary Back | Preserve canceled-gesture no-move and ordinary Back controls; unify or explicitly sequence the entry authority without weakening traversal return | C25/B12 |
 | L12 | Delete | After L8-L11, some reset-to-home suppressions (`suppressNextRestore`, `suppressReturnFromDetail`, `suppressDensityFocusSave`, dedup preset) may no longer be needed | Disable each alone in a throwaway change; run reset-to-home unit and e2e from grid, table and detail | L8, L11 |
 | L13 | Bug | B11: cancelled deep reset-to-home leaves scrubber thumb DOM at top while Back restores a deep logical position | Preserve successful Home's instant top feedback; add Back/newer-navigation cancellation controls that resynchronize to the actual deep position | C31/B11 |
 | L14 | Move | `search-store.ts` mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
@@ -1724,7 +1784,6 @@ their evidence records, not in this backlog.
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L23 | Bug | B4: saved density restore applies old placement after a newer focus click; no-saved fallback is latent and lacks all input ownership | Preserve saved-wheel controls; add newer-focus assertion; remove the unreachable fallback or give it equivalent ownership if a caller is introduced | C21/B4 |
 | L25 | Bug | B7: density treats seek's temporary local buffer bottom as a real end, changing preservation outcome by coordinate regime | Preserve natural TEST and equal-size/map-absent controls; distinguish source snap from legitimate true-result destination clamp | C18/B7 |
-| L27 | Bug | B9: early close of reloaded traversed detail misses centring while settled controls work | Compare early/settled variants with target availability at the close event; preserve original-image placement and newer-intent cancellation controls | C35/B9 |
 | L28 | Bug | B10: Effect 8 treats ordinary positive-to-zero prepend as Home/search and loses the current viewport anchor | Reproduce gated final prepend in grid/table and both transports; ordinary browsing must retain the held anchor, while true Home/search controls must still reset to top | C36/B10 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |

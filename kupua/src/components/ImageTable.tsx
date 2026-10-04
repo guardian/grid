@@ -938,7 +938,6 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Restore focus and scroll when returning from image detail overlay.
   useReturnFromDetail({
     imageParam: searchParams.image,
-    focusedImageId,
     setFocusedImageId,
     findImageIndex,
     virtualizer,

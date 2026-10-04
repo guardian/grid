@@ -15,7 +15,7 @@
  *   npx playwright test e2e/local/browser-history.spec.ts --headed
  */
 
-import { test, expect } from "../shared/helpers";
+import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
@@ -107,25 +107,26 @@ test.describe("KUP-015 Home completion ownership", () => {
       test(`${caller} logo: later density choices ${choices.join(" then ")} survive Home`, async ({ kupua, page }) => {
         await setup(kupua, caller);
         await clickHome(page, caller);
-        await page.evaluate(async (choices) => {
-          const path = "/src/stores/ui-prefs-store.ts";
-          const { useUiPrefsStore } = await import(path);
-          for (const choice of choices) useUiPrefsStore.getState().setDensity(choice);
+        const preferenceSetup = await page.evaluateHandle((choices) => {
+          const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+          job.pending = (async () => {
+            const path = "/src/stores/ui-prefs-store.ts";
+            const { useUiPrefsStore } = await import(path);
+            (window as any).__homeCompletion.preferences = useUiPrefsStore;
+            for (const choice of choices) useUiPrefsStore.getState().setDensity(choice);
+          })();
+          job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+          return job;
         }, choices);
+        await waitForFixtureSetup(page, preferenceSetup);
         const last = choices.at(-1)!;
         await kupua.assertDensity(last);
-        const intent = await page.evaluate(async () => {
-          const path = "/src/stores/ui-prefs-store.ts";
-          return (await import(path)).useUiPrefsStore.getState()._densityIntent;
-        });
+        const intent = await page.evaluate(() => (window as any).__homeCompletion.preferences.getState()._densityIntent);
         await releaseHome(page, "resolve");
         await expect.poll(() => new URL(page.url()).searchParams.has("image")).toBe(false);
         await kupua.assertDensity(last);
         expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe(last);
-        expect(await page.evaluate(async () => {
-          const path = "/src/stores/ui-prefs-store.ts";
-          return (await import(path)).useUiPrefsStore.getState()._densityIntent;
-        })).toBe(intent);
+        expect(await page.evaluate(() => (window as any).__homeCompletion.preferences.getState()._densityIntent)).toBe(intent);
         expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.query ?? null)).toBeNull();
         expect(await page.evaluate(() => (window as any).__homeCompletion.calls)).toBe(1);
       });

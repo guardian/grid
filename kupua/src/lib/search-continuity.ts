@@ -24,6 +24,7 @@ export interface SearchContinuity {
 export interface OwnedSearchContinuity extends SearchContinuity {
   owner: AbortSignal;
   searchGeneration: number;
+  historyFocusIntent?: number;
   phase: "pending" | "ready" | "placed" | "retired";
 }
 
