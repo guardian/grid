@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.imaging
 import app.photofox.vipsffm.{VImage, Vips}
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
-import com.gu.mediaservice.model.{Instance, Jpeg, Png, Tiff}
 import com.gu.mediaservice.model._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
@@ -161,6 +160,44 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
       val colourModelFuture = vipsImageOperations.identifyColourModel(image, Png)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be(Some("CMYK"))
+      }
+    }
+  }
+
+  describe("dimensions") {
+    it("should return dimensions of horizontal image") {
+      val inputFile = fileAt("exif-orientated-no-rotation.jpg")
+      val dimsFuture = vipsImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dims =>
+        dims.get shouldBe new Dimensions(3456, 2304)
+      }
+    }
+
+    it("should return uncorrected dimensions for exif oriented images") {
+      val inputFile = fileAt("exif-orientated.jpg")
+      val dimsFuture = vipsImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dims =>
+        dims.get shouldBe new Dimensions(3456, 2304)
+      }
+    }
+
+    it("should read the correct dimensions for a tiff image") {
+      val inputFile = fileAt("flower.tif")
+      val dimsFuture = vipsImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dimOpt =>
+        dimOpt should be(Symbol("defined"))
+        dimOpt.get.width should be(73)
+        dimOpt.get.height should be(43)
+      }
+    }
+
+    it("should read the correct dimensions for a png image") {
+      val inputFile = fileAt("schaik.com_pngsuite/basn0g08.png")
+      val dimsFuture = vipsImageOperations.dimensions(inputFile)
+      whenReady(dimsFuture) { dimOpt =>
+        dimOpt should be(Symbol("defined"))
+        dimOpt.get.width should be(32)
+        dimOpt.get.height should be(32)
       }
     }
   }
