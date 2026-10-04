@@ -17,6 +17,15 @@
      Use ordinary Markdown indentation, not four-space code blocks.
      DO NOT delete or reorder existing entries. -->
 
+  ### 4 October 2026 - Shared hit-tested continuity input observation
+
+  Browsing and reload-detail tests share one synchronous result-cell point observer,
+  retaining usable geometry, view/role offsets, caller insets and hit ownership.
+  Callers keep one/double-click policy and distinct identity, publication, placement
+  and frame readiness. The observer disposes its handle even on serialization failure.
+  Bounded DOM controls cover unavailable input and resource lifetime; detail suites
+  use contract-based names. Existing product assertions and perf workloads remain.
+
   ### 4 October 2026 - Owned pending detail return and shared session identity
 
   B9 close retains the last-viewed target through existing pending list restoration.

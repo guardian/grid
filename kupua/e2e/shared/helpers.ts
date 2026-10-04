@@ -327,6 +327,45 @@ export class KupuaHelpers {
     }>;
   }
 
+  async waitForHitTestedImagePoint({
+    view,
+    imageId,
+    topInset = 0,
+    timeout = 10_000,
+  }: {
+    view?: "grid" | "table";
+    imageId?: string;
+    topInset?: number;
+    timeout?: number;
+  } = {}): Promise<{ imageId: string; x: number; y: number }> {
+    const handle = await this.page.waitForFunction(({ view, imageId, topInset }) => {
+      const container = document.querySelector(view
+        ? `[aria-label="Image results ${view}"]`
+        : '[aria-label="Image results grid"], [aria-label="Image results table"]');
+      if (!container) return false;
+      const bounds = container.getBoundingClientRect();
+      const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+      for (const cell of container.querySelectorAll<HTMLElement>('[data-image-id]')) {
+        const identity = cell.dataset.imageId;
+        if (!identity || (imageId !== undefined && identity !== imageId)) continue;
+        const rect = cell.getBoundingClientRect();
+        const x = rect.left + 48;
+        const isTableRow = view === undefined ? cell.getAttribute('role') === 'row' : view === 'table';
+        const y = rect.top + (isTableRow ? 16 : 80);
+        if (x > bounds.left && x < bounds.right && y > top + topInset && y < bounds.bottom
+          && document.elementFromPoint(x, y)?.closest('[data-image-id]') === cell) {
+          return { imageId: identity, x, y };
+        }
+      }
+      return false;
+    }, { view, imageId, topInset }, { timeout });
+    try {
+      return await handle.jsonValue() as { imageId: string; x: number; y: number };
+    } finally {
+      await handle.dispose();
+    }
+  }
+
   /**
    * Pixel top of the focused cell relative to the results container, or
    * null if there's no focus or the cell isn't in the DOM. Used to assert

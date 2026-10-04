@@ -19,8 +19,100 @@ test.describe.configure({ mode: "parallel" });
 // Pin to explicit focus mode — tests validate focus ring, Enter-to-open,
 // return-from-detail with focus, and fullscreen entry which are explicit-only.
 test.beforeEach(async ({ kupua }, testInfo) => {
-  if (!testInfo.titlePath.some(part => part === "B9 delayed detail return" || part === "B12 reload gesture identity")) {
+  if (!testInfo.titlePath.some(part => part === "Detail close during list restoration" || part === "Reloaded detail gesture return"
+    || part === "Hit-tested result input")) {
     await kupua.ensureExplicitMode();
+  }
+});
+
+test.describe("Hit-tested result input", () => {
+  async function renderInputFixture(page: import("@playwright/test").Page, view: "grid" | "table" = "grid") {
+    await page.setContent(`
+      <div aria-label="Image results ${view}" style="position:absolute;left:20px;top:20px;width:360px;height:220px;overflow:auto">
+        <div data-table-header style="position:absolute;top:0;height:40px;width:360px;z-index:2;background:white"></div>
+        <div data-image-id="target" ${view === "table" ? 'role="row"' : ''}
+          style="position:absolute;left:0;top:60px;width:300px;height:140px;background:silver"><span>Target</span></div>
+        <div style="height:800px"></div>
+      </div>`);
+  }
+
+  for (const obstruction of ["missing identity", "wrong identity", "hidden cell", "covered point", "overscan cell", "sticky header", "wrong view"] as const) {
+    test(`rejects ${obstruction} instead of choosing another input target`, async ({ kupua, page }) => {
+      await renderInputFixture(page);
+      await page.evaluate(obstruction => {
+        const cell = document.querySelector<HTMLElement>('[data-image-id]')!;
+        if (obstruction === "missing identity") cell.removeAttribute("data-image-id");
+        if (obstruction === "wrong identity") cell.dataset.imageId = "other";
+        if (obstruction === "hidden cell") cell.style.visibility = "hidden";
+        if (obstruction === "overscan cell") cell.style.top = "300px";
+        if (obstruction === "sticky header") document.querySelector<HTMLElement>('[data-table-header]')!.style.height = "180px";
+        if (obstruction === "covered point") {
+          const cover = document.createElement("div");
+          cover.style.cssText = "position:absolute;left:20px;top:80px;width:300px;height:140px;z-index:3;background:white";
+          document.body.append(cover);
+        }
+      }, obstruction);
+      await expect(kupua.waitForHitTestedImagePoint({ imageId: "target", view: obstruction === "wrong view" ? "table" : "grid", timeout: 200 }))
+        .rejects.toThrow(/Timeout/);
+      expect(await page.locator('[aria-label="Image results grid"]').evaluate(element => element.scrollTop)).toBe(0);
+    });
+  }
+
+  for (const view of ["grid", "table"] as const) {
+    test(`${view} waits for a hit target without scrolling, clicking or requiring media`, async ({ kupua, page }) => {
+      await renderInputFixture(page, view);
+      await page.evaluate(() => {
+        (window as any).__inputClicks = 0;
+        document.addEventListener("click", () => { (window as any).__inputClicks += 1; });
+      });
+      await page.locator('[data-image-id]').evaluate(element => { (element as HTMLElement).style.visibility = "hidden"; });
+      let resolved = false;
+      const pending = kupua.waitForHitTestedImagePoint({ view, imageId: "target", topInset: 20 });
+      void pending.then(() => { resolved = true; }, () => {});
+      await page.waitForTimeout(80);
+      expect(resolved).toBe(false);
+      await page.locator('[data-image-id]').evaluate(element => { (element as HTMLElement).style.visibility = "visible"; });
+      expect(await pending).toEqual({ imageId: "target", x: 68, y: view === "grid" ? 160 : 96 });
+      expect(await page.locator(`[aria-label="Image results ${view}"]`).evaluate(element => element.scrollTop)).toBe(0);
+      expect(await page.evaluate(() => (window as any).__inputClicks)).toBe(0);
+      await expect(page.locator("img")).toHaveCount(0);
+    });
+  }
+
+  test("caller top inset excludes an otherwise hit-tested table row", async ({ kupua, page }) => {
+    await renderInputFixture(page, "table");
+    await page.locator('[data-image-id]').evaluate(element => { (element as HTMLElement).style.top = "40px"; });
+    expect(await kupua.waitForHitTestedImagePoint({ view: "table" })).toEqual({ imageId: "target", x: 68, y: 76 });
+    await expect(kupua.waitForHitTestedImagePoint({ view: "table", topInset: 20, timeout: 200 })).rejects.toThrow(/Timeout/);
+  });
+
+  for (const outcome of ["success", "serialization rejection"] as const) {
+    test(`disposes its observation handle after ${outcome}`, async ({ kupua, page }) => {
+      await renderInputFixture(page);
+      const original = Object.getOwnPropertyDescriptor(page, "waitForFunction");
+      const wait = page.waitForFunction.bind(page);
+      let disposed = 0;
+      Object.defineProperty(page, "waitForFunction", { configurable: true,
+        value: async (...args: Parameters<typeof page.waitForFunction>) => {
+          const handle = await wait(...args);
+          const dispose = handle.dispose.bind(handle);
+          Object.defineProperty(handle, "dispose", { configurable: true, value: async () => { disposed += 1; await dispose(); } });
+          if (outcome === "serialization rejection") Object.defineProperty(handle, "jsonValue", {
+            configurable: true, value: async () => { throw new Error("Observation serialization rejected"); },
+          });
+          return handle;
+        },
+      });
+      try {
+        const observation = kupua.waitForHitTestedImagePoint({ imageId: "target" });
+        if (outcome === "success") expect((await observation).imageId).toBe("target");
+        else await expect(observation).rejects.toThrow("Observation serialization rejected");
+        expect(disposed).toBe(1);
+      } finally {
+        if (original) Object.defineProperty(page, "waitForFunction", original);
+        else Reflect.deleteProperty(page, "waitForFunction");
+      }
+    });
   }
 });
 
@@ -1437,28 +1529,13 @@ test.describe("Table image detail — return placement", () => {
 
 async function openVisibleDetail(kupua: import("../shared/helpers").KupuaHelpers, mode: "explicit" | "phantom") {
   const page = kupua.page;
-  const handle = await page.waitForFunction(() => {
-    const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]');
-    if (!container) return false;
-    const bounds = container.getBoundingClientRect();
-    const top = container.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
-    for (const cell of container.querySelectorAll<HTMLElement>('[data-image-id]')) {
-      const rect = cell.getBoundingClientRect();
-      const x = rect.left + 48;
-      const y = rect.top + (cell.getAttribute('role') === 'row' ? 16 : 80);
-      if (x > bounds.left && x < bounds.right && y > top + 20 && y < bounds.bottom
-        && document.elementFromPoint(x, y)?.closest('[data-image-id]') === cell) return { imageId: cell.dataset.imageId!, x, y };
-    }
-    return false;
-  });
-  const point = await handle.jsonValue() as { imageId: string; x: number; y: number };
-  await handle.dispose();
+  const point = await kupua.waitForHitTestedImagePoint({ topInset: 20 });
   await page.mouse.click(point.x, point.y, { clickCount: mode === "explicit" ? 2 : 1 });
   await expect(page.locator('[data-detail-image-id]')).toHaveAttribute('data-detail-image-id', point.imageId);
   return point.imageId;
 }
 
-test.describe("B9 delayed detail return", () => {
+test.describe("Detail close during list restoration", () => {
   for (const view of ["grid", "table"] as const) {
     for (const mode of ["explicit", "phantom"] as const) {
       for (const variant of ["early-traversed", "settled-traversed", "early-original", "settled-original", "early-keyboard", "early-clear"] as const) {
@@ -1598,7 +1675,7 @@ test.describe("B9 delayed detail return", () => {
   }
 });
 
-test.describe("B12 reload gesture identity", () => {
+test.describe("Reloaded detail gesture return", () => {
   for (const view of ["grid", "table"] as const) {
     for (const outcome of ["cancel", "complete", "backspace", "traversed"] as const) {
       test(`${view} ${outcome}: preparation and final return share original entry`, async ({ kupua, page }) => {

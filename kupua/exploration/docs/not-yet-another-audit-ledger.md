@@ -17,19 +17,18 @@ is not a code fix; an old observation is not proof it still reproduces at HEAD.
 
 ## Current Status
 
-**Implementation baseline: 3 October 2026, `08e9c5fb0`.** Ordinary search/sort handoff and B6 are
-delivered (`d9b70c013`); pending seek/density presentation is delivered (`e2e319026`).
-User-initiated AI continuity and L39 are complete within the local verification
-boundary below. Independent cold review, repair re-review and final gates pass.
+**Committed baseline: 4 October 2026, `ae08e779d`.** Ordinary search/sort and B6
+(`d9b70c013`), AI continuity/L39 (`08e9c5fb0`), history/density (`7b82b13f8`)
+and detail return (`ae08e779d`) are delivered within their recorded limits.
 
-**History/density delivered in the worktree:** Back/Forward restores the destination's
+**History/density delivered:** Back/Forward restores the destination's
 represented target, placement and focus/none in the current layout. B13/B14 are
 repaired. Q2 density is independent per-tab UI state, retained across refresh;
 Home resets grid after owned data completion unless newer density intent wins.
 B1 is superseded by removal of its density-only entry producer, not by an
 obsolete-entry repair. See [the completed unit](#history-and-density-unit).
 
-Current local gates: **2,836 unit tests / 83 files, TypeScript/Vite, 104 pure harness
+Recorded local gates at this baseline: **2,836 unit tests / 83 files, TypeScript/Vite, 104 pure harness
 checks and all 423 local E2E cases pass**, with retries disabled and all 11
 forced-seek cases included. Independent product cold reviews and repair re-reviews
 have no remaining actionable findings. The build covers `src`, not excluded
@@ -38,18 +37,25 @@ The bundle-size advisory and E2E warnings remain. These are functional local
 gates, not paired performance evidence or live-system certification; existing
 live/checkpoint limits remain attached to their repair records.
 
-**Detail return complete from `7b82b13f8`:** B9/L27 retains an owned
+**Detail return delivered:** B9/L27 retains an owned
 last-viewed return through pending list restoration; B12/L11 shares one
 history-backed session identity between gesture preparation and final return.
 Original-image native placement and traversed centring remain distinct.
-Two fresh full-diff product cold reviewers have no remaining actionable findings.
-The complete retry-free gate includes all 27 added B9/B12 cases and two retained
-async-fixture lifetime checks. Home density, selection-panel and L39 AI setup use
-retained job handles with synchronous readiness, propagated rejection and disposal;
-no setup retry or workflow-assertion weakening is used. Forced GC with a held module
-verifies the retained-job contract, not the original intermittent GC trigger or
-every async evaluation in the suite. See [the completed unit](#detail-return-unit).
-No live-system or performance campaign ran.
+See [the completed unit](#detail-return-unit) for composed proof, fixture changes
+and verification limits. No live-system or performance campaign ran for that unit.
+
+**Continuity checkpoint:** L41 is complete in the working tree; L42 is approved,
+not implemented.
+
+| Unit | Purpose | Dependency / boundary |
+|---|---|---|
+| [L41: test-refresh pilot](#test-refresh-pilot-l41) | Complete: one hit-tested point observer across browsing and detail, with explicit proof mapping | Tests/helpers only; unchanged product assertions, 12 helper controls; runtime impact unmeasured |
+| [L42: ownership consolidation](continuity-ownership-consolidation-prompt.md) | Explicit provenance independent of policy; compact ownership map and fewer competing control decisions | Independently executable on current tests; no new behaviour or universal coordinator |
+
+L42 remains independent and unstarted; its existing tests suffice without adopting
+the L41 observer or demonstrating a wallclock reduction. Select further behavioural slices after the consolidation
+checkpoint, not automatically. Independent urgent repairs still need their own
+scope decision; this sequence is not a universal technical dependency.
 
 | ID | Status | Issue / responsibility | Remaining task |
 |---|---|---|---|
@@ -75,6 +81,7 @@ No live-system or performance campaign ran.
 
 **Read by purpose:** [operator choices](#operator-questions), [policy rules](#decisions),
 [next-unit scope](#proposed-sequence), [open work](#open-items),
+[session skeleton](#session-prompt-skeleton), [review gate](#cold-review-gate),
 [behaviour cases](#l7-characterisation-observable-behaviour),
 [bug evidence](#bugs-and-qualified-suspicions), [coverage](#coverage-and-checks).
 Open means recorded unresolved work, not a new reproduction on every later revision.
@@ -144,8 +151,8 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C22](#c22) Open detail and close without traversal | The list remains laid out behind detail and normally keeps native placement. Close stores the viewed image as focus, hides/pulses it in click-to-open, and retains selection. Back closes; Forward reopens. | Source-established; observed across both modes/transports/tier views, including reload controls | No decision needed for original-image placement. Hidden-focus lifetime is C03. | Established, with qualified reload boundary |
 | [C23](#c23) Traverse detail, then close | Last-viewed image is centred vertically at its natural list column. A queued return is cancelled by newer entry/search/focus or unmount. At an unloaded neighbour, traversal waits for data; failed reads need separate treatment from real result edges. | Source-established; settled return observed across both modes/transports/tier views; pending ownership partly bounded | No decision needed for the settled traversal return target. | Established |
 | [C24](#c24) Enter fullscreen preview, traverse or do not traverse, exit | No traversal normally keeps list placement. Traversal updates focus and centres after window layout settles. Selection remains. Back is absorbed by preview; Forward does not reopen a dead preview entry. Failed native entry rolls that extra entry back. | Source-established; phantom both transports and direct explicit native controls observed; media explicit Escape is VS Code-limited and works in normal Chrome | Same-exit latest-focus centring is already accepted; do not turn it into a new bug. | Established; platform/timing limits retained |
-| [C25](#c25) Reload while detail is open, traverse, then swipe-dismiss or close | Cached image position can rebuild surrounding results. Swipe background preparation and final close compare against different entry identities after reload; returning to the original image can cause unnecessary pre-centring. Missing cache can leave standalone detail without traversal. | Source-established; canceled/completed synthetic dismiss reproduced displacement in grid/table with ordinary Backspace controls | Original/last-viewed return requirements are settled. Competing entry identities are a bug, not a new design choice. | B12/L11 |
-| [C35](#c35) Traverse in detail, reload, then close quickly | In every paired tier/view sample, closing before the underlying list was ready left the last image visible but not centred. In explicit mode it also left the ring/focus on another image. Waiting for that list restored the expected centre and identity. Original-image return without traversal kept its prior placement. | Observed identically by transport in both focus modes: early and settled grid/table cases in all three tiers | No new choice needed for the established traversed-return target. Do not replace the early-close case with a wait and claim the problem is solved. | B9 |
+| [C25](#c25) Reload while detail is open, traverse, then swipe-dismiss or close | Swipe preparation and final return now share history-backed session identity. Returning to original A after reload on B adds no displacement; genuine traversal still centres. Missing cache can leave standalone detail without traversal. | Composed and actual touch-listener controls; historical failure and physical-device limits below | Original/last-viewed rules are preserved, not replaced by unconditional centring. | B12/L11 done |
+| [C35](#c35) Traverse in detail, reload, then close quickly | Close remains immediate; an owned return waits for the pending list/target before applying current-geometry centring and focus. Original return remains native. Newer intent retires presentation, not useful restoration. | Early/settled composed and rendered local controls; no new live timing certificate | Early close must remain distinct from the settled control; never hide the race with an unconditional readiness wait. | B9/L27 done |
 | [C26](#c26) Tick images, clear selection, then act again | Clear alone does not scroll or create focus. Older focus can reappear and again influence later arrows, sort or layout. Removing the current selection anchor elects a remaining selected image. | Source-established; stationary Clear/focus eligibility observed across paired matrices | No decision needed: reveal retained focus without moving solely because of Clear. | Established |
 | [C27](#c27) Back/Forward between searches or distinct same-query entries with focus, or none | A matching destination snapshot supplies target, placement and represented focus/none in the current layout, including resident AI. It does not separately save bookmark and viewport; phantom same-anchor focus is omitted. | Mounted and repeated real-router local controls; cold review and final gates pass | Off-screen bookmark versus viewport remains Q1. No departing focus may replace represented destination state. | B14 resolved; Q1 remains open |
 | [C28](#c28) Toggle density, change focus, then Back | Toggle creates no history entry or key change. Back reaches the previous supported entry and retains current density; Forward survives toggling. | Actual controls assert entry, query generation, Forward and rendered view | B1's density-only reproduction is removed, not migrated. Surviving destination focus/none is covered separately. | Q2 delivered; L20 closed; B1 superseded |
@@ -182,7 +189,7 @@ were performed to record these answers.
   density, not the historical view. Storage absence degrades quietly to runtime
   state. Preserve focus/selection/position semantics in the current geometry;
   this does not settle Q1 layout preferences or Q7 horizontal restoration.
-3. **Q3: Remembered detail image accepted; no-bookmark AI exit has a desired improvement.**
+3. **Q3: Remembered detail image accepted; no-bookmark AI exit improvement delivered.**
   In Click-to-Open, the last image returned from detail takes precedence over the
   browsed centre for ordinary query/filter changes and AI exit, even after scrolling
   it off-screen, if it survives. Example: open A, close detail, scroll to B, change a
@@ -236,6 +243,8 @@ active migration plan. Code establishes current behaviour, not desired policy.
 | `_phantomFocusImageId` | One-operation placement identity; Effect 9 consumes it after resolving a loaded index. `_phantomPulseImageId` is separate presentation with a timeout, not focus or completion. |
 | `_searchContinuity` | User capture or strict destination-history handoff binds target, placement, focus treatment and fallback to the existing owner. AI retains pending handoff/latest same-query order; coherent publication supplies resolved identity. Placement is consumed or retired without cancelling useful discovery. Adopted numeric ratio compatibility is removed. |
 | `_browseNavigation` | Search-scoped queued/loading/ready destination survives density. Maintenance has a separate owner. The scrubber follows this destination; B18 carries owned departure geometry until arrival. |
+| `_focusIntent` / detail return | User focus/clear, including same-ID input, advances intent. Passive return writes do not. A detail-return subscription checks intent, search and entry ownership before fresh-geometry placement. |
+| `_cursorRestore` | Image/generation/signal descriptor for joining existing cursor, cursorless or fallback work across remount. It is not a new cancellation owner or a reason to restart discovery. |
 | Density / layout captures | Density stores global index, row-top ratio and source DOM extrema across unmount. Grid reflow stores virtualizer index and ratio. History derives represented ratio with its destination target/owner, not an identity-free numeric bridge. Payloads remain transition-specific. |
 | History / cursor cache | History stores one anchor plus `anchorIsPhantom`, offset, ratio and freeze boundary under an entry key. The image cache stores per-image cursor/offset under a search key. Neither is a complete independent focus-and-viewport snapshot. |
 
@@ -508,10 +517,11 @@ current anchor-bearing production caller.
 <a id="c22"></a>
 **C22: Detail original return.** [Route](../../src/routes/search.tsx#L238)
 keeps list mounted, laid out, invisible/inert. Entry writes focus before push
-snapshot; close does `history.back()`. [Return hook](../../src/hooks/useReturnFromDetail.ts#L83)
-records entry identity, suppresses Home return, writes closing identity and centres
-only if different from entry. In explicit mode intentional null focus suppresses
-return. Native placement means no write, not proof the underlying list never
+snapshot; close does `history.back()`. [Return hook](../../src/hooks/useReturnFromDetail.ts)
+uses shared session identity, checks the originating list, suppresses Home and
+records closing focus passively. It no longer infers intentional reset from null
+focus. Original return preserves native placement while useful data settles;
+newer focus intent retires it. Native placement means no scroll write, not proof the underlying list never
 moved while hidden. Prior [bounded observation](bug-reproduction-evidence.md#restarted-app-browser-follow-up)
 measured original close at 0 px drift; it is not exhaustive reload evidence.
 
@@ -522,8 +532,8 @@ owned pending navigation waits on buffer change. Context/history/current-image
 change cancels pending navigation, not necessarily the shared read. [Detail
 callback](../../src/components/ImageDetail.tsx#L296) caches target cursor and replaces
 URL without updating focus on every step; return writes the last viewed identity.
-The return frame checks search, entry and focus, re-resolves current index and
-uses current table/header geometry. Failed extension can leave no usable neighbour;
+The return owner checks search, entry and focus intent, retains pending target
+readiness and resolves index/table-header geometry when placement runs. Failed extension can leave no usable neighbour;
 no new bounded retry policy was invented. Gesture completion/media decode is
 not equivalent to store loading=false.
 
@@ -704,13 +714,6 @@ writes `scrollTop = 0`. Its comment names natural indexed top and fresh page-one
 replacement, but this observed third path is ordinary seek-tier prepend after
 forward eviction. That guard is therefore over-broad for this sequence. No product
 repair or stronger persistence guarantee follows from the characterisation.
-
-Source explanation to verify at the actual close boundary: [return handling](../../src/hooks/useReturnFromDetail.ts#L161)
-does not queue centring when the target index is absent; a pending phantom
-[search publication](../../src/stores/search-store.ts#L1907) can clear the stored
-last-viewed ID and apply its earlier snapshot placement. [Display-only URL dedup](../../src/hooks/useUrlSearchSync.ts#L153)
-does not start a new search generation on close. The observed availability
-dependence is retained; no new request/placement coordinator is proposed.
 
 ### Bugs And Qualified Suspicions
 
@@ -1391,17 +1394,23 @@ native list retention versus traversal centring; request cancellation versus
 whether a later callback still owns focus; and storage snapshots versus live
 selection. Removing their names would not remove those responsibilities.
 
-The original traces exposed duplicated *decisions*: separate anchor choosers,
-identity/ratio capture, entry identity used differently by swipe and final return,
-and focus simultaneously representing bookmark and last-viewed interaction.
-Ordinary and user-initiated AI transitions bind target and placement; history
-remains a compatibility boundary. AI adoption is reviewed and locally verified.
-The traces do not establish that one table, coordinator or rewrite is best. The
-composed-range failure warns that individually correct cancellation can
-conflict with its own producer. Later proposals must account for both sides and
-the assertions above. No deletion percentage, speed-up or universal exactness is
-promised. Settle only the policy relevant to the chosen unit. Tier/transport
-independence is already required. Bug fixes require their own scope.
+**Post-slice source/test assessment at `ae08e779d`:** ordinary/AI/history handoffs
+bind target, placement and focus treatment; detail shares entry identity and retains
+pending return. These are real improvements, not merely bug closures. Necessary
+ownership distinctions are more explicit, but whole-flow reasoning remains spread
+across records, signals, generations and status fields.
+
+One concrete gap remains: `fallback === "top"` in search/AI reorder also selects
+history focus-intent protection and pending-history handling. Fallback is policy,
+not provenance. L42 separates those responsibilities without changing live policy.
+The current ratio/centre substitution proof is useful but does not prove independence
+of all policy dimensions. `hasPendingSearch` also uses status-shaped state; inspect
+its authority before replacing it, rather than inventing a universal pending owner.
+
+L41 addresses demonstrated test-fixture duplication and proof clarity, not blanket
+test deletion. Green counts, shorter files or added helpers alone prove neither
+simplification nor speed. Existing performance records retain their revision limits;
+this assessment is not a runtime or performance re-certification.
 
 ## Decisions
 
@@ -1415,7 +1424,8 @@ independence is already required. Bug fixes require their own scope.
   remembered image, AI exit now preserves browsed centre without creating focus;
   L39 is repaired, reviewed and locally verified. Keep the existing
   no-selection ordinary-sort clear-and-top exception and missing-target fallbacks.
-  Selection clear follows Q4; layout and destination-history choices remain Q1/Q2.
+  Selection clear follows Q4; broader layout/history placement remains Q1, while
+  density lifetime follows the delivered Q2 policy.
   This precedence is revisable policy, not a rule to embed in request ownership.
 - **D3 Behaviour is fixed during consolidation.** Refactor items change no
   observable behaviour; any behaviour change is its own decided item.
@@ -1428,10 +1438,10 @@ independence is already required. Bug fixes require their own scope.
   permits meaningful focus/selection or browsed centre, with legitimate true-bottom
   handling; each transition's preference remains revisable. An accidental third
   target is not accepted. Ask before introducing any additional exception.
-- **D6 Policy-data hypothesis, not mechanism approval.** Answers depend on
-  transition, mode, anchor type and visibility. A table-driven chooser may make
-  those decisions easier to change locally (L9), but this characterisation does
-  not establish that one table/coordinator is the correct implementation.
+- **D6 Explicit policy, not a prescribed universal engine.** Adopted search/history
+  and detail paths use small typed choices. Their differing lifetimes remain useful.
+  L42 must separate policy from provenance/ownership; L9 does not authorize one
+  universal chooser, coordinator, cancellation epoch or capture format.
 - **D7 Tiers are invisible.** Buffer, two-tier and seek tiers are implementation
   detail. Every preservation behaviour must be identical across tiers; a
   tier-dependent outcome is a bug. Characterisation (L7) covers every tier.
@@ -1450,7 +1460,9 @@ independence is already required. Bug fixes require their own scope.
 Ordinary search/sort, B6 and AI adoption/L39 are delivered within their recorded
 verification boundaries. Destination history and independent density are delivered
 within local limits, including B13/B14 and producer-removal supersession of B1.
-Other expansion remains proposed, not authorized. The goal is a clearer, less brittle
+Detail return closes B9/B12. L41's tests-only refresh is delivered in the working
+tree; L42 is the next approved work, bounded below;
+other expansion remains proposed, not authorized. The goal is a clearer, less brittle
 continuity system whose behaviour can evolve, not a completed bug list or a
 predetermined rewrite. Each delivered unit must remain useful if wider replacement
 is delayed, abandoned or rolled back.
@@ -1463,9 +1475,9 @@ intervention:
 
 - **Mixed meanings:** focus also carries last-viewed identity; history cannot
   independently represent the bookmark and the place being browsed (C03/C27).
-- **Split decisions:** ordinary search/sort now binds target and placement to its
-  owner. AI now adopts that handoff too; history still chooses identity and numeric
-  ratio separately (C27).
+- **Policy/ownership coupling:** ordinary/AI/history now share owned handoffs,
+  but fallback policy still doubles as history provenance in control decisions.
+  L42 targets this coupling, not a return to identity-free ratio capture.
 - **Inferred intent:** a buffer reaching zero is treated as a reset, and a loaded
   DOM bottom as a result boundary (B10/B7).
 - **Mismatched ownership:** long-press can cancel its own range operation (B3).
@@ -1519,13 +1531,84 @@ independence does not promise identical request counts for every policy.
 
 ### Proposed Sequence
 
-1. **History/density unit complete.** Q2, B13/B14 and B1 supersession are delivered
-  with destination-owned handoff, migrated setup, cold review and local gates.
-2. **Detail-return unit complete.** B9/L27 and B12/L11 are delivered within the
-  bounded contract below; existing search/history discovery and layout policy remain.
-3. **Select later work separately.** Q1/Q7, broader snapshot modelling
-  and unrelated bugs remain outside this slice. A dependency requiring expansion
-  returns to the operator; a completed unit does not authorize the next one.
+1. **L41: bounded test-refresh pilot, complete in the working tree.** One observed
+  input boundary is shared across browsing and detail, with preserved proof and
+  explicit cost limits. No production changes. [Delivery](#test-refresh-pilot-l41).
+2. **L42: ownership consolidation checkpoint.** Make provenance independent of
+  fallback policy and document actual publication/placement/completion authority.
+  Preserve behaviour and justified lifetimes. [Prompt](continuity-ownership-consolidation-prompt.md).
+3. **Operator selects the next behavioural slice after that checkpoint.** Q1/Q7,
+  remaining bugs and larger snapshot/layout changes retain separate scopes.
+
+L41 is complete; L42 does not depend on adopting its helper or proving a speed-up.
+Do not run overlapping edits concurrently. Neither unit authorizes the third step
+or makes independent urgent repairs impossible.
+
+**Optional test-maintenance queue:** [assessed strong helper candidates](../../e2e/README.md#strong-candidates).
+Use the [one-candidate execution prompt](continuity-test-refresh-prompt.md) after
+the operator names a candidate; it replaces the completed L41 execution brief.
+Once L42 is underway, the operator may select one as a separate test-only unit,
+scheduled apart from overlapping consolidation edits. The shortlist is not
+implementation approval, an automatic follow-on, or a gate on starting/completing
+L42. Retain the bounded brief, coverage mapping, negative controls, inline cold
+reviews and local gates; maintenance payoff does not imply a wallclock reduction.
+
+### Test Refresh Pilot (L41)
+
+**Complete in the working tree, 4 October 2026; baseline `ae08e779d`.** One
+`waitForHitTestedImagePoint` observer replaces duplicated point-selection loops in
+B17/B18 browsing and B9/B12 detail. It owns synchronous usable-container/header
+geometry, optional exact identity, hit testing and observation-handle disposal,
+not input policy, publication, placement, decoded media or stable frames. Browsing
+keeps its specified view and single-click; detail keeps the 20px inset, role-based
+offset and one/two-click mode, followed by the independent detail identity assertion.
+
+All product assertions remain at their original intervention points: pending and
+queued destinations, both adapter paths, no-density controls, 12-frame departure
+and thumb proof, early/settled close, keyboard/clear interruptions, native versus
+centred placement, lookup budgets, rings, reload identity and real touch listeners.
+The [owning guide](../../e2e/README.md#continuity-input-pilot) contains the compact
+coverage/reuse map and descriptively named suite routing. Existing placement,
+stable-nth and decoded-media helpers remain distinct; probe selection policies,
+private mutations and read gates were deliberately not extracted.
+
+Twelve bounded DOM-only controls reject missing/wrong identity, hidden/covered/
+overscan/header targets and wrong views, hold delayed availability, distinguish
+the caller inset and verify success/rejection disposal. Two fresh inline cold
+reviews of the actual baseline diff accept plan/structure and correctness/proof
+without actionable findings. Final separate gates pass: 2,836 unit tests, build,
+104 pure harness checks and all 435 retry-free local E2E cases, including all 11
+forced-seek. The three changed test sources retain eight inherited diagnostic
+identities and add none; this is not a clean-wide-E2E-config certificate.
+
+No cases, geometry tolerances, request budgets or timing regimes were reduced.
+No new bootstrap/settlement waits or perf caller adoption were added. Runtime
+impact is unmeasured: available results lack a comparable phase breakdown, and
+focused/full gate durations are not a speed comparison. No production changes,
+live work, perf campaign, metric/threshold rewrite or Git mutation occurred.
+Existing build/E2E warnings and physical-device/live/performance limits remain.
+L42 is independent and unstarted; the observer is optional reusable input proof,
+not a new prerequisite or permission for a wider test migration.
+
+### Ownership Consolidation (L42)
+
+**Approved, not implemented; independent of L41.** Current APIs and tests suffice.
+Start with the three history-control uses of `fallback === "top"` in `search()`
+and `resortAiBuffer()`. Make provenance explicit in adopted handoffs; keep the
+neighbour-suppression check as a genuine fallback-policy decision. Prove history
+ownership survives an alternate fallback fixture and user provenance does not
+gain history-only lifecycle behaviour merely by choosing top fallback.
+
+Update a compact ownership map in guide 02: producer, authority to publish data,
+write focus, place viewport and settle busy state, plus invalidation/handoff and
+surviving useful work. Cover adopted search/discovery, browsing, maintenance,
+focus/continuity, history, detail-return/cursor reuse and Home/density boundaries.
+Inspect status-derived control and duplicated predicates locally. Replace them
+only where existing authority represents the same lifetime; otherwise retain and
+name the exact limitation. No inferred-origin substitute based on ratio, neighbours
+or another incidental payload. No universal epoch, mass file move, new snapshot
+model, UX change, extra-read repair or unrelated bug fix. Full local gates and cold
+cross-slice plan/structure review are required; do not claim global simplification.
 
 ### Detail Return Unit
 
@@ -1646,10 +1729,9 @@ of target, placement, focus treatment and neighbours. URL sync consumes that rec
 resolution publishes its resolved identity with the coherent window and existing owner.
 Placement is consumed once or retired by newer post-publication input during mount-frame
 waits. Retirement does not cancel discovery, mutate focus/selection or settle another
-owner's busy state. Small-result retries remain owner-checked. History retains its
-numeric-ratio compatibility path; user-initiated AI now adopts continuity as recorded
-above. Direct reset, density policy, coordinates and cursors
-are unchanged.
+owner's busy state. Small-result retries remain owner-checked. Later AI/history
+adoption removes their independent numeric handoff; separate detail/layout/cursor
+responsibilities remain. The verification below belongs to the ordinary milestone.
 
 **Verification:** independent review complete; **2580/2580 unit tests across 82 files**,
 **TypeScript/Vite build passed**, and **352/352 full local E2E cases with retries disabled**,
@@ -1671,9 +1753,8 @@ this is not a further functional gate or a claim of performance equivalence.
 ### Preventing A Bug-Fix Detour
 
 Maintain a structural milestone and a bounded repair lane, with one active
-implementation unit. B8/L37 and B17 including its cold-review follow-up are delivered.
-The ordinary search/sort milestone, B18 and AI adoption/L39 are delivered;
-history/independent density is the next approved unit. A repair may interrupt an active milestone for
+implementation unit. Completed continuity units remain regression controls;
+L41 is complete; L42 is the next separately bounded work. A repair may interrupt an active milestone for
 observed breakage, a blocker to its proof, or a separately justified cheap benefit;
 make the displacement and return point explicit to the operator.
 
@@ -1712,6 +1793,8 @@ register. Before implementation, agree:
 | Contract | Invariants, chosen/provisional policy and any unanswered decision that blocks this unit |
 | Boundary | Owners and paths involved, exclusions, and the replaced machinery a structural slice intends to remove |
 | Proof | Failing-first bug assertion, existing assertions affected, composed interruption controls and applicable unit/build/E2E gates |
+| Test impact | Existing tests to strengthen, reused/inspected helper and probe capabilities, new cases justified by distinct contracts, fixture/runtime cost and any old-to-new coverage mapping |
+| Structural acceptance | Competing decisions or inferred authority removed, necessary distinctions retained, compatibility boundaries left, and the concrete future change made more local |
 | Budget and stop | Investigation/scope limit, escalation condition, rollback and next milestone |
 
 For a structural slice, contract checks must pass against the retained baseline
@@ -1722,6 +1805,119 @@ it does not wait for the hypothetical full engine. Remove replaced code only whe
 its responsibility is covered and the slice is adopted. Retain useful contracts
 and repairs if the broader approach is rejected.
 
+### Test Impact And Maintenance
+
+Every slice records four answers before implementation: which existing assertions
+change; which helper/probe capability is reused or deliberately not extracted;
+which distinct contract/interaction justifies new cases; and which setup/runtime
+cost or fixture machinery is added. Keep this in the unit/worklog, not a new audit
+register. Small local improvements belong in the slice; cross-suite changes require
+a named pitstop such as L41. Test refresh is not permission to fix application bugs.
+
+Separate policy examples, ownership/publication invariants, rendered geometry and
+actual-input journeys. Put a matrix at the cheapest layer that really proves it,
+but retain browser-only wiring/paint proof and known multi-axis races. Fewer cases,
+pairwise selection or parameterization alone do not establish equivalent coverage.
+Every removed/merged check must map its meaningful assertions and timing conditions
+to retained tests. Keep independent oracles; do not copy production decisions into
+helper expectations and then call agreement proof.
+
+Reuse observations and resource handling, not hidden policy. Distinguish detail
+readiness, list/target availability, committed publication, placement and stable
+frames. A universal settlement wait must not erase early-close or pending-frame
+tests. Gates must identify intervention points, propagate rejection, release/drain
+held work and restore only owned resources. Keep storage/context isolation and
+effective-view assertions; never retry bad setup into a false green.
+
+Use existing test-duration reports before selecting runtime work. Distinguish
+fixture/bootstrap cost, deliberate controlled delay and tested execution; declare
+missing or incomparable timings. Do not require a new full baseline run solely to
+populate a table. Parameterization may shorten code without reducing execution.
+Application jank/perceived performance and test wallclock are different questions.
+No speed-up claim without comparable measurements; no weaker assertions, inflated
+timeouts, global state reuse or smaller corpus that removes the tested regime.
+
+### Cold Review Gate
+
+For an approved slice, the implementing coordinator must invoke fresh read-only
+subagents inline after implementation and focused checks. Do not stop at "ready
+for review" or ask the operator to supply reviewers. Two independent reviewers see
+the full changed slice and necessary boundary context, with complementary briefs:
+
+1. **Plan and structure:** judge adherence to the approved outcome, anti-goals,
+  operator policy, actual decisions removed and justified remaining boundaries.
+2. **Correctness and proof:** judge lifecycle/data/geometry risks, old-to-new test
+  coverage, negative controls, helper/oracle independence and fixture/metric integrity.
+
+Supply the approved plan, actual baseline/diff, affected consumers and tests, not
+only a success narrative. Require file/line evidence, concrete failure/disproof
+checks, scope deviations and unread/uncertified boundaries. Both reviewers may
+raise cross-boundary findings; split briefs must not create an unreviewed gap.
+Reviewers do not mutate shared docs/code, run tests/live checks or own the worklog.
+Their questions return to the coordinator. Read applicable instructions and supply
+context through the assignment; routine review needs no new operator permission.
+
+Fix in-scope findings with focused proof and invoke cold re-review of repairs and
+affected integration. Escalate genuinely new scope/policy/safety requirements;
+do not silently implement every suggestion. Passing tests is not plan adherence,
+and self-review is not independent review. Unavailable delegation is a disclosed
+blocked gate, not permission to claim acceptance. Required startup confirmation,
+test-port coordination and live/perf permissions remain separate.
+
+### Validation And Completion
+
+For L41/L42, run the focused surface during each meaningful edit, then full unit,
+TypeScript/Vite build and retry-free normal plus forced-seek local E2E after the
+last meaningful repair. Shared E2E/perf helper or harness changes also require
+`test:perf-harness` and applicable local fixture checks. Use repository scripts
+from root (`npm --prefix kupua ...`), foreground `set -o pipefail` and a bare
+`tee "$TMPDIR/kupua-test-output.txt"`; never hide live output or poll an active run.
+Coordinate ports 3000/3030 before unsandboxed Playwright; use runner-owned setup.
+No live systems, perf campaigns, dry runs, backend writes or Git mutations follow
+from these gates. Read the authoritative test instructions before execution.
+
+Application build excludes some test/perf TypeScript surfaces. Run applicable
+checks and compare inherited diagnostics by identity, not merely total count;
+zero new diagnostics is not a clean-config claim. Report unavailable checks.
+Bug/policy/protection changes need an intended failing-first discriminator; a
+helper extraction needs baseline-to-after equivalence and adversarial controls,
+not a manufactured application bug or a compiler error labelled behavioural red.
+
+Close with separate results for behaviour, structure, test-maintenance cost,
+review/re-review and final verification. Keep current outcomes/limits in owning
+guides and the ledger; append actual code/test implementation to the changelog
+under its current phase. No chronological session, patch or review-request diary
+belongs in the ledger. Preserve IDs/evidence, do not close untested residuals,
+reset only the completed session's worklog and never commit without approval.
+
+### Session Prompt Skeleton
+
+Use this with a specific authorized unit; the template alone grants no new scope.
+The L7 coverage manifest is historical evidence, not a demand to reread every file
+or rerun every experiment at session start.
+
+```text
+Execute <approved unit ID and prompt path>, and no other unit.
+Read applicable instructions, AGENTS and worklog; perform required fresh-agent
+confirmation. Verify HEAD/worktree; do not assume continuity or discard edits.
+Read ledger Current Status, the selected unit, operator decisions and standing
+rules from Work Units And Exit Gates through Evidence, Tooling And Performance.
+State the outcome, preserved contracts, exclusions, local hypothesis and cheap
+discriminator. Identify affected existing tests and helper/probe reuse first.
+Implement in small validated increments. Keep policy separate from ownership;
+preserve useful data after presentation retirement. No universal owner or rewrite.
+Use failing-first proof where behaviour/protection changes; preserve independent
+coverage and timing distinctions when refactoring tests. Do not weaken assertions.
+Name structural decisions removed and justified compatibility left, not line counts.
+Invoke the two cold subagent reviews inline for plan/structure AND correctness/proof.
+Fix in-scope findings, rerun checks and request cold re-review yourself. Do not ask
+the operator to arrange routine reviews. Escalate new scope/policy/safety blockers.
+Run the unit's final local gates with normal port/safety/streaming rules; no automatic
+live/perf work or Git mutation. Report inherited diagnostics and unverified surfaces.
+Update owning docs with current outcomes/limits, not session history; update the code
+changelog only for implementation. Reset your worklog and stop after this unit.
+```
+
 ### Evidence, Tooling And Performance
 
 The 38 cases and paired matrices are sufficient to begin this work without another
@@ -1729,10 +1925,10 @@ broad characterisation campaign. They are not a complete implementation design o
 a repair-size estimate. Resolve a specific causal or integration gap when the
 selected unit needs it; do not repeat the whole investigation.
 
-Inspect relevant retained probe capabilities while preparing the first contract
-that needs them: preflight, identity/geometry capture, readiness, reload and request
-gates. There is no separate mandatory inventory or general helper-cleanup phase.
-Extract only demonstrated shared needs. Do not promote the probes wholesale:
+The test-impact check for each slice includes relevant retained probe capabilities:
+preflight, identity/geometry capture, readiness, reload and request gates. There is
+no standing full-probe inventory or automatic general cleanup; L41 is a specifically
+bounded pilot. Extract only demonstrated shared needs. Do not promote probes wholesale:
 private mutations, raw-source evaluation, broad TEST matrices and synthetic device
 state remain diagnostics unless a named contract justifies a stable smaller
 interface. Keep the probes as comparison evidence through any migration; later
@@ -1771,8 +1967,8 @@ their evidence records, not in this backlog.
 
 | # | Kind | Claim | Disproof check | Depends |
 |---|---|---|---|---|
-| L9 | Refactor | A shared anchor decision may replace duplicated policy while retaining necessary per-transition differences | Compare the L7 matrix before/after; reconcile `ui-features` "keeps the selected anchor through panel and window resizing" with Q1 before changing assertions; revised D2 is not a blanket visible-centre rule | L7, L8, L15 |
-| L10 | Refactor | The four placement captures (search ratio, density, column change, history snapshot) become one type and one capture/restore pair, with table header offset handled once | Density, sort, history e2e; perceived-perf suggestion | L9 |
+| L9 | Refactor | Remaining layout anchor decisions may share policy after the relevant Q1 choices; adopted search/history/detail decisions are already consolidated within their boundaries | Identify an actual remaining duplicated decision and prove policy/invariant independence; retain off-screen selection, true-edge and geometry contracts unless explicitly revised | L15; L42 checkpoint |
+| L10 | Refactor | Layout captures may reuse placement values where that removes real duplication; one universal capture type/pair is not a predetermined outcome | Preserve header, global/local coordinates, capture timing and semantic versus compensating scroll in composed density/reflow/history controls | L9; explicit scoped proposal |
 | L12 | Delete | After L8-L11, some reset-to-home suppressions (`suppressNextRestore`, `suppressReturnFromDetail`, `suppressDensityFocusSave`, dedup preset) may no longer be needed | Disable each alone in a throwaway change; run reset-to-home unit and e2e from grid, table and detail | L8, L11 |
 | L13 | Bug | B11: cancelled deep reset-to-home leaves scrubber thumb DOM at top while Back restores a deep logical position | Preserve successful Home's instant top feedback; add Back/newer-navigation cancellation controls that resynchronize to the actual deep position | C31/B11 |
 | L14 | Move | `search-store.ts` mixes position logic with aggregations, sort distributions and the new-images poll; moving those out lets a session read the position core alone | Pure move; all tests unchanged | |
@@ -1789,3 +1985,4 @@ their evidence records, not in this backlog.
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L35 | Bug | B16: first-page new-images refresh scrolls stale buffer to old top before fresh publication, unlike deep atomic refresh | Hold real first-page response and assert viewed identity remains until publication; preserve final top/reset and deep control | C32/B16 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |
+| L42 | Consolidate | Approved, not implemented: adopted history ownership currently inferred from fallback policy; whole-flow authority needs a compact map | Vary provenance and fallback independently through composed tests; preserve data/placement/busy ownership, request budgets and behaviour; replace other inference only with evidenced existing authority | Independent of L41; dedicated prompt; no new behavioural slice |

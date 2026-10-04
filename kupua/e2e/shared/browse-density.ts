@@ -31,22 +31,7 @@ export async function pendingBrowseAcrossDensity(
     preferences.useUiPrefsStore.getState().setFocusMode(focusMode);
     if (preferences.getEffectiveFocusMode() !== focusMode) throw new Error("B17 focus mode mismatch");
   }, focusMode);
-  const bookmarkHandle = await page.waitForFunction(sourceView => {
-    const container = document.querySelector(`[aria-label="Image results ${sourceView}"]`);
-    if (!container) return false;
-    const bounds = container.getBoundingClientRect();
-    const usableTop = container.querySelector("[data-table-header]")?.getBoundingClientRect().bottom ?? bounds.top;
-    for (const cell of container.querySelectorAll<HTMLElement>("[data-image-id]")) {
-      const rect = cell.getBoundingClientRect();
-      const x = rect.left + 48;
-      const y = rect.top + (sourceView === "grid" ? 80 : 16);
-      if (x <= bounds.left || x >= bounds.right || y <= usableTop || y >= bounds.bottom) continue;
-      if (document.elementFromPoint(x, y)?.closest("[data-image-id]") === cell) return { x, y };
-    }
-    return false;
-  }, sourceView);
-  const bookmark = await bookmarkHandle.jsonValue() as { x: number; y: number };
-  await bookmarkHandle.dispose();
+  const bookmark = await kupua.waitForHitTestedImagePoint({ view: sourceView });
   await page.mouse.click(bookmark.x, bookmark.y);
   if (focusMode === "phantom") {
     await expect(page.locator("[data-detail-image-id]")).toBeVisible();

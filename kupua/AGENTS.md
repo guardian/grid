@@ -48,7 +48,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Table view** | `ImageTable.tsx`, `useDataWindow.ts`, `ColumnContextMenu.tsx`, `column-store.ts`, `field-registry.tsx` |
 | **Grid view** | `ImageGrid.tsx`, `useDataWindow.ts`, `image-urls.ts` |
 | **Keyboard navigation** | `useListNavigation.ts`, `CqlSearchInput.tsx` (keysToPropagate), `keyboard-shortcuts.ts`, `keyboard-navigation.md`, `e2e/local/keyboard-nav.spec.ts` |
-| **Position-engine cleanup** | [L7 ledger](exploration/docs/not-yet-another-audit-ledger.md#current-status) owns status, policy and evidence. Ordinary/AI/history continuity, L39 and B6/B8/B9/B12/B13/B14/B17/B18 are Done within local limits. [Detail return](exploration/docs/not-yet-another-audit-ledger.md#detail-return-unit) closes L11/L27 through shared session identity and owned pending placement. Q2 density is per-tab UI state outside URL/history; Home respects later intent. B1 is superseded by producer removal. Full local gates pass, not live/perf certification. Q1/Q7 and other bugs remain separate; B2 needs recheck. |
+| **Position-engine cleanup** | [Ledger status](exploration/docs/not-yet-another-audit-ledger.md#current-status) and [session skeleton](exploration/docs/not-yet-another-audit-ledger.md#session-prompt-skeleton) own durable routing. [L41 input pilot](e2e/README.md#continuity-input-pilot) is complete in the working tree. Next approved, not implemented: [L42 ownership consolidation](exploration/docs/continuity-ownership-consolidation-prompt.md), independently executable without adopting L41's observer. Require test-impact/reuse analysis and inline cold reviews of plan/structure as well as correctness/coverage. Completed units and evidence limits remain controls; Q1/Q7 and unrelated bugs stay separate. |
 | **Focus / phantom focus / position preservation** | `02-focus-and-position-preservation.md` (source-derived behaviour map; ledger items marked *(Lx)*), `search-store.ts` (focusedImageId, sortAroundFocus), `ui-prefs-store.ts` (focusMode), `useDataWindow.ts` (viewportAnchor), `useScrollEffects.ts` (DensityFocusState), `useListNavigation.ts`, `useUrlSearchSync.ts` (sort-around-focus wiring) |
 | **Image detail / fullscreen / zoom** | `ImageDetail.tsx` and its composed identity/return tests, `lib/detail-return.ts` (shared session identity and native/centre policy), `useReturnFromDetail.ts`, `search-store.ts` (`_focusIntent`, `_cursorRestore`), `FullscreenPreview.tsx`, `lib/fullscreen-exit.ts`, `usePinchZoom.ts`, `image-prefetch.ts`, `image-offset-cache.ts` |
 | **Panels / facets / metadata** | `PanelLayout.tsx`, `FacetFilters.tsx`, `ImageMetadata.tsx`, `panel-store.ts` |
@@ -58,7 +58,7 @@ Local mode starts Docker ES + sample data + Vite. TEST mode establishes SSH tunn
 | **Field registry** | `field-registry.tsx` (33 static fields + config aliases) |
 | **Selections (multi-image, S6 done)** | `stores/selection-store.ts`, `lib/interpretClick.ts`, `lib/reconcile.ts`, `components/Tickbox.tsx`, `hooks/useIsSelected.ts`, `hooks/useRangeSelection.ts`, `hooks/useLongPress.ts`, `lib/dispatchClickEffects.ts`, `lib/handleLongPressStart.ts`, `components/MultiImageMetadata.tsx`, `components/metadata-primitives.tsx`, `components/MultiValue.tsx`, `components/SelectionFab.tsx`, `components/ToastContainer.tsx`, `hooks/useToast.ts`, `stores/toast-store.ts`, `exploration/docs/00 Architecture and philosophy/05-selections.md`, `exploration/docs/00 Architecture and philosophy/field-catalogue.md` |
 | **Collections panel** | `stores/collection-store.ts`, `components/CollectionTree.tsx`, `exploration/docs/00 Architecture and philosophy/06-collections.md`, `dal/adapters/elasticsearch/cql.ts` (`~` shorthand already present), `lib/typeahead-fields.ts` (collection resolver) |
-| **Testing** | `e2e/README.md` (comprehensive reference), `e2e/shared/helpers.ts`, `playwright.config.ts` |
+| **Testing** | `e2e/README.md`, `e2e/shared/helpers.ts`, `playwright.config.ts`; [further helper candidates](e2e/README.md#further-helper-reuse-assessment) are report-only. The [one-candidate prompt](exploration/docs/continuity-test-refresh-prompt.md) requires operator selection and replaces the completed L41 brief; no whole-shortlist approval. Follow [test-impact discipline](exploration/docs/not-yet-another-audit-ledger.md#test-impact-and-maintenance) and [inline cold review](exploration/docs/not-yet-another-audit-ledger.md#cold-review-gate). Test wallclock is not application perf. |
 | **Special-date ES oracle** | `integration/special-sort-es.test.ts`, `vitest.special-sort-es.config.ts`, archived obscure-sorting workplan | Opt-in local-ES mutation test. Run after changing special sort clauses, reverse pagination, cursor extraction, position maps, date distributions, `countBefore`, relevant mappings, or Elasticsearch version. Never habitual. |
 | **Performance** | `e2e-perf/README.md` (authoritative harness reference), `e2e-perf/results/audit-graphs.html` (jank dashboard), `e2e-perf/results/perceived-graphs.html` (perceived-perf dashboard) |
 | **Perceived performance** | `lib/perceived-trace.ts`, `e2e-perf/perceived-short.spec.ts` (single-action), `e2e-perf/perceived-long.spec.ts` (multi-step journeys), `e2e-perf/results/perceived-{log,graphs}.{json,js,md,html}` |
@@ -73,6 +73,12 @@ Remount reuses cursor/cursorless/fallback work; focus intent guards presentation
 independently of useful data. Full local gates and two fresh product cold reviews
 pass; no live/perf certificate follows. Async fixture setup uses retained jobs at
 the three observed GC sites, with synchronous readiness/error propagation/disposal.
+
+L41's tests-only pilot is complete in the working tree: one hit-tested input
+observer removes browsing/detail duplication, with 12 negative/lifetime controls
+and unchanged product proof. Cold reviews and full local gates pass; runtime impact
+is unmeasured. Next approved checkpoint is L42 explicit provenance/ownership
+consolidation, independent and unstarted. Later behavioural scope remains separate.
 
 B8/L37 and B17 pending-browse/density are repaired;
 the cold-review follow-up preserves query discovery through navigation/replacement,
@@ -156,7 +162,7 @@ to evidence-driven L1, and stronger snapshots/storage are not migration prerequi
 - **2836 Vitest unit/integration tests across 83 files** -- final detail-return gate passed; `npm --prefix kupua test`
 - **Build gate** -- `npm --prefix kupua run build` (TypeScript plus Vite; editor diagnostics alone are insufficient)
 - **1 opt-in special-sort ES oracle** -- `KUPUA_LOCAL_ES_MUTATION_OK=1 npm --prefix kupua run test:special-sort-es` (local loopback 9220 only; never habitual)
-- **423 Playwright E2E** cases (~6min, 3 workers) -- `npm --prefix kupua run test:e2e`; complete gate passed with retries disabled, including 27 detail-return and two fixture-lifetime controls
+- **435 Playwright E2E** cases (~6min, 3 workers) -- `npm --prefix kupua run test:e2e`; final L41 gate passed with retries disabled, including 27 detail-return, two fixture-lifetime and 12 hit-tested input controls
 - **11 forced-seek habitual cases** — isolated port-3030 project; eight B17/B18 density cases with pending-frame assertions, two no-density controls and the core journey
 - **22 jank perf tests / 33 metric IDs** + experiment infrastructure — `npm run test:perf`. P13c measures non-resident detail with warm media; P14 guards zero image-hydration reads. Both dashboards show these shared audit records; live two-mode preflight remains operator-run.
 - **104 perf-harness validation tests** — `npm run test:perf-harness` (pure Node; no browser). Session-aware density initialization, reused/blank/reload isolation, rendered-grid readiness and corpus pinning join these existing contracts:
