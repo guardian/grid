@@ -41,32 +41,32 @@
   },
   "dependencies": {
     "@guardian/cql": "^1.8.6",
-    "@tanstack/react-router": "^1.168.10",
+    "@tanstack/react-router": "^1.170.41",
     "@tanstack/react-table": "^8.21.3",
-    "@tanstack/react-virtual": "^3.13.23",
+    "@tanstack/react-virtual": "^3.14.13",
     "@tanstack/router-zod-adapter": "^1.81.5",
     "date-fns": "^4.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.12"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1027.0",
-    "@aws-sdk/client-s3": "^3.1027.0",
-    "@aws-sdk/credential-providers": "^3.1027.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1146.0",
+    "@aws-sdk/client-s3": "^3.1146.0",
+    "@aws-sdk/credential-providers": "^3.1146.0",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/vite": "^4.2.2",
-    "@testing-library/react": "^16.3.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^25.5.2",
-    "@types/react": "^19.1.6",
-    "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^6.0.1",
-    "fast-check": "^4.8.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "fast-check": "^4.10.2",
     "jsdom": "^29.0.2",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.8.3",
-    "vite": "^8.0.8",
-    "vitest": "^4.1.4"
+    "vite": "^8.3.2",
+    "vitest": "^4.1.11"
   }
 }

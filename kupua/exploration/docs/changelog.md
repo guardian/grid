@@ -24,6 +24,20 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 5 October 2026 - Security, test-tool and AWS dependency updates
+
+Raise Vitest's minimum to 4.1.11 and update its matched internal packages to fix
+the mocker file-read advisory. Refresh jsdom's indirect Undici dependency to
+7.30.0 for the published HTTP/WebSocket security fixes. Update Testing Library to
+16.3.3 and fast-check to 4.10.2. Upgrade the Bedrock runtime, S3 client and credential
+providers together to 3.1146.0, including their AWS/Smithy support dependencies.
+Preserve browser dependencies, compatible Chai and tinyrainbow leaves, and defer
+major migrations.
+
+Use temporary npm 11.21.0 to work around npm 10's optional-peer resolver crash;
+global npm, Node 22.12.0, startup/test commands and Grid configuration remain
+unchanged. The existing jsdom/Node supported-version mismatch is retained explicitly.
+
 ### 4 October 2026 - Transport-labelled browser network diagnostics
 
 The main jank audit's Network group now observes both direct ES and media-api
