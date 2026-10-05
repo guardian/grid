@@ -10,6 +10,11 @@
     "test:headed": "bddgen && playwright test --headed --reporter=list,html",
     "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test --reporter=list,html",
     "test:report": "playwright show-report",
+    "features:build": "npm run features:typecheck && tsx feature-library/build.ts",
+    "features:serve": "npm run features:typecheck && tsx feature-library/serve.ts",
+    "features:test": "tsx --test feature-library/library.test.ts",
+    "features:test:browser": "npm run features:build && tsx --test feature-library/app.test.ts",
+    "features:typecheck": "tsc --project feature-library/tsconfig.json",
     "test:ui": "bddgen && playwright test --ui-port 6080",
     "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080"
   },
@@ -24,12 +29,23 @@
     "@aws-sdk/client-dynamodb": "^3.1127.0",
     "@aws-sdk/client-kinesis": "^3.1127.0",
     "@aws-sdk/client-s3": "^3.658.0",
+    "@cucumber/gherkin": "^32.2.0",
+    "@cucumber/messages": "^27.2.0",
     "@playwright/test": "^1.61.1",
     "@testcontainers/localstack": "^10.13.2",
     "@types/node": "^26.1.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "esbuild": "^0.25.10",
+    "fflate": "^0.8.2",
     "json5": "^2.2.3",
     "listr2": "^10.1.2",
+    "lucide-react": "^0.468.0",
     "playwright-bdd": "^9.2.0",
-    "testcontainers": "^10.13.2"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "testcontainers": "^10.13.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

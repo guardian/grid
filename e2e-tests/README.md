@@ -54,6 +54,59 @@ npm run test:ui         # open browser and test suite, run tests at your leisure
 Videos are saved under `test-results/` and attached to the HTML report. Playwright
 clears previous test results on the next run, so move recordings elsewhere to archive them.
 
+### Feature library
+
+Browse the Gherkin specifications alongside their recorded scenarios:
+
+```bash
+npm run features:serve
+```
+
+Open the printed URL (normally `http://localhost:4173`) in a browser. The library
+uses the existing `features/` files and `playwright-report/`; it does not boot the
+Grid stack or run tests. Use `npm run test:video` first to capture fresh recordings,
+then restart the viewer to rebuild its snapshot. No recordings are required to
+browse the specifications, including scenarios marked `@todo`.
+
+Search scenario names and steps, filter by feature or outcome, and use the link
+button to share a scenario within a hosted snapshot. Each scenario includes its
+background, steps, tables and examples, plus available recordings across browser
+projects and retries. Videos have native playback, seeking and fullscreen controls,
+a speed selector, and a download button. Use a regular browser for WebM playback;
+some embedded editor browsers do not support its video codecs.
+
+```bash
+npm run features:serve -- --port 4180
+npm run features:serve -- --report /path/to/archived/playwright-report
+npm run features:build       # export a static snapshot, including its videos
+npm run features:test        # parser, report matching and HTTP tests; no Grid stack
+npm run features:typecheck   # strict TypeScript check for the viewer and tooling
+npm run features:test:browser # React viewer workflows and video playback in Chromium
+```
+
+The viewer uses plain React and TypeScript, with `lucide-react` icons and an esbuild
+browser bundle. Its importer, static exporter, local server and tests are also
+TypeScript, executed with `tsx`. Both build and serve commands run the strict
+typecheck first. No React routing or server-side rendering framework is required.
+The browser test uses temporary fixtures, needs Playwright Chromium installed
+(`npx playwright install chromium`), and does not start the Grid stack.
+
+The export is written to `dist/feature-library/`. Serve or archive the whole directory
+to keep its recordings independently of later test runs. It has no CDN or network
+dependencies, but needs an HTTP static host rather than opening `index.html` directly.
+Builds replace the snapshot and remove videos no longer referenced by it.
+
+Results are matched by feature path, rule and scenario name using the embedded
+Playwright HTML report data. Ambiguous names are left unmatched instead of guessing.
+Definitions come from the current working tree, so use the matching feature revision
+when viewing an older report. The run date identifies the report snapshot; it does
+not imply that the current specification has been rerun. Renamed or unrun scenarios
+remain visible without results. The importer supports the current Playwright report
+format and fails explicitly if a future format cannot be read.
+
+Exports include feature text and captured browser contents. Review recordings for
+sensitive data and use an appropriately restricted host before sharing them.
+
 Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),
 so a failed test on CI leaves a trace you can open with `npx playwright show-trace`.
 
