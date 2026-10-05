@@ -27,6 +27,7 @@ import '../components/gr-display-crops/gr-display-crops';
 import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
+import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 import { List } from 'immutable';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
@@ -237,11 +238,8 @@ image.controller('ImageCtrl', [
     ctrl.onLogoClick = () => {
       mediaApi.getSession().then(session => {
         const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
-        const defaultNonFreeFilter = {
-          isDefault: true,
-          isNonFree: toNonFreeString(showPaid)
-        };
-        storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+        const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
+        storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
         window.dispatchEvent(new CustomEvent("logoClick", {
           detail: {showPaid: defaultNonFreeFilter.isNonFree === 'true'},
           bubbles: true

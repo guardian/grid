@@ -55,7 +55,7 @@ const DELETE_METHOD_OPTIONS: {
   }
 ];
 
-const getDeleteFromGridStatusText = (status: DeleteFromGridStatus) => {
+const getDeleteFromGridStatusText = (status: DeleteFromGridStatus, hasPublishedPrintUsages: boolean) => {
   if (status === "soft-deleted") {
     return "This image has been soft deleted from Grid. You may hard delete it if necessary.";
   }
@@ -65,7 +65,7 @@ const getDeleteFromGridStatusText = (status: DeleteFromGridStatus) => {
   }
 
   if (status === "denied-lease") {
-    return "This image has been denied lease in Grid. You may soft delete or hard delete it if necessary.";
+    return `This image has been denied lease in Grid. ${!hasPublishedPrintUsages ? "You may soft delete or hard delete it if necessary" : ""}`;
   }
 };
 
@@ -261,16 +261,14 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
     try {
       if (crops && crops.length > 0) {
         await deleteCrops();
+        await fetchCrops();
       }
       if (usages && usages.length > 0) {
         await deleteUsages();
       }
       await performDeleteImage();
-      // Only refetch once the delete method itself has succeeded - if it
-      // fails, leave crops/usages state as-is so a retry doesn't skip
-      // re-attempting deleteCrops/deleteUsages for anything that wasn't
-      // actually removed.
-      await Promise.all([fetchCrops(), fetchUsages()]);
+      // Only refetch usages after performDeleteImage succeeds, so delete options don't re-render.
+      await fetchUsages();
     } catch (error) {
       setSubmitError(
         `Failed to perform ${deleteMethod} on image. Reason: ${error instanceof Error ? error.message : String(error)}`
@@ -312,7 +310,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                 variant="bodySm"
                 theme={standThemeOverride.typography.default}
               >
-                {getDeleteFromGridStatusText(deleteFromGridStatus)}
+                {getDeleteFromGridStatusText(deleteFromGridStatus, hasPublishedPrintUsages)}
               </Typography>
             )}
 
@@ -342,6 +340,7 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                   onChange={(key) => {
                     setDeleteMethod(key as DeleteMethod);
                     setIsConfirming(false);
+                    setSubmitError(null);
                   }}
                   theme={standThemeOverride.select}
                   formInputContainerTheme={
@@ -403,16 +402,16 @@ export const DeleteFromGridStep: React.FC<{ image: GridImage | null }> = ({
                         Cancel
                       </Button>
                     </div>
-                    {submitError && (
-                      <Typography
-                        element="span"
-                        variant="bodySm"
-                        theme={standThemeOverride.typography.error}
-                      >
-                        {submitError}
-                      </Typography>
-                    )}
                   </>
+                )}
+                {submitError && (
+                  <Typography
+                    element="span"
+                    variant="bodySm"
+                    theme={standThemeOverride.typography.error}
+                  >
+                    {submitError}
+                  </Typography>
                 )}
               </div>
             )}
