@@ -87,7 +87,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       storeOrProjectOriginalFile = mockDependencies.storeOrProjectOriginalFile,
       storeOrProjectThumbFile = mockDependencies.storeOrProjectThumbFile,
       storeOrProjectOptimisedFile = mockDependencies.storeOrProjectOptimisedImage,
-      optimiseOps = OptimiseWithPngQuant,
+      new OptimiseWithPngQuant(),
       uploadRequest = uploadRequest,
       deps = mockDependencies,
       fileMetadata = FileMetadata(),
