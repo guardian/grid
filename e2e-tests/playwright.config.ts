@@ -40,6 +40,18 @@ export default defineConfig({
        validation so browser tests can load the https://*.media.<domain> origins. */
     ignoreHTTPSErrors: true,
 
+    video: {
+      mode: process.env.GRID_RECORD_VIDEO === 'true' ? 'on' : 'off',
+      size: { width: 1280, height: 720 },
+      show: {
+        actions: {
+          duration: 1500,
+          position: 'top-right',
+          fontSize: 20,
+        }
+      }
+    },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
@@ -51,6 +63,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  timeout: 60 * 1000,
   expect: {
     timeout: 15_000,
   },

@@ -46,9 +46,13 @@ Useful commands:
 
 ```bash
 npm run test:headed     # run with a visible browser
+npm run test:video      # run and keep videos for all tests, including passing tests
 npm run test:report     # open the last HTML report
 npm run test:ui         # open browser and test suite, run tests at your leisure
 ```
+
+Videos are saved under `test-results/` and attached to the HTML report. Playwright
+clears previous test results on the next run, so move recordings elsewhere to archive them.
 
 Traces are captured `on-first-retry` (see [`playwright.config.ts`](playwright.config.ts)),
 so a failed test on CI leaves a trace you can open with `npx playwright show-trace`.
