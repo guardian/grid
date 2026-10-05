@@ -1678,9 +1678,22 @@ textarea.ng-invalid {
     border: 1px solid #555;
 }
 /* Colours as per .clickable:hover, used by the "My recent uploads" top-bar button */
-.ai-search-preview:hover .ai-search-preview__cta {
+.ai-search-preview:hover .ai-search-preview__cta,
+.ai-search-fallback:hover .ai-search-preview__cta {
     background-color: #666666;
     border-color: #666666;
+    color: white;
+}
+
+.ai-search-preview-toggle {
+    font-size: 1.3rem;
+    color: #999;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.ai-search-preview-toggle:hover {
     color: white;
 }
 

@@ -236,15 +236,18 @@
             <div ng-if="ctrl.canOfferAiSearch" class="ai-search-prompt">
                 <span>No results from text search</span>
 
-                <a ng-if="ctrl.aiSearchPreviewUnavailable"
+                <a class="ai-search-fallback"
+                   ng-if="ctrl.aiSearchPreviewUnavailable || ctrl.aiSearchPreviewHidden"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    ng-click="ctrl.onAiSearchPreviewClick('fallbackLink')">
-                    <gr-icon-label gr-icon="search">Try AI search</gr-icon-label>
+                    <span class="ai-search-preview__cta">
+                        <gr-icon-label gr-icon="search">Try AI search instead</gr-icon-label>
+                    </span>
                 </a>
 
                 <!-- Preview of what AI search would return; the whole box links to it -->
                 <a class="ai-search-preview"
-                   ng-if="! ctrl.aiSearchPreviewUnavailable"
+                   ng-if="! ctrl.aiSearchPreviewUnavailable && ! ctrl.aiSearchPreviewHidden"
                    ng-class="{'ai-search-preview--loading': ctrl.aiSearchPreviewLoading}"
                    ui-sref="search.results(ctrl.aiSearchStateParams)"
                    ng-click="ctrl.onAiSearchPreviewClick('preview')"
@@ -268,6 +271,13 @@
                         </span>
                     </span>
                 </a>
+
+                <button type="button"
+                        class="ai-search-preview-toggle"
+                        ng-if="ctrl.canHideAiSearchPreview"
+                        ng-click="ctrl.setAiSearchPreviewHidden(! ctrl.aiSearchPreviewHidden)">
+                    {{ctrl.aiSearchPreviewHidden ? 'Show AI search previews' : 'Hide AI search previews'}}
+                </button>
             </div>
         </div>
     </div>

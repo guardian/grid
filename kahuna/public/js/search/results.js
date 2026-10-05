@@ -40,6 +40,7 @@ import {
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
 import { sendTelemetryForNoResults, sendTelemetryForAiSearchPreviewClick } from '../services/telemetry';
+import { getFeatureSwitchActive } from '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -215,6 +216,18 @@ results.controller('SearchResultsCtrl', [
           sendTelemetryForAiSearchPreviewClick($stateParams.query, source);
         };
 
+        const aiSearchPreviewHiddenKey = 'aiSearchPreviewHidden';
+        ctrl.canHideAiSearchPreview = getFeatureSwitchActive('allow-hiding-ai-search-preview');
+        ctrl.aiSearchPreviewHidden = ctrl.canHideAiSearchPreview &&
+          storage.getJs(aiSearchPreviewHiddenKey) === true;
+        ctrl.setAiSearchPreviewHidden = hidden => {
+          ctrl.aiSearchPreviewHidden = hidden;
+          storage.setJs(aiSearchPreviewHiddenKey, hidden);
+          if (!hidden && !ctrl.aiSearchPreviewImages && !ctrl.aiSearchPreviewLoading) {
+            loadAiSearchPreview();
+          }
+        };
+
         function loadAiSearchPreview() {
           ctrl.aiSearchPreviewLoading = true;
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
@@ -350,7 +363,7 @@ results.controller('SearchResultsCtrl', [
             if (!isAiSearch && ctrl.totalResults === 0 && !isReloadingPreviousSearch) {
               sendTelemetryForNoResults($stateParams.query, ctrl.canOfferAiSearch);
             }
-            if (ctrl.canOfferAiSearch && ctrl.totalResults === 0) {
+            if (ctrl.canOfferAiSearch && ctrl.totalResults === 0 && !ctrl.aiSearchPreviewHidden) {
               loadAiSearchPreview();
             }
             return result;

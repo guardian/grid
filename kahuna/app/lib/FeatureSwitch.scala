@@ -16,6 +16,12 @@ object UseCqlChips extends FeatureSwitch(
   default = true
 )
 
+object AllowHidingAiSearchPreview extends FeatureSwitch(
+  key = "allow-hiding-ai-search-preview",
+  title = "Allow hiding the AI search preview shown when a search has no results",
+  default = false
+)
+
 class FeatureSwitches(featureSwitches: List[FeatureSwitch]){
   // Feature switches are defined here, but updated by setting a cookie following the pattern e.g. "feature-switch-my-key"
   // for a switch called "my-key".
