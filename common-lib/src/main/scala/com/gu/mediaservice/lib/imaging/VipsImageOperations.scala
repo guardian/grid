@@ -26,7 +26,34 @@ class VipsImageOperations extends GridLogging with ImageOperations {
                  fileType: MimeType,
                  isTransformedFromSource: Boolean,
                  orientationMetadata: Option[OrientationMetadata]
-               )(implicit logMarker: LogMarker): Future[File] = ???
+               )(implicit logMarker: LogMarker): Future[File] = {
+    Future {
+      val arena = Arena.ofConfined
+
+      try {
+        val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
+
+        val rotated = orientationMetadata.map(_.orientationCorrection()).map { angle =>
+          image.rotate(angle)
+        }.getOrElse {
+          image
+        }
+
+        val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
+
+        val outputFile = createTempFileInTempDir("crop", fileType, tempDir)
+        saveImageToFile(cropped, fileType, qual, outputFile, quantise = false, keep = None)
+        outputFile
+
+      } catch {
+        case e: Exception =>
+          logger.error(logMarker, "Error while cropping image", e)
+          throw e
+      } finally {
+        arena.close()
+      }
+    }
+  }
 
   def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = ???
 
@@ -226,6 +253,10 @@ class VipsImageOperations extends GridLogging with ImageOperations {
         logger.error(s"Save to $mimeType is not supported.")
         throw new UnsupportedCropOutputTypeException
     }
+  }
+
+  private def createTempFileInTempDir(prefix: String, fileType: MimeType, tempDir: File): File = {
+    File.createTempFile(s"$prefix-", fileType.fileExtension, tempDir)
   }
 
 }
