@@ -342,10 +342,10 @@ class UsageApi(
 
   }
 
-  def deleteUsagesByIds(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async(parse.json) { req =>
+  def deleteUsagesByIds(mediaId: String) = Action.async(parse.json) { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages-by-ids",
-      "requestId" -> RequestLoggingFilter.getRequestId(req),
+//      "requestId" -> RequestLoggingFilter.getRequestId(req),
       "image-id" -> mediaId,
     )
 
@@ -393,7 +393,11 @@ class UsageApi(
                   UpdateMessage(subject = DeleteSingleUsage, id = Some(mediaId), usageId = Some(usageId))
                 )
               }
-              Ok
+              respondError(
+                BadRequest,
+                "usage-media-break",
+                s"Example break"
+              )
             }
           }.recover { case error: Exception =>
             logger.error(logMarker, "Failed to delete usages by ID", error)

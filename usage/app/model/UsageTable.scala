@@ -8,6 +8,7 @@ import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, Publishe
 import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.enhanced.dynamodb.document.EnhancedDocument
 import software.amazon.awssdk.enhanced.dynamodb.model.{DeleteItemEnhancedRequest, QueryConditional, QueryEnhancedRequest, UpdateItemEnhancedRequest}
 import software.amazon.awssdk.enhanced.dynamodb.{AttributeConverterProvider, AttributeValueType, DynamoDbEnhancedClient, Key, TableMetadata, TableSchema}
@@ -25,7 +26,7 @@ class UsageTable(config: UsageConfig) extends GridLogging {
   val imageIndexName = "media_id"
 
 
-  lazy val client: DynamoDbClient = config.withAWSCredentials(DynamoDbClient.builder()).build()
+  lazy val client: DynamoDbClient = DynamoDbClient.builder().credentialsProvider(DefaultCredentialsProvider.builder().profileName("media-service").build()).build()
   lazy val dynamo: DynamoDbEnhancedClient = DynamoDbEnhancedClient.builder().dynamoDbClient(client).build()
   lazy val tableSchema = TableSchema.documentSchemaBuilder()
     .addIndexPartitionKey(TableMetadata.primaryIndexName(), hashKeyName, AttributeValueType.S)
@@ -37,16 +38,18 @@ class UsageTable(config: UsageConfig) extends GridLogging {
     )
     .attributeConverterProviders(AttributeValueConverterProvider, AttributeConverterProvider.defaultProvider())
     .build()
-  lazy val table = dynamo.table(config.usageRecordTable, tableSchema)
+  lazy val table = dynamo.table("media-service-TEST-UsageRecordTable-9249RV4XLJ9A", tableSchema)
 
   def queryByUsageId(id: String): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
-
+      println(tableFullKey.hashKey)
+      println(tableFullKey.rangeKey)
       val key = Key.builder()
         .partitionValue(tableFullKey.hashKey)
         .sortValue(tableFullKey.rangeKey)
         .build()
       val queryResult = table.query(QueryConditional.keyEqualTo(key))
+      println(queryResult.items().asScala.toList)
       queryResult.items().asScala.map(ItemToMediaUsage.transform).headOption
     })
   }
