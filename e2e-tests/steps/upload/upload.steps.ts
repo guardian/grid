@@ -38,6 +38,17 @@ Then('I should not see the current uploads section', async ({ page }) => {
 Given(
   'I had searched for {string} before opening the upload page',
   async ({ page, testContext }, query: string) => {
+    // todo review later
+    // Intercept the API request for AI image search and return an empty result set
+    // because we don't have Bedrock service in the e2e stack
+    await page.route(
+      (url) => url.pathname === '/images' && url.searchParams.get('useAISearch') === 'true',
+      async (route) => {
+        await route.fulfill({
+          json: { uri: route.request().url(), data: [], total: 0, offset: 0, length: 0 },
+        });
+      },
+    );
     await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
     await expect(page.getByRole('main', { name: 'Image search results' })).toBeVisible();
     testContext.previousSearchQuery = query;
