@@ -31,6 +31,24 @@ Back after Home does not restore an old density.
 Missing/invalid/unavailable storage defaults quietly to grid; runtime choices stay
 usable. Local preference hydration cannot overwrite this session-owned state.
 
+### Startup Default Admission
+
+`useUrlSearchSync` resolves a bare initial entry from `home-defaults` before
+admitting search-store work. Resolution is separate from rights scope: canonical
+empty/free-only defaults are immediately effective without a replacement; nonempty
+defaults replace the URL once and keep still-bare effect passes pending until URL
+intent is observed. Strict Mode replay cannot admit the provisional bare search.
+Explicit URL params, including free-only rights, queries and detail, are preserved;
+new explicit navigation can be admitted while the default replacement is pending.
+After resolution, intentionally empty navigation does not re-inject defaults.
+Home retains its existing search-before-navigation and dedup ownership.
+
+This gate precedes both direct ES and media-api. It does not fetch permissions,
+wait for optional services, alter authorization/fallback policy or suppress useful
+page/count/ticker discovery. Defaults remain centralized for future permission
+derivation. Local replay/adapter proof does not establish production savings or
+backend cancellation.
+
 ## Guiding philosophy
 
 **History should let the user traverse all *useful* views.** A useful view is

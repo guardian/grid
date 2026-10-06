@@ -10,6 +10,8 @@ vi.hoisted(() => {
 });
 const anchor = vi.hoisted(() => ({ viewportId: null as string | null, visibleIds: null as string[] | null }));
 const navigate = vi.hoisted(() => vi.fn());
+const startupDefaults = vi.hoisted(() => ({ value: { nonFree: "true" } as Record<string, string | undefined> }));
+vi.mock("@/lib/home-defaults", () => ({ get DEFAULT_SEARCH() { return startupDefaults.value; } }));
 const router = vi.hoisted(() => {
   type Notification = { location: { state: { kupuaKey?: string } }; action: { type: "BACK" | "PUSH" } };
   const listeners = new Set<(notification: Notification) => void>();
@@ -76,7 +78,8 @@ beforeEach(() => {
   setPrevParamsSerialized("");
   setPrevSearchOnly({});
   consumeUserInitiatedFlag();
-  navigate.mockClear();
+  navigate.mockReset();
+  startupDefaults.value = { nonFree: "true" };
   frames.clear();
   nextFrame = 0;
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -121,6 +124,141 @@ function UrlSyncHarness({ children }: PropsWithChildren) {
   useUrlSearchSync();
   return children;
 }
+
+describe("KUP-039 startup defaults", () => {
+  it.each([
+    { transport: "direct-ES", strict: false, defaults: { nonFree: "true" }, label: "all-rights" },
+    { transport: "media-api", strict: true, defaults: { nonFree: "true" }, label: "all-rights" },
+    { transport: "media-api", strict: true, defaults: { orderBy: "-uploadTime" }, label: "free-only" },
+  ] as const)("$transport holds $label admission during pending replacement (Strict Mode=$strict)", async ({ transport, strict, defaults, label }) => {
+    startupDefaults.value = { ...defaults };
+    vi.stubGlobal("scheduler", { yield: async () => {} });
+    const corpus = new MockDataSource(100);
+    const intended = await corpus.searchAfter({ nonFree: "true", length: 200 }, null);
+    const dataSource = transport === "media-api" ? new ApiDataSource() : new ElasticsearchDataSource();
+    vi.spyOn(dataSource, "openPit").mockResolvedValue(null);
+    const pages = vi.spyOn(dataSource, "searchAfter");
+    const counts = vi.spyOn(dataSource, "countWithTickers");
+    const fetch = vi.fn(async (url: string, init: RequestInit) => {
+      const body = JSON.parse(init.body as string);
+      if (transport === "media-api") {
+        expect(url).toMatch(/^\/api\/images\/(search-after|count)$/);
+        return Response.json(url.endsWith("/count")
+          ? { total: 100, tickerCounts: { "GNM-owned": { value: 7 } } }
+          : { data: intended.hits.map(data => ({ data })), total: 100, sortValues: intended.sortValues });
+      }
+      expect(url).toMatch(/^\/es\//);
+      return Response.json({ hits: { total: { value: 100 }, hits: body.size === 0 ? [] : intended.hits.map((image, index) => ({
+        _id: image.id, _source: image, sort: intended.sortValues[index],
+      })) }, aggregations: { "GNM-owned": { doc_count: 7 } } });
+    });
+    vi.stubGlobal("fetch", fetch);
+    routeParams = {};
+    useSearchStore.setState({ ...initialState, dataSource }, true);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    let release!: () => void;
+    const replacement = new Promise<void>(resolve => { release = resolve; });
+    navigate.mockImplementationOnce(() => replacement);
+    const view = renderHook(() => useUrlSearchSync(), { wrapper: strict ? StrictMode : undefined });
+    try {
+      expect(search).not.toHaveBeenCalled();
+      act(() => { routeParams = {}; view.rerender(); });
+      expect(search).not.toHaveBeenCalled();
+      expect(pages).not.toHaveBeenCalled();
+      expect(counts).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledOnce();
+      expect(navigate.mock.calls[0][0]).toMatchObject({ replace: true, search: defaults });
+      await act(async () => { release(); await replacement; routeParams = { ...defaults }; view.rerender(); });
+      expect(search).toHaveBeenCalledOnce();
+      await act(async () => { await search.mock.results[0].value; });
+      expect(pages).toHaveBeenCalledOnce();
+      expect(counts).toHaveBeenCalledOnce();
+      expect(pages.mock.calls[0][0].nonFree).toBe(startupDefaults.value.nonFree);
+      expect(counts.mock.calls[0][0].nonFree).toBe(startupDefaults.value.nonFree);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(useSearchStore.getState()).toMatchObject({ loading: false, total: 100, params: defaults,
+        tickerCounts: { "GNM-owned": { value: 7 } } });
+      expect(useSearchStore.getState().results.map(image => image?.id)).toEqual(intended.hits.map(image => image.id));
+      act(() => { routeParams = { ...defaults, image: "img-40" }; view.rerender(); });
+      act(() => { routeParams = { ...defaults }; view.rerender(); });
+      expect(search).toHaveBeenCalledOnce();
+      act(() => { routeParams = {}; markUserInitiatedNavigation(); view.rerender(); });
+      await act(async () => { await search.mock.results[1].value; });
+      expect(search).toHaveBeenCalledTimes(2);
+      expect(pages.mock.calls[1][0].nonFree).toBeUndefined();
+      expect(counts.mock.calls[1][0].nonFree).toBeUndefined();
+      expect(navigate).toHaveBeenCalledOnce();
+      const commitHome = vi.fn(() => { routeParams = { ...startupDefaults.value }; });
+      await act(async () => { await resetToHome(commitHome); });
+      expect(commitHome).toHaveBeenCalledOnce();
+      expect(search).toHaveBeenCalledTimes(3);
+      act(() => { view.rerender(); });
+      expect(search).toHaveBeenCalledTimes(3);
+      expect(pages).toHaveBeenCalledTimes(3);
+      expect(counts).toHaveBeenCalledTimes(3);
+      expect(fetch).toHaveBeenCalledTimes(6);
+      const freeScopes = fetch.mock.calls.map(([, init]) => {
+        const body = JSON.parse(init.body as string);
+        return transport === "media-api" ? body.free === true
+          : JSON.stringify(body.query).includes('"usageRights.category"');
+      });
+      const initialFree = label === "free-only";
+      expect(freeScopes).toEqual([initialFree, initialFree, true, true, initialFree, initialFree]);
+    } finally {
+      await act(async () => { release(); await replacement; await Promise.all(search.mock.results.map(result => result.value)); });
+      view.unmount();
+    }
+  });
+
+  it("admits observed explicit intent while default replacement is still pending", async () => {
+    routeParams = {};
+    const fixture = await aiContinuityFixture("direct-ES");
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource }, true);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    let release!: () => void;
+    const replacement = new Promise<void>(resolve => { release = resolve; });
+    navigate.mockImplementationOnce(() => replacement);
+    const view = renderHook(() => useUrlSearchSync(), { wrapper: StrictMode });
+    try {
+      expect(search).not.toHaveBeenCalled();
+      act(() => { routeParams = { query: "new-intent", nonFree: "false" }; markUserInitiatedNavigation(); view.rerender(); });
+      await act(async () => { await search.mock.results[0].value; });
+      expect(search).toHaveBeenCalledOnce();
+      expect(useSearchStore.getState().params).toMatchObject({ query: "new-intent", nonFree: "false" });
+      await act(async () => { release(); await replacement; });
+      act(() => { routeParams = { ...routeParams }; view.rerender(); });
+      expect(search).toHaveBeenCalledOnce();
+      expect(navigate).toHaveBeenCalledOnce();
+    } finally {
+      await act(async () => { release(); await replacement; });
+    }
+  });
+
+  it.each([
+    { label: "canonical absent free-only defaults", defaults: {}, params: {}, expected: undefined },
+    { label: "explicit free-only", defaults: { nonFree: "true" }, params: { nonFree: "false" }, expected: "false" },
+    { label: "explicit all-rights over free-only defaults", defaults: {}, params: { nonFree: "true" }, expected: "true" },
+    { label: "nonempty query without rights", defaults: { nonFree: "true" }, params: { query: "startup" }, expected: undefined },
+    { label: "detail entry without rights", defaults: { nonFree: "true" }, params: { image: "img-40" }, expected: undefined },
+  ])("resolves $label without injecting defaults", async ({ defaults, params, expected }) => {
+    startupDefaults.value = defaults;
+    routeParams = params;
+    const fixture = await aiContinuityFixture("direct-ES");
+    useSearchStore.setState({ ...initialState, dataSource: fixture.dataSource }, true);
+    const search = vi.spyOn(useSearchStore.getState(), "search");
+    const view = renderHook(() => useUrlSearchSync(), { wrapper: StrictMode });
+    await act(async () => { await search.mock.results[0].value; });
+    expect(navigate).not.toHaveBeenCalled();
+    expect(search).toHaveBeenCalledOnce();
+    expect(fixture.pages).toHaveBeenCalledOnce();
+    expect(fixture.counts).toHaveBeenCalledOnce();
+    expect(useSearchStore.getState().params.nonFree).toBe(expected);
+    expect(useSearchStore.getState().params.query).toBe(params.query);
+    act(() => { routeParams = { ...params }; view.rerender(); });
+    expect(search).toHaveBeenCalledOnce();
+  });
+});
 
 function mountDensity(initialGeometry: ScrollGeometry, strict = false, reportViewport = false, syncUrl = false,
   chooseDensityAnchor?: Parameters<typeof useScrollEffects>[0]["chooseDensityAnchor"]) {

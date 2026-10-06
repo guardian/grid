@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 October 2026 - Resolve startup defaults before search admission
+
+Replace URL sync's premature one-time defaults flag with owner-local resolution
+state. A required URL replacement stays pending across effect replay; canonical
+empty free-only defaults resolve without redirect. Reuse the shared Home defaults
+instead of making readiness depend on a rights flag. Explicit URL intent, later
+empty navigation and existing Home/history/detail ownership remain unchanged.
+
+Failing-first mounted-owner checks distinguish Strict Mode replay from an ordinary
+pending rerender. Composed direct-ES/media-api proof retains one effective admission
+and useful page/count/ticker publication. This is a startup ordering repair, not a
+permission/fallback policy, request suppressor or demonstrated production saving.
+
 ### 5 October 2026 - Security, test-tool and AWS dependency updates
 
 Raise Vitest's minimum to 4.1.11 and update its matched internal packages to fix

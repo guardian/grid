@@ -17,8 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 3 October 2026.** The 19 entries below have an open defect,
-approval/integration/review task or explicit residual; 35 additional IDs have completed bounded repairs or verification.
+**Current recorded status: 6 October 2026.** The 20 entries below have an open defect,
+approval/integration/review task or explicit residual; 36 additional IDs have completed bounded repairs or verification.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
 not a fresh remote check. Update this overview when a detailed disposition changes.
@@ -53,6 +53,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Open; Grid replaced-intent subset in PR #4957, prototype alignment outstanding | Prerequisite: S2 admitted query meaning |
 | [KUP-035](#kup-035) | Full selection reconcile blocks one frame | Open; measured by P19 in both modes (about 320 ms task at 1,000 images) | Independent client performance; not caused by media-api |
 | [KUP-037](#kup-037) | Collection badges silently use the free-only default scope | Open; source and recorded API body confirm both modes agree | Independent count/label correctness; not an M2a routing gate |
+| [KUP-040](#kup-040) | Arrival polling dispatches with an impossible upload interval | Open, parked; source and local API historical-window evidence | Independent request efficiency; preserve useful tab notifications |
 
 KUP-038 is closed against the ledger's completed B8/L37/B17 repairs, not a new fix.
 KUP-011/035/037 have no closure evidence from continuity work and remain separately scoped.
@@ -79,7 +80,7 @@ KUP-011/035/037 have no closure evidence from continuity work and remain separat
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 
 <details>
-<summary>Completed bounded repairs and verification: 35 other IDs</summary>
+<summary>Completed bounded repairs and verification: 36 other IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -96,6 +97,7 @@ KUP-011/035/037 have no closure evidence from continuity work and remain separat
 | Post-U6z ordinary effective-rights mismatch refuted | [KUP-029](#kup-029) |
 | Same-ID AI overlay retention, closed by U9-B replacement | [KUP-030](#kup-030) |
 | Search discovery versus density/keyboard browsing, covered by ledger B8/L37/B17 | [KUP-038](#kup-038) |
+| Startup defaults resolved before search admission | [KUP-039](#kup-039) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -506,6 +508,26 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Resolution:** covered by [B8/L37](not-yet-another-audit-ledger.md#b8) and [B17](not-yet-another-audit-ledger.md#b17), not another repair. [Search-store](../../src/stores/search-store.ts) now separates search, browsing and maintenance owners and settles only owned completion.
 - **Maintained proof:** [mounted density/search tests](../../src/hooks/useScrollEffects.test.ts), [keyboard/discovery tests](../../src/hooks/useListNavigation.test.ts) and [API/store controls](../../src/stores/search-store-api-mode.test.ts) cover delayed reads, current totals, newer destinations, finite AI and supersession in both adapters. Recorded gates and bounded live-checkpoint limits remain with the linked ledger entries.
 - **Disposition: DONE (3 October, reconciled at `7b82b13f8`).** This is a closure against existing repairs and verification, not a new test/live run or a claim that every density/keyboard defect is fixed.
+
+#### KUP-039
+**Bare startup dispatches an obsolete search before defaults settle**
+- **Component / responsibility:** [URL/default producer](../../src/hooks/useUrlSearchSync.ts#L121), before search-store admission; not a datasource-wide duplicate-request policy.
+- **Trigger / expected / actual:** a bare `/search` entry should resolve existing Home defaults before dispatching its first search. In two local API DEV controls, an absent rights flag dispatched a provisional free-only page/count before `nonFree=true` replacement dispatched the accepted all-rights pair. The provisional pages were browser-cancelled and their counts completed; neither supplied accepted rows, total or ticker publication in those controls.
+- **Evidence / limits:** [startup timeline and conclusion](not-yet-another-audit-L19-network-measurmenets.md#kupua-api-startup-scope-and-polling), 5 October at `31d5deda0`. The one-time ref is marked before asynchronous navigation settles; DEV effect replay supplies a source explanation consistent with the capture. Individual React transitions, production incidence, backend cancellation and ES cost are not certified. Explicit all-rights/free-only and actual in-session Home supplied useful reads; Home did not reproduce this sequence.
+- **Operator compatibility requirement, 6 October:** fix default-resolution ordering, not a hard-coded transition to `nonFree=true`. Kupua will derive defaults from permissions later. A resolved free-only default is valid; unresolved defaults are not a free-only search. Reuse the existing defaults owner and preserve explicit URL intent and authorization. Both direct ES and media-api must obey the same admission contract. Do not implement permission fetching, add an optional-service dependency or invent new failure/fallback policy in this repair.
+- **Smallest discriminator:** mount the real URL-sync owner with bare params and hold default replacement pending through effect replay; assert no provisional search is admitted, then one effective resolved search. Confirm failure on current code and compare Strict Mode with ordinary mounting. Substitute resolved free-only/all-rights defaults at the existing boundary and cover both datasource routes. Preserve explicit rights, nonempty query, later deliberately empty navigation, Home, history/detail and useful count/ticker discovery; identify existing expectations before editing.
+- **Repair / proof (6 October):** the real URL-sync owner now distinguishes unresolved/pending/resolved defaults. Canonical-empty free-only defaults need no replacement; pending replacement does not admit still-bare params. Existing explicit intent, later empty navigation, Home and history/detail ownership remain. Nine owner cases replace the preliminary two-case proof with actual direct-ES/media-api page/count/ticker composition and compact defaults/intent controls. Failing-first established Strict Mode initial replay admission and ordinary-mount admission only after a separate pending rerender; the full owning suite passes.
+- **Live verification (6 October, operator-shared browser):** visible `ApiDataSource` DEV tab, served URL-sync SHA-256 equal to workspace and Strict Mode retained. Bare entry issued one successful all-rights page/count pair, no provisional free-only read, and one 200-row publication. Explicit all-rights/free-only controls and actual Home from free-only each supplied one intended pair/publication; projected baseline ticker values matched the count response in all four controls. Pass-through pre-navigation observation did not hold or replace responses; cleanup removed activation/probe/subscription and restored fetch/store-global ownership. This extends proof to the served native API path only; no live direct-ES, production, backend-cancellation or late-router supersession certificate follows.
+- **Validation / disposition: DONE locally (6 October), based on `31d5deda06844904991a9bccba419747ef765500`.** Full local gates pass: 2,920 unit tests/83 files, TypeScript/Vite build and 453 retry-free E2E including forced-seek. Two independent complete-snapshot cold reviews and final proof re-reviews accept without findings. This replaces premature default authority, not a code-subtraction exercise: production grows three lines; tests grow 138 lines/nine cases. The preliminary two cases were replaced, with no redundant baseline proof found to delete. No polling, rights-policy, permissions fetching, optional-service wait, tiers, Kahuna, global suppression or new measurement campaign is included. Local composed adapters do not certify native media-api, backend cancellation, production incidence/savings or actual late-router transition supersession; the explicit-intent control models observed owner intent only.
+
+#### KUP-040
+**Arrival polling dispatches even when its effective upload interval is empty**
+- **Component / responsibility:** [arrival poll admission](../../src/stores/search-store.ts#L924), independent of KUP-006's completed cumulative accounting repair and ledger B20's retained-arrivals repair.
+- **Trigger / expected / actual:** effective lower upload bound `max(params.since, newCountSince)` is at or after `params.until`. The shared date predicate is strictly after/before, so no image can match. Nevertheless, the historical local API control issued four such reads in 35 seconds. They supplied zero arrival deltas and advanced the ticker timestamp, but did not refresh rows, deletions or browse totals.
+- **Evidence / limits:** [historical polling eligibility](not-yet-another-audit-L19-network-measurmenets.md#historical-polling-eligibility), 5 October at `31d5deda0`, and [strict date bounds](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L42). This establishes useless requests for the measured contradictory interval, not broken ordinary arrival detection or quantified server load. Kahuna's related findings remain separately scoped in the report.
+- **User contract:** preserve foreground/background polling for searches that can receive arrivals, the tab title/icon and badge notifications, useful baseline/cumulative tickers, and already-known arrivals restored with their matching browse boundary. Do not disable polling merely because a tab is hidden, has an upper date bound or returned zero. A future upper bound, or a restored freeze earlier than the upper bound, can still leave an eligible interval. These upload-arrival polls do not promise detection of later metadata edits to older pictures.
+- **Smallest discriminator:** use existing fake-timer/store fixtures to compare lower-before-upper, equal and lower-after-upper instants; only impossible intervals should issue no datasource count. Retain open-ended/future-bound positive arrivals, visibility transitions, restored count/boundary, query replacement and stale-publication controls. Compare date instants, including supported timezone representations; do not weaken invalid-date handling.
+- **Dependency / disposition:** OPEN, independently parked on 6 October; recording is not implementation approval. This is request-efficiency work, not removal or redesign of background notifications, a new refresh guarantee or a tier/migration gate.
 
 ### Dependency Unresolved
 

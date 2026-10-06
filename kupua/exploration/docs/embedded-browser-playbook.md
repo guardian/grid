@@ -1,7 +1,7 @@
 # Embedded Browser Playbook — Driving Kupua from VS Code
 
 > **Created:** 2026-07-30
-> **Status:** Maintained operating reference; latest live technique check 2026-10-03.
+> **Status:** Maintained operating reference; latest live technique check 2026-10-05.
 > **Purpose:** Accumulated technique notes for any agent driving kupua through the
 > **embedded VS Code browser** — exploratory bug hunting, reproducing a
 > user-reported bug, or verifying a fix by hand.
@@ -28,6 +28,8 @@ Mark every entry with its status:
 
 Downgrade or delete entries that turn out to be wrong. Do not leave known-false
 notes in place with a correction bolted on.
+For network-footprint comparisons, read [section 8](#8-network-footprint-comparisons)
+before installing observers or changing cache controls.
 **[!] Bring the target page to the foreground before any rAF performance
 probe.** With many integrated-browser tabs open, a reverse-scroll probe ran in
 a backgrounded page: a nominal 2.5-second input sequence stretched to 29
@@ -1922,3 +1924,83 @@ second request is not by itself evidence that the key was ignored. Gate one succ
 response at the datasource boundary, preserve its signal on release, and retain ordinary
 no-competition controls. Restore the original own-property descriptor, or remove the temporary
 override when the method originally lived on the prototype; return only aggregate outcomes.
+
+---
+
+## 8. Network Footprint Comparisons
+
+**[V] Fixed viewport dimensions do not establish pixel density.**
+`page.setViewportSize()` can reset DPR. Verify `innerWidth`, `innerHeight` and
+`devicePixelRatio` after resizing and before each comparable capture. A default-scaled
+27-inch 5K Retina screen is 2560 x 1440 CSS pixels at DPR 2, not a 5120 x 2880 CSS
+viewport. Do not resize again after the operator fixes DPR without rechecking it.
+
+**[V] Chromium HTTP-cache controls are available without clearing login.**
+Use `page.context().newCDPSession(page)`, enable `Network`, and set
+`Network.setCacheDisabled` for a bounded capture. Restore normal caching and detach
+the session in `finally`. Bypass does not clear app storage or make API, ES, media
+proxy or CDN caches cold. Verify cache behaviour through events/bytes, not just
+acceptance of the command. Declare any other interception that changes cache behaviour.
+
+**[V] Native event callbacks and page evaluation have different globals.**
+The tool runtime may lack `URL` or `TextEncoder` outside `page.evaluate`. An exception
+in a classifier can resemble an empty event stream. First validate a minimal native
+request counter on a known app operation, then add classification and size accounting.
+Use browser-side structured URL parsing where needed; do not conclude the event API
+is unavailable merely because a classifier collected no records.
+
+**[V] Separate response bytes, cached bytes and returned records.**
+CDP loading events can observe cross-origin transfers that Resource Timing hides.
+Encoded response-body size excludes headers; response wire size includes them;
+decoded body size is after HTTP decompression, not JS heap or bitmap RAM. A cached
+response can have a nonzero decoded size without an equivalent transfer. Parse only
+counts from existing API bodies, and retain no raw payload/credential material.
+Include starts, pending requests, failures and cancellations, not just completions.
+For reloads, distinguish retiring-document requests from the new document's startup.
+
+**[V] A read-only UI can still submit telemetry.**
+Before operating Kahuna, identify and block non-read-only producers, including
+automatic fetch/XHR/beacon telemetry. Validate the guard before the measured action;
+do not rely on server rejection. GET/HEAD-only gating fits the observed legacy reads,
+but would break Kupua's vetted POST reads: use semantic endpoint ownership, not a
+universal POST prohibition. Disclose guard-induced errors/work changes and do not
+assume fetch/XHR/beacon coverage proves every form, worker or frame is protected.
+
+**[V] Use canonical query and resolved-scope controls from section 7.**
+Compare the final URL/store query and actual outgoing scope, not merely the supplied
+URL string. Entry-time defaults or CQL normalisation can trigger provisional reads.
+A zero-result quoted/prefixed control is not an API parity finding when the successful
+app has normalised it to a different query. Establish a positive canonical control.
+Keep URL entry, actual typing, suggestion opening and resident navigation as separate
+workloads; a document reload is not an in-session cache-reuse experiment.
+
+**[V] Attribute aggregates to consumers before calling them waste.**
+Capture safe field names, bucket limits and operation flags from read request bodies.
+Collection counts, own-chip suggestions and an expanded Filters panel are different
+owners even when they share an aggregation endpoint. Hidden-panel claims need panel
+state and producer evidence. Small responses and one HTTP request do not establish
+small ES work; useful features may legitimately have a measured enrichment budget.
+
+**[V] Define useful-screen and media boundaries explicitly.**
+`complete` plus positive `naturalWidth` establishes a loaded image, not `decode()`
+completion or unobscured paint. A few visible thumbnails plus an editor is a readiness
+proxy, not full viewport settlement or first-input latency. Use decoded-image and
+paint/hit-test checks when those are the question. A detail route may retain/fetch
+an underlying list; distinguish main media, thumbnails, prefetch and singleton reads.
+Do not interpret failed media delivery as low bandwidth or a performance win.
+
+**[V] Keep useful-screen, background and idle windows separate.**
+Background work can start before useful paint and finish afterward. Label both request
+ownership and start/completion boundaries. Verify real document visibility; hidden
+polling observations are valid but not foreground rendering timings. Match query and
+admission scope before comparing idle load. Inspect available logging definitions:
+an ES-client round-trip stopwatch is not ES CPU or the whole HTTP request duration.
+
+**[V] Preserve safe aggregates and owned cleanup handles.**
+Keep request bodies, signed URLs, principal markers and headers transient; never save
+raw HARs for convenience in this public repo. Logs can be parsed into operation names
+and numeric timings without emitting full lines. Searches/media IDs may be retained
+when authorised, but emails and credentials must not be. Give observers/wrappers
+explicit cleanup handles, restore native method ownership and cache state, and verify
+cleanup before closure. Handoff globals are temporary, not a reusable harness; reload
+can discard them while installed init scripts may still affect subsequent documents.

@@ -91,7 +91,7 @@ export function useUrlSearchSync() {
   const router = useRouter();
   const { setParams, search } = useSearchStore();
   const navigate = useNavigate();
-  const hasAppliedDefaults = useRef(false);
+  const defaultsResolution = useRef<"unresolved" | "pending" | "resolved">("unresolved");
   const unmountedRef = useRef(false);
   const pendingPopKey = useRef<string | undefined>(undefined);
   const [observedEntryKey, setObservedEntryKey] = useState<string | undefined>(undefined);
@@ -121,24 +121,27 @@ export function useUrlSearchSync() {
     // On first mount, if the URL has no search params at all, apply defaults
     // (e.g. nonFree=true).  This is a one-time redirect — once any interaction
     // has happened, we never re-inject defaults.
-    if (!hasAppliedDefaults.current) {
-      hasAppliedDefaults.current = true;
+    if (defaultsResolution.current !== "resolved") {
       const hasAnyParam = Object.values(searchParams).some(
         (v) => v !== undefined && v !== ""
       );
-      if (!hasAnyParam) {
+      if (!hasAnyParam && defaultsResolution.current === "pending") return;
+      const defaults = cleanParams(canonicalizeSearchParams(DEFAULT_SEARCH));
+      if (!hasAnyParam && Object.keys(defaults).length > 0) {
+        defaultsResolution.current = "pending";
         // Raw navigate — not pushNavigate(). Default-injection uses
         // replace: true (invisible URL normalisation, not a push), so the
         // user-initiated flag is moot. If this ever becomes a push, it
         // must switch to pushNavigate().
         navigate({
           to: "/search",
-          search: cleanParams(canonicalizeSearchParams(DEFAULT_SEARCH)),
+          search: defaults,
           replace: true,
           state: withCurrentKupuaKey(),
         });
         return; // navigate will re-trigger this effect with the new URL
       }
+      defaultsResolution.current = "resolved";
     }
 
     const canonicalParams = canonicalizeSearchParams(searchParams);

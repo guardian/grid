@@ -1,9 +1,8 @@
 # Core Logic Cleanup Ledger
 
 Working deliverable for characterising Kupua's position behaviour, recording
-operator decisions and actionable bugs, and tracking later cleanup. The original
-[characterisation prompt](not-yet-another-audit-prompt.md) owns that investigation,
-not the execution sequence for approved slices; use the current unit below. The
+operator decisions and actionable bugs, and tracking later cleanup. For the
+execution sequence of approved slices, use the current unit below. The
 [focus and position architecture guide](00%20Architecture%20and%20philosophy/02-focus-and-position-preservation.md)
 is a contract source, not a destination for this investigation's tables or bugs.
 
@@ -31,9 +30,14 @@ they are not clean. Build/E2E warnings remain. These are implementing-session
 results, not coordinator reruns, native server-cancellation proof or current
 direct/API performance equivalence. Live evidence keeps its original scope/revision.
 
-**Next decision:** the [L19 tier/startup document sweep](#tier-and-startup-cost-reassessment-l19)
-reframes the question around API performance, shared ES load and UX, not removing
-the 1,000-result tier by default. No implementation or live profile is selected.
+**L19 assessment:** [small-result source assessment](#small-result-source-assessment-5-october-2026)
+recommends retaining the current small-result architecture and eager residency.
+Indexed coordinates are feasible but do not eliminate eager-completion responsibility.
+The [bounded network characterisation](not-yet-another-audit-L19-network-measurmenets.md)
+remains scoped evidence; no tier implementation, prototype or further measurement is approved.
+Its independent findings now live in the canonical backlog: [KUP-039](bug-backlog.md#kup-039)
+is the startup-only repair approved on 6 October for a separate implementation session;
+[KUP-040](bug-backlog.md#kup-040) is parked polling eligibility work, preserving useful tab notifications.
 Optional helper/L44 work and B19 remain separate; L45 is complete.
 
 | ID | Status | Issue / responsibility | Remaining task |
@@ -135,7 +139,8 @@ the complete production/test delta and current changed lifecycle; all four code/
 files matched final review-packet hashes. Saved unit/E2E logs were inspected, not
 rerun. This is scoped source/evidence reading, not fresh whole-app or performance
 certification. Local ignored review artifacts may be cleaned; the committed diff,
-tests and these qualified records remain the durable reference. No next task selected.
+tests and these qualified records remain the durable reference. No next continuity unit is selected;
+the independently approved startup repair is [KUP-039](bug-backlog.md#kup-039).
 Wider API migration remains owned by the
 [API build plan](03%20Ce%20n'est%20pas%20une%20pipe%20dream/api-build/api-build-00-plan.md).
 
@@ -1751,8 +1756,7 @@ independence does not promise identical request counts for every policy.
 
 Keep one active unit, including across sessions. Resume the same brief/worklog;
 do not create another plan or widen scope because a session ended. The
-[helper shortlist](../../e2e/README.md#strong-candidates) and
-[one-candidate prompt](continuity-test-refresh-prompt.md) remain optional alternatives,
+[helper shortlist](../../e2e/README.md#strong-candidates) remains an optional alternative,
 not the recommended next step or evidence of a runtime bottleneck. A separately
 selected bug repair may interrupt the programme without being called consolidation.
 
@@ -1812,6 +1816,98 @@ were extracted read-only. Narrow current-source checks covered default params,
 startup/map triggers, API map loop, polling and Kahuna initial/range search. No full
 server/bootstrap audit, live capture, load test, experiment or product change; capacity
 and current request/payload totals remain unmeasured. No universal performance claim.
+
+#### Initial Network Characterisation (5 October 2026)
+
+The operator-authorised [bounded local comparison](not-yet-another-audit-L19-network-measurmenets.md)
+owns the four aims: Kahuna improvements, Kupua improvements, comparable workload
+costs and tier evidence. It records methods, safety, figures, candidate changes and
+disproof checks, including provisional startup scopes, feature-owned aggregations,
+map acquisition/reuse and polling. The 4 October sweep above remains historical
+source reading, not the measurement manifest. No product change, tier removal,
+load test or production-capacity conclusion follows from that initial record.
+The subsequent startup/polling follow-up is tracked as [KUP-039](bug-backlog.md#kup-039)
+(startup repair approved 6 October) and [KUP-040](bug-backlog.md#kup-040)
+(poll eligibility parked), not new continuity-ledger bugs. The report retains evidence;
+the backlog owns disposition. Kahuna work remains separate and unapproved here.
+
+#### Small-Result Source Assessment (5 October 2026)
+
+**Recommendation: retain the current small-result architecture.** At `31d5deda0`,
+indexed small sets are feasible without maps. However, [demand loading](../../src/hooks/useDataWindow.ts#L400)
+cannot replace eager completion. Removing both loaders while retaining their
+benefits would relocate scheduling, not eliminate it. API UX/shared work outweigh
+unproved subtraction; direct ES remains supported. No implementation is approved.
+
+Separate decisions: **drag** becomes direct when fully resident; **coordinates**
+remain buffer-local; **residency** progressively prefetches full rows, not all image
+bitmaps; **maps** remain absent. Indexed coordinates could be stable from first
+publication without keys. `POSITION_MAP_THRESHOLD` also controls coordinates and
+interaction: blindly tuning it is not a map-cost experiment.
+
+| Option | Subtraction and remaining responsibility |
+|---|---|
+| Retain (recommended) | Keep `_fillBufferForScrollMode`, `_topUpScrollModeBuffer` and placement retry; preserve initial display and settled request-free image-row browsing. |
+| Simplify internally | Candidate deletion: initial fill loop/duplicate append writer. One eager driver plus shared accepted-page publication must replace it, preserving immediate dispatch, capped remainder and quiet failure. Public extensions alone do not. |
+| Indexed replacement | Could remove small-set extent-growth retry and bypass compensation, not delete compensation needed by large sets. Search/restores still require eager completion; demand loading alone changes residency. Adapter loaders or extra policy flags are not deletion credit. |
+
+[Fill/top-up](../../src/stores/search-store.ts#L1219) also own tuples, enrichment,
+positions, frozen admission, busy suppression and bounded progress. Top-up waits
+cooldowns, fills forwards then backwards with alignment, and serves focus/cursor
+restores, missing-target/timeout fallbacks and discovery takeover. Its global
+re-entry guard and total/PIT-generation checks differ from fill's captured range
+signal: successor admission, density retirement and owner-checked cleanup need
+design, not blind delegation. Empty/error/abort can leave partial residency.
+Preserve coherent publication, useful loading, true edges and B-neighbourhood/
+A-bookmark/arrow behavior through query, history and density changes.
+
+Indexed early drag can expose placeholders, cancel fill and add `/window` reads;
+[resident indexed callbacks](../../src/stores/search-store.ts#L3148) still cancel
+maintenance. No-map indexed focus restoration serializes rank before pages, unlike
+small-set overlap. These are changeable wiring costs, not inherent impossibility.
+Removing eager work saves upfront rows but adds interaction-time reads. Retaining
+eagerness preserves resident-row cost while adding any discarded/repeated windows.
+
+**Topology/bounds, unchanged by retention:** ordinary API startup uses a counted
+200-row `/images/search-after` plus parallel `/images/count`, then uncounted cursor
+pages. Stable membership/full intermediate pages yield ceil(N/200) image reads
+(five at 1000); short/undecodable pages invalidate that bound. Middle restoration
+adds lookup/rank and up-to-100-row directional pages, discarded first-page work,
+alignment rereads and possibly null-tail completion; changed cached tuples add rank.
+Metadata/deletions remain mutable despite upload freezing. Image pages are
+[capped at 200](../../../media-api/app/lib/elasticsearch/ElasticSearchModel.scala#L816),
+window offsets below 10,000, keys pages at 10,000. Preserve authorization,
+completeness, tuples and direct-ES PIT behavior; browser abort does not prove ES stopped.
+
+At default small-set limits, resident rows approach N<=1000, plus positions,
+2,000 cached tuples/anchor, enrichment and separate media caches: not a whole-app
+heap bound. Historical 85/212 cases returned 60.9/182.2KB compressed and
+0.885/2.087MB decoded; 212 used 200+12 rows, neither used maps. They establish
+neither near-cap latency/heap nor ES CPU/capacity. Map-free is not inherently cheaper.
+
+**Proof/retirement:** keep [small-set browser journeys](../../e2e/local/scrubber.spec.ts#L2550),
+density cancellation, true-edge, traversal, alignment and 1000/1001 map controls.
+The sole established dead-state candidate is `_bufferSelfCorrecting`: no production
+reader. Remove flag assertions, not the [superseding-search scenario](../../src/stores/search-store.test.ts#L1937).
+If consolidation is selected, merge duplicate cursor-restore bodies into one held
+overlap; fold cursor/position completion checks into ordinary fill. Reuse existing
+mock/DTO gates; delayed rank/cursor setup must use the installed small datasource,
+not outer `mock`. No new suite/fixture is needed.
+
+**Conditional discriminator, not selected:** rehearse origin-212 and middle-958
+old/new schedules in existing fixtures, holding failed/late pages across same-total
+successor and density cancellation beyond cooldown. This distinguishes shared
+publication from changed scheduling/ownership. Stop on extra reads, delayed fill,
+retired redispatch, stale busy cleanup, changed failure UX or relocated duplication.
+No new measurement is necessary to retain; historical evidence cannot certify an
+unwritten replacement. Q1/Q7, startup defaults, polling and large-set drag stay separate.
+
+**Limits:** loaders/callers, placement consumers, adapter/map contracts and owning
+tests/shared fixtures were read; adjacent suites/server bodies selectively, unrelated
+internals/full Scala suites/canonical perf records not re-audited. No execution/live
+work. One fresh read-only challenger received the full scoped diff/inherited edits;
+its ownership/cost/test objections changed the initial simplification recommendation
+to retention. Replacement equivalence remains unresolved, not consensus or approval.
 
 ### Density Restoration Replacement (L45)
 
@@ -2229,7 +2325,7 @@ their evidence records, not in this backlog.
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
-| L19 | Decision | Reassess tier interaction/loading/map strategy around API UX, shared ES load and gentle default startup; tier removal is not the premise | Use the documented sweep and existing measurements; select a bounded startup/map cost question before profiling or proposing changes | [Tier/startup evidence](#tier-and-startup-cost-reassessment-l19); research complete, no implementation/profile selected |
+| L19 | Decision | Retain current small-result architecture; indexed coordinates do not eliminate eager-completion responsibility | Reconsider only with bounded proof of successor/density ownership, dispatch and genuine subtraction; no additional measurement needed for retention | [Assessment](#small-result-source-assessment-5-october-2026); challenged design complete, no implementation/prototype approved |
 | L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
 | L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
