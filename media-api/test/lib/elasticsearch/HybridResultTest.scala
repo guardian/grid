@@ -11,7 +11,7 @@ import play.api.libs.json.Json
 
 class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with Tolerance with Fixtures {
 
-  import HybridResult.{fuseAndRank, fuseScores, normalise, resolveHitAndFillInSemanticScore, Bm25TheoreticalMin, CosineSimilarityTheoreticalMin}
+  import HybridResult.{fuseAndRank, fuseScores, maxSemanticSimilarity, normalise, resolveHitAndFillInSemanticScore, Bm25TheoreticalMin, CosineSimilarityTheoreticalMin}
 
   private val tolerance = 1e-9
 
@@ -135,6 +135,40 @@ class HybridResultTest extends AnyFunSpec with Matchers with OptionValues with T
       ).value
 
       result.semanticScore should be(CosineSimilarityTheoreticalMin +- tolerance)
+    }
+  }
+
+  describe("maxSemanticSimilarity") {
+    val queryEmbedding = List(1.0, 0.0)
+
+    it("retains absolute similarity instead of making every search's best score one") {
+      val image = imageWithEmbedding("image", Some(List(3.0, 4.0)))
+
+      maxSemanticSimilarity(Seq(image), queryEmbedding).value should be(0.6 +- tolerance)
+      maxSemanticSimilarity(Seq(image), List(0.0, 1.0)).value should be(0.8 +- tolerance)
+    }
+
+    it("takes the maximum regardless of order without rescaling for other results") {
+      val best = imageWithEmbedding("best", Some(List(3.0, 4.0)))
+      val weaker = imageWithEmbedding("weaker", Some(List(0.0, 1.0)))
+
+      maxSemanticSimilarity(Seq(weaker, best), queryEmbedding).value should be(0.6 +- tolerance)
+      maxSemanticSimilarity(Seq(best, weaker), queryEmbedding) should be(maxSemanticSimilarity(Seq(best), queryEmbedding))
+    }
+
+    it("returns no score for empty results or unusable embeddings") {
+      maxSemanticSimilarity(Seq.empty, queryEmbedding) should be(None)
+      val images = Seq(None, Some(List(0.0, 0.0)), Some(List(1.0)), Some(List(Double.NaN, 1.0)), Some(List(Double.PositiveInfinity, 1.0)))
+        .zipWithIndex.map { case (embedding, index) => imageWithEmbedding(index.toString, embedding) }
+
+      maxSemanticSimilarity(images, queryEmbedding) should be(None)
+    }
+
+    it("ignores missing embeddings but preserves genuine negative similarities") {
+      val missing = imageWithEmbedding("missing", None)
+      val opposite = imageWithEmbedding("opposite", Some(List(-1.0, 0.0)))
+
+      maxSemanticSimilarity(Seq(missing, opposite), queryEmbedding).value should be(-1.0 +- tolerance)
     }
   }
 
