@@ -4,13 +4,13 @@ import type { Locator, Page } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
-import { openUploadPage } from '../common.steps.ts';
+import { switchAccount } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
 import { grouping, metadataFields, testImages, uniqueImage, uploadPage } from './setup.ts';
 
-/** Upload a unique image and wait for it to become the required-metadata editor. */
-async function uploadAndOpenEditor(page: Page): Promise<void> {
-  await uploadPage(page).fileInput.setInputFiles(uniqueImage().path);
+/** Upload an image (a unique one by default) and wait for its required-metadata editor. */
+async function uploadAndOpenEditor(page: Page, imagePath = uniqueImage().path): Promise<void> {
+  await uploadPage(page).fileInput.setInputFiles(imagePath);
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 }
 
@@ -154,8 +154,7 @@ Given(
     );
     // A unique copy of the fixture that carries the embedded IPTC (metadata lives up front,
     // so the random trailing bytes that dodge dedupe don't disturb it).
-    await uploadPage(page).fileInput.setInputFiles(uniqueImage(testImages.withMetadata).path);
-    await expect(uploadPage(page).metadataEditor).toBeVisible();
+    await uploadAndOpenEditor(page, uniqueImage(testImages.withMetadata).path);
   },
 );
 
@@ -164,8 +163,7 @@ Given('image types are configured', async () => {});
 
 // The `agency` usageRights category from the AAP-credited fixture triggers usageInstructions.
 Given('an uploaded image that already has usage instructions', async ({ page }) => {
-  await uploadPage(page).fileInput.setInputFiles(uniqueImage(testImages.agency).path);
-  await expect(uploadPage(page).metadataEditor).toBeVisible();
+  await uploadAndOpenEditor(page, uniqueImage(testImages.agency).path);
 });
 
 When('I view the description field', async ({ page }) => {
@@ -193,15 +191,8 @@ Then(
 
 Then('I should see the metadata values in the appropriate fields', async ({ page, testContext }) => {
   const fields = uploadPage(page).metadataField;
-  const byName: Record<string, Locator> = {
-    description: fields.description,
-    byline: fields.byline,
-    credit: fields.credit,
-    copyright: fields.copyright,
-    specialInstructions: fields.specialInstructions,
-  };
   for (const [field, value] of Object.entries(testContext.expectedMetadata!)) {
-    await expect(byName[field], `field "${field}"`).toHaveValue(value);
+    await expect(fields[field as keyof typeof fields], `field "${field}"`).toHaveValue(value);
   }
 });
 
@@ -299,24 +290,20 @@ Then('I should be able to add further special instructions', async ({ page }) =>
 Given(
   'I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission',
   async ({ page, testContext }) => {
-    const image = uniqueImage();
-    testContext.uploadedImagePath = image.path;
-    await uploadPage(page).fileInput.setInputFiles(image.path);
-    await expect(uploadPage(page).metadataEditor).toBeVisible();
+    const imagePath = uniqueImage().path;
+    testContext.uploadedImagePath = imagePath;
+    await uploadAndOpenEditor(page, imagePath);
 
-    // Clearing cookies drops both the Panda and OIDC sessions, so we sign in afresh.
-    await page.context().clearCookies();
-    await openUploadPage(page, TEST_ACCOUNTS.restricted);
+    await switchAccount(page, TEST_ACCOUNTS.restricted);
 
     // The fields start disabled until canUserEdit resolves, so prove the API really denies edits.
-    await expectNoEditPermission(page, image.path, TEST_ACCOUNTS.fullAccess);
+    await expectNoEditPermission(page, imagePath, TEST_ACCOUNTS.fullAccess);
   },
 );
 
 When('I view the metadata editor for an image I did not upload', async ({ page, testContext }) => {
   // Re-uploading the same bytes surfaces the existing image, which keeps its original uploader.
-  await uploadPage(page).fileInput.setInputFiles(testContext.uploadedImagePath!);
-  await expect(uploadPage(page).metadataEditor).toBeVisible();
+  await uploadAndOpenEditor(page, testContext.uploadedImagePath!);
 });
 
 Then('the metadata fields should be disabled', async ({ page }) => {
