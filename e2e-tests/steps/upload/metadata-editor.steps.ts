@@ -18,50 +18,68 @@ async function uploadAndOpenEditor(page: Page): Promise<void> {
 const expectSelectedOption = (select: Locator, label: string) =>
   expect(select.locator('option:checked')).toHaveText(label);
 
-const BATCH_FIELDS: Record<
-  string,
-  { input: (editor: Locator) => Locator; applyTitle: string; value: string; isSelect?: boolean }
-> = {
-  'Image type': {
-    input: (editor) => metadataFields(editor).imageType,
-    applyTitle: 'Apply this image type to all your current uploads',
-    value: E2E_IMAGE_TYPES[0],
-    isSelect: true,
-  },
-  Description: {
-    input: (editor) => metadataFields(editor).description,
-    applyTitle: 'Apply this description to all your current uploads',
-    value: 'Batch description',
-  },
-  Byline: {
-    input: (editor) => metadataFields(editor).byline,
-    applyTitle: 'Apply this byline to all your current uploads',
-    value: 'Batch byline',
-  },
-  Credit: {
-    input: (editor) => metadataFields(editor).credit,
-    applyTitle: 'Apply this credit to all',
-    value: 'Batch credit',
-  },
-  'Special instructions': {
-    input: (editor) => metadataFields(editor).specialInstructions,
-    applyTitle: 'Apply these instructions to all your current uploads',
-    value: 'Batch instructions',
-  },
-};
+/** A field that can be batch-applied; `job` is one current upload's whole image-editor. */
+interface BatchField {
+  value: string;
+  set: (job: Locator, value: string) => Promise<void>;
+  applyButton: (job: Locator) => Locator;
+  expectOn: (job: Locator, value: string) => Promise<void>;
+}
 
+const metadataEditorOf = (job: Locator) => job.getByRole('region', { name: 'Image metadata' });
 const usageRights = (job: Locator) => job.getByRole('region', { name: 'Image usage rights' });
 
-/** Fields in the image-editor around the required-metadata form; `job` is one current upload. */
-const IMAGE_EDITOR_FIELDS: Record<
-  string,
-  {
-    value: string;
-    set: (job: Locator, value: string) => Promise<void>;
-    applyButton: (job: Locator) => Locator;
-    expectOn: (job: Locator, value: string) => Promise<void>;
-  }
-> = {
+const requiredMetadataField = (
+  name: Exclude<keyof ReturnType<typeof metadataFields>, 'imageType'>,
+  applyTitle: string,
+  value: string,
+): BatchField => {
+  const input = (job: Locator) => metadataFields(metadataEditorOf(job))[name];
+  return {
+    value,
+    set: async (job, value) => {
+      await input(job).fill(value);
+      await input(job).blur();
+    },
+    applyButton: (job) => metadataEditorOf(job).getByTitle(applyTitle),
+    expectOn: (job, value) => expect(input(job)).toHaveValue(value),
+  };
+};
+
+const expectGroupingLink = (job: Locator, value: string) =>
+  expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible();
+
+const BATCH_FIELDS: Record<string, BatchField> = {
+  'Image type': {
+    value: E2E_IMAGE_TYPES[0],
+    set: async (job, value) => {
+      const select = metadataFields(metadataEditorOf(job)).imageType;
+      // selectOption doesn't focus the input, so we must do this manually
+      await select.focus();
+      await select.selectOption({ label: value });
+      await select.blur();
+    },
+    applyButton: (job) =>
+      metadataEditorOf(job).getByTitle('Apply this image type to all your current uploads'),
+    expectOn: (job, value) =>
+      expectSelectedOption(metadataFields(metadataEditorOf(job)).imageType, value),
+  },
+  Description: requiredMetadataField(
+    'description',
+    'Apply this description to all your current uploads',
+    'Batch description',
+  ),
+  Byline: requiredMetadataField(
+    'byline',
+    'Apply this byline to all your current uploads',
+    'Batch byline',
+  ),
+  Credit: requiredMetadataField('credit', 'Apply this credit to all', 'Batch credit'),
+  'Special instructions': requiredMetadataField(
+    'specialInstructions',
+    'Apply these instructions to all your current uploads',
+    'Batch instructions',
+  ),
   Leases: {
     value: 'e2e batch lease',
     set: async (job, value) => {
@@ -85,8 +103,7 @@ const IMAGE_EDITOR_FIELDS: Record<
       await grouping(job).getByRole('button', { name: value, exact: true }).click();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply these collections to all your current uploads'),
-    expectOn: (job, value) =>
-      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+    expectOn: expectGroupingLink,
   },
   Labels: {
     value: 'e2e-batch-label',
@@ -96,8 +113,7 @@ const IMAGE_EDITOR_FIELDS: Record<
       await grouping(job).getByTitle('Save new label').click();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply these labels to all your current uploads'),
-    expectOn: (job, value) =>
-      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+    expectOn: expectGroupingLink,
   },
   Keywords: {
     value: 'e2e-batch-keyword',
@@ -107,8 +123,7 @@ const IMAGE_EDITOR_FIELDS: Record<
       await grouping(job).getByTitle('Save new keyword').click();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply these keywords to all your current uploads'),
-    expectOn: (job, value) =>
-      expect(grouping(job).getByRole('link', { name: value, exact: true })).toBeVisible(),
+    expectOn: expectGroupingLink,
   },
   Photoshoot: {
     value: 'e2e-batch-photoshoot',
@@ -324,40 +339,23 @@ Given('I am permitted to edit', async () => {});
 When(
   'I apply the following field values to all current uploads:',
   async ({ page, testContext }, table: DataTable) => {
-    const editors = uploadPage(page).metadataEditor;
-    const firstEditor = editors.first();
+    const jobs = uploadPage(page).imageEditorJob;
     // Let the filename-derived description land first, or its reindex resets our edits.
-    for (let i = 0; i < (await editors.count()); i++) {
-      await expect(metadataFields(editors.nth(i)).description).not.toHaveValue('');
+    for (let i = 0; i < (await jobs.count()); i++) {
+      await expect(metadataFields(metadataEditorOf(jobs.nth(i))).description).not.toHaveValue('');
     }
     testContext.batchApplied = {};
-    const jobs = uploadPage(page).imageEditorJob;
+    const first = jobs.first();
     for (const [label] of table.raw()) {
-      const editorField = IMAGE_EDITOR_FIELDS[label];
-      if (editorField) {
-        await editorField.set(jobs.first(), editorField.value);
-        await editorField.expectOn(jobs.first(), editorField.value);
-        await editorField.applyButton(jobs.first()).click();
-        testContext.batchApplied[label] = editorField.value;
-        await expectOnEveryJob(jobs, editorField, editorField.value);
-        continue;
-      }
       const field = BATCH_FIELDS[label];
-      const input = field.input(firstEditor);
-      if (field.isSelect) {
-        // selectOption doesn't focus the input, so we must do this manually
-        await input.focus();
-        await input.selectOption({ label: field.value });
-      } else {
-        await input.fill(field.value);
-      }
-      await input.blur();
+      await field.set(first, field.value);
+      await field.expectOn(first, field.value);
       // imageType/description's ⇔ only returns once the saved edit is reindexed.
-      const apply = firstEditor.getByTitle(field.applyTitle);
+      const apply = field.applyButton(first);
       await expect(apply).toBeVisible({ timeout: 15_000 });
       await apply.click();
       testContext.batchApplied[label] = field.value;
-      await expectFieldOnEveryEditor(editors, field, field.value);
+      await expectOnEveryJob(jobs, field, field.value);
     }
   },
 );
@@ -365,35 +363,15 @@ When(
 Then(
   'that value should be applied to the same field on every current upload',
   async ({ page, testContext }) => {
-    const editors = uploadPage(page).metadataEditor;
     for (const [label, value] of Object.entries(testContext.batchApplied!)) {
-      const editorField = IMAGE_EDITOR_FIELDS[label];
-      await (editorField
-        ? expectOnEveryJob(uploadPage(page).imageEditorJob, editorField, value)
-        : expectFieldOnEveryEditor(editors, BATCH_FIELDS[label], value));
+      await expectOnEveryJob(uploadPage(page).imageEditorJob, BATCH_FIELDS[label], value);
     }
   },
 );
 
-async function expectOnEveryJob(
-  jobs: Locator,
-  field: (typeof IMAGE_EDITOR_FIELDS)[string],
-  value: string,
-): Promise<void> {
+async function expectOnEveryJob(jobs: Locator, field: BatchField, value: string): Promise<void> {
   const count = await jobs.count();
   for (let i = 0; i < count; i++) {
     await field.expectOn(jobs.nth(i), value);
-  }
-}
-
-async function expectFieldOnEveryEditor(
-  editors: Locator,
-  field: (typeof BATCH_FIELDS)[string],
-  value: string,
-): Promise<void> {
-  const count = await editors.count();
-  for (let i = 0; i < count; i++) {
-    const input = field.input(editors.nth(i));
-    await (field.isSelect ? expectSelectedOption(input, value) : expect(input).toHaveValue(value));
   }
 }
