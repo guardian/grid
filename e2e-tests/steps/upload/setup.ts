@@ -93,6 +93,16 @@ export const failDelete = (page: Page) =>
 export const grouping = (job: Locator) =>
   job.getByRole('region', { name: 'Organisation and grouping' });
 
+/** Fields of the required-metadata editor within `scope`. */
+export const metadataFields = (scope: Locator) => ({
+  description: scope.getByRole('textbox', { name: 'Description', exact: true }),
+  byline: scope.getByRole('textbox', { name: 'Byline', exact: true }),
+  credit: scope.getByRole('textbox', { name: 'Credit', exact: true }),
+  copyright: scope.getByRole('textbox', { name: 'Copyright', exact: true }),
+  imageType: scope.getByRole('combobox', { name: 'Image type', exact: true }),
+  specialInstructions: scope.getByRole('textbox', { name: 'Special instructions', exact: true }),
+});
+
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
@@ -132,21 +142,14 @@ export const uploadPage = (page: Page) => {
     imageEditorJob: currentUploads
       .getByRole('listitem')
       .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
-    /** Fields inside the required-metadata editor, located by their user-facing labels. */
-    metadataField: {
-      description: metadataEditor.getByLabel('Description', { exact: true }),
-      byline: metadataEditor.getByLabel('Byline', { exact: true }),
-      credit: metadataEditor.getByLabel('Credit', { exact: true }),
-      copyright: metadataEditor.getByLabel('Copyright', { exact: true }),
-      imageType: metadataEditor.getByLabel('Image type'),
-      specialInstructions: metadataEditor.getByLabel('Special Instructions'),
-    },
+    /** Fields inside the required-metadata editor. */
+    metadataField: metadataFields(metadataEditor),
     /* The read-only usage-instructions block is asserted by its visible text in the steps. */
     /* Credit suggestions rendered by gr-datalist as options in a listbox. */
     creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
-    metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
+    metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
     applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),

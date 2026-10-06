@@ -48,9 +48,7 @@ When('the upload completes', async ({ page }) => {
 Then('the description should default to the file name without its extension', async ({ page, testContext }) => {
   const fileName = path.basename(testContext.uploadedImagePath!);
   const expected = fileName.substring(0, fileName.lastIndexOf('.')).replace(/_/g, ' ');
-  await expect(uploadPage(page).editableJob.locator('textarea[name="description"]')).toHaveValue(
-    expected,
-  );
+  await expect(uploadPage(page).metadataField.description).toHaveValue(expected);
 });
 
 Given('an uploaded image is shown in my current uploads', async ({ page }) => {

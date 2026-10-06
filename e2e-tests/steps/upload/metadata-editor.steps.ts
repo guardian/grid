@@ -6,7 +6,7 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { openUploadPage } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
-import { grouping, testImages, uniqueImage, uploadPage } from './setup.ts';
+import { grouping, metadataFields, testImages, uniqueImage, uploadPage } from './setup.ts';
 
 /** Upload a unique image and wait for it to become the required-metadata editor. */
 async function uploadAndOpenEditor(page: Page): Promise<void> {
@@ -14,33 +14,37 @@ async function uploadAndOpenEditor(page: Page): Promise<void> {
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 }
 
+// AngularJS ng-options encodes <select> values (e.g. "string:Photograph"), so check the label.
+const expectSelectedOption = (select: Locator, label: string) =>
+  expect(select.locator('option:checked')).toHaveText(label);
+
 const BATCH_FIELDS: Record<
   string,
   { input: (editor: Locator) => Locator; applyTitle: string; value: string; isSelect?: boolean }
 > = {
   'Image type': {
-    input: (editor) => editor.locator('select[name="imageType"]'),
+    input: (editor) => metadataFields(editor).imageType,
     applyTitle: 'Apply this image type to all your current uploads',
     value: E2E_IMAGE_TYPES[0],
     isSelect: true,
   },
   Description: {
-    input: (editor) => editor.locator('textarea[name="description"]'),
+    input: (editor) => metadataFields(editor).description,
     applyTitle: 'Apply this description to all your current uploads',
     value: 'Batch description',
   },
   Byline: {
-    input: (editor) => editor.locator('input[name="byline"]'),
+    input: (editor) => metadataFields(editor).byline,
     applyTitle: 'Apply this byline to all your current uploads',
     value: 'Batch byline',
   },
   Credit: {
-    input: (editor) => editor.locator('[data-cy="image-metadata-credit"]'),
+    input: (editor) => metadataFields(editor).credit,
     applyTitle: 'Apply this credit to all',
     value: 'Batch credit',
   },
   'Special instructions': {
-    input: (editor) => editor.locator('input[name="special-instructions"]'),
+    input: (editor) => metadataFields(editor).specialInstructions,
     applyTitle: 'Apply these instructions to all your current uploads',
     value: 'Batch instructions',
   },
@@ -88,7 +92,7 @@ const IMAGE_EDITOR_FIELDS: Record<
     value: 'e2e-batch-label',
     set: async (job, value) => {
       await grouping(job).getByRole('button', { name: 'Add label to image' }).click();
-      await grouping(job).locator('[data-cy="label-input"]').fill(value);
+      await grouping(job).getByRole('textbox', { name: 'New label' }).fill(value);
       await grouping(job).getByTitle('Save new label').click();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply these labels to all your current uploads'),
@@ -99,7 +103,7 @@ const IMAGE_EDITOR_FIELDS: Record<
     value: 'e2e-batch-keyword',
     set: async (job, value) => {
       await grouping(job).getByRole('button', { name: 'Add keywords to image' }).click();
-      await grouping(job).locator('[data-cy="keyword-input"]').fill(value);
+      await grouping(job).getByRole('textbox', { name: 'New keyword' }).fill(value);
       await grouping(job).getByTitle('Save new keyword').click();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply these keywords to all your current uploads'),
@@ -109,13 +113,13 @@ const IMAGE_EDITOR_FIELDS: Record<
   Photoshoot: {
     value: 'e2e-batch-photoshoot',
     set: async (job, value) => {
-      const input = grouping(job).locator('input[name="photoshoot"]');
+      const input = grouping(job).getByRole('textbox', { name: 'Photoshoot' });
       await input.fill(value);
       await input.blur();
     },
     applyButton: (job) => grouping(job).getByTitle('Apply this photoshoot to all your current uploads'),
     expectOn: (job, value) =>
-      expect(grouping(job).locator('input[name="photoshoot"]')).toHaveValue(value),
+      expect(grouping(job).getByRole('textbox', { name: 'Photoshoot' })).toHaveValue(value),
   },
 };
 
@@ -217,11 +221,10 @@ Then('I should be able to choose an image type from a dropdown', async ({ page }
   const imageType = uploadPage(page).metadataField.imageType;
   await expect(imageType).toBeVisible();
   for (const type of E2E_IMAGE_TYPES) {
-    await expect(imageType.locator('option', { hasText: type })).toHaveCount(1);
+    await expect(imageType.getByRole('option', { name: type, exact: true })).toHaveCount(1);
   }
   await imageType.selectOption(E2E_IMAGE_TYPES[0]);
-  // AngularJS ng-options encodes the value (e.g. "string:Photograph"), so assert the label.
-  await expect(imageType.locator('option:checked')).toHaveText(E2E_IMAGE_TYPES[0]);
+  await expectSelectedOption(imageType, E2E_IMAGE_TYPES[0]);
 });
 
 When('I type into the credit field', async ({ page }) => {
@@ -325,7 +328,7 @@ When(
     const firstEditor = editors.first();
     // Let the filename-derived description land first, or its reindex resets our edits.
     for (let i = 0; i < (await editors.count()); i++) {
-      await expect(editors.nth(i).locator('textarea[name="description"]')).not.toHaveValue('');
+      await expect(metadataFields(editors.nth(i)).description).not.toHaveValue('');
     }
     testContext.batchApplied = {};
     const jobs = uploadPage(page).imageEditorJob;
@@ -391,9 +394,6 @@ async function expectFieldOnEveryEditor(
   const count = await editors.count();
   for (let i = 0; i < count; i++) {
     const input = field.input(editors.nth(i));
-    // AngularJS ng-options encodes <select> values (e.g. "string:Photograph"), so check the label.
-    await (field.isSelect
-      ? expect(input.locator('option:checked')).toHaveText(value)
-      : expect(input).toHaveValue(value));
+    await (field.isSelect ? expectSelectedOption(input, value) : expect(input).toHaveValue(value));
   }
 }
