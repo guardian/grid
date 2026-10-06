@@ -6,7 +6,16 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { switchAccount } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
-import { grouping, metadataFields, testImages, uniqueImage, uploadPage } from './setup.ts';
+import {
+  BATCH_SIZE,
+  batchJobs,
+  grouping,
+  metadataFields,
+  testImages,
+  uniqueBatch,
+  uniqueImage,
+  uploadPage,
+} from './setup.ts';
 
 /** Upload an image (a unique one by default) and wait for its required-metadata editor. */
 async function uploadAndOpenEditor(page: Page, imagePath = uniqueImage().path): Promise<void> {
@@ -316,8 +325,8 @@ Then('the metadata fields should be disabled', async ({ page }) => {
 });
 
 Given('I am uploading more than one image', async ({ page }) => {
-  await uploadPage(page).fileInput.setInputFiles([uniqueImage().path, uniqueImage().path]);
-  await expect(uploadPage(page).metadataEditor).toHaveCount(2);
+  await uploadPage(page).fileInput.setInputFiles(uniqueBatch());
+  await expect(uploadPage(page).metadataEditor).toHaveCount(BATCH_SIZE);
 });
 
 // Precondition satisfied by the default e2e permissions (edit is granted).
@@ -326,13 +335,13 @@ Given('I am permitted to edit', async () => {});
 When(
   'I apply the following field values to all current uploads:',
   async ({ page, testContext }, table: DataTable) => {
-    const jobs = uploadPage(page).imageEditorJob;
+    const jobs = await batchJobs(page);
     // Let the filename-derived description land first, or its reindex resets our edits.
-    for (let i = 0; i < (await jobs.count()); i++) {
-      await expect(metadataFields(metadataEditorOf(jobs.nth(i))).description).not.toHaveValue('');
+    for (const job of jobs) {
+      await expect(metadataFields(metadataEditorOf(job)).description).not.toHaveValue('');
     }
     testContext.batchApplied = {};
-    const first = jobs.first();
+    const [first] = jobs;
     for (const [label] of table.raw()) {
       const field = BATCH_FIELDS[label];
       await field.set(first, field.value);
@@ -342,7 +351,7 @@ When(
       await expect(apply).toBeVisible({ timeout: 15_000 });
       await apply.click();
       testContext.batchApplied[label] = field.value;
-      await expectOnEveryJob(jobs, field, field.value);
+      await expectOnEveryJob(page, field, field.value);
     }
   },
 );
@@ -351,14 +360,13 @@ Then(
   'that value should be applied to the same field on every current upload',
   async ({ page, testContext }) => {
     for (const [label, value] of Object.entries(testContext.batchApplied!)) {
-      await expectOnEveryJob(uploadPage(page).imageEditorJob, BATCH_FIELDS[label], value);
+      await expectOnEveryJob(page, BATCH_FIELDS[label], value);
     }
   },
 );
 
-async function expectOnEveryJob(jobs: Locator, field: BatchField, value: string): Promise<void> {
-  const count = await jobs.count();
-  for (let i = 0; i < count; i++) {
-    await field.expectOn(jobs.nth(i), value);
+async function expectOnEveryJob(page: Page, field: BatchField, value: string): Promise<void> {
+  for (const job of await batchJobs(page)) {
+    await field.expectOn(job, value);
   }
 }

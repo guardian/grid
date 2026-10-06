@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { KAHUNA_PORT } from '../../setup/constants.ts';
 import type { TestImage } from '../setup.ts';
 
@@ -35,6 +36,9 @@ export const testImages = {
 /** The set that both the file picker and drag-and-drop scenarios upload. */
 export const filesToUpload = [testImages.smaller, testImages.larger];
 
+/** How many images the multi-upload scenarios upload at once. */
+export const BATCH_SIZE = 2;
+
 /**
  * An image to import by URL. image-loader fetches the URL itself, so it has to be reachable
  * from inside the stack: Kahuna serves this one unauthenticated, and every service shares a
@@ -53,6 +57,10 @@ export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => 
   writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
   return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
 };
+
+/** Paths of `BATCH_SIZE` unique copies of `base`. */
+export const uniqueBatch = (base?: TestImage): string[] =>
+  Array.from({ length: BATCH_SIZE }, () => uniqueImage(base).path);
 
 /** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
 export const holdIngest = (page: Page, ms = 5_000) =>
@@ -160,3 +168,10 @@ export const uploadPage = (page: Page) => {
       .and(currentUploads.locator('a')),
   };
 };
+
+/** Each current upload's image-editor, once the whole batch has rendered. */
+export async function batchJobs(page: Page): Promise<Locator[]> {
+  const jobs = uploadPage(page).imageEditorJob;
+  await expect(jobs).toHaveCount(BATCH_SIZE);
+  return jobs.all();
+}
