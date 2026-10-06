@@ -84,8 +84,7 @@ export const failIngest = (page: Page) =>
   );
 
 /**
- * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
- * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
+ * Make the image delete fail. Aborting the DELETE surfaces a real rejection
  * that reaches the `image-delete-failure` handler.
  */
 export const failDelete = (page: Page) =>
