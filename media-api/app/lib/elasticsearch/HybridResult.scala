@@ -46,6 +46,15 @@ object HybridResult extends GridLogging {
   // Theoretical minimum BM25 lexical score.
   val Bm25TheoreticalMin: Double = 0.0
 
+  def maxSemanticSimilarity(images: Seq[Image], queryEmbedding: List[Double]): Option[Double] =
+    images.flatMap { image =>
+      image.embedding
+        .flatMap(_.cohereEmbedV4)
+        .flatMap(embedding => VectorUtils.cosineSimilarity(embedding.image, queryEmbedding))
+        .filter(_.isFinite)
+        .map(similarity => math.max(-1.0, math.min(1.0, similarity)))
+    }.maxOption
+
   def resolveHitAndFillInSemanticScore(
     hit: SearchHit,
     queryEmbedding: List[Double],
