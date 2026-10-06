@@ -23,6 +23,12 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     )
   }
 
+  it("should parse persisted reason filters") {
+    Parser.run("persisted:exports") should be (
+      List(Match(SingleField("persisted"), Words("exports"))) ++ standardNegations
+    )
+  }
+
   describe("text") {
     it("should match single terms") {
       Parser.run("cats") should be (List(Match(AnyField, Words("cats"))) ++ standardNegations)

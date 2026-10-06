@@ -284,6 +284,13 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
       }
     }
 
+    it("should query persisted reasons through the persisted field") {
+      val filter = IsQueryFilter.apply("persisted@exports", () => Nil, mediaApiConfig).get
+      val query = queryBuilder.makeQuery(List(Match(SingleField("persisted"), Phrase("exports")))).asInstanceOf[BoolQuery]
+
+      query.must shouldBe List(filter.query)
+    }
+
     it("should correctly construct an is owned photo query") {
       val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
 

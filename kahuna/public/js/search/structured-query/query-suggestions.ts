@@ -60,21 +60,24 @@ const isSearch = [
 
 if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
-  isSearch.push(
-    "persisted@persistence-identifier",
-    "persisted@exports",
-    "persisted@usages",
-    "persisted@archived",
-    "persisted@photographer-category",
-    "persisted@illustrator-category",
-    "persisted@commissioned-agency",
-    "persisted@leases",
-    "persisted@persisted-collection",
-    "persisted@photoshoot",
-    "persisted@labeled",
-    "persisted@edited"
-  );
 }
+
+const persistedSearch = window._clientConfig.useReaper === true
+  ? [
+      "persistence-identifier",
+      "exports",
+      "usages",
+      "archived",
+      "photographer-category",
+      "illustrator-category",
+      "commissioned-agency",
+      "leases",
+      "persisted-collection",
+      "photoshoot",
+      "labeled",
+      "edited"
+    ]
+  : undefined;
 
 if (window._clientConfig.agencyPicksIngredients) {
   isSearch.push("agency-pick");
@@ -168,6 +171,9 @@ querySuggestions.factory("querySuggestions", [
       { fieldName: "has" },
       { fieldName: "croppedBy" },
       { fieldName: "filename" },
+      ...(persistedSearch
+        ? [{ fieldName: "persisted", resolver: persistedSearch }]
+        : []),
       {
         fieldName: "photoshoot",
         resolver: (value: string) => suggestPhotoshoot(value)
