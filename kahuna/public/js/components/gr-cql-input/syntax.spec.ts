@@ -1,8 +1,25 @@
 import { createParser } from "@guardian/cql";
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, jest } from "@jest/globals";
 import { cqlParserSettings, structureCqlQuery } from "./syntax";
+import { renderQuery, structureQuery, StructuredQuery } from "../../search/structured-query/syntax";
+
+jest.mock("angular", () => {
+  const chainableModule = {
+    factory: jest.fn().mockReturnThis(),
+    filter: jest.fn().mockReturnThis()
+  };
+  return { __esModule: true, default: { module: () => chainableModule } };
+});
 
 const parser = createParser(cqlParserSettings);
+
+function parseCqlQuery(input: string) {
+  const queryAst = parser(input).queryAst;
+  if (queryAst === undefined) {
+    throw new Error(`Could not parse test query: ${input}`);
+  }
+  return queryAst;
+}
 
 const queries = [
   {
@@ -163,12 +180,51 @@ describe("cql -> structured-query translation", () => {
   describe("structureCqlQuery", () => {
     queries.forEach((query) => {
       it(`should parse a query of '${query.name}' into a Grid structured query`, () => {
-        const cqlAst = parser(query.cql).queryAst;
+        const cqlAst = parseCqlQuery(query.cql);
 
         const structuredQuery = structureCqlQuery(cqlAst);
 
         expect(structuredQuery).toEqual(query.structuredQuery);
       });
+    });
+  });
+});
+
+describe("usage filter serialization", () => {
+  const usageQueries = [
+    {
+      input: "+has:crops -usages@platform:print",
+      expected: "has:crops -usages@platform:print"
+    },
+    {
+      input: "-usages@platform:print -usages@platform:digital",
+      expected: "-usages@platform:print -usages@platform:digital"
+    },
+    {
+      input: "usages@platform:print -usages@status:published -usages@status:replaced",
+      expected: "usages@platform:print -usages@status:published -usages@status:replaced"
+    },
+    {
+      input: 'usages@section:"Morning Section" usages@publication:PUB1',
+      expected: 'usages@section:"Morning Section" usages@publication:PUB1'
+    },
+    {
+      input: 'usages@status:"replaced"',
+      expected: "usages@status:replaced"
+    },
+    {
+      input: '-usages@reference:"https://example.test/usage/a"',
+      expected: '-usages@reference:"https://example.test/usage/a"'
+    }
+  ];
+
+  usageQueries.forEach(({ input, expected }) => {
+    it(`preserves the canonical CQL query for ${input}`, () => {
+      expect(renderQuery(structureCqlQuery(parseCqlQuery(input)))).toBe(expected);
+    });
+
+    it(`preserves the canonical legacy query for ${input}`, () => {
+      expect(renderQuery(structureQuery(input) as StructuredQuery)).toBe(expected);
     });
   });
 });
