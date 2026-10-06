@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ReapableEligibility, filters}
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig, PersistenceReason}
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -19,6 +19,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case _: IsDeleted => "deleted"
     case _: IsUnderQuota => "under-quota"
     case _: IsReapable => "reapable"
+    case persisted: IsPersisted => s"persisted@${persisted.reason.reason}"
     case _: IsAgencyPick => "agency-pick"
   }
 }
@@ -35,6 +36,10 @@ object IsQueryFilter {
       case "deleted" => Some(IsDeleted(true))
       case "reapable" => Some(IsReapable(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers))
       case "agency-pick" => config.maybeAgencyPickQuery.map(IsAgencyPick)
+      case reason if reason.startsWith("persisted@") =>
+        val persistenceReason = reason.stripPrefix("persisted@")
+        ImagePersistenceReasons(config.maybePersistOnlyTheseCollections, config.persistenceIdentifiers)
+          .allReasons.find(_.reason.equalsIgnoreCase(persistenceReason)).map(IsPersisted)
       case _ => None
     }
   }
@@ -72,6 +77,12 @@ case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
 
 case class IsReapable(maybePersistOnlyTheseCollections: Option[Set[String]], persistenceIdentifiers: NonEmptyList[String])
   extends IsQueryFilter with ReapableEligibility {
+  override protected lazy val persistedQueries: Query =
+    filters.or(ImagePersistenceReasons(maybePersistOnlyTheseCollections, persistenceIdentifiers).allReasons.map(_.query): _*)
+}
+
+case class IsPersisted(reason: PersistenceReason) extends IsQueryFilter {
+  override def query: Query = reason.query
 }
 
 case class IsAgencyPick(query: Query) extends IsQueryFilter

@@ -17,6 +17,12 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     NegationNested(Nested(SingleField("usages"), SingleField("usages.status"), Phrase("replaced")))
   )
 
+  it("should parse persisted subquery filters") {
+    Parser.run("is:persisted@exports") should be (
+      List(Match(IsField, IsValue("persisted@exports"))) ++ standardNegations
+    )
+  }
+
   describe("text") {
     it("should match single terms") {
       Parser.run("cats") should be (List(Match(AnyField, Words("cats"))) ++ standardNegations)

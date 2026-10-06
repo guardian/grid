@@ -60,6 +60,20 @@ const isSearch = [
 
 if (window._clientConfig.useReaper === true) {
   isSearch.push("reapable");
+  isSearch.push(
+    "persisted@persistence-identifier",
+    "persisted@exports",
+    "persisted@usages",
+    "persisted@archived",
+    "persisted@photographer-category",
+    "persisted@illustrator-category",
+    "persisted@commissioned-agency",
+    "persisted@leases",
+    "persisted@persisted-collection",
+    "persisted@photoshoot",
+    "persisted@labeled",
+    "persisted@edited"
+  );
 }
 
 if (window._clientConfig.agencyPicksIngredients) {

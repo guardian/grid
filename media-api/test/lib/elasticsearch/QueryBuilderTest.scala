@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
-import lib.MediaApiConfig
+import lib.{ImagePersistenceReasons, MediaApiConfig}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
@@ -271,6 +271,19 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
   }
 
   describe("is search filter") {
+    it("should expose every persisted reason as a persisted subquery") {
+      val reasons = ImagePersistenceReasons(
+        mediaApiConfig.maybePersistOnlyTheseCollections,
+        mediaApiConfig.persistenceIdentifiers
+      ).allReasons
+
+      reasons.foreach { reason =>
+        val filter = IsQueryFilter.apply(s"persisted@${reason.reason}", () => Nil, mediaApiConfig)
+        filter.map(_.query) shouldBe Some(reason.query)
+        filter.map(_.toString) shouldBe Some(s"persisted@${reason.reason}")
+      }
+    }
+
     it("should correctly construct an is owned photo query") {
       val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
 
