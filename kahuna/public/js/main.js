@@ -16,6 +16,7 @@ import {image}  from './image/index';
 import {upload} from './upload/index';
 import {search} from './search/index';
 import {edits}  from './edits/index';
+import {takedown} from './takedown/index';
 
 import {async}  from './util/async';
 import {digest} from './util/digest';
@@ -79,6 +80,7 @@ var kahuna = angular.module('kahuna', [
     upload.name,
     search.name,
     edits.name,
+    takedown.name,
     userActions.name,
     httpErrors.name,
     globalErrors.name,

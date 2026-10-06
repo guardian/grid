@@ -7,6 +7,7 @@ declare global {
   interface Window {
     _clientConfig: {
       rootUri: string;
+      contentWebBaseUrl: string;
       telemetryUri: string;
       aiSearchEnabled: boolean;
       aiSearchResultLimit: number;
@@ -47,7 +48,7 @@ declare global {
       staffPhotographerOrganisation: string;
       agencyPicksIngredients: {
         [field: string]: string[];
-      }
+      };
     };
   }
 }

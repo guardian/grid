@@ -13,6 +13,20 @@ z-index
 ========================================================================== */
 
 /* ==========================================================================
+   Material Symbols (used by @guardian/stand icons)
+
+   The extra unprefixed `font-feature-settings` rule below is ours: stand
+   only sets the `-webkit-`-prefixed property, which browsers without that
+   alias (e.g. Firefox) ignore, causing icon ligatures to render as literal
+   text instead of the icon glyph.
+   ========================================================================== */
+@import url('https://assets.guim.co.uk/fonts/material-symbols/MaterialSymbolsOutlined.css');
+
+.material-symbols {
+  font-feature-settings: 'liga';
+}
+
+/* ==========================================================================
    Common
    ========================================================================== */
 
@@ -1560,6 +1574,114 @@ textarea.ng-invalid {
 
 .image-loading-results {
     color: #999;
+}
+
+/* "No matches — try AI search instead" prompt */
+.ai-search-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.ai-search-preview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    padding: 12px 12px 0;
+    background-color: #393939;
+    border: 1px solid #555;
+    border-bottom-width: 0;
+    /* Side borders dissolve into the page alongside the footer fade */
+    border-image: linear-gradient(to bottom, #555 calc(100% - var(--fade-height)), #333) 1;
+    --fade-height: 70px;
+    box-sizing: border-box;
+}
+/* Matches a results-grid tile (.result) */
+.ai-search-preview:hover {
+    background-color: #404040;
+}
+/* Nothing dissolves into the page, so keep a plain bottom border */
+.ai-search-preview--loading {
+    border-bottom-width: 1px;
+    border-image: none;
+}
+
+.ai-search-preview__loading {
+    font-size: 1.6rem;
+    color: #999;
+    padding-bottom: 12px;
+}
+
+/* Ellipsis dots pulse in turn */
+.ai-search-preview__dots span {
+    animation: ai-search-preview-dot 1.4s ease-in-out infinite both;
+}
+.ai-search-preview__dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.ai-search-preview__dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+@keyframes ai-search-preview-dot {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ai-search-preview__dots span {
+        animation: none;
+    }
+}
+
+.ai-search-preview__heading {
+    font-size: 2rem;
+}
+
+/* A single row running the full width, cut off at the right edge */
+.ai-search-preview__row {
+    display: flex;
+    gap: 8px;
+    /* Bleeds through the box's side padding, so the row runs border to border */
+    margin: 0 -12px;
+    overflow: hidden;
+    /* Its unwrapped row mustn't widen the page */
+    contain: inline-size;
+}
+
+.ai-search-preview__thumb {
+    flex: none;
+    height: 140px;
+}
+
+/* Pulled up over the thumbnails so it takes no vertical space */
+.ai-search-preview__footer {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: var(--fade-height);
+    margin: calc(-1 * var(--fade-height) - 1.5rem) -12px 0;
+    padding: 0 12px 12px;
+    box-sizing: border-box;
+    /* Ends on the page background (body), so the box has no visible bottom edge */
+    background: linear-gradient(to bottom, rgba(51, 51, 51, 0), #333);
+}
+
+/* Pill as per the Subjects pills in the info panel */
+.ai-search-preview__cta {
+    font-size: 1.4rem;
+    padding: 4px 10px;
+    border-radius: 2px;
+    background-color: rgba(34, 34, 34, 0.9);
+    color: #aaa;
+    border: 1px solid #555;
+}
+/* Colours as per .clickable:hover, used by the "My recent uploads" top-bar button */
+.ai-search-preview:hover .ai-search-preview__cta {
+    background-color: #666666;
+    border-color: #666666;
+    color: white;
 }
 
 

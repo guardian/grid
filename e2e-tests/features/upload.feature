@@ -78,7 +78,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/prompt/prompt.html lines 1-3
   # Evidence: kahuna/public/js/upload/prompt/prompt.js lines 20
 
-  @todo
   Scenario: The prompt suggests an example label when no labels are applied
     Given I have not applied any preset labels
     When the upload page loads
@@ -127,14 +126,12 @@ Feature: Uploading images to the Grid
   # Drag-and-drop uploader (dnd-uploader.html + dnd-uploader.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Dragging valid content over the page shows the dropzone
     When I drag files over the upload page
     Then the dropzone overlay should appear with an explanation
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1-6
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 113, 116, 158-171
 
-  @todo
   Scenario: The dropzone hides when I stop dragging
     Given the dropzone overlay is showing
     When I drag away from the upload page
@@ -142,7 +139,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.html lines 1
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 117, 173-180
 
-  @todo
   Scenario: Dropping files uploads them
     When I drop one or more image files onto the page
     Then those files should be queued for upload
@@ -150,7 +146,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 33-37, 182-205
   # Evidence: kahuna/public/js/upload/manager.js lines 68-83
 
-  @todo
   Scenario: Dropping a URL loads the image from that URL
     When I drop an image URL onto the page
     Then the image at that URL should be loaded for upload
@@ -176,14 +171,16 @@ Feature: Uploading images to the Grid
     Then I should see an alert that importing the Witness contribution failed
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 79-85
 
-  # not implemented afaics
+  # Confirmed unreachable: `drop` only calls `performDropAction` when `isGridFriendly`, which
+  # needs a Files or uri-list type, and the alert is the last branch after those are ruled
+  # out. Dropping genuinely invalid content is ignored silently; only a Grid thumbnail URL
+  # reaches the alert.
   @todo
   Scenario: Dropping invalid content is rejected
     When I drop something that is not a valid file or URL
     Then I should see an alert that I must drop valid files or URLs
   # Evidence: kahuna/public/js/upload/dnd-uploader.js lines 222-231
 
-  @todo
   Scenario: Dragging a Grid image back onto the page is ignored
     When I drag an image that is already in the Grid over the page
     Then the dropzone overlay should not appear
@@ -193,7 +190,6 @@ Feature: Uploading images to the Grid
   # Current uploads list (jobs/upload-jobs.html + upload-jobs.js)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Current uploads show how many remain
     Given I have several uploads in progress
     When I view my current uploads
@@ -201,7 +197,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 2
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 45, 79, 88
 
-  @todo
   Scenario: An uploading job shows a preview with its name and size
     Given a file is uploading
     When I view my current uploads
@@ -211,7 +206,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 61-72
   # Evidence: kahuna/public/js/upload/manager.js lines 16-21
 
-  @todo
   Scenario: A failed upload shows the error and can be removed
     Given an upload has failed
     When I view my current uploads
@@ -220,13 +214,16 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 24-38
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 77-78, 179-185
 
+  # Unreachable in this stack's straight-to-bucket mode: the file uploads to S3 fine, then
+  # processing fails and the status carries a raw UnsupportedMimeTypeException. The friendly
+  # "only supports JPG, PNG and TIFF" copy is keyed off errorKey 'unsupported-type', which is
+  # only returned on the direct-load path.
   @todo
   Scenario: An unsupported file type gives a helpful error
     When I upload a file that is not a JPG, PNG or TIFF
     Then the job should show an error explaining only JPG, PNG and TIFF are supported
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 155-163
 
-  @todo
   Scenario: A completed upload becomes an editable image
     Given an upload has completed
     When I view my current uploads
@@ -234,21 +231,18 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-48
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 84-92
 
-  @todo
   Scenario: A missing description defaults to the file name
     Given an uploaded image has no description
     When the upload completes
     Then the description should default to the file name without its extension
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 105-110
 
-  @todo
   Scenario: Deleting an image removes it from current uploads
     Given an uploaded image is shown in my current uploads
     When the image is deleted using the delete button at the bottom of the job form
     Then it should be removed from my current uploads
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  @todo
   Scenario: Uploading a previously deleted image displays it for undeletion
     Given an image is uploaded
     And then deleted using the delete button at the bottom of the job form
@@ -271,7 +265,6 @@ Feature: Uploading images to the Grid
     And there should be a message indicating that I do not have permission to undelete
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 187-195
 
-  @todo
   Scenario: A failed deletion is reported
     Given an uploaded image is shown in my current uploads
     When deleting the image fails
@@ -279,10 +272,10 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.js lines 197-203
 
   # ---------------------------------------------------------------------------
-  # Required metadata editor (jobs/required-metadata-editor.html + .js)
+  # Required metadata editor (jobs/required-metadata-editor.html + .js,
+  # edits/image-editor.html)
   # ---------------------------------------------------------------------------
 
-  @todo
   Scenario: Editing required metadata for an uploaded image
     Given an uploaded image is shown in the metadata editor
     When I fill in the description, byline and credit
@@ -290,14 +283,12 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 1, 30-56, 61-72, 85-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 33, 40-65
 
-  @todo
-  Scenario: Description and credit are required
+  Scenario: Description and credit are mandatory
     Given an uploaded image is shown in the metadata editor
     When I leave the description or credit empty
-    Then those fields should be marked as required
+    Then those fields should be marked as mandatory
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 36, 96
 
-  @todo
   Scenario: The description placeholder gives guidance
     Given an uploaded image with no description
     When I view the description field
@@ -305,8 +296,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 34-40
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 157-161
 
-  # How to verify writes?
-  @todo
   Scenario: Choosing an image type when image types are configured
     Given image types are configured
     When I view the metadata editor
@@ -314,7 +303,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 5-27
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 38
 
-  @todo
   Scenario: The credit field suggests existing values
     Given an uploaded image is shown in the metadata editor
     When I type into the credit field
@@ -322,25 +310,22 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 87-104
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 67-71
 
-  # How to verify writes?
-  @todo
   Scenario: Metadata only shows when it was already present for some fields
-    Given an uploaded image that already has metadata values for the following fields:
-      | byline |
-      | credit |
-      | copyright |
-      | specialInstructions |
-      | description |
-      | domainMetadata |
-      | usageInstructions |
-      | imageType |
+    Given an uploaded image with the following embedded metadata:
+      | field               | value                                    |
+      | description         | An embedded caption describing the scene |
+      | byline              | Embedded Byline                          |
+      | credit              | Embedded Credit Agency                   |
+      | copyright           | Embedded Copyright 2020                  |
+      | specialInstructions | Embedded special instructions            |
     When I view the metadata editor
     Then I should see the metadata values in the appropriate fields
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 114-134
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 36
 
-  # This also applies to any textual fields — we should pull them from img meta
-  @todo
+  # media-api derives usageInstructions from the image's usageRights category via the
+  # `usageInstructions` config map; the AAP-credited fixture gets the `agency` category, which
+  # the e2e stack config maps to instruction text (see E2E_USAGE_INSTRUCTIONS).
   Scenario: Existing usage instructions are shown with room for more
     Given an uploaded image that already has usage instructions
     When I view the metadata editor
@@ -348,26 +333,34 @@ Feature: Uploading images to the Grid
     And I should be able to add further special instructions
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 140-167
 
-  @todo
+  # imageType/description's ⇔ hides once edited and reappears when the save has been reindexed.
   Scenario: Applying a field value to all current uploads in a batch
     Given I am uploading more than one image
     And I am permitted to edit
     When I apply the following field values to all current uploads:
-      | Leases |
-      | Image type |
-      | Description |
-      | Byline |
-      | Credit |
+      | Image type           |
+      | Description          |
+      | Byline               |
+      | Credit               |
       | Special instructions |
+    Then that value should be applied to the same field on every current upload
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 21-26, 47-53, 76-80, 107-111, 156-160
+  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 103-119
+
+  # Leases/Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
+  # metadata editor, so they need separate locators and setup.
+  Scenario: Applying an image-editor field value to all current uploads in a batch
+    Given I am uploading more than one image
+    And I am permitted to edit
+    When I apply the following field values to all current uploads:
+      | Leases |
       | Collections |
       | Labels |
       | Keywords |
       | Photoshoot |
     Then that value should be applied to the same field on every current upload
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 20-27, 49-53, 76-80, 107-111, 129-133, 156-160, 179-183
-  # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 108-119
+  # Evidence: kahuna/public/js/edits/image-editor.html
 
-  @todo
   Scenario: Metadata editing is disabled without edit permission
     Given I am not permitted to edit the image, as it has been uploaded by another user and I do not have edit_metadata permission
     When I view the metadata editor for an image I did not upload
@@ -375,8 +368,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 14, 44, 71, 101, 124, 152, 173
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 27-29
 
-  # This requires configuration, which is already present in CODE
-  @todo
   Scenario: Applying a metadata template makes fields read-only
     Given an uploaded image is shown in the metadata editor
     When a metadata template is selected
@@ -384,7 +375,6 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 15, 45, 72, 102, 125, 153, 175
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 84-98
 
-  @todo
   Scenario: Removing a metadata template restores previously edited fields
     Given an uploaded image is shown in the metadata editor
     And a field is edited

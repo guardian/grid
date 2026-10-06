@@ -1,6 +1,10 @@
-import { statSync } from 'node:fs';
+import { statSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Page } from '@playwright/test';
+import { KAHUNA_PORT } from '../../setup/constants.ts';
+import type { TestImage } from '../setup.ts';
 
 declare global {
   interface Window {
@@ -13,12 +17,6 @@ declare global {
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
 
-export interface TestImage {
-  fileName: string;
-  path: string;
-  bytes: number;
-}
-
 const testImage = (fileName: string): TestImage => {
   const filePath = path.join(FIXTURE_IMAGES, fileName);
   return { fileName, path: filePath, bytes: statSync(filePath).size };
@@ -28,17 +26,83 @@ const testImage = (fileName: string): TestImage => {
 export const testImages = {
   smaller: testImage('test-card-f.jpg'),
   larger: testImage('test.jpg'),
+  /** A copy of the smaller image with embedded IPTC metadata (see fixtures/images). */
+  withMetadata: testImage('embedded-metadata.jpg'),
+  /** Credited to AAP, so supplier processing gives it the `agency` usageRights category. */
+  agency: testImage('agency-usage.jpg'),
 };
+
+/** The set that both the file picker and drag-and-drop scenarios upload. */
+export const filesToUpload = [testImages.smaller, testImages.larger];
+
+/**
+ * An image to import by URL. image-loader fetches the URL itself, so it has to be reachable
+ * from inside the stack: Kahuna serves this one unauthenticated, and every service shares a
+ * container in the e2e image, so localhost reaches it.
+ */
+export const gridHostedImageUrl = `http://localhost:${KAHUNA_PORT}/assets/images/blocked-cookies.png`;
+
+/**
+ * A JPEG unique to this run. The Grid dedupes by content hash, so a scenario that deletes
+ * its image would otherwise poison the shared fixtures and its own re-runs; random trailing
+ * bytes change the hash without stopping the image decoding (or the embedded metadata, which
+ * lives in the leading JPEG segments).
+ */
+export const uniqueImage = (base: TestImage = testImages.smaller): TestImage => {
+  const filePath = path.join(tmpdir(), `upload-e2e-${randomBytes(6).toString('hex')}.jpg`);
+  writeFileSync(filePath, Buffer.concat([readFileSync(base.path), randomBytes(16)]));
+  return { fileName: path.basename(filePath), path: filePath, bytes: statSync(filePath).size };
+};
+
+/** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
+export const holdIngest = (page: Page, ms = 5_000) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      await route.abort();
+    },
+  );
+
+/** Reject the transfer to the ingest bucket so the job fails. */
+export const failIngest = (page: Page) =>
+  page.route(
+    (url) => url.hostname.startsWith('localstack.'),
+    async (route) => {
+      if (route.request().method() !== 'PUT') return route.fallback();
+      await route.fulfill({ status: 403, body: 'denied' });
+    },
+  );
+
+/**
+ * Make the image delete fail. theseus resolves the request promise even on a 4xx/5xx, so a
+ * fulfilled error status is treated as success; aborting the DELETE surfaces a real rejection
+ * that reaches the `image-delete-failure` handler.
+ */
+export const failDelete = (page: Page) =>
+  page.route(
+    () => true,
+    async (route) => {
+      if (route.request().method() !== 'DELETE') return route.fallback();
+      await route.abort();
+    },
+  );
 
 export const uploadPage = (page: Page) => {
   const prompt = page.getByRole('region', { name: 'File upload' });
+  const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
+  const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
 
   return {
     prompt,
     main: page.getByRole('main', { name: 'Image uploads' }),
-    currentUploads: page.getByRole('region', { name: 'Your current uploads' }),
+    currentUploads,
     pastUploads: page.getByRole('region', { name: 'Your past 50 uploads' }),
     dragAndDropUploader: page.getByRole('region', { name: 'Drag and drop uploader' }),
+    /* The dropzone overlay is a `position: fixed` region rendered only mid-drag; target it by
+       its accessible name (the <dnd-uploader> wrapper has no box of its own). */
+    dropzone: page.getByRole('region', { name: 'Dropzone' }),
     fileInput: prompt.locator('input[name="files"]'),
     /* The upload and back-to-search controls carry aria-labels that override their visible
        text, so filter on the text the feature file names rather than the accessible name. */
@@ -48,5 +112,36 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
+    /** A finished upload that has become an editable image, scoped to current uploads. */
+    editableJob: metadataEditor,
+    /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
+    metadataEditor,
+    /** A finished upload's whole image-editor (rights, metadata, grouping), one per current upload. */
+    imageEditorJob: currentUploads
+      .getByRole('listitem')
+      .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
+    /** Fields inside the required-metadata editor, located by their user-facing labels. */
+    metadataField: {
+      description: metadataEditor.getByLabel('Description', { exact: true }),
+      byline: metadataEditor.getByLabel('Byline', { exact: true }),
+      credit: metadataEditor.getByLabel('Credit', { exact: true }),
+      copyright: metadataEditor.getByLabel('Copyright', { exact: true }),
+      imageType: metadataEditor.getByLabel('Image type'),
+      specialInstructions: metadataEditor.getByLabel('Special Instructions'),
+    },
+    /* The read-only usage-instructions block is asserted by its visible text in the steps. */
+    /* Credit suggestions rendered by gr-datalist as options in a listbox. */
+    creditSuggestions: metadataEditor.getByRole('option'),
+    /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
+       "Image metadata" form but still within the current-uploads region. */
+    metadataTemplateSelect: currentUploads.locator('[data-cy="it-metadatatemplate-select"]'),
+    applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
+    /** The delete control on a current upload (labelled "Delete image" for both states). */
+    deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
+    /* The per-item undelete control, an <a role="button">. The batch action bar renders a
+       second "Undelete" button, so intersect with the anchor to pick the per-item one. */
+    undeleteJobButton: currentUploads
+      .getByRole('button', { name: 'Undelete' })
+      .and(currentUploads.locator('a')),
   };
 };

@@ -30,6 +30,60 @@ const GRID_SERVICES = Object.keys(SERVICE_PORTS);
 type StackProps = Record<string, string>;
 
 /**
+ * Image types and a metadata template baked into the e2e Kahuna server so the
+ * metadata-editor scenarios exercise real server config end-to-end rather than a
+ * client-side stub. Applied at stack boot, so they are present for every scenario.
+ */
+export const E2E_IMAGE_TYPES = ['Photograph', 'Illustration', 'Composite'];
+
+export const E2E_METADATA_TEMPLATE = {
+  templateName: 'E2E Agency',
+  fields: [
+    { name: 'byline', value: 'E2E Byline' },
+    { name: 'credit', value: 'E2E Agency' },
+  ],
+};
+
+/**
+ * media-api derives `usageInstructions` from an image's usageRights category via this map, so
+ * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
+ */
+export const E2E_USAGE_INSTRUCTIONS = {
+  category: 'agency',
+  text: 'These images are supplied under agency terms; check the licence before use.',
+};
+
+/** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
+function kahunaE2eConfig(): string {
+  const metadataFields = E2E_METADATA_TEMPLATE.fields
+    .map((f) => `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`)
+    .join('\n');
+
+  return [
+    `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
+    'metadata.templates = [',
+    '  {',
+    `    templateName = "${E2E_METADATA_TEMPLATE.templateName}"`,
+    '    metadataFields = [',
+    metadataFields,
+    '    ]',
+    '  }',
+    ']',
+    '',
+  ].join('\n');
+}
+
+/** Render the e2e-only media-api settings as HOCON to append to the generated `media-api.conf`. */
+function mediaApiE2eConfig(): string {
+  return [
+    'usageInstructions {',
+    `  ${E2E_USAGE_INSTRUCTIONS.category} = "${E2E_USAGE_INSTRUCTIONS.text}"`,
+    '}',
+    '',
+  ].join('\n');
+}
+
+/**
  * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
  * app container reaches the infrastructure containers over the shared network.
  */
@@ -58,7 +112,11 @@ function rewriteEndpoints(conf: string): string {
 /**
  * Generate all service config files into `configDir`.
  */
-export function generateServiceConfig(configDir: string, coreStackProps: StackProps): void {
+export function generateServiceConfig(
+  configDir: string,
+  coreStackProps: StackProps,
+  authStackProps: StackProps,
+): void {
   const ServiceConfig = require(path.join(GENERATE_CONFIG_DIR, 'service-config.js'));
   const defaultConfig = JSON5.parse(
     fs.readFileSync(path.join(GENERATE_CONFIG_DIR, 'config.json5'), 'utf8'),
@@ -69,11 +127,8 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
     DOMAIN,
     EMAIL_DOMAIN,
     AWS_DEFAULT_REGION: REGION,
-    // NO_AUTHENTICATION makes `getCommonConfig` emit the Local authentication provider, so
-    // we don't need pan-domain / OIDC infrastructure. Authorisation is left as the real
-    // (S3-backed) provider, which reads `permissions.json` from the provisioned bucket.
-    NO_AUTHENTICATION: true,
     coreStackProps,
+    authStackProps,
     es6: {
       ...defaultConfig.es6,
       url: `http://${ELASTICSEARCH_ALIAS}:${ELASTICSEARCH_PORT}`,
@@ -81,6 +136,13 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
   };
 
   const serviceConfigs: Record<string, string> = ServiceConfig.getCoreConfigs(config);
+  const localAuthConfig: string = ServiceConfig.getUseLocalAuthConfig(config);
+
+  // e2e-only config appended per service on top of the generated base config.
+  const extraConfig: Record<string, string> = {
+    kahuna: kahunaE2eConfig(),
+    'media-api': mediaApiE2eConfig(),
+  };
 
   fs.mkdirSync(configDir, { recursive: true });
 
@@ -101,6 +163,9 @@ export function generateServiceConfig(configDir: string, coreStackProps: StackPr
       throw new Error(`service-config.js did not produce config for '${service}'`);
     }
 
-    fs.writeFileSync(path.join(configDir, `${service}.conf`), rewriteEndpoints(conf));
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`);
+    const extras = extraConfig[service];
+    const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
+    fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
   }
 }

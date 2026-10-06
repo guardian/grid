@@ -18,7 +18,13 @@ set -euo pipefail
 REPO=/build
 cd "$REPO"
 
-source "$REPO/e2e-tests/images/entrypoint.common.sh"
+# The repo is bind-mounted from the host, so /build is owned by the host user while this
+# container runs as root. Git refuses to operate on a repo it sees as owned by someone else
+# ("detected dubious ownership"), which breaks the git calls sbt makes for versioning. Mark
+# /build as trusted so those calls succeed.
+git config --global --add safe.directory "$REPO"
+
+source "$(dirname "$0")/entrypoint.common.sh"
 
 # Default to the full production service list; GRID_SERVICES can narrow it.
 SERVICES="${GRID_SERVICES:-$SERVICES}"
@@ -69,4 +75,14 @@ echo "Running: sbt $SBT_OPTS \"$SBT_COMMAND\""
 # container; shutdown is driven by the SIGTERM/SIGINT trap above.
 tail -f /dev/null | sbt $SBT_OPTS "$SBT_COMMAND" &
 sbt_pid=$!
-wait "$sbt_pid"
+
+# Stop the container if either the webpack watcher or sbt exits, rather than
+# leaving half a stack running (e.g. services up but the frontend no longer
+# rebuilding). `wait -n` returns on the first child to exit.
+wait -n ${watch_pid:+"$watch_pid"} "$sbt_pid" 2>/dev/null || true
+echo "A dev process (webpack watcher or sbt) exited; shutting down." >&2
+for pid in "$watch_pid" "$sbt_pid"; do
+  [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+done
+wait 2>/dev/null || true
+exit 1

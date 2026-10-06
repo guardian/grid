@@ -21,6 +21,7 @@ trait Fixtures {
     "usageRights" -> Map(
       "applicable" -> List()
     ),
+    "aws.region" -> "eu-west-1",
     "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
   )
   val NOT_USED_IN_TEST = "not used in test"
@@ -30,6 +31,7 @@ trait Fixtures {
     "thrall.kinesis.stream.name",
     "thrall.kinesis.lowPriorityStream.name",
     "domain.root",
+    "content.web.baseUrl",
     "s3.config.bucket",
     "s3.usagemail.bucket",
     "quota.store.key",
@@ -39,7 +41,12 @@ trait Fixtures {
     "s3.image.bucket",
     "s3.thumb.bucket",
     "grid.stage",
-    "grid.appName"
+    "grid.appName",
+    "capi.live.url",
+    "capi.apiKey",
+    "capi.preview.role",
+    "capi.preview.url",
+    "composer.domain"
   )
 
   def deletionData(deletedBy: String): SoftDeletedMetadata = SoftDeletedMetadata(

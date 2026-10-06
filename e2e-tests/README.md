@@ -12,7 +12,7 @@ This is what [`.github/workflows/playwright.yml`](../.github/workflows/playwrigh
 and how you reproduce a CI failure locally:
 
 ```bash
-# From the repo root: build the production image the harness runs.
+# From the repo root: build the CI image the harness runs.
 DOCKER_BUILDKIT=1 docker build --target ci -f e2e-tests/images/Dockerfile -t grid-e2e-ci .
 
 cd e2e-tests
@@ -21,11 +21,19 @@ npx playwright install --with-deps chromium
 npm test
 ```
 
-`grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) stages the services with `sbt stage`
-and runs them under a production JRE, so it exercises the same code paths as a deployed
-Grid. There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bundled
+`grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) bind-mounts the repo over
+`/build`, builds Kahuna's production bundle once (`npm ci` + `npm run dist`), stages
+the services with `sbt e2eStage` and runs the staged applications in production mode,
+so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
+are baked into the image, so the build is quick and staging happens on first run.
+There is no dev-nginx in CI, so when `CI=true` `global-setup` also starts a bundled
 Caddy reverse proxy on `:443` that replays dev-nginx's subdomain routing for the
 `https://*.media.<domain>` browser origins.
+
+The harness applies both development CloudFormation templates to LocalStack, seeds Panda
+settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
+[`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
+OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed.
 
 ### 2. Dev (live recompilation)
 
@@ -70,12 +78,12 @@ straight away and names the ports it is waiting on.
 
 | Variable | Effect |
 | --- | --- |
-| `GRID_RESEED=true` | Reload the Elasticsearch fixtures into the reused stack. |
+| `GRID_RESEED=true` | Reload the Elasticsearch fixtures and seeded collections into the reused stack. |
 
 **Watch out for stale provisioning.** A reused stack picks up Scala changes (the repo is
 bind-mounted and services run under `sbt run`), but *not* changes to anything applied at
-boot: generated service config, the CloudFormation template, bucket contents, permissions
-or the Elasticsearch fixtures. After changing any of those, restart `dev:e2e`.
+boot: generated service config, CloudFormation templates, bucket contents, OIDC users,
+permissions, Elasticsearch fixtures or seeded collections. After changing any of those, restart `dev:e2e`.
 
 Reuse also means state carries over between runs. The current suite is read-only, so this
 is harmless today, but a test that uploads or edits an image will want a fresh stack.
