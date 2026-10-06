@@ -97,6 +97,22 @@ export const failDelete = (page: Page) =>
     },
   );
 
+/** Hold the past-uploads search until the returned function is called. */
+export const holdPastUploads = async (page: Page) => {
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
+    async (route) => {
+      await released;
+      await route.continue();
+    },
+  );
+  return release;
+};
+
 /** The collections/labels/keywords/photoshoot section of an image-editor. */
 export const grouping = (job: Locator) =>
   job.getByRole('region', { name: 'Organisation and grouping' });
@@ -142,9 +158,7 @@ export const uploadPage = (page: Page) => {
     leaveLink: (label: string) => page.getByRole('link').filter({ hasText: label }),
     /** A queued or in-flight upload, before it becomes an editable image. */
     job: (fileName: string) => page.getByRole('region', { name: `${fileName} upload` }),
-    /** A finished upload that has become an editable image, scoped to current uploads. */
-    editableJob: metadataEditor,
-    /** The required-metadata editor form (aria-label "Image metadata") on a current upload. */
+    /** The required-metadata editor form on a finished upload, once it has become an editable image. */
     metadataEditor,
     /** A finished upload's whole image-editor (rights, metadata, grouping), one per current upload. */
     imageEditorJob: currentUploads
@@ -152,13 +166,11 @@ export const uploadPage = (page: Page) => {
       .filter({ has: page.getByRole('region', { name: 'Image metadata' }) }),
     /** Fields inside the required-metadata editor. */
     metadataField: metadataFields(metadataEditor),
-    /* The read-only usage-instructions block is asserted by its visible text in the steps. */
     /* Credit suggestions rendered by gr-datalist as options in a listbox. */
     creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
     metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
-    applyMetadataTemplateButton: currentUploads.locator('[data-cy="apply-metadata-template"]'),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /* The per-item undelete control, an <a role="button">. The batch action bar renders a
