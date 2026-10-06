@@ -84,9 +84,6 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
     };
   }, []);
 
-  // The checkbox is hidden by CSS and exists only to drive the `:checked` sibling
-  // selector; clicks are owned solely by the container, and the wrapper is a span
-  // rather than a label so the browser doesn't re-dispatch a second click onto it.
   return (
     <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard} onClick={handleCheckboxClick}>
       <span className="custom-checkbox">

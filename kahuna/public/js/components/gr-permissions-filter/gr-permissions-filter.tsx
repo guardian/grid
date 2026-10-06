@@ -260,10 +260,6 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
              </table>
           )}
         </div>
-        {/* The checkboxes are hidden by CSS and exist only to drive the `:checked`
-            sibling selectors; clicks are owned solely by the container, and the
-            wrappers are spans rather than labels so the browser doesn't re-dispatch
-            a second click onto the input. */}
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
           <span className="ts-toggle-switch">
