@@ -180,12 +180,7 @@ When('I view the description field', async ({ page }) => {
 });
 
 When('I view the metadata editor', async ({ page }) => {
-  // Idempotent: some scenarios upload in a prior Given; only upload if no editor is present yet.
-  const editor = uploadPage(page);
-  if (!(await editor.metadataEditor.isVisible())) {
-    await editor.fileInput.setInputFiles(uniqueImage().path);
-  }
-  await expect(editor.metadataEditor).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
 
 Then(
