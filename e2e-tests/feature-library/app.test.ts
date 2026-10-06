@@ -9,6 +9,11 @@ import { outputDir } from './build.ts';
 import { createStaticServer } from './serve.ts';
 import type { LibraryManifest, Run, ScenarioDefinition } from './types.ts';
 
+/**
+ * Takes no inputs; returns a fresh deterministic snapshot spanning recorded, failed,
+ * planned and unrun scenarios. Its media URL is fulfilled by the test's generated WebM,
+ * so assertions do not depend on whichever Grid report happens to exist locally.
+ */
 function fixtureManifest(): LibraryManifest {
   const definition: ScenarioDefinition = {
     id: 'recorded', name: 'An authorised user sees the upload tools',
@@ -56,6 +61,7 @@ test('React viewer preserves navigation, filters, playback and responsive layout
     const manifest = fixtureManifest();
     await writeFile(path.join(directory, 'library.json'), JSON.stringify(manifest));
 
+    // Generate real decodable media; closing the context below finalizes the WebM file.
     const captureContext = await browser.newContext({ recordVideo: { dir: path.join(root, 'capture'), size: { width: 1280, height: 720 } } });
     const capturePage = await captureContext.newPage();
     await capturePage.setContent('<main style="background:#e8f1ec;padding:40px;font-size:30px"><h1>Feature library</h1><p>Playback fixture</p></main>');

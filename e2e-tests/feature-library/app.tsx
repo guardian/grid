@@ -1,3 +1,8 @@
+/**
+ * Static React viewer for library.json. App loads the snapshot; FeatureLibrary owns
+ * filtering and selection, while the leaf components render definitions and media.
+ * Navigation uses scenario IDs in URL fragments rather than a routing framework.
+ */
 import { StrictMode, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -9,24 +14,28 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { Feature, LibraryManifest, Recording, Run, RunStatus, Scenario, ScenarioStatus, Step } from './types.ts';
 
+/** A scenario paired with its parent feature and lowercased searchable text. */
 interface Entry {
   feature: Feature;
   scenario: Scenario;
   searchText: string;
 }
 
+/** Controlled filter values; feature/status use "all" to disable that constraint. */
 interface Filters {
   query: string;
   feature: string;
   status: string;
 }
 
+/** An available recording with a required URL and its parent attempt for display labels. */
 interface PlayableRecording extends Recording {
   src: string;
   run: Run;
   index: number;
 }
 
+/** The loader exposes a manifest only after a successful response, or a retryable error. */
 type LoadState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; library: LibraryManifest };
 
 const labels: Record<ScenarioStatus | RunStatus, string> = {
@@ -45,16 +54,32 @@ const statusOptions = [
   ['unrecorded', 'No video'], ['not-run', 'Not run'], ['skipped', 'Skipped'], ['unmatched', 'Unmatched'],
 ];
 
+/**
+ * @param scenario - A manifest scenario containing attempts and optional recordings.
+ * @returns Available videos with URLs, attempt metadata and their index within that
+ * attempt's recordings. The original attempt/attachment ordering is preserved.
+ */
 function recordingsFor(scenario: Scenario): PlayableRecording[] {
   return scenario.runs.flatMap((run) => run.recordings.flatMap((recording, index) =>
     recording.available && recording.src ? [{ ...recording, src: recording.src, run, index }] : []));
 }
 
+/**
+ * @param milliseconds - Optional reported duration, not the video's decoded length.
+ * @returns Rounded milliseconds below one second, seconds to one decimal otherwise,
+ * or an empty string when no timing is available.
+ */
 function duration(milliseconds?: number): string {
   if (milliseconds == null) return '';
   return milliseconds < 1000 ? `${Math.round(milliseconds)} ms` : `${(milliseconds / 1000).toFixed(1)} s`;
 }
 
+/**
+ * @param entries - Catalogue entries with precomputed lowercase search text.
+ * @param filters - Search query, feature ID and status/video-availability selection.
+ * @returns Entries satisfying every constraint in their original order. Every
+ * whitespace-separated query word must occur somewhere in the entry's search text.
+ */
 function filterEntries(entries: Entry[], filters: Filters): Entry[] {
   const words = filters.query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
   return entries.filter(({ feature, scenario, searchText }) =>
@@ -64,10 +89,21 @@ function filterEntries(entries: Entry[], filters: Filters): Entry[] {
     && words.every((word) => searchText.includes(word)));
 }
 
+/**
+ * @param id - Scenario ID to write to the URL fragment.
+ * @param replace - Replace the current history entry instead of adding a navigation step.
+ * @returns Nothing; updates browser history only when the fragment differs.
+ * pushState/replaceState do not emit hashchange, so callers also update React selection.
+ */
 function setHash(id: string, replace = false): void {
   if (location.hash.slice(1) !== id) history[replace ? 'replaceState' : 'pushState'](null, '', `#${id}`);
 }
 
+/**
+ * Renders the shared masthead and snapshot totals without changing application state.
+ * Inputs are an optional library and a loading flag; absent data displays zero totals.
+ * @returns Header JSX. "With video" counts scenarios with media, not individual clips.
+ */
 function PageHeader({ library, loading = false }: { library?: LibraryManifest; loading?: boolean }) {
   const entries = library?.features.flatMap((feature) => feature.scenarios) ?? [];
   const videoCount = entries.filter((scenario) => recordingsFor(scenario).length > 0).length;
@@ -91,6 +127,12 @@ function PageHeader({ library, loading = false }: { library?: LibraryManifest; l
   </>;
 }
 
+/**
+ * Renders controlled filters and the already-filtered scenario list.
+ * Inputs: all features for the selector, visible entries, filter values, selected ID,
+ * and callbacks receiving replacement filters or the chosen Entry.
+ * @returns Sidebar JSX; selection stays visible by scrolling the list, not the page.
+ */
 function Catalogue({ features, visible, filters, selectedId, onFiltersChange, onSelect }: {
   features: Feature[];
   visible: Entry[];
@@ -100,6 +142,10 @@ function Catalogue({ features, visible, filters, selectedId, onFiltersChange, on
   onSelect: (entry: Entry) => void;
 }) {
   const listRef = useRef<HTMLElement>(null);
+  /**
+   * Takes no arguments and reads the current list ref/selection after layout or resize.
+   * Returns nothing; centres the mobile item horizontally or reveals it vertically on desktop.
+   */
   const revealSelection = useEffectEvent(() => {
     const list = listRef.current;
     const selected = list?.querySelector<HTMLElement>('[aria-current="true"]');
@@ -155,6 +201,10 @@ function Catalogue({ features, visible, filters, selectedId, onFiltersChange, on
   </aside>;
 }
 
+/**
+ * Inputs are optional column headings and rows of plain cell text.
+ * @returns A horizontally scrollable table; React escapes all headings and values.
+ */
 function DataTable({ headers = [], rows }: { headers?: string[]; rows: string[][] }) {
   return <div className="table-scroll"><table>
     {headers.length > 0 && <thead><tr>{headers.map((cell, index) => <th key={index} scope="col">{cell}</th>)}</tr></thead>}
@@ -162,6 +212,10 @@ function DataTable({ headers = [], rows }: { headers?: string[]; rows: string[][
   </table></div>;
 }
 
+/**
+ * Input is an ordered list of background or scenario steps from the manifest.
+ * @returns Given/When/Then rows, including any data tables and literal doc strings.
+ */
 function Steps({ steps }: { steps: Step[] }) {
   return <ol className="steps">{steps.map((step, index) => <li key={index}>
     <span className="step-keyword">{step.keyword}</span><div><span>{step.text}</span>
@@ -170,11 +224,21 @@ function Steps({ steps }: { steps: Step[] }) {
   </li>)}</ol>;
 }
 
+/**
+ * Input is a scenario-level status, including viewer-only states such as planned.
+ * @returns A badge with a readable label, icon and status-specific CSS class.
+ */
 function StatusBadge({ status }: { status: ScenarioStatus }) {
   const StatusIcon = statusIcons[status];
   return <span className={`badge ${status}`}><StatusIcon aria-hidden="true" />{labels[status]}</span>;
 }
 
+/**
+ * Inputs are the owning scenario and a non-empty list from recordingsFor.
+ * @returns Native video playback plus attempt, speed and download controls.
+ * The final supplied recording is selected initially; local state belongs to the
+ * keyed ScenarioDetail instance and resets when the user selects another scenario.
+ */
 function RecordingPlayer({ scenario, recordings }: { scenario: Scenario; recordings: PlayableRecording[] }) {
   const [recordingIndex, setRecordingIndex] = useState(recordings.length - 1);
   const [speed, setSpeed] = useState(1);
@@ -190,6 +254,7 @@ function RecordingPlayer({ scenario, recordings }: { scenario: Scenario; recordi
       <video id="recording" key={recording.src} ref={playerRef} src={recording.src} controls playsInline preload="auto" aria-label={`Recording of ${scenario.name}`} onError={() => setFailed(true)} onLoadedData={(event) => {
         const player = event.currentTarget;
         player.playbackRate = speed;
+        // Sample an opening frame while leaving playback close to the recording's start.
         if (player.currentTime === 0 && Number.isFinite(player.duration)) player.currentTime = Math.min(0.15, player.duration / 2);
       }} />
       <div id="video-error" className="video-error" hidden={!failed}>Recording could not be loaded.</div>
@@ -214,6 +279,12 @@ function RecordingPlayer({ scenario, recordings }: { scenario: Scenario; recordi
   </>;
 }
 
+/**
+ * Inputs are the selected entry, its zero-based position and total in the filtered
+ * list, previous/next navigation callbacks, and a callback accepting notification text.
+ * @returns The feature context, specification and recordings for that scenario.
+ * The parent keys this component by scenario ID to reset playback and expanded details.
+ */
 function ScenarioDetail({ entry, index, count, onPrevious, onNext, onNotify }: {
   entry: Entry;
   index: number;
@@ -224,6 +295,11 @@ function ScenarioDetail({ entry, index, count, onPrevious, onNext, onNotify }: {
 }) {
   const { feature, scenario } = entry;
   const recordings = recordingsFor(scenario);
+  /**
+   * Takes no arguments; copies the current URL with this scenario's fragment.
+   * @returns A promise resolving after clipboard handling; success/failure is reported
+   * through onNotify rather than propagated as an unhandled browser error.
+   */
   const copyLink = async () => {
     try {
       const url = new URL(location.href);
@@ -264,6 +340,12 @@ function ScenarioDetail({ entry, index, count, onPrevious, onNext, onNotify }: {
   </>;
 }
 
+/**
+ * Input is a loaded manifest; the snapshot is not modified by the viewer.
+ * @returns The interactive catalogue/detail layout and notification region.
+ * Owns filter and selection state, preferring a valid deep link, then a recorded
+ * scenario, then the first definition. Effects synchronize title, history and toasts.
+ */
 function FeatureLibrary({ library }: { library: LibraryManifest }) {
   const entries: Entry[] = library.features.flatMap((feature) => feature.scenarios.map((scenario) => ({
     feature, scenario,
@@ -279,12 +361,22 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
   const entry = visible.find(({ scenario }) => scenario.id === selectedId) ?? visible[0];
   const index = entry ? visible.indexOf(entry) : -1;
 
+  /**
+   * @param next - Entry to select; undefined (for example, past a list boundary) is ignored.
+   * @param push - Whether to add a history entry; false when responding to browser history.
+   * @returns Nothing; changes selection and scrolls the detail panel into view on mobile.
+   */
   const selectEntry = (next?: Entry, push = true) => {
     if (!next) return;
     setSelectedId(next.scenario.id);
     if (push) setHash(next.scenario.id);
     if (matchMedia('(max-width: 760px)').matches) detailRef.current?.scrollIntoView({ block: 'start' });
   };
+  /**
+   * @param next - Complete replacement filter state from the controlled form.
+   * @returns Nothing; keeps the current selection if visible, otherwise chooses the
+   * first match and replaces the URL fragment without adding a history entry.
+   */
   const changeFilters = (next: Filters) => {
     const nextVisible = filterEntries(entries, next);
     const nextEntry = nextVisible.find(({ scenario }) => scenario.id === selectedId) ?? nextVisible[0];
@@ -292,6 +384,11 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
     setSelectedId(nextEntry?.scenario.id);
     if (nextEntry) setHash(nextEntry.scenario.id, true);
   };
+  /**
+   * Takes no arguments and reads the latest location fragment and filter state.
+   * Returns nothing; valid history/deep-link targets become selected, clearing filters
+   * only when necessary. Unknown fragments, including the skip-link target, are ignored.
+   */
   const onHashChange = useEffectEvent(() => {
     const next = entries.find(({ scenario }) => scenario.id === location.hash.slice(1));
     if (!next) return;
@@ -326,12 +423,22 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
   </>;
 }
 
+/**
+ * Root component with no props. Fetches the adjacent, prebuilt library.json snapshot.
+ * @returns Loading/error UI or FeatureLibrary once data is ready; Retry starts a new request.
+ * Each effect aborts its request during cleanup, including React StrictMode remounts.
+ */
 function App() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading' });
+    /**
+     * Uses the current effect's abort signal to fetch the snapshot; takes no arguments.
+     * @returns A promise resolving after state is updated or an aborted response is ignored.
+     * HTTP/JSON failures become retryable UI state rather than rejected event-handler promises.
+     */
     const load = async () => {
       try {
         const response = await fetch('library.json', { signal: controller.signal });
