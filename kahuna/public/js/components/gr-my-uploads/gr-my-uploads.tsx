@@ -2,6 +2,7 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useState, useEffect, KeyboardEvent } from "react";
+import { nfLog } from "../../util/nonfree-debug";
 
 import "./gr-my-uploads.css";
 
@@ -39,18 +40,17 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
   }, [props.myUploads]);
 
   const handleCheckboxClick = () => {
-    setMyUploads(prevChkd => {
-      props.onChange(!prevChkd);
+    const next = !myUploads;
+    nfLog("MyUploads", "handleCheckboxClick (user click)", {myUploads, next});
+    setMyUploads(next);
+    props.onChange(next);
 
-      //-- raise payable images event --
-      const event = new CustomEvent<PayableImagesEventDetail>('setPayableImages', {
-        detail: { showPaid: !prevChkd },
-        bubbles: true
-      });
-      window.dispatchEvent(event);
-
-      return !prevChkd;
+    //-- raise payable images event --
+    const event = new CustomEvent<PayableImagesEventDetail>('setPayableImages', {
+      detail: { showPaid: next },
+      bubbles: true
     });
+    window.dispatchEvent(event);
   };
 
   const handleKeyboard = (event:KeyboardEvent<HTMLDivElement>) => {
@@ -86,16 +86,19 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
     };
   }, []);
 
+  // The checkbox is hidden by CSS and exists only to drive the `:checked` sibling
+  // selector; clicks are owned solely by the container, and the wrapper is a span
+  // rather than a label so the browser doesn't re-dispatch a second click onto it.
   return (
-    <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard}>
-      <label className="custom-checkbox">
-        <input type="checkbox" checked={myUploads} onClick={handleCheckboxClick}/>
+    <div className="my-uploads-container" tabIndex={0} aria-label={MY_UPLOADS} onKeyDown={handleKeyboard} onClick={handleCheckboxClick}>
+      <span className="custom-checkbox">
+        <input type="checkbox" checked={myUploads} readOnly tabIndex={-1} aria-hidden="true"/>
         <div className="label-wrapper" >
           <span className="custom-span"></span>
           <span className="custom-label no-select">{MY_UPLOADS}</span>
           <span className="custom-label-short no-select">{MY_UPLOADS_SHORT}</span>
         </div>
-      </label>
+      </span>
     </div>
   );
 };
