@@ -32,7 +32,6 @@ import collectionsPanelTemplate from
 import {cropUtil} from '../util/crop';
 import {armedDefaultNonFreeFilter, DEFAULT_NON_FREE_FILTER_KEY} from '../util/default-non-free-filter';
 import { COLLECTION_SORT_VALUE } from '../components/gr-sort-control/gr-sort-control-config';
-import {nfLog, nfDump} from '../util/nonfree-debug';
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
 
@@ -114,7 +113,6 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             mediaApi.getSession().then(session => {
               const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
               const defaultNonFreeFilter = armedDefaultNonFreeFilter(toNonFreeString(showPaid));
-              nfLog('search-state', 'onLogoClick -> arming default nonFree', {isNonFree: defaultNonFreeFilter.isNonFree});
               storage.setJs(DEFAULT_NON_FREE_FILTER_KEY, defaultNonFreeFilter, true);
               $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree}).then(() => {
                 window.dispatchEvent(new CustomEvent("logoClick", {
@@ -314,50 +312,16 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 // and then navigate to search. As it has no remembered `deepStateRedirect`,
 // we just land on `/`. See [1].
 search.run(['$rootScope', '$state', '$stateParams', '$timeout', function($rootScope, $state, $stateParams, $timeout) {
-  window.addEventListener('popstate', () => {
-    nfLog('router', 'popstate (back/forward)', {paramNonFree: $stateParams.nonFree});
-    nfDump('popstate');
-    // after the transition and any follow-up navigations have settled
-    window.setTimeout(() => nfDump('popstate+1500ms'), 1500);
-  });
-
-  $rootScope.$on('$stateChangeStart', (_, toState, toParams, fromState, fromParams) => {
-    nfLog('router', '$stateChangeStart', {
-      from: fromState.name,
-      fromNonFree: fromParams.nonFree,
-      to: toState.name,
-      toNonFree: toParams.nonFree,
-      toQuery: toParams.query,
-      toOrderBy: toParams.orderBy
-    });
-  });
-
-  $rootScope.$on('$stateChangeSuccess', (_, toState, toParams) => {
-    nfLog('router', '$stateChangeSuccess', {
-      to: toState.name,
-      toNonFree: toParams.nonFree,
-      paramNonFree: $stateParams.nonFree
-    });
-  });
-
-  $rootScope.$on('$stateChangeError', (_, toState, toParams, fromState, fromParams, error) => {
-    nfLog('router', '$stateChangeError', {to: toState.name, error: String(error)});
-  });
-
   $rootScope.$on('$viewContentLoaded', (_, view) => {
     if (view === 'results@search' && $stateParams.isDeepStateRedirect) {
       // using a timeout of 0 to schedule the task for execution ASAP, but outside the ongoing transition
       $timeout(() => {
-        nfLog('router', 'DSR clear -> $state.go(isDeepStateRedirect:false)', {paramNonFree: $stateParams.nonFree});
         $state.go('search.results', {isDeepStateRedirect: false});
       });
     }
   });
   $rootScope.$on('$stateChangeSuccess', (_, toState) => {
     if (toState.name === 'search') {
-      nfLog('router', 'landed on bare `search` -> $state.go(search.results, reload)', {
-        paramNonFree: $stateParams.nonFree
-      });
       $state.go('search.results', null, {reload: true});
     }
   });

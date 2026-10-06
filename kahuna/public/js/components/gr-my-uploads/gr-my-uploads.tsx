@@ -2,7 +2,6 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useState, useEffect, KeyboardEvent } from "react";
-import { nfLog } from "../../util/nonfree-debug";
 
 import "./gr-my-uploads.css";
 
@@ -41,7 +40,6 @@ const MyUploads: React.FC<MyUploadsWrapperProps> = ({ props }) => {
 
   const handleCheckboxClick = () => {
     const next = !myUploads;
-    nfLog("MyUploads", "handleCheckboxClick (user click)", {myUploads, next});
     setMyUploads(next);
     props.onChange(next);
 
