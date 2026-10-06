@@ -19,13 +19,23 @@ const source = `Feature: Uploads
   Scenario: Planned upload
     Then it works
 `;
+/** Takes no inputs; returns a fresh parsed copy of the shared Gherkin fixture. */
 const feature = () => parseFeature(source, 'features/upload.feature');
+/**
+ * @param overrides - Shallow replacements, including whole result arrays when supplied.
+ * @returns A fresh report test that otherwise represents one successful recorded upload.
+ */
 const reportTest = (overrides: Partial<ReportTest> = {}): ReportTest => ({
   testId: 'upload-1', title: 'Select a file', fileName: 'features/upload.feature.spec.js',
   path: ['Uploads'], projectName: 'chromium', outcome: 'expected', duration: 400,
   results: [{ status: 'passed', retry: 0, attachments: [{ contentType: 'video/webm', path: 'data/video.webm' }] }],
   ...overrides,
 });
+/**
+ * @param tests - Test records to put in the summary and detailed file entries.
+ * @returns Minimal HTML containing Playwright-shaped ZIP data; referenced media files
+ * are created separately by filesystem tests, not embedded in the archive.
+ */
 const htmlReport = (tests: ReportTest[]): string => {
   const archive = zipSync({
     'report.json': strToU8(JSON.stringify({ startTime: 123, duration: 400, files: [{ fileId: 'file', fileName: 'features/upload.feature.spec.js', tests }] })),

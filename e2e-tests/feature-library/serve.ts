@@ -1,3 +1,4 @@
+/** Local static preview server; importing this module neither builds nor starts a listener. */
 import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -15,6 +16,13 @@ const contentTypes: Record<string, string> = {
   '.svg': 'image/svg+xml',
 };
 
+/**
+ * @param directory - Static export root. Requests are resolved against its real filesystem path.
+ * @returns An unstarted Node HTTP server; the caller chooses the listening address/port.
+ * Serves GET/HEAD, maps / to index.html, and supports one byte range for video seeking.
+ * Requests cannot escape the root through traversal or symlinks; files are streamed,
+ * never modified, and unsupported methods/ranges receive HTTP error responses.
+ */
 export function createStaticServer(directory: string): Server {
   return createServer(async (request, response) => {
     if (!['GET', 'HEAD'].includes(request.method ?? '')) {
@@ -42,6 +50,7 @@ export function createStaticServer(directory: string): Server {
       let end = info.size - 1;
       const range = request.headers.range;
       if (range) {
+        // Handle bounded, open-ended and suffix ranges; end offsets are inclusive.
         const match = /^bytes=(\d*)-(\d*)$/.exec(range);
         if (match && (match[1] || match[2])) {
           start = match[1] ? Number(match[1]) : Math.max(0, info.size - Number(match[2]));
@@ -69,6 +78,7 @@ export function createStaticServer(directory: string): Server {
   });
 }
 
+// The CLI rebuilds once, then serves localhost; occupied ports advance by at most ten.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { values } = parseArgs({ options: { report: { type: 'string' }, port: { type: 'string', default: '4173' } } });
   const requestedPort = Number(values.port);

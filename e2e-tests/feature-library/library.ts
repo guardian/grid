@@ -1,3 +1,8 @@
+/**
+ * Imports Gherkin definitions and Playwright HTML results into the library manifest.
+ * Parsing and matching are separate from filesystem checks; createLibrary joins
+ * those stages and returns a copy plan for the exporter without writing any files.
+ */
 import { createHash } from 'node:crypto';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,14 +12,17 @@ import type { FeatureChild, RuleChild, Step as GherkinStep } from '@cucumber/mes
 import { strFromU8, unzipSync } from 'fflate';
 import type { Feature, FeatureDefinition, LibraryManifest, Run, RunStatus, ScenarioDefinition, ScenarioStatus, Step, TestOutcome } from './types.ts';
 
+/** An intermediate scenario retaining compiled outline names for result matching. */
 interface ParsedScenario extends ScenarioDefinition {
   expandedNames: string[];
 }
 
+/** Parsed source definitions, before report outcomes and recordings are attached. */
 interface ParsedFeature extends FeatureDefinition {
   scenarios: ParsedScenario[];
 }
 
+/** One Playwright attempt; summary-only reports may omit status, timing or attachments. */
 interface ReportResult {
   status?: RunStatus;
   retry?: number;
@@ -23,6 +31,7 @@ interface ReportResult {
   attachments?: { contentType: string; path?: string }[];
 }
 
+/** The subset of a Playwright HTML test record needed to identify and display its attempts. */
 export interface ReportTest {
   testId: string;
   title: string;
@@ -34,19 +43,29 @@ export interface ReportTest {
   results: ReportResult[];
 }
 
+/** Flattened report metadata: startTime is epoch milliseconds, duration is milliseconds. */
 interface DecodedReport {
   startTime: number;
   duration: number;
   tests: ReportTest[];
 }
 
+/** The embedded report.json index, whose file IDs also identify detailed JSON entries. */
 interface ReportArchive {
   startTime: number;
   duration: number;
   files: { fileId: string; fileName: string; tests: ReportTest[] }[];
 }
 
+/**
+ * @param value - The exact identity string, such as a source location or media path.
+ * @returns A deterministic 16-character hexadecimal ID; changing the input changes the ID.
+ */
 const idFor = (value: string): string => createHash('sha256').update(value).digest('hex').slice(0, 16);
+/**
+ * @param steps - Readonly Cucumber AST steps from a background or scenario.
+ * @returns Display-ready steps with trimmed keywords, cell values and doc-string content.
+ */
 const stepsFor = (steps: readonly GherkinStep[]): Step[] => steps.map((step) => ({
   keyword: step.keyword.trim(),
   text: step.text,
@@ -54,11 +73,25 @@ const stepsFor = (steps: readonly GherkinStep[]): Step[] => steps.map((step) => 
   docString: step.docString?.content,
 }));
 
+/**
+ * @param error - Any thrown value, including Node filesystem errors.
+ * @returns Its error code when present, otherwise its message or string representation.
+ */
 function errorDetail(error: unknown): string {
   if (error instanceof Error) return 'code' in error ? String(error.code) : error.message;
   return String(error);
 }
 
+/**
+ * Parses a feature without reading files or attaching execution results.
+ * Cucumber's compiled scenarios (pickles) supply substituted names for outlines;
+ * the original steps and example tables remain available for presentation.
+ *
+ * @param source - Complete Gherkin source text.
+ * @param file - Logical source path, normally features/name.feature with forward slashes.
+ * @returns A feature with flattened scenarios, inherited backgrounds/tags and matching names.
+ * @throws When the source is invalid Gherkin or contains no Feature definition.
+ */
 export function parseFeature(source: string, file: string): ParsedFeature {
   const messages = generateMessages(source, file, SourceMediaType.TEXT_X_CUCUMBER_GHERKIN_PLAIN, {
     newId: IdGenerator.incrementing(),
@@ -71,6 +104,14 @@ export function parseFeature(source: string, file: string): ParsedFeature {
   if (!feature) throw new Error(`${file}: no Feature found`);
   const pickles = messages.flatMap((message) => message.pickle ? [message.pickle] : []);
   const scenarios: ParsedScenario[] = [];
+  /**
+   * Walks one feature/rule scope and appends its scenarios to the outer collection.
+   * @param children - AST children in source order.
+   * @param inheritedBackground - Ancestor background steps, prepended to local steps.
+   * @param inheritedTags - Feature/rule tags inherited by every scenario in this scope.
+   * @param rule - Enclosing rule name used to disambiguate report matches.
+   * @returns Nothing; results accumulate in scenarios without modifying the AST.
+   */
   function visit(children: readonly (FeatureChild | RuleChild)[], inheritedBackground: Step[] = [], inheritedTags: string[] = [], rule = ''): void {
     const background = [...inheritedBackground, ...children.flatMap((child) => child.background ? stepsFor(child.background.steps) : [])];
     for (const child of children) {
@@ -101,6 +142,14 @@ export function parseFeature(source: string, file: string): ParsedFeature {
   return { id: idFor(file), name: feature.name, description: feature.description.trim(), file, scenarios };
 }
 
+/**
+ * Decodes Playwright's embedded ZIP, accepting template and older assignment wrappers.
+ * This reads Playwright's internal HTML-report format, not its public JSON reporter format.
+ *
+ * @param html - Full contents of a Playwright report's index.html.
+ * @returns Run timing and flattened tests, preferring detailed per-file records when present.
+ * @throws For unsupported wrappers, invalid archives/JSON or missing report index fields.
+ */
 export function decodeReport(html: string): DecodedReport {
   const payload = html.match(/<template\b[^>]*\bid=["']playwrightReportBase64["'][^>]*>\s*data:application\/zip;base64,([^<]+)/)?.[1]
     ?? html.match(/(?:window\.)?playwrightReportBase64\s*=\s*["'](?:data:application\/zip;base64,)?([^"']+)/)?.[1];
@@ -117,11 +166,22 @@ export function decodeReport(html: string): DecodedReport {
   return { startTime: report.startTime, duration: report.duration, tests };
 }
 
+/**
+ * @param file - A report path, possibly absolute, Windows-style or ending in .feature.spec.js.
+ * @returns A forward-slash feature path with the generated spec suffix and leading prefix removed.
+ */
 function featurePath(file: string): string {
   return file.replaceAll('\\', '/').replace(/\.spec\.[cm]?[jt]s$/, '').replace(/^.*?(?=features\/)/, '');
 }
 
+/**
+ * @param test - A decoded report test with its generated file name and title path.
+ * @param feature - The source feature that owns the candidate scenario.
+ * @param scenario - A definition with its rule and expanded outline names.
+ * @returns Whether this is a candidate match; attachResults separately rejects ambiguity.
+ */
 function matches(test: ReportTest, feature: ParsedFeature, scenario: ParsedScenario): boolean {
+  // Generated spec line numbers differ from Gherkin lines, so match paths and names instead.
   if (featurePath(test.fileName) !== feature.file) return false;
   if (scenario.rule && !test.path?.includes(scenario.rule)) return false;
   return test.title === scenario.name || scenario.expandedNames.includes(test.title)
@@ -132,6 +192,15 @@ const statusesByOutcome: Record<TestOutcome, RunStatus> = {
   expected: 'passed', unexpected: 'failed', skipped: 'skipped', flaky: 'passed',
 };
 
+/**
+ * Joins source scenarios to results across projects and retries without filesystem access.
+ * Ambiguous names receive no runs; unmatched @todo scenarios are marked planned.
+ *
+ * @param feature - Parsed definitions, including expanded names used only during matching.
+ * @param tests - All decoded report tests; unrelated feature paths are ignored.
+ * @returns A new feature with aggregate outcomes and attempts. Recordings retain temporary
+ * report paths and remain unavailable until createLibrary checks their files.
+ */
 export function attachResults(feature: ParsedFeature, tests: ReportTest[]): Feature {
   return {
     ...feature,
@@ -166,6 +235,11 @@ export function attachResults(feature: ParsedFeature, tests: ReportTest[]): Feat
   };
 }
 
+/**
+ * @param directory - Root directory to scan recursively; symbolic links are not followed.
+ * @returns Sorted paths to regular .feature files, rooted at the supplied directory.
+ * @throws If a directory cannot be read.
+ */
 async function featureFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(entries.map((entry) => {
@@ -175,6 +249,15 @@ async function featureFiles(directory: string): Promise<string[]> {
   return files.flat().sort();
 }
 
+/**
+ * Assembles an exportable snapshot from source definitions and an optional HTML report.
+ * featuresDir contains the Gherkin tree; reportDir contains index.html and its attachments.
+ * A missing report is allowed, while an unreadable or malformed existing report is fatal.
+ *
+ * @returns The JSON-ready manifest, a map of export-relative media URLs to absolute source
+ * files, and warnings for missing/unsafe attachments. No output files are written here.
+ * @throws On feature parse/read failures or unsupported/corrupt reports.
+ */
 export async function createLibrary({ featuresDir, reportDir }: { featuresDir: string; reportDir: string }): Promise<{
   manifest: LibraryManifest; media: Map<string, string>; warnings: string[];
 }> {
@@ -198,6 +281,7 @@ export async function createLibrary({ featuresDir, reportDir }: { featuresDir: s
           delete recording.path;
           if (!attachmentPath) continue;
           try {
+            // Resolve symlinks before containment checks so exports cannot copy files outside the report.
             const source = await realpath(path.resolve(reportRoot, attachmentPath));
             if (!source.startsWith(`${reportRoot}${path.sep}`)) throw new Error('attachment is outside the report directory');
             if (!(await stat(source)).isFile()) throw new Error('attachment is not a file');
