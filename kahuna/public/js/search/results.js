@@ -40,7 +40,7 @@ import {
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
 import { sendTelemetryForNoResults, sendTelemetryForAiSearchPreviewClick } from '../services/telemetry';
-import {structureQuery} from './structured-query/syntax';
+import { structureQuery } from './structured-query/syntax';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -207,9 +207,10 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
+        const [{ value: textOnlyQuery }] = structureQuery($stateParams.query ?? '');
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
-          !!($stateParams.query && $stateParams.query.trim());
+          !!textOnlyQuery.trim();
         ctrl.aiSearchStateParams = {...$stateParams, useAISearch: true};
 
         ctrl.onAiSearchPreviewClick = source => {
@@ -217,12 +218,6 @@ results.controller('SearchResultsCtrl', [
         };
 
         function loadAiSearchPreview() {
-          const [{ value: textOnlyQuery }] = structureQuery($stateParams.query);
-          if (textOnlyQuery.length == 0){
-            ctrl.aiSearchPreviewUnavailable = true;
-            return;
-          }
-
           ctrl.aiSearchPreviewLoading = true;
           // 'true' as a string: mediaApi normalises this param with maybeStringToBoolean
           search({offset: 0, length: 12, useAISearch: 'true', countAll: false})
