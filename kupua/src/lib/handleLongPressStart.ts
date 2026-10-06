@@ -5,9 +5,8 @@
  * Three-branch rule (mirrors the desktop click rule table for consistency):
  *
  *   No anchor / mode entry:    toggle(cellId) + setAnchor(cellId)
- *   Different anchor:           dispatch add-range effect (same path as shift-click),
- *                                then setAnchor(cellId) for chaining
- *   Already-selected anchor:   setAnchor(cellId) only -- do NOT toggle off.
+ *   Different anchor:           dispatch old-anchor range with endpoint chaining
+ *   Already-selected anchor:   retire pending range + re-anchor -- do NOT toggle off.
  *                                Touch divergence from desktop click: long-press
  *                                should not be a destructive deselect. Use the
  *                                tickbox to deselect a single cell.
@@ -36,7 +35,8 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
   const selState = useSelectionStore.getState();
   const { anchorId } = selState;
 
-  if (anchorId && anchorId !== ctx.cellId && ctx.handleRange) {
+  if (anchorId && ctx.handleRange &&
+      (anchorId !== ctx.cellId || selState.selectedIds.has(ctx.cellId))) {
     // Second long-press in selection mode: range from existing anchor to this cell.
     // Builds the same AddRangeEffect a shift-click produces and dispatches it through
     // useRangeSelection (buffer fast path or server walk).
@@ -45,7 +45,7 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
     const idx = ctx.findImageIndex(ctx.cellId);
     const image = idx >= 0 ? ctx.getImage(idx) : undefined;
     const anchorImg = selState.metadataCache.get(anchorId);
-    ctx.handleRange({
+    const effect: AddRangeEffect = {
       op: "add-range",
       anchorId,
       anchorGlobalIndex: searchState.imagePositions.get(anchorId) ?? null,
@@ -55,9 +55,9 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
       targetId: ctx.cellId,
       targetGlobalIndex: searchState.imagePositions.get(ctx.cellId) ?? 0,
       targetSortValues: (image ? extractSortValues(image, ctx.orderBy, searchKey) : null) ?? [],
-
-    });
-    selState.setAnchor(ctx.cellId);
+      reanchorToTarget: true,
+    };
+    ctx.handleRange(effect);
   } else if (!selState.selectedIds.has(ctx.cellId)) {
     // Mode entry (no prior anchor) or long-press on an unselected cell:
     // toggle + anchor.

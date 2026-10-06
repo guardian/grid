@@ -44,6 +44,25 @@ a throttled run.
 
 ## 1. Session setup
 
+**[V] 6 October 2026, B3 touch verification:** use the operator-shared HTTPS tab,
+not an assumed localhost page. Chromium CDP touch emulation plus a 393x852 viewport
+sets both media/app coarse-pointer detection and effective Click-to-Open despite
+a stored explicit preference. Recheck after reload. Native touchStart/650ms/touchEnd
+and bounded touch scroll synthesis exercise mounted grid/table handlers; this is
+emulation, not physical-device proof. Keep encountered order/identities in page
+memory; return exact-membership, anchor/focus and read-status aggregates only.
+Restore fetch/method descriptors/subscriptions and verify real Home afterward.
+
+**[V] Same session, narrow-table diagnostic displacement:** click/scroll-into-view
+on an off-screen status control scrolled an outer overflow-hidden flex container
+90.5px, shifting both toolbar and results and leaving a right-hand gap. Resetting
+that ancestor's scrollLeft restored alignment without a source change. Choose
+hit-tested row points inside the viewport, not row-relative negative x or a wide
+row centre. The status row still clips controls at phone width; ordinary touch
+reachability of the outer-scroll displacement is unverified and separately parked.
+Mouse-click commands sometimes timed out after completing under touch emulation;
+inspect state before retrying and use native CDP touch for touch proof.
+
 **[V] 4 October 2026, L43 stall investigation:** a completed-response hold spanning
 tool calls leaves the real UI loading for model/tool overhead, even after the API
 has finished. The operator observed this artificial stall. After restoring the

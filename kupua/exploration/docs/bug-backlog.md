@@ -179,7 +179,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-002
 **Range completion outlives selection context and can finalize another request**
-- **Distinct follow-up:** [ledger B3/L22](not-yet-another-audit-ledger.md#b3) is the long-press producer cancelling its own valid range, not a reopening of this external-supersession repair.
+- **Distinct repair:** [ledger B3/L22](not-yet-another-audit-ledger.md#b3) closes long-press self-cancellation within local/live API limits, retaining this external-supersession contract rather than reopening it.
 - **Component / responsibility:** useRangeSelection, route selection owner and busy-state publication; human owner-to-confirm.
 - **Trigger:** clear/search/sort or a newer range occurs while a server range is pending; an old success or rejection arrives afterwards.
 - **Expected / actual:** membership and busy finalization must belong to the current range/context. The former range-only generation missed clear/search/unmount and stale catch/fast-path finalization. Request-local cancellation now covers membership/anchor intent, query/order, supersession and unmount, without clearing surviving selection; only the current request publishes success/failure/timing.

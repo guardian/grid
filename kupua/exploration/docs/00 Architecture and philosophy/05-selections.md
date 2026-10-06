@@ -290,6 +290,16 @@ walks add no retry/read. Both attempts share the same cancellation and publicati
 - **Cancellation and ownership:** a server walk owns its result, failure feedback and busy/timing finalization. A newer range (including synchronous in-buffer or unavailable-anchor takeover), clear, actual add/remove/toggle or anchor change, query/order change, or unmount aborts it and releases busy state. Invalidating a walk never clears selected IDs itself; sort/detail/density survival remains as in section 4.
 - The hook's single request-local cancel/cleanup ref replaces the old range-only generation/controller pair. Selection and search subscriptions exist only during a pending walk and are removed before its own commit. Membership Set identity and anchor changes invalidate; the existing search key is compared only when params identity changes. No-op membership, metadata-only notifications and display/pagination/buffer updates preserve ownership. No extra read, retry, eager scan or persisted field is added.
 
+Long-press captures the old-anchor range with `reanchorToTarget`, leaving the hook
+responsible for endpoint chaining. The hook moves the anchor before capturing walk
+ownership and retains that endpoint after its current commit, even when removal
+would otherwise elect a fallback. Resident and fetched ranges share that commit.
+Shift-click does not request chaining. External anchor/membership changes and newer
+gestures still cancel pending publication; an obsolete gesture never resumes or merges
+with its successor. A committed long-press on the already-selected endpoint also
+retires pending work, without another range read or membership change. Ordinary
+no-op store notifications still preserve ownership. Neither range path changes focus.
+
 **On position-map availability:** in two-tier mode (1k–65k) we have a position map and can compute exact range size *before* the network call — useful for the soft-cap toast wording. In seek mode (>65k) we only know the count post-fetch; the toast fires then. In normal mode (<1k) we're always in-buffer fast path.
 
 ## 7. Reconciliation — lazy, incremental, bounded
@@ -423,13 +433,16 @@ When the user navigates back to a query containing more of the selected items, t
 Per UX call: GPhotos-style.
 
 - **Long-press** (default 500ms; tunable in `constants/tuning.ts`) on any cell enters Selection Mode and toggles that cell.
-- **Drag during long-press** (a continuous gesture from the entered selection) extends the range as the finger moves over cells. Cells lit by the finger are added (never removed during drag).
+- **Second long-press** selects a range from the previous anchor using its existing selected/unselected add/remove polarity, then retains the new endpoint for chaining. A newer gesture cancels a pending range rather than accumulating unfinished gestures. Paint-drag is not implemented.
 - **Tap** in Selection Mode toggles, same as desktop click.
 - **No tickbox visible until Selection Mode is active**, then visible on every cell (no hover concept on touch).
 - **Long-press a tick to exit Selection Mode?** No. Only the toolbar Clear button exits.
 - **No swipe gestures on cells** — those are reserved for image detail (carousel/dismiss).
 
-The long-press detection lives in a new `useLongPress.ts` hook, paired with `usePointerDrag.ts` for the drag-extend. Both reuse the existing `pointer: coarse` detection in `ui-prefs-store.ts` — long-press is **only active on coarse pointers** to avoid accidental fires from slow mouse clicks.
+`useLongPress.ts` accepts touch-pointer events, not slow mouse presses, and cancels
+before its threshold on movement or scrolling. Grid and table share
+`handleLongPressStart` and the route-mounted range hook. Coarse-pointer profiles
+use Click-to-Open and the selection FAB; touch events on hybrid devices still work.
 
 ## 11. Toolbar — "Selection Status Bar"
 
@@ -493,7 +506,7 @@ To be appended to `../deviations.md`:
 - Shift-click range never silently drops items between anchor and target (Kahuna does, requiring users to scroll-load). Trade-off: server roundtrip in two-tier+; mitigated by hard cap (5k) and informational toast at soft cap (2k).
 - No Cmd/Ctrl-A. Justified by multi-million scale.
 - Anchor is sticky across shift-clicks (Kahuna's anchor is "last added URI", causing repeated shift-clicks to misbehave).
-- Touch support via long-press + second-long-press range (Kahuna has none). Paint-drag was attempted and cut — see [`../deviations.md`](../deviations.md).
+- Touch support via long-press + second-long-press range (Kahuna has none). The last long-pressed endpoint chains subsequent ranges even when unselected; Shift-click keeps its original anchor. Paint-drag was attempted and cut — see [`../deviations.md`](../deviations.md).
 - Stale metadata under external edits: acknowledged, deferred to Phase 3+ (Kahuna doesn't handle this either, but Kahuna's selection dies on route change so the window is small).
 - Bulk operations on whole-search-result populations are explicitly NOT a selection-store concern (see §15).
 

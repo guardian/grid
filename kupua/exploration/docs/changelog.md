@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 6 October 2026 - Preserve long-press range ownership and chaining
+
+Long-press captures its old-anchor range with an endpoint-chaining instruction for
+the existing range hook. The hook reanchors before taking pending ownership and
+retains the endpoint after its current resident or fetched commit, including removal.
+This avoids self-cancellation without ignoring external anchor changes, adding a
+timer or allowing an obsolete gesture to merge with newer intent. Shift-click,
+focus, datasource contracts and existing add/remove polarity remain unchanged.
+A new long-press on an already-selected endpoint also retires pending work through
+that same owner, without a range read or membership change; ordinary no-op store
+notifications remain non-cancelling.
+
+Paired failing-first dispatcher/hook composition proves the residency-dependent
+loss with a successful response. Existing successor controls now compose real
+long-presses and retain late-success/rejection, membership and busy-state proof.
+Full local gates and bounded live API grid/table Chromium mobile touch checks cover
+membership, endpoint chaining, successful reads and newer intent; physical devices,
+live direct ES and performance parity remain outside that evidence.
+
 ### 6 October 2026 - Resolve startup defaults before search admission
 
 Replace URL sync's premature one-time defaults flag with owner-local resolution

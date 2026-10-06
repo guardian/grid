@@ -31,8 +31,10 @@ results, not coordinator reruns, native server-cancellation proof or current
 direct/API performance equivalence. Live evidence keeps its original scope/revision.
 
 **L19 assessment:** [small-result source assessment](#small-result-source-assessment-5-october-2026)
-recommends retaining the current small-result architecture and eager residency.
-Indexed coordinates are feasible but do not eliminate eager-completion responsibility.
+retains the earlier eager-preservation assessment as historical evidence.
+[Stage 1](#stage-1-small-result-tier-assessment-6-october-2026) recommends a reversible
+indexed/demand-loading prototype: remove eager completion rather than relocate it.
+Required demand wake-up and quiet-failure adaptations are included in the estimate.
 The [bounded network characterisation](not-yet-another-audit-L19-network-measurmenets.md)
 remains scoped evidence; no tier implementation, prototype or further measurement is approved.
 Its independent findings now live in the canonical backlog: [KUP-039](bug-backlog.md#kup-039)
@@ -44,7 +46,7 @@ Optional helper/L44 work and B19 remain separate; L45 is complete.
 |---|---|---|---|
 | [B1](#b1) | **Superseded** | Destination focus lost across density history | L20 closed by producer removal; supported search-entry focus/none controls remain |
 | [B2](#b2) | Recheck | Late snap-back failure clearing newer focus was observed before later ownership repairs | L21; do not presume current reproduction or closure |
-| [B3](#b3) | Open | Asynchronous long-press range cancels itself | L22 |
+| [B3](#b3) | Done within local/live API limits | Long-press range retains endpoint chaining without self-cancellation | L22 |
 | [B4](#b4) | **Done within local limits** | Owned density placement retires on newer focus/input; genuine no-saved Home centring remains | L23 closed by L45; original evidence retained, no new live certificate |
 | [B5](#b5) | Accepted policy for query/filter and AI exit | Remembered detail identity may anchor off-screen; not a repair | Layout preference remains Q1/L15 |
 | [B6](#b6) | **Done** | Ordinary selected-sort equality no longer clears retained focus | L24 closed; L8 structural unit complete |
@@ -218,7 +220,7 @@ scrolling retain it. Focus and viewport movement are stated separately.
 | [C30](#c30) Back/reload without a usable snapshot, or after its image disappears | Missing/mismatched/null-anchor snapshot or genuinely absent destination target falls back to top/no focus without departing candidates. Ordinary user transitions still try neighbours. | Failing-first B13 discriminator and surviving/invalid snapshot/user-neighbour controls | Read failure is not redefined as genuine absence; existing adapter contracts remain. | B13 resolved |
 | [C31](#c31) Click logo deep in grid/table/detail; interrupt or fail its search | Focus and selection clear immediately. Fresh data normally precedes navigation to default grid. Newer history/search cancels the continuation; current failure still navigates. A cancelled deep reset can leave the position indicator waiting for top. | Source-established; deep Home held-response/Back browser sequence reproduced the stranded thumb | Reset behaviour is established. Indicator cancellation is a bug, not a new policy question. | B11/L13 |
 | [C32](#c32) Click the new-images refresh badge | Current search refreshes from top, clears selection, and clears focus on fresh publication. No new Back entry is added. With a first-page buffer it eagerly reveals old top content while the response is pending; deep buffers retain their neighbourhood until fresh publication. | Source-established; held real-response first/deep controls observed | No decision needed for top/reset. Showing old top content before fresh data is a presentation bug. | B16 |
-| [C33](#c33) Long-press a second image to select a range | If the whole range is loaded, it selects the range and moves the selection anchor. If the starting image is no longer loaded, the same gesture cancels its own fetch: selection stays unchanged while the anchor moves to the endpoint. Focus does not change. | Observed in paired controlled mounted tests | No decision needed: loading must not make the same range gesture silently fail. | B3 |
+| [C33](#c33) Long-press a second image to select a range | Resident and successful fetched ranges select equivalent endpoints and retain the last pressed endpoint for chaining. Focus does not change; newer intent cancels unfinished publication. | Paired composed proof and bounded live API Chromium touch emulation | Existing add/remove polarity retained; unfinished gestures do not merge. | B3 |
 
 ### Operator Questions
 
@@ -743,7 +745,7 @@ controls pass locally, with bounded live API success/supersession proof. Final
 gates/reviews pass; B16/L35 are closed and final policy stays.
 
 <a id="c33"></a>
-**C33: Long-press composition.** [Detection](../../src/hooks/useLongPress.ts#L103)
+**C33: Long-press composition, historical witness.** [Detection](../../src/hooks/useLongPress.ts#L103)
 commits touch after 500 ms, cancelling for movement/scroll before threshold.
 [Dispatcher](../../src/lib/handleLongPressStart.ts#L39) starts the real range hook
 then calls `setAnchor(target)`. [Range ownership](../../src/hooks/useRangeSelection.ts#L219)
@@ -752,6 +754,8 @@ committed before returning; its async path has not. Paired diagnostics confirmed
 3 selected versus 1 with the same endpoints and successful range response.
 This is a residency-dependent outcome inside a tier, not proof that every indexed
 or seek range fails. Desktop Shift does not perform this immediate re-anchor.
+The [B3 repair](#b3) makes endpoint chaining part of the existing range owner's
+commit contract; external cancellation and focus behaviour remain unchanged.
 
 <a id="c34"></a>
 **C34: Density during active search, pre-repair trace.** The saved-density mount called
@@ -847,7 +851,7 @@ L21 or proposing another repair. Trusted-key/click and late-success variants rem
 outside the original controlled witness; no new test was run during ledger cleanup.
 
 <a id="b3"></a>
-**B3 / C33: OPEN. Long-press range cancels itself when a read is needed.** Established
+**B3 / C33: DONE within local/live API limits (6 October 2026).** Established
 selection contract violation (guide 05 sections 6/14; no loading-dependent policy).
 Paired real-dispatcher/mounted-hook test: selected first image, target third,
 all metadata available, successful two-ID walk response. Resident expected/actual
@@ -857,6 +861,25 @@ Cause demonstrated: immediate `setAnchor` invalidates owned walk. Existing
 anchor changes cancel; [long-press tests](../../src/lib/handleLongPressStart.test.ts)
 isolate dispatch. Missing assertion is their production composition. No server
 or mobile browser needed for this bounded proof; physical gesture remains untested.
+
+At baseline `89bdb63705e2c0635eb555132b6c3420114fe5e3`, failing-first composition
+reconfirmed successful async data leaving one member instead of three. Long-press
+now requests endpoint chaining from the existing range hook, which reanchors before
+ownership capture and after its current commit. Resident/remove chaining, external
+cancellation, focus and latest-intent busy ownership remain intact; no gesture merging.
+Full unit/build/retry-free E2E gates and scoped two-reviewer results are recorded
+in the ignored review packet. Live API checks use actual grid/table gestures at
+393x852 with Chromium coarse-pointer touch emulation and effective Click-to-Open:
+exact resident membership/chaining, unheld async ranges of 998/823, successful key
+reads, unchanged focus, and an exact 804-ID response rejected after newer touch.
+Observers were removed and real Home settled. Physical devices, live direct ES and
+performance parity remain unverified; B2/L12 and mobile layout overflow are separate.
+Cold-review repair also retires a selected same-endpoint gesture without another
+read; its failing-first control and reloaded mobile 799-ID late-completion check
+retain exact membership/anchor/busy ownership. Final retry-free E2E has 451 passes
+and two unchanged capacity-guard skips; those two controls are not certified by
+that full run. Both subsequently passed together in an isolated retry-free check;
+the intermittent preparation cause remains unestablished, with no helper changes.
 
 <a id="b4"></a>
 **B4 / C21: DONE within local limits. Density restore no longer overwrites newer intent.** Historically, two bounded defects shared
@@ -1833,6 +1856,10 @@ the backlog owns disposition. Kahuna work remains separate and unapproved here.
 
 #### Small-Result Source Assessment (5 October 2026)
 
+**Historical decision frame:** the assessment below required retaining eager
+completion and its settled request-free browsing benefit. Stage 1 below explicitly
+does not require that policy; it reassesses subtraction, not equivalent eagerness.
+
 **Recommendation: retain the current small-result architecture.** At `31d5deda0`,
 indexed small sets are feasible without maps. However, [demand loading](../../src/hooks/useDataWindow.ts#L400)
 cannot replace eager completion. Removing both loaders while retaining their
@@ -1908,6 +1935,164 @@ internals/full Scala suites/canonical perf records not re-audited. No execution/
 work. One fresh read-only challenger received the full scoped diff/inherited edits;
 its ownership/cost/test objections changed the initial simplification recommendation
 to retention. Replacement equivalence remains unresolved, not consensus or approval.
+
+#### Stage 1 Small-Result Tier Assessment (6 October 2026)
+
+**Recommendation: prototype, subject to coordinator/operator approval.** There is
+a credible smaller end-state: ordinary small sets use existing indexed coordinates
+and demand loading, without a completion driver or position map. This is a source
+inference, not implemented correctness or performance proof. Eager completion is
+deliberately removed; delay/placeholders/repeated reads are experimental trade-offs,
+not grounds for retaining its two schedulers. Implementation effort is not a rejection
+criterion. If demand correctness needs another full-set driver or comparable new
+ownership machinery, this recommendation fails its subtraction premise.
+
+**Provenance:** HEAD `89bdb63705e2c0635eb555132b6c3420114fe5e3`; Kupua was clean at
+entry. Inherited dirty work: eight `.devcontainer/` modifications/additions plus
+`dev/nginx-mappings.yml.template` and `e2e-tests/images/Dockerfile`; untouched and
+outside this assessment. Existing L19/network findings are reused, not remeasured.
+The current URL-default producer already contains KUP-039's admission ordering
+([URL sync](../../src/hooks/useUrlSearchSync.ts#L121)); historical bare-startup waste
+is not a current tier-removal saving. No tests, browser/live access, profiling or
+Git mutations were performed.
+
+**Deletion accounting:** links identify current responsibility entry points; remove
+means absent in the proposed end-state, not extracted or renamed. Required additions
+are counted below, even where their exact implementation remains uncertain.
+
+| Responsibility | Source evidence | Remove | Retain/replace | Tests affected |
+|---|---|---|---|---|
+| Origin eager remainder and duplicate append publication | [fill](../../src/stores/search-store.ts#L1219), [dispatch](../../src/stores/search-store.ts#L2786) | Whole fill loop, immediate remainder dispatch, fill-owned forward busy suppression | Initial 200-row publication unchanged; existing [forward extend](../../src/stores/search-store.ts#L2840) publishes only demanded rows, including tuples/enrichment | [fill suite](../../src/stores/search-store.test.ts#L1707): eager/full-coverage expectations obsolete; initial small/200/large controls and accepted-page correctness remain |
+| Re-centred eager completion | [top-up](../../src/stores/search-store.ts#L1353) | Whole forward/backward completion walk, deadline, step/no-progress budgets and cooldown waiting | Existing indexed range reporting, extends and exact small-offset seek; no replacement walk to `[0,total)` | [no-op progress test](../../src/stores/search-store.test.ts#L2011) obsolete; centred target/position contracts remain |
+| Completion re-entry and status state | [guard](../../src/stores/search-store.ts#L781), [field](../../src/stores/search-store.ts#L315) | `_topUpInFlight`, `_bufferSelfCorrecting`, declaration/default/reset writes | Shared loading, range flags, cancellation and owner-checked cleanup remain; no new completion status | [flag-only test](../../src/stores/search-store.test.ts#L1909) retires; [successor case](../../src/stores/search-store.test.ts#L1937) becomes held-demand publication proof, not deleted cancellation coverage |
+| Completion calls after successful/fallback publication | [discovery fallback](../../src/stores/search-store.ts#L731), [focus timeout/miss](../../src/stores/search-store.ts#L1745), [focus landing](../../src/stores/search-store.ts#L1979), [seek takeover](../../src/stores/search-store.ts#L4207), [cursor restore](../../src/stores/search-store.ts#L4428) | All seven top-up invocations, including focus catch and outside-buffer completion | Keep each producer's atomic publication, discovery takeover, missing-target/timeout fallback and restoration ownership; demand wake-up obligation below | [fallback/restore cases](../../src/stores/search-store.test.ts#L2066), [tuple ownership](../../src/stores/search-store.test.ts#L2892) retain meaningful failure and ordering distinctions |
+| Small-set scroll extent and fill-growth placement retry | [retry state/guards](../../src/hooks/useScrollEffects.ts#L676), [arming](../../src/hooks/useScrollEffects.ts#L789) | `pendingSortFocusRef` and its extent-growth replay; small-tier-only tuning import | [indexed count](../../src/hooks/useDataWindow.ts#L354) supplies full extent immediately; retain continuity retirement, handled-generation guard, saved-ratio/arrow placement | [browser sort row/column cases](../../e2e/local/scrubber.spec.ts#L2646) retain geometry and newer-input proof; fill-specific gate/replay scenarios retire |
+| Coordinates versus map acquisition | [coupled predicate](../../src/lib/two-tier.ts#L10), [metadata trigger](../../src/stores/search-store.ts#L692), [search triggers](../../src/stores/search-store.ts#L2684), [seek trigger](../../src/stores/search-store.ts#L4210) | Small buffer-local coordinate choice, not the map collector | Extend coordinate eligibility to positive small totals; keep **old map-eligible range** at all four triggers. Count predicate/call-site adaptation and legal offset-path selection; threshold still serves map lower bound/compatibility | [no-map indexed tests](../../src/hooks/useDataWindow.test.ts#L60), [1000/1001 controls](../../src/stores/search-store-position-map.test.ts#L332): remove eager waits, retain no small maps and larger maps |
+| Demand scheduling and failure settlement | [range reporting](../../src/hooks/useDataWindow.ts#L400), [cooldown return](../../src/stores/search-store.ts#L2847), [post-seek wake-up](../../src/hooks/useScrollEffects.ts#L576), [extend failure](../../src/stores/search-store.ts#L2936) | Fill-specific failure/abort writer; not all shared timers | Reuse range/window owners; bounded re-report of still-visible demand after publication/cooldown where existing wake-up is insufficient. Preserve usable rows and quiet API absence; no polling, eager retry or generic error coordinator | Hold cooldown, empty/failed/late page, same-total successor and density/unmount; reject stranded demand, retired redispatch or stale busy cleanup |
+| Alignment, tuples, publication and compensation | [centred loader](../../src/stores/search-store.ts#L1527), [backward extend](../../src/stores/search-store.ts#L2980), [compensation](../../src/hooks/useScrollEffects.ts#L406) | Only fill's duplicate accepted-page writer (counted above) | Keep frozen admission, current total, authoritative tuples, enrichment, PIT expiry and alignment. Indexed small sets bypass compensation; large buffer/seek paths still need it | [alignment suite](../../src/stores/search-store-extended.test.ts#L1342) drops top-up settle but retains atomic target/column checks; larger buffer-local resize/compensation coverage must remain meaningful |
+| Finite AI, resident shortcut and traversal | [AI branch](../../src/stores/search-store.ts#L2416), [Scrubber](../../src/components/Scrubber.tsx#L224), [traversal](../../src/hooks/useImageTraversal.ts#L155) | No deletion credit for these shared contracts | Keep finite AI membership/in-memory sorting and ordinary-read guards; keep naturally fully-resident shortcut. Traversal already uses global ordinals and pending neighbour extends, with no eager dependency | [finite AI](../../src/hooks/useScrollEffects.test.ts#L1042), [resident density](../../src/hooks/useScrollEffects.test.ts#L2365) remain; add partial-small demand coverage in existing owning fixtures |
+
+**Net estimate, excluding comments, renamed/moved code and temporary A/B plumbing:**
+parsed TypeScript token-bearing lines give 74 for fill, 65 for top-up and about 48
+for small extent retry. With dispatch, seven calls and dead state, production
+subtraction is approximately **205-225 lines**. Required additions/replacements:
+coordinate/map split and callers **10-20**, bounded demand wake-up/ownership
+adaptation **25-45**, partial/failure settlement **10-20**, bounded offset-path
+selection **5-15**: **50-100 added**, hence
+approximately **105-175 production lines smaller**. This is a bounded source
+estimate, not a patch count. Shared extends/seek/publication are retained, not
+claimed as new subtraction. Two whole-result schedulers, one re-entry authority,
+one status field and one placement-retry record disappear; range, discovery,
+browse, focus/history and density owners remain. The wake-up must live under an
+existing view/window lifetime, not introduce a third competing scheduler.
+
+Test estimates are less certain: unit subtraction **170-230**, additions **110-180**;
+browser subtraction **60-100**, additions **70-130** noncomment lines, giving combined
+**230-330 removed / 180-310 added**, net **150 fewer to 80 more**. No guaranteed
+test-size reduction is claimed. The existing fill block has 319 token-bearing
+lines, alignment block 42, and small browser block about 160; these are affected
+surfaces, **not wholly obsolete deletions**. Delete completion-only/no-progress/
+flag and fill-versus-restore races; rewrite eager waits as useful-window readiness.
+Retain successor publication, real partial cursor restore, both focus modes, true
+edges, row/column placement and newer-input retirement. The installed small
+datasource must own delayed-rank instrumentation: the historical [slow-rank test](../../src/stores/search-store.test.ts#L1974)
+patches outer `mock`, so its name alone is not timing proof. Existing [KUP-024](../../src/stores/search-store.test.ts#L2650)
+small-set global-target expectations need updating; KUP-025's saved-rank/lookup
+ordering and changed-tuple cases remain. The [small-tier invalidation test](../../src/hooks/useDataWindow.test.ts#L43)
+must instead invalidate an obsolete/out-of-range target, not assume all small
+coordinates are buffer-local. Do not indiscriminately delete [full-residency helper](../../e2e/shared/helpers.ts#L775)
+or its unrelated callers; replacing its small-tier use is not helper-removal credit.
+
+**Origin, restoration and repeated jumps:** at zero, publish `min(N,200)` rows and
+an N-item indexed extent; near-edge demand can extend, off-window drag queues the
+existing browse owner. At default tuning every small offset is below the
+[10k shallow threshold](../../src/constants/tuning.ts#L127): [seek](../../src/stores/search-store.ts#L3329)
+returns an exact centred window, without map/rank/percentile work. API uses
+[window only for positive offsets](../../src/dal/api-data-source.ts#L157); zero uses
+search-after. Middle history/focus restoration retains target lookup/rank and
+[centred publication](../../src/stores/search-store.ts#L2052); cursor restore retains
+parallel saved-rank/lookup, fresh-tuple selection and global target publication
+([restore](../../src/stores/search-store.ts#L4353)). Extending coordinate eligibility
+also selects [serial no-map focus rank](../../src/stores/search-store.ts#L1894) unless
+that decision is separated too: accepting this delay is valid, inventing another
+focus resolver is not. Atomic correct publication is required in either ordering.
+
+The exact shallow-window claim is API/normal TEST tuning, not all local overrides:
+[sample ES](../../scripts/load-sample-data.sh#L151) has `max_result_window=500`, while
+[TEST startup](../../scripts/start.sh#L480) selects 10k shallow seeks. Preserve legal
+offset-plus-page bounds and the existing direct-ES cursor/deep fallback under local
+or forced-seek tuning; never raise the ES limit to make the candidate pass. A small
+guard/selection adaptation is budgeted above. No-map small jumps under those limits
+need explicit source/fixture proof; do not infer universal exact offsets from API
+windows or recreate a position map to evade that obligation.
+
+Nearby resident ranges remain reusable ([queue fast return](../../src/stores/search-store.ts#L3148));
+extends append/prepend up to the existing 1000-row capacity, so contiguous browsing
+may eventually retain the whole small set without promising completion. Distant
+seek **replaces** the window ([commit](../../src/stores/search-store.ts#L4150)); repeated
+0/middle/end jumps can reread discarded API rows. The 2000-entry [tuple LRU/anchor](../../src/lib/image-offset-cache.ts#L39)
+and [session cursor/offset](../../src/lib/image-offset-cache.ts#L191) help cursor-based
+identity restore, not arbitrary-offset row-window caching. Enrichment is not a
+row cache. [Media prefetch/cache readiness](../../src/lib/image-prefetch.ts#L67)
+and browser thumbnails remain separate; warm media does not eliminate row reads
+or guarantee each DOM image is already decoded. No visited-window cache is proposed.
+**N<=1000 total** is the candidate, never a resident first 1000 of a million-plus
+query; the latter keeps its existing coordinate, eviction, seek and map policy.
+
+**Home/shared-path impact and reversible boundary:** keep initial page/count/tickers,
+PIT/API selection, URL/default admission and [actual Home reset](../../src/lib/reset-to-home.ts#L85)
+unchanged: dedup, suppressions, held thumb, search-before-navigation, density-intent
+guard and CQL reset still have owners. Broad Home stays >65k: no eager fill or map
+today, no tier-removal startup saving. Early broad scrolling within 200 resident
+rows remains request-free for rows (the [existing witness](not-yet-another-audit-L19-network-measurmenets.md#L171));
+near-buffer extension is unchanged. If actual Home's **total** is small, only its
+post-publication eagerness/coordinates change; reset ownership does not disappear.
+Shared edits are confined to coordinate selection, four map-trigger predicates,
+eager call deletion, small placement retry and scoped demand wake-up/failure handling.
+Larger indexed/map and large seek behaviour, polling and KUP-039 remain separate.
+
+The smallest later A/B seam is one ordinary-small-result policy decision, applied
+coherently to coordinates and eager dispatch/calls; select it for the admitted
+search, not when map readiness changes. B uses the existing indexed accessors,
+Scrubber, browse queue and extends/seek; A keeps current eager behaviour for comparison.
+Map eligibility remains its **unchanged independent predicate**, never the A/B
+switch or a lowered map threshold. Preserve forced-seek/larger overrides and zero
+results; finite AI remains its already-complete membership path, not ordinary
+demand loading. No adapter change, new cache, prefetch engine, coordinator or renamed
+eager loader is needed. Temporary dual-path plumbing gets no simplification credit;
+the end-state removal inventory above is the acceptance criterion.
+
+**Uncertainties/correctness obligations:** demand wake-up after initial/fallback
+publication or backward cooldown must not depend on another user scroll; existing
+post-seek wake-up only proves that path. Empty/undecodable pages or failures must
+settle without corrupting ordinals, losing the anchor or endlessly retrying. Verify
+API quiet absence and direct-ES behaviour with existing read safeguards, without
+claiming server cancellation. Hold stale deliveries across same-total query/order
+successors, density remount and newer focus/Home intent; retain original detail
+return versus traversal centring, remembered A/browsed B, selection, true edges
+and larger buffer-local compensation. Header/last-row padding and short-extent
+geometry still need composed proof; full indexed extent removes the *fill-growth*
+retry reason, not every physical clamp. None is permission for wrong results,
+stale publication, lost position/focus or broken traversal.
+
+Existing 85/212-result measurements and the 212=200+12 eager read establish the
+old residency/request shape, not near-cap latency or this candidate's speed. The
+candidate can skip unused remainder reads and repeat windows during jumping;
+neither source nor byte totals determine net ES CPU/capacity or latency. Existing
+paired browsing/performance evidence remains qualified baseline evidence; no new
+campaign is prescribed by Stage 1. Later authorised comparison must answer the
+unmeasured candidate trade-off, not re-prove the working million-scale core.
+
+**Checked in this session:** both complete eager drivers; their callers in discovery,
+focus success/timeout/miss/catch, ordinary startup, seek takeover and cursor restore;
+centred loader, shared extend publication/cooldowns, shallow seek and final seek
+publication; coordinate hook/accessors and its scheduler tests; Scrubber mode
+selection; scroll reporting/seek wake-up/placement retry; traversal and keyboard
+Home/End; actual Home/default admission; API window routing/read-body/authenticated
+fetch; tuple cache/media reuse; the named store/alignment/map/density/AI/small-browser
+test bodies and full-residency helper. No whole-app/server audit, complete adjacent
+test-suite reading or runtime certification. Stop here for operator/coordinator
+review; no Stage 2, test execution or prototype authority follows.
 
 ### Density Restoration Replacement (L45)
 
@@ -2325,9 +2510,9 @@ their evidence records, not in this backlog.
 | L15 | Decision | C15-C21 expose loaded/off-screen/selection layout differences; desired placement awaits Q1, not a blanket D8 rule | Record operator answers for density, column reflow and height-only resize separately from focus retention; retain B4/B7 evidence limits | Q1 |
 | L16 | Doc | Remaining L7 documentation conflicts include history selection survival and layout anchor rules; L8 reconciled ordinary first-page publication in guide 03 | After operator decisions, reconcile the remaining claims against L7 source/test evidence in a separately scoped timeless-guide update | Q1-Q7 |
 | L18 | Bug | C15/C18: recorded row-top density preservation displaces image centres when row height changes. The correction depends on Q1; finite drift is not proof of guaranteed convergence or unbounded drift. Row-centre preservation is a proposal, not an approved correction | Decide the placement policy, then reuse density controls for repeated switches and usable-viewport geometry; explicitly account for affected focused-image expectations | L15 |
-| L19 | Decision | Retain current small-result architecture; indexed coordinates do not eliminate eager-completion responsibility | Reconsider only with bounded proof of successor/density ownership, dispatch and genuine subtraction; no additional measurement needed for retention | [Assessment](#small-result-source-assessment-5-october-2026); challenged design complete, no implementation/prototype approved |
+| L19 | Decision | Stage 1 recommends an indexed/demand small-result prototype without eager completion or small maps; estimated production subtraction survives counted adaptations | Operator review, then separately authorised prototype must prove demand liveness, owned publication/position/traversal and actual subtraction; reject comparable replacement machinery | [Stage 1](#stage-1-small-result-tier-assessment-6-october-2026); earlier eager-preservation assessment retained; no implementation/prototype approved |
 | L21 | Characterise | B2's original late-clear witness predates subsequent cancellation/identity guards; current reproduction or verified closure is not established | Replay the exact deferred missing-target sequence with newer focus, retaining the original deletion-clear control. Close if the defect is covered/resolved; do not invent another repair from stale prose | C12/B2; B17 ownership changes |
-| L22 | Bug | B3: long-press range self-cancels only when it needs asynchronous data | Repeat paired resident/out-of-buffer production dispatcher and hook checks; both must select the same range while retaining deliberate external cancellation | C33/B3 |
+| L22 | Done within local/live API limits | B3: endpoint chaining belongs to the existing range owner | Paired composed failing-first proof, retained cancellation controls, full local gates and bounded live API mobile-emulation proof; physical-device/live direct-ES limits remain | C33/B3 |
 | L31 | Decision | Q7: table horizontal scroll is preserved by sort/filter/panel changes but reset by density round-trip. Disposition: defer until a density-continuity unit; likely preference is preservation, not yet a shipped rule | Decide restore prior column versus deliberate reset for that unit; assert table -> grid -> table in both focus policies without changing existing sort/filter/panel behaviour | Q7; paired horizontal probe |
 | L34 | Bug | B15: immediate reload before selection debounce loses committed tick | Flush pending persistence on pagehide or make write ownership synchronous enough; preserve delayed control and no cross-tab promise | C29/B15 |
 | L36 | Characterise | B8 full local E2E logged a React ImageTable render-time update warning; 307 tests passed. Its origin, baseline incidence and behavioural consequence are unknown; no B8 regression is claimed | Capture the React stack in a bounded local reproduction and compare baseline incidence before proposing a fix; drop if expected/library-induced or no relevant defect is established | B8 completion evidence; separate operator scope |

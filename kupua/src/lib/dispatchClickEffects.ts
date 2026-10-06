@@ -14,7 +14,9 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 
 /** The `add-range` effect shape, extracted for use by useRangeSelection. */
-export type AddRangeEffect = Extract<ClickEffect, { op: "add-range" }>;
+export type AddRangeEffect = Extract<ClickEffect, { op: "add-range" }> & {
+  reanchorToTarget?: boolean;
+};
 
 export interface EffectDispatchContext {
   /** Called for `set-focus` effects (and implicitly inside `enterDetail`). */

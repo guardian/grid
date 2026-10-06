@@ -110,6 +110,15 @@ export function useRangeSelection() {
       // an "adding" gesture → add range.
       // If the anchor is NOT in selectedIds → the click removed it → remove range.
       const polarity = selStore.selectedIds.has(anchorId) ? "add" : "remove";
+      if (effect.reanchorToTarget) {
+        selStore.setAnchor(targetId);
+        if (anchorId === targetId) return;
+      }
+      const commitRange = (ids: string[]) => {
+        if (polarity === "remove") selStore.remove(ids);
+        else selStore.add(ids);
+        if (effect.reanchorToTarget) selStore.setAnchor(targetId);
+      };
 
       // ------------------------------------------------------------------
       // 1. Resolve anchor global index.
@@ -139,11 +148,7 @@ export function useRangeSelection() {
           searchState.results,
         );
         if (ids !== null) {
-          if (polarity === "remove") {
-            selStore.remove(ids);
-          } else {
-            selStore.add(ids);
-          }
+          commitRange(ids);
           return;
         }
       }
@@ -295,11 +300,7 @@ export function useRangeSelection() {
       // safe to include even when targetId is already in result.ids.
       // ------------------------------------------------------------------
       const idsToCommit = [targetId, ...result.ids];
-      if (polarity === "remove") {
-        selStore.remove(idsToCommit);
-      } else {
-        selStore.add(idsToCommit);
-      }
+      commitRange(idsToCommit);
 
       // ------------------------------------------------------------------
       // 8. Toast feedback.

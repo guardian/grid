@@ -23,6 +23,7 @@ import { useSelectionStore, _resetMetadataCache, _resetDebounceState, _resetReco
 import { useToastStore } from "@/stores/toast-store";
 import { RANGE_HARD_CAP, RANGE_SOFT_CAP } from "@/constants/tuning";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
+import { handleLongPressStart } from "@/lib/handleLongPressStart";
 import { resolveInBufferRange, useRangeSelection } from "./useRangeSelection";
 
 // ---------------------------------------------------------------------------
@@ -184,6 +185,18 @@ describe("mounted range ownership", () => {
   };
   const completed = { ids: ["img-1", "img-2"], walked: 2, truncated: false };
 
+  function press(cellId: string, handleRange: (range: AddRangeEffect) => Promise<void>) {
+    let pending = Promise.resolve();
+    handleLongPressStart({
+      cellId,
+      handleRange: range => { pending = handleRange(range); },
+      findImageIndex: id => useSearchStore.getState().results.findIndex(image => image?.id === id),
+      getImage: index => useSearchStore.getState().results[index],
+      orderBy: useSearchStore.getState().params.orderBy,
+    });
+    return pending;
+  }
+
   beforeEach(async () => {
     vi.stubGlobal("requestIdleCallback", vi.fn(() => 0));
     vi.stubGlobal("scheduler", { yield: () => Promise.resolve() });
@@ -273,15 +286,83 @@ describe("mounted range ownership", () => {
     expect(useToastStore.getState().queue).toEqual([]);
   });
 
-  it.each(["success", "failure"] as const)("keeps the successor busy when a superseded walk settles with %s", async (outcome) => {
+  it.each(["resident", "asynchronous"] as const)("long-press selects the exact %s range and chains without changing focus", async (residency) => {
+    useSearchStore.setState({
+      results: residency === "resident" ? images : images.slice(1, 3),
+      bufferOffset: residency === "resident" ? 0 : 1,
+      imagePositions: new Map(images.map((image, index) => [image.id, index])),
+      focusedImageId: "img-4",
+    });
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const pending = press("img-2", result.current);
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    if (residency === "asynchronous") {
+      expect(walk).toHaveBeenCalledTimes(1);
+      expect.soft(walk.mock.calls[0][3]?.aborted).toBe(false);
+      expect.soft(useSelectionStore.getState().isRangeWalking).toBe(true);
+      expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+    } else expect(walk).not.toHaveBeenCalled();
+    response.resolve(completed);
+    await pending;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1", "img-2"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    if (residency === "asynchronous") return;
+    useSearchStore.setState({ results: images, bufferOffset: 0 });
+    await press("img-4", result.current);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(images.map(image => image.id)));
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    expect(walk).toHaveBeenCalledTimes(residency === "resident" ? 0 : 1);
+    useSelectionStore.getState().remove(["img-4"]);
+    useSelectionStore.getState().setAnchor("img-4");
+    await press("img-2", result.current);
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-1"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+  });
+
+  it("a new long-press on the selected pending endpoint retires the old walk without another read", async () => {
+    useSelectionStore.getState().add(["img-2"]);
+    useSearchStore.setState({ imagePositions: new Map([["img-1", 1], ["img-2", 2]]), focusedImageId: "img-4" });
+    const response = deferred<typeof completed>();
+    const walk = vi.spyOn(source, "getIdRange").mockReturnValue(response.promise);
+    const { result } = renderHook(() => useRangeSelection());
+    const obsolete = press("img-2", result.current);
+    expect(walk.mock.calls[0][3]?.aborted).toBe(false);
+    expect(useSelectionStore.getState().isRangeWalking).toBe(true);
+    await press("img-2", result.current);
+    const current = useSelectionStore.getState();
+    expect.soft(walk.mock.calls[0][3]?.aborted).toBe(true);
+    expect.soft(current.isRangeWalking).toBe(false);
+    response.resolve(completed);
+    await obsolete;
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2"]));
+    expect(useSelectionStore.getState().selectedIds).toBe(current.selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe("img-2");
+    expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
+    expect(useSearchStore.getState().focusedImageId).toBe("img-4");
+    expect(walk).toHaveBeenCalledTimes(1);
+    expect(useToastStore.getState().queue).toEqual([]);
+  });
+
+  it.each(["success", "failure"] as const)("keeps the long-press successor busy when a superseded walk settles with %s", async (outcome) => {
     const first = deferred<typeof completed>();
     const second = deferred<typeof completed>();
     const walk = vi.spyOn(source, "getIdRange").mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useRangeSelection());
+    useSelectionStore.getState().add(["img-3", "img-4"]);
     const initial = useSelectionStore.getState().selectedIds;
-    const obsolete = result.current(effect);
-    const current = result.current({ ...effect, targetId: "img-4", targetGlobalIndex: 4, targetSortValues: [4, "img-4"] });
+    useSearchStore.setState({ results: images.slice(2), bufferOffset: 2, imagePositions: new Map(images.map((image, index) => [image.id, index])), focusedImageId: "img-3" });
+    const obsolete = press("img-2", result.current);
+    useSearchStore.setState({ results: images.slice(4), bufferOffset: 4 });
+    const current = press("img-4", result.current);
     expect(walk.mock.calls[0][3]?.aborted).toBe(true);
+    expect.soft(walk.mock.calls[1][3]?.aborted).toBe(false);
     if (outcome === "failure") first.reject(new Error("obsolete failure"));
     else first.resolve(completed);
     await obsolete;
@@ -289,11 +370,16 @@ describe("mounted range ownership", () => {
     expect.soft(useSelectionStore.getState().isRangeWalking).toBe(true);
     expect(useSelectionStore.getState().rangeWalkTime).toBeNull();
     expect(useSelectionStore.getState().selectedIds).toBe(initial);
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-3");
     expect(useToastStore.getState().queue).toEqual([]);
     second.resolve({ ...completed, ids: ["img-3", "img-4"] });
     await current;
-    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-3", "img-4"]));
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0"]));
+    expect(useSelectionStore.getState().anchorId).toBe("img-4");
+    expect(useSearchStore.getState().focusedImageId).toBe("img-3");
     expect(useSelectionStore.getState().isRangeWalking).toBe(false);
+    expect(useSelectionStore.getState().rangeWalkTime).toEqual(expect.any(Number));
   });
 
   it("does not erase a successor's completed timing on stale rejection", async () => {

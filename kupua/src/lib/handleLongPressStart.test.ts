@@ -8,8 +8,7 @@
  * Covers the three branches:
  * - No anchor (mode entry): toggle + setAnchor.
  * - Same anchor (re-anchor): setAnchor only, no toggle.
- * - Different anchor: handleRange called with correct AddRangeEffect shape,
- *   then setAnchor moves anchor to the new cell.
+ * - Different anchor: dispatch old-anchor AddRangeEffect with endpoint chaining.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -186,8 +185,8 @@ describe("handleLongPressStart -- different anchor (range)", () => {
     expect(effect.anchorSortValues).toEqual([1234567890, "img-x"]);
     expect(effect.targetSortValues).toEqual([1234567890, "img-x"]);
 
-    // Anchor moves to the target cell for chaining subsequent long-presses.
-    expect(selState.setAnchor).toHaveBeenCalledWith("img-2");
+    expect(effect.reanchorToTarget).toBe(true);
+    expect(selState.setAnchor).not.toHaveBeenCalled();
     expect(selState.toggle).not.toHaveBeenCalled();
   });
 
