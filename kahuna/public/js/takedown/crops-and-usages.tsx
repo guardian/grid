@@ -31,14 +31,22 @@ const getUsageStatusLabel = (status: string) => {
   return status.charAt(0).toUpperCase() + status.slice(1);
 };
 
+const getUsageTitle = (usage: Usage) =>
+  usage.references.find(
+    (reference) =>
+      reference.type === "frontend" ||
+      reference.type === "front" ||
+      reference.type === "indesign"
+  )?.name ?? "No title given";
+
 export const CropsAndUsages = ({
   crops,
-  publishedPrintUsages,
+  usagesToKeep,
   deletableUsages,
   deleteFromGridStatus
 }: {
   crops: Crop[];
-  publishedPrintUsages: Usage[];
+  usagesToKeep: Usage[];
   deletableUsages: Usage[];
   deleteFromGridStatus: DeleteFromGridStatus | null;
 }) => {
@@ -154,48 +162,36 @@ export const CropsAndUsages = ({
                           </Typography>
                         ) : (
                           <ul className={listStyles}>
-                            {contentUsages.map((usage) => {
-                              const articleTitle = usage.references.find(
-                                (reference) =>
-                                  reference.type === "frontend" ||
-                                  reference.type === "front" ||
-                                  reference.type === "indesign"
-                              )?.name;
-
-                              return (
-                                <li
-                                  key={usage.id}
-                                  className={classNameCss`
+                            {contentUsages.map((usage) => (
+                              <li
+                                key={usage.id}
+                                className={classNameCss`
                                       display: flex;
                                     `}
+                              >
+                                <Typography
+                                  element="span"
+                                  variant="bodyBoldSm"
+                                  theme={
+                                    standThemeOverride.typography.secondary
+                                  }
                                 >
-                                  {articleTitle && (
-                                    <Typography
-                                      element="span"
-                                      variant="bodyBoldSm"
-                                      theme={
-                                        standThemeOverride.typography.secondary
-                                      }
-                                    >
-                                      {articleTitle}
-                                      <Typography
-                                        element="span"
-                                        variant="bodyItalicSm"
-                                        theme={
-                                          standThemeOverride.typography
-                                            .secondary
-                                        }
-                                        cssOverrides={css`
-                                          margin-left: ${semanticSpacing.stackXs};
-                                        `}
-                                      >
-                                        [{getUsageStatusLabel(usage.status)}]
-                                      </Typography>
-                                    </Typography>
-                                  )}
-                                </li>
-                              );
-                            })}
+                                  {getUsageTitle(usage)}
+                                  <Typography
+                                    element="span"
+                                    variant="bodyItalicSm"
+                                    theme={
+                                      standThemeOverride.typography.secondary
+                                    }
+                                    cssOverrides={css`
+                                      margin-left: ${semanticSpacing.stackXs};
+                                    `}
+                                  >
+                                    [{getUsageStatusLabel(usage.status)}]
+                                  </Typography>
+                                </Typography>
+                              </li>
+                            ))}
                             {downloadUsages.size > 0 && (
                               <li
                                 className={classNameCss`
@@ -221,50 +217,42 @@ export const CropsAndUsages = ({
                   </Grid>
                 </>
               )}
-            {publishedPrintUsages.length > 0 && (
+            {usagesToKeep.length > 0 && (
               <>
                 <Typography
                   element="p"
                   variant="bodySm"
                   theme={standThemeOverride.typography.default}
                 >
-                  Below published print usages will remain in Grid:
+                  Below usages will remain in Grid:
                 </Typography>
                 <ul className={listStyles}>
-                  {publishedPrintUsages.map((usage) => {
-                    const articleTitle = usage.references.find(
-                      (reference) => reference.type === "indesign"
-                    )?.name;
-
-                    return (
-                      <li
-                        key={usage.id}
-                        className={classNameCss`
+                  {usagesToKeep.map((usage) => (
+                    <li
+                      key={usage.id}
+                      className={classNameCss`
                           display: flex;
                         `}
+                    >
+                      <Typography
+                        element="span"
+                        variant="bodyBoldSm"
+                        theme={standThemeOverride.typography.secondary}
                       >
-                        {articleTitle && (
-                          <Typography
-                            element="span"
-                            variant="bodyBoldSm"
-                            theme={standThemeOverride.typography.secondary}
-                          >
-                            {articleTitle}
-                            <Typography
-                              element="span"
-                              variant="bodyItalicSm"
-                              theme={standThemeOverride.typography.secondary}
-                              cssOverrides={css`
-                                margin-left: ${semanticSpacing.stackXs};
-                              `}
-                            >
-                              [{getUsageStatusLabel(usage.status)}]
-                            </Typography>
-                          </Typography>
-                        )}
-                      </li>
-                    );
-                  })}
+                        {getUsageTitle(usage)}
+                        <Typography
+                          element="span"
+                          variant="bodyItalicSm"
+                          theme={standThemeOverride.typography.secondary}
+                          cssOverrides={css`
+                            margin-left: ${semanticSpacing.stackXs};
+                          `}
+                        >
+                          [{getUsageStatusLabel(usage.status)}]
+                        </Typography>
+                      </Typography>
+                    </li>
+                  ))}
                 </ul>
               </>
             )}
