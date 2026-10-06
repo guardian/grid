@@ -42,7 +42,7 @@ Given('an uploaded image has no description', async ({ page, testContext }) => {
 });
 
 When('the upload completes', async ({ page }) => {
-  await expect(uploadPage(page).editableJob).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
 
 Then('the description should default to the file name without its extension', async ({ page, testContext }) => {
@@ -91,7 +91,7 @@ Then('I should be able to remove the failed job after confirming', async ({ page
 });
 
 Then('the job should switch to the image metadata editor', async ({ page }) => {
-  await expect(uploadPage(page).editableJob).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
 
 When('the image is deleted using the delete button at the bottom of the job form', async ({ page }) => {
@@ -130,7 +130,7 @@ Given('I have delete permission', async () => {
 });
 
 Then('it should be present in my current uploads', async ({ page }) => {
-  await expect(uploadPage(page).editableJob).toBeVisible();
+  await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
 
 Then('I should be able to undelete it', async ({ page }) => {

@@ -1,4 +1,3 @@
-# Uploads mutate the single shared e2e user's upload history, so scenarios must not race.
 Feature: Uploading images to the Grid
   This lets an authorised user get images into the Grid by selecting files,
   dragging and dropping files or URLs, importing Witness contributions, and
