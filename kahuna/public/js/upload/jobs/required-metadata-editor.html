@@ -7,6 +7,7 @@
                 <div class="job-info--editor__label job-info--editor__multiline text-small">Image type</div>
                 <select
                     name="imageType"
+                    aria-label="Image type"
                     ng-model="ctrl.metadata.imageType"
                     ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                     ng-change="ctrl.save()"
@@ -32,6 +33,7 @@
             <div class="job-info--editor__label job-info--editor__multiline text-small">Description</div>
             <textarea
                 name="description"
+                aria-label="Description"
                 placeholder="eg {{funnyDescription}}…"
                 required
                 class="text-input job-info--editor__input job-info--editor__input--description"
@@ -62,6 +64,7 @@
             <input
                 type="text"
                 name="byline"
+                aria-label="Byline"
                 placeholder="eg Tom Jenkins (author’s name ONLY, leave empty if unknown)"
                 class="text-input job-info--editor__input job-info--editor__input--byline"
                 ng-model="ctrl.metadata.byline"
@@ -91,6 +94,7 @@
                 <input
                     data-cy="image-metadata-credit"
                     type="text"
+                    aria-label="Credit"
                     placeholder="eg {{ctrl.institution}} (source, agency or institution which owns the image)"
                     class="text-input job-info__credit"
                     required
@@ -116,6 +120,7 @@
             <input
                 type="text"
                 name="copyright"
+                aria-label="Copyright"
                 class="text-input job-info--editor__input job-info--editor__input--copyright"
                 ng-model="ctrl.metadata.copyright"
                 ng-change="ctrl.save()"
@@ -144,6 +149,7 @@
                     <input
                         type="text"
                         name="special-instructions"
+                        aria-label="Special instructions"
                         class="text-input job-info--editor__input"
                         ng-model="ctrl.metadata.specialInstructions"
                         ng-change="ctrl.save()"
@@ -165,6 +171,7 @@
             <input
                 type="text"
                 name="special-instructions"
+                aria-label="Special instructions"
                 class="text-input job-info--editor__input"
                 ng-model="ctrl.metadata.specialInstructions"
                 ng-change="ctrl.save()"
