@@ -31,6 +31,12 @@ import {
   HAS_DATE_TAKEN,
   TAKEN_SORT
 } from "../components/gr-sort-control/gr-sort-control-config";
+import {nfLog, nfRegisterProbe} from '../util/nonfree-debug';
+
+let ctrlInstances = 0;
+// ui-router mutates a single $stateParams singleton; an instance that sees a
+// different object can never observe a back/forward navigation.
+let firstSeenStateParams = null;
 
 const toNonFreeString = (val) => (val === true || val === 'true') ? 'true' : 'false';
 const isNonFreeString = (val) => val === 'true';
@@ -60,6 +66,41 @@ query.controller('SearchQueryCtrl', [
   function($rootScope, $scope, $state, $stateParams, onValChange, storage, mediaApi) {
 
     const ctrl = this;
+    const ctrlId = `SearchQueryCtrl#${++ctrlInstances}`;
+    if (firstSeenStateParams === null) {
+      firstSeenStateParams = $stateParams;
+    }
+    let digests = 0;
+    // Getter runs on every digest iteration this scope takes part in, so a
+    // frozen counter means the scope is detached/destroyed rather than stale.
+    $scope.$watch(() => { digests++; return 0; });
+    $scope.$on('$destroy', () => nfLog(ctrlId, 'SCOPE DESTROYED', {digests}));
+    nfRegisterProbe(ctrlId, () => ({
+      scopeId: $scope.$id,
+      scopeDestroyed: Boolean($scope.$$destroyed),
+      digests,
+      filterNonFree: ctrl.filter && ctrl.filter.nonFree,
+      filterQuery: ctrl.filter && ctrl.filter.query,
+      filterUploadedBy: ctrl.filter && ctrl.filter.uploadedBy,
+      orderBy: ctrl.ordering && ctrl.ordering.orderBy,
+      dateFilter: ctrl.dateFilter && angular.copy(ctrl.dateFilter),
+      propsChargeable: ctrl.permissionsProps && ctrl.permissionsProps.chargeable,
+      paramNonFree: $stateParams.nonFree,
+      paramQuery: $stateParams.query,
+      paramOrderBy: $stateParams.orderBy,
+      paramDateField: $stateParams.dateField,
+      paramSince: $stateParams.since,
+      sameStateParamsObject: firstSeenStateParams === $stateParams
+    }));
+    nfLog(ctrlId, 'CONSTRUCT', {
+      scopeId: $scope.$id,
+      stateName: $state.current ? $state.current.name : undefined,
+      stateParamKeys: Object.keys($stateParams).join(','),
+      paramNonFree: $stateParams.nonFree,
+      storedIsNonFree: storage.getJs('isNonFree', true),
+      storedDefaultIsNonFree: storage.getJs('defaultIsNonFree', true),
+      sameStateParamsObject: firstSeenStateParams === $stateParams
+    });
     ctrl.costFilterLabel = window._clientConfig.costFilterLabel;
     ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
     ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
@@ -116,6 +157,12 @@ query.controller('SearchQueryCtrl', [
     }
 
     ctrl.filter.nonFree = initialNonFree();
+    nfLog(ctrlId, 'initialNonFree', {
+      value: ctrl.filter.nonFree,
+      hasNonFreePreference,
+      paramNonFree: $stateParams.nonFree,
+      usePermissionsFilter: ctrl.usePermissionsFilter
+    });
 
     ctrl.shouldDisplayAISearchOption = window._clientConfig.aiSearchEnabled;
     if (!ctrl.shouldDisplayAISearchOption) {
@@ -205,6 +252,10 @@ query.controller('SearchQueryCtrl', [
       // so the default is re-applied on every pass until its deadline expires.
       if (isDefaultNonFreeFilterArmed(defaultNonFreeFilter)) {
         const newNonFree = toNonFreeString(defaultNonFreeFilter.isNonFree);
+        nfLog(ctrlId, 'manageDefaultNonFree ARMED - overriding', {
+          newNonFree,
+          previousFilterNonFree: ctrl.filter.nonFree
+        });
         storage.setJs("isNonFree", newNonFree, true);
         storage.setJs("defaultIsNonFree", newNonFree, true);
         storage.setJs("isUploadedByMe", false, true);
@@ -313,6 +364,14 @@ query.controller('SearchQueryCtrl', [
 
     // eslint-disable-next-line complexity
     function watchSearchChange(newFilter, sender) {
+      nfLog(ctrlId, 'watchSearchChange ENTER', {
+        sender,
+        filterNonFree: newFilter.nonFree,
+        paramNonFree: $stateParams.nonFree,
+        hasUser: Boolean(ctrl.user),
+        query: newFilter.query,
+        orderBy: ctrl.ordering.orderBy
+      });
       let showPaid = toNonFreeString(newFilter.nonFree);
       if (ctrl.usePermissionsFilter && sender && sender === "filterChange" && newFilter.nonFree === undefined) {
         showPaid = toNonFreeString(ctrl.user.permissions.showPaid);
@@ -380,17 +439,34 @@ query.controller('SearchQueryCtrl', [
         lastRequestedOrderBy = CollectionSortOption.value;
         const goParams1 = {...ctrl.filter, ...{orderBy: CollectionSortOption.value}};
         if (!goParamsAlreadyCurrent(goParams1)) {
+          nfLog(ctrlId, 'watchSearchChange -> $state.go (collection branch)', {
+            sender, goNonFree: goParams1.nonFree, paramNonFree: $stateParams.nonFree
+          });
           raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, CollectionSortOption.value);
           const options1 = isOrderByOnlyCorrection(goParams1) ? {location: 'replace'} : undefined;
           $state.go('search.results', goParams1, options1);
+        } else {
+          nfLog(ctrlId, 'watchSearchChange - no nav (collection branch, params current)', {sender});
         }
       } else {
         lastRequestedOrderBy = ctrl.ordering["orderBy"];
         const goParams2 = {...ctrl.filter, ...{orderBy: ctrl.ordering["orderBy"]}};
         if (!goParamsAlreadyCurrent(goParams2)) {
+          nfLog(ctrlId, 'watchSearchChange -> $state.go', {
+            sender,
+            goNonFree: goParams2.nonFree,
+            paramNonFree: $stateParams.nonFree,
+            goQuery: goParams2.query,
+            paramQuery: $stateParams.query,
+            goOrderBy: goParams2.orderBy,
+            paramOrderBy: $stateParams.orderBy,
+            replace: isOrderByOnlyCorrection(goParams2)
+          });
           raiseQueryChangeEvent(ctrl.filter.query, curCollectionSearch, ctrl.ordering["orderBy"]);
           const options2 = isOrderByOnlyCorrection(goParams2) ? {location: 'replace'} : undefined;
           $state.go('search.results', goParams2, options2);
+        } else {
+          nfLog(ctrlId, 'watchSearchChange - no nav (params already current)', {sender});
         }
       }
     }
@@ -448,6 +524,11 @@ query.controller('SearchQueryCtrl', [
 
     //-permissions filter-
     function updatePermissionsChips (permissionsSel, showChargeable) {
+      nfLog(ctrlId, 'updatePermissionsChips (from React)', {
+        option: permissionsSel && permissionsSel.value,
+        showChargeable,
+        filterNonFreeBefore: ctrl.filter.nonFree
+      });
       disarmDefaultNonFreeFilter();
       ctrl.permissionsProps.selectedOption = permissionsSel;
       ctrl.filter.query = updateFilterChips(permissionsSel, ctrl.filter.query);
@@ -457,10 +538,17 @@ query.controller('SearchQueryCtrl', [
 
     function chargeableChange (showChargeable) {
       const next = toNonFreeString(showChargeable);
+      nfLog(ctrlId, 'chargeableChange (from React)', {
+        showChargeable,
+        next,
+        filterNonFree: ctrl.filter.nonFree,
+        paramNonFree: $stateParams.nonFree
+      });
       // Ignore echoes of the current state, which would otherwise navigate and
       // needlessly disarm a default set by a logo click.
       if (toNonFreeString(ctrl.filter.nonFree) === next &&
           toNonFreeString($stateParams.nonFree) === next) {
+        nfLog(ctrlId, 'chargeableChange IGNORED (echo)', {next});
         return;
       }
       disarmDefaultNonFreeFilter();
@@ -503,7 +591,13 @@ query.controller('SearchQueryCtrl', [
     // left permanently stale by anything that touches ctrl.filter before it.
     $scope.$watch(
       () => `${ctrl.filter.nonFree}||${ctrl.filter.query}`,
-      () => {
+      (newKey, oldKey) => {
+        nfLog(ctrlId, 'permissionsProps REBUILD', {
+          newKey,
+          oldKey,
+          chargeable: toNonFreeString(ctrl.filter.nonFree) === "true",
+          previousChargeable: ctrl.permissionsProps.chargeable
+        });
         ctrl.permissionsProps = {
           ...ctrl.permissionsProps,
           chargeable: toNonFreeString(ctrl.filter.nonFree) === "true",
@@ -555,6 +649,14 @@ query.controller('SearchQueryCtrl', [
       filter(key => key !== 'useAISearch').
     forEach(setAndWatchParam);
 
+    nfLog(ctrlId, 'param watchers registered', {
+      watchedKeys: Object.keys($stateParams)
+        .filter(key => dateFilterParams.indexOf(key) === -1)
+        .filter(key => key !== 'useAISearch')
+        .join(','),
+      nonFreeWatched: Object.keys($stateParams).indexOf('nonFree') > -1
+    });
+
     // URL parameters are not decoded when taken out of the params.
     // Might be fixed with: https://github.com/angular-ui/ui-router/issues/1759
     // Pass undefined to the state on empty to remove the QueryString
@@ -569,7 +671,14 @@ query.controller('SearchQueryCtrl', [
       ctrl.collectionSearch = ctrl.filter.query ?  checkForCollection(ctrl.filter.query) : false;
       storeCollection(ctrl.filter.query);
 
-      $scope.$watch(() => $stateParams[key], onValChange(newVal => {
+      $scope.$watch(() => $stateParams[key], onValChange((newVal, oldVal) => {
+        if (key === 'nonFree' || key === 'query' || key === 'uploadedBy' || key === 'orderBy') {
+          nfLog(ctrlId, `$stateParams.${key} CHANGED`, {
+            oldVal,
+            newVal,
+            filterNonFreeBefore: ctrl.filter.nonFree
+          });
+        }
         // FIXME: broken for 'your uploads'
         // FIXME: + they triggers filter $watch and $state.go (breaks history)
         if (key !== 'orderBy') {
@@ -578,6 +687,13 @@ query.controller('SearchQueryCtrl', [
             : valOrUndefined(newVal);
         } else {
           ctrl.ordering.orderBy = valOrUndefined(newVal);
+        }
+
+        if (key === 'nonFree') {
+          nfLog(ctrlId, '$stateParams.nonFree APPLIED to filter', {
+            newVal,
+            filterNonFreeAfter: ctrl.filter.nonFree
+          });
         }
 
         if (key === 'query') {
@@ -605,6 +721,13 @@ query.controller('SearchQueryCtrl', [
 
     // Init and apply date-related changes in $stateParams to ctrl.dateFilter
     $scope.$watchCollection(() => $stateParams, () => {
+      nfLog(ctrlId, '$stateParams watchCollection fired (date sync)', {
+        paramDateField: $stateParams.dateField,
+        paramSince: $stateParams.since,
+        paramUntil: $stateParams.until,
+        paramNonFree: $stateParams.nonFree,
+        dateFilterBefore: angular.copy(ctrl.dateFilter)
+      });
       switch ($stateParams.dateField) {
         case 'taken':
           ctrl.dateFilter.since = $stateParams.takenSince;
@@ -625,6 +748,7 @@ query.controller('SearchQueryCtrl', [
     });
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(newFilter => {
+      nfLog(ctrlId, 'ctrl.filter watchCollection fired', {filterNonFree: newFilter.nonFree});
       watchSearchChange(newFilter, "filterChange");
     }));
 
@@ -665,6 +789,12 @@ query.controller('SearchQueryCtrl', [
       }
       aiSearchInitialised = true;
 
+      nfLog(ctrlId, 'useAISearch watcher -> $state.go', {
+        useAISearch: ctrl.useAISearch,
+        filterNonFree: ctrl.filter.nonFree,
+        paramNonFree: $stateParams.nonFree
+      });
+
       if (ctrl.useAISearch) {
         $state.go('search.results', {
           ...ctrl.filter,
@@ -677,6 +807,7 @@ query.controller('SearchQueryCtrl', [
     });
 
     $scope.$watchCollection(() => ctrl.dateFilter, onValChange(({field, since, until}) => {
+      nfLog(ctrlId, 'ctrl.dateFilter changed -> $state.go', {field, since, until});
       // Translate dateFilter to actual state and query params
       $state.go('search.results', {...ctrl.filter, ...{
           since:         field === undefined  ? since : null,
@@ -692,6 +823,12 @@ query.controller('SearchQueryCtrl', [
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
+      nfLog(ctrlId, 'getSession RESOLVED', {
+        showPaid: session.user.permissions ? session.user.permissions.showPaid : undefined,
+        filterNonFree: ctrl.filter.nonFree,
+        paramNonFree: $stateParams.nonFree,
+        hasNonFreePreference
+      });
       //-uploaded by me-
       const isUploadedByMe = storage.getJs("isUploadedByMe", true);
       ctrl.user = session.user;
@@ -743,6 +880,8 @@ query.controller('SearchQueryCtrl', [
       const structuredQuery = structureQuery(ctrl.filter.query);
       const orgOwned = (structuredQuery.some(item => item.value === ctrl.maybeOrgOwnedValue));
       ctrl.filter.orgOwned = orgOwned;
+
+      nfLog(ctrlId, 'getSession applied', {filterNonFree: ctrl.filter.nonFree, orgOwned});
 
       watchSearchChange(ctrl.filter, "userPermissions");
     });

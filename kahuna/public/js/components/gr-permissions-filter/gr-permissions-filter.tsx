@@ -3,9 +3,15 @@ import * as angular from "angular";
 import { react2angular } from "react2angular";
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import * as PermissionsConf from "./gr-permissions-filter-config";
+import { nfLog } from "../../util/nonfree-debug";
 
 import "./gr-permissions-filter.css";
 import "./gr-toggle-switch.css";
+
+let pfInstances = 0;
+let toggleSeq = 0;
+let nativeEventSeq = 0;
+let lastNativeEvent: Event | null = null;
 
 const SHOW_CHARGEABLE = "Show payable images";
 const SHOW_CHARGEABLE_SHORT = "Payable";
@@ -83,10 +89,18 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   const defPerms:PermissionsDropdownOption = options.filter(opt => opt.value == defOptVal)[0];
   const propsRef = useRef(props);
 
+  const instanceId = useRef("");
+  if (instanceId.current === "") {
+    instanceId.current = `PermissionsFilter#${++pfInstances}`;
+    nfLog(instanceId.current, "construct", {propsChargeable: props.chargeable, propsQuery: props.query});
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const [isChargeable, setIsChargeable] = useState(props.chargeable);
   const [selectedOption, setSelection] = useState(defPerms);
   const [currentIndex, setCurrentIndex] = useState(-1);
+
+  nfLog(instanceId.current, "render", {propsChargeable: props.chargeable, isChargeable});
 
   // `chargeable` is owned by AngularJS, which drives the URL. Only push back
   // values the user originated here, otherwise the two fight over the router.
@@ -105,10 +119,12 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   const handleLogoClick = (event: LogoClickEvent) => {
+    nfLog(instanceId.current, "handleLogoClick", {showPaid: event.detail.showPaid});
     setIsChargeable(event.detail.showPaid);
   };
 
   const handleSetPayableImages = (event: PayableImagesEvent) => {
+    nfLog(instanceId.current, "handleSetPayableImages", {showPaid: event.detail.showPaid});
     setIsChargeable(event.detail.showPaid);
   };
 
@@ -145,8 +161,11 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
     window.addEventListener('scroll', autoHideListener);
     window.addEventListener('keydown', autoHideListener);
 
+    nfLog(instanceId.current, "mounted (listeners attached)");
+
     // Clean up the event listener when the component unmounts
     return () => {
+      nfLog(instanceId.current, "UNMOUNT (listeners detached)");
       setCurrentIndex(-1);
       window.removeEventListener('queryChangeEvent', handleQueryChange);
       window.removeEventListener('logoClick', handleLogoClick);
@@ -162,6 +181,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   }, [props.query]);
 
   useEffect(() => {
+    const desync = isChargeable !== props.chargeable && lastChargeable.current === props.chargeable;
+    nfLog(instanceId.current, desync ? "effect[props.chargeable] DESYNC - update ignored" : "effect[props.chargeable]", {
+      propsChargeable: props.chargeable,
+      lastChargeable: lastChargeable.current,
+      isChargeable,
+      willAdopt: lastChargeable.current !== props.chargeable
+    });
     if (lastChargeable.current !== props.chargeable) {
       lastChargeable.current = props.chargeable;
       changeCameFromProps.current = true;
@@ -170,6 +196,7 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   }, [props.chargeable]);
 
   const handleOptionClick = (option: PermissionsDropdownOption) => {
+    nfLog(instanceId.current, "handleOptionClick", {option: option.value, isChargeable});
     const payableDef = payableDefaults.filter(pd => pd.opt === option.value)[0];
     if (payableDef.payable === 'false' || payableDef.payable === 'true') {
         const payableOn = payableDef.payable === 'false' ? false : true;
@@ -183,6 +210,13 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
   };
 
   useEffect(() => {
+    nfLog(instanceId.current, "effect[isChargeable]", {
+      isChargeable,
+      propsChargeable: props.chargeable,
+      lastChargeable: lastChargeable.current,
+      isMountEffect: isMountEffect.current,
+      changeCameFromProps: changeCameFromProps.current
+    });
     lastChargeable.current = isChargeable;
     if (isMountEffect.current) {
       isMountEffect.current = false;
@@ -192,10 +226,26 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
       changeCameFromProps.current = false;
       return;
     }
+    nfLog(instanceId.current, "-> props.onChargeable", {isChargeable});
     props.onChargeable(isChargeable);
   }, [isChargeable]);
 
-  const handleToggle = () => {
+  const handleToggle = (event?: {nativeEvent?: Event, currentTarget?: Element}) => {
+    const native = event && event.nativeEvent ? event.nativeEvent : null;
+    if (native !== lastNativeEvent) {
+      lastNativeEvent = native;
+      nativeEventSeq++;
+    }
+    const target = event && event.currentTarget
+      ? `${event.currentTarget.tagName}.${event.currentTarget.className}`
+      : "unknown";
+    nfLog(instanceId.current, "handleToggle (user click)", {
+      toggleSeq: ++toggleSeq,
+      nativeEventSeq,
+      boundTo: target,
+      isChargeable,
+      propsChargeable: props.chargeable
+    });
     setIsChargeable(prevState => !prevState);
   };
 
@@ -260,21 +310,25 @@ const PermissionsFilter: React.FC<PermissionsWrapperProps> = ({ props }) => {
              </table>
           )}
         </div>
+        {/* The checkboxes are hidden by CSS and exist only to drive the `:checked`
+            sibling selectors; clicks are owned solely by the container, and the
+            wrappers are spans rather than labels so the browser doesn't re-dispatch
+            a second click onto the input. */}
         <div className="ts-toggle-container" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
           <div className="ts-toggle-label no-select">{SHOW_CHARGEABLE}</div>
-          <label className="ts-toggle-switch">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+          <span className="ts-toggle-switch">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <span className="ts-slider"></span>
-          </label>
+          </span>
         </div>
-        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleToggle}>
-          <label className="chargeable-checkbox">
-            <input type="checkbox" checked={isChargeable} onClick={handleToggle}/>
+        <div className="ts-toggle-container-short" tabIndex={0} aria-label={SHOW_CHARGEABLE + " " + (isChargeable ? SELECTED : NOT_SELECTED)} onKeyDown={handleKeyToggle} onClick={handleToggle}>
+          <span className="chargeable-checkbox">
+            <input type="checkbox" checked={isChargeable} readOnly tabIndex={-1} aria-hidden="true"/>
             <div className="chargeable-label-wrapper" >
               <span className="chargeable-span"></span>
               <span className="chargeable-label no-select">{SHOW_CHARGEABLE_SHORT}</span>
             </div>
-          </label>
+          </span>
         </div>
       </div>
   );
