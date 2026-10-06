@@ -4,6 +4,7 @@ import app.photofox.vipsffm.{VImage, Vips}
 import com.gu.mediaservice.lib.BrowserViewableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
+import org.apache.commons.io.FileUtils
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,6 +12,7 @@ import org.scalatest.time.{Millis, Span}
 
 import java.io.File
 import java.lang.foreign.Arena
+import scala.concurrent.Future
 
 class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
 
@@ -68,6 +70,19 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
       val eventualThumbnail = vipsImageOperations.createThumbnail(browserViewableImageImage, 1000, 95, outputFile, None, None, None)
       whenReady(eventualThumbnail) { r =>
         r._1.isFile should be(true)
+      }
+    }
+  }
+
+  describe("resize") {
+    it("should output resized image to file in chosen format") {
+      implicit val arena: Arena = Arena.ofConfined
+      val fullSizedJpegImage = fileAt("IMG_4403.jpg")
+
+      val eventualResized = vipsImageOperations.resizeImage(fullSizedJpegImage, Some(Jpeg), Dimensions(140, 100), 85, tempDirForOutputFiles, Jpeg)
+      whenReady(eventualResized) { resized =>
+        arena.close()
+        resized.isFile should be(true)
       }
     }
   }
@@ -256,7 +271,11 @@ class VipsImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures
     new File(getClass.getResource(s"/$resourcePath").toURI)
   }
 
-  def tempFileNamed(filename: String, suffix: String): File = {
+  private def tempDirForOutputFiles: File = {
+    FileUtils.getTempDirectory
+  }
+
+  private def tempFileNamed(filename: String, suffix: String): File = {
     File.createTempFile(filename, suffix)
   }
 
