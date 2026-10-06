@@ -343,7 +343,7 @@ When(
       await field.expectOn(first, field.value);
       // imageType/description's ⇔ only returns once the saved edit is reindexed.
       const apply = field.applyButton(first);
-      await expect(apply).toBeVisible({ timeout: 15_000 });
+      await expect(apply).toBeVisible();
       await apply.click();
       testContext.batchApplied[label] = field.value;
       await expectOnEveryJob(page, field, field.value);
