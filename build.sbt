@@ -56,6 +56,7 @@ val commonSettings = Seq(
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
   dependencyOverrides ++= jacksonOverrides,
+  dependencyOverrides += "org.apache.kafka" % "kafka-clients" % "3.9.2",
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
